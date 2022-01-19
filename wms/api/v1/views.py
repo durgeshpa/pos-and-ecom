@@ -2,6 +2,8 @@ import logging
 
 from django.utils import timezone
 
+from global_config.models import GlobalConfig
+from global_config.views import get_config
 from retailer_backend.messages import ERROR_MESSAGES
 from retailer_backend.utils import SmallOffsetPagination
 from wms.models import Bin, Putaway, PutawayBinInventory, BinInventory, InventoryType, Pickup, InventoryState, \
@@ -449,11 +451,11 @@ class PickupList(APIView):
                                     output_field=models.CharField(),
                                 )).\
             order_by('order__created_at', 'repackaging__created_at')
+        validate_request = validate_pickup_request(request)
         self.queryset = get_logged_user_wise_query_set_for_pickup_list(self.request.user, 1, self.queryset)
 
-        validate_request = validate_pickup_request(request)
         if "error" in validate_request:
-            return Response({'is_success': True, 'message': validate_request['error'], 'data': None},
+            return Response({'is_success': False, 'message': validate_request['error'], 'data': None},
                             status=status.HTTP_200_OK)
 
         self.queryset = self.filter_pickup_list_data()
@@ -508,18 +510,18 @@ class PickupList(APIView):
         if picking_status:
             self.queryset = self.queryset.filter(picking_status__iexact=picking_status)
 
-
         if selected_date:
-            if data_days:
-                end_date = datetime.datetime.strptime(selected_date, "%Y-%m-%d")
-                start_date = end_date - datetime.timedelta(days=int(data_days))
-                end_date = end_date +datetime.timedelta(days=1)
-                self.queryset = self.queryset.filter(
-                    created_at__gte=start_date.date(), created_at__lt=end_date.date())
-            else:
-                selected_date = datetime.datetime.strptime(selected_date, "%Y-%m-%d")
-                self.queryset = self.queryset.filter(created_at__date=selected_date)
+            selected_date = datetime.datetime.strptime(selected_date, "%Y-%m-%d")
+            end_date = selected_date.replace(hour=23, minute=59, second=59)
+            if selected_date.date() == datetime.datetime.today().date():
+                end_date = selected_date.replace(hour=get_config('PICKING_END_HOUR', 17),
+                                                 minute=get_config('PICKING_END_MINUTE', 0), second=0)
 
+            start_date = end_date.replace(hour=0, minute=0, second=0)
+            if data_days:
+                start_date = end_date.replace(hour=0, minute=0, second=0) - datetime.timedelta(days=int(data_days))
+
+            self.queryset = self.queryset.filter(created_at__gte=start_date, created_at__lte=end_date)
         return self.queryset
 
 
