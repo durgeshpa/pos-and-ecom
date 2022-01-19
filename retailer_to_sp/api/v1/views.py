@@ -3310,7 +3310,7 @@ class OrderCentral(APIView):
             if "payment_mode" not in payment_method:
                 payment_method['payment_mode'] = None
         if not cash_only:
-            if round(math.floor(amount), 2) != math.floor(cart.order_amount):
+            if round(amount) != round(cart.order_amount):
                 return {'error': "Total payment amount should be equal to order amount"}
         elif amount > (int(cart.order_amount) + 5) or amount < (int(cart.order_amount) - 5):
             return {'error': "Cash payment amount should be close to order amount. Please check."}
