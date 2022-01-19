@@ -168,12 +168,12 @@ def bulk_create_update_validated_products(uploaded_by, shop_id, uploaded_data_by
 
 
                     if row['offer_start_date'] and row['offer_price']:
-                        product.offer_start_date = datetime.strptime(row['offer_start_date'], "%d-%m-%Y")
+                        product.offer_start_date = row['offer_start_date']
                     else:
                         product.offer_start_date = None
 
                     if row['offer_end_date'] and row['offer_price']:
-                        product.offer_end_date = datetime.strptime(row['offer_end_date'], "%d-%m-%Y")
+                        product.offer_end_date = row['offer_end_date']
                     else:
                         product.offer_end_date = None
 
