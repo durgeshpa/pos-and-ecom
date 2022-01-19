@@ -451,9 +451,9 @@ class PickupList(APIView):
                                     output_field=models.CharField(),
                                 )).\
             order_by('order__created_at', 'repackaging__created_at')
+        validate_request = validate_pickup_request(request)
         self.queryset = get_logged_user_wise_query_set_for_pickup_list(self.request.user, 1, self.queryset)
 
-        validate_request = validate_pickup_request(request)
         if "error" in validate_request:
             return Response({'is_success': True, 'message': validate_request['error'], 'data': None},
                             status=status.HTTP_200_OK)
