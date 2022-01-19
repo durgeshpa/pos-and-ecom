@@ -136,6 +136,7 @@ class ShopSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Shop
+        ref_name = "shop"
         fields = ('id','shop_name','shop_type','imei_no','shop_id', 'latitude', 'longitude')
 
     # def validate(self, data):
