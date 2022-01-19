@@ -44,6 +44,8 @@ class SendSmsOTPSerializer(serializers.ModelSerializer):
         # E-Com
         if app_type == 3:
             # Registering
+            if UserModel.objects.filter(phone_number=number, is_active=False):
+                raise serializers.ValidationError("User Account is deactivated.")
             if action == 0 and user:
                 raise serializers.ValidationError("You are already registered! Please login.")
             # Login
