@@ -455,7 +455,7 @@ class PickupList(APIView):
         self.queryset = get_logged_user_wise_query_set_for_pickup_list(self.request.user, 1, self.queryset)
 
         if "error" in validate_request:
-            return Response({'is_success': True, 'message': validate_request['error'], 'data': None},
+            return Response({'is_success': False, 'message': validate_request['error'], 'data': None},
                             status=status.HTTP_200_OK)
 
         self.queryset = self.filter_pickup_list_data()
