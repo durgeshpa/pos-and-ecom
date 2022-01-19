@@ -3044,7 +3044,7 @@ class OrderCentral(APIView):
             order = self.create_basic_order(cart, shop)
             self.auto_process_order(order, payments, 'pos', transaction_id)
             obj = Order.objects.get(id=order.id)
-            obj.order_amount = math.floor(obj.order_amount)
+            obj.order_amount = round(obj.order_amount)
             obj.save()
             self.auto_process_pos_order(order)
             return api_response('Ordered Successfully!', BasicOrderListSerializer(Order.objects.get(id=order.id)).data,
@@ -3125,7 +3125,7 @@ class OrderCentral(APIView):
             payments = [
                 {
                     "payment_type": payment_id,
-                    "amount": order.order_amount,
+                    "amount": round(order.order_amount),
                     "transaction_id": ""
                 }
             ]
@@ -5395,7 +5395,7 @@ def pdf_generation_retailer(request, order_id, delay=True):
         product_listing = sorted(product_listing, key=itemgetter('id'))
         # Total payable amount
         total_amount = round(ordered_product.invoice_amount_final, 2)
-        total_amount_int = round(math.floor(total_amount))
+        total_amount_int = int(round(total_amount))
         # redeem value
         redeem_value = round(cart.redeem_points / cart.redeem_factor, 2) if cart.redeem_factor else 0
         # Total discount
@@ -5416,8 +5416,8 @@ def pdf_generation_retailer(request, order_id, delay=True):
             city, state, pincode = z.city, z.state, z.pincode
             address_contact_number = z.address_contact_number
 
-        total = math.floor(total)
-        total_amount = math.floor(total_amount)
+        total = round(total)
+        total_amount = round(total_amount)
         total = round(total, 2)
 
         # Licence
@@ -7146,7 +7146,7 @@ class DispatchItemsView(generics.GenericAPIView):
         API to get all the packages for a shipment
         '''
         if not request.GET.get('shipment_id'):
-            return get_response("'shipment_id' | This is mandatory") 
+            return get_response("'shipment_id' | This is mandatory")
         self.queryset = self.filter_packaging_items()
         dispatch_items = SmallOffsetPagination().paginate_queryset(self.queryset, request)
         serializer = self.serializer_class(dispatch_items, many=True)

@@ -645,8 +645,7 @@ class CheckoutSerializer(serializers.ModelSerializer):
         """
         sub_total = float(self.get_total_amount(obj)) - self.get_total_discount(obj) - float(
             self.get_redeem_points_value(obj))
-        sub_total = math.floor(sub_total)
-        return round(sub_total, 2)
+        return round(sub_total)
 
     class Meta:
         model = Cart
@@ -3164,7 +3163,7 @@ class PosEcomOrderDetailSerializer(serializers.ModelSerializer):
         redeem_points_value = self.get_redeem_points_value(obj)
         order_value = round(obj.order_amount + discount + redeem_points_value, 2)
         order_summary['order_value'], order_summary['discount'], order_summary['redeem_points_value'], order_summary[
-            'amount_paid'] = order_value, discount, redeem_points_value, int(obj.order_amount)
+            'amount_paid'] = order_value, discount, redeem_points_value, round(obj.order_amount)
         payment_obj = obj.rt_payment_retailer_order.all().last()
         order_summary['payment_type'] = payment_obj.payment_type.type
         order_summary['transaction_id'] = payment_obj.transaction_id
