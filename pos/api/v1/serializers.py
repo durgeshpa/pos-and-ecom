@@ -578,8 +578,7 @@ class BasicCartSerializer(serializers.ModelSerializer):
 
     def get_amount_payable(self, obj):
         sub_total = float(self.total_amount_dt(obj)) - self.get_total_discount(obj)
-        sub_total = math.floor(sub_total)
-        return round(sub_total, 2)
+        return round(sub_total)
 
 
 class CheckoutSerializer(serializers.ModelSerializer):
