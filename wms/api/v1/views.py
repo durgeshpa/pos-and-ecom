@@ -2,6 +2,8 @@ import logging
 
 from django.utils import timezone
 
+from global_config.models import GlobalConfig
+from global_config.views import get_config
 from retailer_backend.messages import ERROR_MESSAGES
 from retailer_backend.utils import SmallOffsetPagination
 from wms.models import Bin, Putaway, PutawayBinInventory, BinInventory, InventoryType, Pickup, InventoryState, \
@@ -508,18 +510,18 @@ class PickupList(APIView):
         if picking_status:
             self.queryset = self.queryset.filter(picking_status__iexact=picking_status)
 
-
         if selected_date:
-            if data_days:
-                end_date = datetime.datetime.strptime(selected_date, "%Y-%m-%d")
-                start_date = end_date - datetime.timedelta(days=int(data_days))
-                end_date = end_date +datetime.timedelta(days=1)
-                self.queryset = self.queryset.filter(
-                    created_at__gte=start_date.date(), created_at__lt=end_date.date())
-            else:
-                selected_date = datetime.datetime.strptime(selected_date, "%Y-%m-%d")
-                self.queryset = self.queryset.filter(created_at__date=selected_date)
+            selected_date = datetime.datetime.strptime(selected_date, "%Y-%m-%d")
+            end_date = selected_date.replace(hour=23, minute=59, second=59)
+            if selected_date.date() == datetime.datetime.today().date():
+                end_date = selected_date.replace(hour=get_config('PICKING_END_HOUR', 17),
+                                                 minute=get_config('PICKING_END_MINUTE', 0), second=0)
 
+            start_date = end_date.replace(hour=0, minute=0, second=0)
+            if data_days:
+                start_date = end_date.replace(hour=0, minute=0, second=0) - datetime.timedelta(days=int(data_days))
+
+            self.queryset = self.queryset.filter(created_at__gte=start_date, created_at__lte=end_date)
         return self.queryset
 
 
