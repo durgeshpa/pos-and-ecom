@@ -4207,8 +4207,9 @@ class OrderedItemCentralDashBoard(APIView):
         products_count = products.count()
 
         overview = [{"shop_name": shop.shop_name, "orders": order_count, "products": products_count,
-                     "revenue": total_final_amount, "ecom_order_count": ecom_order_count, "pos_order_count":
-                         pos_order_count}]
+                     "revenue": total_final_amount, "ecom_order_count": ecom_order_count,
+                     "pos_order_count": pos_order_count, "ecom_revenue": ecom_total_final_amount,
+                     "pos_revenue": pos_total_final_amount}]
         return overview
 
     def get_retail_order_overview(self):
