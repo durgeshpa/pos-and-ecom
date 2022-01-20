@@ -3095,14 +3095,17 @@ class OrderCentral(APIView):
             return api_response("Invalid Payment Method")
 
         if not payment_type_id == 4:
-            if not self.request.data.get('payment_status') or not self.request.data.get('payment_mode'):
-                return api_response("Please provide online payment status and mode.")
+            if not self.request.data.get('payment_status'):
+                return api_response("Please provide online payment status.")
 
             if not any(self.request.data.get('payment_status') in i for i in PosPayment.PAYMENT_STATUS):
                 return api_response("Please provide valid online payment status")
 
-            if not any(self.request.data.get('payment_mode') in i for i in PosPayment.MODE_CHOICES):
-                return api_response("Please provide valid online payment mode")
+            # if not self.request.data.get('payment_mode'):
+            #     return api_response("Please provide online payment mode.")
+
+            # if not any(self.request.data.get('payment_mode') in i for i in PosPayment.MODE_CHOICES):
+            #     return api_response("Please provide valid online payment mode")
 
         # Minimum Order Value
         order_config = GlobalConfig.objects.filter(key='ecom_minimum_order_amount').last()
