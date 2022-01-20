@@ -4063,72 +4063,152 @@ class OrderedItemCentralDashBoard(APIView):
         # orders for shop
         orders = Order.objects.prefetch_related('rt_return_order').filter(seller_shop=shop).exclude(
             order_status=Order.CANCELLED)
+
+        # pos orders for shop
+        pos_orders = orders.filter(order_app_type=Order.POS_WALKIN)
+
+        # ecom orders for shop
+        ecom_orders = orders.filter(order_app_type=Order.POS_ECOMM)
         # products for shop
         products = RetailerProduct.objects.filter(shop=shop)
 
         # Return for shop
         returns = OrderReturn.objects.filter(order__seller_shop=shop)
 
+        # Return for shop
+        ecom_returns = returns.filter(order__order_app_type=Order.POS_ECOMM)
+
+        # Return for shop
+        pos_returns = returns.filter(order__order_app_type=Order.POS_WALKIN)
+
         # order status filter
         order_status = self.request.GET.get('order_status')
         if order_status:
             order_status_actual = ORDER_STATUS_MAP.get(int(order_status), None)
             orders = orders.filter(order_status=order_status_actual) if order_status_actual else orders
+            pos_orders = pos_orders.filter(order_status=order_status_actual) if order_status_actual else orders
+            ecom_orders = ecom_orders.filter(order_status=order_status_actual) if order_status_actual else orders
 
         # filter for date range
         filters = int(self.request.GET.get('filters')) if self.request.GET.get('filters') else None
         today_date = datetime.today()
         if filters == 1:  # today
             orders = orders.filter(created_at__date=today_date)
+            pos_orders = pos_orders.filter(created_at__date=today_date)
+            ecom_orders = ecom_orders.filter(created_at__date=today_date)
+
             products = products.filter(created_at__date=today_date)
+
             returns = returns.filter(modified_at__date=today_date)
+            pos_returns = pos_returns.filter(modified_at__date=today_date)
+            ecom_returns = ecom_returns.filter(modified_at__date=today_date)
+
         elif filters == 2:  # yesterday
             yesterday = today_date - timedelta(days=1)
             orders = orders.filter(created_at__date=yesterday)
+            pos_orders = pos_orders.filter(created_at__date=yesterday)
+            ecom_orders = ecom_orders.filter(created_at__date=yesterday)
+
             products = products.filter(created_at__date=yesterday)
+
             returns = returns.filter(modified_at__date=yesterday)
+            pos_returns = pos_returns.filter(modified_at__date=yesterday)
+            ecom_returns = ecom_returns.filter(modified_at__date=yesterday)
+
         elif filters == 3:  # this week
             orders = orders.filter(created_at__week=today_date.isocalendar()[1])
+            pos_orders = pos_orders.filter(created_at__week=today_date.isocalendar()[1])
+            ecom_orders = ecom_orders.filter(created_at__week=today_date.isocalendar()[1])
+
             products = products.filter(created_at__week=today_date.isocalendar()[1])
+
             returns = returns.filter(modified_at__week=today_date.isocalendar()[1])
+            pos_returns = pos_returns.filter(modified_at__week=today_date.isocalendar()[1])
+            ecom_returns = ecom_returns.filter(modified_at__week=today_date.isocalendar()[1])
+
         elif filters == 4:  # last week
             last_week = today_date - timedelta(weeks=1)
             orders = orders.filter(created_at__week=last_week.isocalendar()[1])
+            pos_orders = pos_orders.filter(created_at__week=last_week.isocalendar()[1])
+            ecom_orders = ecom_orders.filter(created_at__week=last_week.isocalendar()[1])
+
             products = products.filter(created_at__week=last_week.isocalendar()[1])
+
             returns = returns.filter(modified_at__week=last_week.isocalendar()[1])
+            pos_returns = pos_returns.filter(modified_at__week=last_week.isocalendar()[1])
+            ecom_returns = ecom_returns.filter(modified_at__week=last_week.isocalendar()[1])
+
         elif filters == 5:  # this month
             orders = orders.filter(created_at__month=today_date.month)
+            pos_orders = pos_orders.filter(created_at__month=today_date.month)
+            ecom_orders = ecom_orders.filter(created_at__month=today_date.month)
+
             products = products.filter(created_at__month=today_date.month)
+
             returns = returns.filter(modified_at__month=today_date.month)
+            pos_returns = pos_returns.filter(modified_at__month=today_date.month)
+            ecom_returns = ecom_returns.filter(modified_at__month=today_date.month)
+
         elif filters == 6:  # last month
             last_month = today_date - timedelta(days=30)
             orders = orders.filter(created_at__month=last_month.month)
+            pos_orders = pos_orders.filter(created_at__month=last_month.month)
+            ecom_orders = ecom_orders.filter(created_at__month=last_month.month)
+
             products = products.filter(created_at__month=last_month.month)
+
             returns = returns.filter(modified_at__month=last_month.month)
+            pos_returns = pos_returns.filter(modified_at__month=last_month.month)
+            ecom_returns = ecom_returns.filter(modified_at__month=last_month.month)
+
         elif filters == 7:  # this year
             orders = orders.filter(created_at__year=today_date.year)
+            pos_orders = pos_orders.filter(created_at__year=today_date.year)
+            ecom_orders = ecom_orders.filter(created_at__year=today_date.year)
+
             products = products.filter(created_at__year=today_date.year)
+
             returns = returns.filter(modified_at__year=today_date.year)
+            pos_returns = pos_returns.filter(modified_at__year=today_date.year)
+            ecom_returns = ecom_returns.filter(modified_at__year=today_date.year)
 
         total_final_amount = 0
+        ecom_total_final_amount = 0
+        pos_total_final_amount = 0
+
         for order in orders:
             order_amt = order.order_amount
-            # returns = order.rt_return_order.all()
-            # if returns:
-            #     for ret in returns:
-            #         if ret.status == 'completed':
-            #             order_amt -= ret.refund_amount if ret.refund_amount > 0 else 0
             total_final_amount += order_amt
 
         for rt in returns:
             if rt.status == 'completed':
                 total_final_amount -= rt.refund_amount
 
+        for order in pos_orders:
+            order_amt = order.order_amount
+            pos_total_final_amount += order_amt
+
+        for rt in pos_returns:
+            if rt.status == 'completed':
+                pos_total_final_amount -= rt.refund_amount
+
+        for order in ecom_orders:
+            order_amt = order.order_amount
+            ecom_total_final_amount += order_amt
+
+        for rt in ecom_returns:
+            if rt.status == 'completed':
+                ecom_total_final_amount -= rt.refund_amount
+
         # counts of order for shop_id with total_final_amount & products
         order_count = orders.count()
+        ecom_order_count = ecom_orders.count()
+        pos_order_count = pos_orders.count()
         products_count = products.count()
+
         overview = [{"shop_name": shop.shop_name, "orders": order_count, "products": products_count,
-                     "revenue": total_final_amount}]
+                     "revenue": total_final_amount, "ecom_order_count": ecom_order_count, "pos_order_count":
+                         pos_order_count}]
         return overview
 
     def get_retail_order_overview(self):
