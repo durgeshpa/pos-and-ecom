@@ -10,7 +10,7 @@ from .views import (ProductsList, SearchProducts, CartCentral, CartCheckout, Ord
                     AutoSuggest, RefreshEs, RefreshEsRetailer, CartUserView, UserView, PosUserShopsList,
                     PosShopUsersList, RetailerList, PaymentDataView, CartStockCheckView, OrderCommunication,
                     ShipmentView, EcomPaymentView, EcomPaymentSuccessView, EcomPaymentFailureView, NotAttemptReason,
-                    OrderPaymentStatusChangeView
+                    OrderPaymentStatusChangeView, OrderStatusChoicesList
                     )
 
 router = routers.DefaultRouter()
@@ -84,6 +84,8 @@ urlpatterns = [
     url('^autosearch/suggest/$', AutoSuggest.as_view()),
     url(r'^ordered-product/$', OrderedProductViewSet.as_view()),
     url('update-order-payment-status/', OrderPaymentStatusChangeView.as_view(), name='update_order_payment_status'),
+    url(r'^order-status-choice/$', OrderStatusChoicesList.as_view()),
+
 ]
 
 urlpatterns += router.urls

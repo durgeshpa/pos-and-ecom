@@ -1592,3 +1592,16 @@ class PaymentStatusList(GenericAPIView):
         fields = ['id', 'value']
         data = [dict(zip(fields, d)) for d in Payment.PAYMENT_STATUS]
         return api_response('', data, status.HTTP_200_OK, True)
+
+
+class PaymentModeChoicesList(GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+
+    def get(self, request):
+        '''
+        API to get payment mode choices list
+        '''
+        fields = ['id', 'value']
+        data = [dict(zip(fields, d)) for d in Payment.MODE_CHOICES]
+        return api_response('', data, status.HTTP_200_OK, True)
