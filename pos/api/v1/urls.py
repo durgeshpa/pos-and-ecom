@@ -5,7 +5,7 @@ from .views import (PosProductView, CouponOfferCreation, InventoryReport, SalesR
                     PaymentTypeDetailView, IncentiveView, ShopSpecificationView, GrnReturnOrderView,
                     GetGrnOrderListView, ReturnStatusListView, MeasurementCategoryView, StockUpdateReasonListView,
                     PRNwithoutGRNView, CreateBulkProductView, UpdateInventoryStockView, Contect_Us, PaymentStatusList,
-                    EcomPaymentTypeDetailView,
+                    EcomPaymentTypeDetailView, PaymentModeChoicesList,
                     )
 
 urlpatterns = [
@@ -50,4 +50,5 @@ urlpatterns = [
     url(r'^upload/update-inventory/', UpdateInventoryStockView.as_view(), name='update-inventory'),
 
     url(r'^payment-status-choice/$', PaymentStatusList.as_view()),
+    url(r'^payment-mode-choice/$', PaymentModeChoicesList.as_view()),
 ]

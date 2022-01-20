@@ -6876,3 +6876,19 @@ class OrderPaymentStatusChangeView(generics.GenericAPIView):
             info_logger.info("Order Updated Successfully.")
             return api_response('order updated!', serializer.data, status.HTTP_200_OK, True)
         return api_response(serializer_error(serializer), success=False)
+
+
+class OrderStatusChoicesList(GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+
+    def get(self, request):
+        '''
+        API to get payment mode choices list
+        '''
+        fields = ['id', 'value']
+        data = [dict(zip(fields, d)) for d in [(Order.PAYMENT_PENDING, "Payment Pending"),
+                                               (Order.PAYMENT_FAILED, "Payment Failed"),
+                                               (Order.PAYMENT_APPROVED, "Payment Approved"),
+                                               (Order.PAYMENT_COD, "Payment COD")]]
+        return api_response('', data, status.HTTP_200_OK, True)
