@@ -619,6 +619,7 @@ class PickupDetail(APIView):
     @check_picker
     def get(self, request):
         info_logger.info("Pick up detail GET API called.")
+        info_logger.info(f"PickupDetail | GET | request user {request.user}, param {request.GET}" )
         order_no = request.GET.get('order_no')
         if not order_no:
             msg = {'is_success': True, 'message': 'Order number field is empty.', 'data': None}
@@ -638,23 +639,18 @@ class PickupDetail(APIView):
             msg = {'is_success': True, 'message': 'Bin id is not empty.', 'data': None}
             return Response(msg, status=status.HTTP_200_OK)
 
-        bin_obj = Bin.objects.filter(bin_id=bin_id, is_active=True)
+        bin_obj = Bin.objects.filter(bin_id=bin_id, is_active=True, warehouse=warehouse).last()
         if not bin_obj:
-            msg = {'is_success': False, 'message': "Bin id is not activated", 'data': None}
+            msg = {'is_success': False, 'message': "Invalid bin.", 'data': None}
             return Response(msg, status=status.HTTP_200_OK)
 
-        bin_ware_obj = Bin.objects.filter(bin_id=bin_id, is_active=True,
-                                          warehouse=warehouse)
-        if not bin_ware_obj:
-            msg = {'is_success': False, 'message': "Bin id is not associated with the user's warehouse.", 'data': None}
-            return Response(msg, status=status.HTTP_200_OK)
-
-        picking_details = PickupBinInventory.objects.filter(pickup__pickup_type_id=order_no, bin__bin__bin_id=bin_id,
-                                                            pickup__zone__picker_users=request.user, quantity__gt=0)\
+        picking_details = PickupBinInventory.objects.filter(pickup__pickup_type_id=order_no, bin__bin=bin_obj,
+                                                            pickup__zone__picker_users=request.user)\
                                                     .exclude(pickup__status='picking_cancelled')
 
         if not picking_details.exists():
             msg = {'is_success': False, 'message': ERROR_MESSAGES['PICK_BIN_DETAILS_NOT_FOUND'], 'data': None}
+            info_logger.info(f"PickupDetail | GET | response {msg}" )
             return Response(msg, status=status.HTTP_200_OK)
         order = Order.objects.filter(order_no=order_no).last()
         pd_qs = PickerDashboard.objects.filter(order=order, zone__picker_users=request.user)
@@ -666,11 +662,13 @@ class PickupDetail(APIView):
         msg = {'is_success': True, 'message': 'OK',
                'data': {'picking_details': serializer.data, 'pickup_created_at': pickup_assigned_date,
                         'current_time': datetime.datetime.now()}}
+        info_logger.info(f"PickupDetail | GET | response {msg}" )
         return Response(msg, status=status.HTTP_200_OK)
 
     @check_picker
     def post(self, request):
         info_logger.info("Pick up detail POST API called.")
+        info_logger.info(f"PickupDetail | POST | request user {request.user}, data{request.data}" )
         msg = {'is_success': False, 'message': 'Missing Required field.', 'data': None}
         try:
             warehouse = request.user.shop_employee.all().last().shop_id
@@ -764,8 +762,7 @@ class PickupDetail(APIView):
             for j, i in diction.items():
                 picking_details = PickupBinInventory.objects.filter(pickup__pickup_type_id=order_no,
                                                                     pickup__zone__picker_users=request.user,
-                                                                    bin__bin__bin_id=bin_id, pickup__sku__id=j,
-                                                                    quantity__gt=0)\
+                                                                    bin__bin__bin_id=bin_id, pickup__sku__id=j)\
                                                             .exclude(pickup__status='picking_cancelled')
                 if picking_details.count() == 0:
                     return Response({'is_success': False,
