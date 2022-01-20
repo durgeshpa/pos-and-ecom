@@ -52,7 +52,8 @@ from pos.api.v1.serializers import (BasicCartSerializer, BasicCartListSerializer
                                     OrderedDashBoardSerializer, PosShopSerializer, BasicCartUserViewSerializer,
                                     OrderReturnGetSerializer, BasicOrderDetailSerializer, AddressCheckoutSerializer,
                                     RetailerProductResponseSerializer, PosShopUserMappingListSerializer,
-                                    PaymentTypeSerializer, PosEcomOrderDetailSerializer, RetailerOrderedDashBoardSerializer)
+                                    PaymentTypeSerializer, PosEcomOrderDetailSerializer,
+                                    RetailerOrderedDashBoardSerializer)
 from pos.common_functions import (api_response, delete_cart_mapping, ORDER_STATUS_MAP, RetailerProductCls,
                                   update_customer_pos_cart, PosInventoryCls, RewardCls, serializer_error,
                                   check_pos_shop, PosAddToCart, PosCartCls, ONLINE_ORDER_STATUS_MAP,
@@ -4344,7 +4345,7 @@ class OrderedItemCentralDashBoard(APIView):
     def get_serialize_process(self, order):
         """
            Get Overview of Orders, Users & Products
-           Cart type basic & Retail
+           Cart type Basic
         """
         serializer = OrderedDashBoardSerializer(order, many=True).data
         return serializer
@@ -4352,7 +4353,7 @@ class OrderedItemCentralDashBoard(APIView):
     def get_retailer_serialize_process(self, order):
         """
            Get Overview of Orders, Users & Products
-           Cart type basic & Retail
+           Cart type Retail
         """
         serializer = RetailerOrderedDashBoardSerializer(order, many=True).data
         return serializer
