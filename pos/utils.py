@@ -162,7 +162,7 @@ def create_order_return_excel(queryset):
     writer.writerow(['Order No', 'Order Status', 'Order date', 'Credit Inv#', 'Sales Inv#', 'Store ID', 'Store Name',
                      'User', "Buyer", 'Buyer Mobile Number', 'EAN code', 'Item Name', 'Returned Qty', 'Selling Price',
                      'Returned Amount', 'MRP', 'Payment Mode', 'Product Category', 'Parent ID', 'SKU ID', 'Parent Name',
-                     'Child Name', 'Sub Category', 'Brand'])
+                     'Child Name', 'Sub Category', 'Brand', 'Cart_Type'])
 
     returns = queryset. \
         prefetch_related('credit_note_order_return_mapping', 'credit_note_order_return_mapping__credit_note_id'). \
@@ -170,7 +170,7 @@ def create_order_return_excel(queryset):
                'order__seller_shop__shop_name', 'processed_by__first_name', 'processed_by__last_name',
                'order__buyer__first_name', 'order__buyer__last_name', 'order__buyer__phone_number',
                'refund_amount', 'refund_mode', 'id', 'credit_note_order_return_mapping',
-               'credit_note_order_return_mapping__credit_note_id', )
+               'credit_note_order_return_mapping__credit_note_id', 'order__ordered_cart__cart_type')
 
     return_mode_choice = dict(PAYMENT_MODE_POS)
 
@@ -228,6 +228,7 @@ def create_order_return_excel(queryset):
                 retailer_product_name,  # Child Name
                 sub_category,  # Sub Category
                 brand,  # Brand
+                order_rtn.get('order__ordered_cart__cart_type'),
             ])
 
     return response
