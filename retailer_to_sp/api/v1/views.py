@@ -7430,6 +7430,7 @@ class DispatchTripsCrudView(generics.GenericAPIView):
         dispatch_no = self.request.GET.get('dispatch_no')
         vehicle_no = self.request.GET.get('vehicle_no')
         trip_status = self.request.GET.get('trip_status')
+        trip_type = self.request.GET.get('trip_type')
         date = self.request.GET.get('date')
 
         '''search using seller_shop name, source_shop's firstname  and destination_shop's firstname'''
@@ -7463,6 +7464,10 @@ class DispatchTripsCrudView(generics.GenericAPIView):
         if date:
             self.queryset = self.queryset.filter(created_at__date=date)
 
+        if trip_type:
+            self.queryset = self.queryset.filter(trip_type=trip_type)
+        else:
+            self.queryset = self.queryset.filter(trip_type=DispatchTrip.FORWARD)
         return self.queryset.distinct('id')
 
 

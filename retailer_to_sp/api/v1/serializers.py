@@ -2157,7 +2157,7 @@ class DispatchTripCrudSerializers(serializers.ModelSerializer):
     class Meta:
         model = DispatchTrip
         fields = ('id', 'seller_shop', 'source_shop', 'destination_shop', 'dispatch_no', 'delivery_boy', 'vehicle_no',
-                  'trip_status', 'starts_at', 'completed_at', 'opening_kms', 'closing_kms', 'no_of_crates',
+                  'trip_status', 'trip_type', 'starts_at', 'completed_at', 'opening_kms', 'closing_kms', 'no_of_crates',
                   'no_of_packets', 'no_of_sacks', 'no_of_crates_check', 'no_of_packets_check', 'no_of_sacks_check',
                   'no_of_shipments', 'trip_amount',
                   'created_at', 'updated_at', 'created_by', 'updated_by')
