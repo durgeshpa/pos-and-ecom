@@ -52,7 +52,8 @@ from pos.api.v1.serializers import (BasicCartSerializer, BasicCartListSerializer
                                     OrderedDashBoardSerializer, PosShopSerializer, BasicCartUserViewSerializer,
                                     OrderReturnGetSerializer, BasicOrderDetailSerializer, AddressCheckoutSerializer,
                                     RetailerProductResponseSerializer, PosShopUserMappingListSerializer,
-                                    PaymentTypeSerializer, PosEcomOrderDetailSerializer)
+                                    PaymentTypeSerializer, PosEcomOrderDetailSerializer,
+                                    RetailerOrderedDashBoardSerializer)
 from pos.common_functions import (api_response, delete_cart_mapping, ORDER_STATUS_MAP, RetailerProductCls,
                                   update_customer_pos_cart, PosInventoryCls, RewardCls, serializer_error,
                                   check_pos_shop, PosAddToCart, PosCartCls, ONLINE_ORDER_STATUS_MAP,
@@ -4265,7 +4266,7 @@ class OrderedItemCentralDashBoard(APIView):
         if 'error' in initial_validation:
             return api_response(initial_validation['error'])
         order = initial_validation['order']
-        return api_response('Dashboard', self.get_serialize_process(order), status.HTTP_200_OK, True)
+        return api_response('Dashboard', self.get_retailer_serialize_process(order), status.HTTP_200_OK, True)
 
     def get_retail_list_validate(self):
         """
@@ -4347,9 +4348,17 @@ class OrderedItemCentralDashBoard(APIView):
     def get_serialize_process(self, order):
         """
            Get Overview of Orders, Users & Products
-           Cart type basic & Retail
+           Cart type Basic
         """
         serializer = OrderedDashBoardSerializer(order, many=True).data
+        return serializer
+
+    def get_retailer_serialize_process(self, order):
+        """
+           Get Overview of Orders, Users & Products
+           Cart type Retail
+        """
+        serializer = RetailerOrderedDashBoardSerializer(order, many=True).data
         return serializer
 
 
