@@ -645,7 +645,6 @@ class PickupDetail(APIView):
             return Response(msg, status=status.HTTP_200_OK)
 
         picking_details = PickupBinInventory.objects.filter(pickup__pickup_type_id=order_no, bin__bin=bin_obj,
-                                                            quantity__gt=0,
                                                             pickup__zone__picker_users=request.user)\
                                                     .exclude(pickup__status='picking_cancelled')
 
@@ -669,7 +668,7 @@ class PickupDetail(APIView):
     @check_picker
     def post(self, request):
         info_logger.info("Pick up detail POST API called.")
-        info_logger.info(f"PickupDetail | POST | request {request}" )
+        info_logger.info(f"PickupDetail | POST | request user {request.user}, data{request.data}" )
         msg = {'is_success': False, 'message': 'Missing Required field.', 'data': None}
         try:
             warehouse = request.user.shop_employee.all().last().shop_id
@@ -763,8 +762,7 @@ class PickupDetail(APIView):
             for j, i in diction.items():
                 picking_details = PickupBinInventory.objects.filter(pickup__pickup_type_id=order_no,
                                                                     pickup__zone__picker_users=request.user,
-                                                                    bin__bin__bin_id=bin_id, pickup__sku__id=j,
-                                                                    quantity__gt=0)\
+                                                                    bin__bin__bin_id=bin_id, pickup__sku__id=j)\
                                                             .exclude(pickup__status='picking_cancelled')
                 if picking_details.count() == 0:
                     return Response({'is_success': False,
