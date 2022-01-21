@@ -3569,8 +3569,11 @@ class OrderCentral(APIView):
            Cart type Ecom
         """
         if int(self.request.GET.get('summary', 0)) == 1:
-            return PosEcomOrderDetailSerializer(order).data
-        return BasicOrderSerializer(order).data
+            response = PosEcomOrderDetailSerializer(order).data
+        else:
+            response = BasicOrderSerializer(order).data
+        response['key_p'] = str(config('PAYU_KEY'))
+        return response
 
     def post_serialize_process_sp(self, order, parent_mapping):
         """

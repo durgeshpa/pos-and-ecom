@@ -1013,7 +1013,7 @@ class BasicOrderSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Order
-        fields = ('id', 'order_no', 'products', 'ongoing_return')
+        fields = ('id', 'order_no', 'ordered_cart', 'products', 'ongoing_return')
 
 
 class OrderReturnCheckoutSerializer(serializers.ModelSerializer):
@@ -3319,7 +3319,7 @@ class PosEcomOrderDetailSerializer(serializers.ModelSerializer):
         fields = ('id', 'order_no', 'creation_date', 'order_status', 'items', 'order_summary', 'return_summary',
                   'invoice_summary', 'ordered_product', 'invoice_amount', 'address', 'order_update',
                   'ecom_estimated_delivery_time', 'delivery_person', 'order_status_display', 'order_cancel_reson',
-                  'payment')
+                  'payment', 'ordered_cart')
 
 
 class PRNReturnItemsSerializer(serializers.ModelSerializer):
