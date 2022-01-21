@@ -80,7 +80,7 @@ from retailer_to_sp.models import (Cart, CartProductMapping, CreditNote, Order, 
                                    OrderReturn, ReturnItems, OrderedProductMapping, ShipmentPackaging,
                                    DispatchTrip, DispatchTripShipmentMapping, INVOICE_AVAILABILITY_CHOICES,
                                    DispatchTripShipmentPackages, LastMileTripShipmentMapping, PACKAGE_VERIFY_CHOICES,
-                                   DispatchTripCrateMapping, ShipmentPackagingMapping)
+                                   DispatchTripCrateMapping, ShipmentPackagingMapping, TRIP_TYPE_CHOICE)
 from retailer_to_sp.models import (ShipmentNotAttempt)
 from retailer_to_sp.tasks import send_invoice_pdf_email
 from shops.api.v1.serializers import ShopBasicSerializer
@@ -7309,6 +7309,11 @@ class DispatchTripsCrudView(generics.GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
     queryset = DispatchTrip.objects. \
+        annotate(status=Case(
+                         When(trip_status__in=[DispatchTrip.NEW, DispatchTrip.STARTED], then=Value("PENDING")),
+                         When(trip_status__in=[DispatchTrip.COMPLETED, DispatchTrip.UNLOADING,],
+                              then=Value("COMPLETED")),
+                         default=F('trip_status'))).\
         select_related('seller_shop', 'seller_shop__shop_owner', 'seller_shop__shop_type',
                        'seller_shop__shop_type__shop_sub_type', 'source_shop', 'source_shop__shop_owner',
                        'source_shop__shop_type', 'source_shop__shop_type__shop_sub_type', 'destination_shop',
@@ -7432,6 +7437,7 @@ class DispatchTripsCrudView(generics.GenericAPIView):
         trip_status = self.request.GET.get('trip_status')
         trip_type = self.request.GET.get('trip_type')
         date = self.request.GET.get('date')
+        status = self.request.GET.get('status')
 
         '''search using seller_shop name, source_shop's firstname  and destination_shop's firstname'''
         if search_text:
@@ -7468,6 +7474,10 @@ class DispatchTripsCrudView(generics.GenericAPIView):
             self.queryset = self.queryset.filter(trip_type=trip_type)
         else:
             self.queryset = self.queryset.filter(trip_type=DispatchTrip.FORWARD)
+
+        if status:
+            self.queryset = self.queryset.filter(status=status)
+
         return self.queryset.distinct('id')
 
 
@@ -8942,20 +8952,26 @@ class PackagesUnderTripView(generics.GenericAPIView):
         trip_id = self.request.GET.get('trip_id')
         shipment_id = self.request.GET.get('shipment_id')
         package_status = self.request.GET.get('package_status')
+        trip_type = self.request.GET.get('trip_type')
+        is_return_verified = self.request.GET.get('is_return_verified')
 
         if trip_id:
-            if self.queryset.filter(shipment__trip_shipment__trip_id=trip_id).exists():
+            if trip_type == TRIP_TYPE_CHOICE.DISPATCH_TRIP:
                 self.queryset = self.queryset.filter(shipment__trip_shipment__trip_id=trip_id)
-            elif self.queryset.filter(shipment__last_mile_trip_shipment__trip_id=trip_id).exists():
-                self.queryset = self.queryset.filter(shipment__last_mile_trip_shipment__trip_id=trip_id)
             else:
-                self.queryset = self.queryset.none()
+                self.queryset = self.queryset.filter(shipment__last_mile_trip_shipment__trip_id=trip_id)
 
         if shipment_id:
             self.queryset = self.queryset.filter(shipment_id=shipment_id)
 
         if package_status:
             self.queryset = self.queryset.filter(status=package_status)
+
+        if is_return_verified:
+            if trip_type == TRIP_TYPE_CHOICE.DISPATCH_TRIP:
+                self.queryset = self.queryset.filter(trip_packaging_details__is_return_verified=is_return_verified)
+            else:
+                self.queryset = self.queryset.none()
 
         return self.queryset
 
