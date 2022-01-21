@@ -8233,8 +8233,9 @@ class DispatchCenterShipmentView(generics.GenericAPIView):
                                                      DispatchTripShipmentMapping.UNLOADED_AT_DC])
             elif availability == INVOICE_AVAILABILITY_CHOICES.NOT_ADDED:
                 self.queryset = self.queryset.filter(Q(trip_shipment__isnull=True) |
-                                                     Q(trip_shipment__shipment_status=
-                                                     DispatchTripShipmentMapping.LOADING_FOR_DC),
+                                                     Q(trip_shipment__shipment_status__in=[
+                                                     DispatchTripShipmentMapping.CANCELLED,
+                                                     DispatchTripShipmentMapping.LOADING_FOR_DC]),
                                                      shipment_status=OrderedProduct.MOVED_TO_DISPATCH)
             elif availability == INVOICE_AVAILABILITY_CHOICES.ALL:
                 self.queryset = self.queryset.filter(Q(trip_shipment__trip_id=trip_id,
