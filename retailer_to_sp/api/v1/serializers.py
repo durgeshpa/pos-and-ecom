@@ -2600,7 +2600,7 @@ class ShipmentPackageSerializer(serializers.ModelSerializer):
 
     def get_trip_loading_status(self, obj):
         return obj.trip_packaging_details.last().package_status \
-            if obj.trip_packaging_details.exists() else None
+            if obj.trip_packaging_details.filter(~Q(package_status=DispatchTripShipmentPackages.CANCELLED)).exists() else None
 
     class Meta:
         model = ShipmentPackaging
