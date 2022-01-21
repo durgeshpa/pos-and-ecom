@@ -3033,6 +3033,10 @@ class LoadVerifyPackageSerializer(serializers.ModelSerializer):
             if package.shipment.shipment_status != OrderedProduct.MOVED_TO_DISPATCH:
                 raise serializers.ValidationError(f"The invoice is in {package.shipment.shipment_status} state, "
                                                   f"cannot load package")
+            if package.shipment.trip_shipment.filter(~Q(trip=trip)).exists():
+                raise serializers.ValidationError(f"The invoice is already being added to another trip, "
+                                                  f"cannot add this package")
+
         elif trip.trip_type == DispatchTrip.BACKWARD:
             package = ShipmentPackaging.objects.filter(
                 id=self.initial_data['package_id'], warehouse=trip.source_shop,
