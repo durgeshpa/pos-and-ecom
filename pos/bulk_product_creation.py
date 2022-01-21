@@ -159,7 +159,7 @@ def bulk_create_update_validated_products(uploaded_by, shop_id, uploaded_data_by
                     if product.online_enabled != row['online_enabled']:
                         product.online_enabled = row['online_enabled']
                     if str(row.get('available_for_online_orders').lower()) == 'yes':
-                        if online_enabled is True and float(online_price) == 0.0 and float(offer_price)> 0.0:
+                        if online_enabled is True and float(online_price) == 0.0 and offer_price is not None:
                             product.online_price = offer_price
                         elif online_enabled is True and float(online_price) == 0.0:
                             product.online_price = sp if sp else product.selling_price
