@@ -3547,6 +3547,8 @@ class DispatchTripShipmentPackages(BaseTimestampUserModel):
 
 INVOICE_AVAILABILITY_CHOICES = Choices((1, 'ALL', 'All'), (2, 'ADDED', 'Added'), (3, 'NOT_ADDED', 'Not Added'))
 PACKAGE_VERIFY_CHOICES = Choices((1, 'OK', 'Okay'), (2, 'DAMAGED', 'Damaged'), (3, 'MISSING', 'Missing'))
+TRIP_TYPE_CHOICE = Choices(('LAST_MILE', 'Last Mile trip'), ('DISPATCH_FORWARD', 'Forward Dispatch Trip'),
+                           ('DISPATCH_BACKWARD', 'Backward Dispatch Trip'))
 
 
 class LastMileTripShipmentMapping(BaseTimestampUserModel):
