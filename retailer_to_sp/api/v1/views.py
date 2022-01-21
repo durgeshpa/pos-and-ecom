@@ -8956,7 +8956,7 @@ class PackagesUnderTripView(generics.GenericAPIView):
         is_return_verified = self.request.GET.get('is_return_verified')
 
         if trip_id:
-            if trip_type == TRIP_TYPE_CHOICE.DISPATCH_TRIP:
+            if trip_type in [TRIP_TYPE_CHOICE.DISPATCH_FORWARD, TRIP_TYPE_CHOICE.DISPATCH_BACKWARD]:
                 self.queryset = self.queryset.filter(shipment__trip_shipment__trip_id=trip_id)
             else:
                 self.queryset = self.queryset.filter(shipment__last_mile_trip_shipment__trip_id=trip_id)
@@ -8968,7 +8968,7 @@ class PackagesUnderTripView(generics.GenericAPIView):
             self.queryset = self.queryset.filter(status=package_status)
 
         if is_return_verified:
-            if trip_type == TRIP_TYPE_CHOICE.DISPATCH_TRIP:
+            if trip_type in [TRIP_TYPE_CHOICE.DISPATCH_FORWARD, TRIP_TYPE_CHOICE.DISPATCH_BACKWARD]:
                 self.queryset = self.queryset.filter(trip_packaging_details__is_return_verified=is_return_verified)
             else:
                 self.queryset = self.queryset.none()
