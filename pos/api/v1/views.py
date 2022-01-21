@@ -169,7 +169,8 @@ class PosProductView(GenericAPIView):
                         product.online_price = sp if sp else product.selling_price
                     else:
                         product.online_price = online_price if online_price else sp
-
+                else:
+                    product.online_price = online_price if online_price else sp
                 product.product_pack_type = product_pack_type
                 product.measurement_category_id = measurement_category_id
                 # Update images
