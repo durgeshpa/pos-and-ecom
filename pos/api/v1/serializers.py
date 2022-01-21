@@ -205,7 +205,7 @@ class RetailerProductUpdateSerializer(serializers.Serializer):
     discounted_stock = serializers.DecimalField(max_digits=10, decimal_places=3, required=False, default=0, min_value=0)
     online_enabled = serializers.BooleanField(required=False)
     online_price = serializers.DecimalField(max_digits=6, decimal_places=2, required=False,
-                                            min_value=0.01, allow_null=True)
+                                            min_value=0.00, allow_null=True)
     ean_not_available = serializers.BooleanField(default=None)
     product_pack_type = serializers.ChoiceField(choices=['packet', 'loose'],required=False)
     purchase_pack_size = serializers.IntegerField(default=None)
@@ -236,7 +236,7 @@ class RetailerProductUpdateSerializer(serializers.Serializer):
             raise serializers.ValidationError("Selling Price should be equal to OR less than MRP")
 
         if 'online_enabled' in attrs and attrs['online_enabled']:
-            if 'online_price' not in attrs or not attrs['online_price']:
+            if 'online_price' not in attrs and not attrs['online_price']:
                 raise serializers.ValidationError("Online Price may not be empty")
             attrs['online_enabled'] = attrs['online_enabled']
 
