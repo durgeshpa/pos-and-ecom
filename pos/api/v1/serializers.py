@@ -728,7 +728,7 @@ class BasicOrderListSerializer(serializers.ModelSerializer):
     class Meta:
         model = Order
         fields = ('id', 'order_status', 'order_cancel_reson', 'order_amount', 'order_no', 'buyer', 'created_at',
-                  'payment', 'invoice_amount', 'delivery_persons', 'ordered_product', 'rt_return_order')
+                  'payment', 'invoice_amount', 'delivery_persons', 'ordered_product', 'rt_return_order', 'ordered_cart')
 
 
 class BasicCartListSerializer(serializers.ModelSerializer):

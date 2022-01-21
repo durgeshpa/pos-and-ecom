@@ -4065,12 +4065,16 @@ class OrderListCentral(GenericAPIView):
         """
         order = order.order_by('-modified_at')
         objects = self.pagination_class().paginate_queryset(order, self.request)
-        return BasicOrderListSerializer(objects, many=True).data
+        response = BasicOrderListSerializer(objects, many=True).data
+        response['key_p'] = str(config('PAYU_KEY'))
+        return response
 
     def get_serialize_process_ecom(self, order):
         order = order.order_by('-created_at')
         objects = self.pagination_class().paginate_queryset(order, self.request)
-        return EcomOrderListSerializer(objects, many=True).data
+        response = EcomOrderListSerializer(objects, many=True).data
+        response['key_p'] = str(config('PAYU_KEY'))
+        return response
 
 
 class OrderedItemCentralDashBoard(APIView):
