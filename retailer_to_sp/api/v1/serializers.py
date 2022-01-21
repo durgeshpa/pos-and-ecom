@@ -3378,6 +3378,8 @@ class TripShipmentMappingSerializer(serializers.ModelSerializer):
         trip_shipment_mapping.trip.no_of_packates = package_data['no_of_packs']
         trip_shipment_mapping.trip.no_of_sacks = package_data['no_of_sacks']
         trip_shipment_mapping.trip.save()
+        trip_shipment_mapping.shipment.shipment_status=OrderedProduct.MOVED_TO_DISPATCH
+        trip_shipment_mapping.shipment.save()
 
 
 class LastMileTripShipmentMappingListSerializers(serializers.ModelSerializer):
