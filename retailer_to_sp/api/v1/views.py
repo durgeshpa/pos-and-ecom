@@ -8217,8 +8217,10 @@ class DispatchCenterShipmentView(generics.GenericAPIView):
         if availability:
             if availability == INVOICE_AVAILABILITY_CHOICES.ADDED:
                 self.queryset = self.queryset.filter(trip_shipment__isnull=False, trip_shipment__trip_id=trip_id,
-                                                     trip_shipment__shipment_status=
-                                                     DispatchTripShipmentMapping.LOADED_FOR_DC)
+                                                     trip_shipment__shipment_status__in=[
+                                                     DispatchTripShipmentMapping.LOADED_FOR_DC,
+                                                     DispatchTripShipmentMapping.UNLOADING_AT_DC,
+                                                     DispatchTripShipmentMapping.UNLOADED_AT_DC])
             elif availability == INVOICE_AVAILABILITY_CHOICES.NOT_ADDED:
                 self.queryset = self.queryset.filter(Q(trip_shipment__isnull=True) |
                                                      Q(trip_shipment__shipment_status=

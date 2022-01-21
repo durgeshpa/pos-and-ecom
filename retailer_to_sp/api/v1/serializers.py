@@ -2415,10 +2415,10 @@ class DispatchTripStatusChangeSerializers(serializers.ModelSerializer):
 
     def cancel_added_shipments_to_trip(self, dispatch_trip):
         shipment_details = dispatch_trip.shipments_details.all()
-        # for mapping in shipment_details:
-        #     if mapping.shipment.shipment_status == OrderedProduct.READY_TO_DISPATCH:
-        #         mapping.shipment.shipment_status = OrderedProduct.MOVED_TO_DISPATCH
-        #         mapping.shipment.save()
+        for mapping in shipment_details:
+            if mapping.shipment.shipment_status == OrderedProduct.READY_TO_DISPATCH:
+                mapping.shipment.shipment_status = OrderedProduct.MOVED_TO_DISPATCH
+                mapping.shipment.save()
         shipment_details.update(shipment_status=DispatchTripShipmentMapping.CANCELLED)
 
     @transaction.atomic
