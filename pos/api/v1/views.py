@@ -102,7 +102,8 @@ class PosProductView(GenericAPIView):
                                                                      data['product_pack_type'], data['measurement_category_id'],
                                                                      None, 'active', offer_price, offer_sd, offer_ed,
                                                                      None, online_enabled, online_price,
-                                                                     data['purchase_pack_size'])
+                                                                     data['purchase_pack_size'],
+                                                                     add_offer_price=data['add_offer_price'])
                 # Upload images
                 if 'images' in modified_data:
                     RetailerProductCls.create_images(product, modified_data['images'])
