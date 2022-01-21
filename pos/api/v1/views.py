@@ -167,7 +167,7 @@ class PosProductView(GenericAPIView):
                     elif online_enabled is True and float(online_price) == 0.0:
                         product.online_price = sp if sp else product.selling_price
                     else:
-                        product.online_price = online_price if online_price else sp
+                        product.online_price = online_price if online_price else product.online_price
 
                 product.product_pack_type = product_pack_type
                 product.measurement_category_id = measurement_category_id
