@@ -7634,7 +7634,8 @@ class ShipmentPackagingView(generics.GenericAPIView):
         packaging_data = id_validation['data']
         shipment = packaging_data.last().shipment
 
-        serializer = self.serializer_class(self.queryset.filter(shipment=shipment), many=True)
+        serializer = self.serializer_class(
+            self.queryset.filter(shipment=shipment), many=True)
         msg = "" if packaging_data else "no packaging found"
         return get_response(msg, serializer.data, True)
 
@@ -8245,6 +8246,7 @@ class DispatchCenterShipmentView(generics.GenericAPIView):
             elif availability == INVOICE_AVAILABILITY_CHOICES.ALL:
                 self.queryset = self.queryset.filter(Q(trip_shipment__trip_id=trip_id,
                                                        trip_shipment__shipment_status__in=[
+                                                       DispatchTripShipmentMapping.CANCELLED,
                                                        DispatchTripShipmentMapping.LOADED_FOR_DC,
                                                        DispatchTripShipmentMapping.LOADING_FOR_DC])|
                                                      Q(trip_shipment__isnull=True),
