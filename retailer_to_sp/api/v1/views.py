@@ -2936,9 +2936,11 @@ class OrderCentral(APIView):
         order = Order.objects.filter(pk=self.request.GET.get('order_id'), seller_shop=kwargs['shop']).last()
         if order:
             if order.ordered_cart.cart_type == 'BASIC':
-                return api_response('Order', self.get_serialize_process_basic(order), status.HTTP_200_OK, True)
+                return api_response('Order', self.get_serialize_process_basic(order), status.HTTP_200_OK, True,
+                                    extra_params={"key_p": str(config('PAYU_KEY'))})
             elif order.ordered_cart.cart_type == 'ECOM':
-                return api_response('Order', self.get_serialize_process_pos_ecom(order), status.HTTP_200_OK, True)
+                return api_response('Order', self.get_serialize_process_pos_ecom(order), status.HTTP_200_OK, True,
+                                    extra_params={"key_p": str(config('PAYU_KEY'))})
         return api_response("Order not found")
 
     @check_ecom_user
@@ -2952,7 +2954,8 @@ class OrderCentral(APIView):
                                       buyer=self.request.user, ordered_cart__cart_type='ECOM')
         except ObjectDoesNotExist:
             return api_response("Order Not Found!")
-        return api_response('Order', self.get_serialize_process_pos_ecom(order), status.HTTP_200_OK, True)
+        return api_response('Order', self.get_serialize_process_pos_ecom(order), status.HTTP_200_OK, True,
+                            extra_params={"key_p": str(config('PAYU_KEY'))})
 
     def post_retail_order(self):
         """
@@ -3569,11 +3572,8 @@ class OrderCentral(APIView):
            Cart type Ecom
         """
         if int(self.request.GET.get('summary', 0)) == 1:
-            response = PosEcomOrderDetailSerializer(order).data
-        else:
-            response = BasicOrderSerializer(order).data
-        response['key_p'] = str(config('PAYU_KEY'))
-        return response
+            return PosEcomOrderDetailSerializer(order).data
+        return BasicOrderSerializer(order).data
 
     def post_serialize_process_sp(self, order, parent_mapping):
         """
@@ -4016,7 +4016,8 @@ class OrderListCentral(GenericAPIView):
             qs = qs.filter(Q(order_no__icontains=search_text) |
                            Q(buyer__first_name__icontains=search_text) |
                            Q(buyer__phone_number__icontains=search_text))
-        return api_response('Order', self.get_serialize_process_basic(qs), status.HTTP_200_OK, True)
+        return api_response('Order', self.get_serialize_process_basic(qs), status.HTTP_200_OK, True,
+                            extra_params={"key_p": str(config('PAYU_KEY'))})
 
     @check_ecom_user
     def get_ecom_order_list(self, request, *args, **kwargs):
@@ -4031,7 +4032,8 @@ class OrderListCentral(GenericAPIView):
         if search_text:
             qs = qs.filter(Q(order_no__icontains=search_text) |
                            Q(ordered_cart__rt_cart_list__retailer_product__name__icontains=search_text))
-        return api_response('Order', self.get_serialize_process_ecom(qs), status.HTTP_200_OK, True)
+        return api_response('Order', self.get_serialize_process_basic(qs), status.HTTP_200_OK, True,
+                            extra_params={"key_p": str(config('PAYU_KEY'))})
 
     def get_serialize_process_sp(self, order, parent_mapping):
         """
@@ -4062,16 +4064,12 @@ class OrderListCentral(GenericAPIView):
         """
         order = order.order_by('-modified_at')
         objects = self.pagination_class().paginate_queryset(order, self.request)
-        response = BasicOrderListSerializer(objects, many=True).data
-        response['key_p'] = str(config('PAYU_KEY'))
-        return response
+        return BasicOrderListSerializer(objects, many=True).data
 
     def get_serialize_process_ecom(self, order):
         order = order.order_by('-created_at')
         objects = self.pagination_class().paginate_queryset(order, self.request)
-        response = EcomOrderListSerializer(objects, many=True).data
-        response['key_p'] = str(config('PAYU_KEY'))
-        return response
+        return EcomOrderListSerializer(objects, many=True).data
 
 
 class OrderedItemCentralDashBoard(APIView):
