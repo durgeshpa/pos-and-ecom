@@ -9,7 +9,7 @@ from django.dispatch import receiver
 
 from accounts.models import User
 from common.common_utils import barcode_gen
-from retailer_to_sp.models import PickerDashboard
+from retailer_to_sp.models import PickerDashboard, ShopCrate
 from wms.models import ZonePutawayUserAssignmentMapping, Zone, QCArea, ZonePickerUserAssignmentMapping, Crate, QCDesk, \
     QCDeskQCAreaAssignmentMapping, QCDeskQCAreaAssignmentMappingTransactionLog
 from wms.views import auto_qc_area_assignment_to_order
@@ -142,3 +142,4 @@ def create_crate_barcode(sender, instance=None, created=False, update_fields=Non
         instance.crate_barcode = InMemoryUploadedFile(image, 'ImageField', "%s.jpg" % instance.crate_id, 'image/jpeg',
                                                  sys.getsizeof(image), None)
         instance.save()
+        ShopCrate.objects.update_or_create(shop=instance.warehouse, crate=instance, defaults={'is_available': True})
