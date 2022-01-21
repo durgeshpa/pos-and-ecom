@@ -697,7 +697,7 @@ class RetailerReturnItemsAdmin(admin.TabularInline):
 class RetailerOrderReturnAdmin(admin.ModelAdmin, ExportCsvMixin):
     actions = ['export_order_return_as_csv']
     list_display = (
-    'order_no', 'download_credit_note', 'status', 'processed_by', 'return_value', 'refunded_amount', 'discount_adjusted', 'refund_points',
+    'order_no', 'cart_type', 'download_credit_note', 'status', 'processed_by', 'return_value', 'refunded_amount', 'discount_adjusted', 'refund_points',
     'refund_mode', 'created_at')
     fields = list_display
     list_per_page = 10
@@ -706,7 +706,7 @@ class RetailerOrderReturnAdmin(admin.ModelAdmin, ExportCsvMixin):
 
     def get_queryset(self, request):
         qs = super(RetailerOrderReturnAdmin, self).get_queryset(request)
-        qs = qs.filter(order__ordered_cart__cart_type='BASIC')
+        qs = qs.filter(order__ordered_cart__cart_type__in=['BASIC', 'ECOM'])
         if request.user.is_superuser:
             return qs
         return qs.filter(order__seller_shop__pos_shop__user=request.user,
@@ -722,6 +722,9 @@ class RetailerOrderReturnAdmin(admin.ModelAdmin, ExportCsvMixin):
             return format_html("<a href= '%s' >Download Credit Note</a>" % (reverse('admin:pos_download_order_return_credit_note', args=[obj.pk])))
         else:
             return '-'
+
+    def cart_type(self, obj):
+        return obj.order.ordered_cart.cart_type
 
     def get_urls(self):
         from django.conf.urls import url
