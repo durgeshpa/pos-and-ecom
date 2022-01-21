@@ -2839,7 +2839,9 @@ class DispatchInvoiceSerializer(serializers.ModelSerializer):
     def get_trip(self, obj):
         return DispatchTripSerializers(obj.trip_shipment.last().trip).data \
                 if obj.trip_shipment.filter(shipment_status__in=[
-                                                 DispatchTripShipmentMapping.LOADED_FOR_DC]).exists() else None
+                                                 DispatchTripShipmentMapping.LOADED_FOR_DC,
+                                                 DispatchTripShipmentMapping.UNLOADING_AT_DC,
+                                                 DispatchTripShipmentMapping.UNLOADED_AT_DC]).exists() else None
 
     def get_created_date(self, obj):
         return obj.created_at.strftime("%d/%b/%y %H:%M")
