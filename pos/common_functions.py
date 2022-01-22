@@ -76,9 +76,12 @@ class RetailerProductCls(object):
             General Response For API
         """
         product_status = 'active' if product_status is None else product_status
-        if online_enabled is True and float(online_price) == 0.0 and add_offer_price is True:
-            online_price = offer_price
-        elif online_enabled is True and float(online_price) == 0.0:
+        try:
+            if online_enabled is True and float(online_price) == 0.0 and add_offer_price is True:
+                online_price = offer_price
+            elif online_enabled is True and float(online_price) == 0.0:
+                online_price = selling_price
+        except:
             online_price = selling_price
         product = RetailerProduct.objects.create(shop_id=shop_id, name=name, linked_product_id=linked_product_id,
                                                  mrp=mrp, sku_type=sku_type, selling_price=selling_price,
