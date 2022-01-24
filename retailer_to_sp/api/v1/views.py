@@ -1932,8 +1932,8 @@ class CartCheckout(APIView):
             ECOM cart checkout
         """
         try:
-            cart = Cart.objects.get(cart_type='ECOM', buyer=self.request.user, seller_shop=kwargs['shop'],
-                                    cart_status='active')
+            cart = Cart.objects.filter(cart_type='ECOM', buyer=self.request.user, seller_shop=kwargs['shop'],
+                                    cart_status='active').last()
         except ObjectDoesNotExist:
             return api_response("No items added in cart yet")
 
