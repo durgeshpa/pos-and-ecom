@@ -857,7 +857,7 @@ def validate_fofo_sub_category(sub_cat_ids, shop):
         # Validate mandatory fields
         if 'key' not in sub_cat_id or not sub_cat_id['key']:
             return {'error': "'key': This is mandatory."}
-        if 'value' not in sub_cat_id or not sub_cat_id['value']:
+        if 'value' not in sub_cat_id:
             return {'error': "'value': This is mandatory."}
 
         # Validate key for FOFO Configurations

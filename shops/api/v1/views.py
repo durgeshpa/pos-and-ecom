@@ -1271,7 +1271,6 @@ class FOFOConfigCategoryView(generics.GenericAPIView):
         return get_response(msg, serializer.data, True)
 
     @check_pos_shop
-    @pos_check_permission
     def post(self, request, *args, **kwargs):
         serializer = self.serializer_class(data=request.data)
         if serializer.is_valid():
@@ -1297,7 +1296,6 @@ class FOFOConfigSubCategoryView(generics.GenericAPIView):
         return get_response(msg, serializer.data, True)
 
     @check_pos_shop
-    @pos_check_permission
     def post(self, request, *args, **kwargs):
         serializer = self.serializer_class(data=request.data)
         if serializer.is_valid():
@@ -1310,7 +1308,6 @@ class FOFOConfigurationsView(generics.GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (permissions.AllowAny,)
     queryset = FOFOConfigurations.objects.order_by('-id')
-    model = FOFOConfigurations
     serializer_class = FOFOConfigurationsCrudSerializer
 
     def get(self, request):
@@ -1324,7 +1321,6 @@ class FOFOConfigurationsView(generics.GenericAPIView):
         return get_response(msg, serializer.data, True)
 
     @check_pos_shop
-    @pos_check_permission
     def post(self, request, *args, **kwargs):
         shop = kwargs['shop']
         modified_data = self.validate_request_data()
@@ -1340,7 +1336,6 @@ class FOFOConfigurationsView(generics.GenericAPIView):
         return get_response(serializer_error_batch(serializer), False)
 
     @check_pos_shop
-    @pos_check_permission
     def put(self, request, *args, **kwargs):
         shop = kwargs['shop']
         modified_data = self.validate_request_data()
