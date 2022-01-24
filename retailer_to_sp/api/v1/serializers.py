@@ -4188,32 +4188,20 @@ class ShipmentPackageProductSerializer(serializers.ModelSerializer):
                   'product_image', 'product_mrp', 'product_ean_code', 'zone')
 
 
-class ShipmentPackageRetailerOrderedProductMappingSerializer(serializers.ModelSerializer):
-    # This serializer is used to fetch the products for a shipment
-    product = ShipmentPackageProductSerializer(read_only=True)
-    rt_ordered_product_mapping = OrderedProductBatchSerializer(read_only=True, many=True)
-    last_modified_by = UserSerializer(read_only=True)
-    shipment_product_packaging = ProductPackagingDetailsSerializer(read_only=True, many=True, source='return_pkg')
-    is_fully_delivered = serializers.SerializerMethodField()
-
-    def get_is_fully_delivered(self, obj):
-        return True if obj.shipped_qty == obj.delivered_qty else False
-
-    class Meta:
-        model = RetailerOrderedProductMapping
-        fields = ('id', 'ordered_qty', 'shipped_qty', 'product', 'is_qc_done', 'selling_price', 'shipped_qty',
-                  'delivered_qty', 'returned_qty', 'damaged_qty', 'returned_damage_qty', 'expired_qty', 'missing_qty',
-                  'rejected_qty', 'effective_price', 'discounted_price', 'delivered_at_price', 'cancellation_date',
-                  'picked_pieces', 'rt_ordered_product_mapping', 'shipment_product_packaging', 'last_modified_by',
-                  'is_fully_delivered', 'created_at', 'modified_at')
-
-
 class ShipmentPackageProductsSerializer(serializers.ModelSerializer):
+    product = serializers.SerializerMethodField(read_only=True)
+    batches = serializers.SerializerMethodField(read_only=True)
     quantity = serializers.IntegerField(read_only=True)
     return_qty = serializers.IntegerField(read_only=True)
     is_verified = serializers.BooleanField(read_only=True)
-    ordered_product = ShipmentPackageRetailerOrderedProductMappingSerializer(read_only=True)
+
+    def get_product(self, obj):
+        return ShipmentPackageProductSerializer(obj.ordered_product.product).data
+
+    def get_batches(self, obj):
+        return OrderedProductBatchSerializer(
+            obj.ordered_product.product.rt_ordered_product_mapping.all(), many=True).data
 
     class Meta:
         model = ShipmentPackagingMapping
-        fields = ('id', 'quantity', 'return_qty', 'is_verified', 'ordered_product')
+        fields = ('id', 'product', 'batches', 'quantity', 'return_qty', 'is_verified')
