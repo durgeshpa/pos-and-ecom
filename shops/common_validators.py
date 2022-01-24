@@ -7,8 +7,9 @@ from django.core.exceptions import ValidationError
 
 from django.contrib.auth import get_user_model
 
-from shops.models import DayBeatPlanning, ParentRetailerMapping, Product, Shop, ShopDocument, ShopInvoicePattern, ShopPhoto, \
-    ShopType, ShopUserMapping, RetailerType
+from shops.models import DayBeatPlanning, ParentRetailerMapping, Product, Shop, ShopDocument, ShopInvoicePattern, \
+    ShopPhoto, \
+    ShopType, ShopUserMapping, RetailerType, FOFOConfigSubCategory
 from addresses.models import City, Pincode, State
 from addresses.models import address_type_choices
 from django.contrib.auth.models import Group
@@ -845,3 +846,13 @@ def get_psu_mapping(user, shop):
         return {'error': 'Shop User mapping already exist with the provided shop and user.'}
     else:
         return {'data': "No mapping found"}
+
+
+def validate_fofo_sub_category(sub_cat_id):
+    """validate FOFO sub category id"""
+    try:
+        fofo_sub_cat_obj = FOFOConfigSubCategory.objects.get(id=sub_cat_id)
+    except Exception as e:
+        logger.error(e)
+        return {'error': '{} FOFO sub category not found'.format(sub_cat_id)}
+    return {'data': fofo_sub_cat_obj}

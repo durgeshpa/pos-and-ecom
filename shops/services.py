@@ -167,3 +167,27 @@ def shop_search(queryset, search_text):
     queryset = queryset.filter(Q(shop_name__icontains=search_text) | Q(
         retiler_mapping__parent__shop_name__icontains=search_text))
     return queryset
+
+
+def shop_config_search(queryset, search_text):
+    '''
+    search using config name and shop name on criteria that matches
+    '''
+    queryset = queryset.filter(Q(key__name__icontains=search_text) | Q(shop__shop_name__icontains=search_text))
+    return queryset
+
+
+def shop_category_search(queryset, search_text):
+    '''
+    search using config name and shop name on criteria that matches
+    '''
+    queryset = queryset.filter(Q(key__name__icontains=search_text) | Q(shop__shop_name__icontains=search_text))
+    return queryset
+
+
+def shop_category_search(queryset, search_text):
+    '''
+    search using config name and shop name on criteria that matches
+    '''
+    queryset = queryset.filter(Q(key__name__icontains=search_text) | Q(shop__shop_name__icontains=search_text))
+    return queryset

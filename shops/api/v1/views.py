@@ -23,18 +23,21 @@ from retailer_to_sp.models import OrderedProduct, Order
 from retailer_to_sp.api.v1.views import update_trip_status
 from retailer_to_sp.views import update_shipment_status_after_return
 from shops.common_functions import get_response, serializer_error
-from shops.services import shop_search
+from shops.services import shop_search, shop_config_search
 from shops.filters import FavouriteProductFilter
 
 from shops.models import (PosShopUserMapping, RetailerType, ShopType, Shop, ShopPhoto, ShopDocument, ShopUserMapping,
                           SalesAppVersion, ShopRequestBrand, ShopTiming, FavouriteProduct, BeatPlanning,
-                          DayBeatPlanning, ExecutiveFeedback, USER_TYPE_CHOICES)
+                          DayBeatPlanning, ExecutiveFeedback, USER_TYPE_CHOICES, FOFOConfigurations, FOFOConfigCategory,
+                          FOFOConfigSubCategory)
 from .serializers import (RetailerTypeSerializer, ShopTypeSerializer, ShopSerializer, ShopPhotoSerializer,
                           ShopDocumentSerializer, ShopTimingSerializer, ShopUserMappingSerializer, SellerShopSerializer,
                           AppVersionSerializer, ShopUserMappingUserSerializer, ShopRequestBrandSerializer,
                           FavouriteProductSerializer, AddFavouriteProductSerializer, ListFavouriteProductSerializer,
                           DayBeatPlanSerializer, FeedbackCreateSerializers, ExecutiveReportSerializer,
-                          PosShopUserMappingCreateSerializer, PosShopUserMappingUpdateSerializer, ShopBasicSerializer)
+                          PosShopUserMappingCreateSerializer, PosShopUserMappingUpdateSerializer, ShopBasicSerializer,
+                          FOFOConfigurationsCrudSerializer, FOFOCategoryConfigurationsCrudSerializer,
+                          FOFOSubCategoryConfigurationsCrudSerializer)
 
 User = get_user_model()
 
@@ -1247,3 +1250,81 @@ class ShopDocumentChoices(generics.GenericAPIView):
                                                (ShopDocument.WSVD, "Weighing Scale Verification Document")]]
         msg = [""]
         return get_response(msg, data, True)
+
+
+class FOFOConfigCategoryView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.AllowAny,)
+    queryset = FOFOConfigCategory.objects.order_by('-id')
+    serializer_class = FOFOCategoryConfigurationsCrudSerializer
+
+    def get(self, request):
+        """ GET Category List """
+        search_text = self.request.GET.get('search_text')
+        if search_text:
+            self.queryset = shop_category_search(self.queryset, search_text)
+        shop = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        serializer = self.serializer_class(shop, many=True)
+        msg = "" if shop else "no category found"
+        return get_response(msg, serializer.data, True)
+
+    @check_pos_shop
+    @pos_check_permission
+    def post(self, request, *args, **kwargs):
+        serializer = self.serializer_class(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return get_response('category created Successfully!', None, True, status.HTTP_200_OK)
+        return get_response(serializer_error(serializer), False)
+
+
+class FOFOConfigSubCategoryView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.AllowAny,)
+    queryset = FOFOConfigSubCategory.objects.order_by('-id')
+    serializer_class = FOFOSubCategoryConfigurationsCrudSerializer
+
+    def get(self, request):
+        """ GET Sub-Category List """
+        search_text = self.request.GET.get('search_text')
+        if search_text:
+            self.queryset = shop_sub_category_search(self.queryset, search_text)
+        shop = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        serializer = self.serializer_class(shop, many=True)
+        msg = "" if shop else "no sub category found"
+        return get_response(msg, serializer.data, True)
+
+    @check_pos_shop
+    @pos_check_permission
+    def post(self, request, *args, **kwargs):
+        serializer = self.serializer_class(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return get_response('Configurations has been done Successfully!', None, True, status.HTTP_200_OK)
+        return get_response(serializer_error(serializer), False)
+
+
+class FOFOConfigurationsView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.AllowAny,)
+    queryset = FOFOConfigurations.objects.order_by('-id')
+    serializer_class = FOFOConfigurationsCrudSerializer
+
+    def get(self, request):
+        """ GET Sub-Category List """
+        search_text = self.request.GET.get('search_text')
+        if search_text:
+            self.queryset = shop_config_search(self.queryset, search_text)
+        shop = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        serializer = self.serializer_class(shop, many=True)
+        msg = "" if shop else "no configurations found"
+        return get_response(msg, serializer.data, True)
+
+    @check_pos_shop
+    @pos_check_permission
+    def post(self, request, *args, **kwargs):
+        serializer = self.serializer_class(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return get_response('Configurations has been done Successfully!', None, True, status.HTTP_200_OK)
+        return get_response(serializer_error(serializer), False)

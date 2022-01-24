@@ -6,13 +6,15 @@ from datetime import datetime, timedelta
 from django.core.validators import RegexValidator
 
 from shops.models import (PosShopUserMapping, RetailerType, ShopType, Shop, ShopPhoto,
-    ShopRequestBrand, ShopDocument, ShopUserMapping, SalesAppVersion, ShopTiming,
-    FavouriteProduct, DayBeatPlanning, ExecutiveFeedback, USER_TYPE_CHOICES
-)
+                          ShopRequestBrand, ShopDocument, ShopUserMapping, SalesAppVersion, ShopTiming,
+                          FavouriteProduct, DayBeatPlanning, ExecutiveFeedback, USER_TYPE_CHOICES, FOFOConfigurations,
+                          FOFOConfigCategory, FOFOConfigSubCategory
+                          )
 from django.contrib.auth import get_user_model
 from django.db import transaction
 from django.db.models import Sum
-from shops.common_validators import get_psu_mapping, get_validate_shop, get_validate_user, get_validate_user_type
+from shops.common_validators import get_psu_mapping, get_validate_shop, get_validate_user, get_validate_user_type, \
+    validate_fofo_sub_category
 from accounts.api.v1.serializers import UserSerializer,GroupSerializer
 from retailer_backend.validators import MobileNumberValidator
 from retailer_to_sp.models import Order, Payment
@@ -836,3 +838,62 @@ class PosShopUserMappingUpdateSerializer(serializers.ModelSerializer):
         mapping.is_delivery_person = validated_data['is_delivery_person'] if 'is_delivery_person' in validated_data else mapping.is_delivery_person
         mapping.save()
 
+
+class FOFOCategoryConfigurationsCrudSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = FOFOConfigCategory
+        fields = ('id', 'name',)
+
+
+class FOFOSubCategoryConfigurationsCrudSerializer(serializers.ModelSerializer):
+    category = FOFOCategoryConfigurationsCrudSerializer()
+
+    class Meta:
+        model = FOFOConfigSubCategory
+        fields = ('id', 'name', 'category')
+
+
+class FOFOConfigurationsCrudSerializer(serializers.ModelSerializer):
+    key = FOFOSubCategoryConfigurationsCrudSerializer(read_only=True)
+    shop = BeatShopSerializer(read_only=True)
+
+    class Meta:
+        model = FOFOConfigurations
+        fields = ('shop', 'key', 'value')
+
+    def validate(self, data):
+
+        if 'value' not in self.initial_data or self.initial_data['value'] is None:
+            raise serializers.ValidationError("value is required")
+
+        if 'shop' in self.initial_data and self.initial_data['shop']:
+            shop = Shop.objects.filter(
+                id=self.initial_data['shop'], shop_type__shop_type='f',
+                shop_type__shop_sub_type__retailer_type_name='fofo').last()
+            if not shop:
+                raise serializers.ValidationError("Invalid shop")
+            data['shop'] = shop
+        else:
+            raise serializers.ValidationError("shop is required")
+
+        if 'key' in self.initial_data and self.initial_data['key']:
+            sub_cat_id = validate_fofo_sub_category(self.initial_data['key'])
+            if 'error' in sub_cat_id:
+                raise serializers.ValidationError((sub_cat_id["error"]))
+            data['key'] = sub_cat_id['data']
+        else:
+            raise serializers.ValidationError("'key' | This is mandatory.")
+
+        if 'id' in self.initial_data and self.initial_data['id']:
+            if not FOFOConfigurations.objects.filter(
+                    id=self.initial_data['id'], shop=shop, key=data['key']).exists():
+                raise serializers.ValidationError(f"No configuration {data['key']} found for the store.")
+        elif FOFOConfigurations.objects.filter(shop=shop, key=data['key']).exists():
+            raise serializers.ValidationError(f"Configuration {data['key']} already exist for the store.")
+
+        return data
+
+    @transaction.atomic
+    def create(self, validated_data):
+        return FOFOConfigurations.objects.create(**validated_data)

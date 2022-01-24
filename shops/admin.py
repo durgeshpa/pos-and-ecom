@@ -15,7 +15,8 @@ from django.http import HttpResponse
 from .models import (
     PosShopUserMapping, Shop, ShopType, RetailerType, ParentRetailerMapping,
     ShopPhoto, ShopDocument, ShopInvoicePattern, ShopUserMapping,
-    ShopRequestBrand, SalesAppVersion, ShopTiming, FavouriteProduct, BeatPlanning, DayBeatPlanning, ExecutiveFeedback, ShopStatusLog)
+    ShopRequestBrand, SalesAppVersion, ShopTiming, FavouriteProduct, BeatPlanning, DayBeatPlanning, ExecutiveFeedback,
+    ShopStatusLog, FOFOConfigCategory, FOFOConfigSubCategory, FOFOConfigurations)
 from addresses.models import Address
 from addresses.forms import AddressForm
 from .forms import (ParentRetailerMappingForm, PosShopUserMappingForm, ShopParentRetailerMappingForm,
@@ -673,6 +674,22 @@ class ExecutiveFeedbackAdmin(admin.ModelAdmin):
         return obj.day_beat_plan.id
 
 
+class payment_type(admin.ModelAdmin):
+    fields = ('name', )
+
+
+class FOFOConfigCategoryAdmin(admin.ModelAdmin):
+    fields = ('name', )
+
+
+class FOFOConfigSubCategoryAdmin(admin.ModelAdmin):
+    fields = ('name', 'category')
+
+
+class FOFOConfigurationsAdmin(admin.ModelAdmin):
+    fields = ('shop', 'key', 'value')
+
+
 admin.site.register(ParentRetailerMapping, ParentRetailerMappingAdmin)
 admin.site.register(ShopType, ShopTypeAdmin)
 admin.site.register(RetailerType)
@@ -685,3 +702,6 @@ admin.site.register(ShopTiming, ShopTimingAdmin)
 admin.site.register(BeatPlanning, BeatPlanningAdmin)
 admin.site.register(PosShopUserMapping, PosShopUserMappingAdmin)
 admin.site.register(ExecutiveFeedback, ExecutiveFeedbackAdmin)
+admin.site.register(FOFOConfigCategory, FOFOConfigCategoryAdmin)
+admin.site.register(FOFOConfigSubCategory, FOFOConfigSubCategoryAdmin)
+admin.site.register(FOFOConfigurations, FOFOConfigurationsAdmin)
