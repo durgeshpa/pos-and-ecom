@@ -4001,6 +4001,11 @@ class PackagesUnderTripSerializer(serializers.ModelSerializer):
     crate = CrateSerializer(read_only=True)
     packaging_type = serializers.CharField(read_only=True)
     shipment = ShipmentSerializerForDispatch(read_only=True)
+    trip_loading_status = serializers.SerializerMethodField()
+
+    def get_trip_loading_status(self, obj):
+        return obj.trip_packaging_details.last().package_status \
+            if obj.trip_packaging_details.filter(~Q(package_status=DispatchTripShipmentPackages.CANCELLED)).exists() else None
 
     @staticmethod
     def get_reason_for_rejection(obj):
@@ -4008,7 +4013,8 @@ class PackagesUnderTripSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ShipmentPackaging
-        fields = ('id', 'shipment', 'packaging_type', 'crate', 'status', 'reason_for_rejection', 'packaging_details')
+        fields = ('id', 'shipment', 'packaging_type', 'crate', 'status', 'reason_for_rejection', 'packaging_details',
+                  'trip_loading_status')
 
 
 class ShipmentPackagingBatchInfoSerializer(serializers.ModelSerializer):
