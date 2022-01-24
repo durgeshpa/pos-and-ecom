@@ -34,7 +34,7 @@ from addresses.api.v1.serializers import AddressSerializer
 from coupon.serializers import CouponSerializer
 from wms.api.v2.serializers import QCDeskSerializer, QCAreaSerializer
 from wms.common_functions import release_picking_crates, send_update_to_qcdesk
-from wms.models import Crate
+from wms.models import Crate, WarehouseAssortment, Zone
 
 User = get_user_model()
 
@@ -4154,15 +4154,63 @@ class MarkShipmentPackageVerifiedSerializer(serializers.ModelSerializer):
         return trip_shipment_package
 
 
+class ShipmentPackageZoneSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Zone
+        fields = ('id', 'zone_number', 'name')
+
+
+class ShipmentPackageProductSerializer(serializers.ModelSerializer):
+    product_image = serializers.SerializerMethodField()
+    product_brand = serializers.SerializerMethodField()
+    zone = serializers.SerializerMethodField()
+
+    def get_product_image(self, obj):
+        if ProductImage.objects.filter(product=obj).exists():
+            product_image = ProductImage.objects.filter(product=obj)[0].image.url
+            return product_image
+        else:
+            return None
+
+    def get_product_brand(self, obj):
+        return obj.product_brand.brand_name
+
+    def get_zone(self, obj):
+        return ShipmentPackageZoneSerializer(WarehouseAssortment.objects.filter(
+            product=obj.parent_product, warehouse=self.context.get('shop')).last().zone).data
+
+    class Meta:
+        model = Product
+        fields = ('id', 'product_sku', 'product_name', 'product_brand', 'product_inner_case_size', 'product_case_size',
+                  'product_image', 'product_mrp', 'product_ean_code', 'zone')
+
+
+class ShipmentPackageRetailerOrderedProductMappingSerializer(serializers.ModelSerializer):
+    # This serializer is used to fetch the products for a shipment
+    product = ShipmentPackageProductSerializer(read_only=True)
+    rt_ordered_product_mapping = OrderedProductBatchSerializer(read_only=True, many=True)
+    last_modified_by = UserSerializer(read_only=True)
+    shipment_product_packaging = ProductPackagingDetailsSerializer(read_only=True, many=True, source='return_pkg')
+    is_fully_delivered = serializers.SerializerMethodField()
+
+    def get_is_fully_delivered(self, obj):
+        return True if obj.shipped_qty == obj.delivered_qty else False
+
+    class Meta:
+        model = RetailerOrderedProductMapping
+        fields = ('id', 'ordered_qty', 'shipped_qty', 'product', 'is_qc_done', 'selling_price', 'shipped_qty',
+                  'delivered_qty', 'returned_qty', 'damaged_qty', 'returned_damage_qty', 'expired_qty', 'missing_qty',
+                  'rejected_qty', 'effective_price', 'discounted_price', 'delivered_at_price', 'cancellation_date',
+                  'picked_pieces', 'rt_ordered_product_mapping', 'shipment_product_packaging', 'last_modified_by',
+                  'is_fully_delivered', 'created_at', 'modified_at')
+
+
 class ShipmentPackageProductsSerializer(serializers.ModelSerializer):
-    product = serializers.SerializerMethodField(read_only=True)
     quantity = serializers.IntegerField(read_only=True)
     return_qty = serializers.IntegerField(read_only=True)
     is_verified = serializers.BooleanField(read_only=True)
-
-    def get_product(self, obj):
-        return ProductSerializer(obj.ordered_product.product).data
+    ordered_product = ShipmentPackageRetailerOrderedProductMappingSerializer(read_only=True)
 
     class Meta:
         model = ShipmentPackagingMapping
-        fields = ('id', 'product', 'quantity', 'return_qty', 'is_verified')
+        fields = ('id', 'quantity', 'return_qty', 'is_verified', 'ordered_product')
