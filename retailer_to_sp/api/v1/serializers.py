@@ -2632,6 +2632,12 @@ class ShipmentPackageSerializer(serializers.ModelSerializer):
     crate = CrateSerializer(read_only=True)
     packaging_type = ChoicesSerializer(choices=ShipmentPackaging.PACKAGING_TYPE_CHOICES, required=True)
     shipment = ShipmentSerializerForDispatch(read_only=True)
+    is_return_verified = serializers.SerializerMethodField()
+
+    def get_is_return_verified(self, obj):
+        return True if obj.status in [ShipmentPackaging.DISPATCH_STATUS_CHOICES.RETURN_VERIFIED,
+                               ShipmentPackaging.DISPATCH_STATUS_CHOICES.RETURN_MISSING,
+                               ShipmentPackaging.DISPATCH_STATUS_CHOICES.RETURN_DAMAGED] else False
 
     def get_trip_loading_status(self, obj):
         return obj.trip_packaging_details.last().package_status \
@@ -2639,7 +2645,8 @@ class ShipmentPackageSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ShipmentPackaging
-        fields = ('id', 'shipment', 'packaging_type', 'crate', 'return_remark', 'trip_loading_status')
+        fields = ('id', 'shipment', 'packaging_type', 'crate', 'return_remark', 'trip_loading_status',
+                  'is_return_verified')
 
     def validate(self, data):
 
@@ -2654,10 +2661,10 @@ class ShipmentPackageSerializer(serializers.ModelSerializer):
 
         if 'crate_id' in self.initial_data and self.initial_data['crate_id']:
             if not Crate.objects.filter(crate_id=self.initial_data['crate_id'], crate_type=Crate.DISPATCH,
-                                        shop_crates__shop__id=shop, shop_crates__is_available=True).exists():
+                                        shop_crates__shop=shop).exists():
                 raise serializers.ValidationError("'crate_id' | Invalid crate selected.")
             crate = Crate.objects.filter(crate_id=self.initial_data['crate_id'], crate_type=Crate.DISPATCH,
-                                         shop_crates__shop__id=shop, shop_crates__is_available=True).last()
+                                         shop_crates__shop=shop).last()
             data['crate'] = crate
         else:
             raise serializers.ValidationError("'crate_id' | This is mandatory")
@@ -2689,7 +2696,7 @@ class ShipmentPackageSerializer(serializers.ModelSerializer):
             if shipment_packaging.status not in [ShipmentPackaging.DISPATCH_STATUS_CHOICES.REJECTED,
                                                  ShipmentPackaging.DISPATCH_STATUS_CHOICES.DISPATCHED,
                                                  ShipmentPackaging.DISPATCH_STATUS_CHOICES.DELIVERED]:
-                raise serializers.ValidationError(f"Current status is  {str(shipment_packaging.status)} | can't update")
+                raise serializers.ValidationError(f"Invalid Crate status  | can't update")
 
             if status in [ShipmentPackaging.DISPATCH_STATUS_CHOICES.RETURN_MISSING,
                           ShipmentPackaging.DISPATCH_STATUS_CHOICES.RETURN_DAMAGED]:
@@ -2700,7 +2707,7 @@ class ShipmentPackageSerializer(serializers.ModelSerializer):
                         raise serializers.ValidationError("'return_remark' | Invalid remark.")
                 else:
                     raise serializers.ValidationError("'return_remark' | This is mandatory for missing or damage.")
-            data['status'] = self.initial_data['status']
+            data['status'] = status
         else:
             raise serializers.ValidationError("'status' | This is mandatory")
 
