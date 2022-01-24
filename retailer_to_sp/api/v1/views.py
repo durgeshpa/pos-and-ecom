@@ -3089,7 +3089,7 @@ class OrderCentral(APIView):
         if address.pincode != shop.shop_name_address_mapping.filter(address_type='shipping').last().pincode_link.pincode:
             return api_response("This Shop is not serviceable at your delivery address")
         try:
-            cart = Cart.objects.get(cart_type='ECOM', buyer=self.request.user, seller_shop=shop, cart_status='active')
+            cart = Cart.objects.filter(cart_type='ECOM', buyer=self.request.user, seller_shop=shop, cart_status='active').last()
         except ObjectDoesNotExist:
             return api_response("Please add items to proceed to order")
 
