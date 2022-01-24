@@ -1119,8 +1119,8 @@ class CartCentral(GenericAPIView):
         """
         with transaction.atomic():
             try:
-                cart = Cart.objects.get(cart_type='ECOM', buyer=self.request.user, cart_status='active',
-                                        seller_shop=kwargs['shop'])
+                cart = Cart.objects.filter(cart_type='ECOM', buyer=self.request.user, cart_status='active',
+                                        seller_shop=kwargs['shop']).last()
                 # Empty cart if shop/location changed
                 if cart.seller_shop.id != kwargs['shop'].id:
                     cart.seller_shop = kwargs['shop']
