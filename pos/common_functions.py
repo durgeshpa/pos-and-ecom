@@ -71,11 +71,18 @@ class RetailerProductCls(object):
                                 product_ean_code, user, event_type, pack_type, measure_cat_id, event_id=None,
                                 product_status='active', offer_price=None, offer_sd=None, offer_ed=None,
                                 product_ref=None, online_enabled=True, online_price=None, purchase_pack_size=1,
-                                is_visible=False, initial_purchase_value=None):
+                                is_visible=False, initial_purchase_value=None, add_offer_price=False):
         """
             General Response For API
         """
         product_status = 'active' if product_status is None else product_status
+        try:
+            if online_enabled is True and float(online_price) == 0.0 and add_offer_price is True:
+                online_price = offer_price
+            elif online_enabled is True and float(online_price) == 0.0:
+                online_price = selling_price
+        except:
+            online_price = selling_price
         product = RetailerProduct.objects.create(shop_id=shop_id, name=name, linked_product_id=linked_product_id,
                                                  mrp=mrp, sku_type=sku_type, selling_price=selling_price,
                                                  offer_price=offer_price, offer_start_date=offer_sd,
