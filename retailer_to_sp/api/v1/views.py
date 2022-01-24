@@ -1849,7 +1849,7 @@ class CartCheckout(APIView):
         spot_discount = self.request.data.get('spot_discount')
         with transaction.atomic():
             # Refresh redeem reward
-            RewardCls.checkout_redeem_points(cart, cart.redeem_points)
+            redeem_points_message = RewardCls.checkout_redeem_points(cart, cart.redeem_points)
             if spot_discount:
                 offers = BasicCartOffers.apply_spot_discount(cart, spot_discount,
                                                              self.request.data.get('is_percentage'))
@@ -1859,9 +1859,13 @@ class CartCheckout(APIView):
             if 'error' in offers:
                 return api_response(offers['error'], None, offers['code'])
             if offers['applied']:
-                return api_response('Applied Successfully', self.serialize(cart,app_type=kwargs.get('app_type',None)), status.HTTP_200_OK, True)
+                data = self.serialize(cart,app_type=kwargs.get('app_type',None))
+                data.update({"redeem_points_message":redeem_points_message})
+                return api_response('Applied Successfully', data, status.HTTP_200_OK, True)
             else:
-                return api_response('Not Applicable', self.serialize(cart), status.HTTP_200_OK)
+                data = self.serialize(cart)
+                data.update({"redeem_points_message":redeem_points_message})
+                return api_response('Not Applicable',data, status.HTTP_200_OK)
 
     @check_ecom_user_shop
     def post_ecom_cart_checkout(self, request, *args, **kwargs):
@@ -1879,15 +1883,17 @@ class CartCheckout(APIView):
             return api_response("Invalid request")
         with transaction.atomic():
             # Refresh redeem reward
-            RewardCls.checkout_redeem_points(cart, 0, self.request.GET.get('use_rewards', 1))
+            use_rewrd_this_month=RewardCls.checkout_redeem_points(cart, 0, self.request.GET.get('use_rewards', 1))
             # Get offers available now and apply coupon if applicable
             offers = BasicCartOffers.refresh_offers_checkout(cart, False, self.request.data.get('coupon_id'))
+            data = self.serialize(cart)
+            data['redeem_points_message'] = use_rewrd_this_month
             if 'error' in offers:
                 return api_response(offers['error'], None, offers['code'])
             if offers['applied']:
-                return api_response('Applied Successfully', self.serialize(cart), status.HTTP_200_OK, True)
+                return api_response('Applied Successfully',data , status.HTTP_200_OK, True)
             else:
-                return api_response('Not Applicable', self.serialize(cart), status.HTTP_200_OK)
+                return api_response('Not Applicable', data, status.HTTP_200_OK)
 
     def get(self, request, *args, **kwargs):
         """
@@ -1922,9 +1928,12 @@ class CartCheckout(APIView):
             # Redeem reward points on order
             redeem_points = redeem_points if redeem_points else cart.redeem_points
             # Refresh redeem reward
-            RewardCls.checkout_redeem_points(cart, int(redeem_points))
+            redeem_points_message = RewardCls.checkout_redeem_points(cart, int(redeem_points))
             app_type=kwargs['app_type']
-            return api_response("Cart Checkout", self.serialize(cart, offers, app_type), status.HTTP_200_OK, True)
+            data = self.serialize(cart, offers, app_type)
+            data.update({"redeem_points_message":redeem_points_message})
+
+            return api_response("Cart Checkout", data, status.HTTP_200_OK, True)
 
     @check_ecom_user_shop
     def get_ecom_cart_checkout(self, request, *args, **kwargs):
@@ -1941,11 +1950,12 @@ class CartCheckout(APIView):
             # Get Offers Applicable, Verify applied offers, Apply highest discount on cart if auto apply
             offers = BasicCartOffers.refresh_offers_checkout(cart, False, None)
             # Refresh redeem reward
-            RewardCls.checkout_redeem_points(cart, 0, self.request.GET.get('use_rewards', 1))
+            use_rewrd_this_month = RewardCls.checkout_redeem_points(cart, 0, self.request.GET.get('use_rewards', 1))
             data = self.serialize(cart, offers)
             address = AddressCheckoutSerializer(cart.buyer.ecom_user_address.filter(default=True).last()).data
             data.update({'default_address': address})
             data.update({'saving':round(data['total_mrp']-data['amount_payable'],2)})
+            data.update({"redeem_points_message":use_rewrd_this_month})
             return api_response("Cart Checkout", data, status.HTTP_200_OK, True)
 
     def delete(self, request, *args, **kwargs):
