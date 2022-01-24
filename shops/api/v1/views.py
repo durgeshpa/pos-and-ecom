@@ -1,3 +1,4 @@
+import json
 import logging
 from dateutil.relativedelta import relativedelta
 from datetime import datetime, timedelta
@@ -15,7 +16,7 @@ from accounts.models import USER_DOCUMENTS_TYPE_CHOICES
 from addresses.models import Address
 from addresses.api.v1.serializers import AddressSerializer
 from common.data_wrapper_view import DataWrapperViewSet
-from pos.common_functions import check_pos_shop, pos_check_permission
+from pos.common_functions import check_pos_shop, pos_check_permission, api_response
 from retailer_backend.utils import SmallOffsetPagination
 from retailer_backend import messages
 from retailer_backend.messages import SUCCESS_MESSAGES, ERROR_MESSAGES
@@ -23,7 +24,7 @@ from retailer_to_sp.models import OrderedProduct, Order
 from retailer_to_sp.api.v1.views import update_trip_status
 from retailer_to_sp.views import update_shipment_status_after_return
 from shops.common_functions import get_response, serializer_error
-from shops.services import shop_search, shop_config_search
+from shops.services import shop_search, shop_config_search, shop_category_search, shop_sub_category_search
 from shops.filters import FavouriteProductFilter
 
 from shops.models import (PosShopUserMapping, RetailerType, ShopType, Shop, ShopPhoto, ShopDocument, ShopUserMapping,
@@ -1300,7 +1301,7 @@ class FOFOConfigSubCategoryView(generics.GenericAPIView):
         serializer = self.serializer_class(data=request.data)
         if serializer.is_valid():
             serializer.save()
-            return get_response('Configurations has been done Successfully!', None, True, status.HTTP_200_OK)
+            return get_response('sub category created Successfully!', None, True, status.HTTP_200_OK)
         return get_response(serializer_error(serializer), False)
 
 
@@ -1323,8 +1324,21 @@ class FOFOConfigurationsView(generics.GenericAPIView):
     @check_pos_shop
     @pos_check_permission
     def post(self, request, *args, **kwargs):
-        serializer = self.serializer_class(data=request.data)
+        shop = kwargs['shop']
+        modified_data = self.validate_create(shop.id)
+        if 'error' in modified_data:
+            return api_response(modified_data['error'])
+        serializer = self.serializer_class(data=modified_data)
         if serializer.is_valid():
             serializer.save()
             return get_response('Configurations has been done Successfully!', None, True, status.HTTP_200_OK)
         return get_response(serializer_error(serializer), False)
+
+    def validate_create(self, shop_id):
+        # Validate product data
+        try:
+            data = self.request.data["data"]
+        except:
+            return {'error': "Invalid Data Format"}
+        data['shop'] = shop_id
+        return data

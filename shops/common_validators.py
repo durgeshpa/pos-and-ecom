@@ -848,11 +848,21 @@ def get_psu_mapping(user, shop):
         return {'data': "No mapping found"}
 
 
-def validate_fofo_sub_category(sub_cat_id):
-    """validate FOFO sub category id"""
-    try:
-        fofo_sub_cat_obj = FOFOConfigSubCategory.objects.get(id=sub_cat_id)
-    except Exception as e:
-        logger.error(e)
-        return {'error': '{} FOFO sub category not found'.format(sub_cat_id)}
-    return {'data': fofo_sub_cat_obj}
+
+def validate_fofo_sub_category(sub_cat_ids):
+
+    """ validate FOFO sub category id """
+
+    sub_cat_list = []
+    sub_cat_obj = []
+    for sub_cat_id in sub_cat_ids:
+        try:
+            fofo_sub_cat_obj = FOFOConfigSubCategory.objects.get(id=sub_cat_id['key'])
+        except Exception as e:
+            logger.error(e)
+            return {'error': '{} picker_user not found'.format(sub_cat_id['key'])}
+        sub_cat_obj.append(fofo_sub_cat_obj)
+        if fofo_sub_cat_obj in sub_cat_list:
+            return {'error': '{} do not repeat same key for one shop'.format(fofo_sub_cat_obj)}
+        sub_cat_list.append(fofo_sub_cat_obj)
+    return {'sub_cat': sub_cat_obj}

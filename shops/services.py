@@ -185,7 +185,7 @@ def shop_category_search(queryset, search_text):
     return queryset
 
 
-def shop_category_search(queryset, search_text):
+def shop_sub_category_search(queryset, search_text):
     '''
     search using config name and shop name on criteria that matches
     '''
