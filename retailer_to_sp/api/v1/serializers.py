@@ -1935,7 +1935,7 @@ class ShipmentQCSerializer(serializers.ModelSerializer):
     def create_shipment_reschedule(self, shipment_instance, rescheduling_reason, rescheduling_date):
         """Create shipment rescheduled"""
         info_logger.info(f"create_shipment_reschedule|Reschedule Started|Shipment ID {shipment_instance.id}")
-        if ShipmentRescheduling.objects.filter(shipment=shipment_instance).exists():
+        if not ShipmentRescheduling.objects.filter(shipment=shipment_instance).exists():
             ShipmentRescheduling.objects.create(
                 shipment=shipment_instance, rescheduling_reason=rescheduling_reason, rescheduling_date=rescheduling_date,
                 created_by=shipment_instance.updated_by)
@@ -1947,7 +1947,7 @@ class ShipmentQCSerializer(serializers.ModelSerializer):
     def create_shipment_not_attempt(self, shipment_instance, not_attempt_reason):
         """Create shipment not attempt"""
         info_logger.info(f"create_shipment_not_attempt|Not Attempt Started|Shipment ID {shipment_instance.id}")
-        if ShipmentNotAttempt.objects.filter(
+        if not ShipmentNotAttempt.objects.filter(
                 shipment=shipment_instance, created_at__date=datetime.datetime.now().date()).exists():
             ShipmentNotAttempt.objects.create(
                 shipment=shipment_instance, not_attempt_reason=not_attempt_reason,
