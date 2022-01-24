@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import random
+from tabnanny import verbose
 import time
 
 from django.db import models
@@ -8,13 +9,14 @@ from django.contrib.auth import get_user_model
 from django.contrib.postgres.fields import (JSONField,
                                             ArrayField)
 from django.core.exceptions import ValidationError
+from report.managers import ScheduledReportRequestManager
 
-def rid_generator(self):
-    return  self.report_type + ''.join(str(time.time()).split('.'))[:-2] + self.report_name
+def rid_generator(report_type, report_name):
+    return  report_type + ''.join(str(time.time()).split('.'))[:-2] + report_name
 
-class AsyncReport(models.Model):
+class AsyncReportRequest(models.Model):
 
-    REPORT_CHOICE = (
+    REPORT_CHOICES = (
         ('EO', 'Ecom - Orders'),
         ('BO', 'Buyer - Orders'),
         ('BP', 'Buyer - Payements'),
@@ -27,7 +29,11 @@ class AsyncReport(models.Model):
         ('C', 'Commercial'),
         ('CC', 'Customer Care'),
     )
-    REPORT_TYPE = (
+    REPORT_SOURCES = (
+        ('HT', 'Host'),
+        ('RH', 'Redash')
+    )
+    REPORT_TYPES = (
         ('AD', 'AdHoc'),
         ('SC', 'Scheduled')
     )
@@ -80,6 +86,7 @@ class AsyncReport(models.Model):
     )
     STATUS = (
         ('N', 'New'),
+        ('P', 'Proccessing'),
         ('S', 'Success'),
         ('F', 'Failed'),
         ('EF', 'Email Failed')
@@ -89,11 +96,13 @@ class AsyncReport(models.Model):
                            null=True,
                            blank=True)
     input_params = JSONField(null=True)
-    report_name = models.CharField(choices=REPORT_CHOICE,
+    report_name = models.CharField(choices=REPORT_CHOICES,
                                    max_length=5)
-    report_type = models.CharField(choices=REPORT_TYPE,
-                                   max_length=5,
+    report_type = models.CharField(choices=REPORT_TYPES,
+                                   max_length=5, 
                                    default='AD')
+    source = models.CharField(choices=REPORT_SOURCES, 
+                                   max_length=5, default='HT')
     status = models.CharField(choices=STATUS,
                              max_length=3, 
                              default='N')
@@ -106,7 +115,7 @@ class AsyncReport(models.Model):
                              blank=True,
                              on_delete=models.DO_NOTHING)
     emails = ArrayField(models.EmailField(max_length=100),
-                        blank=True, default=[])
+                        blank=True, default=list)
     frequency = models.CharField(choices=FREQUENCY_CHOICES,
                                  max_length=12, 
                                  null=True, 
@@ -120,11 +129,11 @@ class AsyncReport(models.Model):
     
     def save(self, *args, **kwargs):
         if not self.pk:
-            self.rid = rid_generator(self)
+            self.rid = rid_generator(self.report_type, self.report_name)
         return super().save(*args, **kwargs)
         
     def clean(self):
-        super(AsyncReport, self).clean()
+        super(AsyncReportRequest, self).clean()
         if self.report_type == 'SC':
             if not self.frequency:
                 raise ValidationError({'frequency': 'Frequency is required for scheduled type reports.'})
@@ -136,9 +145,36 @@ class AsyncReport(models.Model):
             if self.schedule_time:
                 raise ValidationError({'schedule_time': 'Schedule time is not required for AdHoc type reports.'})
     
-    def __str__(self):
+    def __str__(self) -> str:
         return self.rid
 
     class Meta:
-        verbose_name = 'Async Report'
-        verbose_name_plural = 'Async Reports'
+        verbose_name = 'Async Report Request'
+        verbose_name_plural = 'Async Report Requests'
+
+
+class ScheduledReportRequest(AsyncReportRequest):
+    objects = ScheduledReportRequestManager()
+    
+    class Meta:
+        proxy = True
+        verbose_name = 'Scheduled Report Request'
+        verbose_name_plural = 'Scheduled Report Requests'
+
+
+class ScheduledReport(models.Model):
+    
+    request = models.ForeignKey(AsyncReportRequest, 
+                                on_delete=models.CASCADE, 
+                                related_name='reports')
+    report = models.FileField(upload_to='reports/csv/',
+                              null=True,
+                              blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    def __str__(self) -> str:
+        return str(self.id) + " | " + str(self.request)
+    
+    class Meta:
+        verbose_name = 'Scheduled Report'
+        verbose_name_plural = 'Scheduled Reports'

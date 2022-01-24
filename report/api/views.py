@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+from re import U
 import requests
 import io
 
@@ -17,7 +18,7 @@ from report.api.serializers import (AsyncReportListSerializer,
                                     AsyncReportRetrieveSerializer,
                                     AsyncReportModelSerializer)
 from retailer_backend.utils import SmallOffsetPagination
-from report.models import AsyncReport
+from report.models import AsyncReportRequest
 
 class AsyncReportListRetrieveView(DataWrapperListRetrieveViewSet):
     
@@ -27,8 +28,13 @@ class AsyncReportListRetrieveView(DataWrapperListRetrieveViewSet):
     
     def get_queryset(self):
         if self.request.user.is_superuser:
-            reports = AsyncReport.objects.order_by('-created_at')
-        reports = AsyncReport.objects.filter(user=self.request.user).order_by('-created_at')
+            user = self.request.query_params.get('user_id')
+            if user:
+                reports = AsyncReportRequest.objects.filter(user_id=user).order_by('-created_at')
+            else:
+                reports = AsyncReportRequest.objects.order_by('-created_at')
+        else:
+            reports = AsyncReportRequest.objects.filter(user=self.request.user).order_by('-created_at')
         
         report_name = self.request.query_params.get('report_name')
         report_type = self.request.query_params.get('report_type')
@@ -52,7 +58,7 @@ class AsyncReportFileView(APIView):
     
     def get(self, request, *args, **kwargs):
         try:
-            report = AsyncReport.objects.get(id=kwargs.get('id'))
+            report = AsyncReportRequest.objects.get(id=kwargs.get('id'))
             if report.report:
                 with requests.Session() as s:
                     response = s.get(report.report.url)
@@ -62,7 +68,7 @@ class AsyncReportFileView(APIView):
                     return response 
             else:
                 return Response(status=status.HTTP_404_NOT_FOUND)
-        except AsyncReport.DoesNotExist:
+        except AsyncReportRequest.DoesNotExist:
             return Response(status=status.HTTP_404_NOT_FOUND)
 
 
@@ -73,7 +79,7 @@ class AsyncReportCreateUpdateView(DataWrapperCreateUpdateViewSet):
     serializer_class = AsyncReportModelSerializer
     
     def get_queryset(self):
-        return AsyncReport.objects.filter(user=self.request.user)
+        return AsyncReportRequest.objects.filter(user=self.request.user)
     
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
