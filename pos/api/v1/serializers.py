@@ -711,7 +711,7 @@ class BasicOrderListSerializer(serializers.ModelSerializer):
 
     def payment_data(self, obj):
         if not obj.rt_payment_retailer_order.exists():
-            return None
+            return PaymentSerializer(obj.rt_payment_retailer_order.all(), many=True).data
         return PaymentSerializer(obj.rt_payment_retailer_order.all(), many=True).data
 
     def get_delivery_persons(self, obj):
