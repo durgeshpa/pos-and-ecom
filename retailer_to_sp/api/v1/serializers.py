@@ -2830,6 +2830,42 @@ class DispatchInvoiceSerializer(serializers.ModelSerializer):
         fields = ('id', 'order', 'shipment_status', 'invoice_no', 'invoice_amount', 'trip', 'created_date')
 
 
+class DispatchCenterCrateSerializer(serializers.ModelSerializer):
+    crate = CrateSerializer(read_only=True)
+    trip = serializers.SerializerMethodField()
+    created_date = serializers.SerializerMethodField()
+
+    def get_trip(self, obj):
+        return DispatchTripSerializers(obj.crate.crate_trips.last().trip).data \
+            if not obj.is_available and obj.crate.crate_trips.exists() else None
+
+    def get_created_date(self, obj):
+        return obj.created_at.strftime("%d/%b/%y %H:%M")
+
+    class Meta:
+        model = ShopCrate
+        fields = ('id', 'trip', 'crate', 'created_date')
+
+
+class DispatchCenterShipmentPackageSerializer(serializers.ModelSerializer):
+    crate = CrateSerializer(read_only=True)
+    trip = serializers.SerializerMethodField()
+    created_date = serializers.SerializerMethodField()
+
+    def get_trip(self, obj):
+        if obj.status == 'READY_TO_DISPATCH' and obj.shipment.packaged_at:
+            return DispatchTripSerializers(obj.shipment.last_trip).data
+        return None
+
+    def get_created_date(self, obj):
+        return obj.created_at.strftime("%d/%b/%y %H:%M")
+
+    class Meta:
+        model = ShipmentPackaging
+        fields = ('id', 'trip', 'shipment', 'packaging_type', 'crate', 'status', 'reason_for_rejection',
+                  'movement_type', 'return_remark', 'created_date')
+
+
 class LoadVerifyCrateSerializer(serializers.ModelSerializer):
 
     trip = DispatchTripSerializers(read_only=True)
