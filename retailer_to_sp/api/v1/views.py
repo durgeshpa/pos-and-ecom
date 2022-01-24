@@ -1122,10 +1122,13 @@ class CartCentral(GenericAPIView):
                 cart = Cart.objects.filter(cart_type='ECOM', buyer=self.request.user, cart_status='active',
                                         seller_shop=kwargs['shop']).last()
                 # Empty cart if shop/location changed
-                if cart.seller_shop.id != kwargs['shop'].id:
-                    cart.seller_shop = kwargs['shop']
-                    cart.save()
-                    CartProductMapping.objects.filter(cart=cart).delete()
+                if cart:
+                    if cart.seller_shop.id != kwargs['shop'].id:
+                        cart.seller_shop = kwargs['shop']
+                        cart.save()
+                        CartProductMapping.objects.filter(cart=cart).delete()
+                        return api_response("No items added in cart yet", {"rt_cart_list": []}, status.HTTP_200_OK, False)
+                else:
                     return api_response("No items added in cart yet", {"rt_cart_list": []}, status.HTTP_200_OK, False)
             except ObjectDoesNotExist:
                 return api_response("No items added in cart yet", {"rt_cart_list": []}, status.HTTP_200_OK, False)
@@ -1518,6 +1521,9 @@ class CartCentral(GenericAPIView):
         user = self.request.user
         cart = Cart.objects.select_for_update().filter(cart_type='ECOM', buyer=user, cart_status='active',
                                                                  seller_shop=seller_shop).last()
+        if cart is None:
+            cart = Cart.objects.select_for_update().get_or_create(cart_type='ECOM', buyer=user, cart_status='active',
+                                                           seller_shop=seller_shop).last()
         if cart.seller_shop and cart.seller_shop.id != seller_shop.id:
             CartProductMapping.objects.filter(cart=cart).delete()
         cart.seller_shop = seller_shop
