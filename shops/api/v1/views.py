@@ -1339,6 +1339,28 @@ class FOFOConfigurationsView(generics.GenericAPIView):
             return get_response('Configurations has been done Successfully!', None, True, status.HTTP_200_OK)
         return get_response(serializer_error_batch(serializer), False)
 
+    @check_pos_shop
+    @pos_check_permission
+    def put(self, request, *args, **kwargs):
+        shop = kwargs['shop']
+        modified_data = self.validate_request_data()
+        if 'error' in modified_data:
+            return api_response(modified_data['error'])
+        validated_data = validate_fofo_sub_category(modified_data['data'], shop)
+        if 'error' in validated_data:
+            return api_response(validated_data['error'])
+
+        resp_data = self.create_or_update_configurations(validated_data['data'])
+        if 'error' in resp_data:
+            return api_response(validated_data['error'])
+        return get_response('Configurations has been done Successfully!', None, True, status.HTTP_200_OK)
+
+    def create_or_update_configurations(self, data_list):
+        for data in data_list:
+            instance, created = FOFOConfigurations.objects.update_or_create(
+                shop_id=data['shop'], key_id=data['key'], defaults={'value': data['value']})
+        return {'data': 'Configurations has been done Successfully!'}
+
     def validate_request_data(self):
         # Validate product data
         try:
