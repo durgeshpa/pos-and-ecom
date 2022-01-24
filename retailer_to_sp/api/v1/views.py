@@ -80,7 +80,7 @@ from retailer_to_sp.models import (Cart, CartProductMapping, CreditNote, Order, 
                                    OrderReturn, ReturnItems, OrderedProductMapping, ShipmentPackaging,
                                    DispatchTrip, DispatchTripShipmentMapping, INVOICE_AVAILABILITY_CHOICES,
                                    DispatchTripShipmentPackages, LastMileTripShipmentMapping, PACKAGE_VERIFY_CHOICES,
-                                   DispatchTripCrateMapping, ShipmentPackagingMapping, TRIP_TYPE_CHOICE)
+                                   DispatchTripCrateMapping, ShipmentPackagingMapping, TRIP_TYPE_CHOICE, ShopCrate)
 from retailer_to_sp.models import (ShipmentNotAttempt)
 from retailer_to_sp.tasks import send_invoice_pdf_email
 from shops.api.v1.serializers import ShopBasicSerializer
@@ -89,7 +89,8 @@ from sp_to_gram.models import OrderedProductReserved
 from sp_to_gram.tasks import es_search, upload_shop_stock
 from wms.common_functions import OrderManagement, get_stock, is_product_not_eligible, get_response, \
     get_logged_user_wise_query_set_for_shipment, get_logged_user_wise_query_set_for_dispatch, \
-    get_logged_user_wise_query_set_for_dispatch_trip
+    get_logged_user_wise_query_set_for_dispatch_trip, get_logged_user_wise_query_set_for_dispatch_crates, \
+    get_logged_user_wise_query_set_for_shipment_packaging
 from wms.common_validators import validate_id, validate_data_format, validate_data_days_date_request, validate_shipment
 from retailer_backend.settings import AWS_MEDIA_URL
 from wms.models import OrderReserveRelease, InventoryType, PosInventoryState, PosInventoryChange, Crate
@@ -116,7 +117,8 @@ from .serializers import (ProductsSearchSerializer, CartSerializer, OrderSeriali
                           ShipmentCratesValidatedSerializer, LastMileTripStatusChangeSerializers,
                           ShipmentDetailsByCrateSerializer, LoadVerifyCrateSerializer, UnloadVerifyCrateSerializer,
                           DispatchTripShipmentMappingSerializer, PackagesUnderTripSerializer,
-                          MarkShipmentPackageVerifiedSerializer, ShipmentPackageProductsSerializer
+                          MarkShipmentPackageVerifiedSerializer, ShipmentPackageProductsSerializer,
+                          DispatchCenterCrateSerializer, DispatchCenterShipmentPackageSerializer
                           )
 from ...common_validators import validate_shipment_dispatch_item, validate_package_by_crate_id, validate_trip_user, \
     get_shipment_by_crate_id, get_shipment_by_shipment_label, validate_shipment_id, validate_trip_shipment, \
@@ -8262,6 +8264,145 @@ class DispatchCenterShipmentView(generics.GenericAPIView):
                                                      DispatchTripShipmentMapping.CANCELLED]),
                                                      shipment_status__in=[OrderedProduct.MOVED_TO_DISPATCH,
                                                                           OrderedProduct.READY_TO_DISPATCH])
+
+        return self.queryset.distinct('id')
+
+
+class DispatchCenterCrateView(generics.GenericAPIView):
+    """
+    View to get crates ready for dispatch to dispatch center.
+    """
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    serializer_class = DispatchCenterCrateSerializer
+    queryset = ShopCrate.objects.\
+        select_related('shop', 'crate'). \
+        only('id', 'shop__id', 'shop__shop_name', 'crate', 'is_available', 'created_at', 'updated_at'). \
+        order_by('-id')
+
+    def get(self, request):
+        validation_response = self.validate_get_request()
+        if "error" in validation_response:
+            return get_response(validation_response["error"], False)
+        self.queryset = get_logged_user_wise_query_set_for_dispatch_crates(request.user, self.queryset)
+        self.queryset = self.search_filter_crates_data()
+        mapping_data = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        serializer = self.serializer_class(mapping_data, many=True)
+        msg = "" if mapping_data else "no crate found"
+        return get_response(msg, serializer.data, True)
+
+    def validate_get_request(self):
+        try:
+            if not self.request.GET.get('shop', None):
+                return {"error": "'shop'| This is required"}
+            elif not self.request.GET.get('availability') \
+                    or int(self.request.GET.get('availability')) not in INVOICE_AVAILABILITY_CHOICES._db_values:
+                return {"error": "'availability' | Invalid availability choice."}
+            elif int(self.request.GET['availability']) in [INVOICE_AVAILABILITY_CHOICES.ADDED,
+                                                           INVOICE_AVAILABILITY_CHOICES.ALL] and \
+                    not self.request.GET.get('trip_id'):
+                return {"error": "'trip_id' | This is required."}
+            return {"data": self.request.data }
+        except Exception as e:
+            return {"error": "Invalid Request"}
+
+    def search_filter_crates_data(self):
+        """ Filters the Shipment data based on request"""
+        crate = self.request.GET.get('crate')
+        shop = self.request.GET.get('shop')
+        trip_id = self.request.GET.get('trip_id')
+        availability = int(self.request.GET.get('availability'))
+
+        if crate:
+            self.queryset = self.queryset.filter(crate_id=crate)
+
+        if shop:
+            self.queryset = self.queryset.filter(shop_id=shop)
+
+        if availability:
+            try:
+                availability = int(availability)
+                if availability == INVOICE_AVAILABILITY_CHOICES.ADDED:
+                    self.queryset = self.queryset.filter(is_available=False, crate__crate_trips__isnull=False,
+                                                         crate__crate_trips__trip_id=trip_id)
+                elif availability == INVOICE_AVAILABILITY_CHOICES.NOT_ADDED:
+                    self.queryset = self.queryset.filter(is_available=True, crate__crate_trips__isnull=True)
+                elif availability == INVOICE_AVAILABILITY_CHOICES.ALL:
+                    self.queryset = self.queryset.filter(Q(crate__crate_trips__trip_id=trip_id) |
+                                                         Q(is_available=True, crate__crate_trips__isnull=True))
+            except:
+                pass
+
+        return self.queryset.distinct('id')
+
+
+class DispatchCenterShipmentPackageView(generics.GenericAPIView):
+    """
+    View to get Shipment Package ready for dispatch to dispatch center.
+    """
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    serializer_class = DispatchCenterShipmentPackageSerializer
+    queryset = ShipmentPackaging.objects.\
+        select_related('warehouse', 'crate', 'shipment'). \
+        only('id', 'warehouse__id', 'warehouse__shop_name', 'crate', 'shipment', 'created_at', 'updated_at'). \
+        order_by('-id')
+
+    def get(self, request):
+        validation_response = self.validate_get_request()
+        if "error" in validation_response:
+            return get_response(validation_response["error"], False)
+        self.queryset = get_logged_user_wise_query_set_for_shipment_packaging(request.user, self.queryset)
+        self.queryset = self.search_filter_shipment_packages_data()
+        mapping_data = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        serializer = self.serializer_class(mapping_data, many=True)
+        msg = "" if mapping_data else "no crate found"
+        return get_response(msg, serializer.data, True)
+
+    def validate_get_request(self):
+        try:
+            if not self.request.GET.get('shop', None):
+                return {"error": "'shop'| This is required"}
+            elif not self.request.GET.get('availability') \
+                    or int(self.request.GET.get('availability')) not in INVOICE_AVAILABILITY_CHOICES._db_values:
+                return {"error": "'availability' | Invalid availability choice."}
+            elif int(self.request.GET['availability']) in [INVOICE_AVAILABILITY_CHOICES.ADDED,
+                                                           INVOICE_AVAILABILITY_CHOICES.ALL] and \
+                    not self.request.GET.get('trip_id'):
+                return {"error": "'trip_id' | This is required."}
+            return {"data": self.request.data }
+        except Exception as e:
+            return {"error": "Invalid Request"}
+
+    def search_filter_shipment_packages_data(self):
+        """ Filters the Shipment data based on request"""
+        package_id = self.request.GET.get('package_id')
+        shop = self.request.GET.get('shop')
+        trip_id = self.request.GET.get('trip_id')
+        availability = int(self.request.GET.get('availability'))
+
+        if package_id:
+            self.queryset = self.queryset.filter(id=package_id)
+
+        if shop:
+            self.queryset = self.queryset.filter(warehouse_id=shop)
+
+        if availability:
+            try:
+                availability = int(availability)
+                if availability == INVOICE_AVAILABILITY_CHOICES.ADDED:
+                    self.queryset = self.queryset.filter(
+                        status='READY_TO_DISPATCH').filter(Q(shipment__trip_shipment__trip_id=trip_id) |
+                                                           Q(shipment__last_mile_trip_shipment__trip_id=trip_id))
+                elif availability == INVOICE_AVAILABILITY_CHOICES.NOT_ADDED:
+                    self.queryset = self.queryset.filter(status='PACKED')
+                elif availability == INVOICE_AVAILABILITY_CHOICES.ALL:
+                    self.queryset = self.queryset.filter(
+                        status__in=['PACKED', 'READY_TO_DISPATCH']).filter(
+                        Q(shipment__trip_shipment__trip_id=trip_id) |
+                        Q(shipment__last_mile_trip_shipment__trip_id=trip_id))
+            except:
+                pass
 
         return self.queryset.distinct('id')
 

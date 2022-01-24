@@ -1649,6 +1649,20 @@ class OrderedProduct(models.Model):  # Shipment
         return None
 
     @property
+    def last_trip(self):
+        dispatch_trip = self.trip_shipment.last()
+        last_mile_trip = self.last_mile_trip_shipment.last()
+        if dispatch_trip and last_mile_trip:
+            if dispatch_trip.created_at > last_mile_trip.created_at:
+                return dispatch_trip.trip
+            return last_mile_trip.trip
+        elif dispatch_trip:
+            return dispatch_trip.trip
+        elif last_mile_trip:
+            return last_mile_trip.trip
+        return None
+
+    @property
     def invoice_subtotal(self):
         return self.rt_order_product_order_product_mapping.all() \
             .aggregate(
