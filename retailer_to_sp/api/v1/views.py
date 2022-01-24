@@ -7145,9 +7145,16 @@ class DispatchItemsView(generics.GenericAPIView):
         '''
         API to get all the packages for a shipment
         '''
-        if not request.GET.get('shipment_id'):
-            return get_response("'shipment_id' | This is mandatory")
-        self.queryset = self.filter_packaging_items()
+        if request.GET.get('id'):
+            id_validation = validate_id(self.queryset, int(request.GET.get('id')))
+            if 'error' in id_validation:
+                return get_response(id_validation['error'])
+            self.queryset = id_validation['data']
+
+        else:
+            if not request.GET.get('shipment_id'):
+                return get_response("'shipment_id' | This is mandatory")
+            self.queryset = self.filter_packaging_items()
         dispatch_items = SmallOffsetPagination().paginate_queryset(self.queryset, request)
         serializer = self.serializer_class(dispatch_items, many=True)
         msg = "" if dispatch_items else "no dispatch details found"
