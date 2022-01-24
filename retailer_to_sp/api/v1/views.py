@@ -1523,7 +1523,7 @@ class CartCentral(GenericAPIView):
                                                                  seller_shop=seller_shop).last()
         if cart is None:
             cart = Cart.objects.select_for_update().get_or_create(cart_type='ECOM', buyer=user, cart_status='active',
-                                                           seller_shop=seller_shop).last()
+                                                           seller_shop=seller_shop)
         if cart.seller_shop and cart.seller_shop.id != seller_shop.id:
             CartProductMapping.objects.filter(cart=cart).delete()
         cart.seller_shop = seller_shop
