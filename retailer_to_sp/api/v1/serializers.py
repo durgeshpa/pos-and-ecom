@@ -14,6 +14,7 @@ from accounts.models import UserWithName
 from addresses.models import Address, Pincode, City
 from products.models import (Product, ProductPrice, ProductImage, Tax, ProductTaxMapping, ProductOption, Size, Color,
                              Fragrance, Flavor, Weight, PackageSize, ParentProductImage, SlabProductPrice, PriceSlab)
+from retailer_backend.utils import getStrToYearDate
 from retailer_to_sp.common_validators import validate_shipment_crates_list, validate_shipment_package_list
 from retailer_to_sp.models import (CartProductMapping, Cart, Order, OrderedProduct, Note, CustomerCare, Payment,
                                    Dispatch, Feedback, OrderedProductMapping as RetailerOrderedProductMapping,
@@ -1855,11 +1856,12 @@ class ShipmentQCSerializer(serializers.ModelSerializer):
                         if 'rescheduling_reason' not in self.initial_data or \
                                 not self.initial_data['rescheduling_reason']:
                             raise serializers.ValidationError(f"'rescheduling_reason' | This is mandatory")
-                        if self.initial_data['rescheduling_reason'] not in ShipmentRescheduling.RESCHEDULING_REASON:
+                        if not any(self.initial_data['rescheduling_reason'] in i for i in
+                                   ShipmentRescheduling.RESCHEDULING_REASON):
                             raise serializers.ValidationError(f"'rescheduling_reason' | Invalid choice")
                         if 'rescheduling_date' not in self.initial_data or not self.initial_data['rescheduling_date']:
                             raise serializers.ValidationError(f"'rescheduling_date' | This is mandatory")
-                        rescheduling_date = self.initial_data['rescheduling_date']
+                        rescheduling_date = getStrToYearDate(self.initial_data['rescheduling_date'])
                         if rescheduling_date < datetime.date.today() or \
                                 rescheduling_date > (datetime.date.today() + datetime.timedelta(days=3)):
                             raise serializers.ValidationError("'rescheduling_date' | The date must be within 3 days!")
@@ -1873,7 +1875,8 @@ class ShipmentQCSerializer(serializers.ModelSerializer):
                         if 'not_attempt_reason' not in self.initial_data or \
                                 not self.initial_data['not_attempt_reason']:
                             raise serializers.ValidationError(f"'not_attempt_reason' | This is mandatory")
-                        if self.initial_data['not_attempt_reason'] not in ShipmentNotAttempt.NOT_ATTEMPT_REASON:
+                        if not any(self.initial_data['not_attempt_reason'] in i for i in
+                                   ShipmentNotAttempt.NOT_ATTEMPT_REASON):
                             raise serializers.ValidationError(f"'not_attempt_reason' | Invalid choice")
                         shipment_not_attempt['not_attempt_reason'] = self.initial_data['not_attempt_reason']
                 elif (shipment_status not in [OrderedProduct.SHIPMENT_CREATED, OrderedProduct.QC_STARTED,
