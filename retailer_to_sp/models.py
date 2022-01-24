@@ -2370,6 +2370,11 @@ class OrderedProductMapping(models.Model):
     def get_discounted_price(self):
         return round(self.discounted_price, 2)
 
+    def return_pkg(self):
+        return ShipmentPackagingMapping.objects.filter(ordered_product=self,
+                                                       shipment_packaging__movement_type=ShipmentPackaging.RETURNED)
+
+
     def save(self, *args, **kwargs):
         if self.retailer_product:
             cart_product_mapping = self.ordered_product.order.ordered_cart.rt_cart_list.filter(
@@ -3303,6 +3308,7 @@ class ShipmentPackagingMapping(BaseTimestampUserModel):
     is_verified = models.BooleanField(default=False)
 
 
+
 class ShipmentPackagingBatch(BaseTimestampUserModel):
     shipment_product_packaging = models.ForeignKey(ShipmentPackagingMapping, related_name='packaging_product_details',
                                                    on_delete=models.DO_NOTHING)
@@ -3544,6 +3550,8 @@ class DispatchTripShipmentPackages(BaseTimestampUserModel):
 
 INVOICE_AVAILABILITY_CHOICES = Choices((1, 'ALL', 'All'), (2, 'ADDED', 'Added'), (3, 'NOT_ADDED', 'Not Added'))
 PACKAGE_VERIFY_CHOICES = Choices((1, 'OK', 'Okay'), (2, 'DAMAGED', 'Damaged'), (3, 'MISSING', 'Missing'))
+TRIP_TYPE_CHOICE = Choices(('LAST_MILE', 'Last Mile trip'), ('DISPATCH_FORWARD', 'Forward Dispatch Trip'),
+                           ('DISPATCH_BACKWARD', 'Backward Dispatch Trip'))
 
 
 class LastMileTripShipmentMapping(BaseTimestampUserModel):
