@@ -2018,6 +2018,12 @@ class DispatchItemsSerializer(serializers.ModelSerializer):
     crate = CrateSerializer(read_only=True)
     packaging_type = serializers.CharField(read_only=True)
     shipment = ShipmentSerializerForDispatch(read_only=True)
+    is_return_verified = serializers.SerializerMethodField()
+
+    def get_is_return_verified(self, obj):
+        return True if obj.status in [ShipmentPackaging.DISPATCH_STATUS_CHOICES.RETURN_VERIFIED,
+                               ShipmentPackaging.DISPATCH_STATUS_CHOICES.RETURN_MISSING,
+                               ShipmentPackaging.DISPATCH_STATUS_CHOICES.RETURN_DAMAGED] else False
 
     @staticmethod
     def get_status(obj):
@@ -2030,7 +2036,8 @@ class DispatchItemsSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ShipmentPackaging
-        fields = ('id', 'shipment', 'packaging_type', 'crate', 'status', 'reason_for_rejection', 'created_by', 'packaging_details')
+        fields = ('id', 'shipment', 'packaging_type', 'crate', 'status', 'reason_for_rejection', 'created_by',
+                  'packaging_details', 'is_return_verified')
 
 
     def validate(self, data):
