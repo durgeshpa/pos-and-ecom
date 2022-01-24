@@ -1516,7 +1516,7 @@ class CartCentral(GenericAPIView):
             Create or update/add product to ecom Cart
         """
         user = self.request.user
-        cart, _ = Cart.objects.select_for_update().filter(cart_type='ECOM', buyer=user, cart_status='active',
+        cart = Cart.objects.select_for_update().filter(cart_type='ECOM', buyer=user, cart_status='active',
                                                                  seller_shop=seller_shop).last()
         if cart.seller_shop and cart.seller_shop.id != seller_shop.id:
             CartProductMapping.objects.filter(cart=cart).delete()
