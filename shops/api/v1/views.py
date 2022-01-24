@@ -23,7 +23,7 @@ from retailer_backend.messages import SUCCESS_MESSAGES, ERROR_MESSAGES
 from retailer_to_sp.models import OrderedProduct, Order
 from retailer_to_sp.api.v1.views import update_trip_status
 from retailer_to_sp.views import update_shipment_status_after_return
-from shops.common_functions import get_response, serializer_error
+from shops.common_functions import get_response, serializer_error, serializer_error_batch
 from shops.services import shop_search, shop_config_search, shop_category_search, shop_sub_category_search
 from shops.filters import FavouriteProductFilter
 
@@ -39,6 +39,7 @@ from .serializers import (RetailerTypeSerializer, ShopTypeSerializer, ShopSerial
                           PosShopUserMappingCreateSerializer, PosShopUserMappingUpdateSerializer, ShopBasicSerializer,
                           FOFOConfigurationsCrudSerializer, FOFOCategoryConfigurationsCrudSerializer,
                           FOFOSubCategoryConfigurationsCrudSerializer)
+from ...common_validators import validate_fofo_sub_category
 
 User = get_user_model()
 
@@ -1309,6 +1310,7 @@ class FOFOConfigurationsView(generics.GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (permissions.AllowAny,)
     queryset = FOFOConfigurations.objects.order_by('-id')
+    model = FOFOConfigurations
     serializer_class = FOFOConfigurationsCrudSerializer
 
     def get(self, request):
@@ -1325,20 +1327,24 @@ class FOFOConfigurationsView(generics.GenericAPIView):
     @pos_check_permission
     def post(self, request, *args, **kwargs):
         shop = kwargs['shop']
-        modified_data = self.validate_create(shop.id)
+        modified_data = self.validate_request_data()
         if 'error' in modified_data:
             return api_response(modified_data['error'])
-        serializer = self.serializer_class(data=modified_data)
+        validated_data = validate_fofo_sub_category(modified_data['data'], shop)
+        if 'error' in validated_data:
+            return api_response(validated_data['error'])
+        serializer = self.serializer_class(data=validated_data['data'], many=True)
         if serializer.is_valid():
             serializer.save()
             return get_response('Configurations has been done Successfully!', None, True, status.HTTP_200_OK)
-        return get_response(serializer_error(serializer), False)
+        return get_response(serializer_error_batch(serializer), False)
 
-    def validate_create(self, shop_id):
+    def validate_request_data(self):
         # Validate product data
         try:
             data = self.request.data["data"]
+            if not isinstance(data, list):
+                return {'error': 'Format of data is expected to be a list.'}
         except:
             return {'error': "Invalid Data Format"}
-        data['shop'] = shop_id
-        return data
+        return {'data': data}

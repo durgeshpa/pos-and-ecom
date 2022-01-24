@@ -729,5 +729,8 @@ class FOFOConfigurations(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
+    class Meta:
+        unique_together = ('shop', 'key',)
+
     def __str__(self):
         return str(self.key)

@@ -687,6 +687,7 @@ class FOFOConfigSubCategoryAdmin(admin.ModelAdmin):
 
 
 class FOFOConfigurationsAdmin(admin.ModelAdmin):
+    list_display = ('id', 'shop', 'key', 'value')
     fields = ('shop', 'key', 'value')
 
 

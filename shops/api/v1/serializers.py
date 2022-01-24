@@ -855,45 +855,14 @@ class FOFOSubCategoryConfigurationsCrudSerializer(serializers.ModelSerializer):
 
 
 class FOFOConfigurationsCrudSerializer(serializers.ModelSerializer):
-    key = FOFOSubCategoryConfigurationsCrudSerializer(read_only=True)
-    shop = BeatShopSerializer(read_only=True)
 
     class Meta:
         model = FOFOConfigurations
-        fields = ('shop', 'key', 'value')
+        fields = ('id', 'shop', 'key', 'value')
 
-    def validate(self, data):
-
-        if 'value' not in self.initial_data or self.initial_data['value'] is None:
-            raise serializers.ValidationError("value is required")
-
-        if 'shop' in self.initial_data and self.initial_data['shop']:
-            shop = Shop.objects.filter(
-                id=self.initial_data['shop'], shop_type__shop_type='f',
-                shop_type__shop_sub_type__retailer_type_name='fofo').last()
-            if not shop:
-                raise serializers.ValidationError("Invalid shop")
-            data['shop'] = shop
-        else:
-            raise serializers.ValidationError("shop is required")
-
-        if 'key' in self.initial_data and self.initial_data['key']:
-            sub_cat_id = validate_fofo_sub_category(self.initial_data['key'])
-            if 'error' in sub_cat_id:
-                raise serializers.ValidationError((sub_cat_id["error"]))
-            data['key'] = sub_cat_id['data']
-        else:
-            raise serializers.ValidationError("'key' | This is mandatory.")
-
-        if 'id' in self.initial_data and self.initial_data['id']:
-            if not FOFOConfigurations.objects.filter(
-                    id=self.initial_data['id'], shop=shop, key=data['key']).exists():
-                raise serializers.ValidationError(f"No configuration {data['key']} found for the store.")
-        elif FOFOConfigurations.objects.filter(shop=shop, key=data['key']).exists():
-            raise serializers.ValidationError(f"Configuration {data['key']} already exist for the store.")
-
+    def to_representation(self, instance):
+        """ Add card_id to data """
+        data = super().to_representation(instance)
+        data['key'] = FOFOSubCategoryConfigurationsCrudSerializer(instance.key).data
+        data['shop'] = BeatShopSerializer(instance.shop).data
         return data
-
-    @transaction.atomic
-    def create(self, validated_data):
-        return FOFOConfigurations.objects.create(**validated_data)
