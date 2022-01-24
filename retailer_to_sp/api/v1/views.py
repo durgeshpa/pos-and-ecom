@@ -4909,8 +4909,8 @@ class CartStockCheckView(APIView):
         if not shop.online_inventory_enabled:
             return api_response("Franchise Shop Is Not Online Enabled!")
         try:
-            cart = Cart.objects.prefetch_related('rt_cart_list').get(cart_type='ECOM', buyer=self.request.user,
-                                                                     seller_shop=kwargs['shop'], cart_status='active')
+            cart = Cart.objects.prefetch_related('rt_cart_list').filter(cart_type='ECOM', buyer=self.request.user,
+                                                                     seller_shop=kwargs['shop'], cart_status='active').last()
         except ObjectDoesNotExist:
             return api_response("Cart Not Found!")
 
