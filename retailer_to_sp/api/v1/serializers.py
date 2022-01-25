@@ -3091,8 +3091,8 @@ class LoadVerifyPackageSerializer(serializers.ModelSerializer):
             if package.shipment.shipment_status != OrderedProduct.MOVED_TO_DISPATCH:
                 raise serializers.ValidationError(f"The invoice is in {package.shipment.shipment_status} state, "
                                                   f"cannot load package")
-            if package.shipment.trip_shipment.exclude(~Q(trip=trip),
-                                                      shipment_status=DispatchTripShipmentMapping.CANCELLED).exists():
+            if package.shipment.trip_shipment.exclude(
+                    Q(trip=trip) | Q(shipment_status=DispatchTripShipmentMapping.CANCELLED)).exists():
                 raise serializers.ValidationError(f"The invoice is already being added to another trip, "
                                                   f"cannot add this package")
 
