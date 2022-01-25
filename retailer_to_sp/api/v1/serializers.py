@@ -2354,7 +2354,7 @@ class DispatchTripStatusChangeSerializers(serializers.ModelSerializer):
                     f"'trip_status' | Trip status can't be {str(trip_status)} at the moment.")
 
             if trip_status == DispatchTrip.STARTED:
-                if 'opening_kms' in self.initial_data and self.initial_data['opening_kms']:
+                if 'opening_kms' in self.initial_data and self.initial_data['opening_kms']>=0:
                     try:
                         opening_kms = int(self.initial_data['opening_kms'])
                         data['opening_kms'] = opening_kms
