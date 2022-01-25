@@ -2177,6 +2177,11 @@ class DispatchTripShipmentMappingSerializer(serializers.ModelSerializer):
     def update(self, instance, validated_data):
         try:
             trip_shipment = super().update(instance, validated_data)
+
+            if trip_shipment.trip.trip_type == DispatchTrip.FORWARD:
+                trip_shipment.shipment.shipment_status = OrderedProduct.READY_TO_DISPATCH
+                trip_shipment.shipment.save()
+
         except Exception as e:
             error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
             raise serializers.ValidationError(error)
@@ -3114,7 +3119,8 @@ class LoadVerifyPackageSerializer(serializers.ModelSerializer):
             if package.shipment.shipment_status != OrderedProduct.MOVED_TO_DISPATCH:
                 raise serializers.ValidationError(f"The invoice is in {package.shipment.shipment_status} state, "
                                                   f"cannot load package")
-            if package.shipment.trip_shipment.filter(~Q(trip=trip)).exists():
+            if package.shipment.trip_shipment.exclude(~Q(trip=trip),
+                                                      shipment_status=DispatchTripShipmentMapping.CANCELLED).exists():
                 raise serializers.ValidationError(f"The invoice is already being added to another trip, "
                                                   f"cannot add this package")
 
@@ -3232,10 +3238,6 @@ class LoadVerifyPackageSerializer(serializers.ModelSerializer):
 
             trip_shipment.shipment_health = shipment_health
             trip_shipment.save()
-
-            if trip_shipment.trip.trip_type == DispatchTrip.FORWARD:
-                trip_shipment.shipment.shipment_status = OrderedProduct.READY_TO_DISPATCH
-                trip_shipment.shipment.save()
 
         if trip_package_mapping.package_status == DispatchTripShipmentPackages.LOADED:
             if trip_package_mapping.shipment_packaging.packaging_type == ShipmentPackaging.CRATE:
@@ -3437,8 +3439,10 @@ class TripShipmentMappingSerializer(serializers.ModelSerializer):
         trip_shipment_mapping.trip.no_of_packates = package_data['no_of_packs']
         trip_shipment_mapping.trip.no_of_sacks = package_data['no_of_sacks']
         trip_shipment_mapping.trip.save()
-        trip_shipment_mapping.shipment.shipment_status=OrderedProduct.MOVED_TO_DISPATCH
-        trip_shipment_mapping.shipment.save()
+        if trip_shipment_mapping.trip.trip_type == DispatchTrip.FORWARD and \
+                trip_shipment_mapping.shipment.shipment_status == OrderedProduct.READY_TO_DISPATCH:
+            trip_shipment_mapping.shipment.shipment_status = OrderedProduct.MOVED_TO_DISPATCH
+            trip_shipment_mapping.shipment.save()
 
 
 class LastMileTripShipmentMappingListSerializers(serializers.ModelSerializer):
