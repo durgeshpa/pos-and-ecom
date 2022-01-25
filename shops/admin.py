@@ -243,8 +243,9 @@ class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
     actions = ["export_as_csv", "disable_shop", "download_status_report"]
     inlines = [
         ShopPhotosAdmin, ShopDocumentsAdmin,
-        AddressAdmin, ShopInvoicePatternAdmin, ShopParentRetailerMapping, ShopStatusAdmin, FOFOConfigurationsInline
+        AddressAdmin, ShopInvoicePatternAdmin, ShopParentRetailerMapping, ShopStatusAdmin,
     ]
+
     list_display = (
         'shop_name', 'get_shop_shipping_address', 'get_shop_pin_code', 'get_shop_parent',
         'shop_owner', 'shop_type', 'created_at', 'status', 'get_shop_city', 'approval_status',
@@ -258,6 +259,13 @@ class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
 
     class Media:
         css = {"all": ("admin/css/hide_admin_inline_object_name.css",)}
+
+    def get_inline_instances(self, request, obj=None):
+        inlines = self.inlines
+        # Display inline when the object has been saved and a team has been selected.
+        if obj and obj.online_inventory_enabled:
+            inlines.append(FOFOConfigurationsInline)
+        return [inline(self.model, self.admin_site) for inline in inlines]
 
     def get_readonly_fields(self, request, obj=None):
         if obj and obj.shop_type.shop_type == 'f':
