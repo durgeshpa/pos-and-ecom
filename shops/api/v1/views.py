@@ -38,7 +38,7 @@ from .serializers import (RetailerTypeSerializer, ShopTypeSerializer, ShopSerial
                           DayBeatPlanSerializer, FeedbackCreateSerializers, ExecutiveReportSerializer,
                           PosShopUserMappingCreateSerializer, PosShopUserMappingUpdateSerializer, ShopBasicSerializer,
                           FOFOConfigurationsCrudSerializer, FOFOCategoryConfigurationsCrudSerializer,
-                          FOFOSubCategoryConfigurationsCrudSerializer)
+                          FOFOSubCategoryConfigurationsCrudSerializer, FOFOConfigurationsGetSerializer)
 from ...common_validators import validate_fofo_sub_category
 
 User = get_user_model()
@@ -1320,7 +1320,7 @@ class FOFOConfigurationsView(generics.GenericAPIView):
         if search_text:
             self.queryset = shop_config_search(queryset, search_text)
         shop_conf = SmallOffsetPagination().paginate_queryset(queryset, request)
-        serializer = FOFOConfigurationsGetSerializer(shop_conf, many=True)
+        serializer = FOFOConfigurationsGetSerializer(shop_conf, context={'shop': shop})
         msg = "" if shop_conf else "no configurations found"
         return get_response(msg, serializer.data, True)
 

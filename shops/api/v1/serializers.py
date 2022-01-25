@@ -854,10 +854,57 @@ class FOFOSubCategoryConfigurationsCrudSerializer(serializers.ModelSerializer):
         fields = ('id', 'name', 'category')
 
 
-class FOFOConfigurationsGetSerializer(serializers.Serializer):
+class ShopNameSerializer(serializers.ModelSerializer):
+
     class Meta:
-        model = FOFOConfigurations
-        fields = ('id', 'shop', 'key', 'value')
+        model = Shop
+        fields = ('id', '__str__')
+
+    def to_representation(self, instance):
+        response = super().to_representation(instance)
+        response['name'] = response['__str__']
+        response.pop('__str__')
+        return response
+
+
+class FOFOSubCategoryConfigurationsGetSerializer(serializers.ModelSerializer):
+    key = serializers.SerializerMethodField()
+    value = serializers.SerializerMethodField()
+
+    class Meta:
+        model = FOFOConfigSubCategory
+        fields = ('key', 'value',)
+
+    def get_key(self, obj):
+        return obj.id
+
+    def get_value(self, obj):
+        return obj.name
+
+
+class FOFOCategoryConfigurationsGetSerializer(serializers.ModelSerializer):
+    sub_category = serializers.SerializerMethodField()
+
+    class Meta:
+        model = FOFOConfigCategory
+        fields = ('id', 'name', 'sub_category',)
+
+    def get_sub_category(self, obj):
+        return FOFOSubCategoryConfigurationsGetSerializer(FOFOConfigSubCategory.objects.filter(
+            fofo_category__shop=self.context.get('shop'), category=obj), many=True).data
+
+
+class FOFOConfigurationsGetSerializer(serializers.Serializer):
+    shop = serializers.SerializerMethodField()
+    category = serializers.SerializerMethodField()
+
+    def get_shop(self, obj):
+        return ShopNameSerializer(self.context.get('shop'), read_only=True).data
+
+    def get_category(self, obj):
+        return FOFOCategoryConfigurationsGetSerializer(FOFOConfigCategory.objects.filter(
+            fofo_category_details__fofo_category__shop=self.context.get('shop')).distinct(), many=True,
+                                                       context={'shop': self.context.get('shop')}).data
 
 
 class FOFOConfigurationsCrudSerializer(serializers.ModelSerializer):
@@ -865,10 +912,3 @@ class FOFOConfigurationsCrudSerializer(serializers.ModelSerializer):
     class Meta:
         model = FOFOConfigurations
         fields = ('id', 'shop', 'key', 'value')
-
-    # def to_representation(self, instance):
-    #     """ Add card_id to data """
-    #     data = super().to_representation(instance)
-    #     data['key'] = FOFOSubCategoryConfigurationsCrudSerializer(instance.key).data
-    #     data['shop'] = BeatShopSerializer(instance.shop).data
-    #     return data
