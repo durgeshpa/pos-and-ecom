@@ -1504,7 +1504,7 @@ class OrderPaymentStatusChangeSerializers(serializers.ModelSerializer):
         if order_status == Order.PAYMENT_FAILED:
             payment_status = PosPayment.PAYMENT_FAILED
             data['order_status'] = Order.PAYMENT_FAILED
-        elif order_status == 'COD':
+        elif order_status == Order.PAYMENT_COD:
             data['order_status'] = Order.ORDERED
         elif order_status == 'PAYMENT_APPROVED':
             if payment_type_instance.type == 'online':
