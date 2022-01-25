@@ -241,10 +241,8 @@ class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
     fields = ['shop_name', 'shop_owner', 'shop_type', 'status', 'pos_enabled', 'online_inventory_enabled',
               'approval_status', ]
     actions = ["export_as_csv", "disable_shop", "download_status_report"]
-    inlines = [
-        ShopPhotosAdmin, ShopDocumentsAdmin,
-        AddressAdmin, ShopInvoicePatternAdmin, ShopParentRetailerMapping, ShopStatusAdmin,
-    ]
+    inlines = [ShopPhotosAdmin, ShopDocumentsAdmin, AddressAdmin, ShopInvoicePatternAdmin,
+               ShopParentRetailerMapping, ShopStatusAdmin, ]
 
     list_display = (
         'shop_name', 'get_shop_shipping_address', 'get_shop_pin_code', 'get_shop_parent',
@@ -260,12 +258,17 @@ class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
     class Media:
         css = {"all": ("admin/css/hide_admin_inline_object_name.css",)}
 
-    def get_inline_instances(self, request, obj=None):
-        inlines = self.inlines
-        # Display inline when the object has been saved and a team has been selected.
-        if obj and obj.online_inventory_enabled:
-            inlines.append(FOFOConfigurationsInline)
-        return [inline(self.model, self.admin_site) for inline in inlines]
+    def change_view(self, request, object_id, form_url='', extra_context=None):
+        self.inlines = [ShopPhotosAdmin, ShopDocumentsAdmin, AddressAdmin, ShopInvoicePatternAdmin,
+                        ShopParentRetailerMapping, ShopStatusAdmin, ]
+        try:
+            obj = self.model.objects.get(pk=object_id)
+        except self.model.DoesNotExist:
+            pass
+        else:
+            if obj.online_inventory_enabled:
+                self.inlines.append(FOFOConfigurationsInline)
+        return super(ShopAdmin, self).change_view(request, object_id, form_url, extra_context)
 
     def get_readonly_fields(self, request, obj=None):
         if obj and obj.shop_type.shop_type == 'f':
@@ -405,15 +408,11 @@ class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
             return obj.retiler_mapping.last().parent
 
     def save_model(self, request, obj, form, change):
-        if 'approval_status' in form.changed_data:
-            approval_status = form.cleaned_data['approval_status']
-            if approval_status == 0:
-                reason = 'Disapproved'
-            elif approval_status == 1:
-                reason = 'Awaiting Approval'
+        if obj:
+            if not change:
+                obj.created_by = request.user
             else:
-                reason = 'Approved'
-            ShopStatusLog.objects.create(reason = reason, user = request.user, shop = obj)
+                obj.updated_by = request.user
         return super(ShopAdmin, self).save_model(request, obj, form, change)
 
     get_shop_parent.short_description = 'Parent Shop'
