@@ -266,7 +266,8 @@ class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
         except self.model.DoesNotExist:
             pass
         else:
-            if obj.online_inventory_enabled:
+            if obj.shop_type.shop_type == 'f' and str(obj.shop_type.shop_sub_type) == 'fofo' and \
+                    obj.online_inventory_enabled:
                 self.inlines.append(FOFOConfigurationsInline)
         return super(ShopAdmin, self).change_view(request, object_id, form_url, extra_context)
 
