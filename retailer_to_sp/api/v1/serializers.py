@@ -2595,8 +2595,9 @@ class ShipmentDetailsByCrateSerializer(serializers.ModelSerializer):
     trip_belongs_to = serializers.SerializerMethodField()
 
     def get_trip(self, obj):
-        return ShipmentDetailTripSerializer(obj.last_mile_trip_shipment.last().trip).data \
-            if obj.last_mile_trip_shipment.exists() else None
+        return ShipmentDetailTripSerializer(obj.last_mile_trip_shipment.last().trip
+                                            if obj.last_mile_trip_shipment.exists() else obj.trip).data
+
 
     def get_trip_belongs_to(self, obj):
         if obj.last_mile_trip_shipment.last():
@@ -3215,30 +3216,8 @@ class LoadVerifyPackageSerializer(serializers.ModelSerializer):
         return trip_package_mapping
 
     def post_package_load_trip_update(self, trip_package_mapping, trip_shipment):
-
-        # Update shipment status to READY_TO_DISPATCH once all packages are added to trip
-        # Update trip shipment mapped as LOADED_FOR_DC once all packages are added to trip
-        # Update shipment_health to FULLY_DAMAGED/FULLY_MISSING accordingly
         # Update total no of shipments, crates, boxes, sacks, weight
-        shipment = trip_shipment.shipment
         trip = trip_shipment.trip
-        if trip_shipment.trip_shipment_mapped_packages.count() == shipment.shipment_packaging.filter(
-                status=ShipmentPackaging.DISPATCH_STATUS_CHOICES.READY_TO_DISPATCH).count():
-            trip_shipment.shipment_status = DispatchTripShipmentMapping.LOADED_FOR_DC
-
-            # Update shipment_health to FULLY_DAMAGED/FULLY_MISSING accordingly
-            shipment_health = trip_shipment.shipment_health
-            if trip_shipment.trip_shipment_mapped_packages.\
-                filter(package_status=trip_package_mapping.package_status).count() == \
-                trip_shipment.trip_shipment_mapped_packages.count():
-                if trip_package_mapping.package_status == DispatchTripShipmentPackages.DAMAGED_AT_LOADING:
-                    shipment_health = DispatchTripShipmentMapping.FULLY_DAMAGED
-                elif trip_package_mapping.package_status == DispatchTripShipmentPackages.MISSING_AT_LOADING:
-                    shipment_health = DispatchTripShipmentMapping.FULLY_MISSING
-
-            trip_shipment.shipment_health = shipment_health
-            trip_shipment.save()
-
         if trip_package_mapping.package_status == DispatchTripShipmentPackages.LOADED:
             if trip_package_mapping.shipment_packaging.packaging_type == ShipmentPackaging.CRATE:
                 trip.no_of_crates = trip.no_of_crates + 1
