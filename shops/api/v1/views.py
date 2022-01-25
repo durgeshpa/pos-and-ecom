@@ -1285,6 +1285,7 @@ class FOFOConfigSubCategoryView(generics.GenericAPIView):
     queryset = FOFOConfigSubCategory.objects.order_by('-id')
     serializer_class = FOFOSubCategoryConfigurationsCrudSerializer
 
+    @check_pos_shop
     def get(self, request):
         """ GET Sub-Category List """
         search_text = self.request.GET.get('search_text')
@@ -1310,19 +1311,24 @@ class FOFOConfigurationsView(generics.GenericAPIView):
     queryset = FOFOConfigurations.objects.order_by('-id')
     serializer_class = FOFOConfigurationsCrudSerializer
 
-    def get(self, request):
-        """ GET Sub-Category List """
+    @check_pos_shop
+    def get(self, request, *args, **kwargs):
+        """ GET FOFO Configurations List """
+        shop = kwargs['shop']
         search_text = self.request.GET.get('search_text')
+        queryset = self.queryset.filter(shop=shop)
         if search_text:
-            self.queryset = shop_config_search(self.queryset, search_text)
-        shop = SmallOffsetPagination().paginate_queryset(self.queryset, request)
-        serializer = self.serializer_class(shop, many=True)
-        msg = "" if shop else "no configurations found"
+            self.queryset = shop_config_search(queryset, search_text)
+        shop_conf = SmallOffsetPagination().paginate_queryset(queryset, request)
+        serializer = FOFOConfigurationsGetSerializer(shop_conf, many=True)
+        msg = "" if shop_conf else "no configurations found"
         return get_response(msg, serializer.data, True)
 
     @check_pos_shop
     def post(self, request, *args, **kwargs):
         shop = kwargs['shop']
+        if not shop.online_inventory_enabled:
+            return api_response("Franchise Shop Is Not Online Enabled!")
         modified_data = self.validate_request_data()
         if 'error' in modified_data:
             return api_response(modified_data['error'])
@@ -1338,6 +1344,8 @@ class FOFOConfigurationsView(generics.GenericAPIView):
     @check_pos_shop
     def put(self, request, *args, **kwargs):
         shop = kwargs['shop']
+        if not shop.online_inventory_enabled:
+            return api_response("Franchise Shop Is Not Online Enabled!")
         modified_data = self.validate_request_data()
         if 'error' in modified_data:
             return api_response(modified_data['error'])
@@ -1365,3 +1373,5 @@ class FOFOConfigurationsView(generics.GenericAPIView):
         except:
             return {'error': "Invalid Data Format"}
         return {'data': data}
+
+

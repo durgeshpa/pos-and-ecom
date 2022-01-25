@@ -854,15 +854,21 @@ class FOFOSubCategoryConfigurationsCrudSerializer(serializers.ModelSerializer):
         fields = ('id', 'name', 'category')
 
 
+class FOFOConfigurationsGetSerializer(serializers.Serializer):
+    class Meta:
+        model = FOFOConfigurations
+        fields = ('id', 'shop', 'key', 'value')
+
+
 class FOFOConfigurationsCrudSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = FOFOConfigurations
         fields = ('id', 'shop', 'key', 'value')
 
-    def to_representation(self, instance):
-        """ Add card_id to data """
-        data = super().to_representation(instance)
-        data['key'] = FOFOSubCategoryConfigurationsCrudSerializer(instance.key).data
-        data['shop'] = BeatShopSerializer(instance.shop).data
-        return data
+    # def to_representation(self, instance):
+    #     """ Add card_id to data """
+    #     data = super().to_representation(instance)
+    #     data['key'] = FOFOSubCategoryConfigurationsCrudSerializer(instance.key).data
+    #     data['shop'] = BeatShopSerializer(instance.shop).data
+    #     return data
