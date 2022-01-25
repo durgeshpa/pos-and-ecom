@@ -2462,6 +2462,8 @@ class DispatchTripStatusChangeSerializers(serializers.ModelSerializer):
             if mapping.shipment.shipment_status == OrderedProduct.READY_TO_DISPATCH:
                 mapping.shipment.shipment_status = OrderedProduct.MOVED_TO_DISPATCH
                 mapping.shipment.save()
+        DispatchTripShipmentPackages.objects.filter(
+            trip_shipment__in=shipment_details).update(package_status=DispatchTripShipmentPackages.CANCELLED)
         shipment_details.update(shipment_status=DispatchTripShipmentMapping.CANCELLED)
 
     @transaction.atomic

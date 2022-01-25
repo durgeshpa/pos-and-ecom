@@ -8042,9 +8042,10 @@ class TripSummaryView(generics.GenericAPIView):
         dispatch_trip_qs = self.filter_trip_summary_data(dispatch_trip_qs)
         resp_data = dispatch_trip_qs.aggregate(
             no_of_crates=Sum('no_of_crates'), no_of_packets=Sum('no_of_packets'), no_of_sacks=Sum('no_of_sacks'),
-            weight=Sum('weight'), no_of_invoices=Count('shipments_details__shipment'))
+            weight=Sum('weight'))
+        no_of_invoices = dispatch_trip_qs.aggregate(no_of_invoices=Count('shipments_details'))
         trip_summary_data = {
-            'total_invoices': resp_data['no_of_invoices'] if resp_data['no_of_invoices'] else 0,
+            'total_invoices': no_of_invoices['no_of_invoices'] if no_of_invoices['no_of_invoices'] else 0,
             'total_crates': resp_data['no_of_crates'] if resp_data['no_of_crates'] else 0,
             'total_packets': resp_data['no_of_packets'] if resp_data['no_of_packets'] else 0,
             'total_sack': resp_data['no_of_sacks'] if resp_data['no_of_sacks'] else 0,
