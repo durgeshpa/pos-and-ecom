@@ -390,15 +390,11 @@ class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
             return obj.retiler_mapping.last().parent
 
     def save_model(self, request, obj, form, change):
-        if 'approval_status' in form.changed_data:
-            approval_status = form.cleaned_data['approval_status']
-            if approval_status == 0:
-                reason = 'Disapproved'
-            elif approval_status == 1:
-                reason = 'Awaiting Approval'
+        if obj:
+            if not change:
+                obj.created_by = request.user
             else:
-                reason = 'Approved'
-            ShopStatusLog.objects.create(reason = reason, user = request.user, shop = obj)
+                obj.updated_by = request.user
         return super(ShopAdmin, self).save_model(request, obj, form, change)
 
     get_shop_parent.short_description = 'Parent Shop'

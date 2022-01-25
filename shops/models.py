@@ -317,6 +317,23 @@ def assign_franchise_group_to_user(sender, instance=None, created=False, **kwarg
         my_group.user_set.add(instance.shop_owner)
 
 
+@receiver(post_save, sender=Shop)
+def create_shop_status_log(sender, instance=None, created=False, **kwargs):
+    if not created:
+        user = instance.updated_by
+    else:
+        user = instance.created_by
+    if instance and instance.approval_status:
+        approval_status = instance.approval_status
+        if approval_status == 0:
+            reason = 'Disapproved'
+        elif approval_status == 1:
+            reason = 'Awaiting Approval'
+        else:
+            reason = 'Approved'
+        ShopStatusLog.objects.create(reason=reason, user=user, shop=instance)
+
+
 class FavouriteProduct(models.Model):
     # user = models.ForeignKey(get_user_model(), related_name='user_favourite',on_delete=models.CASCADE)
     buyer_shop = models.ForeignKey(Shop, related_name='shop_favourite', on_delete=models.CASCADE)
