@@ -227,6 +227,12 @@ class ShopStatusAdmin(admin.TabularInline):
         return False
 
 
+class FOFOConfigurationsInline(admin.TabularInline):
+    model = FOFOConfigurations
+    extra = 1
+    fields = ('key', 'value')
+
+
 class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
     change_list_template = 'admin/shops/shop/change_list.html'
     change_form_template = 'admin/shops/shop/change_form.html'
@@ -237,7 +243,7 @@ class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
     actions = ["export_as_csv", "disable_shop", "download_status_report"]
     inlines = [
         ShopPhotosAdmin, ShopDocumentsAdmin,
-        AddressAdmin, ShopInvoicePatternAdmin, ShopParentRetailerMapping, ShopStatusAdmin
+        AddressAdmin, ShopInvoicePatternAdmin, ShopParentRetailerMapping, ShopStatusAdmin, FOFOConfigurationsInline
     ]
     list_display = (
         'shop_name', 'get_shop_shipping_address', 'get_shop_pin_code', 'get_shop_parent',
