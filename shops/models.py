@@ -331,7 +331,9 @@ def create_shop_status_log(sender, instance=None, created=False, **kwargs):
             reason = 'Awaiting Approval'
         else:
             reason = 'Approved'
-        ShopStatusLog.objects.create(reason=reason, user=user, shop=instance)
+        last_status = ShopStatusLog.objects.filter(shop=instance).last()
+        if not last_status or last_status.reason != reason:
+            ShopStatusLog.objects.create(reason=reason, user=user, shop=instance)
 
 
 class FavouriteProduct(models.Model):
