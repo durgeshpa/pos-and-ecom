@@ -179,15 +179,15 @@ def shop_config_search(queryset, search_text):
 
 def shop_category_search(queryset, search_text):
     '''
-    search using config name and shop name on criteria that matches
+    search using cat name on criteria that matches
     '''
-    queryset = queryset.filter(Q(key__name__icontains=search_text) | Q(shop__shop_name__icontains=search_text))
+    queryset = queryset.filter(name__icontains=search_text)
     return queryset
 
 
 def shop_sub_category_search(queryset, search_text):
     '''
-    search using config name and shop name on criteria that matches
+    search using sub cate name and cat name on criteria that matches
     '''
-    queryset = queryset.filter(Q(key__name__icontains=search_text) | Q(shop__shop_name__icontains=search_text))
+    queryset = queryset.filter(Q(category__name__icontains=search_text) | Q(name__icontains=search_text))
     return queryset

@@ -1265,9 +1265,9 @@ class FOFOConfigCategoryView(generics.GenericAPIView):
         search_text = self.request.GET.get('search_text')
         if search_text:
             self.queryset = shop_category_search(self.queryset, search_text)
-        shop = SmallOffsetPagination().paginate_queryset(self.queryset, request)
-        serializer = self.serializer_class(shop, many=True)
-        msg = "" if shop else "no category found"
+        category = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        serializer = self.serializer_class(category, many=True)
+        msg = "" if category else "no category found"
         return get_response(msg, serializer.data, True)
 
     def post(self, request, *args, **kwargs):
@@ -1275,15 +1275,6 @@ class FOFOConfigCategoryView(generics.GenericAPIView):
         if serializer.is_valid():
             serializer.save()
             return get_response('category created Successfully!', None, True, status.HTTP_200_OK)
-        return get_response(serializer_error(serializer), False)
-
-    def put(self, request, *args, **kwargs):
-        data = request.data
-        data['id'] = kwargs['pk']
-        serializer = self.serializer_class(data=data)
-        if serializer.is_valid():
-            serializer.update(kwargs['pk'], serializer.data)
-            return get_response('category updated Successfully!', None, True, status.HTTP_200_OK)
         return get_response(serializer_error(serializer), False)
 
     def put(self, request):
@@ -1316,9 +1307,9 @@ class FOFOConfigSubCategoryView(generics.GenericAPIView):
         search_text = self.request.GET.get('search_text')
         if search_text:
             self.queryset = shop_sub_category_search(self.queryset, search_text)
-        shop = SmallOffsetPagination().paginate_queryset(self.queryset, request)
-        serializer = self.serializer_class(shop, many=True)
-        msg = "" if shop else "no sub category found"
+        sub_category = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        serializer = self.serializer_class(sub_category, many=True)
+        msg = "" if sub_category else "no sub category found"
         return get_response(msg, serializer.data, True)
 
     def post(self, request, *args, **kwargs):
@@ -1345,7 +1336,7 @@ class FOFOConfigSubCategoryView(generics.GenericAPIView):
             serializer.save()
             return get_response('sub category updated Successfully!', serializer.data)
         return get_response(serializer_error(serializer), False)
-    
+
 
 class FOFOConfigurationsView(generics.GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
@@ -1359,11 +1350,9 @@ class FOFOConfigurationsView(generics.GenericAPIView):
         shop = kwargs['shop']
         search_text = self.request.GET.get('search_text')
         queryset = self.queryset.filter(shop=shop)
-        if search_text:
-            self.queryset = shop_config_search(queryset, search_text)
-        shop_conf = SmallOffsetPagination().paginate_queryset(queryset, request)
-        serializer = FOFOConfigurationsGetSerializer(shop_conf, context={'shop': shop})
-        msg = "" if shop_conf else "no configurations found"
+        serializer = FOFOConfigurationsGetSerializer(queryset, context={'shop': shop,
+                                                                        'search_text': search_text})
+        msg = "" if queryset else "no configurations found"
         return get_response(msg, serializer.data, True)
 
     @check_pos_shop
