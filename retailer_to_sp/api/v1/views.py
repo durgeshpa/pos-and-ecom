@@ -9215,13 +9215,16 @@ class ShipmentPackageProductsView(generics.GenericAPIView):
             return get_response(validated_shipment_label['error'])
         self.queryset = self.filter_shipment_products()
         dispatch_items = SmallOffsetPagination().paginate_queryset(self.queryset, request)
-        serializer = self.serializer_class(dispatch_items, many=True)
+        serializer = self.serializer_class(dispatch_items, many=True,
+                                           context={'shop': validated_shipment_label['data'].warehouse})
         msg = "" if dispatch_items else "no product found"
         return get_response(msg, serializer.data, True)
 
     def filter_shipment_products(self):
         package_id = self.request.GET.get('package_id')
         product_id = self.request.GET.get('product_id')
+        product_ean_code = self.request.GET.get('product_ean_code')
+        batch_id = self.request.GET.get('batch_id')
         is_verified = self.request.GET.get('is_verified')
 
         if package_id:
@@ -9229,6 +9232,13 @@ class ShipmentPackageProductsView(generics.GenericAPIView):
 
         if product_id:
             self.queryset = self.queryset.filter(ordered_product__product_id=product_id)
+
+        if product_ean_code:
+            self.queryset = self.queryset.filter(
+                ordered_product__product__product_ean_code__icontains=product_ean_code)
+
+        if batch_id:
+            self.queryset = self.queryset.filter(ordered_product__rt_ordered_product_mapping__batch_id=batch_id)
 
         if is_verified:
             self.queryset = self.queryset.filter(is_verified=is_verified)

@@ -14,6 +14,7 @@ from accounts.models import UserWithName
 from addresses.models import Address, Pincode, City
 from products.models import (Product, ProductPrice, ProductImage, Tax, ProductTaxMapping, ProductOption, Size, Color,
                              Fragrance, Flavor, Weight, PackageSize, ParentProductImage, SlabProductPrice, PriceSlab)
+from retailer_backend.utils import getStrToYearDate
 from retailer_to_sp.common_validators import validate_shipment_crates_list, validate_shipment_package_list
 from retailer_to_sp.models import (CartProductMapping, Cart, Order, OrderedProduct, Note, CustomerCare, Payment,
                                    Dispatch, Feedback, OrderedProductMapping as RetailerOrderedProductMapping,
@@ -34,7 +35,7 @@ from addresses.api.v1.serializers import AddressSerializer
 from coupon.serializers import CouponSerializer
 from wms.api.v2.serializers import QCDeskSerializer, QCAreaSerializer
 from wms.common_functions import release_picking_crates, send_update_to_qcdesk
-from wms.models import Crate
+from wms.models import Crate, WarehouseAssortment, Zone
 
 User = get_user_model()
 
@@ -1855,11 +1856,12 @@ class ShipmentQCSerializer(serializers.ModelSerializer):
                         if 'rescheduling_reason' not in self.initial_data or \
                                 not self.initial_data['rescheduling_reason']:
                             raise serializers.ValidationError(f"'rescheduling_reason' | This is mandatory")
-                        if self.initial_data['rescheduling_reason'] not in ShipmentRescheduling.RESCHEDULING_REASON:
+                        if not any(self.initial_data['rescheduling_reason'] in i for i in
+                                   ShipmentRescheduling.RESCHEDULING_REASON):
                             raise serializers.ValidationError(f"'rescheduling_reason' | Invalid choice")
                         if 'rescheduling_date' not in self.initial_data or not self.initial_data['rescheduling_date']:
                             raise serializers.ValidationError(f"'rescheduling_date' | This is mandatory")
-                        rescheduling_date = self.initial_data['rescheduling_date']
+                        rescheduling_date = getStrToYearDate(self.initial_data['rescheduling_date'])
                         if rescheduling_date < datetime.date.today() or \
                                 rescheduling_date > (datetime.date.today() + datetime.timedelta(days=3)):
                             raise serializers.ValidationError("'rescheduling_date' | The date must be within 3 days!")
@@ -1873,7 +1875,8 @@ class ShipmentQCSerializer(serializers.ModelSerializer):
                         if 'not_attempt_reason' not in self.initial_data or \
                                 not self.initial_data['not_attempt_reason']:
                             raise serializers.ValidationError(f"'not_attempt_reason' | This is mandatory")
-                        if self.initial_data['not_attempt_reason'] not in ShipmentNotAttempt.NOT_ATTEMPT_REASON:
+                        if not any(self.initial_data['not_attempt_reason'] in i for i in
+                                   ShipmentNotAttempt.NOT_ATTEMPT_REASON):
                             raise serializers.ValidationError(f"'not_attempt_reason' | Invalid choice")
                         shipment_not_attempt['not_attempt_reason'] = self.initial_data['not_attempt_reason']
                 elif (shipment_status not in [OrderedProduct.SHIPMENT_CREATED, OrderedProduct.QC_STARTED,
@@ -1935,7 +1938,7 @@ class ShipmentQCSerializer(serializers.ModelSerializer):
     def create_shipment_reschedule(self, shipment_instance, rescheduling_reason, rescheduling_date):
         """Create shipment rescheduled"""
         info_logger.info(f"create_shipment_reschedule|Reschedule Started|Shipment ID {shipment_instance.id}")
-        if ShipmentRescheduling.objects.filter(shipment=shipment_instance).exists():
+        if not ShipmentRescheduling.objects.filter(shipment=shipment_instance).exists():
             ShipmentRescheduling.objects.create(
                 shipment=shipment_instance, rescheduling_reason=rescheduling_reason, rescheduling_date=rescheduling_date,
                 created_by=shipment_instance.updated_by)
@@ -1947,7 +1950,7 @@ class ShipmentQCSerializer(serializers.ModelSerializer):
     def create_shipment_not_attempt(self, shipment_instance, not_attempt_reason):
         """Create shipment not attempt"""
         info_logger.info(f"create_shipment_not_attempt|Not Attempt Started|Shipment ID {shipment_instance.id}")
-        if ShipmentNotAttempt.objects.filter(
+        if not ShipmentNotAttempt.objects.filter(
                 shipment=shipment_instance, created_at__date=datetime.datetime.now().date()).exists():
             ShipmentNotAttempt.objects.create(
                 shipment=shipment_instance, not_attempt_reason=not_attempt_reason,
@@ -4168,15 +4171,51 @@ class MarkShipmentPackageVerifiedSerializer(serializers.ModelSerializer):
         return trip_shipment_package
 
 
+class ShipmentPackageZoneSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Zone
+        fields = ('id', 'zone_number', 'name')
+
+
+class ShipmentPackageProductSerializer(serializers.ModelSerializer):
+    product_image = serializers.SerializerMethodField()
+    product_brand = serializers.SerializerMethodField()
+    zone = serializers.SerializerMethodField()
+
+    def get_product_image(self, obj):
+        if ProductImage.objects.filter(product=obj).exists():
+            product_image = ProductImage.objects.filter(product=obj)[0].image.url
+            return product_image
+        else:
+            return None
+
+    def get_product_brand(self, obj):
+        return obj.product_brand.brand_name
+
+    def get_zone(self, obj):
+        return ShipmentPackageZoneSerializer(WarehouseAssortment.objects.filter(
+            product=obj.parent_product, warehouse=self.context.get('shop')).last().zone).data
+
+    class Meta:
+        model = Product
+        fields = ('id', 'product_sku', 'product_name', 'product_brand', 'product_inner_case_size', 'product_case_size',
+                  'product_image', 'product_mrp', 'product_ean_code', 'zone')
+
+
 class ShipmentPackageProductsSerializer(serializers.ModelSerializer):
     product = serializers.SerializerMethodField(read_only=True)
+    batches = serializers.SerializerMethodField(read_only=True)
     quantity = serializers.IntegerField(read_only=True)
     return_qty = serializers.IntegerField(read_only=True)
     is_verified = serializers.BooleanField(read_only=True)
 
     def get_product(self, obj):
-        return ProductSerializer(obj.ordered_product.product).data
+        return ShipmentPackageProductSerializer(obj.ordered_product.product).data
+
+    def get_batches(self, obj):
+        return OrderedProductBatchSerializer(
+            obj.ordered_product.product.rt_ordered_product_mapping.all(), many=True).data
 
     class Meta:
         model = ShipmentPackagingMapping
-        fields = ('id', 'product', 'quantity', 'return_qty', 'is_verified')
+        fields = ('id', 'product', 'batches', 'quantity', 'return_qty', 'is_verified')
