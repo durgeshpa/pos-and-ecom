@@ -906,9 +906,14 @@ class FOFOConfigurationsGetSerializer(serializers.Serializer):
         return ShopNameSerializer(self.context.get('shop'), read_only=True).data
 
     def get_category(self, obj):
+        if self.context.get('search_text'):
+            return FOFOCategoryConfigurationsGetSerializer(FOFOConfigCategory.objects.filter(
+                fofo_category_details__fofo_category__shop=self.context.get('shop'),
+                name__icontains=self.context.get('search_text')).distinct(), many=True,
+                context={'shop': self.context.get('shop')}).data
         return FOFOCategoryConfigurationsGetSerializer(FOFOConfigCategory.objects.filter(
             fofo_category_details__fofo_category__shop=self.context.get('shop')).distinct(), many=True,
-                                                       context={'shop': self.context.get('shop')}).data
+            context={'shop': self.context.get('shop')}).data
 
 
 class FOFOConfigurationsCrudSerializer(serializers.ModelSerializer):
