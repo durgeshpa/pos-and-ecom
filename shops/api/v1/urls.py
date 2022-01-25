@@ -58,11 +58,12 @@ urlpatterns = [
     url('pos-user-type-list/', UserTypeListView.as_view(), name='pos-user-type-list'),
     url('shop-doc-user-choices/', UserDocumentChoices.as_view(), name='shop-doc-user-choices'),
     url('shop-doc-shop-choices/', ShopDocumentChoices.as_view(), name='shop-doc-shop-choices'),
-    url('fofo-configurations/', FOFOConfigurationsView.as_view(), name='fofo-configurations'),
+
     url('fofo-category-configurations/', FOFOConfigCategoryView.as_view(),
         name='fofo-category-configurations'),
     url('fofo-subcategory-configurations/', FOFOConfigSubCategoryView.as_view(),
         name='fofo-subcategory-configurations'),
+    url('fofo-configurations/', FOFOConfigurationsView.as_view(), name='fofo-configurations'),
 
 ]
 

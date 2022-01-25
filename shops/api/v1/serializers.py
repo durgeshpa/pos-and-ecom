@@ -847,11 +847,15 @@ class FOFOCategoryConfigurationsCrudSerializer(serializers.ModelSerializer):
 
 
 class FOFOSubCategoryConfigurationsCrudSerializer(serializers.ModelSerializer):
-    category = FOFOCategoryConfigurationsCrudSerializer()
 
     class Meta:
         model = FOFOConfigSubCategory
         fields = ('id', 'name', 'category')
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        data['category'] = FOFOCategoryConfigurationsCrudSerializer(instance.category).data
+        return data
 
 
 class ShopNameSerializer(serializers.ModelSerializer):

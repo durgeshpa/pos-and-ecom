@@ -702,7 +702,7 @@ class FOFOConfigCategory(models.Model):
     """
     Master model for FOFO configuration category
     """
-    name = models.CharField(max_length=125)
+    name = models.CharField(max_length=125, unique=True)
 
     def __str__(self):
         return self.name
@@ -713,7 +713,7 @@ class FOFOConfigSubCategory(models.Model):
     Master model for FOFO configuration sub-category
     """
     category = models.ForeignKey(FOFOConfigCategory, related_name='fofo_category_details', on_delete=models.CASCADE)
-    name = models.CharField(max_length=125,)
+    name = models.CharField(max_length=125, unique=True)
 
     def __str__(self):
         return str(self.category) + " - " + str(self.name)

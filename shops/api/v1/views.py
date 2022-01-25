@@ -26,7 +26,7 @@ from retailer_to_sp.views import update_shipment_status_after_return
 from shops.common_functions import get_response, serializer_error, serializer_error_batch
 from shops.services import shop_search, shop_config_search, shop_category_search, shop_sub_category_search
 from shops.filters import FavouriteProductFilter
-
+from products.common_validators import validate_id
 from shops.models import (PosShopUserMapping, RetailerType, ShopType, Shop, ShopPhoto, ShopDocument, ShopUserMapping,
                           SalesAppVersion, ShopRequestBrand, ShopTiming, FavouriteProduct, BeatPlanning,
                           DayBeatPlanning, ExecutiveFeedback, USER_TYPE_CHOICES, FOFOConfigurations, FOFOConfigCategory,
@@ -1270,12 +1270,38 @@ class FOFOConfigCategoryView(generics.GenericAPIView):
         msg = "" if shop else "no category found"
         return get_response(msg, serializer.data, True)
 
-    @check_pos_shop
     def post(self, request, *args, **kwargs):
         serializer = self.serializer_class(data=request.data)
         if serializer.is_valid():
             serializer.save()
             return get_response('category created Successfully!', None, True, status.HTTP_200_OK)
+        return get_response(serializer_error(serializer), False)
+
+    def put(self, request, *args, **kwargs):
+        data = request.data
+        data['id'] = kwargs['pk']
+        serializer = self.serializer_class(data=data)
+        if serializer.is_valid():
+            serializer.update(kwargs['pk'], serializer.data)
+            return get_response('category updated Successfully!', None, True, status.HTTP_200_OK)
+        return get_response(serializer_error(serializer), False)
+
+    def put(self, request):
+        """ PUT API for Category Updation """
+
+        if 'id' not in request.data:
+            return get_response('please provide id to update category', False)
+
+        # validations for input id
+        id_instance = validate_id(self.queryset, int(request.data['id']))
+        if 'error' in id_instance:
+            return get_response(id_instance['error'])
+
+        cat_instance = id_instance['data'].last()
+        serializer = self.serializer_class(instance=cat_instance, data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return get_response('category updated Successfully!', serializer.data)
         return get_response(serializer_error(serializer), False)
 
 
@@ -1285,7 +1311,6 @@ class FOFOConfigSubCategoryView(generics.GenericAPIView):
     queryset = FOFOConfigSubCategory.objects.order_by('-id')
     serializer_class = FOFOSubCategoryConfigurationsCrudSerializer
 
-    @check_pos_shop
     def get(self, request):
         """ GET Sub-Category List """
         search_text = self.request.GET.get('search_text')
@@ -1296,7 +1321,6 @@ class FOFOConfigSubCategoryView(generics.GenericAPIView):
         msg = "" if shop else "no sub category found"
         return get_response(msg, serializer.data, True)
 
-    @check_pos_shop
     def post(self, request, *args, **kwargs):
         serializer = self.serializer_class(data=request.data)
         if serializer.is_valid():
@@ -1304,6 +1328,24 @@ class FOFOConfigSubCategoryView(generics.GenericAPIView):
             return get_response('sub category created Successfully!', None, True, status.HTTP_200_OK)
         return get_response(serializer_error(serializer), False)
 
+    def put(self, request):
+        """ PUT API for Sub Category Updation """
+
+        if 'id' not in request.data:
+            return get_response('please provide id to update sub category', False)
+
+        # validations for input id
+        id_instance = validate_id(self.queryset, int(request.data['id']))
+        if 'error' in id_instance:
+            return get_response(id_instance['error'])
+
+        cat_instance = id_instance['data'].last()
+        serializer = self.serializer_class(instance=cat_instance, data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return get_response('sub category updated Successfully!', serializer.data)
+        return get_response(serializer_error(serializer), False)
+    
 
 class FOFOConfigurationsView(generics.GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
