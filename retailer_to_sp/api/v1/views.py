@@ -6881,7 +6881,7 @@ class OrderPaymentStatusChangeView(generics.GenericAPIView):
         except ObjectDoesNotExist:
             return api_response('Order Not Found!')
 
-        serializer = self.serializer_class(instance=order, data=modified_data, context={'app-type': app_type})
+        serializer = self.serializer_class(instance=order, data=modified_data, context={'app-type': 3})
         if serializer.is_valid():
             serializer.save(updated_by=request.user)
             info_logger.info("Order Updated Successfully.")
@@ -6906,7 +6906,7 @@ class OrderPaymentStatusChangeView(generics.GenericAPIView):
         except ObjectDoesNotExist:
             return api_response('Order Not Found!')
 
-        serializer = self.serializer_class(instance=order, data=modified_data)
+        serializer = self.serializer_class(instance=order, data=modified_data, context={'app-type': 2})
         if serializer.is_valid():
             serializer.save(updated_by=request.user)
             info_logger.info("Order Updated Successfully.")
