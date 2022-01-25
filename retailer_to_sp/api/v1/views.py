@@ -8242,28 +8242,29 @@ class DispatchCenterShipmentView(generics.GenericAPIView):
 
         if availability:
             if availability == INVOICE_AVAILABILITY_CHOICES.ADDED:
-                self.queryset = self.queryset.filter(trip_shipment__isnull=False, trip_shipment__trip_id=trip_id,
+                self.queryset = self.queryset.filter(trip_shipment__trip_id=trip_id,
                                                      trip_shipment__shipment_status__in=[
                                                      DispatchTripShipmentMapping.LOADED_FOR_DC,
                                                      DispatchTripShipmentMapping.UNLOADING_AT_DC,
-                                                     DispatchTripShipmentMapping.UNLOADED_AT_DC])
+                                                     DispatchTripShipmentMapping.UNLOADED_AT_DC],
+                                                     )
             elif availability == INVOICE_AVAILABILITY_CHOICES.NOT_ADDED:
-                self.queryset = self.queryset.filter(Q(trip_shipment__isnull=True) |
-                                                     Q(trip_shipment__shipment_status__in=[
-                                                     DispatchTripShipmentMapping.CANCELLED,
-                                                     DispatchTripShipmentMapping.LOADING_FOR_DC]),
+                self.queryset = self.queryset.filter(Q(trip_shipment__isnull=True)|
+                                                     ~Q(trip_shipment__trip=trip_id,
+                                                        trip_shipment__shipment_status__in=[
+                                                         DispatchTripShipmentMapping.LOADING_FOR_DC,
+                                                         DispatchTripShipmentMapping.LOADED_FOR_DC] ),
                                                      shipment_status=OrderedProduct.MOVED_TO_DISPATCH)
             elif availability == INVOICE_AVAILABILITY_CHOICES.ALL:
                 self.queryset = self.queryset.filter(Q(trip_shipment__isnull=True)|
-                                                     Q(trip_shipment__trip_id=trip_id,
-                                                       trip_shipment__shipment_status__in=[
-                                                       DispatchTripShipmentMapping.LOADED_FOR_DC,
-                                                       DispatchTripShipmentMapping.LOADING_FOR_DC])|
-                                                     Q(trip_shipment__isnull=False,
-                                                       trip_shipment__shipment_status__in=[
-                                                     DispatchTripShipmentMapping.CANCELLED]),
-                                                     shipment_status__in=[OrderedProduct.MOVED_TO_DISPATCH,
-                                                                          OrderedProduct.READY_TO_DISPATCH])
+                                                     ~Q(trip_shipment__trip=trip_id,
+                                                        trip_shipment__shipment_status__in=[
+                                                         DispatchTripShipmentMapping.LOADING_FOR_DC,
+                                                         DispatchTripShipmentMapping.LOADED_FOR_DC] ),
+                                                     Q(shipment_status=OrderedProduct.MOVED_TO_DISPATCH)|
+                                                     Q(trip_shipment__trip_id=trip_id) &
+                                                     ~Q(trip_shipment__shipment_status=
+                                                       DispatchTripShipmentMapping.CANCELLED))
 
         return self.queryset.distinct('id')
 
@@ -9220,13 +9221,16 @@ class ShipmentPackageProductsView(generics.GenericAPIView):
             return get_response(validated_shipment_label['error'])
         self.queryset = self.filter_shipment_products()
         dispatch_items = SmallOffsetPagination().paginate_queryset(self.queryset, request)
-        serializer = self.serializer_class(dispatch_items, many=True)
+        serializer = self.serializer_class(dispatch_items, many=True,
+                                           context={'shop': validated_shipment_label['data'].warehouse})
         msg = "" if dispatch_items else "no product found"
         return get_response(msg, serializer.data, True)
 
     def filter_shipment_products(self):
         package_id = self.request.GET.get('package_id')
         product_id = self.request.GET.get('product_id')
+        product_ean_code = self.request.GET.get('product_ean_code')
+        batch_id = self.request.GET.get('batch_id')
         is_verified = self.request.GET.get('is_verified')
 
         if package_id:
@@ -9234,6 +9238,13 @@ class ShipmentPackageProductsView(generics.GenericAPIView):
 
         if product_id:
             self.queryset = self.queryset.filter(ordered_product__product_id=product_id)
+
+        if product_ean_code:
+            self.queryset = self.queryset.filter(
+                ordered_product__product__product_ean_code__icontains=product_ean_code)
+
+        if batch_id:
+            self.queryset = self.queryset.filter(ordered_product__rt_ordered_product_mapping__batch_id=batch_id)
 
         if is_verified:
             self.queryset = self.queryset.filter(is_verified=is_verified)

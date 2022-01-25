@@ -3404,7 +3404,8 @@ class DispatchTrip(BaseTimestampUserModel):
 
     @property
     def no_of_shipments(self):
-        return self.shipments_details.all().count()
+        return self.shipments_details.exclude(shipment_status__in=[DispatchTripShipmentMapping.LOADING_FOR_DC,
+                                                                   DispatchTripShipmentMapping.CANCELLED]).count()
 
     @property
     def trip_id(self):
