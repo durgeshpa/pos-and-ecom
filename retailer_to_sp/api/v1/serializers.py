@@ -3389,7 +3389,7 @@ class TripShipmentMappingSerializer(serializers.ModelSerializer):
         trip_shipment_mapping.trip.weight = trip_shipment_mapping.trip.get_trip_weight()
         package_data = trip_shipment_mapping.trip.get_package_data()
         trip_shipment_mapping.trip.no_of_crates = package_data['no_of_crates']
-        trip_shipment_mapping.trip.no_of_packates = package_data['no_of_packs']
+        trip_shipment_mapping.trip.no_of_packets = package_data['no_of_packs']
         trip_shipment_mapping.trip.no_of_sacks = package_data['no_of_sacks']
         trip_shipment_mapping.trip.save()
         if trip_shipment_mapping.trip.trip_type == DispatchTrip.FORWARD and \
