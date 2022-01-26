@@ -8250,22 +8250,37 @@ class DispatchCenterShipmentView(generics.GenericAPIView):
                                                      DispatchTripShipmentMapping.UNLOADED_AT_DC],
                                                      )
             elif availability == INVOICE_AVAILABILITY_CHOICES.NOT_ADDED:
-                self.queryset = self.queryset.filter(Q(trip_shipment__isnull=True)|
-                                                     ~Q(trip_shipment__trip=trip_id,
-                                                        trip_shipment__shipment_status__in=[
-                                                         DispatchTripShipmentMapping.LOADING_FOR_DC,
-                                                         DispatchTripShipmentMapping.LOADED_FOR_DC] ),
-                                                     shipment_status=OrderedProduct.MOVED_TO_DISPATCH)
+                shipment_moved_to_dispatch = self.queryset.filter(shipment_status=OrderedProduct.MOVED_TO_DISPATCH)
+                shipment_not_added_in_any_trip = shipment_moved_to_dispatch.filter(trip_shipment__isnull=True)
+                shipment_added_in_some_other_trip = shipment_moved_to_dispatch.exclude(
+                                                                trip_shipment__isnull=False,
+                                                                trip_shipment__shipment_status__in=[
+                                                                 DispatchTripShipmentMapping.LOADING_FOR_DC,
+                                                                 DispatchTripShipmentMapping.LOADED_FOR_DC,
+                                                                 DispatchTripShipmentMapping.UNLOADING_AT_DC,
+                                                                 DispatchTripShipmentMapping.UNLOADED_AT_DC])
+
+                self.queryset = shipment_not_added_in_any_trip.union(shipment_added_in_some_other_trip)
             elif availability == INVOICE_AVAILABILITY_CHOICES.ALL:
-                self.queryset = self.queryset.filter(Q(trip_shipment__isnull=True)|
-                                                     ~Q(trip_shipment__trip=trip_id,
-                                                        trip_shipment__shipment_status__in=[
-                                                         DispatchTripShipmentMapping.LOADING_FOR_DC,
-                                                         DispatchTripShipmentMapping.LOADED_FOR_DC] ),
-                                                     Q(shipment_status=OrderedProduct.MOVED_TO_DISPATCH)|
-                                                     Q(trip_shipment__trip_id=trip_id) &
-                                                     ~Q(trip_shipment__shipment_status=
-                                                       DispatchTripShipmentMapping.CANCELLED))
+
+                shipment_moved_to_dispatch = self.queryset.filter(shipment_status__in=[
+                                                                    OrderedProduct.MOVED_TO_DISPATCH,
+                                                                    OrderedProduct.READY_TO_DISPATCH]
+                                                                  )
+                self.queryset = shipment_moved_to_dispatch.exclude(~Q(trip_shipment__trip_id=trip_id),
+                                                                   trip_shipment__shipment_status__in=[
+                                                                     DispatchTripShipmentMapping.LOADING_FOR_DC,
+                                                                     DispatchTripShipmentMapping.LOADED_FOR_DC,
+                                                                     DispatchTripShipmentMapping.UNLOADING_AT_DC,
+                                                                     DispatchTripShipmentMapping.UNLOADED_AT_DC])
+                # self.queryset = self.queryset.filter(Q(trip_shipment__isnull=True)|
+                #                                      ~Q(trip_shipment__trip=trip_id) &
+                #                                      Q(trip_shipment__shipment_status=
+                #                                        DispatchTripShipmentMapping.CANCELLED),
+                #                                      Q(shipment_status=OrderedProduct.MOVED_TO_DISPATCH)|
+                #                                      Q(trip_shipment__trip_id=trip_id) &
+                #                                      ~Q(trip_shipment__shipment_status=
+                #                                         DispatchTripShipmentMapping.CANCELLED))
 
         return self.queryset.distinct('id')
 
