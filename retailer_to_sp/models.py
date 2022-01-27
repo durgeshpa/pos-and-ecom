@@ -1021,6 +1021,7 @@ class Order(models.Model):
         null=True, blank=True, verbose_name='Reason for Cancellation',
     )
     order_closed = models.BooleanField(default=False, null=True, blank=True)
+    order_app_type = models.CharField(max_length=50, choices=ORDER_APP_TYPE, null=True, blank=True)
     ordered_by = models.ForeignKey(
         get_user_model(), related_name='rt_ordered_by_user',
         null=True, blank=True, on_delete=models.DO_NOTHING
