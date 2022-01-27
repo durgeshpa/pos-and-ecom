@@ -868,10 +868,7 @@ def validate_fofo_sub_category(sub_cat_ids, shop):
         except Exception as e:
             logger.error(e)
             return {'error': 'option {} not found'.format(sub_cat_id['key'])}
-        try:
-            fofo_sub_cat_name_obj = FOFOConfigSubCategory.objects.get(name__iexact=sub_cat_id['name'])
-        except Exception as e:
-            logger.error(e)
+        if str(fofo_sub_cat_obj.name).lower() != str(sub_cat_id['name']).lower():
             return {'error': 'name {} not found'.format(sub_cat_id['name'])}
 
         # check for update / create validation for existing data

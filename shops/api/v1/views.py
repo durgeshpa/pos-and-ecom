@@ -16,7 +16,8 @@ from accounts.models import USER_DOCUMENTS_TYPE_CHOICES
 from addresses.models import Address
 from addresses.api.v1.serializers import AddressSerializer
 from common.data_wrapper_view import DataWrapperViewSet
-from pos.common_functions import check_pos_shop, pos_check_permission, api_response, check_logged_in_user_is_superuser
+from pos.common_functions import check_pos_shop, pos_check_permission, api_response, check_logged_in_user_is_superuser, \
+    check_fofo_shop
 from retailer_backend.utils import SmallOffsetPagination
 from retailer_backend import messages
 from retailer_backend.messages import SUCCESS_MESSAGES, ERROR_MESSAGES
@@ -1261,6 +1262,7 @@ class FOFOConfigCategoryView(generics.GenericAPIView):
     queryset = FOFOConfigCategory.objects.order_by('-id')
     serializer_class = FOFOCategoryConfigurationsCrudSerializer
 
+    @check_logged_in_user_is_superuser
     def get(self, request):
         """ GET Category List """
         search_text = self.request.GET.get('search_text')
@@ -1305,6 +1307,7 @@ class FOFOConfigSubCategoryView(generics.GenericAPIView):
     queryset = FOFOConfigSubCategory.objects.order_by('-id')
     serializer_class = FOFOSubCategoryConfigurationsCrudSerializer
 
+    @check_logged_in_user_is_superuser
     def get(self, request):
         """ GET Sub-Category List """
         search_text = self.request.GET.get('search_text')
@@ -1349,7 +1352,7 @@ class FOFOListView(generics.GenericAPIView):
     queryset = FOFOConfigCategory.objects.order_by('-id')
     serializer_class = FOFOListSerializer
 
-    @check_pos_shop
+    @check_logged_in_user_is_superuser
     def get(self, request, *args, **kwargs):
         """ GET Cat Sub-Cat Configurations List """
         search_text = self.request.GET.get('search_text')
@@ -1367,8 +1370,8 @@ class FOFOConfigurationsView(generics.GenericAPIView):
     queryset = FOFOConfigurations.objects.order_by('-id')
     serializer_class = FOFOConfigurationsCrudSerializer
 
-    @check_pos_shop
     @check_logged_in_user_is_superuser
+    @check_fofo_shop
     def get(self, request, *args, **kwargs):
         """ GET FOFO Configurations List """
         shop = kwargs['shop']
@@ -1379,14 +1382,10 @@ class FOFOConfigurationsView(generics.GenericAPIView):
         msg = "" if queryset else "no configurations found"
         return get_response(msg, serializer.data, True)
 
-    @check_pos_shop
     @check_logged_in_user_is_superuser
+    @check_fofo_shop
     def post(self, request, *args, **kwargs):
         shop = kwargs['shop']
-        if shop.shop_type.shop_sub_type.retailer_type_name !='fofo':
-            return api_response("Shop Type Not Franchise - fofo ")
-        if not shop.online_inventory_enabled:
-            return api_response("Franchise Shop Is Not Online Enabled!")
         modified_data = self.validate_request_data()
         if 'error' in modified_data:
             return api_response(modified_data['error'])
@@ -1399,14 +1398,10 @@ class FOFOConfigurationsView(generics.GenericAPIView):
             return get_response('Configurations has been done Successfully!', None, True, status.HTTP_200_OK)
         return get_response(serializer_error_batch(serializer), False)
 
-    @check_pos_shop
     @check_logged_in_user_is_superuser
+    @check_fofo_shop
     def put(self, request, *args, **kwargs):
         shop = kwargs['shop']
-        if shop.shop_type.shop_sub_type.retailer_type_name !='fofo':
-            return api_response("Shop Type Not Franchise - fofo ")
-        if not shop.online_inventory_enabled:
-            return api_response("Franchise Shop Is Not Online Enabled!")
         modified_data = self.validate_request_data()
         if 'error' in modified_data:
             return api_response(modified_data['error'])
