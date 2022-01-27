@@ -2579,11 +2579,11 @@ def get_logged_user_wise_query_set_for_qc_desk_mapping(user, queryset):
         GET Logged-in user wise queryset for qc desk mapping based on criteria that matches
     '''
     if user.has_perm('wms.can_have_zone_warehouse_permission'):
-        queryset = queryset.filter(qc_desk__warehouse_id=user.shop_employee.all().last().shop_id)
+        queryset = queryset.filter(qc_desk__warehouse_id=user.shop_employee.last().shop_id)
     elif user.has_perm('wms.can_have_zone_supervisor_permission'):
-        queryset = queryset.filter(qc_desk__warehouse_id=user.shop_employee.all().last().shop_id)
+        queryset = queryset.filter(qc_desk__warehouse_id=user.shop_employee.last().shop_id)
     elif user.has_perm('wms.can_have_zone_coordinator_permission'):
-        queryset = queryset.filter(qc_desk__warehouse_id=user.shop_employee.all().last().shop_id)
+        queryset = queryset.filter(qc_desk__warehouse_id=user.shop_employee.last().shop_id)
     elif user.has_perm('wms.can_have_qc_executive_permission'):
         queryset = queryset.filter(qc_desk__qc_executive=user)
     return queryset
@@ -2594,11 +2594,11 @@ def get_logged_user_wise_query_set_for_qc_desk(user, queryset):
         GET Logged-in user wise queryset for qc desk based on criteria that matches
     '''
     if user.has_perm('wms.can_have_zone_warehouse_permission'):
-        queryset = queryset.filter(warehouse_id=user.shop_employee.all().last().shop_id)
+        queryset = queryset.filter(warehouse_id=user.shop_employee.last().shop_id)
     elif user.has_perm('wms.can_have_zone_supervisor_permission'):
-        queryset = queryset.filter(warehouse_id=user.shop_employee.all().last().shop_id)
+        queryset = queryset.filter(warehouse_id=user.shop_employee.last().shop_id)
     elif user.has_perm('wms.can_have_zone_coordinator_permission'):
-        queryset = queryset.filter(warehouse_id=user.shop_employee.all().last().shop_id)
+        queryset = queryset.filter(warehouse_id=user.shop_employee.last().shop_id)
     elif user.has_perm('wms.can_have_qc_executive_permission'):
         queryset = queryset.filter(qc_executive=user)
     return queryset
@@ -2612,7 +2612,7 @@ def get_logged_user_wise_query_set_for_shipment(user, queryset):
             or user.has_perm('wms.can_have_zone_supervisor_permission') or \
             user.has_perm('wms.can_have_zone_coordinator_permission') or \
             user.groups.filter(name='Dispatch Executive'):
-        queryset = queryset.filter(order__seller_shop_id=user.shop_employee.all().last().shop_id)
+        queryset = queryset.filter(order__seller_shop_id=user.shop_employee.last().shop_id)
     elif user.has_perm('wms.can_have_qc_executive_permission'):
         queryset = queryset.filter(qc_area__qc_desk_areas__qc_executive=user)
     else:
@@ -2645,7 +2645,7 @@ def get_logged_user_wise_query_set_for_dispatch(user, queryset):
     '''
     if user.has_perm('wms.can_have_zone_warehouse_permission')\
             or user.groups.filter(name='Dispatch Executive'):
-        queryset = queryset.filter(order__seller_shop_id=user.shop_employee.all().last().shop_id)
+        queryset = queryset.filter(order__seller_shop_id=user.shop_employee.last().shop_id)
     else:
         queryset = queryset.none()
     return queryset
@@ -2656,9 +2656,9 @@ def get_logged_user_wise_query_set_for_dispatch_trip(user, queryset):
         GET Logged-in user wise queryset for shipment based on criteria that matches
     '''
     if user.has_perm('wms.can_have_zone_warehouse_permission'):
-        queryset = queryset.filter(seller_shop_id=user.shop_employee.all().last().shop_id)
+        queryset = queryset.filter(seller_shop_id=user.shop_employee.last().shop_id)
     elif user.groups.filter(name='Dispatch Executive'):
-        queryset = queryset.filter(source_shop_id=user.shop_employee.all().last().shop_id)
+        queryset = queryset.filter(source_shop_id=user.shop_employee.last().shop_id)
     else:
         queryset = queryset.none()
     return queryset
@@ -2669,9 +2669,9 @@ def get_logged_user_wise_query_set_for_dispatch_crates(user, queryset):
         GET Logged-in user wise queryset for crates based on criteria that matches
     '''
     if user.has_perm('wms.can_have_zone_warehouse_permission'):
-        queryset = queryset.filter(shop_id=user.shop_employee.all().last().shop_id)
+        queryset = queryset.filter(shop_id=user.shop_employee.last().shop_id)
     elif user.groups.filter(name='Dispatch Executive'):
-        queryset = queryset.filter(shop_id=user.shop_employee.all().last().shop_id)
+        queryset = queryset.filter(shop_id=user.shop_employee.last().shop_id)
     else:
         queryset = queryset.none()
     return queryset
@@ -2682,9 +2682,9 @@ def get_logged_user_wise_query_set_for_shipment_packaging(user, queryset):
         GET Logged-in user wise queryset for shipment packaging based on criteria that matches
     '''
     if user.has_perm('wms.can_have_zone_warehouse_permission'):
-        queryset = queryset.filter(warehouse_id=user.shop_employee.all().last().shop_id)
+        queryset = queryset.filter(warehouse_id=user.shop_employee.last().shop_id)
     elif user.groups.filter(name='Dispatch Executive'):
-        queryset = queryset.filter(warehouse_id=user.shop_employee.all().last().shop_id)
+        queryset = queryset.filter(warehouse_id=user.shop_employee.last().shop_id)
     else:
         queryset = queryset.none()
     return queryset
