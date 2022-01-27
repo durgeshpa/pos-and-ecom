@@ -690,9 +690,39 @@ class payment_type(admin.ModelAdmin):
 class FOFOConfigCategoryAdmin(admin.ModelAdmin):
     fields = ('name', )
 
+    def has_add_permission(self, request, obj=None):
+        if request.user.is_superuser:
+            return True
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        if request.user.is_superuser:
+            return True
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        if request.user.is_superuser:
+            return True
+        return False
+
 
 class FOFOConfigSubCategoryAdmin(admin.ModelAdmin):
     fields = ('name', 'category')
+
+    def has_add_permission(self, request, obj=None):
+        if request.user.is_superuser:
+            return True
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        if request.user.is_superuser:
+            return True
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        if request.user.is_superuser:
+            return True
+        return False
 
 
 class FOFOConfigurationsAdmin(admin.ModelAdmin):

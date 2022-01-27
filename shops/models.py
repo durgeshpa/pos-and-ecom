@@ -17,6 +17,7 @@ from django.core.validators import MinLengthValidator
 from django.contrib.auth.models import Group
 from django.contrib.postgres.fields import JSONField
 from categories.models import BaseTimeModel, BaseTimestampUserStatusModel
+from .fields import CaseInsensitiveCharField
 # from analytics.post_save_signal import get_retailer_report
 
 Product = 'products.product'
@@ -721,10 +722,14 @@ class FOFOConfigCategory(models.Model):
     """
     Master model for FOFO configuration category
     """
-    name = models.CharField(max_length=125, unique=True)
+    name = CaseInsensitiveCharField(max_length=125, unique=True)
 
     def __str__(self):
         return self.name
+
+    # def save(self, *args, **kwargs):
+    #     self.name = self.name.upper()
+    #     super(FOFOConfigCategory, self).save(*args, **kwargs)
 
 
 class FOFOConfigSubCategory(models.Model):
@@ -732,7 +737,7 @@ class FOFOConfigSubCategory(models.Model):
     Master model for FOFO configuration sub-category
     """
     category = models.ForeignKey(FOFOConfigCategory, related_name='fofo_category_details', on_delete=models.CASCADE)
-    name = models.CharField(max_length=125, unique=True)
+    name = CaseInsensitiveCharField(max_length=125, unique=True)
 
     def __str__(self):
         return str(self.category) + " - " + str(self.name)
