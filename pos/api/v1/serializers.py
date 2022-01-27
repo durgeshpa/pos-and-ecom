@@ -72,7 +72,7 @@ class RetailerProductCreateSerializer(serializers.Serializer):
     images = serializers.ListField(required=False, default=None, child=serializers.ImageField(), max_length=3)
     is_discounted = serializers.BooleanField(default=False)
     online_enabled = serializers.BooleanField(default=True)
-    online_price = serializers.DecimalField(max_digits=6, decimal_places=2, required=False, min_value=0.01,
+    online_price = serializers.DecimalField(max_digits=6, decimal_places=2, required=False, min_value=0.00,
                                             allow_null=True)
     ean_not_available = serializers.BooleanField(default=False)
     product_pack_type = serializers.ChoiceField(choices=['packet', 'loose'], default='packet')
@@ -103,7 +103,7 @@ class RetailerProductCreateSerializer(serializers.Serializer):
             raise serializers.ValidationError("Selling Price should be equal to OR less than MRP")
 
         if 'online_enabled' in attrs and attrs['online_enabled']:
-            if 'online_price' not in attrs or not attrs['online_price']:
+            if 'online_price' not in attrs and not attrs['online_price']:
                 raise serializers.ValidationError("Online Price may not be empty")
         if 'online_price' in attrs and attrs['online_price']\
                 is not None and attrs['online_price'] > mrp:
@@ -205,7 +205,7 @@ class RetailerProductUpdateSerializer(serializers.Serializer):
     discounted_stock = serializers.DecimalField(max_digits=10, decimal_places=3, required=False, default=0, min_value=0)
     online_enabled = serializers.BooleanField(required=False)
     online_price = serializers.DecimalField(max_digits=6, decimal_places=2, required=False,
-                                            min_value=0.01, allow_null=True)
+                                            min_value=0.00, allow_null=True)
     ean_not_available = serializers.BooleanField(default=None)
     product_pack_type = serializers.ChoiceField(choices=['packet', 'loose'],required=False)
     purchase_pack_size = serializers.IntegerField(default=None)
@@ -236,7 +236,7 @@ class RetailerProductUpdateSerializer(serializers.Serializer):
             raise serializers.ValidationError("Selling Price should be equal to OR less than MRP")
 
         if 'online_enabled' in attrs and attrs['online_enabled']:
-            if 'online_price' not in attrs or not attrs['online_price']:
+            if 'online_price' not in attrs and not attrs['online_price']:
                 raise serializers.ValidationError("Online Price may not be empty")
             attrs['online_enabled'] = attrs['online_enabled']
 
@@ -728,7 +728,7 @@ class BasicOrderListSerializer(serializers.ModelSerializer):
     class Meta:
         model = Order
         fields = ('id', 'order_status', 'order_cancel_reson', 'order_amount', 'order_no', 'buyer', 'created_at',
-                  'payment', 'invoice_amount', 'delivery_persons', 'ordered_product', 'rt_return_order')
+                  'payment', 'invoice_amount', 'delivery_persons', 'ordered_product', 'rt_return_order', 'ordered_cart')
 
 
 class BasicCartListSerializer(serializers.ModelSerializer):
@@ -773,6 +773,22 @@ class BasicCartListSerializer(serializers.ModelSerializer):
 
 
 class OrderedDashBoardSerializer(serializers.Serializer):
+    """
+        Get Order, User, Product & total_final_amount count
+    """
+
+    shop_name = serializers.CharField()
+    orders = serializers.IntegerField()
+    pos_order_count = serializers.IntegerField()
+    ecom_order_count = serializers.IntegerField()
+    registered_users = serializers.IntegerField(required=False)
+    products = serializers.IntegerField(required=False)
+    revenue = serializers.DecimalField(max_digits=9, decimal_places=2, required=False)
+    pos_revenue = serializers.DecimalField(max_digits=9, decimal_places=2, required=False)
+    ecom_revenue = serializers.DecimalField(max_digits=9, decimal_places=2, required=False)
+
+
+class RetailerOrderedDashBoardSerializer(serializers.Serializer):
     """
         Get Order, User, Product & total_final_amount count
     """
@@ -1022,7 +1038,7 @@ class BasicOrderSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Order
-        fields = ('id', 'order_no', 'products', 'ongoing_return')
+        fields = ('id', 'order_no', 'ordered_cart', 'products', 'ongoing_return')
 
 
 class OrderReturnCheckoutSerializer(serializers.ModelSerializer):
@@ -3328,7 +3344,7 @@ class PosEcomOrderDetailSerializer(serializers.ModelSerializer):
         fields = ('id', 'order_no', 'creation_date', 'order_status', 'items', 'order_summary', 'return_summary',
                   'invoice_summary', 'ordered_product', 'invoice_amount', 'address', 'order_update',
                   'ecom_estimated_delivery_time', 'delivery_person', 'order_status_display', 'order_cancel_reson',
-                  'payment')
+                  'payment', 'ordered_cart')
 
 
 class PRNReturnItemsSerializer(serializers.ModelSerializer):

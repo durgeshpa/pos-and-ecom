@@ -52,7 +52,8 @@ from pos.api.v1.serializers import (BasicCartSerializer, BasicCartListSerializer
                                     OrderedDashBoardSerializer, PosShopSerializer, BasicCartUserViewSerializer,
                                     OrderReturnGetSerializer, BasicOrderDetailSerializer, AddressCheckoutSerializer,
                                     RetailerProductResponseSerializer, PosShopUserMappingListSerializer,
-                                    PaymentTypeSerializer, PosEcomOrderDetailSerializer)
+                                    PaymentTypeSerializer, PosEcomOrderDetailSerializer,
+                                    RetailerOrderedDashBoardSerializer)
 from pos.common_functions import (api_response, delete_cart_mapping, ORDER_STATUS_MAP, RetailerProductCls,
                                   update_customer_pos_cart, PosInventoryCls, RewardCls, serializer_error,
                                   check_pos_shop, PosAddToCart, PosCartCls, ONLINE_ORDER_STATUS_MAP,
@@ -2948,9 +2949,11 @@ class OrderCentral(APIView):
         order = Order.objects.filter(pk=self.request.GET.get('order_id'), seller_shop=kwargs['shop']).last()
         if order:
             if order.ordered_cart.cart_type == 'BASIC':
-                return api_response('Order', self.get_serialize_process_basic(order), status.HTTP_200_OK, True)
+                return api_response('Order', self.get_serialize_process_basic(order), status.HTTP_200_OK, True,
+                                    extra_params={"key_p": str(config('PAYU_KEY'))})
             elif order.ordered_cart.cart_type == 'ECOM':
-                return api_response('Order', self.get_serialize_process_pos_ecom(order), status.HTTP_200_OK, True)
+                return api_response('Order', self.get_serialize_process_pos_ecom(order), status.HTTP_200_OK, True,
+                                    extra_params={"key_p": str(config('PAYU_KEY'))})
         return api_response("Order not found")
 
     @check_ecom_user
@@ -2964,7 +2967,8 @@ class OrderCentral(APIView):
                                       buyer=self.request.user, ordered_cart__cart_type='ECOM')
         except ObjectDoesNotExist:
             return api_response("Order Not Found!")
-        return api_response('Order', self.get_serialize_process_pos_ecom(order), status.HTTP_200_OK, True)
+        return api_response('Order', self.get_serialize_process_pos_ecom(order), status.HTTP_200_OK, True,
+                            extra_params={"key_p": str(config('PAYU_KEY'))})
 
     def post_retail_order(self):
         """
@@ -3105,14 +3109,17 @@ class OrderCentral(APIView):
             return api_response("Invalid Payment Method")
 
         if not payment_type_id == 4:
-            if not self.request.data.get('payment_status') or not self.request.data.get('payment_mode'):
-                return api_response("Please provide online payment status and mode.")
+            if not self.request.data.get('payment_status'):
+                return api_response("Please provide online payment status.")
 
             if not any(self.request.data.get('payment_status') in i for i in PosPayment.PAYMENT_STATUS):
                 return api_response("Please provide valid online payment status")
 
-            if not any(self.request.data.get('payment_mode') in i for i in PosPayment.MODE_CHOICES):
-                return api_response("Please provide valid online payment mode")
+            # if not self.request.data.get('payment_mode'):
+            #     return api_response("Please provide online payment mode.")
+
+            # if not any(self.request.data.get('payment_mode') in i for i in PosPayment.MODE_CHOICES):
+            #     return api_response("Please provide valid online payment mode")
 
         # Minimum Order Value
         order_config = GlobalConfig.objects.filter(key='ecom_minimum_order_amount').last()
@@ -4022,7 +4029,8 @@ class OrderListCentral(GenericAPIView):
             qs = qs.filter(Q(order_no__icontains=search_text) |
                            Q(buyer__first_name__icontains=search_text) |
                            Q(buyer__phone_number__icontains=search_text))
-        return api_response('Order', self.get_serialize_process_basic(qs), status.HTTP_200_OK, True)
+        return api_response('Order', self.get_serialize_process_basic(qs), status.HTTP_200_OK, True,
+                            extra_params={"key_p": str(config('PAYU_KEY'))})
 
     @check_ecom_user
     def get_ecom_order_list(self, request, *args, **kwargs):
@@ -4037,7 +4045,8 @@ class OrderListCentral(GenericAPIView):
         if search_text:
             qs = qs.filter(Q(order_no__icontains=search_text) |
                            Q(ordered_cart__rt_cart_list__retailer_product__name__icontains=search_text))
-        return api_response('Order', self.get_serialize_process_ecom(qs), status.HTTP_200_OK, True)
+        return api_response('Order', self.get_serialize_process_basic(qs), status.HTTP_200_OK, True,
+                            extra_params={"key_p": str(config('PAYU_KEY'))})
 
     def get_serialize_process_sp(self, order, parent_mapping):
         """
@@ -4113,72 +4122,153 @@ class OrderedItemCentralDashBoard(APIView):
         # orders for shop
         orders = Order.objects.prefetch_related('rt_return_order').filter(seller_shop=shop).exclude(
             order_status=Order.CANCELLED)
+
+        # pos orders for shop
+        pos_orders = orders.filter(order_app_type=Order.POS_WALKIN)
+
+        # ecom orders for shop
+        ecom_orders = orders.filter(order_app_type=Order.POS_ECOMM)
         # products for shop
         products = RetailerProduct.objects.filter(shop=shop)
 
         # Return for shop
         returns = OrderReturn.objects.filter(order__seller_shop=shop)
 
+        # Return for shop
+        ecom_returns = returns.filter(order__order_app_type=Order.POS_ECOMM)
+
+        # Return for shop
+        pos_returns = returns.filter(order__order_app_type=Order.POS_WALKIN)
+
         # order status filter
         order_status = self.request.GET.get('order_status')
         if order_status:
             order_status_actual = ORDER_STATUS_MAP.get(int(order_status), None)
             orders = orders.filter(order_status=order_status_actual) if order_status_actual else orders
+            pos_orders = pos_orders.filter(order_status=order_status_actual) if order_status_actual else orders
+            ecom_orders = ecom_orders.filter(order_status=order_status_actual) if order_status_actual else orders
 
         # filter for date range
         filters = int(self.request.GET.get('filters')) if self.request.GET.get('filters') else None
         today_date = datetime.today()
         if filters == 1:  # today
             orders = orders.filter(created_at__date=today_date)
+            pos_orders = pos_orders.filter(created_at__date=today_date)
+            ecom_orders = ecom_orders.filter(created_at__date=today_date)
+
             products = products.filter(created_at__date=today_date)
+
             returns = returns.filter(modified_at__date=today_date)
+            pos_returns = pos_returns.filter(modified_at__date=today_date)
+            ecom_returns = ecom_returns.filter(modified_at__date=today_date)
+
         elif filters == 2:  # yesterday
             yesterday = today_date - timedelta(days=1)
             orders = orders.filter(created_at__date=yesterday)
+            pos_orders = pos_orders.filter(created_at__date=yesterday)
+            ecom_orders = ecom_orders.filter(created_at__date=yesterday)
+
             products = products.filter(created_at__date=yesterday)
+
             returns = returns.filter(modified_at__date=yesterday)
+            pos_returns = pos_returns.filter(modified_at__date=yesterday)
+            ecom_returns = ecom_returns.filter(modified_at__date=yesterday)
+
         elif filters == 3:  # this week
             orders = orders.filter(created_at__week=today_date.isocalendar()[1])
+            pos_orders = pos_orders.filter(created_at__week=today_date.isocalendar()[1])
+            ecom_orders = ecom_orders.filter(created_at__week=today_date.isocalendar()[1])
+
             products = products.filter(created_at__week=today_date.isocalendar()[1])
+
             returns = returns.filter(modified_at__week=today_date.isocalendar()[1])
+            pos_returns = pos_returns.filter(modified_at__week=today_date.isocalendar()[1])
+            ecom_returns = ecom_returns.filter(modified_at__week=today_date.isocalendar()[1])
+
         elif filters == 4:  # last week
             last_week = today_date - timedelta(weeks=1)
             orders = orders.filter(created_at__week=last_week.isocalendar()[1])
+            pos_orders = pos_orders.filter(created_at__week=last_week.isocalendar()[1])
+            ecom_orders = ecom_orders.filter(created_at__week=last_week.isocalendar()[1])
+
             products = products.filter(created_at__week=last_week.isocalendar()[1])
+
             returns = returns.filter(modified_at__week=last_week.isocalendar()[1])
+            pos_returns = pos_returns.filter(modified_at__week=last_week.isocalendar()[1])
+            ecom_returns = ecom_returns.filter(modified_at__week=last_week.isocalendar()[1])
+
         elif filters == 5:  # this month
             orders = orders.filter(created_at__month=today_date.month)
+            pos_orders = pos_orders.filter(created_at__month=today_date.month)
+            ecom_orders = ecom_orders.filter(created_at__month=today_date.month)
+
             products = products.filter(created_at__month=today_date.month)
+
             returns = returns.filter(modified_at__month=today_date.month)
+            pos_returns = pos_returns.filter(modified_at__month=today_date.month)
+            ecom_returns = ecom_returns.filter(modified_at__month=today_date.month)
+
         elif filters == 6:  # last month
             last_month = today_date - timedelta(days=30)
             orders = orders.filter(created_at__month=last_month.month)
+            pos_orders = pos_orders.filter(created_at__month=last_month.month)
+            ecom_orders = ecom_orders.filter(created_at__month=last_month.month)
+
             products = products.filter(created_at__month=last_month.month)
+
             returns = returns.filter(modified_at__month=last_month.month)
+            pos_returns = pos_returns.filter(modified_at__month=last_month.month)
+            ecom_returns = ecom_returns.filter(modified_at__month=last_month.month)
+
         elif filters == 7:  # this year
             orders = orders.filter(created_at__year=today_date.year)
+            pos_orders = pos_orders.filter(created_at__year=today_date.year)
+            ecom_orders = ecom_orders.filter(created_at__year=today_date.year)
+
             products = products.filter(created_at__year=today_date.year)
+
             returns = returns.filter(modified_at__year=today_date.year)
+            pos_returns = pos_returns.filter(modified_at__year=today_date.year)
+            ecom_returns = ecom_returns.filter(modified_at__year=today_date.year)
 
         total_final_amount = 0
+        ecom_total_final_amount = 0
+        pos_total_final_amount = 0
+
         for order in orders:
             order_amt = order.order_amount
-            # returns = order.rt_return_order.all()
-            # if returns:
-            #     for ret in returns:
-            #         if ret.status == 'completed':
-            #             order_amt -= ret.refund_amount if ret.refund_amount > 0 else 0
             total_final_amount += order_amt
 
         for rt in returns:
             if rt.status == 'completed':
                 total_final_amount -= rt.refund_amount
 
+        for order in pos_orders:
+            order_amt = order.order_amount
+            pos_total_final_amount += order_amt
+
+        for rt in pos_returns:
+            if rt.status == 'completed':
+                pos_total_final_amount -= rt.refund_amount
+
+        for order in ecom_orders:
+            order_amt = order.order_amount
+            ecom_total_final_amount += order_amt
+
+        for rt in ecom_returns:
+            if rt.status == 'completed':
+                ecom_total_final_amount -= rt.refund_amount
+
         # counts of order for shop_id with total_final_amount & products
         order_count = orders.count()
+        ecom_order_count = ecom_orders.count()
+        pos_order_count = pos_orders.count()
         products_count = products.count()
+
         overview = [{"shop_name": shop.shop_name, "orders": order_count, "products": products_count,
-                     "revenue": total_final_amount}]
+                     "revenue": total_final_amount, "ecom_order_count": ecom_order_count,
+                     "pos_order_count": pos_order_count, "ecom_revenue": ecom_total_final_amount,
+                     "pos_revenue": pos_total_final_amount}]
         return overview
 
     def get_retail_order_overview(self):
@@ -4191,7 +4281,7 @@ class OrderedItemCentralDashBoard(APIView):
         if 'error' in initial_validation:
             return api_response(initial_validation['error'])
         order = initial_validation['order']
-        return api_response('Dashboard', self.get_serialize_process(order), status.HTTP_200_OK, True)
+        return api_response('Dashboard', self.get_retailer_serialize_process(order), status.HTTP_200_OK, True)
 
     def get_retail_list_validate(self):
         """
@@ -4273,9 +4363,17 @@ class OrderedItemCentralDashBoard(APIView):
     def get_serialize_process(self, order):
         """
            Get Overview of Orders, Users & Products
-           Cart type basic & Retail
+           Cart type Basic
         """
         serializer = OrderedDashBoardSerializer(order, many=True).data
+        return serializer
+
+    def get_retailer_serialize_process(self, order):
+        """
+           Get Overview of Orders, Users & Products
+           Cart type Retail
+        """
+        serializer = RetailerOrderedDashBoardSerializer(order, many=True).data
         return serializer
 
 
