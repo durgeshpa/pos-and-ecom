@@ -7097,12 +7097,19 @@ class DispatchItemsView(generics.GenericAPIView):
     def filter_packaging_items(self):
         shipment_id = self.request.GET.get('shipment_id')
         package_status = self.request.GET.get('package_status')
+        movement_type = self.request.GET.get('movement_type')
 
         if shipment_id:
             self.queryset = self.queryset.filter(shipment_id=shipment_id)
 
         if package_status:
             self.queryset = self.queryset.filter(status=package_status)
+
+        if movement_type:
+            self.queryset = self.queryset.filter(movement_type=movement_type)
+        else:
+            self.queryset = self.queryset.filter(movement_type=ShipmentPackaging.DISPATCH)
+
 
         return self.queryset
 
