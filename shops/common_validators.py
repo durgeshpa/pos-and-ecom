@@ -857,6 +857,8 @@ def validate_fofo_sub_category(sub_cat_ids, shop):
         # Validate mandatory fields
         if 'key' not in sub_cat_id or not sub_cat_id['key']:
             return {'error': "'key': This is mandatory."}
+        if 'name' not in sub_cat_id or not sub_cat_id['name']:
+            return {'error': "'key name': This is mandatory."}
         if 'value' not in sub_cat_id:
             return {'error': "'value': This is mandatory."}
 
@@ -865,7 +867,12 @@ def validate_fofo_sub_category(sub_cat_ids, shop):
             fofo_sub_cat_obj = FOFOConfigSubCategory.objects.get(id=sub_cat_id['key'])
         except Exception as e:
             logger.error(e)
-            return {'error': 'key {} not found'.format(sub_cat_id['key'])}
+            return {'error': 'option {} not found'.format(sub_cat_id['key'])}
+        try:
+            fofo_sub_cat_name_obj = FOFOConfigSubCategory.objects.get(name__iexact=sub_cat_id['name'])
+        except Exception as e:
+            logger.error(e)
+            return {'error': 'name {} not found'.format(sub_cat_id['name'])}
 
         # check for update / create validation for existing data
         if 'id' in sub_cat_id and sub_cat_id['id']:
@@ -873,7 +880,7 @@ def validate_fofo_sub_category(sub_cat_ids, shop):
                 return {'error': f"No configuration {fofo_sub_cat_obj} found for the store."}
             data_obj['id'] = sub_cat_id['id']
         elif FOFOConfigurations.objects.filter(shop=shop, key=fofo_sub_cat_obj).exists():
-            return {'error': f"Configuration {fofo_sub_cat_obj} already exist for the store."}
+            return {'error': f" {fofo_sub_cat_obj} already exist for the store."}
 
         data_obj["key"] = fofo_sub_cat_obj.pk
         data_obj["value"] = sub_cat_id['value']

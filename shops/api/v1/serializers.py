@@ -921,3 +921,22 @@ class FOFOConfigurationsCrudSerializer(serializers.ModelSerializer):
     class Meta:
         model = FOFOConfigurations
         fields = ('id', 'shop', 'key', 'value')
+
+
+class FOFOSubCategoryConfigurationsGetListSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = FOFOConfigSubCategory
+        fields = ('id', 'name')
+
+
+class FOFOListSerializer(serializers.ModelSerializer):
+    sub_category = serializers.SerializerMethodField()
+
+    class Meta:
+        model = FOFOConfigCategory
+        fields = ('id', 'name', 'sub_category',)
+
+    def get_sub_category(self, obj):
+        return FOFOSubCategoryConfigurationsGetListSerializer(FOFOConfigSubCategory.objects.filter(category=obj),
+                                                              many=True).data

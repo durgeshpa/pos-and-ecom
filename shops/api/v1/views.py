@@ -38,7 +38,8 @@ from .serializers import (RetailerTypeSerializer, ShopTypeSerializer, ShopSerial
                           DayBeatPlanSerializer, FeedbackCreateSerializers, ExecutiveReportSerializer,
                           PosShopUserMappingCreateSerializer, PosShopUserMappingUpdateSerializer, ShopBasicSerializer,
                           FOFOConfigurationsCrudSerializer, FOFOCategoryConfigurationsCrudSerializer,
-                          FOFOSubCategoryConfigurationsCrudSerializer, FOFOConfigurationsGetSerializer)
+                          FOFOSubCategoryConfigurationsCrudSerializer, FOFOConfigurationsGetSerializer,
+                          FOFOListSerializer)
 from ...common_validators import validate_fofo_sub_category
 
 User = get_user_model()
@@ -1336,6 +1337,24 @@ class FOFOConfigSubCategoryView(generics.GenericAPIView):
             serializer.save()
             return get_response('sub category updated Successfully!', serializer.data)
         return get_response(serializer_error(serializer), False)
+
+
+class FOFOListView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.AllowAny,)
+    queryset = FOFOConfigCategory.objects.order_by('-id')
+    serializer_class = FOFOListSerializer
+
+    @check_pos_shop
+    def get(self, request, *args, **kwargs):
+        """ GET Cat Sub-Cat Configurations List """
+        search_text = self.request.GET.get('search_text')
+        if search_text:
+            self.queryset = shop_category_search(self.queryset, search_text)
+        category = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        serializer = FOFOListSerializer(category, many=True)
+        msg = "" if category else "no data found"
+        return get_response(msg, serializer.data, True)
 
 
 class FOFOConfigurationsView(generics.GenericAPIView):

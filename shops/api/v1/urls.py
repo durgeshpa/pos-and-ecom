@@ -6,7 +6,7 @@ from shops.api.v1.views import (PosShopUserMappingView, RetailerTypeView, ShopLi
                                 ShopView, ShopPhotoView, ShopDocumentView, FavouriteProductView,
                                 FavouriteProductListView, UserTypeListView, UserDocumentChoices,
                                 ShopDocumentChoices, FOFOConfigurationsView, FOFOConfigCategoryView,
-                                FOFOConfigSubCategoryView)
+                                FOFOConfigSubCategoryView, FOFOListView)
 from addresses.api.v1.views import AddressView, DefaultAddressView, AddressDetail
 
 from shops.api.v1.views import (RetailerTypeView, ShopTypeView,ShopView, ShopPhotoView, ShopDocumentView, ShopTimingView,
@@ -59,6 +59,8 @@ urlpatterns = [
     url('shop-doc-user-choices/', UserDocumentChoices.as_view(), name='shop-doc-user-choices'),
     url('shop-doc-shop-choices/', ShopDocumentChoices.as_view(), name='shop-doc-shop-choices'),
 
+    url('fofo-all-category/', FOFOListView.as_view(),
+        name='fofo-all-category'),
     url('fofo-category-configurations/', FOFOConfigCategoryView.as_view(),
         name='fofo-category-configurations'),
     url('fofo-subcategory-configurations/', FOFOConfigSubCategoryView.as_view(),
