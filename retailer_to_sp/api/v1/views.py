@@ -8047,17 +8047,23 @@ class TripSummaryView(generics.GenericAPIView):
             order_by('-id')
         dispatch_trip_qs = get_logged_user_wise_query_set_for_dispatch_trip(request.user, dispatch_trip_qs)
         dispatch_trip_qs = self.filter_trip_summary_data(dispatch_trip_qs)
-        resp_data = dispatch_trip_qs.aggregate(
-            no_of_crates=Sum('no_of_crates'), no_of_packets=Sum('no_of_packets'), no_of_sacks=Sum('no_of_sacks'),
-            weight=Sum('weight'))
-        no_of_invoices = dispatch_trip_qs.aggregate(no_of_invoices=Count('shipments_details'))
-        trip_summary_data = {
-            'total_invoices': no_of_invoices['no_of_invoices'] if no_of_invoices['no_of_invoices'] else 0,
-            'total_crates': resp_data['no_of_crates'] if resp_data['no_of_crates'] else 0,
-            'total_packets': resp_data['no_of_packets'] if resp_data['no_of_packets'] else 0,
-            'total_sack': resp_data['no_of_sacks'] if resp_data['no_of_sacks'] else 0,
-            'weight': resp_data['weight'] if resp_data['weight'] else 0
-        }
+        dispatch_trip_instance = dispatch_trip_qs.last()
+        if dispatch_trip_instance:
+            trip_summary_data = {
+                'total_invoices': dispatch_trip_instance.no_of_shipments,
+                'total_crates': dispatch_trip_instance.no_of_crates,
+                'total_packets': dispatch_trip_instance.no_of_packets,
+                'total_sack': dispatch_trip_instance.no_of_sacks,
+                'weight': dispatch_trip_instance.get_trip_weight
+            }
+        else:
+            trip_summary_data = {
+                'total_invoices': 0,
+                'total_crates': 0,
+                'total_packets': 0,
+                'total_sack': 0,
+                'weight': 0
+            }
         return trip_summary_data
 
     def non_added_shipments_to_trip_summary(self, request):
