@@ -16,7 +16,7 @@ from accounts.models import USER_DOCUMENTS_TYPE_CHOICES
 from addresses.models import Address
 from addresses.api.v1.serializers import AddressSerializer
 from common.data_wrapper_view import DataWrapperViewSet
-from pos.common_functions import check_pos_shop, pos_check_permission, api_response
+from pos.common_functions import check_pos_shop, pos_check_permission, api_response, check_logged_in_user_is_superuser
 from retailer_backend.utils import SmallOffsetPagination
 from retailer_backend import messages
 from retailer_backend.messages import SUCCESS_MESSAGES, ERROR_MESSAGES
@@ -1271,6 +1271,7 @@ class FOFOConfigCategoryView(generics.GenericAPIView):
         msg = "" if category else "no category found"
         return get_response(msg, serializer.data, True)
 
+    @check_logged_in_user_is_superuser
     def post(self, request, *args, **kwargs):
         serializer = self.serializer_class(data=request.data)
         if serializer.is_valid():
@@ -1278,6 +1279,7 @@ class FOFOConfigCategoryView(generics.GenericAPIView):
             return get_response('category created Successfully!', None, True, status.HTTP_200_OK)
         return get_response(serializer_error(serializer), False)
 
+    @check_logged_in_user_is_superuser
     def put(self, request):
         """ PUT API for Category Updation """
 
@@ -1313,6 +1315,7 @@ class FOFOConfigSubCategoryView(generics.GenericAPIView):
         msg = "" if sub_category else "no sub category found"
         return get_response(msg, serializer.data, True)
 
+    @check_logged_in_user_is_superuser
     def post(self, request, *args, **kwargs):
         serializer = self.serializer_class(data=request.data)
         if serializer.is_valid():
@@ -1320,6 +1323,7 @@ class FOFOConfigSubCategoryView(generics.GenericAPIView):
             return get_response('sub category created Successfully!', None, True, status.HTTP_200_OK)
         return get_response(serializer_error(serializer), False)
 
+    @check_logged_in_user_is_superuser
     def put(self, request):
         """ PUT API for Sub Category Updation """
 
@@ -1364,6 +1368,7 @@ class FOFOConfigurationsView(generics.GenericAPIView):
     serializer_class = FOFOConfigurationsCrudSerializer
 
     @check_pos_shop
+    @check_logged_in_user_is_superuser
     def get(self, request, *args, **kwargs):
         """ GET FOFO Configurations List """
         shop = kwargs['shop']
@@ -1375,6 +1380,7 @@ class FOFOConfigurationsView(generics.GenericAPIView):
         return get_response(msg, serializer.data, True)
 
     @check_pos_shop
+    @check_logged_in_user_is_superuser
     def post(self, request, *args, **kwargs):
         shop = kwargs['shop']
         if shop.shop_type.shop_sub_type.retailer_type_name !='fofo':
@@ -1394,6 +1400,7 @@ class FOFOConfigurationsView(generics.GenericAPIView):
         return get_response(serializer_error_batch(serializer), False)
 
     @check_pos_shop
+    @check_logged_in_user_is_superuser
     def put(self, request, *args, **kwargs):
         shop = kwargs['shop']
         if shop.shop_type.shop_sub_type.retailer_type_name !='fofo':

@@ -242,7 +242,7 @@ class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
               'approval_status', ]
     actions = ["export_as_csv", "disable_shop", "download_status_report"]
     inlines = [ShopPhotosAdmin, ShopDocumentsAdmin, AddressAdmin, ShopInvoicePatternAdmin,
-               ShopParentRetailerMapping, ShopStatusAdmin, FOFOConfigurationsInline, ]
+               ShopParentRetailerMapping, ShopStatusAdmin, ]
 
     list_display = (
         'shop_name', 'get_shop_shipping_address', 'get_shop_pin_code', 'get_shop_parent',
@@ -259,18 +259,12 @@ class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
         css = {"all": ("admin/css/hide_admin_inline_object_name.css",)}
         js = ("js/shop_fofo.js",)
 
-    # def change_view(self, request, object_id, form_url='', extra_context=None):
-    #     self.inlines = [ShopPhotosAdmin, ShopDocumentsAdmin, AddressAdmin, ShopInvoicePatternAdmin,
-    #                     ShopParentRetailerMapping, ShopStatusAdmin, ]
-    #     try:
-    #         obj = self.model.objects.get(pk=object_id)
-    #     except self.model.DoesNotExist:
-    #         pass
-    #     else:
-    #         if obj.shop_type.shop_type == 'f' and str(obj.shop_type.shop_sub_type) == 'fofo' and \
-    #                 obj.online_inventory_enabled:
-    #             self.inlines.append(FOFOConfigurationsInline)
-    #     return super(ShopAdmin, self).change_view(request, object_id, form_url, extra_context)
+    def change_view(self, request, object_id, form_url='', extra_context=None):
+        self.inlines = [ShopPhotosAdmin, ShopDocumentsAdmin, AddressAdmin, ShopInvoicePatternAdmin,
+                        ShopParentRetailerMapping, ShopStatusAdmin, ]
+        if request.user.is_superuser:
+            self.inlines.append(FOFOConfigurationsInline)
+        return super(ShopAdmin, self).change_view(request, object_id, form_url, extra_context)
 
     def get_readonly_fields(self, request, obj=None):
         if obj and obj.shop_type.shop_type == 'f':

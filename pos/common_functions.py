@@ -742,6 +742,19 @@ def pos_check_user_permission(view_func):
     return _wrapped_view_func
 
 
+def check_logged_in_user_is_superuser(view_func):
+    """
+    Decorator to validate request from Superuser
+    """
+    @wraps(view_func)
+    def _wrapped_view_func(self, request, *args, **kwargs):
+        user = request.user
+        if user.is_superuser:
+            return view_func(self, request, *args, **kwargs)
+        return api_response("Logged In user does not have required permission to perform this action.")
+    return _wrapped_view_func
+
+
 class ProductChangeLogs(object):
 
     @classmethod
