@@ -873,17 +873,22 @@ class ShopNameSerializer(serializers.ModelSerializer):
 
 class FOFOSubCategoryConfigurationsGetSerializer(serializers.ModelSerializer):
     key = serializers.SerializerMethodField()
+    name = serializers.SerializerMethodField()
     value = serializers.SerializerMethodField()
 
     class Meta:
         model = FOFOConfigSubCategory
-        fields = ('key', 'value',)
+        fields = ('key', 'name', 'value',)
 
     def get_key(self, obj):
         return obj.id
 
-    def get_value(self, obj):
+    def get_name(self, obj):
         return obj.name
+
+    def get_value(self, obj):
+        instance = FOFOConfigurations.objects.filter(shop=self.context.get('shop'), key=obj).last()
+        return instance.value if instance else None
 
 
 class FOFOCategoryConfigurationsGetSerializer(serializers.ModelSerializer):
@@ -895,7 +900,8 @@ class FOFOCategoryConfigurationsGetSerializer(serializers.ModelSerializer):
 
     def get_sub_category(self, obj):
         return FOFOSubCategoryConfigurationsGetSerializer(FOFOConfigSubCategory.objects.filter(
-            fofo_category__shop=self.context.get('shop'), category=obj), many=True).data
+            fofo_category__shop=self.context.get('shop'), category=obj), many=True,
+            context={'shop': self.context.get('shop')}).data
 
 
 class FOFOConfigurationsGetSerializer(serializers.Serializer):
