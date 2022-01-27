@@ -2317,14 +2317,14 @@ class DispatchTripStatusChangeSerializers(serializers.ModelSerializer):
     delivery_boy = UserSerializers(read_only=True)
     created_by = UserSerializers(read_only=True)
     updated_by = UserSerializers(read_only=True)
-    shipments_details = DispatchTripShipmentMappingSerializer(read_only=True, many=True)
+    # shipments_details = DispatchTripShipmentMappingSerializer(read_only=True, many=True)
 
     class Meta:
         model = DispatchTrip
         fields = ('id', 'seller_shop', 'source_shop', 'destination_shop', 'dispatch_no', 'delivery_boy', 'vehicle_no',
                   'trip_status', 'starts_at', 'completed_at', 'opening_kms', 'closing_kms', 'no_of_crates',
                   'no_of_packets', 'no_of_sacks', 'no_of_crates_check', 'no_of_packets_check', 'no_of_sacks_check',
-                  'shipments_details', 'created_at', 'updated_at', 'created_by', 'updated_by')
+                  'created_at', 'updated_at', 'created_by', 'updated_by')
 
     def validate(self, data):
 
@@ -3283,11 +3283,6 @@ class UnloadVerifyPackageSerializer(serializers.ModelSerializer):
         elif self.initial_data['status'] not in PACKAGE_VERIFY_CHOICES._db_values:
             raise serializers.ValidationError("Invalid status choice")
 
-        # # Check for shipment status
-        # if package.shipment.shipment_status != OrderedProduct.IN_TRANSIT_TO_DISPATCH:
-        #     raise serializers.ValidationError(
-        #         f"The invoice is in {package.shipment.shipment_status} state, can't unload package")
-
         trip_shipment = DispatchTripShipmentMapping.objects.filter(
             trip=trip, shipment=package.shipment, shipment_status=DispatchTripShipmentMapping.UNLOADING_AT_DC).last()
         if not trip_shipment:
@@ -3342,29 +3337,17 @@ class UnloadVerifyPackageSerializer(serializers.ModelSerializer):
     def post_package_unload_trip_update(self, trip_package_mapping, trip_shipment):
         """
             Update shipment status to MOVED_TO_DISPATCH once all packages are verified on trip
-            Update trip shipment mapped as UNLOADED_AT_DC once all packages are added to trip
-            Update shipment_health to OKAY/FULLY_DAMAGED/FULLY_MISSING accordingly
+            Update trip shipment mapped as UNLOADED_AT_DC once all packages are verified for that to shipment
         """
         shipment = trip_shipment.shipment
         if not trip_shipment.trip_shipment_mapped_packages.filter(
                 package_status=DispatchTripShipmentPackages.LOADED).exists():
             trip_shipment.shipment_status = DispatchTripShipmentMapping.UNLOADED_AT_DC
-
-            # Update shipment_health to FULLY_DAMAGED/FULLY_MISSING accordingly
-            shipment_health = trip_shipment.shipment_health
-            if trip_shipment.trip_shipment_mapped_packages.\
-                filter(package_status=trip_package_mapping.package_status).count() == \
-                trip_shipment.trip_shipment_mapped_packages.count():
-                shipment_health = trip_shipment.shipment_health
-                if trip_package_mapping.package_status == DispatchTripShipmentPackages.DAMAGED_AT_UNLOADING:
-                    shipment_health = DispatchTripShipmentMapping.FULLY_DAMAGED
-                elif trip_package_mapping.package_status == DispatchTripShipmentPackages.MISSING_AT_UNLOADING:
-                    shipment_health = DispatchTripShipmentMapping.FULLY_MISSING
-
-            trip_shipment.shipment_health = shipment_health
             trip_shipment.save()
-            # shipment.shipment_status = OrderedProduct.MOVED_TO_DISPATCH
-            # shipment.save()
+            if trip_shipment.trip.trip_type == DispatchTrip.FORWARD \
+                    and shipment.shipment_status == OrderedProduct.READY_TO_DISPATCH:
+                shipment.shipment_status = OrderedProduct.MOVED_TO_DISPATCH
+                shipment.save()
 
 
 class TripShipmentMappingSerializer(serializers.ModelSerializer):
