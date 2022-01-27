@@ -1119,13 +1119,16 @@ class CartCentral(GenericAPIView):
         """
         with transaction.atomic():
             try:
-                cart = Cart.objects.get(cart_type='ECOM', buyer=self.request.user, cart_status='active',
-                                        seller_shop=kwargs['shop'])
+                cart = Cart.objects.filter(cart_type='ECOM', buyer=self.request.user, cart_status='active',
+                                        seller_shop=kwargs['shop']).last()
                 # Empty cart if shop/location changed
-                if cart.seller_shop.id != kwargs['shop'].id:
-                    cart.seller_shop = kwargs['shop']
-                    cart.save()
-                    CartProductMapping.objects.filter(cart=cart).delete()
+                if cart:
+                    if cart.seller_shop.id != kwargs['shop'].id:
+                        cart.seller_shop = kwargs['shop']
+                        cart.save()
+                        CartProductMapping.objects.filter(cart=cart).delete()
+                        return api_response("No items added in cart yet", {"rt_cart_list": []}, status.HTTP_200_OK, False)
+                else:
                     return api_response("No items added in cart yet", {"rt_cart_list": []}, status.HTTP_200_OK, False)
             except ObjectDoesNotExist:
                 return api_response("No items added in cart yet", {"rt_cart_list": []}, status.HTTP_200_OK, False)
@@ -1516,8 +1519,11 @@ class CartCentral(GenericAPIView):
             Create or update/add product to ecom Cart
         """
         user = self.request.user
-        cart, _ = Cart.objects.select_for_update().get_or_create(cart_type='ECOM', buyer=user, cart_status='active',
-                                                                 seller_shop=seller_shop)
+        cart = Cart.objects.select_for_update().filter(cart_type='ECOM', buyer=user, cart_status='active',
+                                                                 seller_shop=seller_shop).last()
+        if cart is None:
+            cart, _ = Cart.objects.select_for_update().get_or_create(cart_type='ECOM', buyer=user, cart_status='active',
+                                                           seller_shop=seller_shop)
         if cart.seller_shop and cart.seller_shop.id != seller_shop.id:
             CartProductMapping.objects.filter(cart=cart).delete()
         cart.seller_shop = seller_shop
@@ -1941,8 +1947,8 @@ class CartCheckout(APIView):
             ECOM cart checkout
         """
         try:
-            cart = Cart.objects.get(cart_type='ECOM', buyer=self.request.user, seller_shop=kwargs['shop'],
-                                    cart_status='active')
+            cart = Cart.objects.filter(cart_type='ECOM', buyer=self.request.user, seller_shop=kwargs['shop'],
+                                    cart_status='active').last()
         except ObjectDoesNotExist:
             return api_response("No items added in cart yet")
 
@@ -3099,7 +3105,7 @@ class OrderCentral(APIView):
         if address.pincode != shop.shop_name_address_mapping.filter(address_type='shipping').last().pincode_link.pincode:
             return api_response("This Shop is not serviceable at your delivery address")
         try:
-            cart = Cart.objects.get(cart_type='ECOM', buyer=self.request.user, seller_shop=shop, cart_status='active')
+            cart = Cart.objects.filter(cart_type='ECOM', buyer=self.request.user, seller_shop=shop, cart_status='active').last()
         except ObjectDoesNotExist:
             return api_response("Please add items to proceed to order")
 
@@ -4018,11 +4024,12 @@ class OrderListCentral(GenericAPIView):
                 qs = qs.filter(order_status=order_status_actual) if order_status_actual else qs
         elif order_type == 'ecom':
             qs = Order.objects.select_related('buyer').filter(seller_shop=kwargs['shop'], ordered_cart__cart_type='ECOM')
-            if PosShopUserMapping.objects.get(shop=kwargs['shop'], user=self.request.user).user_type == 'delivery_person' or int(self.request.GET.get('self_assigned', '0')):
+            if PosShopUserMapping.objects.get(shop=kwargs['shop'], user=self.request.user).user_type == \
+                    'delivery_person' or int(self.request.GET.get('self_assigned', '0')):
                 qs = qs.filter(delivery_person=self.request.user)
             if order_status:
                 order_status_actual = ONLINE_ORDER_STATUS_MAP.get(int(order_status), None)
-                qs = qs.filter(order_status__in = order_status_actual) if order_status_actual else qs
+                qs = qs.filter(order_status__in=order_status_actual) if order_status_actual else qs
         else:
             return api_response("Invalid cart type")
         if search_text:
@@ -4045,7 +4052,8 @@ class OrderListCentral(GenericAPIView):
         if search_text:
             qs = qs.filter(Q(order_no__icontains=search_text) |
                            Q(ordered_cart__rt_cart_list__retailer_product__name__icontains=search_text))
-        return api_response('Order', self.get_serialize_process_basic(qs), status.HTTP_200_OK, True,
+
+        return api_response('Order', self.get_serialize_process_ecom(qs), status.HTTP_200_OK, True,
                             extra_params={"key_p": str(config('PAYU_KEY'))})
 
     def get_serialize_process_sp(self, order, parent_mapping):
@@ -4919,8 +4927,8 @@ class CartStockCheckView(APIView):
         if not shop.online_inventory_enabled:
             return api_response("Franchise Shop Is Not Online Enabled!")
         try:
-            cart = Cart.objects.prefetch_related('rt_cart_list').get(cart_type='ECOM', buyer=self.request.user,
-                                                                     seller_shop=kwargs['shop'], cart_status='active')
+            cart = Cart.objects.prefetch_related('rt_cart_list').filter(cart_type='ECOM', buyer=self.request.user,
+                                                                     seller_shop=kwargs['shop'], cart_status='active').last()
         except ObjectDoesNotExist:
             return api_response("Cart Not Found!")
 
@@ -6956,7 +6964,9 @@ class OrderPaymentStatusChangeView(generics.GenericAPIView):
         info_logger.info("Order PUT api called.")
         app_type = self.request.META.get('HTTP_APP_TYPE', '3')
 
-        if app_type == '3':
+        if app_type == '2':
+            return self.put_ecom_order_status_from_pos_app(request, *args, **kwargs)
+        elif app_type == '3':
             return self.put_ecom_order_status(request, *args, **kwargs)
         else:
             return api_response('Provide a valid app_type')
@@ -6976,11 +6986,36 @@ class OrderPaymentStatusChangeView(generics.GenericAPIView):
 
         try:
             order = Order.objects.get(pk=int(modified_data['id']), seller_shop=shop, ordered_cart__cart_type='ECOM',
-                                                          buyer=self.request.user)
+                                      buyer=self.request.user)
         except ObjectDoesNotExist:
             return api_response('Order Not Found!')
 
-        serializer = self.serializer_class(instance=order, data=modified_data)
+        serializer = self.serializer_class(instance=order, data=modified_data, context={'app-type': 3})
+        if serializer.is_valid():
+            serializer.save(updated_by=request.user)
+            info_logger.info("Order Updated Successfully.")
+            return api_response('order updated!', serializer.data, status.HTTP_200_OK, True)
+        return api_response(serializer_error(serializer), success=False)
+
+    @check_pos_shop
+    def put_ecom_order_status_from_pos_app(self, request, *args, **kwargs):
+        """
+            Update ecom order
+        """
+        shop = kwargs['shop']
+        modified_data = validate_data_format(self.request)
+        if 'error' in modified_data:
+            return api_response(modified_data['error'])
+
+        if 'id' not in modified_data:
+            return api_response('please provide id to update order')
+
+        try:
+            order = Order.objects.get(pk=int(modified_data['id']), seller_shop=shop, ordered_cart__cart_type='ECOM')
+        except ObjectDoesNotExist:
+            return api_response('Order Not Found!')
+
+        serializer = self.serializer_class(instance=order, data=modified_data, context={'app-type': 2})
         if serializer.is_valid():
             serializer.save(updated_by=request.user)
             info_logger.info("Order Updated Successfully.")
