@@ -9,7 +9,7 @@ from django.contrib.auth import get_user_model
 
 from shops.models import DayBeatPlanning, ParentRetailerMapping, Product, Shop, ShopDocument, ShopInvoicePattern, \
     ShopPhoto, \
-    ShopType, ShopUserMapping, RetailerType, FOFOConfigSubCategory, FOFOConfigurations
+    ShopType, ShopUserMapping, RetailerType, FOFOConfigSubCategory, FOFOConfigurations, FOFOConfigCategory
 from addresses.models import City, Pincode, State
 from addresses.models import address_type_choices
 from django.contrib.auth.models import Group
@@ -890,3 +890,11 @@ def validate_fofo_sub_category(sub_cat_ids, shop):
             return {'error': '{} do not repeat same key for one shop'.format(fofo_sub_cat_obj)}
         sub_cat_list.append(fofo_sub_cat_obj)
     return {'data': sub_cat_obj}
+
+
+def get_validate_category(category_id):
+    try:
+        category = FOFOConfigCategory.objects.get(id=category_id)
+    except Exception as e:
+        return {'error': '{} selected option not found'.format(category_id)}
+    return {'data': category}

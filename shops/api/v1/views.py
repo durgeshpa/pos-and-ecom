@@ -1377,6 +1377,8 @@ class FOFOConfigurationsView(generics.GenericAPIView):
     @check_pos_shop
     def post(self, request, *args, **kwargs):
         shop = kwargs['shop']
+        if shop.shop_type.shop_sub_type.retailer_type_name !='fofo':
+            return api_response("Shop Type Not Franchise - fofo ")
         if not shop.online_inventory_enabled:
             return api_response("Franchise Shop Is Not Online Enabled!")
         modified_data = self.validate_request_data()
@@ -1394,6 +1396,8 @@ class FOFOConfigurationsView(generics.GenericAPIView):
     @check_pos_shop
     def put(self, request, *args, **kwargs):
         shop = kwargs['shop']
+        if shop.shop_type.shop_sub_type.retailer_type_name !='fofo':
+            return api_response("Shop Type Not Franchise - fofo ")
         if not shop.online_inventory_enabled:
             return api_response("Franchise Shop Is Not Online Enabled!")
         modified_data = self.validate_request_data()

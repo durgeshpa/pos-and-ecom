@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 
 from django.core.validators import RegexValidator
 
+from products.common_validators import get_validate_parent_product_image_ids
 from shops.models import (PosShopUserMapping, RetailerType, ShopType, Shop, ShopPhoto,
                           ShopRequestBrand, ShopDocument, ShopUserMapping, SalesAppVersion, ShopTiming,
                           FavouriteProduct, DayBeatPlanning, ExecutiveFeedback, USER_TYPE_CHOICES, FOFOConfigurations,
@@ -14,7 +15,7 @@ from django.contrib.auth import get_user_model
 from django.db import transaction
 from django.db.models import Sum
 from shops.common_validators import get_psu_mapping, get_validate_shop, get_validate_user, get_validate_user_type, \
-    validate_fofo_sub_category
+    validate_fofo_sub_category, get_validate_category
 from accounts.api.v1.serializers import UserSerializer,GroupSerializer
 from retailer_backend.validators import MobileNumberValidator
 from retailer_to_sp.models import Order, Payment
@@ -847,14 +848,28 @@ class FOFOCategoryConfigurationsCrudSerializer(serializers.ModelSerializer):
 
 
 class FOFOSubCategoryConfigurationsCrudSerializer(serializers.ModelSerializer):
+    category = FOFOCategoryConfigurationsCrudSerializer(read_only=True)
 
     class Meta:
         model = FOFOConfigSubCategory
-        fields = ('id', 'name', 'category')
+        fields = ('id', 'category', 'name')
 
-    def to_representation(self, instance):
-        data = super().to_representation(instance)
-        data['category'] = FOFOCategoryConfigurationsCrudSerializer(instance.category).data
+    def validate(self, data):
+        """
+            is_ptr_applicable validation.
+        """
+        if not 'category' in self.initial_data or not self.initial_data['category']:
+            raise serializers.ValidationError("please select category")
+
+        category_val = get_validate_category(self.initial_data['category'])
+        if 'error' in category_val:
+            raise serializers.ValidationError(category_val["error"])
+        data['category'] = category_val['data']
+
+        if 'category_name' in self.initial_data and self.initial_data['category_name']:
+            if not str(data['category'].name).lower() == str(self.initial_data['category_name']).lower():
+                raise serializers.ValidationError("please provide valid option")
+
         return data
 
 
