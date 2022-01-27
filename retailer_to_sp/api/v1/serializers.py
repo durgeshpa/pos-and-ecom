@@ -1839,8 +1839,10 @@ class ShipmentQCSerializer(serializers.ModelSerializer):
             try:
                 shipment = OrderedProduct.objects.get(id=self.initial_data['id'])
                 shipment_status = shipment.shipment_status
+                trip = shipment.last_mile_trip_shipment.last().trip
             except Exception as e:
                 raise serializers.ValidationError("Invalid Shipment")
+
             shipment_reschedule = {}
             shipment_not_attempt = {}
             if 'status' in self.initial_data and self.initial_data['status']:
@@ -1850,7 +1852,7 @@ class ShipmentQCSerializer(serializers.ModelSerializer):
                 elif status in [OrderedProduct.RESCHEDULED, OrderedProduct.NOT_ATTEMPT]:
                     if shipment_status != OrderedProduct.FULLY_DELIVERED_AND_COMPLETED:
                         raise serializers.ValidationError(f'Invalid status | {shipment_status}->{status} not allowed')
-                    if shipment_status == OrderedProduct.RESCHEDULED:
+                    if status == OrderedProduct.RESCHEDULED:
                         if ShipmentRescheduling.objects.filter(shipment=shipment).exists():
                             raise serializers.ValidationError('A shipment cannot be rescheduled more than once.')
                         if 'rescheduling_reason' not in self.initial_data or \
@@ -1861,15 +1863,16 @@ class ShipmentQCSerializer(serializers.ModelSerializer):
                             raise serializers.ValidationError(f"'rescheduling_reason' | Invalid choice")
                         if 'rescheduling_date' not in self.initial_data or not self.initial_data['rescheduling_date']:
                             raise serializers.ValidationError(f"'rescheduling_date' | This is mandatory")
-                        rescheduling_date = getStrToYearDate(self.initial_data['rescheduling_date'])
+                        rescheduling_date = getStrToYearDate(self.initial_data['rescheduling_date'], pattern="%Y-%m-%d")
                         if rescheduling_date < datetime.date.today() or \
                                 rescheduling_date > (datetime.date.today() + datetime.timedelta(days=3)):
                             raise serializers.ValidationError("'rescheduling_date' | The date must be within 3 days!")
                         shipment_reschedule['rescheduling_reason'] = self.initial_data['rescheduling_reason']
                         shipment_reschedule['rescheduling_date'] = rescheduling_date
-                    if shipment_status == OrderedProduct.NOT_ATTEMPT:
+                        shipment_reschedule['trip'] = trip
+                    if status == OrderedProduct.NOT_ATTEMPT:
                         if ShipmentNotAttempt.objects.filter(
-                                shipment=shipment, created_at__date=datetime.now().date()).exists():
+                                shipment=shipment, created_at__date=datetime.date.today()).exists():
                             raise serializers.ValidationError(
                                 'A shipment cannot be mark not attempt more than once in a day.')
                         if 'not_attempt_reason' not in self.initial_data or \
@@ -1879,6 +1882,7 @@ class ShipmentQCSerializer(serializers.ModelSerializer):
                                    ShipmentNotAttempt.NOT_ATTEMPT_REASON):
                             raise serializers.ValidationError(f"'not_attempt_reason' | Invalid choice")
                         shipment_not_attempt['not_attempt_reason'] = self.initial_data['not_attempt_reason']
+                        shipment_not_attempt['trip'] = trip
                 elif (shipment_status not in [OrderedProduct.SHIPMENT_CREATED, OrderedProduct.QC_STARTED,
                                               OrderedProduct.READY_TO_SHIP]) \
                     or (shipment_status == OrderedProduct.SHIPMENT_CREATED and status != OrderedProduct.QC_STARTED) \
@@ -1935,26 +1939,26 @@ class ShipmentQCSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(error)
         return shipment_instance
 
-    def create_shipment_reschedule(self, shipment_instance, rescheduling_reason, rescheduling_date):
+    def create_shipment_reschedule(self, shipment_instance, rescheduling_reason, rescheduling_date, trip):
         """Create shipment rescheduled"""
         info_logger.info(f"create_shipment_reschedule|Reschedule Started|Shipment ID {shipment_instance.id}")
         if not ShipmentRescheduling.objects.filter(shipment=shipment_instance).exists():
             ShipmentRescheduling.objects.create(
                 shipment=shipment_instance, rescheduling_reason=rescheduling_reason, rescheduling_date=rescheduling_date,
-                created_by=shipment_instance.updated_by)
+                trip=trip, created_by=shipment_instance.updated_by)
         else:
             raise Exception(f"create_shipment_reschedule|Reschedule already exists|Shipment ID {shipment_instance.id}")
 
         info_logger.info(f"create_shipment_reschedule|Rescheduled|Shipment ID {shipment_instance.id}")
 
-    def create_shipment_not_attempt(self, shipment_instance, not_attempt_reason):
+    def create_shipment_not_attempt(self, shipment_instance, not_attempt_reason, trip):
         """Create shipment not attempt"""
         info_logger.info(f"create_shipment_not_attempt|Not Attempt Started|Shipment ID {shipment_instance.id}")
         if not ShipmentNotAttempt.objects.filter(
                 shipment=shipment_instance, created_at__date=datetime.datetime.now().date()).exists():
             ShipmentNotAttempt.objects.create(
                 shipment=shipment_instance, not_attempt_reason=not_attempt_reason,
-                created_by=shipment_instance.updated_by)
+                trip=trip, created_by=shipment_instance.updated_by)
         else:
             raise Exception(f"create_shipment_not_attempt|Not attempt more than once in a day not allowed|Shipment ID "
                             f"{shipment_instance.id}")
@@ -1978,11 +1982,12 @@ class ShipmentQCSerializer(serializers.ModelSerializer):
             if 'rescheduling_reason' in shipment_reschedule and 'rescheduling_date' in shipment_reschedule:
                 self.create_shipment_reschedule(
                     shipment_instance, shipment_reschedule['rescheduling_reason'],
-                    shipment_reschedule['rescheduling_date'])
+                    shipment_reschedule['rescheduling_date'], shipment_reschedule['trip'])
                 info_logger.info(f"post_shipment_status_change|Rescheduled|Shipment ID {shipment_instance.id}")
         elif shipment_instance.shipment_status == OrderedProduct.NOT_ATTEMPT:
             if 'not_attempt_reason' in shipment_not_attempt:
-                self.create_shipment_not_attempt(shipment_instance, shipment_not_attempt['not_attempt_reason'])
+                self.create_shipment_not_attempt(shipment_instance, shipment_not_attempt['not_attempt_reason'],
+                                                 shipment_not_attempt['trip'])
                 info_logger.info(f"post_shipment_status_change|Not Attempted|Shipment ID {shipment_instance.id}")
 
 
