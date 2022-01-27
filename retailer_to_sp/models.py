@@ -3393,7 +3393,8 @@ class DispatchTrip(BaseTimestampUserModel):
 
     @property
     def no_of_shipments(self):
-        return self.shipments_details.all().count()
+        return self.shipments_details.exclude(shipment_status__in=[DispatchTripShipmentMapping.LOADING_FOR_DC,
+                                                                   DispatchTripShipmentMapping.CANCELLED]).count()
 
     @property
     def trip_id(self):
@@ -3415,14 +3416,6 @@ class DispatchTrip(BaseTimestampUserModel):
             'DIS', shop_id_date,
             dispatch_attempt)
         self.dispatch_no = final_dispatch_no
-
-    @property
-    def total_trip_shipments(self):
-        return self.shipments_details.count()
-
-    @property
-    def total_pending_shipments(self):
-        return self.shipments_details.filter(shipment__shipment_status='OUT_FOR_DELIVERY').count()
 
     @property
     def trip_amount(self):
@@ -3479,20 +3472,14 @@ class DispatchTrip(BaseTimestampUserModel):
         for shipment_mapping in shipments_loaded:
             packages_loaded = shipment_mapping.trip_shipment_mapped_packages.filter(
                                 ~Q(package_status__in=['CANCELLED', 'MISSING_AT_LOADING', 'DAMAGED_AT_LOADING']))
-
-            for package_mapping in packages_loaded:
-                package_data = package_mapping.aggregate(
-                          no_of_crates=Count(Case(When(packaging_type=ShipmentPackaging.CRATE, then=1),
-                                                  default=Value('0'), output_field=models.IntegerField(),)),
-                          no_of_packets=Count(Case(When(packaging_type=ShipmentPackaging.BOX, then=1),
-                                                   default=Value('0'), output_field=models.IntegerField(),)),
-                          no_of_sacks=Count(Case(When(packaging_type=ShipmentPackaging.SACK, then=1),
-                                                 default=Value('0'), output_field=models.IntegerField(),))
-                          )
-                if package_data:
-                    data['no_of_crates'] += package_data['no_of_crates'] if package_data['no_of_crates'] else 0
-                    data['no_of_packs'] += package_data['no_of_packs'] if package_data['no_of_packs'] else 0
-                    data['no_of_sacks'] += package_data['no_of_sacks'] if package_data['no_of_sacks'] else 0
+            data = packages_loaded.aggregate(
+                    no_of_crates=Sum(Case(When(shipment_packaging__packaging_type=ShipmentPackaging.CRATE, then=1),
+                                            default=Value('0'), output_field=models.IntegerField(), )),
+                    no_of_packs=Sum(Case(When(shipment_packaging__packaging_type=ShipmentPackaging.BOX, then=1),
+                                             default=Value('0'), output_field=models.IntegerField(), )),
+                    no_of_sacks=Sum(Case(When(shipment_packaging__packaging_type=ShipmentPackaging.SACK, then=1),
+                                           default=Value('0'), output_field=models.IntegerField(), ))
+                )
 
         return data
 
