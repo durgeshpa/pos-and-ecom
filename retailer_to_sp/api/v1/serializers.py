@@ -2764,10 +2764,17 @@ class VerifyRescheduledShipmentPackageSerializer(serializers.ModelSerializer):
     packaging_details = DispatchItemDetailsSerializer(many=True, read_only=True)
     crate = CrateSerializer(read_only=True)
     packaging_type = ChoicesSerializer(choices=ShipmentPackaging.PACKAGING_TYPE_CHOICES, required=True)
+    is_return_verified = serializers.SerializerMethodField()
+
+    def get_is_return_verified(self, obj):
+        return True if obj.status in [ShipmentPackaging.DISPATCH_STATUS_CHOICES.READY_TO_DISPATCH,
+                                      ShipmentPackaging.DISPATCH_STATUS_CHOICES.RETURN_MISSING,
+                                      ShipmentPackaging.DISPATCH_STATUS_CHOICES.RETURN_DAMAGED] else False
 
     class Meta:
         model = ShipmentPackaging
-        fields = ('id', 'packaging_type', 'crate', 'status', 'return_remark', 'reason_for_rejection','packaging_details')
+        fields = ('id', 'packaging_type', 'crate', 'status', 'is_return_verified', 'return_remark', 'reason_for_rejection',
+                  'packaging_details')
 
     def validate(self, data):
 
@@ -2781,10 +2788,10 @@ class VerifyRescheduledShipmentPackageSerializer(serializers.ModelSerializer):
 
         if 'shipment_id' in self.initial_data and self.initial_data['shipment_id']:
             if not OrderedProduct.objects.filter(
-                    id=self.initial_data['shipment_id'], shipment__shipment_status=OrderedProduct.RESCHEDULED).exists():
+                    id=self.initial_data['shipment_id'], shipment_status=OrderedProduct.RESCHEDULED).exists():
                 raise serializers.ValidationError("'shipment_id' | Invalid shipment selected.")
             shipment = OrderedProduct.objects.filter(
-                id=self.initial_data['shipment_id'], shipment__shipment_status=OrderedProduct.RESCHEDULED).last()
+                id=self.initial_data['shipment_id'], shipment_status=OrderedProduct.RESCHEDULED).last()
             if shipment != shipment_packaging.shipment:
                 raise serializers.ValidationError("'shipment_id' | Invalid shipment for the selected package")
             data['shipment'] = shipment
@@ -2800,15 +2807,15 @@ class VerifyRescheduledShipmentPackageSerializer(serializers.ModelSerializer):
         else:
             raise serializers.ValidationError("'trip_id' | This is mandatory")
 
-        if 'status' in self.initial_data and self.initial_data['status']:
-            if self.initial_data['status'] == PACKAGE_VERIFY_CHOICES.OK:
+        if 'return_status' in self.initial_data and self.initial_data['return_status']:
+            if self.initial_data['return_status'] == PACKAGE_VERIFY_CHOICES.OK:
                 status = ShipmentPackaging.DISPATCH_STATUS_CHOICES.READY_TO_DISPATCH
-            elif self.initial_data['status'] == PACKAGE_VERIFY_CHOICES.DAMAGED:
+            elif self.initial_data['return_status'] == PACKAGE_VERIFY_CHOICES.DAMAGED:
                 status = ShipmentPackaging.DISPATCH_STATUS_CHOICES.RETURN_DAMAGED
-            elif self.initial_data['status'] == PACKAGE_VERIFY_CHOICES.MISSING:
+            elif self.initial_data['return_status'] == PACKAGE_VERIFY_CHOICES.MISSING:
                 status = ShipmentPackaging.DISPATCH_STATUS_CHOICES.RETURN_MISSING
             else:
-                raise serializers.ValidationError("'status' | Invalid status for the selected shipment packaging.")
+                raise serializers.ValidationError("'return_status' | Invalid status for the selected shipment packaging.")
             if shipment_packaging.status == status:
                 raise serializers.ValidationError(f"Packaging status is already {str(status)}.")
             if shipment_packaging.status not in [ShipmentPackaging.DISPATCH_STATUS_CHOICES.REJECTED,
@@ -2825,9 +2832,9 @@ class VerifyRescheduledShipmentPackageSerializer(serializers.ModelSerializer):
                         raise serializers.ValidationError("'return_remark' | Invalid remark.")
                 else:
                     raise serializers.ValidationError("'return_remark' | This is mandatory for missing or damage.")
-            data['status'] = self.initial_data['status']
+            data['status'] = status
         else:
-            raise serializers.ValidationError("'status' | This is mandatory")
+            raise serializers.ValidationError("'return_status' | This is mandatory")
 
         return data
 
