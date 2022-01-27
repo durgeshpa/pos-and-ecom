@@ -777,9 +777,13 @@ class OrderedDashBoardSerializer(serializers.Serializer):
 
     shop_name = serializers.CharField()
     orders = serializers.IntegerField()
+    pos_order_count = serializers.IntegerField()
+    ecom_order_count = serializers.IntegerField()
     registered_users = serializers.IntegerField(required=False)
     products = serializers.IntegerField(required=False)
     revenue = serializers.DecimalField(max_digits=9, decimal_places=2, required=False)
+    pos_revenue = serializers.DecimalField(max_digits=9, decimal_places=2, required=False)
+    ecom_revenue = serializers.DecimalField(max_digits=9, decimal_places=2, required=False)
 
 
 class ReturnItemsSerializer(serializers.ModelSerializer):
