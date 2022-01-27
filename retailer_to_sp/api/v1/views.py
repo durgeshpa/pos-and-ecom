@@ -7791,10 +7791,7 @@ class VerifyRescheduledShipmentPackagesView(generics.GenericAPIView):
             return {"error": "invalid Package"}
         if shipment_package.shipment.shipment_status != OrderedProduct.RESCHEDULED:
             return {"error": f"Package for {OrderedProduct.RESCHEDULED} shipment can verify."}
-        if shipment_package.status not in [ShipmentPackaging.DISPATCH_STATUS_CHOICES.REJECTED,
-                                           ShipmentPackaging.DISPATCH_STATUS_CHOICES.DISPATCHED,
-                                           ShipmentPackaging.DISPATCH_STATUS_CHOICES.DELIVERED]:
-            return {"error": "Package is not in valid state to verify."}
+
         return {"data": shipment_package}
 
     @check_whc_manager_dispatch_executive
@@ -7810,8 +7807,8 @@ class VerifyRescheduledShipmentPackagesView(generics.GenericAPIView):
             return get_response("'package_id' | This is required.", False)
         if 'shipment_id' not in modified_data:
             return get_response("'shipment_id' | This is required.", False)
-        if 'status' not in modified_data:
-            return get_response("'status' | This is required.", False)
+        if 'return_status' not in modified_data:
+            return get_response("'return_status' | This is required.", False)
 
         # validations for input id
         id_validation = self.validate_package_by_shipment_package(modified_data['package_id'],
