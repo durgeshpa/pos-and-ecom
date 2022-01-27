@@ -3099,6 +3099,10 @@ class LoadVerifyPackageSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError(f"The invoice is already being added to another trip, "
                                                   f"cannot add this package")
 
+            # Check for package status
+            if package.status != ShipmentPackaging.DISPATCH_STATUS_CHOICES.READY_TO_DISPATCH:
+                raise serializers.ValidationError(f"Package is in {package.status} state, Cannot be loaded")
+
         elif trip.trip_type == DispatchTrip.BACKWARD:
             package = ShipmentPackaging.objects.filter(
                 id=self.initial_data['package_id'], warehouse=trip.source_shop,
@@ -3111,12 +3115,13 @@ class LoadVerifyPackageSerializer(serializers.ModelSerializer):
                                                         OrderedProduct.PARTIALLY_DELIVERED_AND_VERIFIED]:
                 raise serializers.ValidationError(f"The invoice is in {package.shipment.shipment_status} state, "
                                                   f"cannot load package")
+
+            # Check for package status
+            if package.status != ShipmentPackaging.DISPATCH_STATUS_CHOICES.PACKED:
+                raise serializers.ValidationError(f"Package is in {package.status} state, Cannot be loaded")
+
         else:
             raise serializers.ValidationError(f"Trip is of {trip.trip_type} type, cannot load package")
-
-        # Check for package status
-        if package.status != ShipmentPackaging.DISPATCH_STATUS_CHOICES.READY_TO_DISPATCH:
-            raise serializers.ValidationError(f"Package is in {package.status} state, Cannot be loaded")
 
         # Check if package already scanned
         if package.trip_packaging_details.filter(~Q(package_status=DispatchTripShipmentPackages.CANCELLED)).exists():
@@ -3204,6 +3209,11 @@ class LoadVerifyPackageSerializer(serializers.ModelSerializer):
                                             output_field=FloatField())).get('total_weight')
             trip.weight = trip.weight + package_weight
         trip.save()
+        if trip.trip_type == DispatchTrip.BACKWARD:
+            trip_package_mapping.shipment_packaging.package_status \
+                = ShipmentPackaging.DISPATCH_STATUS_CHOICES.READY_TO_DISPATCH
+            trip_package_mapping.shipment_packaging.save()
+
 
 
 class UnloadVerifyPackageSerializer(serializers.ModelSerializer):

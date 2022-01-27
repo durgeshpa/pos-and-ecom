@@ -7638,9 +7638,9 @@ class ShipmentPackagingView(generics.GenericAPIView):
             return get_response(id_validation['error'])
         packaging_data = id_validation['data']
         shipment = packaging_data.last().shipment
-
+        movement_type = packaging_data.last().movement_type
         serializer = self.serializer_class(
-            self.queryset.filter(shipment=shipment), many=True)
+            self.queryset.filter(shipment=shipment, movement_type=movement_type), many=True)
         msg = "" if packaging_data else "no packaging found"
         return get_response(msg, serializer.data, True)
 
@@ -9127,8 +9127,12 @@ class PackagesUnderTripView(generics.GenericAPIView):
         is_return_verified = self.request.GET.get('is_return_verified')
 
         if trip_id:
-            if trip_type in [TRIP_TYPE_CHOICE.DISPATCH_FORWARD, TRIP_TYPE_CHOICE.DISPATCH_BACKWARD]:
-                self.queryset = self.queryset.filter(shipment__trip_shipment__trip_id=trip_id)
+            if trip_type == TRIP_TYPE_CHOICE.DISPATCH_FORWARD:
+                self.queryset = self.queryset.filter(shipment__trip_shipment__trip_id=trip_id,
+                                                     movement_type=ShipmentPackaging.DISPATCH)
+            elif trip_type == TRIP_TYPE_CHOICE.DISPATCH_BACKWARD:
+                self.queryset = self.queryset.filter(shipment__trip_shipment__trip_id=trip_id,
+                                                     movement_type=ShipmentPackaging.RETURNED)
             else:
                 self.queryset = self.queryset.filter(shipment__last_mile_trip_shipment__trip_id=trip_id)
 
