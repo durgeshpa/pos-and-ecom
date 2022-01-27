@@ -32,7 +32,8 @@ from retailer_to_sp.models import (CartProductMapping, Order, OrderedProduct, Or
                                    Dispatch, ShipmentRescheduling, PickerDashboard, update_full_part_order_status,
 
                                    Shipment, populate_data_on_qc_pass, OrderedProductBatch, ShipmentPackaging,
-                                   add_to_putaway_on_return, check_franchise_inventory_update, ShipmentNotAttempt)
+                                   add_to_putaway_on_return, check_franchise_inventory_update, ShipmentNotAttempt,
+                                   LastMileTripShipmentMapping)
 from products.models import Product
 from retailer_to_sp.forms import (
     OrderedProductForm, OrderedProductMappingShipmentForm,
@@ -567,6 +568,7 @@ def trip_planning(request):
             selected_shipments = form.cleaned_data.get('selected_id', None)
             if selected_shipments:
                 selected_shipments = selected_shipments.split(',')
+                create_update_last_mile_trip_shipment_mapping(trip.id, selected_shipments, request.user)
                 selected_shipments = Dispatch.objects.filter(
                     pk__in=selected_shipments)
                 selected_shipments.update(trip=trip, shipment_status='READY_TO_DISPATCH')
@@ -600,6 +602,21 @@ TRIP_ORDER_STATUS_MAP = {
     'STARTED': Order.DISPATCHED,
     'COMPLETED': Order.COMPLETED
 }
+
+
+def create_update_last_mile_trip_shipment_mapping(trip_id, shipment_ids, request_user):
+    removed_shipments = LastMileTripShipmentMapping.objects.filter(
+        ~Q(shipment_id__in=shipment_ids), ~Q(shipment_status=LastMileTripShipmentMapping.CANCELLED), trip_id=trip_id)
+    if removed_shipments:
+        removed_shipments.update(shipment_status=LastMileTripShipmentMapping.CANCELLED, updated_by=request_user)
+    for shipment_id in shipment_ids:
+        if LastMileTripShipmentMapping.objects.filter(trip_id=trip_id, shipment_id=shipment_id).exists():
+            LastMileTripShipmentMapping.objects.filter(trip_id=trip_id, shipment_id=shipment_id).update(
+                shipment_status=LastMileTripShipmentMapping.LOADED_FOR_DC, updated_by=request_user)
+        else:
+            LastMileTripShipmentMapping.objects.create(
+                trip_id=trip_id, shipment_id=shipment_id, shipment_status=LastMileTripShipmentMapping.LOADED_FOR_DC,
+                created_by=request_user, updated_by=request_user)
 
 
 def trip_planning_change(request, pk):
@@ -696,6 +713,8 @@ def trip_planning_change(request, pk):
 
                     if selected_shipment_ids:
                         selected_shipment_list = selected_shipment_ids.split(',')
+                        create_update_last_mile_trip_shipment_mapping(
+                            trip_instance.pk, selected_shipment_list, request.user)
                         selected_shipments = Dispatch.objects.filter(~Q(shipment_status='CANCELLED'),
                                                                      pk__in=selected_shipment_list)
 
