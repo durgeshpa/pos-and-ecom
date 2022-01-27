@@ -8044,6 +8044,14 @@ class TripSummaryView(generics.GenericAPIView):
                 'total_sack': dispatch_trip_instance.no_of_sacks,
                 'weight': dispatch_trip_instance.get_trip_weight
             }
+        else:
+            trip_summary_data = {
+                'total_invoices': 0,
+                'total_crates': 0,
+                'total_packets': 0,
+                'total_sack': 0,
+                'weight': 0
+            }
         return trip_summary_data
 
     def non_added_shipments_to_trip_summary(self, request):
