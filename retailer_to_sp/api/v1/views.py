@@ -6831,7 +6831,6 @@ class ShipmentQCView(generics.GenericAPIView):
     serializer_class = ShipmentQCSerializer
     queryset = OrderedProduct.objects.\
         annotate(status=F('shipment_status')).\
-        filter(qc_area__isnull=False).\
         select_related('order', 'order__seller_shop', 'order__shipping_address', 'order__shipping_address__city',
                        'order__shipping_address__state', 'order__shipping_address__pincode_link', 'invoice', 'qc_area').\
         prefetch_related('qc_area__qc_desk_areas', 'qc_area__qc_desk_areas__qc_executive').\
