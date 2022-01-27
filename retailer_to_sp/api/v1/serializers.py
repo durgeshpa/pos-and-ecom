@@ -3849,6 +3849,15 @@ class VerifyReturnShipmentProductsSerializer(serializers.ModelSerializer):
 
         movement_type = self.get_movement_type(shipment_map_instance.ordered_product)
         if packaging:
+            if ShipmentPackagingMapping.objects.filter(ordered_product=shipment_map_instance,
+                                                       shipment_packaging__movement_type=movement_type).exists():
+                shipment_packaging_ids = list(ShipmentPackagingMapping.objects.filter(
+                    ordered_product=shipment_map_instance, shipment_packaging__movement_type=movement_type)\
+                                                                     .values_list('shipment_packaging_id', flat=True))
+                ShipmentPackagingMapping.objects.filter(ordered_product=shipment_map_instance,
+                                                       shipment_packaging__movement_type=movement_type).delete()
+                ShipmentPackaging.objects.filter(id__in=shipment_packaging_ids, packaging_details__isnull=True).delete()
+
             for package_obj in packaging:
                 if package_obj['type'] == ShipmentPackaging.CRATE:
                     for crate in package_obj['packages']:
