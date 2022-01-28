@@ -1853,7 +1853,7 @@ class ShipmentQCSerializer(serializers.ModelSerializer):
                         raise serializers.ValidationError(f'Invalid status | {shipment_status}->{status} not allowed')
                     trip_shipment_mapping = shipment.last_mile_trip_shipment.last()
                     if not trip_shipment_mapping:
-                        raise serializers.ValidationError("Last trip not found for this shipment")
+                        raise serializers.ValidationError(f"shipment {shipment} does not map to any trip.")
                     trip = trip_shipment_mapping.trip
                     if status == OrderedProduct.RESCHEDULED:
                         if ShipmentRescheduling.objects.filter(shipment=shipment).exists():
