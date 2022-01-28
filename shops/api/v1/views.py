@@ -1373,12 +1373,21 @@ class FOFOConfigurationsView(generics.GenericAPIView):
     @check_logged_in_user_is_superuser
     @check_fofo_shop
     def get(self, request, *args, **kwargs):
-        """ GET FOFO Configurations List """
+        """ GET FOFO  List """
         shop = kwargs['shop']
         search_text = self.request.GET.get('search_text')
         queryset = self.queryset.filter(shop=shop)
+        id = None
+        if request.GET.get('id'):
+            """ Get FOFO Configurations for specific ID """
+            id_validation = validate_id(queryset, int(request.GET.get('id')))
+            if 'error' in id_validation:
+                return get_response(id_validation['error'])
+            queryset = id_validation['data']
+            id = request.GET.get('id')
         serializer = FOFOConfigurationsGetSerializer(queryset, context={'shop': shop,
-                                                                        'search_text': search_text})
+                                                                        'search_text': search_text,
+                                                                        'id': id})
         msg = "" if queryset else "no configurations found"
         return get_response(msg, serializer.data, True)
 

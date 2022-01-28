@@ -919,6 +919,11 @@ class FOFOCategoryConfigurationsGetSerializer(serializers.ModelSerializer):
         fields = ('id', 'name', 'sub_category',)
 
     def get_sub_category(self, obj):
+        if self.context.get('id'):
+            return FOFOSubCategoryConfigurationsGetSerializer(FOFOConfigSubCategory.objects.filter(
+                fofo_category__shop=self.context.get('shop'),
+                fofo_category__id=self.context.get('id'), category=obj), many=True,
+                context={'shop': self.context.get('shop')}).data
         return FOFOSubCategoryConfigurationsGetSerializer(FOFOConfigSubCategory.objects.filter(
             fofo_category__shop=self.context.get('shop'), category=obj), many=True,
             context={'shop': self.context.get('shop')}).data
@@ -932,11 +937,18 @@ class FOFOConfigurationsGetSerializer(serializers.Serializer):
         return ShopNameSerializer(self.context.get('shop'), read_only=True).data
 
     def get_category(self, obj):
-        if self.context.get('search_text'):
+        if self.context.get('id'):
+            return FOFOCategoryConfigurationsGetSerializer(FOFOConfigCategory.objects.filter(
+                fofo_category_details__fofo_category__shop=self.context.get('shop'),
+                fofo_category_details__fofo_category__id=self.context.get('id')).distinct(), many=True,
+                                                           context={'shop': self.context.get('shop'),
+                                                                    'id': self.context.get('id')}).data
+        elif self.context.get('search_text'):
             return FOFOCategoryConfigurationsGetSerializer(FOFOConfigCategory.objects.filter(
                 fofo_category_details__fofo_category__shop=self.context.get('shop'),
                 name__icontains=self.context.get('search_text')).distinct(), many=True,
-                context={'shop': self.context.get('shop')}).data
+                                                           context={'shop': self.context.get('shop')}).data
+
         return FOFOCategoryConfigurationsGetSerializer(FOFOConfigCategory.objects.filter(
             fofo_category_details__fofo_category__shop=self.context.get('shop')).distinct(), many=True,
             context={'shop': self.context.get('shop')}).data
