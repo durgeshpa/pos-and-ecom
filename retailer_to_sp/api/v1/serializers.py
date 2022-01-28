@@ -21,7 +21,8 @@ from retailer_to_sp.models import (CartProductMapping, Cart, Order, OrderedProdu
                                    Trip, PickerDashboard, ShipmentRescheduling, OrderedProductBatch, ShipmentPackaging,
                                    ShipmentPackagingMapping, DispatchTrip, DispatchTripShipmentMapping,
                                    DispatchTripShipmentPackages, ShipmentNotAttempt, PACKAGE_VERIFY_CHOICES,
-                                   LastMileTripShipmentMapping, ShopCrate, DispatchTripCrateMapping)
+                                   LastMileTripShipmentMapping, ShopCrate, DispatchTripCrateMapping,
+                                   add_to_putaway_on_return)
 
 from retailer_to_gram.models import (Cart as GramMappedCart, CartProductMapping as GramMappedCartProductMapping,
                                      Order as GramMappedOrder, OrderedProduct as GramMappedOrderedProduct,
@@ -3730,7 +3731,7 @@ class VerifyReturnShipmentProductsSerializer(serializers.ModelSerializer):
 
         total_product_returned_qty = float(product_returned_qty + product_returned_damage_qty)
         # Make Packaging for Dispatch Trips only, Validation: Seller shop is not same as Source shop
-        if mapping_instance.ordered_product.packaged_at != mapping_instance.ordered_product.order.seller_shop:
+        if mapping_instance.ordered_product.packaged_at != mapping_instance.ordered_product.order.seller_shop_id:
             if 'packaging' in self.initial_data and self.initial_data['packaging']:
                 if total_product_returned_qty == float("0"):
                     raise serializers.ValidationError("To be returned quantity is zero, packaging is not required")
@@ -3760,6 +3761,7 @@ class VerifyReturnShipmentProductsSerializer(serializers.ModelSerializer):
             data['packaging'] = self.initial_data.get('packaging')
 
         data['delivered_qty'] = product_delivered_qty
+        data['returned_qty'] = product_returned_qty
         data['returned_damage_qty'] = product_returned_damage_qty
         data['is_return_verified'] = True
         data['warehouse_id'] = warehouse_id
@@ -3803,8 +3805,8 @@ class VerifyReturnShipmentProductsSerializer(serializers.ModelSerializer):
             # To create putaway for Last mile trip
             # Validate: Seller shop is same as Source shop
             shipment = product_batch_instance.last().ordered_product_mapping.ordered_product
-            if shipment.packaged_at == shipment.order.seller_shop:
-                product_batch_instance.last().save()
+            if shipment.packaged_at == shipment.order.seller_shop_id:
+                add_to_putaway_on_return(shipment.id)
         except Exception as e:
             error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
             raise serializers.ValidationError(error)
@@ -3942,14 +3944,19 @@ class ShipmentCompleteVerifySerializer(serializers.ModelSerializer):
                                                       f"{shipment.shipment_status} | Id {shipment.pk}")
                 data['shipment_status'] = OrderedProduct.RESCHEDULED
 
-            elif shipment_status == OrderedProduct.PARTIALLY_DELIVERED_AND_COMPLETED:
-                data['shipment_status'] = OrderedProduct.PARTIALLY_DELIVERED_AND_VERIFIED
-
             elif shipment_status == OrderedProduct.FULLY_RETURNED_AND_COMPLETED:
                 data['shipment_status'] = OrderedProduct.FULLY_RETURNED_AND_VERIFIED
 
-            elif shipment_status == OrderedProduct.FULLY_DELIVERED_AND_COMPLETED:
-                data['shipment_status'] = OrderedProduct.FULLY_DELIVERED_AND_VERIFIED
+            elif shipment_status in [OrderedProduct.PARTIALLY_DELIVERED_AND_COMPLETED,
+                                     OrderedProduct.FULLY_DELIVERED_AND_COMPLETED]:
+                returned_pieces = shipment.total_returned_pieces()
+                shipped_pieces = shipment.total_shipped_pieces()
+                if returned_pieces == 0:
+                    data['shipment_status'] = OrderedProduct.FULLY_DELIVERED_AND_VERIFIED
+                elif shipped_pieces > returned_pieces:
+                    data['shipment_status'] = OrderedProduct.PARTIALLY_DELIVERED_AND_VERIFIED
+                elif shipped_pieces == returned_pieces:
+                    data['shipment_status'] = OrderedProduct.FULLY_RETURNED_AND_VERIFIED
         else:
             raise serializers.ValidationError("Shipment creation is not allowed.")
 
