@@ -4024,11 +4024,12 @@ class OrderListCentral(GenericAPIView):
                 qs = qs.filter(order_status=order_status_actual) if order_status_actual else qs
         elif order_type == 'ecom':
             qs = Order.objects.select_related('buyer').filter(seller_shop=kwargs['shop'], ordered_cart__cart_type='ECOM')
-            if PosShopUserMapping.objects.get(shop=kwargs['shop'], user=self.request.user).user_type == 'delivery_person' or int(self.request.GET.get('self_assigned', '0')):
+            if PosShopUserMapping.objects.get(shop=kwargs['shop'], user=self.request.user).user_type == \
+                    'delivery_person' or int(self.request.GET.get('self_assigned', '0')):
                 qs = qs.filter(delivery_person=self.request.user)
             if order_status:
                 order_status_actual = ONLINE_ORDER_STATUS_MAP.get(int(order_status), None)
-                qs = qs.filter(order_status__in = order_status_actual) if order_status_actual else qs
+                qs = qs.filter(order_status__in=order_status_actual) if order_status_actual else qs
         else:
             return api_response("Invalid cart type")
         if search_text:
@@ -4051,7 +4052,7 @@ class OrderListCentral(GenericAPIView):
         if search_text:
             qs = qs.filter(Q(order_no__icontains=search_text) |
                            Q(ordered_cart__rt_cart_list__retailer_product__name__icontains=search_text))
-        return api_response('Order', self.get_serialize_process_basic(qs), status.HTTP_200_OK, True,
+        return api_response('Order', self.get_serialize_process_ecom(qs), status.HTTP_200_OK, True,
                             extra_params={"key_p": str(config('PAYU_KEY'))})
 
     def get_serialize_process_sp(self, order, parent_mapping):
@@ -6962,7 +6963,9 @@ class OrderPaymentStatusChangeView(generics.GenericAPIView):
         info_logger.info("Order PUT api called.")
         app_type = self.request.META.get('HTTP_APP_TYPE', '3')
 
-        if app_type == '3':
+        if app_type == '2':
+            return self.put_ecom_order_status_from_pos_app(request, *args, **kwargs)
+        elif app_type == '3':
             return self.put_ecom_order_status(request, *args, **kwargs)
         else:
             return api_response('Provide a valid app_type')
@@ -6982,11 +6985,36 @@ class OrderPaymentStatusChangeView(generics.GenericAPIView):
 
         try:
             order = Order.objects.get(pk=int(modified_data['id']), seller_shop=shop, ordered_cart__cart_type='ECOM',
-                                                          buyer=self.request.user)
+                                      buyer=self.request.user)
         except ObjectDoesNotExist:
             return api_response('Order Not Found!')
 
-        serializer = self.serializer_class(instance=order, data=modified_data)
+        serializer = self.serializer_class(instance=order, data=modified_data, context={'app-type': 3})
+        if serializer.is_valid():
+            serializer.save(updated_by=request.user)
+            info_logger.info("Order Updated Successfully.")
+            return api_response('order updated!', serializer.data, status.HTTP_200_OK, True)
+        return api_response(serializer_error(serializer), success=False)
+
+    @check_pos_shop
+    def put_ecom_order_status_from_pos_app(self, request, *args, **kwargs):
+        """
+            Update ecom order
+        """
+        shop = kwargs['shop']
+        modified_data = validate_data_format(self.request)
+        if 'error' in modified_data:
+            return api_response(modified_data['error'])
+
+        if 'id' not in modified_data:
+            return api_response('please provide id to update order')
+
+        try:
+            order = Order.objects.get(pk=int(modified_data['id']), seller_shop=shop, ordered_cart__cart_type='ECOM')
+        except ObjectDoesNotExist:
+            return api_response('Order Not Found!')
+
+        serializer = self.serializer_class(instance=order, data=modified_data, context={'app-type': 2})
         if serializer.is_valid():
             serializer.save(updated_by=request.user)
             info_logger.info("Order Updated Successfully.")
