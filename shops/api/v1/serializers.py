@@ -887,13 +887,14 @@ class ShopNameSerializer(serializers.ModelSerializer):
 
 
 class FOFOSubCategoryConfigurationsGetSerializer(serializers.ModelSerializer):
+    id = serializers.SerializerMethodField()
     key = serializers.SerializerMethodField()
     name = serializers.SerializerMethodField()
     value = serializers.SerializerMethodField()
 
     class Meta:
         model = FOFOConfigSubCategory
-        fields = ('key', 'name', 'value',)
+        fields = ('id', 'key', 'name', 'value',)
 
     def get_key(self, obj):
         return obj.id
@@ -904,6 +905,10 @@ class FOFOSubCategoryConfigurationsGetSerializer(serializers.ModelSerializer):
     def get_value(self, obj):
         instance = FOFOConfigurations.objects.filter(shop=self.context.get('shop'), key=obj).last()
         return instance.value if instance else None
+
+    def get_id(self, obj):
+        instance = FOFOConfigurations.objects.filter(shop=self.context.get('shop'), key=obj).last()
+        return instance.id if instance else None
 
 
 class FOFOCategoryConfigurationsGetSerializer(serializers.ModelSerializer):
