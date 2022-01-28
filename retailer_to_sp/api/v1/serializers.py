@@ -3349,6 +3349,7 @@ class UnloadVerifyPackageSerializer(serializers.ModelSerializer):
             if trip_shipment.trip.trip_type == DispatchTrip.FORWARD \
                     and shipment.shipment_status == OrderedProduct.READY_TO_DISPATCH:
                 shipment.shipment_status = OrderedProduct.MOVED_TO_DISPATCH
+                shipment.current_shop = trip_shipment.trip.destination_shop
                 shipment.save()
 
 
