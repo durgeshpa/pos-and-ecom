@@ -19,6 +19,7 @@
 //});
 window.addEventListener("load", function() {
     (function($) {
+        hide_show_fofo_config();
         $("select[name='shop_type'], #id_online_inventory_enabled").change(function() {
             hide_show_fofo_config();
         });
