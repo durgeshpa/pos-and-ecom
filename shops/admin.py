@@ -734,6 +734,21 @@ class FOFOConfigurationsAdmin(admin.ModelAdmin):
     list_display = ('shop', 'key', 'value')
     fields = ('shop', 'key', 'value')
 
+    def has_add_permission(self, request, obj=None):
+        if request.user.is_superuser:
+            return True
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        if request.user.is_superuser:
+            return True
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        if request.user.is_superuser:
+            return True
+        return False
+
 
 admin.site.register(ParentRetailerMapping, ParentRetailerMappingAdmin)
 admin.site.register(ShopType, ShopTypeAdmin)
