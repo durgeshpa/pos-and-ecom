@@ -327,7 +327,7 @@ class ShopView(generics.ListCreateAPIView):
                         status=status.HTTP_200_OK)
 
     def perform_create(self, serializer):
-        shop = serializer.save(shop_owner=self.request.user)
+        shop = serializer.save(shop_owner=self.request.user, created_by=self.request.user)
         return shop
 
 
