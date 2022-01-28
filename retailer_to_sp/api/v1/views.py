@@ -8257,6 +8257,7 @@ class DispatchCenterShipmentView(generics.GenericAPIView):
                 shipment_moved_to_dispatch = self.queryset.filter(shipment_status=OrderedProduct.MOVED_TO_DISPATCH)
                 shipment_not_added_in_any_trip = shipment_moved_to_dispatch.filter(trip_shipment__isnull=True)
                 shipment_added_in_some_other_trip = shipment_moved_to_dispatch.exclude(
+                                                                ~Q(trip_shipment__trip_id=trip_id),
                                                                 trip_shipment__isnull=False,
                                                                 trip_shipment__shipment_status__in=[
                                                                  DispatchTripShipmentMapping.LOADING_FOR_DC,
