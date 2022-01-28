@@ -21,12 +21,12 @@ from addresses.models import Address
 from addresses.forms import AddressForm
 from .forms import (ParentRetailerMappingForm, PosShopUserMappingForm, ShopParentRetailerMappingForm,
                     ShopForm, RequiredInlineFormSet, BeatPlanningAdminForm,
-                    AddressInlineFormSet, ShopUserMappingForm, ShopTimingForm)
+                    AddressInlineFormSet, ShopUserMappingForm, ShopTimingForm, FOFOShopConfigForm)
 
 from .views import (StockAdjustmentView, bulk_shop_updation, ShopAutocomplete, UserAutocomplete, 
                     ShopUserMappingCsvView, ShopUserMappingCsvSample, ShopTimingAutocomplete
 )
-from pos.filters import NonPosShopAutocomplete, PosShopAutocomplete
+from pos.filters import NonPosShopAutocomplete, PosShopAutocomplete, FofoOnlineEnabledShopAutocomplete
 from retailer_backend.admin import InputFilter
 from services.views import SalesReportFormView, SalesReport
 from .utils import create_shops_excel
@@ -568,11 +568,15 @@ class PosShopUserMappingAdmin(admin.ModelAdmin):
                         self.admin_site.admin_view(NonPosShopAutocomplete.as_view()),
                         name="pos-shop-complete"
                     ),
+                   url(
+                       r'^pos-online_inventory_enabled-shop-complete/$',
+                       self.admin_site.admin_view(FofoOnlineEnabledShopAutocomplete.as_view()),
+                       name="pos-online_inventory_enabled-shop-complete"
+                   ),
 
                ] + urls
         return urls
 
-    
 
 class SalesAppVersionAdmin(admin.ModelAdmin):
     list_display = ('app_version', 'update_recommended', 'force_update_required', 'created_at', 'modified_at')
@@ -726,7 +730,8 @@ class FOFOConfigSubCategoryAdmin(admin.ModelAdmin):
 
 
 class FOFOConfigurationsAdmin(admin.ModelAdmin):
-    list_display = ('id', 'shop', 'key', 'value')
+    form = FOFOShopConfigForm
+    list_display = ('shop', 'key', 'value')
     fields = ('shop', 'key', 'value')
 
 
