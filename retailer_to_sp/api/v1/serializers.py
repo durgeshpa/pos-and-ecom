@@ -4234,3 +4234,58 @@ class ShipmentPackageProductsSerializer(serializers.ModelSerializer):
     class Meta:
         model = ShipmentPackagingMapping
         fields = ('id', 'product', 'batches', 'quantity', 'return_qty', 'is_verified')
+
+
+class LoadLastMileInvoiceSerializer(serializers.ModelSerializer):
+    trip = DispatchTripSerializers(read_only=True)
+    shipment = ShipmentSerializerForDispatch(read_only=True)
+    shipment_status = serializers.CharField(read_only=True)
+
+    class Meta:
+        model = LastMileTripShipmentMapping
+        fields = ('id', 'trip', 'shipment', 'shipment_status',)
+
+    def validate(self, data):
+        if 'trip_id' not in self.initial_data or not self.initial_data['trip_id']:
+            raise serializers.ValidationError("'trip_id' | This is required.")
+        try:
+            trip = Trip.objects.get(id=self.initial_data['trip_id'])
+        except:
+            raise serializers.ValidationError("invalid Trip ID")
+
+        if 'shipment_id' not in self.initial_data or not self.initial_data['shipment_id']:
+            raise serializers.ValidationError("'shipment_id' | This is required.")
+        try:
+            shipment = OrderedProduct.objects.get(id=self.initial_data['shipment_id'])
+        except:
+            raise serializers.ValidationError("invalid Shipment ID")
+
+        trip_shipment_mapping = LastMileTripShipmentMapping.objects.filter(trip=trip, shipment=shipment).last()
+        if trip_shipment_mapping:
+            raise serializers.ValidationError(f"Invoice {shipment} already {trip_shipment_mapping.shipment_status} "
+                                              f"for this trip")
+
+        if shipment.shipment_status != OrderedProduct.MOVED_TO_DISPATCH:
+            raise serializers.ValidationError(f"Invoice {shipment} not in {OrderedProduct.MOVED_TO_DISPATCH} state, "
+                                              f"unable to load this invoice to this trip.")
+
+        if shipment.current_shop != trip.source_shop:
+            raise serializers.ValidationError(
+                f"Invoice {shipment} not present at {trip.source_shop}, unable to load this invoice to this trip")
+
+        data['shipment_status'] = LastMileTripShipmentMapping.LOADED_FOR_DC
+        return data
+
+    @transaction.atomic
+    def create(self, validated_data):
+        """create a Last Mile Trip Shipment Mapping"""
+        try:
+            trip_shipment = LastMileTripShipmentMapping.objects.create(**validated_data)
+            if trip_shipment.shipment.shipment_status == OrderedProduct.MOVED_TO_DISPATCH:
+                trip_shipment.shipment.shipment_status = OrderedProduct.READY_TO_DISPATCH
+                trip_shipment.shipment.save()
+        except Exception as e:
+            error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
+            raise serializers.ValidationError(error)
+
+        return trip_shipment

@@ -117,11 +117,13 @@ from .serializers import (ProductsSearchSerializer, CartSerializer, OrderSeriali
                           ShipmentDetailsByCrateSerializer, LoadVerifyCrateSerializer, UnloadVerifyCrateSerializer,
                           DispatchTripShipmentMappingSerializer, PackagesUnderTripSerializer,
                           MarkShipmentPackageVerifiedSerializer, ShipmentPackageProductsSerializer,
-                          DispatchCenterCrateSerializer, DispatchCenterShipmentPackageSerializer
+                          DispatchCenterCrateSerializer, DispatchCenterShipmentPackageSerializer,
+                          LoadLastMileInvoiceSerializer
                           )
 from ...common_validators import validate_shipment_dispatch_item, validate_package_by_crate_id, validate_trip_user, \
     get_shipment_by_crate_id, get_shipment_by_shipment_label, validate_shipment_id, validate_trip_shipment, \
-    validate_trip, validate_shipment_label, validate_trip_shipment_package
+    validate_trip, validate_shipment_label, validate_trip_shipment_package, check_user_can_plan_trip, \
+    validate_last_mile_trip_user
 
 es = Elasticsearch(["https://search-gramsearch-7ks3w6z6mf2uc32p3qc4ihrpwu.ap-south-1.es.amazonaws.com"])
 
@@ -8672,6 +8674,7 @@ class LastMileTripCrudView(generics.GenericAPIView):
         return get_response(msg, serializer.data, True)
 
     @check_whc_manager_dispatch_executive
+    @check_user_can_plan_trip
     def post(self, request):
         """ POST API for Last Mile Trip Creation with Image """
 
@@ -8688,6 +8691,7 @@ class LastMileTripCrudView(generics.GenericAPIView):
         return get_response(serializer_error(serializer), False)
 
     @check_whc_manager_dispatch_executive
+    @check_user_can_plan_trip
     def put(self, request):
         """ PUT API for Last Mile Trip Updation """
 
@@ -8714,6 +8718,7 @@ class LastMileTripCrudView(generics.GenericAPIView):
         return get_response(serializer_error(serializer), False)
 
     @check_whc_manager_dispatch_executive
+    @check_user_can_plan_trip
     def delete(self, request):
         """ Delete Last Mile Trip """
 
@@ -8887,6 +8892,7 @@ class LastMileTripShipmentsView(generics.GenericAPIView):
 
         return self.queryset.distinct('id')
 
+
 class LastMileTripStatusChangeView(generics.GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
@@ -8907,6 +8913,7 @@ class LastMileTripStatusChangeView(generics.GenericAPIView):
     serializer_class = LastMileTripStatusChangeSerializers
 
     @check_whc_manager_dispatch_executive
+    @check_user_can_plan_trip
     def get(self, request):
         """ GET API for Dispatch Trip """
         info_logger.info("Dispatch Trip GET api called.")
@@ -8929,6 +8936,7 @@ class LastMileTripStatusChangeView(generics.GenericAPIView):
         return get_response(msg, serializer.data, True)
 
     @check_whc_manager_dispatch_executive
+    @check_user_can_plan_trip
     def put(self, request):
         """ PUT API for Last Mile Trip Updation """
 
@@ -9275,4 +9283,34 @@ class ShipmentPackageProductsView(generics.GenericAPIView):
             self.queryset = self.queryset.filter(is_verified=is_verified)
 
         return self.queryset
+
+
+class LoadLastMileInvoiceView(generics.GenericAPIView):
+    """
+       View to mark invoice as added to a trip.
+    """
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    serializer_class = LoadLastMileInvoiceSerializer
+    queryset = LastMileTripShipmentMapping.objects.only('id', 'trip', 'shipment', 'shipment_status')
+
+    @check_user_can_plan_trip
+    def post(self, request):
+        """ POST API to load invoice in Last mile trip """
+        info_logger.info("Load invoice POST api called.")
+        modified_data = validate_data_format(self.request)
+        if 'error' in modified_data:
+            return get_response(modified_data['error'])
+        if 'trip_id' not in modified_data:
+            return get_response("'trip_id' | This is mandatory.")
+        validated_trip = validate_last_mile_trip_user(modified_data['trip_id'], request.user)
+        if 'error' in validated_trip:
+            return get_response(validated_trip['error'])
+
+        serializer = self.serializer_class(data=modified_data)
+        if serializer.is_valid():
+            serializer.save(created_by=request.user)
+            info_logger.info("Invoice added to the trip.")
+            return get_response('Invoice added to the trip.', serializer.data)
+        return get_response(serializer_error(serializer), False)
 

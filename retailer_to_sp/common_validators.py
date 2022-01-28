@@ -1,8 +1,26 @@
+from functools import wraps
+
 from django.db.models import Q
 
 from retailer_to_sp.models import ShipmentPackaging, ShipmentPackagingMapping, DispatchTrip, OrderedProduct, \
     DispatchTripShipmentMapping, Trip, DispatchTripShipmentPackages
+from wms.common_functions import get_response
 from wms.models import Crate
+
+
+def check_user_can_plan_trip(view_func):
+    """
+        Decorator to validate logged-in user can can plan trip
+    """
+
+    @wraps(view_func)
+    def _wrapped_view_func(self, request, *args, **kwargs):
+        user = request.user
+        if not user.has_perm('retailer_to_sp.can_plan_trip'):
+            return get_response("Logged In user does not have required permission to perform this action.")
+        return view_func(self, request, *args, **kwargs)
+
+    return _wrapped_view_func
 
 
 def validate_shipment_crates_list(crates_dict, warehouse_id, shipment):
@@ -89,6 +107,12 @@ def get_shipment_by_crate_id(crate_id, crate_type=None):
 def validate_trip_user(trip_id, user):
     if DispatchTrip.objects.filter(id=trip_id, source_shop=user.shop_employee.last().shop).exists():
         return {"data": DispatchTrip.objects.get(id=trip_id, source_shop=user.shop_employee.last().shop)}
+    return {"error": "Invalid trip"}
+
+
+def validate_last_mile_trip_user(trip_id, user):
+    if Trip.objects.filter(id=trip_id, seller_shop=user.shop_employee.last().shop).exists():
+        return {"data": Trip.objects.get(id=trip_id, seller_shop=user.shop_employee.last().shop)}
     return {"error": "Invalid trip"}
 
 
