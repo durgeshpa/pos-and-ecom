@@ -450,6 +450,7 @@ def ordered_product_mapping_shipment(request):
                 with transaction.atomic():
                     shipment = form.save()
                     shipment.shipment_status = 'SHIPMENT_CREATED'
+                    shipment.current_shop = order.seller_shop
                     shipment.save()
                     for forms in form_set:
                         if forms.is_valid():
