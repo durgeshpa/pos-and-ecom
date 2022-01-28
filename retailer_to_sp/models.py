@@ -1617,6 +1617,10 @@ class OrderedProduct(models.Model):  # Shipment
     is_customer_notified = models.BooleanField(default=False)
     qc_area = models.ForeignKey(QCArea, related_name='qc_area_shipment', null=True, blank=True,
                                 on_delete=models.DO_NOTHING)
+    current_shop = models.ForeignKey(
+        Shop, related_name='shop_shipments',
+        null=True, blank=True, on_delete=models.DO_NOTHING
+    )
     created_at = models.DateTimeField(
         auto_now_add=True, verbose_name="Invoice Date")
     modified_at = models.DateTimeField(auto_now=True)
