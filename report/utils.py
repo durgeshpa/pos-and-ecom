@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
-import random
+from distutils.log import error
+from datetime import datetime, timedelta
+from tracemalloc import start
 
 from ecom.utils import generate_ecom_order_csv_report
 from pos.utils import (
@@ -12,7 +14,7 @@ from pos.utils import (
 from pos.views import (
     posinventorychange_data_excel,
 )
-
+from global_config.models import GlobalConfig
 from retailer_to_sp.models import (
        Order
 )
@@ -25,7 +27,7 @@ from pos.models import (
     PosGRNOrder
 )
 
-def return_report_operators(key):
+def return_host_report_operators(key):
 
     operators = {
         'EO': (generate_ecom_order_csv_report,
@@ -44,4 +46,51 @@ def return_report_operators(key):
                PosGRNOrder)
     }
 
-    return operators.get(key)
+    return operators.get(key)   
+              
+def return_redash_query_no_and_key(key):
+
+    query_no_operator = GlobalConfig.objects.filter(key='redash_report_query_no_cred_map').last()
+    api_key_operator = GlobalConfig.objects.filter(key='redash_report_api_key_cred_map').last()
+    if not query_no_operator or not query_no_operator.value or not query_no_operator.value.get(key):
+       raise KeyError("Please add a query_number map with key ::: redash_report_query_no_cred_map :::")
+    if not api_key_operator or not api_key_operator.value or not api_key_operator.get(key):
+       raise KeyError("Please add a query_number map with key ::: redash_report_api_key_cred_map :::")
+    return query_no_operator.get(key), api_key_operator.get(key)
+
+
+def set_host_input_params(key, input_params, report_type, frequency=None, user=None):
+    params = {}
+    if key == 'EO':
+       params['ordered_cart__cart_type'] = 'ECOM'
+       params['seller_shop_id'] = input_params.get('shop')
+       # if not user.is_superuser:
+       #    params['seller_shop__pos_shop__user'] = user
+    if key == 'BO':
+       params['order__ordered_cart__cart_type'] = 'BASIC'
+       #params['order__seller_shop__pos_shop__status'] = True
+       params['order__seller_shop_id'] = input_params.get('shop')
+       # if not user.is_superuser:
+       #    params['order__seller_shop__pos_shop__user'] = user
+       if input_params.get('shop_type'):
+          params['order__seller_shop__shop_type__shop_sub_type__retailer_type_name'] = input_params.get('shop_type')
+    if key == 'BP':
+       params['order__seller_shop_id'] = input_params.get('shop')
+       if input_params.get('payment_type'):
+          params['payment_type__type'] = input_params.get('payment_type')
+    if report_type == 'AD':
+       params['created_at__date__gte'] = input_params.get('date_start')
+       if input_params.get('date_end'):
+          params['created_at__date__lte'] = input_params.get('date_end')
+    else:
+       if frequency == "Daily":
+          start = datetime.now() - timedelta(days=1)
+       elif frequency in ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]:
+          start = datetime.now() - timedelta(days=7)
+       else:
+          start = datetime.now() - timedelta(days=30) 
+       params['created_at__date__gte'] = start.strftime("%Y-%m-%d")
+    return params
+
+def set_redash_input_params(key, input_params, user=None):
+    pass
