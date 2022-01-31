@@ -2,7 +2,7 @@ import datetime
 from datetime import datetime, timedelta
 from django import forms
 from .models import ParentRetailerMapping, PosShopUserMapping, Shop, ShopType, ShopUserMapping, ShopTiming, \
-    BeatPlanning, ShopStatusLog
+    BeatPlanning, ShopStatusLog, FOFOConfigurations
 from addresses.models import Address
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
@@ -452,3 +452,15 @@ class BeatUserMappingCsvViewForm(forms.Form):
 
         # return list
         return form_data_list
+
+
+class FOFOShopConfigForm(forms.ModelForm):
+    shop = forms.ModelChoiceField(
+        queryset=Shop.objects.filter(online_inventory_enabled=True,
+                                     shop_type__shop_sub_type__retailer_type_name='fofo').all(),
+        widget=autocomplete.ModelSelect2(url='admin:pos-online_inventory_enabled-shop-complete',)
+    )
+
+    class Meta:
+        model = FOFOConfigurations
+        fields = ('shop', 'key', 'value')

@@ -5,14 +5,17 @@ from datetime import datetime, timedelta
 
 from django.core.validators import RegexValidator
 
+from products.common_validators import get_validate_parent_product_image_ids
 from shops.models import (PosShopUserMapping, RetailerType, ShopType, Shop, ShopPhoto,
-    ShopRequestBrand, ShopDocument, ShopUserMapping, SalesAppVersion, ShopTiming,
-    FavouriteProduct, DayBeatPlanning, ExecutiveFeedback, USER_TYPE_CHOICES
-)
+                          ShopRequestBrand, ShopDocument, ShopUserMapping, SalesAppVersion, ShopTiming,
+                          FavouriteProduct, DayBeatPlanning, ExecutiveFeedback, USER_TYPE_CHOICES, FOFOConfigurations,
+                          FOFOConfigCategory, FOFOConfigSubCategory
+                          )
 from django.contrib.auth import get_user_model
 from django.db import transaction
 from django.db.models import Sum
-from shops.common_validators import get_psu_mapping, get_validate_shop, get_validate_user, get_validate_user_type
+from shops.common_validators import get_psu_mapping, get_validate_shop, get_validate_user, get_validate_user_type, \
+    validate_fofo_sub_category, get_validate_category
 from accounts.api.v1.serializers import UserSerializer,GroupSerializer
 from retailer_backend.validators import MobileNumberValidator
 from retailer_to_sp.models import Order, Payment
@@ -836,3 +839,142 @@ class PosShopUserMappingUpdateSerializer(serializers.ModelSerializer):
         mapping.is_delivery_person = validated_data['is_delivery_person'] if 'is_delivery_person' in validated_data else mapping.is_delivery_person
         mapping.save()
 
+
+class FOFOCategoryConfigurationsCrudSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = FOFOConfigCategory
+        fields = ('id', 'name',)
+
+
+class FOFOSubCategoryConfigurationsCrudSerializer(serializers.ModelSerializer):
+    category = FOFOCategoryConfigurationsCrudSerializer(read_only=True)
+
+    class Meta:
+        model = FOFOConfigSubCategory
+        fields = ('id', 'category', 'name')
+
+    def validate(self, data):
+        """
+            is_ptr_applicable validation.
+        """
+        if not 'category' in self.initial_data or not self.initial_data['category']:
+            raise serializers.ValidationError("please select category")
+
+        category_val = get_validate_category(self.initial_data['category'])
+        if 'error' in category_val:
+            raise serializers.ValidationError(category_val["error"])
+        data['category'] = category_val['data']
+
+        if 'category_name' in self.initial_data and self.initial_data['category_name']:
+            if not str(data['category'].name).lower() == str(self.initial_data['category_name']).lower():
+                raise serializers.ValidationError("please provide valid option")
+
+        return data
+
+
+class ShopNameSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = Shop
+        fields = ('id', '__str__')
+
+    def to_representation(self, instance):
+        response = super().to_representation(instance)
+        response['name'] = response['__str__']
+        response.pop('__str__')
+        return response
+
+
+class FOFOSubCategoryConfigurationsGetSerializer(serializers.ModelSerializer):
+    id = serializers.SerializerMethodField()
+    key = serializers.SerializerMethodField()
+    name = serializers.SerializerMethodField()
+    value = serializers.SerializerMethodField()
+
+    class Meta:
+        model = FOFOConfigSubCategory
+        fields = ('id', 'key', 'name', 'value',)
+
+    def get_key(self, obj):
+        return obj.id
+
+    def get_name(self, obj):
+        return obj.name
+
+    def get_value(self, obj):
+        instance = FOFOConfigurations.objects.filter(shop=self.context.get('shop'), key=obj).last()
+        return instance.value if instance else None
+
+    def get_id(self, obj):
+        instance = FOFOConfigurations.objects.filter(shop=self.context.get('shop'), key=obj).last()
+        return instance.id if instance else None
+
+
+class FOFOCategoryConfigurationsGetSerializer(serializers.ModelSerializer):
+    sub_category = serializers.SerializerMethodField()
+
+    class Meta:
+        model = FOFOConfigCategory
+        fields = ('id', 'name', 'sub_category',)
+
+    def get_sub_category(self, obj):
+        if self.context.get('id'):
+            return FOFOSubCategoryConfigurationsGetSerializer(FOFOConfigSubCategory.objects.filter(
+                fofo_category__shop=self.context.get('shop'),
+                fofo_category__id=self.context.get('id'), category=obj), many=True,
+                context={'shop': self.context.get('shop')}).data
+        return FOFOSubCategoryConfigurationsGetSerializer(FOFOConfigSubCategory.objects.filter(
+            fofo_category__shop=self.context.get('shop'), category=obj), many=True,
+            context={'shop': self.context.get('shop')}).data
+
+
+class FOFOConfigurationsGetSerializer(serializers.Serializer):
+    shop = serializers.SerializerMethodField()
+    category = serializers.SerializerMethodField()
+
+    def get_shop(self, obj):
+        return ShopNameSerializer(self.context.get('shop'), read_only=True).data
+
+    def get_category(self, obj):
+        if self.context.get('id'):
+            return FOFOCategoryConfigurationsGetSerializer(FOFOConfigCategory.objects.filter(
+                fofo_category_details__fofo_category__shop=self.context.get('shop'),
+                fofo_category_details__fofo_category__id=self.context.get('id')).distinct(), many=True,
+                                                           context={'shop': self.context.get('shop'),
+                                                                    'id': self.context.get('id')}).data
+        elif self.context.get('search_text'):
+            return FOFOCategoryConfigurationsGetSerializer(FOFOConfigCategory.objects.filter(
+                fofo_category_details__fofo_category__shop=self.context.get('shop'),
+                name__icontains=self.context.get('search_text')).distinct(), many=True,
+                                                           context={'shop': self.context.get('shop')}).data
+
+        return FOFOCategoryConfigurationsGetSerializer(FOFOConfigCategory.objects.filter(
+            fofo_category_details__fofo_category__shop=self.context.get('shop')).distinct(), many=True,
+            context={'shop': self.context.get('shop')}).data
+
+
+class FOFOConfigurationsCrudSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = FOFOConfigurations
+        fields = ('id', 'shop', 'key', 'value')
+
+
+class FOFOSubCategoryConfigurationsGetListSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = FOFOConfigSubCategory
+        fields = ('id', 'name')
+
+
+class FOFOListSerializer(serializers.ModelSerializer):
+    sub_category = serializers.SerializerMethodField()
+
+    class Meta:
+        model = FOFOConfigCategory
+        fields = ('id', 'name', 'sub_category',)
+
+    def get_sub_category(self, obj):
+        return FOFOSubCategoryConfigurationsGetListSerializer(FOFOConfigSubCategory.objects.filter(category=obj),
+                                                              many=True).data
