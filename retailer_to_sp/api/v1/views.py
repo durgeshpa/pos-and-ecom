@@ -8072,7 +8072,8 @@ class TripSummaryView(generics.GenericAPIView):
         resp_data['no_of_sacks'] = 0
         resp_data['weight'] = 0
         for ss in shipment_qs.all():
-            smt_pack_data = ss.shipment_packaging.filter(status='PACKED').\
+            smt_pack_data = ss.shipment_packaging.\
+                exclude(trip_packaging_details__trip_shipment__trip__trip_status=DispatchTrip.NEW).\
                 aggregate(no_of_crates=Count(Case(When(packaging_type=ShipmentPackaging.CRATE, then=1))),
                           no_of_packets=Count(Case(When(packaging_type=ShipmentPackaging.BOX, then=1))),
                           no_of_sacks=Count(Case(When(packaging_type=ShipmentPackaging.SACK, then=1)))
@@ -8132,11 +8133,15 @@ class TripSummaryView(generics.GenericAPIView):
         return queryset
 
     def filter_non_added_in_trip_shipments_summary_data(self, queryset):
+        trip_id = self.request.GET.get('trip_id')
         dispatch_center = self.request.GET.get('dispatch_center')
         created_at = self.request.GET.get('date')
         data_days = self.request.GET.get('data_days')
 
         '''Filters using dispatch_center, created_at'''
+        if trip_id:
+            queryset = queryset.filter(current_shop=DispatchTrip.objects.get(id=trip_id).source_shop)
+
         if dispatch_center:
             queryset = queryset.filter(order__dispatch_center__id=dispatch_center)
 
@@ -8378,7 +8383,7 @@ class DispatchCenterShipmentPackageView(generics.GenericAPIView):
         self.queryset = self.search_filter_shipment_packages_data()
         mapping_data = SmallOffsetPagination().paginate_queryset(self.queryset, request)
         serializer = self.serializer_class(mapping_data, many=True)
-        msg = "" if mapping_data else "no crate found"
+        msg = "" if mapping_data else "no packages found"
         return get_response(msg, serializer.data, True)
 
     def validate_get_request(self):
@@ -8881,9 +8886,11 @@ class LastMileTripShipmentsView(generics.GenericAPIView):
             try:
                 availability = int(availability)
                 if availability == INVOICE_AVAILABILITY_CHOICES.ADDED:
-                    self.queryset = self.queryset.filter(Q( last_mile_trip_shipment__isnull=False,
-                                                            last_mile_trip_shipment__trip_id=trip_id)|
-                                                         Q(trip_id=trip_id))
+                    self.queryset = self.queryset.filter(
+                        Q(last_mile_trip_shipment__isnull=False,
+                          last_mile_trip_shipment__shipment_status__in=[LastMileTripShipmentMapping.LOADING_FOR_DC,
+                                                                        LastMileTripShipmentMapping.LOADED_FOR_DC],
+                          last_mile_trip_shipment__trip_id=trip_id) | Q(trip_id=trip_id))
                 elif availability == INVOICE_AVAILABILITY_CHOICES.NOT_ADDED:
                     self.queryset = self.queryset.filter(last_mile_trip_shipment__isnull=True)
                 elif availability == INVOICE_AVAILABILITY_CHOICES.ALL:
