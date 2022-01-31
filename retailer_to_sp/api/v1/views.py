@@ -8073,6 +8073,7 @@ class TripSummaryView(generics.GenericAPIView):
         resp_data['weight'] = 0
         for ss in shipment_qs.all():
             smt_pack_data = ss.shipment_packaging.filter(status='PACKED').\
+                exclude(trip_packaging_details__trip_shipment__trip__trip_status=DispatchTrip.NEW).\
                 aggregate(no_of_crates=Count(Case(When(packaging_type=ShipmentPackaging.CRATE, then=1))),
                           no_of_packets=Count(Case(When(packaging_type=ShipmentPackaging.BOX, then=1))),
                           no_of_sacks=Count(Case(When(packaging_type=ShipmentPackaging.SACK, then=1)))
@@ -8377,7 +8378,7 @@ class DispatchCenterShipmentPackageView(generics.GenericAPIView):
         self.queryset = self.search_filter_shipment_packages_data()
         mapping_data = SmallOffsetPagination().paginate_queryset(self.queryset, request)
         serializer = self.serializer_class(mapping_data, many=True)
-        msg = "" if mapping_data else "no crate found"
+        msg = "" if mapping_data else "no packages found"
         return get_response(msg, serializer.data, True)
 
     def validate_get_request(self):
