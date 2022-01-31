@@ -8802,9 +8802,7 @@ class LastMileTripShipmentsView(generics.GenericAPIView):
         self.queryset = self.search_filter_invoice_data()
         shipment_data = SmallOffsetPagination().paginate_queryset(self.queryset, request)
         data_dict = {
-            'trip_id': self.request.GET.get('trip_id') if int(self.request.GET['availability']) in
-                                                          [INVOICE_AVAILABILITY_CHOICES.ADDED,
-                                                           INVOICE_AVAILABILITY_CHOICES.ALL] else None,
+            'trip_id': self.request.GET.get('trip_id'),
             'invoices': shipment_data
         }
         serializer = self.serializer_class(data_dict)
