@@ -622,7 +622,7 @@ def DownloadRetailerCatalogue(request, *args, **kwargs):
          'online_order_price', 'is_visible', 'offer_price', 'offer_start_date', 'offer_end_date',
          'initial_purchase_value'])
 
-    product_qs = RetailerProduct.objects.filter(~Q(sku_type=4), shop_id=int(shop_id), is_deleted=False, id=290104)
+    product_qs = RetailerProduct.objects.filter(~Q(sku_type=4), shop_id=int(shop_id), is_deleted=False)
     if product_qs.exists():
         retailer_products = product_qs \
             .prefetch_related('linked_product') \
