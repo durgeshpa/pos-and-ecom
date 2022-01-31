@@ -1974,7 +1974,9 @@ def update_shipment_package_status(shipment_instance):
         shipment_instance.shipment_packaging.filter(status=ShipmentPackaging.DISPATCH_STATUS_CHOICES.READY_TO_DISPATCH) \
             .update(status=ShipmentPackaging.DISPATCH_STATUS_CHOICES.DISPATCHED)
     elif shipment_instance.shipment_status == OrderedProduct.MOVED_TO_DISPATCH:
-        shipment_instance.shipment_packaging.filter(status=ShipmentPackaging.DISPATCH_STATUS_CHOICES.DISPATCHED) \
+        shipment_instance.shipment_packaging.filter(status__in=[
+                                                    ShipmentPackaging.DISPATCH_STATUS_CHOICES.DISPATCHED,
+                                                    ShipmentPackaging.DISPATCH_STATUS_CHOICES.RETURN_VERIFIED]) \
             .update(status=ShipmentPackaging.DISPATCH_STATUS_CHOICES.READY_TO_DISPATCH)
     elif shipment_instance.shipment_status in [OrderedProduct.FULLY_DELIVERED_AND_VERIFIED,
                                       OrderedProduct.FULLY_RETURNED_AND_VERIFIED,
