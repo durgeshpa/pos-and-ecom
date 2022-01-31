@@ -8801,7 +8801,13 @@ class LastMileTripShipmentsView(generics.GenericAPIView):
         self.queryset = get_logged_user_wise_query_set_for_dispatch(request.user, self.queryset)
         self.queryset = self.search_filter_invoice_data()
         shipment_data = SmallOffsetPagination().paginate_queryset(self.queryset, request)
-        serializer = self.serializer_class(shipment_data, many=True)
+        data_dict = {
+            'trip_id': self.request.GET.get('trip_id') if int(self.request.GET['availability']) in
+                                                          [INVOICE_AVAILABILITY_CHOICES.ADDED,
+                                                           INVOICE_AVAILABILITY_CHOICES.ALL] else None,
+            'invoices': shipment_data
+        }
+        serializer = self.serializer_class(data_dict)
         msg = "" if shipment_data else "no invoice found"
         return get_response(msg, serializer.data, True)
 
@@ -8831,6 +8837,7 @@ class LastMileTripShipmentsView(generics.GenericAPIView):
         pincode_no = self.request.GET.get('pincode_no')
         seller_shop = self.request.GET.get('seller_shop')
         buyer_shop = self.request.GET.get('buyer_shop')
+        current_shop = self.request.GET.get('current_shop')
         dispatch_center = self.request.GET.get('dispatch_center')
         trip_id = self.request.GET.get('trip_id')
         availability = self.request.GET.get('availability')
@@ -8864,6 +8871,9 @@ class LastMileTripShipmentsView(generics.GenericAPIView):
 
         if buyer_shop:
             self.queryset = self.queryset.filter(order__buyer_shop_id=buyer_shop)
+
+        if current_shop:
+            self.queryset = self.queryset.filter(current_shop_id=current_shop)
 
         if dispatch_center:
             self.queryset = self.queryset.filter(order__dispatch_center=dispatch_center)

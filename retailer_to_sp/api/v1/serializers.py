@@ -3610,21 +3610,26 @@ class LastMileTripCrudSerializers(serializers.ModelSerializer):
         return trip_instance
 
 
-class LastMileTripShipmentsSerializer(serializers.ModelSerializer):
+class LastMileTripInvoicesBasicDetailsSerializer(serializers.ModelSerializer):
     order = OrderSerializerForShipment(read_only=True)
-    trip = serializers.SerializerMethodField()
-
-    @staticmethod
-    def get_trip(obj):
-        if obj.last_mile_trip_shipment.exists():
-            return DispatchTripSerializers(obj.last_mile_trip_shipment.last().trip).data
-        elif obj.trip:
-            return DispatchTripSerializers(obj.trip).data
-        return None
 
     class Meta:
         model = OrderedProduct
-        fields = ('id', 'order', 'shipment_status', 'invoice_no', 'invoice_amount', 'trip', 'created_at', 'modified_at')
+        fields = ('id', 'order', 'shipment_status', 'invoice_no', 'invoice_amount', 'created_at', 'modified_at')
+
+
+class LastMileTripShipmentsSerializer(serializers.Serializer):
+    trip = serializers.SerializerMethodField()
+    invoices = serializers.SerializerMethodField()
+
+    def get_trip(self, obj):
+        trip_id = obj['trip_id']
+        if trip_id:
+            return DispatchTripSerializers(Trip.objects.filter(id=trip_id).last()).data
+        return None
+
+    def get_invoices(self, obj):
+        return LastMileTripInvoicesBasicDetailsSerializer(obj['invoices'], many=True).data
 
 
 class VerifyReturnShipmentProductsSerializer(serializers.ModelSerializer):
