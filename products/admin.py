@@ -582,7 +582,7 @@ class ParentProductAdmin(admin.ModelAdmin):
     @staticmethod
     def parent_product_discriptions(obj):
         """convert text string to html formate for display on admin pannel..."""
-        return format_html('{}'.format(obj.product_discription))
+        return format_html('{}'.format(obj.product_discription[0:200:]))
 
 
     def product_gst(self, obj):
