@@ -8072,7 +8072,8 @@ class TripSummaryView(generics.GenericAPIView):
         resp_data['no_of_sacks'] = 0
         resp_data['weight'] = 0
         for ss in shipment_qs.all():
-            smt_pack_data = ss.shipment_packaging.filter(status='PACKED').\
+            smt_pack_data = ss.shipment_packaging.\
+                exclude(trip_packaging_details__trip_shipment__trip__trip_status=DispatchTrip.NEW).\
                 aggregate(no_of_crates=Count(Case(When(packaging_type=ShipmentPackaging.CRATE, then=1))),
                           no_of_packets=Count(Case(When(packaging_type=ShipmentPackaging.BOX, then=1))),
                           no_of_sacks=Count(Case(When(packaging_type=ShipmentPackaging.SACK, then=1)))
@@ -8132,11 +8133,15 @@ class TripSummaryView(generics.GenericAPIView):
         return queryset
 
     def filter_non_added_in_trip_shipments_summary_data(self, queryset):
+        trip_id = self.request.GET.get('trip_id')
         dispatch_center = self.request.GET.get('dispatch_center')
         created_at = self.request.GET.get('date')
         data_days = self.request.GET.get('data_days')
 
         '''Filters using dispatch_center, created_at'''
+        if trip_id:
+            queryset = queryset.filter(current_shop=DispatchTrip.objects.get(id=trip_id).source_shop)
+
         if dispatch_center:
             queryset = queryset.filter(order__dispatch_center__id=dispatch_center)
 
