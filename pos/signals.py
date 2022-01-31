@@ -7,7 +7,7 @@ from django.dispatch import receiver
 from retailer_backend.common_function import po_pattern, grn_pattern, purchase_return_number_pattern
 from wms.models import PosInventory
 from wms.models import PosInventoryState
-from .models import RetailerProduct, PosCart, PosOrder, PosGRNOrder, PosGRNOrderProductMapping, PosReturnGRNOrder
+from .models import RetailerProduct, PosCart, PosOrder, PosGRNOrder, PosCartProductMapping, PosGRNOrderProductMapping, PosReturnGRNOrder
 from .tasks import update_shop_retailer_product_es
 
 logger = logging.getLogger(__name__)
@@ -106,6 +106,10 @@ def create_pr_number(sender, instance=None, created=False, **kwargs):
 def mark_po_item_as_closed(sender, instance=None, created=False, **kwargs):
     product = instance.grn_order.order.ordered_cart.po_products.filter(product=instance.product)
     product.update(is_grn_done=True)
+    po_grn_initial_value = PosCartProductMapping.objects.filter(
+        product__id=instance.product.id, is_grn_done=True).last()
+    instance.product.initial_purchase_value = po_grn_initial_value.price * po_grn_initial_value.pack_size
+    instance.product.save()
 
 
 @receiver(pre_save, sender=RetailerProduct)
