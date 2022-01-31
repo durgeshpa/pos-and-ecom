@@ -843,7 +843,7 @@ class LoadDispatches(APIView):
         )
         dispatches = dispatches.exclude(id__in=reschedule_dispatches)
         if source_shop and source_shop != seller_shop:
-            dispatches = dispatches.filter(order__dispatch_center_id=source_shop)
+            dispatches = dispatches.filter(order__dispatch_center_id=source_shop, current_shop=source_shop)
         elif seller_shop:
             dispatches = dispatches.filter(order__dispatch_center__isnull=True)
 
