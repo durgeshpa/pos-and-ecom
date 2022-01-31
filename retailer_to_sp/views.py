@@ -756,6 +756,7 @@ class LoadDispatches(APIView):
     def get(self, request):
 
         seller_shop = request.GET.get('seller_shop_id')
+        source_shop = request.GET.get('source_shop_id')
         area = request.GET.get('area')
         trip_id = request.GET.get('trip_id')
         invoice_id = request.GET.get('invoice_no')
@@ -841,6 +842,10 @@ class LoadDispatches(APIView):
             shipment__shipment_status=OrderedProduct.RESCHEDULED
         )
         dispatches = dispatches.exclude(id__in=reschedule_dispatches)
+        if seller_shop:
+            dispatches = dispatches.filter(order__dispatch_center__isnull=True)
+        elif source_shop and source_shop != seller_shop:
+            dispatches = dispatches.filter(order__dispatch_center_id=source_shop)
 
         if dispatches and commercial:
             serializer = CommercialShipmentSerializer(dispatches, many=True)
@@ -1988,3 +1993,16 @@ def update_shipment_package_status(shipment_instance):
 def update_packages_on_shipment_status_change(shipments):
     for instance in shipments:
         update_shipment_package_status(instance)
+
+class SourceShopAutocomplete(autocomplete.Select2QuerySetView):
+    def get_queryset(self, *args, **kwargs):
+        if not self.request.user.is_authenticated:
+            return Shop.objects.none()
+
+        seller_shop_id = self.forwarded.get('seller_shop', None)
+        qs = Shop.objects.filter(Q(id=seller_shop_id)|Q(shop_type__shop_type='dc', retiler_mapping__status=True,
+                                                        retiler_mapping__parent_id=seller_shop_id))
+
+        if self.q:
+            qs = qs.filter(shop_name__icontains=self.q)
+        return qs
