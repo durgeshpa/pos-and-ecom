@@ -2668,10 +2668,11 @@ def get_logged_user_wise_query_set_for_dispatch_crates(user, queryset):
     '''
         GET Logged-in user wise queryset for crates based on criteria that matches
     '''
+    mapped_shop = user.shop_employee.all().last().shop
     if user.has_perm('wms.can_have_zone_warehouse_permission'):
-        queryset = queryset.filter(shop_id=user.shop_employee.last().shop_id)
+        queryset = queryset.filter(Q(shop=mapped_shop) | Q(shop__retiler_mapping__parent=mapped_shop))
     elif user.groups.filter(name='Dispatch Executive'):
-        queryset = queryset.filter(shop_id=user.shop_employee.last().shop_id)
+        queryset = queryset.filter(Q(shop=mapped_shop) | Q(shop__retiler_mapping__parent=mapped_shop))
     else:
         queryset = queryset.none()
     return queryset
@@ -2681,10 +2682,11 @@ def get_logged_user_wise_query_set_for_shipment_packaging(user, queryset):
     '''
         GET Logged-in user wise queryset for shipment packaging based on criteria that matches
     '''
+    mapped_shop = user.shop_employee.last().shop
     if user.has_perm('wms.can_have_zone_warehouse_permission'):
-        queryset = queryset.filter(warehouse_id=user.shop_employee.last().shop_id)
+        queryset = queryset.filter(Q(warehouse=mapped_shop) | Q(warehouse__retiler_mapping__parent=mapped_shop))
     elif user.groups.filter(name='Dispatch Executive'):
-        queryset = queryset.filter(warehouse_id=user.shop_employee.last().shop_id)
+        queryset = queryset.filter(Q(warehouse=mapped_shop) | Q(warehouse__retiler_mapping__parent=mapped_shop))
     else:
         queryset = queryset.none()
     return queryset
