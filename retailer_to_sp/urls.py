@@ -3,7 +3,7 @@ from django.conf.urls import include, url
 from .views import (
     ReturnProductAutocomplete, DownloadCreditNote, DownloadPickList, DownloadTripPdf, SellerShopAutocomplete,
     BuyerShopAutocomplete, RetailerCart, PickerNameAutocomplete, DownloadPickListPicker, ShippingAddressAutocomplete,
-    BillingAddressAutocomplete, shipment_status, create_franchise_po, ShipmentMergedBarcode
+    BillingAddressAutocomplete, shipment_status, create_franchise_po, ShipmentMergedBarcode, SourceShopAutocomplete
 )
 urlpatterns = [
     url(r'^api/', include('retailer_to_sp.api.urls')),
@@ -29,4 +29,5 @@ urlpatterns = [
     url(r'^shipment_status/$', shipment_status, name='shipment-status'),
     url(r'^create-franchise-po/(?P<pk>\d+)/$', create_franchise_po, name='create-franchise-po'),
     url(r'^shipment-merged-barcode/(?P<pk>\d+)/$', ShipmentMergedBarcode.as_view(), name='shipment_barcodes', ),
+    url(r'^source-shop-autocomplete/$', SourceShopAutocomplete.as_view(), name='source-shop-autocomplete'),
     ]
