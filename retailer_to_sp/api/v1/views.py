@@ -4052,6 +4052,7 @@ class OrderListCentral(GenericAPIView):
         if search_text:
             qs = qs.filter(Q(order_no__icontains=search_text) |
                            Q(ordered_cart__rt_cart_list__retailer_product__name__icontains=search_text))
+
         return api_response('Order', self.get_serialize_process_ecom(qs), status.HTTP_200_OK, True,
                             extra_params={"key_p": str(config('PAYU_KEY'))})
 
