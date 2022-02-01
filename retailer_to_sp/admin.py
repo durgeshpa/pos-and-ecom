@@ -1212,7 +1212,11 @@ class ShipmentReschedulingAdminNested(NestedTabularInline):
         return False
 
     def has_change_permission(self, request, obj=None):
-        return False
+        if obj:
+            instance = ShipmentRescheduling.objects.filter(shipment=obj).last()
+            if instance and instance.date_changed_count > 0:
+                return False
+        return True
 
 
 @admin.register(ShipmentNotAttempt)
