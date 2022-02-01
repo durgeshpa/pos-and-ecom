@@ -6573,7 +6573,7 @@ class RescheduleReason(generics.ListCreateAPIView):
 
     def perform_create(self, serializer):
         shipment = OrderedProduct.objects.get(pk=self.request.data.get('shipment'))
-        return serializer.save(created_by=self.request.user, trip=shipment.trip)
+        return serializer.save(created_by=self.request.user, trip=shipment.trip, rescheduled_count=1)
 
     def update_shipment(self, id):
         shipment = OrderedProduct.objects.get(pk=id)
