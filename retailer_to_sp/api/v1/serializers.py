@@ -3872,11 +3872,6 @@ class VerifyReturnShipmentProductsSerializer(serializers.ModelSerializer):
     def update_product_batch_data(self, product_batch_instance, validated_data):
         try:
             process_shipments_instance = product_batch_instance.update(**validated_data)
-            # To create putaway for Last mile trip
-            # Validate: Seller shop is same as Source shop
-            shipment = product_batch_instance.last().ordered_product_mapping.ordered_product
-            if shipment.packaged_at == shipment.order.seller_shop_id:
-                add_to_putaway_on_return(shipment.id)
         except Exception as e:
             error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
             raise serializers.ValidationError(error)
@@ -4036,6 +4031,11 @@ class ShipmentCompleteVerifySerializer(serializers.ModelSerializer):
     def update(self, instance, validated_data):
         try:
             shipment_instance = super().update(instance, validated_data)
+
+            # To create putaway for Last mile trip
+            # Validate: Seller shop is same as Source shop
+            if shipment_instance.packaged_at == shipment_instance.order.seller_shop_id:
+                add_to_putaway_on_return(shipment_instance.id)
         except Exception as e:
             error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
             raise serializers.ValidationError(error)
