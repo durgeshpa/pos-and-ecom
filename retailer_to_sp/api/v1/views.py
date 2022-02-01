@@ -8047,7 +8047,13 @@ class TripSummaryView(generics.GenericAPIView):
                 'total_crates': dispatch_trip_instance.no_of_crates,
                 'total_packets': dispatch_trip_instance.no_of_packets,
                 'total_sack': dispatch_trip_instance.no_of_sacks,
-                'weight': dispatch_trip_instance.get_trip_weight
+                'weight': dispatch_trip_instance.get_trip_weight,
+                'total_crates_check': dispatch_trip_instance.no_of_crates_check,
+                'total_packets_check': dispatch_trip_instance.no_of_packets_check,
+                'total_sack_check': dispatch_trip_instance.no_of_sacks_check,
+                'remaining_crates': dispatch_trip_instance.no_of_crates-dispatch_trip_instance.no_of_crates_check,
+                'remaining_packets': dispatch_trip_instance.no_of_packets-dispatch_trip_instance.no_of_packets_check,
+                'remaining_sacks': dispatch_trip_instance.no_of_sacks-dispatch_trip_instance.no_of_sacks_check,
             }
         else:
             trip_summary_data = {
@@ -8055,7 +8061,13 @@ class TripSummaryView(generics.GenericAPIView):
                 'total_crates': 0,
                 'total_packets': 0,
                 'total_sack': 0,
-                'weight': 0
+                'weight': 0,
+                'total_crates_check': 0,
+                'total_packets_check': 0,
+                'total_sack_check': 0,
+                'remaining_crates': 0,
+                'remaining_packets': 0,
+                'remaining_sacks': 0
             }
         return trip_summary_data
 
@@ -8089,7 +8101,13 @@ class TripSummaryView(generics.GenericAPIView):
             'total_crates': resp_data['no_of_crates'] if resp_data['no_of_crates'] else 0,
             'total_packets': resp_data['no_of_packets'] if resp_data['no_of_packets'] else 0,
             'total_sack': resp_data['no_of_sacks'] if resp_data['no_of_sacks'] else 0,
-            'weight': resp_data['weight'] if resp_data['weight'] else 0
+            'weight': resp_data['weight'] if resp_data['weight'] else 0,
+            'total_crates_check': 0,
+            'total_packets_check': 0,
+            'total_sack_check': 0,
+            'remaining_crates': 0,
+            'remaining_packets': 0,
+            'remaining_sacks': 0
         }
         return trip_summary_data
 
@@ -8823,15 +8841,15 @@ class LastMileTripShipmentsView(generics.GenericAPIView):
     def validate_get_request(self):
         try:
             if not self.request.GET.get('seller_shop', None):
-                return {"error" : "'seller_shop'| This is required"}
+                return {"error": "'seller_shop'| This is required"}
             elif not self.request.GET.get('availability') \
                     or int(self.request.GET.get('availability')) not in INVOICE_AVAILABILITY_CHOICES._db_values:
                 return {"error": "'availability' | Invalid availability choice."}
-            elif int(self.request.GET['availability']) in [INVOICE_AVAILABILITY_CHOICES.ADDED,
-                                                           INVOICE_AVAILABILITY_CHOICES.ALL] and \
-                    not self.request.GET.get('trip_id'):
+            elif not self.request.GET.get('trip_id', None):
                 return {"error": "'trip_id' | This is required."}
-            return {"data": self.request.data }
+            elif not Trip.objects.filter(id=self.request.GET.get('trip_id')).exists():
+                return {"error": "'trip_id' | Invalid trip."}
+            return {"data": self.request.data}
         except Exception as e:
             return {"error": "Invalid Request"}
 
@@ -8887,21 +8905,31 @@ class LastMileTripShipmentsView(generics.GenericAPIView):
         if dispatch_center:
             self.queryset = self.queryset.filter(order__dispatch_center=dispatch_center)
 
+        if trip_id:
+            trip_source_shop = Trip.objects.filter(id=trip_id).last().source_shop
+            self.queryset = self.queryset.filter(current_shop=trip_source_shop)
+            if trip_source_shop.shop_type.shop_type == 'sp':
+                self.queryset = self.queryset.filter(order__dispatch_center__isnull=True)
+            if trip_source_shop.shop_type.shop_type == 'dc':
+                self.queryset = self.queryset.filter(order__dispatch_center=trip_source_shop)
+
         if availability:
             try:
                 availability = int(availability)
                 if availability == INVOICE_AVAILABILITY_CHOICES.ADDED:
-                    self.queryset = self.queryset.filter(
+                    self.queryset = self.queryset.filter(~Q(shipment_status=OrderedProduct.MOVED_TO_DISPATCH)).filter(
                         Q(last_mile_trip_shipment__isnull=False,
                           last_mile_trip_shipment__shipment_status__in=[LastMileTripShipmentMapping.TO_BE_LOADED,
                                                                         LastMileTripShipmentMapping.LOADING_FOR_DC,
                                                                         LastMileTripShipmentMapping.LOADED_FOR_DC],
                           last_mile_trip_shipment__trip_id=trip_id) | Q(trip_id=trip_id))
                 elif availability == INVOICE_AVAILABILITY_CHOICES.NOT_ADDED:
-                    self.queryset = self.queryset.filter(last_mile_trip_shipment__isnull=True)
+                    self.queryset = self.queryset.filter(shipment_status=OrderedProduct.MOVED_TO_DISPATCH).filter(
+                        Q(last_mile_trip_shipment__isnull=True) |
+                        Q(last_mile_trip_shipment__shipment_status=LastMileTripShipmentMapping.CANCELLED))
                 elif availability == INVOICE_AVAILABILITY_CHOICES.ALL:
                     self.queryset = self.queryset.filter(
-                        Q(last_mile_trip_shipment__trip_id=trip_id)|Q(last_mile_trip_shipment__isnull=True)|
+                        Q(last_mile_trip_shipment__trip_id=trip_id) | Q(last_mile_trip_shipment__isnull=True) |
                         Q(trip_id=trip_id))
             except:
                 pass
@@ -9134,7 +9162,9 @@ class LoadInvoiceView(generics.GenericAPIView):
 class PackagesUnderTripView(generics.GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
-    queryset = ShipmentPackaging.objects.order_by('packaging_type')
+    queryset = ShipmentPackaging.objects\
+        .exclude(trip_packaging_details__package_status=DispatchTripShipmentMapping.CANCELLED)\
+        .order_by('packaging_type')
     serializer_class = PackagesUnderTripSerializer
 
     # @check_whc_manager_dispatch_executive
@@ -9161,6 +9191,11 @@ class PackagesUnderTripView(generics.GenericAPIView):
         is_return_verified = self.request.GET.get('is_return_verified')
 
         if trip_id:
+            self.queryset = self.queryset.filter(
+                shipment__trip_shipment__shipment_status__in=[
+                    DispatchTripShipmentMapping.LOADING_FOR_DC,DispatchTripShipmentMapping.LOADED_FOR_DC,
+                    DispatchTripShipmentMapping.UNLOADING_AT_DC, DispatchTripShipmentMapping.UNLOADED_AT_DC]
+                   )
             if trip_type == TRIP_TYPE_CHOICE.DISPATCH_FORWARD:
                 self.queryset = self.queryset.filter(shipment__trip_shipment__trip_id=trip_id,
                                                      movement_type=ShipmentPackaging.DISPATCH)
@@ -9182,7 +9217,7 @@ class PackagesUnderTripView(generics.GenericAPIView):
             else:
                 self.queryset = self.queryset.none()
 
-        return self.queryset
+        return self.queryset.distinct('id','packaging_type')
 
 
 class MarkShipmentPackageVerifiedView(generics.GenericAPIView):
