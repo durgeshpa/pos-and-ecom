@@ -3561,9 +3561,10 @@ TRIP_TYPE_CHOICE = Choices(('LAST_MILE', 'Last Mile trip'), ('DISPATCH_FORWARD',
 
 
 class LastMileTripShipmentMapping(BaseTimestampUserModel):
-    LOADING_FOR_DC, LOADED_FOR_DC = 'LOADING_FOR_DC', 'LOADED_FOR_DC'
+    TO_BE_LOADED, LOADING_FOR_DC, LOADED_FOR_DC = 'TO_BE_LOADED', 'LOADING_FOR_DC', 'LOADED_FOR_DC'
     CANCELLED = 'CANCELLED'
     SHIPMENT_STATUS = (
+        (TO_BE_LOADED, 'To be Loaded For Dispatch'),
         (LOADING_FOR_DC, 'Loading For Dispatch'),
         (LOADED_FOR_DC, 'Loaded For Dispatch'),
         (CANCELLED, 'Cancelled'),

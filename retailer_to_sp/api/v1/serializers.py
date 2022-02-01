@@ -3542,7 +3542,8 @@ class LastMileTripCrudSerializers(serializers.ModelSerializer):
                         raise serializers.ValidationError("Load shipments to the trip to start.")
 
                     if trip_instance.last_mile_trip_shipments_details.filter(
-                            shipment_status=LastMileTripShipmentMapping.LOADING_FOR_DC).exists():
+                            shipment_status__in=[LastMileTripShipmentMapping.TO_BE_LOADED,
+                                                 LastMileTripShipmentMapping.LOADING_FOR_DC]).exists():
                         raise serializers.ValidationError(
                             "The trip can not start until and unless all shipments get loaded.")
 
