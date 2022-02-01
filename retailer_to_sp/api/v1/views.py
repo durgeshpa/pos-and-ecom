@@ -8046,9 +8046,13 @@ class TripSummaryView(generics.GenericAPIView):
                 'total_packets': dispatch_trip_instance.no_of_packets,
                 'total_sack': dispatch_trip_instance.no_of_sacks,
                 'weight': dispatch_trip_instance.get_trip_weight,
+                'invoices_check': dispatch_trip_instance.shipments_details.filter(
+                    shipment_status=DispatchTripShipmentMapping.UNLOADED_AT_DC).count(),
                 'total_crates_check': dispatch_trip_instance.no_of_crates_check,
                 'total_packets_check': dispatch_trip_instance.no_of_packets_check,
                 'total_sack_check': dispatch_trip_instance.no_of_sacks_check,
+                'remaining_invoices': dispatch_trip_instance.shipments_details.filter(
+                    shipment_status=DispatchTripShipmentMapping.UNLOADING_AT_DC).count(),
                 'remaining_crates': dispatch_trip_instance.no_of_crates-dispatch_trip_instance.no_of_crates_check,
                 'remaining_packets': dispatch_trip_instance.no_of_packets-dispatch_trip_instance.no_of_packets_check,
                 'remaining_sacks': dispatch_trip_instance.no_of_sacks-dispatch_trip_instance.no_of_sacks_check,
@@ -8060,9 +8064,11 @@ class TripSummaryView(generics.GenericAPIView):
                 'total_packets': 0,
                 'total_sack': 0,
                 'weight': 0,
+                'invoices_check': 0,
                 'total_crates_check': 0,
                 'total_packets_check': 0,
                 'total_sack_check': 0,
+                'remaining_invoices': 0,
                 'remaining_crates': 0,
                 'remaining_packets': 0,
                 'remaining_sacks': 0
@@ -8100,9 +8106,11 @@ class TripSummaryView(generics.GenericAPIView):
             'total_packets': resp_data['no_of_packets'] if resp_data['no_of_packets'] else 0,
             'total_sack': resp_data['no_of_sacks'] if resp_data['no_of_sacks'] else 0,
             'weight': resp_data['weight'] if resp_data['weight'] else 0,
+            'invoices_check': 0,
             'total_crates_check': 0,
             'total_packets_check': 0,
             'total_sack_check': 0,
+            'remaining_invoices': 0,
             'remaining_crates': 0,
             'remaining_packets': 0,
             'remaining_sacks': 0
