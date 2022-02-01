@@ -1820,7 +1820,7 @@ class ShipmentQCSerializer(serializers.ModelSerializer):
     status = serializers.SerializerMethodField()
 
     def get_qc_desk(self, obj):
-        return QCDeskSerializer(obj.qc_area.qc_desk_areas.filter(desk_enabled=True).last()).data
+        return QCDeskSerializer(obj.qc_area.qc_desk_areas.filter(desk_enabled=True).last() if obj.qc_area else None).data
 
     def get_created_date(self, obj):
         return obj.created_at.strftime("%d/%b/%y %H:%M")
@@ -1840,7 +1840,6 @@ class ShipmentQCSerializer(serializers.ModelSerializer):
             try:
                 shipment = OrderedProduct.objects.get(id=self.initial_data['id'])
                 shipment_status = shipment.shipment_status
-                trip = shipment.last_mile_trip_shipment.last().trip
             except Exception as e:
                 raise serializers.ValidationError("Invalid Shipment")
 
@@ -1853,6 +1852,10 @@ class ShipmentQCSerializer(serializers.ModelSerializer):
                 elif status in [OrderedProduct.RESCHEDULED, OrderedProduct.NOT_ATTEMPT]:
                     if shipment_status != OrderedProduct.FULLY_DELIVERED_AND_COMPLETED:
                         raise serializers.ValidationError(f'Invalid status | {shipment_status}->{status} not allowed')
+                    trip_shipment_mapping = shipment.last_mile_trip_shipment.last()
+                    if not trip_shipment_mapping:
+                        raise serializers.ValidationError(f"shipment {shipment} does not map to any trip.")
+                    trip = trip_shipment_mapping.trip
                     if status == OrderedProduct.RESCHEDULED:
                         if ShipmentRescheduling.objects.filter(shipment=shipment).exists():
                             raise serializers.ValidationError('A shipment cannot be rescheduled more than once.')
@@ -2368,10 +2371,13 @@ class DispatchTripStatusChangeSerializers(serializers.ModelSerializer):
                     f"'trip_status' | Trip status can't be {str(trip_status)} at the moment.")
 
             if trip_status == DispatchTrip.STARTED:
-                if 'opening_kms' in self.initial_data and self.initial_data['opening_kms']>=0:
+                if 'opening_kms' in self.initial_data:
                     try:
                         opening_kms = int(self.initial_data['opening_kms'])
-                        data['opening_kms'] = opening_kms
+                        if opening_kms >=0 :
+                            data['opening_kms'] = opening_kms
+                        else:
+                            raise
                     except:
                         raise serializers.ValidationError("'opening_kms' | Invalid value")
                 else:
@@ -3608,21 +3614,26 @@ class LastMileTripCrudSerializers(serializers.ModelSerializer):
         return trip_instance
 
 
-class LastMileTripShipmentsSerializer(serializers.ModelSerializer):
+class LastMileTripInvoicesBasicDetailsSerializer(serializers.ModelSerializer):
     order = OrderSerializerForShipment(read_only=True)
-    trip = serializers.SerializerMethodField()
-
-    @staticmethod
-    def get_trip(obj):
-        if obj.last_mile_trip_shipment.exists():
-            return DispatchTripSerializers(obj.last_mile_trip_shipment.last().trip).data
-        elif obj.trip:
-            return DispatchTripSerializers(obj.trip).data
-        return None
 
     class Meta:
         model = OrderedProduct
-        fields = ('id', 'order', 'shipment_status', 'invoice_no', 'invoice_amount', 'trip', 'created_at', 'modified_at')
+        fields = ('id', 'order', 'shipment_status', 'invoice_no', 'invoice_amount', 'created_at', 'modified_at')
+
+
+class LastMileTripShipmentsSerializer(serializers.Serializer):
+    trip = serializers.SerializerMethodField()
+    invoices = serializers.SerializerMethodField()
+
+    def get_trip(self, obj):
+        trip_id = obj['trip_id']
+        if trip_id:
+            return DispatchTripSerializers(Trip.objects.filter(id=trip_id).last()).data
+        return None
+
+    def get_invoices(self, obj):
+        return LastMileTripInvoicesBasicDetailsSerializer(obj['invoices'], many=True).data
 
 
 class VerifyReturnShipmentProductsSerializer(serializers.ModelSerializer):

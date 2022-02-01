@@ -3551,13 +3551,10 @@ TRIP_TYPE_CHOICE = Choices(('LAST_MILE', 'Last Mile trip'), ('DISPATCH_FORWARD',
 
 class LastMileTripShipmentMapping(BaseTimestampUserModel):
     LOADING_FOR_DC, LOADED_FOR_DC = 'LOADING_FOR_DC', 'LOADED_FOR_DC'
-    DISPATCHED, DELIVERED = 'DISPATCHED', 'DELIVERED'
     CANCELLED = 'CANCELLED'
     SHIPMENT_STATUS = (
         (LOADING_FOR_DC, 'Loading For Dispatch'),
         (LOADED_FOR_DC, 'Loaded For Dispatch'),
-        (DISPATCHED, 'Dispatched'),
-        (DELIVERED, 'Delivered'),
         (CANCELLED, 'Cancelled'),
     )
     trip = models.ForeignKey(Trip, related_name='last_mile_trip_shipments_details', on_delete=models.DO_NOTHING)

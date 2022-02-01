@@ -756,6 +756,7 @@ class LoadDispatches(APIView):
     def get(self, request):
 
         seller_shop = request.GET.get('seller_shop_id')
+        source_shop = request.GET.get('source_shop_id')
         area = request.GET.get('area')
         trip_id = request.GET.get('trip_id')
         invoice_id = request.GET.get('invoice_no')
@@ -841,6 +842,10 @@ class LoadDispatches(APIView):
             shipment__shipment_status=OrderedProduct.RESCHEDULED
         )
         dispatches = dispatches.exclude(id__in=reschedule_dispatches)
+        if source_shop and source_shop != seller_shop:
+            dispatches = dispatches.filter(order__dispatch_center_id=source_shop, current_shop=source_shop)
+        elif seller_shop:
+            dispatches = dispatches.filter(order__dispatch_center__isnull=True)
 
         if dispatches and commercial:
             serializer = CommercialShipmentSerializer(dispatches, many=True)
@@ -1941,7 +1946,8 @@ def create_order_shipment(order_instance):
     if OrderedProduct.objects.filter(order=order_instance).exists():
         info_logger.info(f"create_order_shipment|shipment already created for {order_instance.order_no}")
         return
-    shipment = OrderedProduct(order=order_instance, qc_area=order_instance.picker_order.last().qc_area)
+    shipment = OrderedProduct(order=order_instance, current_shop=order_instance.seller_shop,
+                              qc_area=order_instance.picker_order.last().qc_area)
     shipment.save()
     products_picked = Pickup.objects.filter(pickup_type_id=order_instance.order_no, status='picking_complete')\
         .prefetch_related('sku', 'bin_inventory','bin_inventory__bin__bin')
@@ -1974,7 +1980,9 @@ def update_shipment_package_status(shipment_instance):
         shipment_instance.shipment_packaging.filter(status=ShipmentPackaging.DISPATCH_STATUS_CHOICES.READY_TO_DISPATCH) \
             .update(status=ShipmentPackaging.DISPATCH_STATUS_CHOICES.DISPATCHED)
     elif shipment_instance.shipment_status == OrderedProduct.MOVED_TO_DISPATCH:
-        shipment_instance.shipment_packaging.filter(status=ShipmentPackaging.DISPATCH_STATUS_CHOICES.DISPATCHED) \
+        shipment_instance.shipment_packaging.filter(status__in=[
+                                                    ShipmentPackaging.DISPATCH_STATUS_CHOICES.DISPATCHED,
+                                                    ShipmentPackaging.DISPATCH_STATUS_CHOICES.RETURN_VERIFIED]) \
             .update(status=ShipmentPackaging.DISPATCH_STATUS_CHOICES.READY_TO_DISPATCH)
     elif shipment_instance.shipment_status in [OrderedProduct.FULLY_DELIVERED_AND_VERIFIED,
                                       OrderedProduct.FULLY_RETURNED_AND_VERIFIED,
@@ -1986,3 +1994,16 @@ def update_shipment_package_status(shipment_instance):
 def update_packages_on_shipment_status_change(shipments):
     for instance in shipments:
         update_shipment_package_status(instance)
+
+class SourceShopAutocomplete(autocomplete.Select2QuerySetView):
+    def get_queryset(self, *args, **kwargs):
+        if not self.request.user.is_authenticated:
+            return Shop.objects.none()
+
+        seller_shop_id = self.forwarded.get('seller_shop', None)
+        qs = Shop.objects.filter(Q(id=seller_shop_id)|Q(shop_type__shop_type='dc', retiler_mapping__status=True,
+                                                        retiler_mapping__parent_id=seller_shop_id))
+
+        if self.q:
+            qs = qs.filter(shop_name__icontains=self.q)
+        return qs
