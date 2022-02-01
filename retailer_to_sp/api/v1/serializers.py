@@ -3279,9 +3279,14 @@ class LoadVerifyPackageSerializer(serializers.ModelSerializer):
             trip.weight = trip.weight + package_weight
         trip.save()
         if trip.trip_type == DispatchTrip.BACKWARD:
-            trip_package_mapping.shipment_packaging.package_status \
+            trip_package_mapping.shipment_packaging.status \
                 = ShipmentPackaging.DISPATCH_STATUS_CHOICES.READY_TO_DISPATCH
             trip_package_mapping.shipment_packaging.save()
+            if not ShipmentPackaging.objects.filter(movement_type=ShipmentPackaging.RETURNED,
+                                                shipment_id=trip_shipment.shipment_id,
+                                                status=ShipmentPackaging.DISPATCH_STATUS_CHOICES.PACKED).exists():
+                trip_shipment.shipment_status = DispatchTripShipmentMapping.LOADED_FOR_DC
+                trip_shipment.save()
 
 
 
