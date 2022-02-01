@@ -234,12 +234,12 @@ def upload_shop_stock(shop=None,product=None):
 	# es.indices.delete(index=create_es_index(es_index), ignore=[400, 404])
 	for product in all_products:
 		info_logger.info(product)
-		if product['sku'] == 'GRSGRSRBG00000001' and product['available'] > 0:
-			sender = "consultant1@gramfactory.com"
-			recipient_list = ["chandan@gramfactory.com"]
-			subject = "Elastic Search Issue"
-			body = "From upload_shop_stock function {}".format(product['sku'])
-			send_mail(sender, recipient_list, subject, body)
+		# if product['sku'] == 'GRSGRSRBG00000001' and product['available'] > 0:
+		# 	sender = "consultant1@gramfactory.com"
+		# 	recipient_list = ["chandan@gramfactory.com"]
+		# 	subject = "Elastic Search Issue"
+		# 	body = "From upload_shop_stock function {}".format(product['sku'])
+		# 	send_mail(sender, recipient_list, subject, body)
 		try:
 			es.index(index=create_es_index(es_index), doc_type='product', id=product['id'], body=product)
 			info_logger.info(
