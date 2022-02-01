@@ -28,7 +28,7 @@ from .models import (RetailerProduct, RetailerProductImage, Payment, ShopCustome
                      RetailerCouponRuleSet, RetailerRuleSetProductMapping, RetailerOrderedProductMapping, RetailerCart,
                      RetailerCartProductMapping, RetailerOrderReturn, RetailerReturnItems, InventoryPos,
                      InventoryChangePos, InventoryStatePos, MeasurementCategory, MeasurementUnit, PosReturnGRNOrder,
-                     PosReturnItems, RetailerOrderedReport, BulkRetailerProduct)
+                     PosReturnItems, RetailerOrderedReport, BulkRetailerProduct, PaymentReconsile)
 from .views import upload_retailer_products_list, download_retailer_products_list_form_view, \
     DownloadRetailerCatalogue, RetailerCatalogueSampleFile, RetailerProductMultiImageUpload, DownloadPurchaseOrder, \
     download_discounted_products_form_view, download_discounted_products, \
@@ -1109,8 +1109,20 @@ class BulkRetailerProductAdmin(admin.ModelAdmin):
 
     def has_delete_permission(self, request, obj=None):
         return False
+class PaymentReconsileAdmin(admin.ModelAdmin):
+    list_display = ('id', 'tranjection_id', 'reconcile_status', 'payment_id', 'amount', 'payment_mode', 'created_at', 'modified_at')
+    actions = ['delete']
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return True
 
 
+admin.site.register(PaymentReconsile, PaymentReconsileAdmin)
 admin.site.register(RetailerProduct, RetailerProductAdmin)
 admin.site.register(DiscountedRetailerProduct, DiscountedRetailerProductAdmin)
 admin.site.register(Payment, PaymentAdmin)
