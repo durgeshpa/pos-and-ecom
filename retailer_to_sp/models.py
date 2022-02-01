@@ -1244,13 +1244,13 @@ class Trip(models.Model):
         on_delete=models.DO_NOTHING
     )
     source_shop = models.ForeignKey(Shop, related_name='trip_source_shop', null=True, on_delete=models.DO_NOTHING)
-    dispatch_no = models.CharField(max_length=50, unique=True)
+    dispatch_no = models.CharField(max_length=50, null=True, unique=True)
     delivery_boy = models.ForeignKey(
         UserWithName, related_name='order_delivered_by_user', null=True,
         on_delete=models.DO_NOTHING, verbose_name='Delivery Boy'
     )
     vehicle_no = models.CharField(max_length=50)
-    trip_status = models.CharField(max_length=100, choices=TRIP_STATUS)
+    trip_status = models.CharField(max_length=100, default=READY, choices=TRIP_STATUS)
     e_way_bill_no = models.CharField(max_length=50, blank=True, null=True)
     starts_at = models.DateTimeField(blank=True, null=True)
     completed_at = models.DateTimeField(blank=True, null=True)
@@ -1270,7 +1270,11 @@ class Trip(models.Model):
     no_of_sacks_check = models.PositiveIntegerField(default=0, null=True, blank=True,
                                                     verbose_name="Total sacks collected")
     created_at = models.DateTimeField(auto_now_add=True)
+    created_by = models.ForeignKey(get_user_model(), related_name='last_mile_trip_created_by',
+                                   null=True, blank=True, on_delete=models.DO_NOTHING)
     modified_at = models.DateTimeField(auto_now=True)
+    updated_by = models.ForeignKey(get_user_model(), related_name='last_mile_trip_updated_by',
+                                   null=True, blank=True, on_delete=models.DO_NOTHING)
 
     def __str__(self):
         if self.delivery_boy:
@@ -1480,6 +1484,18 @@ class Trip(models.Model):
     @property
     def total_return_amount(self):
         return self.rt_invoice_trip.all().count()
+
+    def get_trip_weight(self):
+        trip_weight = 0
+        shipments_loaded = self.last_mile_trip_shipments_details.filter(~Q(shipment_status='CANCELLED'))
+        for shipment_mapping in shipments_loaded:
+            packages_loaded = shipment_mapping.last_mile_trip_shipment_mapped_packages.filter(
+                                ~Q(package_status__in=['CANCELLED', 'MISSING_AT_LOADING', 'DAMAGED_AT_LOADING']))
+            for package_mapping in packages_loaded:
+                trip_weight += package_mapping.shipment_packaging.packaging_details.all()\
+                                .aggregate(total_weight=Sum(F('ordered_product__product__weight_value') * F('quantity'),
+                                           output_field=FloatField())).get('total_weight')
+        return trip_weight
 
 
 class OrderedProduct(models.Model):  # Shipment
@@ -3561,6 +3577,24 @@ class LastMileTripShipmentMapping(BaseTimestampUserModel):
     trip = models.ForeignKey(Trip, related_name='last_mile_trip_shipments_details', on_delete=models.DO_NOTHING)
     shipment = models.ForeignKey(OrderedProduct, related_name='last_mile_trip_shipment', on_delete=models.DO_NOTHING)
     shipment_status = models.CharField(max_length=100, choices=SHIPMENT_STATUS)
+
+
+class LastMileTripShipmentPackages(BaseTimestampUserModel):
+    LOADED, DAMAGED_AT_LOADING = 'LOADED', 'DAMAGED_AT_LOADING'
+    MISSING_AT_LOADING, CANCELLED = 'MISSING_AT_LOADING', 'CANCELLED'
+    PACKAGE_STATUS = (
+        (LOADED, 'Loaded'),
+        (DAMAGED_AT_LOADING, 'Damaged At Loading'),
+        (MISSING_AT_LOADING, 'Missing At Loading'),
+        (CANCELLED, 'Cancelled'),
+    )
+    trip_shipment = models.ForeignKey(LastMileTripShipmentMapping,
+                                      related_name='last_mile_trip_shipment_mapped_packages',
+                                      on_delete=models.DO_NOTHING)
+    shipment_packaging = models.ForeignKey(ShipmentPackaging, related_name='last_mile_trip_packaging_details',
+                                           on_delete=models.DO_NOTHING)
+    package_status = models.CharField(max_length=100, choices=PACKAGE_STATUS)
+    is_return_verified = models.BooleanField(default=False)
 
 
 class ShopCrate(BaseTimestampUserModel):
