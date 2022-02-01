@@ -4037,7 +4037,7 @@ class OrderListCentral(GenericAPIView):
         if search_text:
             qs = qs.filter(Q(order_no__icontains=search_text) |
                            Q(ordered_cart__rt_cart_list__retailer_product__name__icontains=search_text))
-        return api_response('Order', self.get_serialize_process_basic(qs), status.HTTP_200_OK, True,
+        return api_response('Order', self.get_serialize_process_ecom(qs), status.HTTP_200_OK, True,
                             extra_params={"key_p": str(config('PAYU_KEY'))})
 
     def get_serialize_process_sp(self, order, parent_mapping):
@@ -4072,6 +4072,10 @@ class OrderListCentral(GenericAPIView):
         return BasicOrderListSerializer(objects, many=True).data
 
     def get_serialize_process_ecom(self, order):
+        """
+           Get Order
+           Cart type Ecom
+        """
         order = order.order_by('-created_at')
         objects = self.pagination_class().paginate_queryset(order, self.request)
         return EcomOrderListSerializer(objects, many=True).data
