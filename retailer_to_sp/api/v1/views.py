@@ -8902,11 +8902,8 @@ class LastMileTripShipmentsView(generics.GenericAPIView):
                     self.queryset = self.queryset.filter(last_mile_trip_shipment__isnull=True)
                 elif availability == INVOICE_AVAILABILITY_CHOICES.ALL:
                     self.queryset = self.queryset.filter(
-                        Q(last_mile_trip_shipment__trip_id=trip_id,
-                          last_mile_trip_shipment__shipment_status__in=[LastMileTripShipmentMapping.TO_BE_LOADED,
-                                                                        LastMileTripShipmentMapping.LOADING_FOR_DC,
-                                                                        LastMileTripShipmentMapping.LOADED_FOR_DC]) |
-                        Q(last_mile_trip_shipment__isnull=True) | Q(trip_id=trip_id))
+                        Q(last_mile_trip_shipment__trip_id=trip_id) | Q(last_mile_trip_shipment__isnull=True) |
+                        Q(trip_id=trip_id))
             except:
                 pass
 
