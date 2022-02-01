@@ -971,7 +971,7 @@ class ShipmentReschedulingForm(forms.ModelForm):
 
     class Meta:
         model = ShipmentRescheduling
-        fields = ('rescheduling_reason', 'rescheduling_date', 'rescheduled_count')
+        fields = ('shipment', 'rescheduling_reason', 'rescheduling_date', 'rescheduled_count')
 
     class Media:
         js = (
