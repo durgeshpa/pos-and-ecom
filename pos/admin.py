@@ -28,7 +28,7 @@ from .models import (RetailerProduct, RetailerProductImage, Payment, ShopCustome
                      RetailerCouponRuleSet, RetailerRuleSetProductMapping, RetailerOrderedProductMapping, RetailerCart,
                      RetailerCartProductMapping, RetailerOrderReturn, RetailerReturnItems, InventoryPos,
                      InventoryChangePos, InventoryStatePos, MeasurementCategory, MeasurementUnit, PosReturnGRNOrder,
-                     PosReturnItems, RetailerOrderedReport, BulkRetailerProduct, PaymentReconsile)
+                     PosReturnItems, RetailerOrderedReport, BulkRetailerProduct, PaymentReconsile, RetailerOrderCancel)
 from .views import upload_retailer_products_list, download_retailer_products_list_form_view, \
     DownloadRetailerCatalogue, RetailerCatalogueSampleFile, RetailerProductMultiImageUpload, DownloadPurchaseOrder, \
     download_discounted_products_form_view, download_discounted_products, \
@@ -746,6 +746,95 @@ class RetailerOrderReturnAdmin(admin.ModelAdmin, ExportCsvMixin):
 
     def has_add_permission(self, request, obj=None):
         return False
+
+@admin.register(RetailerOrderCancel)
+class OrderCancelAdmin(admin.ModelAdmin):
+    inlines = (OrderedProductMappingInline,)
+    search_fields = ('invoice__invoice_no', 'order__order_no', 'order__buyer__phone_number')
+    list_per_page = 50
+    list_display = (
+        'order', 'invoice_no', 'order_status', 'order_amount', 'created_at')
+    actions = ["order_data_excel_action"]
+    list_filter = [('order__seller_shop__shop_type', RelatedOnlyDropdownFilter),
+                   ('created_at', DateTimeRangeFilter)]
+
+    fieldsets = (
+        (_('Shop Details'), {
+            'fields': ('seller_shop',)}),
+
+        (_('Order Details'), {
+            'fields': ('order', 'order_no', 'invoice_no', 'order_status', 'buyer')}),
+
+        (_('Payment Details'), {
+            'fields': ('sub_total', 'offer_discount', 'reward_discount', 'order_amount', 'payment_type',
+                       'transaction_id')}),
+    )
+
+    def seller_shop(self, obj):
+        return obj.order.seller_shop
+
+    def buyer(self, obj):
+        return obj.order.buyer
+
+    def sub_total(self, obj):
+        return obj.order.ordered_cart.subtotal
+
+    def offer_discount(self, obj):
+        return obj.order.ordered_cart.offer_discount
+
+    def reward_discount(self, obj):
+        return obj.order.ordered_cart.redeem_points_value
+
+    def order_amount(self, obj):
+        return obj.order.order_amount
+
+    def order_status(self, obj):
+        return obj.order.order_status
+
+    def order_no(self, obj):
+        return obj.order.order_no
+
+    def payment_type(self, obj):
+        if obj.order.rt_payment_retailer_order.exists():
+            ret = ''
+            for pay_obj in obj.order.rt_payment_retailer_order.all():
+                ret += pay_obj.payment_type.type + ' (' + str(pay_obj.amount) + ')' + ' - '
+            return ret
+        else:
+            return '-'
+
+    def transaction_id(self, obj):
+        if obj.order.rt_payment_retailer_order.exists():
+            ret = ''
+            for pay_obj in obj.order.rt_payment_retailer_order.all():
+                if pay_obj.transaction_id:
+                    ret += pay_obj.transaction_id + ' (' + str(pay_obj.payment_type.type) + ')' + ' - '
+            return ret if ret else '-'
+        else:
+            return '-'
+
+    def get_queryset(self, request):
+        qs = super(OrderCancelAdmin, self).get_queryset(request)
+        qs = qs.filter(order__order_status='CANCELLED', order__ordered_cart__cart_type__in=['BASIC','ECOM'])
+        return qs
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    class Media:
+        pass
+
+    def order_data_excel_action(self, request, queryset):
+        return create_order_data_excel(request, queryset)
+
+    order_data_excel_action.short_description = "Download CSV of selected Cancel Orders"
+
 
 
 class DiscountedRetailerProductAdmin(admin.ModelAdmin):
