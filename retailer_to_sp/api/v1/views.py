@@ -8883,6 +8883,7 @@ class LastMileTripShipmentsView(generics.GenericAPIView):
 
         if trip_id:
             trip_source_shop = Trip.objects.filter(id=trip_id).last().source_shop
+            self.queryset = self.queryset.filter(current_shop=trip_source_shop)
             if trip_source_shop.shop_type.shop_type == 'sp':
                 self.queryset = self.queryset.filter(order__dispatch_center__isnull=True)
             if trip_source_shop.shop_type.shop_type == 'dc':
@@ -8892,14 +8893,16 @@ class LastMileTripShipmentsView(generics.GenericAPIView):
             try:
                 availability = int(availability)
                 if availability == INVOICE_AVAILABILITY_CHOICES.ADDED:
-                    self.queryset = self.queryset.filter(
+                    self.queryset = self.queryset.filter(~Q(shipment_status=OrderedProduct.MOVED_TO_DISPATCH)).filter(
                         Q(last_mile_trip_shipment__isnull=False,
                           last_mile_trip_shipment__shipment_status__in=[LastMileTripShipmentMapping.TO_BE_LOADED,
                                                                         LastMileTripShipmentMapping.LOADING_FOR_DC,
                                                                         LastMileTripShipmentMapping.LOADED_FOR_DC],
                           last_mile_trip_shipment__trip_id=trip_id) | Q(trip_id=trip_id))
                 elif availability == INVOICE_AVAILABILITY_CHOICES.NOT_ADDED:
-                    self.queryset = self.queryset.filter(last_mile_trip_shipment__isnull=True)
+                    self.queryset = self.queryset.filter(shipment_status=OrderedProduct.MOVED_TO_DISPATCH).filter(
+                        Q(last_mile_trip_shipment__isnull=True) |
+                        Q(last_mile_trip_shipment__shipment_status=LastMileTripShipmentMapping.CANCELLED))
                 elif availability == INVOICE_AVAILABILITY_CHOICES.ALL:
                     self.queryset = self.queryset.filter(
                         Q(last_mile_trip_shipment__trip_id=trip_id) | Q(last_mile_trip_shipment__isnull=True) |
