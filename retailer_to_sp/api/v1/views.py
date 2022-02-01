@@ -8045,7 +8045,13 @@ class TripSummaryView(generics.GenericAPIView):
                 'total_crates': dispatch_trip_instance.no_of_crates,
                 'total_packets': dispatch_trip_instance.no_of_packets,
                 'total_sack': dispatch_trip_instance.no_of_sacks,
-                'weight': dispatch_trip_instance.get_trip_weight
+                'weight': dispatch_trip_instance.get_trip_weight,
+                'total_crates_check': dispatch_trip_instance.no_of_crates_check,
+                'total_packets_check': dispatch_trip_instance.no_of_packets_check,
+                'total_sack_check': dispatch_trip_instance.no_of_sacks_check,
+                'remaining_crates': dispatch_trip_instance.no_of_crates-dispatch_trip_instance.no_of_crates_check,
+                'remaining_packets': dispatch_trip_instance.no_of_packets-dispatch_trip_instance.no_of_packets_check,
+                'remaining_sacks': dispatch_trip_instance.no_of_sacks-dispatch_trip_instance.no_of_sacks_check,
             }
         else:
             trip_summary_data = {
@@ -8053,7 +8059,13 @@ class TripSummaryView(generics.GenericAPIView):
                 'total_crates': 0,
                 'total_packets': 0,
                 'total_sack': 0,
-                'weight': 0
+                'weight': 0,
+                'total_crates_check': 0,
+                'total_packets_check': 0,
+                'total_sack_check': 0,
+                'remaining_crates': 0,
+                'remaining_packets': 0,
+                'remaining_sacks': 0
             }
         return trip_summary_data
 
@@ -8087,7 +8099,13 @@ class TripSummaryView(generics.GenericAPIView):
             'total_crates': resp_data['no_of_crates'] if resp_data['no_of_crates'] else 0,
             'total_packets': resp_data['no_of_packets'] if resp_data['no_of_packets'] else 0,
             'total_sack': resp_data['no_of_sacks'] if resp_data['no_of_sacks'] else 0,
-            'weight': resp_data['weight'] if resp_data['weight'] else 0
+            'weight': resp_data['weight'] if resp_data['weight'] else 0,
+            'total_crates_check': 0,
+            'total_packets_check': 0,
+            'total_sack_check': 0,
+            'remaining_crates': 0,
+            'remaining_packets': 0,
+            'remaining_sacks': 0
         }
         return trip_summary_data
 

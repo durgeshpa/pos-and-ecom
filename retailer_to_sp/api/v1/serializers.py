@@ -1454,17 +1454,22 @@ class ShipmentReturnSerializer(serializers.ModelSerializer):
 
 class OrderedProductBatchSerializer(serializers.ModelSerializer):
     reason_for_rejection = serializers.SerializerMethodField()
+    is_crate_used_in_picking = serializers.SerializerMethodField()
 
     class Meta:
         model = OrderedProductBatch
         fields = ('id', 'batch_id', 'quantity', 'ordered_pieces', 'delivered_qty',
                   'expiry_date', 'returned_qty', 'damaged_qty', 'returned_damage_qty', 'pickup_quantity', 'expired_qty',
-                  'missing_qty', 'rejected_qty', 'reason_for_rejection', 'created_at', 'modified_at')
+                  'missing_qty', 'rejected_qty', 'reason_for_rejection', 'is_crate_used_in_picking',
+                  'created_at', 'modified_at')
 
     @staticmethod
     def get_reason_for_rejection(obj):
         return obj.get_reason_for_rejection_display()
 
+    @staticmethod
+    def get_is_crate_used_in_picking(obj):
+        return obj.rt_pickup_batch_mapping.last().pickup.pickup_crates.exists()
 
 class CrateSerializer(serializers.ModelSerializer):
     class Meta:
@@ -1538,30 +1543,22 @@ class RetailerOrderedProductMappingSerializer(serializers.ModelSerializer):
             if 'batch_id' not in product_batch or not product_batch['batch_id']:
                 raise serializers.ValidationError("'batch_id' | This is mandatory.")
 
-            if 'damaged_qty' not in product_batch or product_batch['damaged_qty'] is None or \
-                    'expired_qty' not in product_batch or product_batch['expired_qty'] is None or \
-                    'missing_qty' not in product_batch or product_batch['missing_qty'] is None or \
-                    'rejected_qty' not in product_batch or product_batch['rejected_qty'] is None:
-                raise serializers.ValidationError("'damaged_qty' & 'expired_qty' & 'missing_qty' & 'rejected_qty' | "
-                                                  "These are mandatory.")
+            if 'total_qc_qty' not in product_batch or product_batch['total_qc_qty'] is None:
+                raise serializers.ValidationError("'total_qc_qty' | This is mandatory.")
+
+            if 'rejected_qty' not in product_batch or product_batch['rejected_qty'] is None:
+                raise serializers.ValidationError("'rejected_qty' | This is mandatory.")
             try:
-                damaged_qty = int(product_batch['damaged_qty'])
-                expired_qty = int(product_batch['expired_qty'])
-                missing_qty = int(product_batch['missing_qty'])
+                total_qc_qty = int(product_batch['total_qc_qty'])
                 rejected_qty = int(product_batch['rejected_qty'])
             except:
-                raise serializers.ValidationError("'damaged_qty' & 'expired_qty' & 'missing_qty' & 'rejected_qty' | "
-                                                   "Invalid quantity.")
+                raise serializers.ValidationError("'total_qc_qty' & 'rejected_qty' | Invalid quantity.")
+
             if rejected_qty > 0 and \
                     ('reason_for_rejection' not in product_batch or
                      product_batch['reason_for_rejection'] not in OrderedProductBatch.REJECTION_REASON_CHOICE):
                 raise serializers.ValidationError("'reason_for_rejection' | This is mandatory "
                                                   "if rejected quantity is greater than zero.")
-
-            product_damaged_qty += damaged_qty
-            product_expired_qty += expired_qty
-            product_missing_qty += missing_qty
-            product_rejected_qty += rejected_qty
 
             if 'id' in product_batch and product_batch['id']:
                 product_batch_instance = OrderedProductBatch.objects.filter(id=product_batch['id']).last()
@@ -1572,15 +1569,17 @@ class RetailerOrderedProductMappingSerializer(serializers.ModelSerializer):
                 if product_batch_instance.batch_id != product_batch['batch_id']:
                     raise serializers.ValidationError("'batch_id' | Invalid batch.")
 
-                batch_shipped_qty = product_batch_instance.pickup_quantity - (
-                        product_batch['damaged_qty'] + product_batch['expired_qty'] +
-                        product_batch['missing_qty'] + product_batch['rejected_qty'])
+                missing_qty = product_batch_instance.pickup_quantity - total_qc_qty
+                product_batch['missing_qty'] = missing_qty
+                product_missing_qty += missing_qty
+                product_rejected_qty += rejected_qty
+
+                batch_shipped_qty = total_qc_qty - rejected_qty
 
                 if batch_shipped_qty < 0 or float(product_batch_instance.pickup_quantity) != float(
-                        batch_shipped_qty + product_batch['damaged_qty'] + product_batch['expired_qty'] +
-                        product_batch['missing_qty'] + product_batch['rejected_qty']):
+                        batch_shipped_qty + product_batch['missing_qty'] + product_batch['rejected_qty']):
                     raise serializers.ValidationError("Sorry Quantity mismatch!! Picked pieces must be equal to sum of "
-                                                      "(damaged_qty, expired_qty, no.of pieces to ship.)")
+                                                      "(QC pieces + missing pieces.)")
                 product_batch['quantity'] = batch_shipped_qty
             else:
                 raise serializers.ValidationError("'rt_ordered_product_mapping.id' | This is mandatory.")
@@ -1594,8 +1593,8 @@ class RetailerOrderedProductMappingSerializer(serializers.ModelSerializer):
         if mapping_instance.ordered_product.shipment_status != 'QC_STARTED':
             raise serializers.ValidationError("Shipment updation is not allowed.")
 
-        if mapping_instance.is_qc_done:
-            raise serializers.ValidationError("This product is already QC Passed.")
+        # if mapping_instance.is_qc_done:
+        #     raise serializers.ValidationError("This product is already QC Passed.")
 
         if mapping_instance.product != product:
             raise serializers.ValidationError("Product updation is not allowed.")
@@ -1606,7 +1605,7 @@ class RetailerOrderedProductMappingSerializer(serializers.ModelSerializer):
                 shipped_qty + product_damaged_qty + product_expired_qty + product_missing_qty +
                 product_rejected_qty):
             raise serializers.ValidationError("Sorry Quantity mismatch!! Picked pieces must be equal to sum of "
-                                              "(damaged_qty, expired_qty, no.of pieces to ship)")
+                                              "(total qc pieces + missing pieces)")
 
         warehouse_id = mapping_instance.ordered_product.order.seller_shop.id
 
@@ -1667,6 +1666,7 @@ class RetailerOrderedProductMappingSerializer(serializers.ModelSerializer):
 
     def update_product_batch_data(self, product_batch_instance, validated_data):
         try:
+
             process_shipments_instance = product_batch_instance.update(**validated_data)
             product_batch_instance.last().save()
         except Exception as e:
@@ -1695,9 +1695,17 @@ class RetailerOrderedProductMappingSerializer(serializers.ModelSerializer):
         for product_batch in ordered_product_batches:
             product_batch_instance = OrderedProductBatch.objects.filter(id=product_batch['id'])
             product_batch_id = product_batch.pop('id')
+            product_batch.pop('total_qc_qty')
             self.update_product_batch_data(product_batch_instance, product_batch)
 
         if packaging:
+            if ShipmentPackagingMapping.objects.filter(ordered_product=process_shipments_instance).exists():
+                shipment_packaging_ids = list(ShipmentPackagingMapping.objects.filter(ordered_product=process_shipments_instance)\
+                                                                     .values_list('shipment_packaging_id', flat=True))
+                ShipmentPackagingMapping.objects.filter(ordered_product=process_shipments_instance).delete()
+
+                ShipmentPackaging.objects.filter(id__in=shipment_packaging_ids, packaging_details__isnull=True).delete()
+
             for package_obj in packaging:
                 if package_obj['type'] == ShipmentPackaging.CRATE:
                     for crate in package_obj['packages']:
@@ -1830,7 +1838,7 @@ class ShipmentQCSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = OrderedProduct
-        fields = ('id', 'order', 'status', 'invoice_no', 'invoice_amount', 'payment_mode', 'qc_area',
+        fields = ('id', 'order', 'status', 'shipment_status', 'invoice_no', 'invoice_amount', 'payment_mode', 'qc_area',
                   'qc_desk', 'created_date')
 
     def validate(self, data):
@@ -1980,6 +1988,7 @@ class ShipmentQCSerializer(serializers.ModelSerializer):
             info_logger.info(f"post_shipment_status_change|QCDesk Mapping updated|Shipment ID {shipment_instance.id}")
         elif shipment_instance.shipment_status in [OrderedProduct.READY_TO_SHIP, OrderedProduct.QC_REJECTED]:
             release_picking_crates(shipment_instance.order)
+            self.update_order_status_post_qc_done(shipment_instance)
             info_logger.info(f"post_shipment_status_change|shipment_status {shipment_instance.shipment_status} "
                              f"|Picking Crates released|OrderNo {shipment_instance.order.order_no}")
         elif shipment_instance.shipment_status == OrderedProduct.RESCHEDULED:
@@ -1993,6 +2002,25 @@ class ShipmentQCSerializer(serializers.ModelSerializer):
                 self.create_shipment_not_attempt(shipment_instance, shipment_not_attempt['not_attempt_reason'],
                                                  shipment_not_attempt['trip'])
                 info_logger.info(f"post_shipment_status_change|Not Attempted|Shipment ID {shipment_instance.id}")
+
+
+    @staticmethod
+    def update_order_status_post_qc_done(shipment_instance):
+        if shipment_instance.shipment_status == OrderedProduct.READY_TO_SHIP:
+            total_shipped_qty = shipment_instance.order.rt_order_order_product \
+                .aggregate(total_shipped_qty=Sum('rt_order_product_order_product_mapping__shipped_qty')) \
+                .get('total_shipped_qty')
+            total_ordered_qty = shipment_instance.order.ordered_cart.rt_cart_list \
+                .aggregate(total_ordered_qty=Sum('no_of_pieces')) \
+                .get('total_ordered_qty')
+
+            if total_ordered_qty == total_shipped_qty:
+                shipment_instance.order.order_status = Order.FULL_SHIPMENT_CREATED
+            else:
+                shipment_instance.order.order_status = Order.PARTIAL_SHIPMENT_CREATED
+        elif shipment_instance.shipment_status == OrderedProduct.QC_REJECTED:
+            shipment_instance.order.order_status = Order.QC_FAILED
+        shipment_instance.order.save()
 
 
 class CitySerializer(serializers.ModelSerializer):
@@ -2839,6 +2867,12 @@ class SummarySerializer(serializers.Serializer):
     total_crates = serializers.IntegerField()
     total_packets = serializers.IntegerField()
     total_sack = serializers.IntegerField()
+    total_crates_check = serializers.IntegerField()
+    total_packets_check = serializers.IntegerField()
+    total_sack_check = serializers.IntegerField()
+    remaining_crates = serializers.IntegerField()
+    remaining_packets = serializers.IntegerField()
+    remaining_sacks = serializers.IntegerField()
     weight = serializers.IntegerField()
 
 
@@ -2850,7 +2884,13 @@ class TripSummarySerializer(serializers.Serializer):
 class DispatchInvoiceSerializer(serializers.ModelSerializer):
     order = OrderSerializerForShipment(read_only=True)
     trip = serializers.SerializerMethodField()
+    trip_shipment_status = serializers.SerializerMethodField()
     created_date = serializers.SerializerMethodField()
+
+    def get_trip_shipment_status(self, obj):
+        return obj.trip_shipment.filter(
+            ~Q(shipment_status=DispatchTripShipmentMapping.CANCELLED)).last().shipment_status \
+            if obj.trip_shipment.filter(~Q(shipment_status=DispatchTripShipmentMapping.CANCELLED)).exists() else None
 
     def get_trip(self, obj):
         return DispatchTripSerializers(obj.trip_shipment.last().trip).data \
@@ -2864,7 +2904,8 @@ class DispatchInvoiceSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = OrderedProduct
-        fields = ('id', 'order', 'shipment_status', 'invoice_no', 'invoice_amount', 'trip', 'created_date')
+        fields = ('id', 'order', 'shipment_status', 'invoice_no', 'invoice_amount', 'trip', 'trip_shipment_status',
+                  'created_date')
 
 
 class DispatchCenterCrateSerializer(serializers.ModelSerializer):
@@ -3347,7 +3388,17 @@ class UnloadVerifyPackageSerializer(serializers.ModelSerializer):
             Update shipment status to MOVED_TO_DISPATCH once all packages are verified on trip
             Update trip shipment mapped as UNLOADED_AT_DC once all packages are verified for that to shipment
         """
+
         shipment = trip_shipment.shipment
+        trip = trip_shipment.trip
+        if trip_package_mapping.package_status == DispatchTripShipmentPackages.UNLOADED:
+            if trip_package_mapping.shipment_packaging.packaging_type == ShipmentPackaging.CRATE:
+                trip.no_of_crates_check = trip.no_of_crates_check + 1
+            elif trip_package_mapping.shipment_packaging.packaging_type == ShipmentPackaging.BOX:
+                trip.no_of_packets_check = trip.no_of_packets_check + 1
+            elif trip_package_mapping.shipment_packaging.packaging_type == ShipmentPackaging.SACK:
+                trip.no_of_sacks_check = trip.no_of_sacks_check + 1
+            trip.save()
         if not trip_shipment.trip_shipment_mapped_packages.filter(
                 package_status=DispatchTripShipmentPackages.LOADED).exists():
             trip_shipment.shipment_status = DispatchTripShipmentMapping.UNLOADED_AT_DC
@@ -3514,8 +3565,7 @@ class LastMileTripCrudSerializers(serializers.ModelSerializer):
                         raise serializers.ValidationError("Load shipments to the trip to start.")
 
                     if trip_instance.last_mile_trip_shipments_details.filter(
-                            shipment_status__in=[LastMileTripShipmentMapping.TO_BE_LOADED,
-                                                 LastMileTripShipmentMapping.LOADING_FOR_DC]).exists():
+                            shipment_status=LastMileTripShipmentMapping.LOADING_FOR_DC).exists():
                         raise serializers.ValidationError(
                             "The trip can not start until and unless all shipments get loaded.")
 
