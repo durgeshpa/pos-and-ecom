@@ -259,12 +259,13 @@ class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
         css = {"all": ("admin/css/hide_admin_inline_object_name.css",)}
         js = ("js/shop_fofo.js",)
 
-    def change_view(self, request, object_id, form_url='', extra_context=None):
+    def changeform_view(self, request, object_id, form_url='', extra_context=None):
         self.inlines = [ShopPhotosAdmin, ShopDocumentsAdmin, AddressAdmin, ShopInvoicePatternAdmin,
                         ShopParentRetailerMapping, ShopStatusAdmin, ]
         if request.user.is_superuser:
             self.inlines.append(FOFOConfigurationsInline)
-        return super(ShopAdmin, self).change_view(request, object_id, form_url, extra_context)
+        return super(ShopAdmin, self).changeform_view(request, object_id, form_url, extra_context)
+
 
     def get_readonly_fields(self, request, obj=None):
         if obj and obj.shop_type.shop_type == 'f':

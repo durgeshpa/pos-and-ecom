@@ -17,6 +17,7 @@
 //        }
 //    }
 //});
+
 window.addEventListener("load", function() {
     (function($) {
         hide_show_fofo_config();
