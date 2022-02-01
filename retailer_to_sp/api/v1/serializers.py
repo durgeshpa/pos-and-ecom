@@ -2867,6 +2867,12 @@ class SummarySerializer(serializers.Serializer):
     total_crates = serializers.IntegerField()
     total_packets = serializers.IntegerField()
     total_sack = serializers.IntegerField()
+    total_crates_check = serializers.IntegerField()
+    total_packets_check = serializers.IntegerField()
+    total_sack_check = serializers.IntegerField()
+    remaining_crates = serializers.IntegerField()
+    remaining_packets = serializers.IntegerField()
+    remaining_sacks = serializers.IntegerField()
     weight = serializers.IntegerField()
 
 
@@ -2878,7 +2884,13 @@ class TripSummarySerializer(serializers.Serializer):
 class DispatchInvoiceSerializer(serializers.ModelSerializer):
     order = OrderSerializerForShipment(read_only=True)
     trip = serializers.SerializerMethodField()
+    trip_shipment_status = serializers.SerializerMethodField()
     created_date = serializers.SerializerMethodField()
+
+    def get_trip_shipment_status(self, obj):
+        return obj.trip_shipment.filter(
+            ~Q(shipment_status=DispatchTripShipmentMapping.CANCELLED)).last().shipment_status \
+            if obj.trip_shipment.filter(~Q(shipment_status=DispatchTripShipmentMapping.CANCELLED)).exists() else None
 
     def get_trip(self, obj):
         return DispatchTripSerializers(obj.trip_shipment.last().trip).data \
@@ -2892,7 +2904,8 @@ class DispatchInvoiceSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = OrderedProduct
-        fields = ('id', 'order', 'shipment_status', 'invoice_no', 'invoice_amount', 'trip', 'created_date')
+        fields = ('id', 'order', 'shipment_status', 'invoice_no', 'invoice_amount', 'trip', 'trip_shipment_status',
+                  'created_date')
 
 
 class DispatchCenterCrateSerializer(serializers.ModelSerializer):
@@ -3375,7 +3388,17 @@ class UnloadVerifyPackageSerializer(serializers.ModelSerializer):
             Update shipment status to MOVED_TO_DISPATCH once all packages are verified on trip
             Update trip shipment mapped as UNLOADED_AT_DC once all packages are verified for that to shipment
         """
+
         shipment = trip_shipment.shipment
+        trip = trip_shipment.trip
+        if trip_package_mapping.package_status == DispatchTripShipmentPackages.UNLOADED:
+            if trip_package_mapping.shipment_packaging.packaging_type == ShipmentPackaging.CRATE:
+                trip.no_of_crates_check = trip.no_of_crates_check + 1
+            elif trip_package_mapping.shipment_packaging.packaging_type == ShipmentPackaging.BOX:
+                trip.no_of_packets_check = trip.no_of_packets_check + 1
+            elif trip_package_mapping.shipment_packaging.packaging_type == ShipmentPackaging.SACK:
+                trip.no_of_sacks_check = trip.no_of_sacks_check + 1
+            trip.save()
         if not trip_shipment.trip_shipment_mapped_packages.filter(
                 package_status=DispatchTripShipmentPackages.LOADED).exists():
             trip_shipment.shipment_status = DispatchTripShipmentMapping.UNLOADED_AT_DC
@@ -3542,8 +3565,7 @@ class LastMileTripCrudSerializers(serializers.ModelSerializer):
                         raise serializers.ValidationError("Load shipments to the trip to start.")
 
                     if trip_instance.last_mile_trip_shipments_details.filter(
-                            shipment_status__in=[LastMileTripShipmentMapping.TO_BE_LOADED,
-                                                 LastMileTripShipmentMapping.LOADING_FOR_DC]).exists():
+                            shipment_status=LastMileTripShipmentMapping.LOADING_FOR_DC).exists():
                         raise serializers.ValidationError(
                             "The trip can not start until and unless all shipments get loaded.")
 
