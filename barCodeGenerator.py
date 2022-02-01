@@ -29,7 +29,7 @@ def makePdf(barcode_list, template_name):
     request = None
     filename = "barcode"
     cmd_option = {"margin-top": 2, "margin-left": 4, "margin-right": 0, "margin-bottom": 0, "zoom": 1,
-                  "javascript-delay": 0, "footer-center": "[page]/[topage]", "page-height": 50, "page-width": 90,
+                  "javascript-delay": 0, "footer-center": "[page]/[topage]", "page-height": 38, "page-width": 76,
                   "no-stop-slow-scripts": True, "quiet": True}
     pdf_data = PDFTemplateResponse(request=request, template=template_name, filename=filename,
                                    context=data, show_content_in_browser=False, cmd_options=cmd_option)

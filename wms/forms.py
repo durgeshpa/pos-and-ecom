@@ -1279,11 +1279,12 @@ class ZoneForm(forms.ModelForm):
                         user.shop_employee.last().shop_id != int(self.data['warehouse']):
                     raise ValidationError(_(
                         "Invalid user " + str(user) + " selected as picker users."))
-            removed_zone_pickers = self.instance.picker_users.all().difference(self.cleaned_data['picker_users'])
-            for user in removed_zone_pickers:
-                if user.picker_user.filter(picking_status__in=[PickerDashboard.PICKING_ASSIGNED,
-                                                       PickerDashboard.PICKING_PENDING]).exists():
-                    raise ValidationError(f"User {user} has pending pickings, cannot remove this user ")
+            if self.instance.pk:
+                removed_zone_pickers = self.instance.picker_users.all().difference(self.cleaned_data['picker_users'])
+                for user in removed_zone_pickers:
+                    if user.picker_user.filter(picking_status__in=[PickerDashboard.PICKING_ASSIGNED,
+                                                           PickerDashboard.PICKING_PENDING]).exists():
+                        raise ValidationError(f"User {user} has pending pickings, cannot remove this user ")
         return self.cleaned_data['picker_users']
 
     def clean(self):
