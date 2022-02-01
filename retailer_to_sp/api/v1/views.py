@@ -43,6 +43,7 @@ from ecom.api.v1.serializers import EcomOrderListSerializer, EcomShipmentSeriali
 from ecom.models import Address as EcomAddress, EcomOrderAddress
 from ecom.utils import check_ecom_user_shop, check_ecom_user
 from global_config.models import GlobalConfig
+from global_config.views import get_config_fofo_shop
 from gram_to_brand.models import (GRNOrderProductMapping, OrderedProductReserved as GramOrderedProductReserved,
                                   PickList)
 from marketing.models import ReferralCode
@@ -3128,12 +3129,13 @@ class OrderCentral(APIView):
             #     return api_response("Please provide valid online payment mode")
 
         # Minimum Order Value
-        order_config = GlobalConfig.objects.filter(key='ecom_minimum_order_amount').last()
-        if order_config.value is not None:
+        # order_config = GlobalConfig.objects.filter(key='ecom_minimum_order_amount').last()
+        order_config = get_config_fofo_shop('Minimum order value', shop.id)
+        if order_config is not None:
             order_amount = cart.order_amount_after_discount
-            if order_amount < order_config.value:
+            if order_amount < order_config:
                 return api_response(
-                    "A minimum total purchase amount of {} is required to checkout.".format(order_config.value),
+                    "A minimum total purchase amount of {} is required to checkout.".format(order_config),
                     None, status.HTTP_200_OK, False)
 
         # Check day order count
@@ -4088,6 +4090,10 @@ class OrderListCentral(GenericAPIView):
         return BasicOrderListSerializer(objects, many=True).data
 
     def get_serialize_process_ecom(self, order):
+        """
+           Get Order
+           Cart type Ecom
+        """
         order = order.order_by('-created_at')
         objects = self.pagination_class().paginate_queryset(order, self.request)
         return EcomOrderListSerializer(objects, many=True).data
