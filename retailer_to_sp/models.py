@@ -2459,7 +2459,7 @@ class ShipmentRescheduling(models.Model):
         blank=False, verbose_name='Reason for Rescheduling',
     )
     rescheduling_date = models.DateField(blank=False)
-    date_changed_count = models.IntegerField(default=0)
+    rescheduled_count = models.IntegerField(default=0)
     created_by = models.ForeignKey(
         get_user_model(),
         related_name='rescheduled_by',
@@ -2477,8 +2477,8 @@ class ShipmentRescheduling(models.Model):
 
     def save(self, *args, **kwargs):
         self.created_by = get_current_user()
-        if self._state.adding is False:
-            self.date_changed_count += 1
+        # if self._state.adding is False:
+        #     self.rescheduled_count += 1
         super().save(*args, **kwargs)
 
 
