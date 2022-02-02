@@ -120,7 +120,7 @@ from .serializers import (ProductsSearchSerializer, CartSerializer, OrderSeriali
                           MarkShipmentPackageVerifiedSerializer, ShipmentPackageProductsSerializer,
                           DispatchCenterCrateSerializer, DispatchCenterShipmentPackageSerializer,
                           LoadLastMileInvoiceSerializer, LastMileTripSummarySerializer,
-                          LastMileLoadVerifyPackageSerializer
+                          LastMileLoadVerifyPackageSerializer, LastMileShipmentPackageSerializer
                           )
 from ...common_validators import validate_shipment_dispatch_item, validate_package_by_crate_id, validate_trip_user, \
     get_shipment_by_crate_id, get_shipment_by_shipment_label, validate_shipment_id, validate_trip_shipment, \
@@ -9518,6 +9518,89 @@ class LastMileTripSummaryView(generics.GenericAPIView):
                 queryset = queryset.filter(created_at__date=created_at)
 
         return queryset
+
+
+class LastMileShipmentPackageView(generics.GenericAPIView):
+    """
+    View to get Shipment Package ready for dispatch to dispatch center.
+    """
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    serializer_class = LastMileShipmentPackageSerializer
+    queryset = ShipmentPackaging.objects.\
+        select_related('warehouse', 'crate', 'shipment'). \
+        only('id', 'warehouse__id', 'warehouse__shop_name', 'crate', 'shipment', 'created_at', 'updated_at'). \
+        order_by('-id')
+
+    def get(self, request):
+        validation_response = self.validate_get_request()
+        if "error" in validation_response:
+            return get_response(validation_response["error"], False)
+        self.queryset = get_logged_user_wise_query_set_for_shipment_packaging(request.user, self.queryset)
+        self.queryset = self.search_filter_shipment_packages_data()
+        mapping_data = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        serializer = self.serializer_class(mapping_data, many=True)
+        msg = "" if mapping_data else "no packages found"
+        return get_response(msg, serializer.data, True)
+
+    def validate_get_request(self):
+        try:
+            if not self.request.GET.get('shop', None):
+                return {"error": "'shop'| This is required"}
+            elif not self.request.GET.get('availability') \
+                    or int(self.request.GET.get('availability')) not in INVOICE_AVAILABILITY_CHOICES._db_values:
+                return {"error": "'availability' | Invalid availability choice."}
+            elif not self.request.GET.get('trip_id', None):
+                return {"error": "'trip_id' | This is required."}
+            elif not Trip.objects.filter(id=self.request.GET.get('trip_id')).exists():
+                return {"error": "'trip_id' | Invalid trip."}
+            return {"data": self.request.data }
+        except Exception as e:
+            return {"error": "Invalid Request"}
+
+    def search_filter_shipment_packages_data(self):
+        """ Filters the Shipment data based on request"""
+        package_id = self.request.GET.get('package_id')
+        shipment_id = self.request.GET.get('shipment_id')
+        shop = self.request.GET.get('shop')
+        trip_id = self.request.GET.get('trip_id')
+        availability = int(self.request.GET.get('availability'))
+
+        if trip_id:
+            trip_source_shop = Trip.objects.filter(id=trip_id).last().source_shop
+            self.queryset = self.queryset.filter(shipment__current_shop=trip_source_shop)
+            if trip_source_shop.shop_type.shop_type == 'sp':
+                self.queryset = self.queryset.filter(shipment__order__dispatch_center__isnull=True)
+            if trip_source_shop.shop_type.shop_type == 'dc':
+                self.queryset = self.queryset.filter(shipment__order__dispatch_center=trip_source_shop)
+
+        if package_id:
+            self.queryset = self.queryset.filter(id=package_id)
+
+        if shipment_id:
+            self.queryset = self.queryset.filter(shipment_id=shipment_id)
+
+        if shop:
+            self.queryset = self.queryset.filter(warehouse_id=shop)
+
+        if availability:
+            try:
+                availability = int(availability)
+                if availability == INVOICE_AVAILABILITY_CHOICES.ADDED:
+                    self.queryset = self.queryset.filter(
+                        status='READY_TO_DISPATCH').filter(Q(shipment__trip_shipment__trip_id=trip_id) |
+                                                           Q(shipment__last_mile_trip_shipment__trip_id=trip_id))
+                elif availability == INVOICE_AVAILABILITY_CHOICES.NOT_ADDED:
+                    self.queryset = self.queryset.filter(status='PACKED')
+                elif availability == INVOICE_AVAILABILITY_CHOICES.ALL:
+                    self.queryset = self.queryset.filter(
+                        status__in=['PACKED', 'READY_TO_DISPATCH']).filter(
+                        Q(shipment__trip_shipment__trip_id=trip_id) |
+                        Q(shipment__last_mile_trip_shipment__trip_id=trip_id))
+            except:
+                pass
+
+        return self.queryset.distinct('id')
 
 
 class LastMileLoadVerifyPackageView(generics.GenericAPIView):

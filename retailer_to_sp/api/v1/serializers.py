@@ -2130,6 +2130,16 @@ class UserSerializers(serializers.ModelSerializer):
         fields = ('id', 'first_name', 'last_name', 'phone_number',)
 
 
+class LastMileTripSerializers(serializers.ModelSerializer):
+    seller_shop = ShopSerializer(read_only=True)
+    source_shop = ShopSerializer(read_only=True)
+    delivery_boy = UserSerializers(read_only=True)
+
+    class Meta:
+        model = Trip
+        fields = ('id', 'seller_shop', 'source_shop', 'dispatch_no', 'delivery_boy', 'vehicle_no', 'trip_status',)
+
+
 class DispatchTripSerializers(serializers.ModelSerializer):
     seller_shop = ShopSerializer(read_only=True)
     source_shop = ShopSerializer(read_only=True)
@@ -2501,7 +2511,7 @@ class DispatchTripStatusChangeSerializers(serializers.ModelSerializer):
 
 
 class LastMileTripShipmentMappingSerializers(serializers.ModelSerializer):
-    trip = DispatchTripSerializers(read_only=True)
+    trip = LastMileTripSerializers(read_only=True)
 
     class Meta:
         model = LastMileTripShipmentMapping
@@ -3681,7 +3691,7 @@ class LastMileTripShipmentsSerializer(serializers.Serializer):
     def get_trip(self, obj):
         trip_id = obj['trip_id']
         if trip_id:
-            return DispatchTripSerializers(Trip.objects.filter(id=trip_id).last()).data
+            return LastMileTripSerializers(Trip.objects.filter(id=trip_id).last()).data
         return None
 
     def get_invoices(self, obj):
@@ -4301,7 +4311,7 @@ class ShipmentPackageProductsSerializer(serializers.ModelSerializer):
 
 
 class LoadLastMileInvoiceSerializer(serializers.ModelSerializer):
-    trip = DispatchTripSerializers(read_only=True)
+    trip = LastMileTripSerializers(read_only=True)
     shipment = ShipmentSerializerForDispatch(read_only=True)
     shipment_status = serializers.CharField(read_only=True)
 
@@ -4380,6 +4390,34 @@ class LastMileSummarySerializer(serializers.Serializer):
 class LastMileTripSummarySerializer(serializers.Serializer):
     trip_data = LastMileSummarySerializer(read_only=True)
     non_trip_data = LastMileSummarySerializer(read_only=True)
+
+
+class LastMileShipmentPackageSerializer(serializers.ModelSerializer):
+    crate = CrateSerializer(read_only=True)
+    trip = serializers.SerializerMethodField()
+    created_date = serializers.SerializerMethodField()
+    shipment = ShipmentSerializerForDispatch()
+    packaging_type = ChoicesSerializer(choices=ShipmentPackaging.PACKAGING_TYPE_CHOICES, required=False)
+    trip_loading_status = serializers.SerializerMethodField()
+
+    def get_trip_loading_status(self, obj):
+        if obj.last_mile_trip_packaging_details.filter(
+                ~Q(package_status=LastMileTripShipmentPackages.CANCELLED)).exists():
+            return obj.last_mile_trip_packaging_details.last().package_status
+        return None
+
+    def get_trip(self, obj):
+        if obj.status == 'READY_TO_DISPATCH' and obj.shipment.packaged_at:
+            return LastMileTripSerializers(obj.shipment.last_trip).data
+        return None
+
+    def get_created_date(self, obj):
+        return obj.created_at.strftime("%d/%b/%y %H:%M")
+
+    class Meta:
+        model = ShipmentPackaging
+        fields = ('id', 'trip', 'shipment', 'packaging_type', 'crate', 'reason_for_rejection',
+                  'movement_type', 'return_remark', 'created_date', 'trip_loading_status')
 
 
 class LastMileLoadVerifyPackageSerializer(serializers.ModelSerializer):
