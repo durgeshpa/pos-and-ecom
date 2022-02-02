@@ -4418,7 +4418,7 @@ class LastMileLoadVerifyPackageSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Invalid package for the trip")
 
         # Check for shipment status
-        if package.shipment.shipment_status != OrderedProduct.MOVED_TO_DISPATCH:
+        if package.shipment.shipment_status != OrderedProduct.READY_TO_DISPATCH:
             raise serializers.ValidationError(f"The invoice is in {package.shipment.shipment_status} state, "
                                               f"cannot load package")
         if package.shipment.last_mile_trip_shipment.exclude(
@@ -4515,9 +4515,4 @@ class LastMileLoadVerifyPackageSerializer(serializers.ModelSerializer):
                 .aggregate(total_weight=Sum(F('ordered_product__product__weight_value') * F('quantity'),
                                             output_field=FloatField())).get('total_weight')
             trip.weight = trip.weight + package_weight
-        trip.save()
-        if trip.trip_type == Trip.BACKWARD:
-            trip_package_mapping.shipment_packaging.package_status \
-                = ShipmentPackaging.DISPATCH_STATUS_CHOICES.READY_TO_DISPATCH
-            trip_package_mapping.shipment_packaging.save()
 

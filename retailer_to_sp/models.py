@@ -1275,6 +1275,7 @@ class Trip(models.Model):
     modified_at = models.DateTimeField(auto_now=True)
     updated_by = models.ForeignKey(get_user_model(), related_name='last_mile_trip_updated_by',
                                    null=True, blank=True, on_delete=models.DO_NOTHING)
+    weight = models.FloatField(null=True, default=0, verbose_name="Trip weight")
 
     def __str__(self):
         if self.delivery_boy:
@@ -3392,7 +3393,6 @@ class DispatchTrip(BaseTimestampUserModel):
                                                       verbose_name="Total packets collected")
     no_of_sacks_check = models.PositiveIntegerField(default=0, null=True, blank=True,
                                                     verbose_name="Total sacks collected")
-    weight = models.FloatField(null=True, default=0, verbose_name="Trip weight")
 
     class Meta:
         permissions = (
