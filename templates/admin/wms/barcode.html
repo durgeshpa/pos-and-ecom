@@ -11,9 +11,9 @@
         {% if value.data is not None%}
             {% for key, value in  value.data.items %}
                 {% if key == 'Bin' %}
-                    <div style="font-size:35px;">{{key}}:{{value}}</div>
+                    <div style="font-size:27px;">{{key}}:{{value}}</div>
                 {% else %}
-                    <div style="font-size:13px;">{{key}}:{{value}}</>
+                    <div style="font-size:13px;">{{key}}:{{value}}</div>
                 {% endif %}
             {% endfor %}
         {% endif %}
