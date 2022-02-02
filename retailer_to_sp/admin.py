@@ -1205,14 +1205,18 @@ class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
 class ShipmentReschedulingAdminNested(NestedTabularInline):
     model = ShipmentRescheduling
     form = ShipmentReschedulingForm
-    fields = ['rescheduling_reason', 'rescheduling_date']
+    fields = ['rescheduling_reason', 'rescheduling_date', 'rescheduled_count']
     max_num = 1
 
     def has_delete_permission(self, request, obj=None):
         return False
 
-    # def has_change_permission(self, request, obj=None):
-    #     return False
+    def has_change_permission(self, request, obj=None):
+        if obj:
+            instance = ShipmentRescheduling.objects.filter(shipment=obj).last()
+            if instance and instance.rescheduled_count > 1:
+                return False
+        return True
 
 
 @admin.register(ShipmentNotAttempt)
