@@ -4378,5 +4378,5 @@ class LastMileSummarySerializer(serializers.Serializer):
 
 
 class LastMileTripSummarySerializer(serializers.Serializer):
-    trip_data = SummarySerializer(read_only=True)
-    non_trip_data = SummarySerializer(read_only=True)
+    trip_data = LastMileSummarySerializer(read_only=True)
+    non_trip_data = LastMileSummarySerializer(read_only=True)
