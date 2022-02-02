@@ -2994,9 +2994,9 @@ class LoadVerifyCrateSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(f"Trip is in {trip.trip_status} state, cannot load empty crate")
 
         if 'crate_id' in self.initial_data and self.initial_data['crate_id']:
-            if Crate.objects.filter(id=self.initial_data['crate_id'], crate_type=Crate.DISPATCH,
+            if Crate.objects.filter(crate_id=self.initial_data['crate_id'], crate_type=Crate.DISPATCH,
                                     shop_crates__shop=trip.source_shop, shop_crates__is_available=True).exists():
-                crate = Crate.objects.filter(id=self.initial_data['crate_id'], crate_type=Crate.DISPATCH,
+                crate = Crate.objects.filter(crate_id=self.initial_data['crate_id'], crate_type=Crate.DISPATCH,
                                              shop_crates__shop=trip.source_shop, shop_crates__is_available=True).last()
                 data['crate'] = crate
             else:
@@ -3078,9 +3078,9 @@ class UnloadVerifyCrateSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(f"Trip is in {trip.trip_status} state, cannot unload empty crate")
 
         if 'crate_id' in self.initial_data and self.initial_data['crate_id']:
-            if not Crate.objects.filter(id=self.initial_data['crate_id'], crate_type=Crate.DISPATCH).exists():
+            if not Crate.objects.filter(crate_id=self.initial_data['crate_id'], crate_type=Crate.DISPATCH).exists():
                 raise serializers.ValidationError("'crate_id' | Invalid crate selected.")
-            crate = Crate.objects.filter(id=self.initial_data['crate_id'], crate_type=Crate.DISPATCH).last()
+            crate = Crate.objects.filter(crate_id=self.initial_data['crate_id'], crate_type=Crate.DISPATCH).last()
             data['crate'] = crate
         else:
             raise serializers.ValidationError("'crate_id' | This is mandatory")
