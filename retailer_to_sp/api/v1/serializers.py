@@ -4373,6 +4373,73 @@ class LoadLastMileInvoiceSerializer(serializers.ModelSerializer):
         return trip_shipment
 
 
+class LastMileTripShipmentPackagesSerializers(serializers.ModelSerializer):
+    shipment_packaging = DispatchItemsSerializer(read_only=True)
+
+    class Meta:
+        model = LastMileTripShipmentPackages
+        fields = ('id', 'shipment_packaging', 'package_status',)
+
+
+class RemoveLastMileInvoiceFromTripSerializer(serializers.ModelSerializer):
+    trip = LastMileTripSerializers(read_only=True)
+    shipment = ShipmentSerializerForDispatch(read_only=True)
+    last_mile_trip_shipment_mapped_packages = LastMileTripShipmentPackagesSerializers(read_only=True, many=True)
+    shipment_status = serializers.CharField(read_only=True)
+    shipment_health = serializers.CharField(read_only=True)
+
+    class Meta:
+        model = LastMileTripShipmentMapping
+        fields = ('id', 'trip', 'shipment', 'shipment_status', 'shipment_health',
+                  'last_mile_trip_shipment_mapped_packages',)
+
+    def validate(self, data):
+        if 'trip_id' not in self.initial_data or not self.initial_data['trip_id']:
+            raise serializers.ValidationError("'trip_id' | This is required")
+        try:
+            trip = Trip.objects.get(id=self.initial_data['trip_id'])
+        except:
+            raise serializers.ValidationError("invalid Trip ID")
+
+        if trip.trip_status != Trip.READY:
+            raise serializers.ValidationError(f"Trip is already in {trip.trip_status} state, cannot remove invoice.")
+
+        if 'shipment_id' not in self.initial_data or not self.initial_data['shipment_id']:
+            raise serializers.ValidationError("'shipment_id' | This is required")
+
+        try:
+            shipment = OrderedProduct.objects.get(id=self.initial_data['shipment_id'])
+        except:
+            raise serializers.ValidationError("invalid Shipment ID")
+
+        data['shipment_status'] = DispatchTripShipmentMapping.CANCELLED
+        return data
+
+
+    @transaction.atomic
+    def update(self, instance, validated_data):
+        try:
+            trip_shipment_mapping = super().update(instance, validated_data)
+            self.post_shipment_remove_change(trip_shipment_mapping)
+        except Exception as e:
+            error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
+            raise serializers.ValidationError(error)
+        return trip_shipment_mapping
+
+    def post_shipment_remove_change(self, trip_shipment_mapping):
+        LastMileTripShipmentPackages.objects.filter(trip_shipment=trip_shipment_mapping)\
+            .update(package_status=LastMileTripShipmentPackages.CANCELLED)
+        trip_shipment_mapping.trip.weight = trip_shipment_mapping.trip.get_trip_weight()
+        package_data = trip_shipment_mapping.trip.get_package_data()
+        trip_shipment_mapping.trip.no_of_crates = package_data['no_of_crates']
+        trip_shipment_mapping.trip.no_of_packets = package_data['no_of_packs']
+        trip_shipment_mapping.trip.no_of_sacks = package_data['no_of_sacks']
+        trip_shipment_mapping.trip.save()
+        if trip_shipment_mapping.shipment.shipment_status == OrderedProduct.READY_TO_DISPATCH:
+            trip_shipment_mapping.shipment.shipment_status = OrderedProduct.MOVED_TO_DISPATCH
+            trip_shipment_mapping.shipment.save()
+
+
 class LastMileSummarySerializer(serializers.Serializer):
     total_invoices = serializers.IntegerField()
     total_crates = serializers.IntegerField()
