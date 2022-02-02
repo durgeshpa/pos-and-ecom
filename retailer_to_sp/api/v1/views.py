@@ -119,7 +119,8 @@ from .serializers import (ProductsSearchSerializer, CartSerializer, OrderSeriali
                           DispatchTripShipmentMappingSerializer, PackagesUnderTripSerializer,
                           MarkShipmentPackageVerifiedSerializer, ShipmentPackageProductsSerializer,
                           DispatchCenterCrateSerializer, DispatchCenterShipmentPackageSerializer,
-                          LoadLastMileInvoiceSerializer, LastMileTripSummarySerializer
+                          LoadLastMileInvoiceSerializer, LastMileTripSummarySerializer,
+                          LastMileLoadVerifyPackageSerializer
                           )
 from ...common_validators import validate_shipment_dispatch_item, validate_package_by_crate_id, validate_trip_user, \
     get_shipment_by_crate_id, get_shipment_by_shipment_label, validate_shipment_id, validate_trip_shipment, \
@@ -9517,4 +9518,29 @@ class LastMileTripSummaryView(generics.GenericAPIView):
                 queryset = queryset.filter(created_at__date=created_at)
 
         return queryset
+
+
+class LastMileLoadVerifyPackageView(generics.GenericAPIView):
+    """
+       View to verify and load packages to a trip.
+    """
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    serializer_class = LastMileLoadVerifyPackageSerializer
+
+    def post(self, request):
+        """ POST API for Shipment Package Load Verification """
+        info_logger.info("Load Verify POST api called.")
+        modified_data = validate_data_format(self.request)
+        if 'error' in modified_data:
+            return get_response(modified_data['error'])
+        validated_trip = validate_last_mile_trip_user(modified_data['trip_id'], request.user)
+        if 'error' in validated_trip:
+            return get_response(validated_trip['error'])
+        serializer = self.serializer_class(data=modified_data)
+        if serializer.is_valid():
+            serializer.save(created_by=request.user)
+            info_logger.info("Package loaded Successfully.")
+            return get_response('Package loaded successfully!', serializer.data)
+        return get_response(serializer_error(serializer), False)
 

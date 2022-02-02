@@ -3574,9 +3574,22 @@ class LastMileTripShipmentMapping(BaseTimestampUserModel):
         (LOADED_FOR_DC, 'Loaded For Dispatch'),
         (CANCELLED, 'Cancelled'),
     )
+
+    OKAY, PARTIALLY_MISSING_DAMAGED = 'OKAY', 'PARTIALLY_MISSING_DAMAGED'
+    PARTIALLY_DAMAGED, PARTIALLY_MISSING = 'PARTIALLY_DAMAGED', 'PARTIALLY_MISSING'
+    FULLY_DAMAGED, FULLY_MISSING = 'FULLY_DAMAGED', 'FULLY_MISSING'
+    SHIPMENT_HEALTH = (
+        (OKAY, 'Okay'),
+        (PARTIALLY_MISSING_DAMAGED, 'Partially Missing & Damaged'),
+        (PARTIALLY_DAMAGED, 'Partially Damaged'),
+        (PARTIALLY_MISSING, 'Partially Missing'),
+        (FULLY_DAMAGED, 'Fully Damaged'),
+        (FULLY_MISSING, 'Fully Missing'),
+    )
     trip = models.ForeignKey(Trip, related_name='last_mile_trip_shipments_details', on_delete=models.DO_NOTHING)
     shipment = models.ForeignKey(OrderedProduct, related_name='last_mile_trip_shipment', on_delete=models.DO_NOTHING)
     shipment_status = models.CharField(max_length=100, choices=SHIPMENT_STATUS)
+    shipment_health = models.CharField(max_length=100, null=True, blank=True, choices=SHIPMENT_HEALTH)
 
 
 class LastMileTripShipmentPackages(BaseTimestampUserModel):
