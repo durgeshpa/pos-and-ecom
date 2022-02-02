@@ -1676,7 +1676,8 @@ class RetailerOrderedProductMappingSerializer(serializers.ModelSerializer):
     def mark_crate_used(self, packaging_instance):
         info_logger.info(f"mark_crate_used|Packaging instance {packaging_instance}")
         shop_crate_instance = ShopCrate.objects.update_or_create(
-            shop=packaging_instance.warehouse, crate=packaging_instance.crate, defaults={'is_available': False})
+            shop=packaging_instance.shipment.current_shop, crate=packaging_instance.crate,
+            defaults={'is_available': False})
         info_logger.info(f"mark_crate_used|Marked| {shop_crate_instance}")
 
     @transaction.atomic
@@ -2768,7 +2769,8 @@ class ShipmentPackageSerializer(serializers.ModelSerializer):
     def mark_crate_available(self, packaging_instance):
         info_logger.info(f"mark_crate_used|Packaging instance {packaging_instance}")
         shop_crate_instance = ShopCrate.objects.update_or_create(
-            shop=packaging_instance.warehouse, crate=packaging_instance.crate, defaults={'is_available': True})
+            shop=packaging_instance.shipment.current_shop, crate=packaging_instance.crate,
+            defaults={'is_available': True})
         info_logger.info(f"mark_crate_used|Marked| {shop_crate_instance}")
 
 
