@@ -1508,6 +1508,23 @@ class Trip(models.Model):
                                            output_field=FloatField())).get('total_weight')
         return trip_weight
 
+    def get_package_data(self):
+        data = {'no_of_crates': 0, 'no_of_packs': 0, 'no_of_sacks': 0}
+        shipments_loaded = self.last_mile_trip_shipments_details.filter(~Q(shipment_status='CANCELLED'))
+        for shipment_mapping in shipments_loaded:
+            packages_loaded = shipment_mapping.last_mile_trip_shipment_mapped_packages.filter(
+                                ~Q(package_status__in=['CANCELLED', 'MISSING_AT_LOADING', 'DAMAGED_AT_LOADING']))
+            data = packages_loaded.aggregate(
+                    no_of_crates=Sum(Case(When(shipment_packaging__packaging_type=ShipmentPackaging.CRATE, then=1),
+                                          default=Value('0'), output_field=models.IntegerField(), )),
+                    no_of_packs=Sum(Case(When(shipment_packaging__packaging_type=ShipmentPackaging.BOX, then=1),
+                                         default=Value('0'), output_field=models.IntegerField(), )),
+                    no_of_sacks=Sum(Case(When(shipment_packaging__packaging_type=ShipmentPackaging.SACK, then=1),
+                                         default=Value('0'), output_field=models.IntegerField(), ))
+                )
+
+        return data
+
 
 class OrderedProduct(models.Model):  # Shipment
     CLOSED = "closed"
