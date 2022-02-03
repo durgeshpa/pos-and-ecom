@@ -30,7 +30,9 @@ User = get_user_model()
 class RelatedFieldWidgetCanAdd(widgets.Select):
 
     def __init__(self, related_model, related_url=None, *args, **kw):
+
         super(RelatedFieldWidgetCanAdd, self).__init__(*args, **kw)
+
         if not related_url:
             rel_to = related_model
             info = (rel_to._meta.app_label, rel_to._meta.object_name.lower())
@@ -38,15 +40,15 @@ class RelatedFieldWidgetCanAdd(widgets.Select):
 
         # Be careful that here "reverse" is not allowed
         self.related_url = related_url
+        self.args = args
+        self.kwargs = kw
 
     def render(self, name, value, *args, **kwargs):
         self.related_url = reverse(self.related_url)
         output = [super(RelatedFieldWidgetCanAdd, self).render(name, value, *args, **kwargs)]
-        output.append('<a href="%s" class="related-widget-wrapper-link add-related" id="add_id_%s" \
-            onclick="return showAddAnotherPopup(this);"> ' %
-                      (self.related_url, name))
-        output.append('<img src="/static/admin/img/icon-addlink.svg" width="10" height="10" \
-            alt="Add"/>Add Delivery Boy</a>')
+        output.append('<a href="%s?_to_field=id&_popup=1&order=%s" class="add-another" id="add_id_%s" onclick="return showAddAnotherPopup(this);"> ' % \
+            (self.related_url, self.args[0].get('order'), name))
+        output.append('<img src="%sadmin/img/icon_addlink.gif" width="10" height="10" alt="%s"/></a>' % (settings.STATIC_URL, 'Add Another'))
         return mark_safe(''.join(output))
 
 
@@ -96,6 +98,7 @@ class OrderPaymentForm(forms.ModelForm):
     )
     payment_mode_name = forms.ChoiceField(choices=PAYMENT_MODE_NAME)
     paid_amount = forms.FloatField(required=True)
+    reference_no = forms.CharField(required=False)
 
     class Meta:
         model = OrderPayment
@@ -105,8 +108,9 @@ class OrderPaymentForm(forms.ModelForm):
         super(OrderPaymentForm, self).__init__(*args, **kwargs)
         # self.fields.get('parent_payment').required = True
         self.fields.get('paid_amount').required = True
-        if kwargs.get('order') is not None:
-            self.fields['order'].initial = kwargs.get('order')
+        if kwargs.get('initial').get('order') is not None:
+            self.fields['order'].initial = kwargs.get('initial').get('order')
+            self.fields['order'].widget.attrs['readonly'] = True
         self.fields.get('paid_by').required = True
         users = Shop.objects.filter(shop_type__shop_type="r").values('shop_owner__id')
         self.fields.get('paid_by').queryset = UserWithName.objects.filter(pk__in=users)
@@ -124,13 +128,14 @@ class ShipmentPaymentInlineForm(forms.ModelForm):
         self.fields.get('parent_order_payment').required = True
         # shipment_payment = getattr(self, 'instance', None)
 
-        # self.fields['parent_payment'].queryset = Payment.objects.filter(order=shipment_payment.shipment.order)        
+        # self.fields['parent_payment'].queryset = Payment.objects.filter(order=shipment_payment.shipment.order)
+
         if self.fields.get('shipment') is not None:
-            order = self.fields['shipment'].order
-            # self.fields.get('parent_order_payment').widget = RelatedFieldWidgetCanAdd(
-            #                                             OrderPayment,
-            #                                             related_url="admin:payments_orderpayment_add",
-            #                                             order = order)                                            
+            self.fields.get('parent_order_payment').widget = RelatedFieldWidgetCanAdd(
+                OrderPayment, None, {"order": self.fields['shipment'].order})
+        else:
+            self.fields.get('parent_order_payment').widget = RelatedFieldWidgetCanAdd(
+                OrderPayment, None, {"order": 271002})
 
 
 class PaymentApprovalForm(forms.ModelForm):
