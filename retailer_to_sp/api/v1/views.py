@@ -9171,7 +9171,7 @@ class PackagesUnderTripView(generics.GenericAPIView):
         '''
         if not request.GET.get('trip_id'):
             return get_response("'trip_id' | This is mandatory")
-        validated_trip = validate_trip(request.GET.get('trip_id'))
+        validated_trip = validate_trip(request.GET.get('trip_id'), request.GET.get('trip_type'))
         if 'error' in validated_trip:
             return get_response(validated_trip['error'])
         self.queryset = self.filter_packaging_items()

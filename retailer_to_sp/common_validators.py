@@ -1,7 +1,7 @@
 from django.db.models import Q
 
 from retailer_to_sp.models import ShipmentPackaging, ShipmentPackagingMapping, DispatchTrip, OrderedProduct, \
-    DispatchTripShipmentMapping, Trip, DispatchTripShipmentPackages
+    DispatchTripShipmentMapping, Trip, DispatchTripShipmentPackages, TRIP_TYPE_CHOICE
 from wms.models import Crate
 
 
@@ -121,11 +121,14 @@ def validate_trip_shipment_package(trip_id, package_id):
     return {"error": 'Invalid Package'}
 
 
-def validate_trip(trip_id):
+def validate_trip(trip_id, trip_type):
+    if trip_type and trip_type in [TRIP_TYPE_CHOICE.DISPATCH_FORWARD, TRIP_TYPE_CHOICE.DISPATCH_BACKWARD]:
+        if DispatchTrip.objects.filter(id=trip_id).exists():
+            return {"data": DispatchTrip.objects.filter(id=trip_id).last()}
+        else:
+            return {"error": 'Invalid Trip'}
     if Trip.objects.filter(id=trip_id).exists():
         return {"data": Trip.objects.filter(id=trip_id).last()}
-    if DispatchTrip.objects.filter(id=trip_id).exists():
-        return {"data": DispatchTrip.objects.filter(id=trip_id).last()}
     return {"error": 'Invalid Trip'}
 
 
