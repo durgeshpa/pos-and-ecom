@@ -1,10 +1,8 @@
-
 import requests
 import jsonpickle
 import logging
 from dal import autocomplete
 from wkhtmltopdf.views import PDFTemplateResponse
-
 
 from products.models import *
 from num2words import num2words
@@ -30,7 +28,8 @@ from sp_to_gram.models import (
     OrderedProduct as SPOrderedProduct)
 from retailer_to_sp.models import (CartProductMapping, Order, OrderedProduct, OrderedProductMapping, Note, Trip,
                                    Dispatch, ShipmentRescheduling, PickerDashboard, update_full_part_order_status,
-
+                                   Shipment, populate_data_on_qc_pass, add_to_putaway_on_return,
+                                   check_franchise_inventory_update, ShipmentNotAttempt, BASIC, ECOM,
                                    Shipment, populate_data_on_qc_pass, OrderedProductBatch, ShipmentPackaging,
                                    add_to_putaway_on_return, check_franchise_inventory_update, ShipmentNotAttempt)
 from products.models import Product

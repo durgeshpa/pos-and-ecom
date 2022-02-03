@@ -17,12 +17,13 @@ from django.db.models import Q, Sum, F, Count, Subquery, OuterRef, FloatField, E
 from django.db.models.functions import Coalesce
 from rest_framework import status, authentication, permissions
 from rest_framework.generics import GenericAPIView, ListAPIView
+from rest_framework.permissions import AllowAny
 from rest_framework.views import APIView
 
 from coupon.models import CouponRuleSet, RuleSetProductMapping, DiscountValue, Coupon
 
 from pos.models import (RetailerProduct, RetailerProductImage, ShopCustomerMap, Vendor, PosCart, PosGRNOrder,
-                        PaymentType, MeasurementCategory, PosReturnGRNOrder, BulkRetailerProduct)
+                        PaymentType, MeasurementCategory, PosReturnGRNOrder, BulkRetailerProduct, Payment)
 from pos.common_functions import (RetailerProductCls, OffersCls, serializer_error, api_response, PosInventoryCls,
                                   check_pos_shop, ProductChangeLogs, pos_check_permission_delivery_person,
                                   pos_check_permission, check_return_status, pos_check_user_permission)
@@ -1214,6 +1215,19 @@ class PaymentTypeDetailView(GenericAPIView):
         return api_response(msg, serializer.data, status.HTTP_200_OK, True)
 
 
+class EcomPaymentTypeDetailView(GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    queryset = PaymentType.objects.filter(app='ecom')
+    serializer_class = PaymentTypeSerializer
+
+    def get(self, request):
+        """ GET Payment Type List """
+        payment_type = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        serializer = self.serializer_class(payment_type, many=True)
+        msg = "" if payment_type else "No payment found"
+        return api_response(msg, serializer.data, status.HTTP_200_OK, True)
+
+
 class IncentiveView(GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
 
@@ -1572,3 +1586,29 @@ class Contect_Us(APIView):
         serializer = ContectUs(data=data)
         if serializer.is_valid():
             return api_response('contct us details',serializer.data,status.HTTP_200_OK, True)
+
+
+class PaymentStatusList(GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+
+    def get(self, request):
+        '''
+        API to get payment status list
+        '''
+        fields = ['id', 'value']
+        data = [dict(zip(fields, d)) for d in Payment.PAYMENT_STATUS]
+        return api_response('', data, status.HTTP_200_OK, True)
+
+
+class PaymentModeChoicesList(GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+
+    def get(self, request):
+        '''
+        API to get payment mode choices list
+        '''
+        fields = ['id', 'value']
+        data = [dict(zip(fields, d)) for d in Payment.MODE_CHOICES]
+        return api_response('', data, status.HTTP_200_OK, True)
