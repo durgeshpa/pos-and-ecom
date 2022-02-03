@@ -871,6 +871,10 @@ class Order(models.Model):
     PENDING = 'pending'
     DELETED = 'deleted'
     ORDERED = 'ordered'
+    PAYMENT_PENDING = 'PAYMENT_PENDING'
+    PAYMENT_FAILED = 'PAYMENT_FAILED'
+    PAYMENT_APPROVED = 'PAYMENT_APPROVED'
+    PAYMENT_COD = 'PAYMENT_COD'
     PAYMENT_DONE_APPROVAL_PENDING = 'payment_done_approval_pending'
     OPDP = 'opdp'
     DISPATCHED = 'dispatched'
@@ -905,6 +909,10 @@ class Order(models.Model):
         (PENDING, "Pending"),
         (DELETED, "Deleted"),
         (DISPATCHED, "Dispatched"),
+        (PAYMENT_PENDING, "Payment Pending"),
+        (PAYMENT_FAILED, "Payment Failed"),
+        (PAYMENT_APPROVED, "Payment Approved"),
+        (PAYMENT_COD, "Payment COD"),
         (PARTIAL_DELIVERED, "Partially Delivered"),
         (DELIVERED, "Delivered"),
         (CLOSED, "Closed"),
@@ -987,6 +995,13 @@ class Order(models.Model):
         (POS_ECOMM, 'Pos Ecomm'),  # 2
     )
 
+    POS_WALKIN = 'pos_walkin'
+    POS_ECOMM = 'pos_ecomm'
+
+    ORDER_APP_TYPE = (
+        (POS_WALKIN, 'Pos Walkin'),  # 1
+        (POS_ECOMM, 'Pos Ecomm'),  # 2
+    )
     # Todo Remove
     seller_shop = models.ForeignKey(
         Shop, related_name='rt_seller_shop_order',

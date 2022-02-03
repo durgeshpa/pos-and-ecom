@@ -170,7 +170,25 @@ class ShopCustomerMap(models.Model):
 
 
 class PaymentType(models.Model):
-    type = models.CharField(max_length=20, unique=True)
+    POS_PAYMENT_TYPE_CHOICES = (
+        ('cash', 'Cash'),
+        ('online', 'Online'),
+        ('credit', 'Credit')
+    )
+    ECOM_PAYMENT_TYPE_CHOICES = (
+        ('cod', 'Cash on Delivery'),
+        ('cod_upi', 'UPI on Cash on Delivery'),
+        ('online', 'Online'),
+        ('credit', 'Credit')
+    )
+    TYPE_CHOICES = (
+            ('cash', 'Cash'),
+            ('online', 'Online'),
+            ('credit', 'Credit'),
+            ('cod', 'Cash on Delivery'),
+            ('cod_upi', 'UPI on Cash on Delivery')
+    )
+    type = models.CharField(max_length=50, choices=TYPE_CHOICES)
     enabled = models.BooleanField(default=True)
     app = models.CharField(choices=(('pos', 'POS'), ('ecom', 'ECOM'), ('both', 'Both')), default='pos', max_length=20)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -179,16 +197,36 @@ class PaymentType(models.Model):
     class Meta:
         verbose_name = 'Payment Mode'
         verbose_name_plural = _("Payment Modes")
+        unique_together = ('app', 'type',)
 
     def __str__(self) -> str:
         return self.type
 
 
 class Payment(models.Model):
+    PAYMENT_PENDING = "payment_pending"
+    PAYMENT_APPROVED = "payment_approved"
+    PAYMENT_FAILED = "payment_failed"
+    PAYMENT_STATUS = (
+        (PAYMENT_PENDING, "Payment Pending"),
+        (PAYMENT_APPROVED, "Payment Approved"),
+        (PAYMENT_FAILED, "Payment Failed")
+    )
+    MODE_CHOICES = (
+        ('CREDIT_CARD', 'Credit Card'),
+        ('DEBIT_CARD', 'Debit Card'),
+        ('UPI', 'UPI'),
+        ('NET_BANKING', 'Net Banking'),
+        ('WALLET', 'Wallet'),
+    )
     order = models.ForeignKey('retailer_to_sp.Order', related_name='rt_payment_retailer_order',
                               on_delete=models.DO_NOTHING)
-    payment_type = models.ForeignKey(PaymentType, default=None, null=True, related_name='payment_type_payment', on_delete=models.DO_NOTHING)
-    transaction_id = models.CharField(max_length=70, default=None, null=True, blank=True, help_text="Transaction ID for Non Cash Payments.")
+    payment_type = models.ForeignKey(PaymentType, default=None, null=True, related_name='payment_type_payment',
+                                     on_delete=models.DO_NOTHING)
+    payment_status = models.CharField(max_length=50, null=True, blank=True, choices=PAYMENT_STATUS, )
+    payment_mode = models.CharField(max_length=50, null=True, blank=True, choices=MODE_CHOICES, )
+    transaction_id = models.CharField(max_length=70, default=None, null=True, blank=True,
+                                      help_text="Transaction ID for Non Cash Payments.")
     paid_by = models.ForeignKey(User, related_name='rt_payment_retailer_buyer', null=True, blank=True,
                                 on_delete=models.DO_NOTHING)
     processed_by = models.ForeignKey(User, related_name='rt_payment_retailer', null=True, blank=True,

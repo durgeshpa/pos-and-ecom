@@ -9,7 +9,8 @@ from .views import (ProductsList, SearchProducts, CartCentral, CartCheckout, Ord
                     ReturnReason, ShipmentDeliveryUpdate, ShipmentDeliveryBulkUpdate, DownloadCreditNoteDiscounted,
                     AutoSuggest, RefreshEs, RefreshEsRetailer, CartUserView, UserView, PosUserShopsList,
                     PosShopUsersList, RetailerList, PaymentDataView, CartStockCheckView, OrderCommunication,
-                    ShipmentView, EcomPaymentView, EcomPaymentSuccessView, EcomPaymentFailureView, ShipmentProductView,
+                    OrderPaymentStatusChangeView, OrderStatusChoicesList, ShipmentView, EcomPaymentView,
+                    EcomPaymentSuccessView, EcomPaymentFailureView, ShipmentProductView,
                     ProcessShipmentView, ShipmentStatusList, ShipmentQCView, ShipmentCityFilterView,
                     ShipmentPincodeFilterView, ShipmentShopFilterView, ShipmentProductRejectionReasonList,
                     PackagingTypeList, DispatchItemsView, DispatchItemsUpdateView, DispatchDashboardView,
@@ -99,7 +100,10 @@ urlpatterns = [
     url('dispatch-dashboard/', DispatchDashboardView.as_view()),
     url('shipment-invoice/', DownloadShipmentInvoice.as_view()),
     url('package-reject-reason/', DispatchPackageRejectionReasonList.as_view()),
-    
+
+    url('update-order-payment-status/', OrderPaymentStatusChangeView.as_view(), name='update_order_payment_status'),
+    url(r'^order-status-choice/$', OrderStatusChoicesList.as_view()),
+
 ]
 
 urlpatterns += router.urls
