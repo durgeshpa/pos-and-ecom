@@ -3180,7 +3180,7 @@ class OrderCentral(APIView):
             payments = [
                 {
                     "payment_type": payment_type_id,
-                    "amount": order.order_amount,
+                    "amount": round(order.order_amount),
                     "transaction_id": "",
                     "payment_status": self.request.data.get('payment_status', None),
                     "payment_mode": self.request.data.get('payment_mode', None)
