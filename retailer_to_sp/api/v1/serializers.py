@@ -1697,8 +1697,7 @@ class RetailerOrderedProductMappingSerializer(serializers.ModelSerializer):
                 if package_obj['type'] == ShipmentPackaging.CRATE:
                     for crate in package_obj['packages']:
                         crate_instance = Crate.objects.filter(
-                            crate_id=crate['crate_id'], warehouse__id=validated_data['warehouse_id'],
-                            crate_type=Crate.DISPATCH).last()
+                            crate_id=crate['crate_id'], crate_type=Crate.DISPATCH).last()
                         shipment_packaging = self.create_update_shipment_packaging(
                             process_shipments_instance.ordered_product, package_obj['type'],
                             validated_data['warehouse_id'], crate_instance, validated_data['last_modified_by'])
@@ -3853,8 +3852,7 @@ class VerifyReturnShipmentProductsSerializer(serializers.ModelSerializer):
                 if package_obj['type'] == ShipmentPackaging.CRATE:
                     for crate in package_obj['packages']:
                         crate_instance = Crate.objects.filter(
-                            crate_id=crate['crate_id'], warehouse__id=validated_data['warehouse_id'],
-                            crate_type=Crate.DISPATCH).last()
+                            crate_id=crate['crate_id'], crate_type=Crate.DISPATCH).last()
                         shipment_packaging = self.create_update_shipment_packaging(
                             shipment_map_instance.ordered_product, package_obj['type'],
                             validated_data['warehouse_id'], crate_instance, validated_data['last_modified_by'],
