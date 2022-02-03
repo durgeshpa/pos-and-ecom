@@ -9174,45 +9174,40 @@ class PackagesUnderTripView(generics.GenericAPIView):
         validated_trip = validate_trip(request.GET.get('trip_id'), request.GET.get('trip_type'))
         if 'error' in validated_trip:
             return get_response(validated_trip['error'])
-        self.queryset = self.filter_packaging_items()
+        self.queryset = self.filter_packaging_items(validated_trip['data'])
         dispatch_items = SmallOffsetPagination().paginate_queryset(self.queryset, request)
         serializer = self.serializer_class(dispatch_items, many=True)
         msg = "" if dispatch_items else "no packaging found"
         return get_response(msg, serializer.data, True)
 
-    def filter_packaging_items(self):
+    def filter_packaging_items(self, trip_instance):
         trip_id = self.request.GET.get('trip_id')
         shipment_id = self.request.GET.get('shipment_id')
         package_status = self.request.GET.get('package_status')
         trip_type = self.request.GET.get('trip_type')
         is_return_verified = self.request.GET.get('is_return_verified')
 
-        if trip_id:
+
+        if isinstance(trip_instance, DispatchTrip):
+
             package_ids = DispatchTripShipmentPackages.objects.filter(
                     package_status__in=[DispatchTripShipmentPackages.LOADED,
                                         DispatchTripShipmentPackages.UNLOADED],
-                    trip_shipment__trip_id=trip_id).values_list('shipment_packaging_id', flat=True)
-            if trip_type == TRIP_TYPE_CHOICE.DISPATCH_FORWARD:
-                self.queryset = self.queryset.filter(shipment__trip_shipment__trip_id=trip_id,
-                                                     movement_type=ShipmentPackaging.DISPATCH,
-                                                     shipment__trip_shipment__shipment_status__in=[
-                                                         DispatchTripShipmentMapping.LOADING_FOR_DC,
-                                                         DispatchTripShipmentMapping.LOADED_FOR_DC,
-                                                         DispatchTripShipmentMapping.UNLOADING_AT_DC,
-                                                         DispatchTripShipmentMapping.UNLOADED_AT_DC],
-                                                     id__in=package_ids)
+                    trip_shipment__trip=trip_instance).values_list('shipment_packaging_id', flat=True)
+            self.queryset = self.queryset.filter(id__in=package_ids,
+                shipment__trip_shipment__shipment_status__in=[
+                    DispatchTripShipmentMapping.LOADING_FOR_DC,DispatchTripShipmentMapping.LOADED_FOR_DC,
+                    DispatchTripShipmentMapping.UNLOADING_AT_DC, DispatchTripShipmentMapping.UNLOADED_AT_DC]
+                   )
+
+            if not trip_type or trip_type == TRIP_TYPE_CHOICE.DISPATCH_FORWARD:
+                self.queryset = self.queryset.filter(shipment__trip_shipment__trip=trip_instance,
+                                                     movement_type=ShipmentPackaging.DISPATCH)
             elif trip_type == TRIP_TYPE_CHOICE.DISPATCH_BACKWARD:
-                self.queryset = self.queryset.filter(shipment__trip_shipment__trip_id=trip_id,
-                                                     movement_type=ShipmentPackaging.RETURNED,
-                                                     shipment__trip_shipment__shipment_status__in=[
-                                                         DispatchTripShipmentMapping.LOADING_FOR_DC,
-                                                         DispatchTripShipmentMapping.LOADED_FOR_DC,
-                                                         DispatchTripShipmentMapping.UNLOADING_AT_DC,
-                                                         DispatchTripShipmentMapping.UNLOADED_AT_DC],
-                                                     id__in=package_ids
-                                                     )
+                self.queryset = self.queryset.filter(shipment__trip_shipment__trip=trip_instance,
+                                                     movement_type=ShipmentPackaging.RETURNED)
             else:
-                self.queryset = self.queryset.filter(shipment__last_mile_trip_shipment__trip_id=trip_id)
+                self.queryset = self.queryset.filter(shipment__last_mile_trip_shipment__trip=trip_instance)
 
         if shipment_id:
             self.queryset = self.queryset.filter(shipment_id=shipment_id)
@@ -9221,10 +9216,11 @@ class PackagesUnderTripView(generics.GenericAPIView):
             self.queryset = self.queryset.filter(status=package_status)
 
         if is_return_verified:
-            if trip_type in [TRIP_TYPE_CHOICE.DISPATCH_FORWARD, TRIP_TYPE_CHOICE.DISPATCH_BACKWARD]:
+            if isinstance(trip_instance, DispatchTrip):
                 self.queryset = self.queryset.filter(trip_packaging_details__is_return_verified=is_return_verified)
             else:
-                self.queryset = self.queryset.none()
+                self.queryset = self.queryset.filter(
+                    last_mile_trip_packaging_details__is_return_verified=is_return_verified)
 
         return self.queryset.distinct('id','packaging_type')
 
