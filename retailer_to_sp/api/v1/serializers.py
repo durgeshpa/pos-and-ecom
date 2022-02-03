@@ -3914,6 +3914,12 @@ class VerifyReturnShipmentProductsSerializer(serializers.ModelSerializer):
                                                                      .values_list('shipment_packaging_id', flat=True))
                 ShipmentPackagingMapping.objects.filter(ordered_product=shipment_map_instance,
                                                        shipment_packaging__movement_type=movement_type).delete()
+                crates_used = ShipmentPackaging.objects.filter(
+                    id__in=shipment_packaging_ids, packaging_details__isnull=True, crate__isnull=False).\
+                    values_list('crate__id', flat=True)
+                for crate_id in crates_used:
+                    ShopCrateCommonFunctions.mark_crate_available(
+                        shipment_map_instance.ordered_product.current_shop.id, crate_id)
                 ShipmentPackaging.objects.filter(id__in=shipment_packaging_ids, packaging_details__isnull=True).delete()
 
             for package_obj in packaging:
