@@ -18,8 +18,6 @@ def create_order_data_excel(request, queryset):
     response = HttpResponse(content_type='text/csv')
     response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
     writer = csv.writer(response)
-    from retailer_to_sp.models import (OrderReturn, OrderedProduct, ReturnItems, Cart, CartProductMapping,
-                                       OrderedProductMapping, Order)
     writer.writerow([
 
         'Order No', 'Invoice No', 'Order Status', 'Order Created At', 'Invoice Date ', 'Seller Shop ID',
@@ -154,6 +152,77 @@ def create_order_data_excel(request, queryset):
         ])
 
     return response
+
+from retailer_to_sp.models import CartProductMapping
+def create_cancel_order_csv(request, queryset):
+    """creat csv file cancel order """
+    filename = "cancel order{}.csv".format(datetime.date.today())
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
+    writer = csv.writer(response)
+    writer.writerow([
+        'Order No', 'Order Status', 'Order Created At', 'Seller Shop ID',
+        'Seller Shop Name', 'Seller Shop Owner Id', 'Seller Shop Owner Name', 'Mobile No.(Seller Shop)',
+        'Seller Shop Type', 'Buyer Id', 'Buyer Name', 'Mobile No(Buyer)', 'Purchased Product Id',
+        'Purchased Product SKU', 'Linked Sku', 'Purchased Product Name', 'Purchased Product Ean Code',
+        'Quantity', 'MRP', 'Selling Price',
+        'Total price'])
+
+
+    orders = queryset.prefetch_related('order', 'invoice', 'seller_shop', 'seller_shop__shop_owner',
+                          'seller_shop__shop_type__shop_sub_type', 'buyer',
+                          'rt_order_cart_mapping',
+                          'rt_cart_product_mapping',
+                          'rt_cart_product_mapping__retailer_product__linked_product__product_sku',
+                          'rt_cart_product_mapping__retailer_product',
+                          'rt_cart_product_mapping__retailer_product__linked_product',
+                          'rt_cart_product_mapping__retailer_product__linked_product__parent_product',
+                          'rt_cart_product_mapping__retailer_product__linked_product__parent_product__parent_product_pro_category__category__category_parent',
+                          'rt_cart_product_mapping__retailer_product__linked_product__parent_product__parent_product_pro_category__category',
+                          'rt_cart_product_mapping__retailer_product__linked_product__parent_product__parent_brand__brand_parent',
+                          'rt_cart_product_mapping__retailer_product__linked_product__parent_product__parent_brand',
+                          )\
+        .annotate(
+            purchased_subtotal=RoundAmount(Sum(F('rt_cart_list__qty') * F('rt_cart_list__selling_price'),output_field=FloatField())),
+            )
+    for order in orders.iterator():
+        products = CartProductMapping.objects.filter(cart=order)
+
+        for product in products:
+            try:
+                writer.writerow([
+                        order.order_id,
+                        order.rt_order_cart_mapping.order_status if order.rt_order_cart_mapping.order_status else '',
+                        order.rt_order_cart_mapping.created_at if order.rt_order_cart_mapping.order_status else '' ,
+                        order.seller_shop.id if order.seller_shop else '',
+                        order.seller_shop.shop_name if order.seller_shop else '',
+                        order.seller_shop.shop_owner.id if order.seller_shop.shop_owner else '',
+                        order.seller_shop.shop_owner.first_name if order.seller_shop.shop_owner else '',
+                        order.seller_shop.shop_owner.phone_number if order.seller_shop.shop_owner else '',
+                        order.seller_shop.shop_type.shop_sub_type.retailer_type_name if  order.seller_shop.shop_type.shop_sub_type else '',
+                        order.buyer.id if order.buyer.id else '',
+                        order.buyer.first_name if order.buyer else '',
+                        order.buyer.phone_number if order.buyer else '',
+
+                        product.retailer_product.id if product.retailer_product else '',
+                        product.retailer_product.sku if product.retailer_product else '',
+                        product.retailer_product.linked_product.product_sku if product.retailer_product.linked_product else '',
+                        product.retailer_product.name if product.retailer_product else "",
+                        product.retailer_product.product_ean_code if product.retailer_product else '',
+
+                        product.qty ,
+                        product.retailer_product.mrp if product.retailer_product else '',
+                        product.retailer_product.selling_price,
+                        product.qty*product.retailer_product.selling_price
+                    ])
+            except:
+                pass
+    return response
+
+
+
+
+
 
 
 def create_order_return_excel(queryset):

@@ -246,7 +246,9 @@ class PaymentReconsile(models.Model):
         ('payment_not_found', 'PAYMENT_NOT_FOUND'),
         ('payment_failed', 'PAYMENT_FAILED'),
         ('payment_success', 'PAYMENT_SUCCESS'),
-        ('payment_conflict', 'RECONSILE_CONFLICT')
+        ('payment_conflict', 'RECONSILE_CONFLICT'),
+        ('double_payment', 'DOUBLE_PAYMENT'),
+        ('payment_not_required', 'PAYMENT_NOT_REQUIRED'),
         )
     MODE_CHOICES = (
         ('CREDIT_CARD', 'Credit Card'),
@@ -572,7 +574,7 @@ class RetailerOrderReturn(OrderReturn):
         return self.order.order_no
 
 
-class RetailerOrderCancel(OrderedProduct):
+class RetailerOrderCancel(Cart):
     """Cancel order ........."""
     class Meta:
         proxy = True
