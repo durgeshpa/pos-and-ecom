@@ -1609,6 +1609,7 @@ class RetailerOrderedProductMappingSerializer(serializers.ModelSerializer):
                                               "(damaged_qty, expired_qty, no.of pieces to ship)")
 
         warehouse_id = mapping_instance.ordered_product.order.seller_shop.id
+        current_shop_id = mapping_instance.ordered_product.current_shop.id
 
         if 'packaging' in self.initial_data and self.initial_data['packaging']:
             if shipped_qty == 0:
@@ -1620,7 +1621,7 @@ class RetailerOrderedProductMappingSerializer(serializers.ModelSerializer):
                 if package_obj['type'] not in [ShipmentPackaging.CRATE, ShipmentPackaging.SACK, ShipmentPackaging.BOX]:
                     raise serializers.ValidationError("'packaging type' | Invalid packaging type")
                 if package_obj['type'] == ShipmentPackaging.CRATE:
-                    validate_crates = validate_shipment_crates_list(package_obj, warehouse_id,
+                    validate_crates = validate_shipment_crates_list(package_obj, current_shop_id,
                                                                     mapping_instance.ordered_product)
                     if 'error' in validate_crates:
                         raise serializers.ValidationError(validate_crates['error'])
@@ -3736,7 +3737,7 @@ class VerifyReturnShipmentProductsSerializer(serializers.ModelSerializer):
                                 float(product_returned_qty + product_returned_damage_qty)
 
         warehouse_id = mapping_instance.ordered_product.packaged_at
-        current_shop = mapping_instance.ordered_product.current_shop
+        current_shop_id = mapping_instance.ordered_product.current_shop.id
 
         total_product_returned_qty = float(product_returned_qty + product_returned_damage_qty)
         # Make Packaging for Dispatch Trips only, Validation: Seller shop is not same as Source shop
@@ -3751,7 +3752,7 @@ class VerifyReturnShipmentProductsSerializer(serializers.ModelSerializer):
                     if package_obj['type'] not in [ShipmentPackaging.CRATE, ShipmentPackaging.SACK, ShipmentPackaging.BOX]:
                         raise serializers.ValidationError("'packaging type' | Invalid packaging type")
                     if package_obj['type'] == ShipmentPackaging.CRATE:
-                        validate_crates = validate_shipment_crates_list(package_obj, warehouse_id,
+                        validate_crates = validate_shipment_crates_list(package_obj, current_shop_id,
                                                                         mapping_instance.ordered_product)
                         if 'error' in validate_crates:
                             raise serializers.ValidationError(validate_crates['error'])
