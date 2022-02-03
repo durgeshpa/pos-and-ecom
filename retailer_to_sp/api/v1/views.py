@@ -8448,12 +8448,10 @@ class DispatchCenterShipmentPackageView(generics.GenericAPIView):
                         status='READY_TO_DISPATCH').filter(Q(shipment__trip_shipment__trip_id=trip_id) |
                                                            Q(shipment__last_mile_trip_shipment__trip_id=trip_id))
                 elif availability == INVOICE_AVAILABILITY_CHOICES.NOT_ADDED:
-                    self.queryset = self.queryset.filter(status='PACKED')
-                elif availability == INVOICE_AVAILABILITY_CHOICES.ALL:
-                    self.queryset = self.queryset.filter(
-                        status__in=['PACKED', 'READY_TO_DISPATCH']).filter(
-                        Q(shipment__trip_shipment__trip_id=trip_id) |
-                        Q(shipment__last_mile_trip_shipment__trip_id=trip_id))
+                    self.queryset = self.queryset.filter(status='PACKED',
+                                                         shipment__shipment_status__in=[
+                                                             OrderedProduct.FULLY_RETURNED_AND_VERIFIED,
+                                                             OrderedProduct.PARTIALLY_DELIVERED_AND_VERIFIED])
             except:
                 pass
 
