@@ -1,4 +1,3 @@
-import copy
 import logging
 from datetime import datetime, timedelta
 from itertools import groupby
@@ -6,6 +5,7 @@ from itertools import groupby
 from dal import autocomplete
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Permission, Group
+from django.contrib.postgres.aggregates import ArrayAgg
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import models
 from django.db.models import Q, OuterRef, Subquery, Count, CharField, Case, When, F, Value
@@ -21,18 +21,22 @@ from gram_to_brand.models import GRNOrder
 from products.models import Product
 
 from retailer_backend.utils import CustomOffsetPaginationDefault25, SmallOffsetPagination, OffsetPaginationDefault50
-from retailer_to_sp.models import PickerDashboard
+from retailer_to_sp.models import PickerDashboard, OrderedProduct
 from shops.models import Shop
-
-from wms.common_functions import get_response, serializer_error, get_logged_user_wise_query_set
+from wms.common_functions import get_response, serializer_error, get_logged_user_wise_query_set, \
+    picker_dashboard_search, get_logged_user_wise_query_set_for_picker, \
+    get_logged_user_wise_query_set_for_qc_desk_mapping, get_logged_user_wise_query_set_for_qc_desk, \
+    get_logged_user_wise_query_set_for_shipment
 from wms.common_validators import validate_ledger_request, validate_data_format, validate_id, \
     validate_id_and_warehouse, validate_putaways_by_token_id_and_zone, validate_putaway_user_by_zone, validate_zone, \
-    validate_putaway_user_against_putaway, validate_grouped_request
+    validate_putaway_user_against_putaway, validate_grouped_request, validate_data_days_date_request
 from wms.models import Zone, WarehouseAssortment, Bin, BIN_TYPE_CHOICES, ZonePutawayUserAssignmentMapping, Putaway, In, \
-    PutawayBinInventory, Pickup, BinInventory, ZonePickerUserAssignmentMapping
+    PutawayBinInventory, Pickup, BinInventory, ZonePickerUserAssignmentMapping, QCDesk, QCArea, \
+    QCDeskQCAreaAssignmentMapping, Crate
 from wms.services import check_warehouse_manager, check_whc_manager_coordinator_supervisor, check_putaway_user, \
-    zone_assignments_search, putaway_search, check_whc_manager_coordinator_supervisor_putaway, check_picker
-
+    zone_assignments_search, putaway_search, check_whc_manager_coordinator_supervisor_putaway, check_picker, \
+    check_whc_manager_coordinator_supervisor_picker, qc_desk_search, check_qc_executive, qc_area_search, \
+    check_whc_manager_coordinator_supervisor_qc_executive
 from wms.services import zone_search, user_search, whc_assortment_search, bin_search
 from .serializers import InOutLedgerSerializer, InOutLedgerCSVSerializer, ZoneCrudSerializers, UserSerializers, \
     WarehouseAssortmentCrudSerializers, WarehouseAssortmentExportAsCSVSerializers, BinExportAsCSVSerializers, \
@@ -42,7 +46,10 @@ from .serializers import InOutLedgerSerializer, InOutLedgerCSVSerializer, ZoneCr
     PutawayItemsCrudSerializer, PutawaySerializers, PutawayModelSerializer, ZoneFilterSerializer, \
     PostLoginUserSerializers, PutawayActionSerializer, POSummarySerializers, ZonewiseSummarySerializers, \
     PutawaySummarySerializers, BinInventorySerializer, BinShiftPostSerializer, BinSerializer, \
-    ZonePickerAssignmentsCrudSerializers, AllocateQCAreaSerializer
+    ZonePickerAssignmentsCrudSerializers, AllocateQCAreaSerializer, PickerDashboardSerializer, OrderStatusSerializer, \
+    ZonewisePickerSummarySerializers, QCDeskCrudSerializers, QCAreaCrudSerializers, \
+    QCDeskQCAreaAssignmentMappingSerializers, QCDeskHelperDashboardSerializer, QCJobsDashboardSerializer, \
+    QCDeskSerializer, CrateSerializer, PendingQCJobsSerializer
 
 from ...views import pickup_entry_creation_with_cron
 
@@ -295,6 +302,28 @@ class ZonePutawaysView(generics.GenericAPIView):
         zone_putaway_users = SmallOffsetPagination().paginate_queryset(self.queryset, request)
         serializer = self.serializer_class(zone_putaway_users, many=True)
         msg = "" if zone_putaway_users else "no putaway users found"
+        return get_response(msg, serializer.data, True)
+
+
+class ZonePickersView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    queryset = get_user_model().objects.values('id', 'phone_number', 'first_name', 'last_name').order_by('-id')
+    serializer_class = UserSerializers
+
+    def get(self, request):
+        info_logger.info("Zone Pickers api called.")
+        """ GET Zone Pickers List """
+        group = Group.objects.get(name='Picker Boy')
+        self.queryset = self.queryset.filter(groups=group)
+        self.queryset = self.queryset. \
+            exclude(id__in=Zone.objects.values_list('picker_users', flat=True).distinct('picker_users'))
+        search_text = self.request.GET.get('search_text')
+        if search_text:
+            self.queryset = user_search(self.queryset, search_text)
+        zone_picker_users = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        serializer = self.serializer_class(zone_picker_users, many=True)
+        msg = "" if zone_picker_users else "no picker users found"
         return get_response(msg, serializer.data, True)
 
 
@@ -1276,6 +1305,36 @@ class PutawayUsersListView(generics.GenericAPIView):
         return get_response(msg, serializer.data, True)
 
 
+class PickerUsersListView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    queryset = get_user_model().objects.values('id', 'phone_number', 'first_name', 'last_name').order_by('-id')
+    serializer_class = UserSerializers
+
+    def get(self, request):
+        info_logger.info("Zone Picker users api called.")
+        """ GET Zone Picker users List """
+
+        if not request.GET.get('zone'):
+            return get_response("'zone' | This is mandatory.")
+        zone_validation = validate_zone(request.GET.get('zone'))
+        if 'error' in zone_validation:
+            return get_response(zone_validation['error'])
+        zone = zone_validation['data']
+
+        group = Group.objects.get(name='Picker Boy')
+        self.queryset = self.queryset.filter(groups=group)
+        self.queryset = self.queryset. \
+            filter(picker_zone_users__id=zone.id)
+        search_text = self.request.GET.get('search_text')
+        if search_text:
+            self.queryset = user_search(self.queryset, search_text)
+        zone_picker_users = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        serializer = self.serializer_class(zone_picker_users, many=True)
+        msg = "" if zone_picker_users else "no picker users found"
+        return get_response(msg, serializer.data, True)
+
+
 class ZoneFilterView(generics.GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
@@ -1356,12 +1415,11 @@ class UserDetailsPostLoginView(generics.GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     serializer_class = PostLoginUserSerializers
     queryset = get_user_model().objects.all()
-
     def get(self, request):
         """ GET User Details post login """
         self.queryset = self.queryset.filter(id=request.user.id)
         user = SmallOffsetPagination().paginate_queryset(self.queryset, request)
-        serializer = self.serializer_class(user, many=True)
+        serializer = self.serializer_class(self.queryset, many=True)
         msg = "" if user else "no user found"
         return get_response(msg, serializer.data, True)
 
@@ -1535,6 +1593,188 @@ class UpdateQCAreaView(generics.GenericAPIView):
         return Response(result, status=status.HTTP_200_OK)
 
 
+class PickerUserReAssignmentView(generics.GenericAPIView):
+    """API view for PickerDashboard"""
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    queryset = PickerDashboard.objects. \
+        select_related('order', 'repackaging', 'shipment', 'picker_boy', 'zone', 'zone__warehouse',
+                       'zone__warehouse__shop_owner', 'zone__warehouse__shop_type',
+                       'zone__warehouse__shop_type__shop_sub_type', 'zone__supervisor', 'zone__coordinator',
+                       'zone__warehouse', 'qc_area'). \
+        prefetch_related('zone__putaway_users', 'zone__picker_users'). \
+        order_by('-id')
+    serializer_class = PickerDashboardSerializer
+
+    def get(self, request):
+        """ GET API for PickerDashboard """
+        picker_dashboard_total_count = self.queryset.count()
+        if request.GET.get('id'):
+            """ Get PickerDashboards for specific id """
+            id_validation = validate_id(self.queryset, int(request.GET.get('id')))
+            if 'error' in id_validation:
+                return get_response(id_validation['error'])
+            picker_dashboard_data = id_validation['data']
+
+        else:
+            """ GET PickerDashboard List """
+            self.queryset = self.search_filter_picker_dashboard_data()
+            picker_dashboard_total_count = self.queryset.count()
+            picker_dashboard_data = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+
+        serializer = self.serializer_class(picker_dashboard_data, many=True)
+        msg = f"total count {picker_dashboard_total_count}" if picker_dashboard_data else "no picker_dashboard found"
+        return get_response(msg, serializer.data, True)
+
+    @check_whc_manager_coordinator_supervisor
+    def put(self, request):
+        """ Updates the given PickerDashboard"""
+        modified_data = validate_data_format(self.request)
+        if 'error' in modified_data:
+            return get_response(modified_data['error'])
+
+        if 'id' not in modified_data:
+            return get_response('please provide id to update picker_dashboard', False)
+
+        # validations for input id
+        id_validation = validate_id(self.queryset, int(modified_data['id']))
+        if 'error' in id_validation:
+            return get_response(id_validation['error'])
+        picker_dashboard_instance = id_validation['data'].last()
+        serializer = self.serializer_class(instance=picker_dashboard_instance, data=modified_data)
+        if serializer.is_valid():
+            serializer.save(updated_by=request.user)
+            info_logger.info("PickerDashboard Updated Successfully.")
+            return get_response('PickerDashboard updated!', serializer.data)
+        return get_response(serializer_error(serializer), False)
+
+    def search_filter_picker_dashboard_data(self):
+        """ Filters the PickerDashboard data based on request"""
+        search_text = self.request.GET.get('search_text')
+        warehouse = self.request.GET.get('warehouse')
+        zone = self.request.GET.get('zone')
+        qc_area = self.request.GET.get('qc_area')
+        date = self.request.GET.get('date')
+        picking_status = self.request.GET.get('picking_status')
+        repackaging = self.request.GET.get('repackaging')
+        order = self.request.GET.get('order')
+        shipment = self.request.GET.get('shipment')
+        picker_boy = self.request.GET.get('picker_boy')
+
+        '''search using warehouse name, product's name'''
+        if search_text:
+            self.queryset = picker_dashboard_search(self.queryset, search_text)
+
+        '''
+            Filters using warehouse, product, zone, qc_area, date, picking_status, 
+            repackaging, order, shipment, picker_boy
+        '''
+        if warehouse:
+            self.queryset = self.queryset.filter(zone__warehouse__id=warehouse)
+
+        if zone:
+            self.queryset = self.queryset.filter(zone__id=zone)
+
+        if qc_area:
+            self.queryset = self.queryset.filter(qc_area__id=qc_area)
+
+        if date:
+            self.queryset = self.queryset.filter(created_at__date=date)
+
+        if picking_status:
+            self.queryset = self.queryset.filter(picking_status=picking_status)
+
+        if repackaging:
+            self.queryset = self.queryset.filter(repackaging__id=repackaging)
+
+        if order:
+            self.queryset = self.queryset.filter(order__id=order)
+
+        if shipment:
+            self.queryset = self.queryset.filter(shipment__id=shipment)
+
+        if picker_boy:
+            self.queryset = self.queryset.filter(picker_boy__id=picker_boy)
+
+        return self.queryset.distinct('id')
+
+
+class OrderStatusSummaryView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    queryset = PickerDashboard.objects.filter(
+        picking_status__in=[PickerDashboard.PICKING_PENDING, PickerDashboard.PICKING_ASSIGNED,
+                            PickerDashboard.PICKING_IN_PROGRESS, PickerDashboard.PICKING_COMPLETE,
+                            PickerDashboard.MOVED_TO_QC]). \
+        annotate(token_id=Case(
+            When(order=None,
+                 then=F('repackaging')),
+            default=F('order'),
+            output_field=models.CharField(),
+            )
+        ). \
+        exclude(token_id__isnull=True). \
+        exclude(order__rt_order_order_product__isnull=False).\
+        values('token_id').annotate(status_list=ArrayAgg(F('picking_status')))
+    serializer_class = OrderStatusSerializer
+
+    @check_whc_manager_coordinator_supervisor_picker
+    def get(self, request):
+        """ GET API for order status summary """
+        info_logger.info("Order Status Summary GET api called.")
+        """ GET Order Status Summary List """
+
+        return get_response('', None, False)
+
+        self.queryset = get_logged_user_wise_query_set_for_picker(self.request.user, self.queryset)
+        self.queryset = self.filter_picker_summary_data()
+        order_summary_data = {"total": 0, "pending": 0, "completed": 0, "moved_to_qc": 0}
+        for obj in self.queryset:
+            if PickerDashboard.PICKING_PENDING in obj['status_list'] or \
+                    PickerDashboard.PICKING_ASSIGNED in obj['status_list'] or \
+                    PickerDashboard.PICKING_IN_PROGRESS in obj['status_list']:
+                order_summary_data['total'] += 1
+                order_summary_data['pending'] += 1
+            elif PickerDashboard.PICKING_COMPLETE in obj['status_list']:
+                order_summary_data['total'] += 1
+                order_summary_data['completed'] += 1
+            elif PickerDashboard.MOVED_TO_QC in obj['status_list']:
+                order_summary_data['total'] += 1
+                order_summary_data['moved_to_qc'] += 1
+        serializer = self.serializer_class(order_summary_data)
+        msg = "" if order_summary_data else "no order status found"
+        return get_response(msg, serializer.data, True)
+
+    def filter_picker_summary_data(self):
+        zone = self.request.GET.get('zone')
+        picker = self.request.GET.get('picker')
+        selected_date = self.request.GET.get('date')
+        data_days = self.request.GET.get('data_days')
+
+        '''Filters using zone, picker, date'''
+        if zone:
+            self.queryset = self.queryset.filter(zone__id=zone)
+
+        if picker:
+            self.queryset = self.queryset.filter(picker_boy__id=picker)
+
+        if selected_date:
+            if data_days:
+                end_date = datetime.strptime(selected_date, "%Y-%m-%d")
+                start_date = end_date - timedelta(days=int(data_days))
+                end_date = end_date + timedelta(days=1)
+                self.queryset = self.queryset.filter(
+                    created_at__gte=start_date.date(), created_at__lt=end_date.date())
+            else:
+                selected_date = datetime.strptime(selected_date, "%Y-%m-%d")
+                self.queryset = self.queryset.filter(created_at__date=selected_date.date())
+
+        # if date:
+        #     self.queryset = self.queryset.filter(created_at__date=date)
+
+        return self.queryset
+
+
 class POSummaryView(generics.GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
@@ -1651,6 +1891,87 @@ class PutawaySummaryView(generics.GenericAPIView):
         return self.queryset
 
 
+class ZoneWisePickerSummaryView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    queryset = PickerDashboard.objects.filter(
+        picking_status__in=[PickerDashboard.PICKING_PENDING, PickerDashboard.PICKING_ASSIGNED,
+                            PickerDashboard.PICKING_IN_PROGRESS, PickerDashboard.PICKING_COMPLETE,
+                            PickerDashboard.MOVED_TO_QC]). \
+        annotate(token_id=Case(
+            When(order=None,
+                 then=F('repackaging__repackaging_no')),
+            default=F('order__order_no'),
+            output_field=models.CharField(),
+            )
+        ). \
+        exclude(token_id__isnull=True). \
+        exclude(order__rt_order_order_product__isnull=False).\
+        order_by('zone', 'token_id', 'picking_status')
+    serializer_class = ZonewisePickerSummarySerializers
+
+    @check_whc_manager_coordinator_supervisor_picker
+    def get(self, request):
+        """ GET API for order status summary """
+        info_logger.info("Order Status Summary GET api called.")
+        """ GET Order Status Summary List """
+
+        return get_response('', None, False)
+        validated_data = validate_data_days_date_request(self.request)
+        if 'error' in validated_data:
+            return get_response(validated_data['error'])
+        self.queryset = get_logged_user_wise_query_set_for_picker(self.request.user, self.queryset)
+        self.queryset = self.filter_picker_summary_data()
+        zone_wise_data = []
+        for zone, group in groupby(self.queryset, lambda x: x.zone):
+            zones_dict = {"zone": zone, "status_count": {"total": 0, "pending": 0, "completed": 0, "moved_to_qc": 0}}
+            for token_id, middle_group in groupby(group, lambda x: x.token_id):
+                p_status = None
+                for picking_status, inner_group in groupby(middle_group, lambda x: x.picking_status):
+                    if picking_status in [PickerDashboard.PICKING_PENDING, PickerDashboard.PICKING_ASSIGNED,
+                                          PickerDashboard.PICKING_IN_PROGRESS]:
+                        p_status = "pending"
+                        break
+                    elif picking_status == PickerDashboard.PICKING_COMPLETE:
+                        p_status = "completed"
+                        continue
+                    elif p_status is None and picking_status == PickerDashboard.MOVED_TO_QC:
+                        p_status = "moved_to_qc"
+                zones_dict['status_count']['total'] += 1
+                zones_dict['status_count'][p_status] += 1
+            zone_wise_data.append(zones_dict)
+
+        serializer = self.serializer_class(zone_wise_data, many=True)
+        msg = "" if zone_wise_data else "no picker found"
+        return get_response(msg, serializer.data, True)
+
+    def filter_picker_summary_data(self):
+        zone = self.request.GET.get('zone')
+        picker = self.request.GET.get('picker')
+        date = self.request.GET.get('date')
+        data_days = self.request.GET.get('data_days')
+
+        '''Filters using zone, picker, date'''
+        if zone:
+            self.queryset = self.queryset.filter(zone__id=zone)
+
+        if picker:
+            self.queryset = self.queryset.filter(picker_boy__id=picker)
+        
+        if date:
+            if data_days:
+                end_date = datetime.strptime(date, "%Y-%m-%d")
+                start_date = end_date - timedelta(days=int(data_days))
+                end_date = end_date + timedelta(days=1)
+                self.queryset = self.queryset.filter(
+                    created_at__gte=start_date.date(), created_at__lt=end_date.date())
+            else:
+                selected_date = datetime.strptime(date, "%Y-%m-%d")
+                self.queryset = self.queryset.filter(created_at__date=selected_date.date())
+
+        return self.queryset
+
+
 class ZoneWiseSummaryView(generics.GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
@@ -1710,3 +2031,649 @@ class ZoneWiseSummaryView(generics.GenericAPIView):
 
         return self.queryset
 
+
+class CountDistinctOrder(Count):
+    allow_distinct = True
+
+
+class PickerDashboardStatusSummaryView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    queryset = PickerDashboard.objects.filter(
+
+        picking_status__in=[PickerDashboard.PICKING_PENDING, PickerDashboard.PICKING_ASSIGNED,
+                            PickerDashboard.PICKING_IN_PROGRESS, PickerDashboard.PICKING_COMPLETE,
+                            PickerDashboard.MOVED_TO_QC]). \
+        annotate(token_id=Case(
+            When(order=None,
+                 then=F('repackaging')),
+            default=F('order'),
+            output_field=models.CharField(),
+            )
+        ). \
+        exclude(token_id__isnull=True)
+    serializer_class = OrderStatusSerializer
+
+    @check_whc_manager_coordinator_supervisor_picker
+    def get(self, request):
+        """ GET API for order status summary """
+        info_logger.info("Order Status Summary GET api called.")
+        """ GET Order Status Summary List """
+
+        self.queryset = get_logged_user_wise_query_set_for_picker(self.request.user, self.queryset)
+        self.queryset = self.filter_picker_summary_data()
+        order_summary_data = self.queryset.aggregate(
+            total=CountDistinctOrder('token_id'),
+            pending=CountDistinctOrder('token_id', filter=(Q(
+                picking_status__in=[PickerDashboard.PICKING_PENDING, PickerDashboard.PICKING_ASSIGNED,
+                                    PickerDashboard.PICKING_IN_PROGRESS]))),
+            completed=CountDistinctOrder('token_id', filter=(Q(picking_status=PickerDashboard.PICKING_COMPLETE))),
+            moved_to_qc=CountDistinctOrder('token_id', filter=(Q(picking_status=PickerDashboard.MOVED_TO_QC))),
+        )
+        serializer = self.serializer_class(order_summary_data)
+        msg = "" if order_summary_data else "no order status found"
+        return get_response(msg, serializer.data, True)
+
+    def filter_picker_summary_data(self):
+        zone = self.request.GET.get('zone')
+        picker = self.request.GET.get('picker')
+        date = self.request.GET.get('date')
+
+        '''Filters using zone, picker, date'''
+        if zone:
+            self.queryset = self.queryset.filter(zone__id=zone)
+
+        if picker:
+            self.queryset = self.queryset.filter(picker_boy__id=picker)
+
+        if date:
+            self.queryset = self.queryset.filter(created_at__date=date)
+
+        return self.queryset
+
+
+class PutawayTypeIDSearchView(generics.GenericAPIView):
+    # authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    queryset = Putaway.objects.filter(
+        putaway_type__in=['GRN', 'RETURNED', 'CANCELLED', 'PAR_SHIPMENT', 'REPACKAGING', 'picking_cancelled']). \
+        only('putaway_type_id').\
+        annotate(token_id=Case(
+                    When(putaway_type='GRN',
+                         then=Cast(Subquery(In.objects.filter(
+                             id=Cast(OuterRef('putaway_type_id'), models.IntegerField())).
+                                            order_by('-in_type_id').values('in_type_id')[:1]), models.CharField())),
+                    When(putaway_type='picking_cancelled',
+                         then=Cast(Subquery(Pickup.objects.filter(
+                             id=Cast(OuterRef('putaway_type_id'), models.IntegerField())).
+                                            order_by('-pickup_type_id').
+                                            values('pickup_type_id')[:1]), models.CharField())),
+                    When(putaway_type__in=['RETURNED', 'CANCELLED', 'PAR_SHIPMENT', 'REPACKAGING'],
+                         then=Cast('putaway_type_id', models.CharField())),
+                    output_field=models.CharField(),
+                )).values_list('token_id', flat=True)
+
+    def get(self, request):
+        self.queryset = self.search_putaway_id()
+        putaway_token_list = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        # serializer = self.serializer_class(bins, many=True)
+        msg = ""
+        return get_response(msg, putaway_token_list, True)
+
+    def search_putaway_id(self):
+        search_text = self.request.GET.get('search_text')
+        warehouse = self.request.user.shop_employee.last().shop_id
+
+        '''search using bin_id'''
+        if search_text:
+            self.queryset = self.queryset.filter(token_id__icontains=search_text)
+
+        '''Filters using warehouse'''
+        if warehouse:
+            self.queryset = self.queryset.filter(warehouse__id=warehouse)
+
+        return self.queryset.distinct('token_id')
+
+
+class QCExecutivesView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    queryset = get_user_model().objects.values('id', 'phone_number', 'first_name', 'last_name').order_by('-id')
+    serializer_class = UserSerializers
+
+    def get(self, request):
+        info_logger.info("QC Executives api called.")
+        """ GET QC Executives List """
+        perm = Permission.objects.get(codename='can_have_qc_executive_permission')
+        self.queryset = self.queryset.filter(Q(groups__permissions=perm) | Q(user_permissions=perm)).distinct()
+        search_text = self.request.GET.get('search_text')
+        if search_text:
+            self.queryset = user_search(self.queryset, search_text)
+        qc_executives = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        serializer = self.serializer_class(qc_executives, many=True)
+        msg = "" if qc_executives else "no qc executives found"
+        return get_response(msg, serializer.data, True)
+
+
+class QCDeskCrudView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    queryset = QCDesk.objects. \
+        select_related('warehouse', 'warehouse__shop_owner', 'warehouse__shop_type',
+                       'warehouse__shop_type__shop_sub_type', 'qc_executive', 'alternate_desk',
+                       'alternate_desk__warehouse__shop_owner', 'alternate_desk__warehouse__shop_type',
+                       'alternate_desk__warehouse__shop_type__shop_sub_type', 'created_by', 'updated_by',). \
+        prefetch_related('qc_areas'). \
+        only('id', 'warehouse__id', 'warehouse__status', 'warehouse__shop_name', 'warehouse__shop_type',
+             'warehouse__shop_type__shop_type', 'warehouse__shop_type__shop_sub_type',
+             'warehouse__shop_type__shop_sub_type__retailer_type_name',
+             'warehouse__shop_owner', 'warehouse__shop_owner__first_name', 'warehouse__shop_owner__last_name',
+             'warehouse__shop_owner__phone_number', 'alternate_desk__id', 'alternate_desk__warehouse__id',
+             'alternate_desk__warehouse__status', 'alternate_desk__warehouse__shop_name',
+             'alternate_desk__warehouse__shop_type', 'alternate_desk__warehouse__shop_type__shop_type',
+             'alternate_desk__warehouse__shop_type__shop_sub_type', 'alternate_desk__warehouse__shop_owner',
+             'alternate_desk__warehouse__shop_type__shop_sub_type__retailer_type_name',
+             'alternate_desk__warehouse__shop_owner__first_name', 'alternate_desk__warehouse__shop_owner__last_name',
+             'alternate_desk__warehouse__shop_owner__phone_number', 'qc_executive__first_name',
+             'qc_executive__last_name', 'qc_executive__phone_number', 'created_at', 'updated_at',
+             'created_by__first_name', 'created_by__last_name', 'created_by__phone_number', 'updated_by__first_name',
+             'updated_by__last_name', 'updated_by__phone_number',). \
+        order_by('-id')
+    serializer_class = QCDeskCrudSerializers
+
+    @check_qc_executive
+    def get(self, request):
+        """ GET API for QCDesk """
+        info_logger.info("QCDesk GET api called.")
+        qc_desk_total_count = self.queryset.count()
+        if not request.GET.get('warehouse'):
+            return get_response("'warehouse' | This is mandatory.")
+        if request.GET.get('id'):
+            """ Get QCDesk for specific ID """
+            id_validation = validate_id_and_warehouse(
+                self.queryset, int(request.GET.get('id')), int(request.GET.get('warehouse')))
+            if 'error' in id_validation:
+                return get_response(id_validation['error'])
+            qc_desks_data = id_validation['data']
+        else:
+            """ GET QCDesk List """
+            self.queryset = self.search_filter_qc_desks_data()
+            qc_desk_total_count = self.queryset.count()
+            qc_desks_data = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+
+        serializer = self.serializer_class(qc_desks_data, many=True)
+        msg = f"total count {qc_desk_total_count}" if qc_desks_data else "no qc_desk found"
+        return get_response(msg, serializer.data, True)
+
+    @check_qc_executive
+    def post(self, request):
+        """ POST API for QCDesk Creation """
+
+        info_logger.info("QCDesk POST api called.")
+        modified_data = validate_data_format(self.request)
+        if 'error' in modified_data:
+            return get_response(modified_data['error'])
+
+        serializer = self.serializer_class(data=modified_data)
+        if serializer.is_valid():
+            serializer.save(created_by=request.user)
+            info_logger.info("QCDesk Created Successfully.")
+            return get_response('qc_desk created successfully!', serializer.data)
+        return get_response(serializer_error(serializer), False)
+
+    @check_qc_executive
+    def put(self, request):
+        """ PUT API for QCDesk Updation """
+
+        info_logger.info("QCDesk PUT api called.")
+        modified_data = validate_data_format(self.request)
+        if 'error' in modified_data:
+            return get_response(modified_data['error'])
+
+        if 'id' not in modified_data:
+            return get_response('please provide id to update qc_desk', False)
+
+        # validations for input id
+        id_validation = validate_id(self.queryset, int(modified_data['id']))
+        if 'error' in id_validation:
+            return get_response(id_validation['error'])
+        qc_desk_instance = id_validation['data'].last()
+
+        serializer = self.serializer_class(instance=qc_desk_instance, data=modified_data)
+        if serializer.is_valid():
+            serializer.save(updated_by=request.user)
+            info_logger.info("QCDesk Updated Successfully.")
+            return get_response('qc_desk updated!', serializer.data)
+        return get_response(serializer_error(serializer), False)
+
+    def search_filter_qc_desks_data(self):
+        search_text = self.request.GET.get('search_text')
+        warehouse = self.request.GET.get('warehouse')
+        qc_executive = self.request.GET.get('qc_executive')
+        desk_number = self.request.GET.get('desk_number')
+        name = self.request.GET.get('name')
+
+        '''search using warehouse's shop_name & desk_number & name & qc_executive'''
+        if search_text:
+            self.queryset = qc_desk_search(self.queryset, search_text)
+
+        '''Filters using warehouse, qc_executive, desk_number, name'''
+
+        if desk_number:
+            self.queryset = self.queryset.filter(desk_number__icontains=desk_number)
+
+        if name:
+            self.queryset = self.queryset.filter(name__icontains=name)
+
+        if warehouse:
+            self.queryset = self.queryset.filter(warehouse__id=warehouse)
+
+        if qc_executive:
+            self.queryset = self.queryset.filter(qc_executive__id=qc_executive)
+
+        return self.queryset.distinct('id')
+
+
+class QCAreaCrudView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    queryset = QCArea.objects. \
+        select_related('warehouse', 'warehouse__shop_owner', 'warehouse__shop_type',
+                       'warehouse__shop_type__shop_sub_type', 'created_by', 'updated_by',). \
+        only('id', 'warehouse__id', 'warehouse__status', 'warehouse__shop_name', 'warehouse__shop_type',
+             'warehouse__shop_type__shop_type', 'warehouse__shop_type__shop_sub_type',
+             'warehouse__shop_type__shop_sub_type__retailer_type_name',
+             'warehouse__shop_owner', 'warehouse__shop_owner__first_name', 'warehouse__shop_owner__last_name',
+             'warehouse__shop_owner__phone_number', 'area_id', 'area_type', 'area_barcode_txt', 'area_barcode',
+             'is_active', 'created_at', 'updated_at', 'created_by__first_name', 'created_by__last_name',
+             'created_by__phone_number', 'updated_by__first_name', 'updated_by__last_name',
+             'updated_by__phone_number',).order_by('-id')
+    serializer_class = QCAreaCrudSerializers
+
+    @check_qc_executive
+    def get(self, request):
+        """ GET API for QCArea """
+        info_logger.info("QCArea GET api called.")
+        qc_area_total_count = self.queryset.count()
+        if not request.GET.get('warehouse'):
+            return get_response("'warehouse' | This is mandatory.")
+        if request.GET.get('id'):
+            """ Get QCArea for specific ID """
+            id_validation = validate_id_and_warehouse(
+                self.queryset, int(request.GET.get('id')), int(request.GET.get('warehouse')))
+            if 'error' in id_validation:
+                return get_response(id_validation['error'])
+            qc_areas_data = id_validation['data']
+        else:
+            """ GET QCArea List """
+            self.queryset = self.search_filter_qc_areas_data()
+            qc_area_total_count = self.queryset.count()
+            qc_areas_data = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+
+        serializer = self.serializer_class(qc_areas_data, many=True)
+        msg = f"total count {qc_area_total_count}" if qc_areas_data else "no qc_area found"
+        return get_response(msg, serializer.data, True)
+
+    @check_qc_executive
+    def post(self, request):
+        """ POST API for QCArea Creation """
+
+        info_logger.info("QCArea POST api called.")
+        modified_data = validate_data_format(self.request)
+        if 'error' in modified_data:
+            return get_response(modified_data['error'])
+
+        serializer = self.serializer_class(data=modified_data)
+        if serializer.is_valid():
+            serializer.save(created_by=request.user)
+            info_logger.info("QCArea Created Successfully.")
+            return get_response('qc_area created successfully!', serializer.data)
+        return get_response(serializer_error(serializer), False)
+
+    @check_qc_executive
+    def put(self, request):
+        """ PUT API for QCArea Updation """
+
+        info_logger.info("QCArea PUT api called.")
+        modified_data = validate_data_format(self.request)
+        if 'error' in modified_data:
+            return get_response(modified_data['error'])
+
+        if 'id' not in modified_data:
+            return get_response('please provide id to update qc_area', False)
+
+        # validations for input id
+        id_validation = validate_id(self.queryset, int(modified_data['id']))
+        if 'error' in id_validation:
+            return get_response(id_validation['error'])
+        qc_area_instance = id_validation['data'].last()
+
+        serializer = self.serializer_class(instance=qc_area_instance, data=modified_data)
+        if serializer.is_valid():
+            serializer.save(updated_by=request.user)
+            info_logger.info("QCArea Updated Successfully.")
+            return get_response('qc_area updated!', serializer.data)
+        return get_response(serializer_error(serializer), False)
+
+    def search_filter_qc_areas_data(self):
+        search_text = self.request.GET.get('search_text')
+        warehouse = self.request.GET.get('warehouse')
+        area_id = self.request.GET.get('area_id')
+        area_type = self.request.GET.get('area_type')
+        area_barcode_txt = self.request.GET.get('area_barcode_txt')
+
+        '''search using warehouse's shop_name & area_id & area_barcode_txt'''
+        if search_text:
+            self.queryset = qc_area_search(self.queryset, search_text)
+
+        '''Filters using warehouse, area_id, area_type, area_barcode_txt'''
+
+        if area_id:
+            self.queryset = self.queryset.filter(area_id__icontains=area_id)
+
+        if area_type:
+            self.queryset = self.queryset.filter(area_type__icontains=area_type)
+
+        if area_barcode_txt:
+            self.queryset = self.queryset.filter(area_barcode_txt__icontains=area_barcode_txt)
+
+        if warehouse:
+            self.queryset = self.queryset.filter(warehouse__id=warehouse)
+
+        return self.queryset.distinct('id')
+
+
+class QCDeskQCAreaAssignmentMappingView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    queryset = QCDeskQCAreaAssignmentMapping.objects. \
+        select_related('qc_desk__warehouse', 'qc_desk__warehouse__shop_owner', 'qc_desk__warehouse__shop_type',
+                       'qc_desk__warehouse__shop_type__shop_sub_type',). \
+        order_by('-id')
+    serializer_class = QCDeskQCAreaAssignmentMappingSerializers
+
+    @check_qc_executive
+    def get(self, request):
+        """ GET API for QCDeskQCAreaAssignmentMapping """
+        info_logger.info("QCDeskQCAreaAssignmentMapping GET api called.")
+        qc_area_total_count = self.queryset.count()
+        if request.GET.get('id'):
+            """ Get QCDeskQCAreaAssignmentMapping for specific ID """
+            id_validation = validate_id(self.queryset, int(request.GET.get('id')))
+            if 'error' in id_validation:
+                return get_response(id_validation['error'])
+            qc_areas_data = id_validation['data']
+        else:
+            if not request.GET.get('warehouse'):
+                return get_response("'warehouse' | This is mandatory.")
+            """ GET QCDeskQCAreaAssignmentMapping List """
+            self.queryset = self.search_filter_qc_areas_data()
+            qc_area_total_count = self.queryset.count()
+            qc_areas_data = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+
+        serializer = self.serializer_class(qc_areas_data, many=True)
+        msg = f"total count {qc_area_total_count}" if qc_areas_data else "no qc desk to qc area mapping found"
+        return get_response(msg, serializer.data, True)
+
+    def search_filter_qc_areas_data(self):
+        warehouse = self.request.GET.get('warehouse')
+        token_id = self.request.GET.get('token_id')
+        area_enabled = self.request.GET.get('area_enabled')
+        qc_desk = self.request.GET.get('qc_desk')
+        qc_area = self.request.GET.get('qc_area')
+
+        '''Filters using warehouse, token_id, area_enabled, qc_desk, qc_area'''
+
+        if warehouse:
+            self.queryset = self.queryset.filter(qc_desk__warehouse__id=warehouse)
+
+        if token_id:
+            self.queryset = self.queryset.filter(token_id__icontains=token_id)
+
+        if area_enabled:
+            self.queryset = self.queryset.filter(area_enabled__icontains=area_enabled)
+
+        if qc_desk:
+            self.queryset = self.queryset.filter(Q(qc_desk__desk_number__icontains=qc_desk) |
+                                                 Q(qc_desk__name__icontains=qc_desk))
+
+        if qc_area:
+            self.queryset = self.queryset.filter(qc_area__area_id__icontains=qc_area)
+
+        return self.queryset.distinct('id')
+
+
+class QCAreaTypeListView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+
+    def get(self, request):
+        """ GET API for QCAreaTypeList """
+        info_logger.info("QCAreaTypeList GET api called.")
+        fields = ['id', 'area_type']
+        data = [dict(zip(fields, d)) for d in QCArea.QC_AREA_TYPE_CHOICES]
+        msg = ""
+        return get_response(msg, data, True)
+
+
+class QCDeskHelperDashboardView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    queryset = QCDeskQCAreaAssignmentMapping.objects.filter(qc_desk__desk_enabled=True, area_enabled=True,
+                                                            qc_done=False)
+    serializer_class = QCDeskHelperDashboardSerializer
+
+    @check_whc_manager_coordinator_supervisor_qc_executive
+    def get(self, request):
+        """ GET API for QC Desk Helper Dashboard """
+        info_logger.info("QC Desk Helper Dashboard GET api called.")
+        """ GET QC Desk Helper Dashboard List """
+
+        self.queryset = get_logged_user_wise_query_set_for_qc_desk_mapping(self.request.user, self.queryset)
+        self.queryset = self.filter_qc_desk_helper_dashboard_data()
+        qc_desk_helper_dashboard_data = self.queryset.values('qc_desk').distinct()
+
+        serializer = self.serializer_class(qc_desk_helper_dashboard_data, many=True)
+        msg = "" if qc_desk_helper_dashboard_data else "no entry found"
+        return get_response(msg, serializer.data, True)
+
+    def filter_qc_desk_helper_dashboard_data(self):
+        qc_desk_id = self.request.GET.get('qc_desk_id')
+        qc_desk = self.request.GET.get('qc_desk')
+        qc_area_id = self.request.GET.get('qc_area_id')
+        qc_area = self.request.GET.get('qc_area')
+
+        selected_date = self.request.GET.get('date')
+        data_days = self.request.GET.get('data_days')
+
+        '''Filters using qc_desk, qc_area'''
+        if qc_desk_id:
+            self.queryset = self.queryset.filter(qc_desk__id=qc_desk_id)
+
+        if qc_desk:
+            self.queryset = self.queryset.filter(qc_desk__desk_number=qc_desk)
+
+        if qc_area_id:
+            self.queryset = self.queryset.filter(qc_area__id=qc_area_id)
+
+        if qc_area:
+            self.queryset = self.queryset.filter(qc_area__area_id=qc_area)
+
+        if selected_date:
+            if data_days:
+                end_date = datetime.strptime(selected_date, "%Y-%m-%d")
+                start_date = end_date - timedelta(days=int(data_days))
+                end_date = end_date + timedelta(days=1)
+                self.queryset = self.queryset.filter(
+                    last_assigned_at__gte=start_date.date(), last_assigned_at__lt=end_date.date())
+            else:
+                selected_date = datetime.strptime(selected_date, "%Y-%m-%d")
+                self.queryset = self.queryset.filter(last_assigned_at__date=selected_date.date())
+
+        return self.queryset
+
+
+class QCJobsDashboardView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    queryset = QCDesk.objects.filter(desk_enabled=True)
+    serializer_class = QCJobsDashboardSerializer
+
+    def get_serializer_context(self):
+        context = super(QCJobsDashboardView, self).get_serializer_context()
+        end_date = datetime.strptime(self.request.GET.get('created_at', datetime.now().date().isoformat()), "%Y-%m-%d")
+        start_date = end_date - timedelta(days=int(self.request.GET.get('data_days', 0)))
+        context.update({"start_date": start_date.date(), "end_date": end_date.date()})
+        return context
+
+    @check_whc_manager_coordinator_supervisor_qc_executive
+    def get(self, request):
+        """ GET API for QC Jobs Dashboard """
+        info_logger.info("QC Jobs Dashboard GET api called.")
+        """ GET QC Jobs Dashboard List """
+        self.queryset = get_logged_user_wise_query_set_for_qc_desk(self.request.user, self.queryset)
+        serializer = self.serializer_class(self.queryset, context=self.get_serializer_context(), many=True)
+        msg = "" if self.queryset else "no qc job found"
+        return get_response(msg, serializer.data, True)
+
+
+class PendingQCJobsView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    queryset = OrderedProduct.objects.\
+        filter(qc_area__isnull=False, shipment_status__in=[OrderedProduct.SHIPMENT_CREATED, OrderedProduct.QC_STARTED]).\
+        select_related('order', 'order__seller_shop', 'qc_area').\
+        prefetch_related('qc_area__qc_desk_areas', 'qc_area__qc_desk_areas__qc_executive').\
+        only('id', 'order__order_no', 'order__seller_shop__id', 'shipment_status', 'qc_area__id',
+             'qc_area__area_id', 'qc_area__area_type', 'created_at').\
+        order_by('-id')
+    serializer_class = PendingQCJobsSerializer
+
+    @check_qc_executive
+    def get(self, request):
+        """ GET API for Pending QC Jobs """
+        info_logger.info("Pending QC Jobs GET api called.")
+
+        if not request.GET.get('warehouse'):
+            return get_response("'warehouse' | This is mandatory.")
+        if not request.GET.get('crate'):
+            return get_response("'crate' | This is mandatory.")
+
+        """ GET Pending QC Jobs List """
+        self.queryset = get_logged_user_wise_query_set_for_shipment(self.request.user, self.queryset)
+        self.queryset = self.search_filter_data()
+        qc_areas_data = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+
+        serializer = self.serializer_class(qc_areas_data, many=True)
+        msg = "" if qc_areas_data else "No pending shipment for this crate."
+        return get_response(msg, serializer.data, True)
+
+    def search_filter_data(self):
+        warehouse = self.request.GET.get('warehouse')
+        crate = self.request.GET.get('crate')
+
+        '''Filters using warehouse, order, area_enabled, qc_desk, qc_area'''
+
+        if warehouse:
+            self.queryset = self.queryset.filter(order__seller_shop_id=warehouse)
+
+        if crate:
+            pickup_orders_list = Pickup.objects.filter(
+                warehouse_id=warehouse, pickup_crates__crate__crate_id__iexact=crate, pickup_crates__is_in_use=True).\
+                values_list('pickup_type_id', flat=True)
+            self.queryset = self.queryset.filter(order__order_no__in=pickup_orders_list)
+
+        return self.queryset
+
+
+class PickingTypeListView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+
+    def get(self, request):
+        """ GET API for QCAreaTypeList """
+        info_logger.info("Picking Type GET api called.")
+        fields = ['id', 'type']
+        data = [dict(zip(fields, d)) for d in PickerDashboard.PICKING_TYPE_CHOICE]
+        msg = ""
+        return get_response(msg, data, True)
+
+
+class QCDeskFilterView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    queryset = QCDesk.objects. \
+        select_related('warehouse', 'qc_executive').\
+        only('id', 'desk_number', 'name', 'warehouse__id', 'warehouse__shop_name', 'warehouse__shop_type',
+             'warehouse__shop_type__shop_sub_type', 'warehouse__shop_owner', 'warehouse__shop_owner__first_name',
+             'warehouse__shop_owner__last_name', 'warehouse__shop_owner__phone_number', 'qc_executive__id',
+             'qc_executive__first_name', 'qc_executive__last_name', 'qc_executive__phone_number'). \
+        order_by('-id')
+    serializer_class = QCDeskSerializer
+
+    def get(self, request):
+        self.queryset = self.search_filter_desk_data()
+        qc_desks = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        serializer = self.serializer_class(qc_desks, many=True)
+        msg = "" if qc_desks else "no qc_desks found"
+        return get_response(msg, serializer.data, True)
+
+    def search_filter_desk_data(self):
+        search_text = self.request.GET.get('search_text')
+        warehouse = self.request.user.shop_employee.last().shop_id
+        '''search using warehouse name, supervisor's firstname  and coordinator's firstname'''
+        if search_text:
+            self.queryset = qc_desk_search(self.queryset, search_text)
+
+        '''Filters using warehouse, supervisor, coordinator'''
+        if warehouse:
+            self.queryset = self.queryset.filter(warehouse__id=warehouse)
+
+        return self.queryset.distinct('id')
+
+
+class CrateView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    queryset = Crate.objects.only('id', 'crate_id', 'zone__id', 'zone__zone_number', 'zone__name', 'crate_barcode_txt',
+                                  'crate_type')
+    serializer_class = CrateSerializer
+
+    def get(self, request):
+        if request.GET.get('id'):
+            """ Get Crate for specific ID """
+            id_validation = validate_id(self.queryset, int(request.GET.get('id')))
+            if 'error' in id_validation:
+                return get_response(id_validation['error'])
+            crates = id_validation['data']
+        else:
+            self.queryset = self.search_filter_crate_data()
+            crates = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        serializer = self.serializer_class(crates, many=True)
+        msg = "" if crates else "no crate found"
+        return get_response(msg, serializer.data, True)
+
+    def search_filter_crate_data(self):
+        search_text = self.request.GET.get('search_text')
+        warehouse = self.request.user.shop_employee.last().shop_id
+        zone = self.request.GET.get('zone')
+        zone_number = self.request.GET.get('zone_number')
+        crate_id = self.request.GET.get('crate_id')
+        crate_type = self.request.GET.get('crate_type')
+
+        if warehouse:
+            self.queryset = self.queryset.filter(warehouse__id=warehouse)
+
+        if zone:
+            self.queryset = self.queryset.filter(zone=zone)
+
+        if zone_number:
+            self.queryset = self.queryset.filter(zone__zone_number=zone_number)
+
+        if crate_id:
+            self.queryset = self.queryset.filter(crate_id=crate_id)
+
+        if crate_type:
+            self.queryset = self.queryset.filter(crate_type=crate_type)
+
+        return self.queryset.distinct('id')

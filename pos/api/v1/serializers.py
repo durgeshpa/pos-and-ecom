@@ -72,7 +72,7 @@ class RetailerProductCreateSerializer(serializers.Serializer):
     images = serializers.ListField(required=False, default=None, child=serializers.ImageField(), max_length=3)
     is_discounted = serializers.BooleanField(default=False)
     online_enabled = serializers.BooleanField(default=True)
-    online_price = serializers.DecimalField(max_digits=6, decimal_places=2, required=False, min_value=0.01,
+    online_price = serializers.DecimalField(max_digits=6, decimal_places=2, required=False, min_value=0.00,
                                             allow_null=True)
     ean_not_available = serializers.BooleanField(default=False)
     product_pack_type = serializers.ChoiceField(choices=['packet', 'loose'], default='packet')
@@ -103,7 +103,7 @@ class RetailerProductCreateSerializer(serializers.Serializer):
             raise serializers.ValidationError("Selling Price should be equal to OR less than MRP")
 
         if 'online_enabled' in attrs and attrs['online_enabled']:
-            if 'online_price' not in attrs or not attrs['online_price']:
+            if 'online_price' not in attrs and not attrs['online_price']:
                 raise serializers.ValidationError("Online Price may not be empty")
         if 'online_price' in attrs and attrs['online_price']\
                 is not None and attrs['online_price'] > mrp:
@@ -205,7 +205,7 @@ class RetailerProductUpdateSerializer(serializers.Serializer):
     discounted_stock = serializers.DecimalField(max_digits=10, decimal_places=3, required=False, default=0, min_value=0)
     online_enabled = serializers.BooleanField(required=False)
     online_price = serializers.DecimalField(max_digits=6, decimal_places=2, required=False,
-                                            min_value=0.01, allow_null=True)
+                                            min_value=0.00, allow_null=True)
     ean_not_available = serializers.BooleanField(default=None)
     product_pack_type = serializers.ChoiceField(choices=['packet', 'loose'],required=False)
     purchase_pack_size = serializers.IntegerField(default=None)
@@ -236,7 +236,7 @@ class RetailerProductUpdateSerializer(serializers.Serializer):
             raise serializers.ValidationError("Selling Price should be equal to OR less than MRP")
 
         if 'online_enabled' in attrs and attrs['online_enabled']:
-            if 'online_price' not in attrs or not attrs['online_price']:
+            if 'online_price' not in attrs and not attrs['online_price']:
                 raise serializers.ValidationError("Online Price may not be empty")
             attrs['online_enabled'] = attrs['online_enabled']
 
@@ -578,8 +578,7 @@ class BasicCartSerializer(serializers.ModelSerializer):
 
     def get_amount_payable(self, obj):
         sub_total = float(self.total_amount_dt(obj)) - self.get_total_discount(obj)
-        sub_total = math.floor(sub_total)
-        return round(sub_total, 2)
+        return round(sub_total)
 
 
 class CheckoutSerializer(serializers.ModelSerializer):
@@ -592,6 +591,7 @@ class CheckoutSerializer(serializers.ModelSerializer):
     amount_payable = serializers.SerializerMethodField()
     buyer = PosUserSerializer()
     reward_detail = serializers.SerializerMethodField()
+    total_mrp = serializers.SerializerMethodField()
 
     @staticmethod
     def get_redeem_points_value(obj):
@@ -616,6 +616,16 @@ class CheckoutSerializer(serializers.ModelSerializer):
                 total_amount += Decimal(cart_pro.retailer_product.online_price) * Decimal(cart_pro.qty)
         return total_amount
 
+    def get_total_mrp(self,obj):
+        total=0
+        for cart_pro in obj.rt_cart_list.all():
+            total  +=(cart_pro.retailer_product.mrp * cart_pro.qty)
+
+        return total
+
+
+
+
     def get_total_discount(self, obj):
         """
             Discounts applied on cart
@@ -634,12 +644,11 @@ class CheckoutSerializer(serializers.ModelSerializer):
         """
         sub_total = float(self.get_total_amount(obj)) - self.get_total_discount(obj) - float(
             self.get_redeem_points_value(obj))
-        sub_total = math.floor(sub_total)
-        return round(sub_total, 2)
+        return round(sub_total)
 
     class Meta:
         model = Cart
-        fields = ('id', 'total_amount', 'total_discount', 'redeem_points_value', 'amount_payable', 'buyer',
+        fields = ('id', 'total_mrp','total_amount', 'total_discount', 'redeem_points_value', 'amount_payable', 'buyer',
                   'reward_detail')
 
 
@@ -701,8 +710,6 @@ class BasicOrderListSerializer(serializers.ModelSerializer):
         return None
 
     def payment_data(self, obj):
-        if not obj.rt_payment_retailer_order.exists():
-            return None
         return PaymentSerializer(obj.rt_payment_retailer_order.all(), many=True).data
 
     def get_delivery_persons(self, obj):
@@ -770,9 +777,13 @@ class OrderedDashBoardSerializer(serializers.Serializer):
 
     shop_name = serializers.CharField()
     orders = serializers.IntegerField()
+    pos_order_count = serializers.IntegerField()
+    ecom_order_count = serializers.IntegerField()
     registered_users = serializers.IntegerField(required=False)
     products = serializers.IntegerField(required=False)
     revenue = serializers.DecimalField(max_digits=9, decimal_places=2, required=False)
+    pos_revenue = serializers.DecimalField(max_digits=9, decimal_places=2, required=False)
+    ecom_revenue = serializers.DecimalField(max_digits=9, decimal_places=2, required=False)
 
 
 class ReturnItemsSerializer(serializers.ModelSerializer):
@@ -3154,7 +3165,7 @@ class PosEcomOrderDetailSerializer(serializers.ModelSerializer):
         redeem_points_value = self.get_redeem_points_value(obj)
         order_value = round(obj.order_amount + discount + redeem_points_value, 2)
         order_summary['order_value'], order_summary['discount'], order_summary['redeem_points_value'], order_summary[
-            'amount_paid'] = order_value, discount, redeem_points_value, int(obj.order_amount)
+            'amount_paid'] = order_value, discount, redeem_points_value, round(obj.order_amount)
         payment_obj = obj.rt_payment_retailer_order.all().last()
         order_summary['payment_type'] = payment_obj.payment_type.type
         order_summary['transaction_id'] = payment_obj.transaction_id

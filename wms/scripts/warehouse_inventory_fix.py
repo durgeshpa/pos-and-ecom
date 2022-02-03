@@ -23,6 +23,13 @@ def run():
         # match_picked_inventory(w)
 
 
+def warehouse_inventory_fix_by_cron():
+    print("Called warehouse_inventory_fix_by_cron")
+    for w in warehouse_list:
+        match_total_available_and_to_be_picked(w)
+    print("Ended warehouse_inventory_fix_by_cron")
+
+
 def match_picked_inventory(warehouse):
      picked_qty_dict = Pickup.objects.filter(warehouse=warehouse, status='picking_complete',
                                              pickup_type_id__in=

@@ -22,7 +22,7 @@ from audit.models import AUDIT_PRODUCT_STATUS, AuditProduct
 from .models import (Bin, BinInventory, Putaway, PutawayBinInventory, Pickup, WarehouseInventory,
                      InventoryState, InventoryType, WarehouseInternalInventoryChange, In, PickupBinInventory,
                      BinInternalInventoryChange, StockMovementCSVUpload, StockCorrectionChange, OrderReserveRelease,
-                     Audit, Out, Zone, WarehouseAssortment, QCArea)
+                     Audit, Out, Zone, WarehouseAssortment, PickupCrate, QCDeskQCAreaAssignmentMapping)
 from wms.common_validators import get_csv_file_data
 
 from shops.models import Shop
@@ -344,9 +344,14 @@ class CommonBinInventoryFunctions(object):
                         pbi = PickupBinInventory.objects.filter(warehouse=pb.warehouse, batch_id=pb.batch_id,
                                                                 pickup=pb.pickup, bin=target_bin_inv_object).last()
                         if not pbi:
-                            PickupBinInventory.objects.create(warehouse=pb.warehouse, batch_id=pb.batch_id,
-                                                              pickup=pb.pickup, bin=target_bin_inv_object,
-                                                              quantity=qty_to_move_from_pickup)
+                            CommonPickBinInvFunction.create_pick_bin_inventory_with_zone(
+                                                pb.warehouse, target_bin_inv_object.bin.zone, pb.pickup, pb.batch_id,
+                                                target_bin_inv_object, qty_to_move_from_pickup,
+                                                target_bin_inv_object.quantity, None)
+
+                            # PickupBinInventory.objects.create(warehouse=pb.warehouse, batch_id=pb.batch_id,
+                            #                                   pickup=pb.pickup, bin=target_bin_inv_object,
+                            #                                   quantity=qty_to_move_from_pickup)
                         else:
                             pbi.quantity += qty_to_move_from_pickup
                             pbi.save()
@@ -1043,6 +1048,14 @@ def common_release_for_inventory(prod_list, shop_id, transaction_type, transacti
             ordered_quantity=transaction_quantity)
 
 
+def release_qc_area_on_order_cancel(order_no):
+    instance = QCDeskQCAreaAssignmentMapping.objects.filter(
+        token_id=order_no, qc_desk__desk_enabled=True, area_enabled=True, qc_done=False).last()
+    if instance:
+        instance.qc_done = True
+        instance.save()
+
+
 def cancel_order(instance):
     """
     Revert the WarehouseInventory for the order given
@@ -1182,6 +1195,9 @@ def cancel_order_with_pick(instance):
                              .format(instance.order_no))
             return
         if pickup_qs.last().status in ['picking_complete', 'moved_to_qc']:
+            if instance.rt_order_order_product.last() and \
+                    instance.rt_order_order_product.last().shipment_status == 'QC_REJECTED':
+                return
             pickup_id = pickup_qs.last().id
             warehouse = pickup_qs.last().warehouse
             sku = pickup_qs.last().sku
@@ -1194,8 +1210,9 @@ def cancel_order_with_pick(instance):
                 quantity = 0
                 pick_up_bin_quantity = 0
                 if instance.rt_order_order_product.all():
-                    if (instance.rt_order_order_product.all()[0].shipment_status == 'READY_TO_SHIP') or \
-                            (instance.rt_order_order_product.all()[0].shipment_status == 'READY_TO_DISPATCH'):
+                    if (instance.rt_order_order_product.all()[0].shipment_status in ['READY_TO_SHIP',
+                                                                                     'MOVED_TO_DISPATCH',
+                                                                                     'READY_TO_DISPATCH']):
                         pickup_order = pickup_bin.shipment_batch
                         put_away_object = Putaway.objects.filter(warehouse=pickup_bin.warehouse,
                                                                  putaway_type='CANCELLED',
@@ -1570,7 +1587,7 @@ def common_on_return_and_partial(shipment, flag):
                                            shipment_product_batch.returned_damage_qty)
 
                 elif flag == "partial_shipment":
-                    partial_ship_qty = (shipment_product_batch.pickup_quantity - shipment_product_batch.quantity)
+                    partial_ship_qty = (shipment_product_batch.pickup_quantity - (shipment_product_batch.quantity-(int(shipment_product_batch.expired_qty)+shipment_product_batch.damaged_qty+shipment_product_batch.missing_qty+shipment_product_batch.rejected_qty)))
                     if partial_ship_qty <= 0:
                         continue
                     else:
@@ -2451,6 +2468,20 @@ class WarehouseAssortmentCommonFunction(object):
         return zone
 
 
+class QCDeskCommonFunction(object):
+
+    @classmethod
+    def update_qc_areas(cls, qc_desk_instance, qc_areas):
+        """
+            Update QC Areas of the QC Desk
+        """
+        qc_desk_instance.qc_areas.clear()
+        if qc_areas:
+            for qc_area in qc_areas:
+                qc_desk_instance.qc_areas.add(qc_area)
+        qc_desk_instance.save()
+
+
 def post_picking_order_update(picker_dashboard_instance):
 
     if picker_dashboard_instance.picking_status == 'moved_to_qc':
@@ -2476,3 +2507,149 @@ def get_sku_from_batch(batch_id):
         sku = Product.objects.filter(product_sku=sku_id).last()
     return sku
 
+
+def picker_dashboard_search(queryset, search_text):
+    '''
+    search using warehouse shop_name & product name & supervisor name & coordinator name based on criteria that matches
+    '''
+    queryset = queryset.filter(
+        Q(zone__warehouse__shop_name__icontains=search_text) | Q(picking_status__icontains=search_text) |
+        Q(picker_boy__first_name__icontains=search_text) | Q(picker_boy__phone_number__icontains=search_text))
+    return queryset
+
+
+def get_logged_user_wise_query_set_for_picker(user, queryset):
+    '''
+        GET Logged-in user wise queryset for picker dashboard based on criteria that matches
+    '''
+    if user.has_perm('wms.can_have_zone_warehouse_permission'):
+        queryset = queryset.filter(zone__in=list(Zone.objects.filter(
+            warehouse_id=user.shop_employee.all().last().shop_id).values_list('id', flat=True)))
+    elif user.has_perm('wms.can_have_zone_supervisor_permission'):
+        queryset = queryset.filter(zone__in=list(Zone.objects.filter(supervisor=user).values_list('id', flat=True)))
+    elif user.has_perm('wms.can_have_zone_coordinator_permission'):
+        queryset = queryset.filter(zone__in=list(Zone.objects.filter(coordinator=user).values_list('id', flat=True)))
+    elif user.groups.filter(name='Picker Boy').exists():
+        queryset = queryset.filter(picker_boy=user)
+    return queryset
+
+
+def get_logged_user_wise_query_set_for_pickup_list(user, pickup_type, queryset):
+    '''
+        GET Logged-in user wise queryset for pickerdashboard based on criteria that matches
+    '''
+    if user.has_perm('wms.can_have_zone_warehouse_permission'):
+        queryset = queryset.filter(zone__in=list(Zone.objects.filter(
+            warehouse_id=user.shop_employee.all().last().shop_id).values_list('id', flat=True)))
+    elif user.has_perm('wms.can_have_zone_supervisor_permission'):
+        queryset = queryset.filter(zone__in=list(Zone.objects.filter(
+            supervisor=user).values_list('id', flat=True)))
+    elif user.has_perm('wms.can_have_zone_coordinator_permission'):
+        queryset = queryset.filter(zone__in=list(Zone.objects.filter(
+            coordinator=user).values_list('id', flat=True)))
+    elif user.groups.filter(name='Picker Boy').exists():
+        queryset = queryset.filter(picker_boy=user)
+    # if pickup_type == 1:
+    #     if user.has_perm('wms.can_have_zone_warehouse_permission'):
+    #         queryset = queryset.filter(zone__in=list(Zone.objects.filter(
+    #             warehouse_id=user.shop_employee.all().last().shop_id).values_list('id', flat=True)))
+    #     elif user.has_perm('wms.can_have_zone_supervisor_permission'):
+    #         queryset = queryset.filter(zone__in=list(Zone.objects.filter(
+    #             supervisor=user).values_list('id', flat=True)))
+    #     elif user.has_perm('wms.can_have_zone_coordinator_permission'):
+    #         queryset = queryset.filter(zone__in=list(Zone.objects.filter(
+    #             coordinator=user).values_list('id', flat=True)))
+    #     elif user.groups.filter(name='Picker Boy').exists():
+    #         queryset = queryset.filter(picker_boy=user)
+    # elif pickup_type == 2:
+    #     if user.has_perm('wms.can_have_zone_warehouse_permission'):
+    #         queryset = queryset.filter(picker_repacks__zone__in=list(Zone.objects.filter(
+    #             warehouse_id=user.shop_employee.all().last().shop_id).values_list('id', flat=True)))
+    #     elif user.has_perm('wms.can_have_zone_supervisor_permission'):
+    #         queryset = queryset.filter(picker_repacks__zone__in=list(Zone.objects.filter(
+    #             supervisor=user).values_list('id', flat=True)))
+    #     elif user.has_perm('wms.can_have_zone_coordinator_permission'):
+    #         queryset = queryset.filter(picker_repacks__zone__in=list(Zone.objects.filter(
+    #             coordinator=user).values_list('id', flat=True)))
+    #     elif user.groups.filter(name='Picker Boy').exists():
+    #         queryset = queryset.filter(picker_repacks__putaway_user=user)
+    return queryset
+
+
+def get_logged_user_wise_query_set_for_qc_desk_mapping(user, queryset):
+    '''
+        GET Logged-in user wise queryset for qc desk mapping based on criteria that matches
+    '''
+    if user.has_perm('wms.can_have_zone_warehouse_permission'):
+        queryset = queryset.filter(qc_desk__warehouse_id=user.shop_employee.all().last().shop_id)
+    elif user.has_perm('wms.can_have_zone_supervisor_permission'):
+        queryset = queryset.filter(qc_desk__warehouse_id=user.shop_employee.all().last().shop_id)
+    elif user.has_perm('wms.can_have_zone_coordinator_permission'):
+        queryset = queryset.filter(qc_desk__warehouse_id=user.shop_employee.all().last().shop_id)
+    elif user.has_perm('wms.can_have_qc_executive_permission'):
+        queryset = queryset.filter(qc_desk__qc_executive=user)
+    return queryset
+
+
+def get_logged_user_wise_query_set_for_qc_desk(user, queryset):
+    '''
+        GET Logged-in user wise queryset for qc desk based on criteria that matches
+    '''
+    if user.has_perm('wms.can_have_zone_warehouse_permission'):
+        queryset = queryset.filter(warehouse_id=user.shop_employee.all().last().shop_id)
+    elif user.has_perm('wms.can_have_zone_supervisor_permission'):
+        queryset = queryset.filter(warehouse_id=user.shop_employee.all().last().shop_id)
+    elif user.has_perm('wms.can_have_zone_coordinator_permission'):
+        queryset = queryset.filter(warehouse_id=user.shop_employee.all().last().shop_id)
+    elif user.has_perm('wms.can_have_qc_executive_permission'):
+        queryset = queryset.filter(qc_executive=user)
+    return queryset
+
+
+def get_logged_user_wise_query_set_for_shipment(user, queryset):
+    '''
+        GET Logged-in user wise queryset for shipment based on criteria that matches
+    '''
+    if user.has_perm('wms.can_have_zone_warehouse_permission')\
+            or user.has_perm('wms.can_have_zone_supervisor_permission') or \
+            user.has_perm('wms.can_have_zone_coordinator_permission') or \
+            user.groups.filter(name='Dispatch Executive'):
+        queryset = queryset.filter(order__seller_shop_id=user.shop_employee.all().last().shop_id)
+    elif user.has_perm('wms.can_have_qc_executive_permission'):
+        queryset = queryset.filter(qc_area__qc_desk_areas__qc_executive=user)
+    else:
+        queryset = queryset.none()
+    return queryset
+
+
+def send_update_to_qcdesk(shipment_instance):
+    '''Update the QCArea assignment mapping on shipment QC start'''
+    info_logger.info(f"send_update_to_qcdesk|QC Started|Shipment ID {shipment_instance.id}")
+    if shipment_instance.qc_area.qc_area_assigned_desks.filter(token_id=shipment_instance.order.order_no).exists():
+        assigned_qc_area = shipment_instance.qc_area.qc_area_assigned_desks.filter(
+                                                token_id=shipment_instance.order.order_no).last()
+        assigned_qc_area.qc_done=True
+        assigned_qc_area.save()
+    else:
+        raise Exception(f"QC Area Assignment mapping not found for this order {shipment_instance.order.order_no}")
+
+    info_logger.info(f"send_update_to_qcdesk|QCDesk Mapping updated|Shipment ID {shipment_instance.id}")
+
+
+def release_picking_crates(order_instance):
+    info_logger.info(f"release_picking_crates|Order No {order_instance.order_no}")
+    if PickupCrate.objects.filter(pickup__pickup_type_id=order_instance.order_no).exists():
+        PickupCrate.objects.filter(pickup__pickup_type_id=order_instance.order_no).update(is_in_use=False)
+    info_logger.info(f"release_picking_crates|Done|Order No {order_instance.order_no}")
+
+
+def get_logged_user_wise_query_set_for_dispatch(user, queryset):
+    '''
+        GET Logged-in user wise queryset for shipment based on criteria that matches
+    '''
+    if user.has_perm('wms.can_have_zone_warehouse_permission')\
+            or user.groups.filter(name='Dispatch Executive'):
+        queryset = queryset.filter(order__seller_shop_id=user.shop_employee.all().last().shop_id)
+    else:
+        queryset = queryset.none()
+    return queryset

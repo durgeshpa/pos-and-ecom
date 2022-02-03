@@ -125,7 +125,7 @@ def create_invoice_data(ordered_product):
     """
     try:
         if ordered_product.order.ordered_cart.cart_type == 'AUTO':
-            if ordered_product.shipment_status == "READY_TO_SHIP":
+            if ordered_product.shipment_status == "MOVED_TO_DISPATCH":
                 CommonFunction.generate_invoice_number(
                     'invoice_no', ordered_product.pk,
                     ordered_product.order.seller_shop.shop_name_address_mapping.filter(address_type='billing').last().pk,
@@ -137,25 +137,25 @@ def create_invoice_data(ordered_product):
                     ordered_product.order.seller_shop.shop_name_address_mapping.filter(address_type='billing').last().pk,
                     ordered_product.invoice_amount)
         elif ordered_product.order.ordered_cart.cart_type == 'ECOM':
-            if ordered_product.shipment_status == "READY_TO_SHIP":
+            if ordered_product.shipment_status == "MOVED_TO_DISPATCH":
                 CommonFunction.generate_invoice_number(
                     'invoice_no', ordered_product.pk,
                     ordered_product.order.seller_shop.shop_name_address_mapping.filter(address_type='billing').last().pk,
                     ordered_product.invoice_amount, "EV")
         elif ordered_product.order.ordered_cart.cart_type == 'RETAIL':
-            if ordered_product.shipment_status == "READY_TO_SHIP":
+            if ordered_product.shipment_status == "MOVED_TO_DISPATCH":
                 CommonFunction.generate_invoice_number(
                     'invoice_no', ordered_product.pk,
                     ordered_product.order.seller_shop.shop_name_address_mapping.filter(address_type='billing').last().pk,
                     ordered_product.invoice_amount)
         elif ordered_product.order.ordered_cart.cart_type == 'DISCOUNTED':
-            if ordered_product.shipment_status == "READY_TO_SHIP":
+            if ordered_product.shipment_status == "MOVED_TO_DISPATCH":
                 CommonFunction.generate_invoice_number_discounted_order(
                     'invoice_no', ordered_product.pk,
                     ordered_product.order.seller_shop.shop_name_address_mapping.filter(address_type='billing').last().pk,
                     ordered_product.invoice_amount)
         elif ordered_product.order.ordered_cart.cart_type == 'BULK':
-            if ordered_product.shipment_status == "READY_TO_SHIP":
+            if ordered_product.shipment_status == "MOVED_TO_DISPATCH":
                 CommonFunction.generate_invoice_number_bulk_order(
                     'invoice_no', ordered_product.pk,
                     ordered_product.order.seller_shop.shop_name_address_mapping.filter(address_type='billing').last().pk,
