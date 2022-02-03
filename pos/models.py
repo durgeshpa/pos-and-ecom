@@ -507,6 +507,14 @@ class RetailerOrderReturn(OrderReturn):
         return self.order.order_no
 
 
+
+class RetailerOrderCancel(Cart):
+    """Cancel order ........."""
+    class Meta:
+        proxy = True
+        verbose_name = 'Cancel Order'
+
+
 class RetailerReturnItems(ReturnItems):
     class Meta:
         proxy = True
