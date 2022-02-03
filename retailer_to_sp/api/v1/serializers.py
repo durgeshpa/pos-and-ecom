@@ -3938,7 +3938,7 @@ class ShipmentCompleteVerifySerializer(serializers.ModelSerializer):
                     ~Q(status__in=[ShipmentPackaging.DISPATCH_STATUS_CHOICES.RETURN_VERIFIED,
                                    ShipmentPackaging.DISPATCH_STATUS_CHOICES.RETURN_MISSING,
                                    ShipmentPackaging.DISPATCH_STATUS_CHOICES.RETURN_DAMAGED]),
-                    packaging_type=ShipmentPackaging.CRATE).exists():
+                    packaging_type=ShipmentPackaging.CRATE, movement_type=ShipmentPackaging.DISPATCH).exists():
                 raise serializers.ValidationError(f"All crates are not verified for shipment status "
                                                   f"{shipment.shipment_status} | Id { shipment.pk }")
 
