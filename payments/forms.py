@@ -18,7 +18,7 @@ from django.utils.html import format_html
 from accounts.middlewares import get_current_user
 from accounts.models import UserWithName
 from payments.models import Payment, ShipmentPayment, OrderPayment, \
-ShipmentPaymentApproval, PaymentApproval
+    ShipmentPaymentApproval, PaymentApproval, PAYMENT_MODE_NAME
 from retailer_to_sp.models import Order
 from shops.models import Shop
 from shops.views import UserAutocomplete
@@ -65,7 +65,10 @@ class PaymentForm(forms.ModelForm):
 
     class Meta:
         model = Payment
-        fields = "__all__"
+        fields = ('description', 'reference_no', 'payment_screenshot', 'paid_amount', 'payment_mode_name',
+                  'prepaid_or_postpaid', 'payment_approval_status', 'payment_received',
+                  'is_payment_approved', 'mark_as_settled', 'payment_status', 'online_payment_type',
+                  'initiated_time', 'timeout_time')
 
     def __init__(self, *args, **kwargs):
         super(PaymentForm, self).__init__(*args, **kwargs)
@@ -87,21 +90,26 @@ class OrderPaymentForm(forms.ModelForm):
     #     widget=autocomplete.ModelSelect2(url='order-payment-autocomplete',
     #                                      forward=('order',))
     # )
+    paid_by = forms.ModelChoiceField(
+        queryset=UserWithName.objects.all(),
+        widget=autocomplete.ModelSelect2(url='admin:userwithname-autocomplete', )
+    )
+    payment_mode_name = forms.ChoiceField(choices=PAYMENT_MODE_NAME)
+    paid_amount = forms.FloatField(required=True)
 
     class Meta:
         model = OrderPayment
-        fields = "__all__"
+        fields = ('description', 'order', 'paid_amount', 'payment_id')
 
     def __init__(self, *args, **kwargs):
         super(OrderPaymentForm, self).__init__(*args, **kwargs)
-        self.fields.get('parent_payment').required = True
+        # self.fields.get('parent_payment').required = True
         self.fields.get('paid_amount').required = True
         if kwargs.get('order') is not None:
-            self.fields['order'].initial = order
-
-        # if self.data and self.data.get('payment_mode_name') != 'cash_payment':
-        #     self.fields.get('reference_no').required = True
-        # select queryset on the basis of user
+            self.fields['order'].initial = kwargs.get('order')
+        self.fields.get('paid_by').required = True
+        users = Shop.objects.filter(shop_type__shop_type="r").values('shop_owner__id')
+        self.fields.get('paid_by').queryset = UserWithName.objects.filter(pk__in=users)
     
     
 class ShipmentPaymentInlineForm(forms.ModelForm):
