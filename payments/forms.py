@@ -108,14 +108,24 @@ class OrderPaymentForm(forms.ModelForm):
         super(OrderPaymentForm, self).__init__(*args, **kwargs)
         # self.fields.get('parent_payment').required = True
         self.fields.get('paid_amount').required = True
-        if kwargs.get('initial').get('order') is not None:
-            self.fields['order'].initial = kwargs.get('initial').get('order')
-            self.fields['order'].widget.attrs['readonly'] = True
+        if kwargs is not None and kwargs.get('initial'):
+            if kwargs.get('initial').get('order') is not None:
+                self.fields['order'].initial = kwargs.get('initial').get('order')
+                self.fields['order'].widget.attrs['readonly'] = True
         self.fields.get('paid_by').required = True
         users = Shop.objects.filter(shop_type__shop_type="r").values('shop_owner__id')
         self.fields.get('paid_by').queryset = UserWithName.objects.filter(pk__in=users)
-    
-    
+
+    def save(self, commit=True):
+        # instance = super(OrderPaymentForm, self).save(commit=False)
+        payment = Payment.objects.create(paid_by=self.cleaned_data['paid_by'],
+                                         paid_amount=self.cleaned_data['paid_amount'],
+                                         reference_no=self.cleaned_data['reference_no'])
+        payment.order.add(self.cleaned_data['order'])
+        self.cleaned_data['parent_payment_id'] = payment.id
+        return super(OrderPaymentForm, self).save(commit)
+
+
 class ShipmentPaymentInlineForm(forms.ModelForm):
 
     class Meta:
@@ -133,9 +143,6 @@ class ShipmentPaymentInlineForm(forms.ModelForm):
         if self.fields.get('shipment') is not None:
             self.fields.get('parent_order_payment').widget = RelatedFieldWidgetCanAdd(
                 OrderPayment, None, {"order": self.fields['shipment'].order})
-        else:
-            self.fields.get('parent_order_payment').widget = RelatedFieldWidgetCanAdd(
-                OrderPayment, None, {"order": 271002})
 
 
 class PaymentApprovalForm(forms.ModelForm):

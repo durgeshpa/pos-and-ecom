@@ -366,6 +366,9 @@ class ShipmentPaymentDataAdmin(admin.ModelAdmin, PermissionMixin):
         else:
             return False
 
+    def has_add_permission(self, request, obj=None):
+        return False
+
     def trip_status(self,obj):
         return obj.trip.trip_status
     trip_status.short_description = 'Trip Status'
