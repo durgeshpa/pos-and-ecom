@@ -18,10 +18,7 @@ from wms.models import WarehouseInventory, InventoryType, InventoryState
 import urllib.parse
 import requests
 import re
-from celery.task import task
+from retailer_to_sp.api.v1.views import resend_invoice
 from datetime import datetime
 
-
-out=get_visibility_changes(600,19295)
-
-print(out)
+resend_invoice(370354,7092)
