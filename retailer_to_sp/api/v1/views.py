@@ -9186,7 +9186,7 @@ class PackagesUnderTripView(generics.GenericAPIView):
         '''
         if not request.GET.get('trip_id'):
             return get_response("'trip_id' | This is mandatory")
-        validated_trip = validate_trip(request.GET.get('trip_id'))
+        validated_trip = validate_trip(request.GET.get('trip_id'), request.GET.get('trip_type'))
         if 'error' in validated_trip:
             return get_response(validated_trip['error'])
         self.queryset = self.filter_packaging_items(validated_trip['data'])
@@ -9219,8 +9219,6 @@ class PackagesUnderTripView(generics.GenericAPIView):
             elif trip_type == TRIP_TYPE_CHOICE.DISPATCH_BACKWARD:
                 self.queryset = self.queryset.filter(shipment__trip_shipment__trip=trip_instance,
                                                      movement_type=ShipmentPackaging.RETURNED)
-            else:
-                self.queryset = self.queryset.filter(shipment__trip_shipment__trip=trip_instance)
         elif isinstance(trip_instance, Trip):
             self.queryset = self.queryset.filter(shipment__last_mile_trip_shipment__trip=trip_instance)
 
