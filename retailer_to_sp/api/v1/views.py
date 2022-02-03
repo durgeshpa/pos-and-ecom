@@ -2633,44 +2633,6 @@ class ReservedOrder(generics.ListAPIView):
     #     pass
 
 
-class OrderPaymentStatus(APIView):
-    authentication_classes = (authentication.TokenAuthentication,)
-    permission_classes = (permissions.IsAuthenticated,)
-    """
-        allowed updates to order status
-    """
-    def put(self, request, *args, **kwargs):
-        """
-            allowed updates to order status
-        """
-        app_type = self.request.META.get('HTTP_APP_TYPE', '3')
-        if app_type == '3':
-            return self.put_ecom_payment_status(request, *args, **kwargs)
-        else:
-            return api_response('Provide a valid app_type')
-
-    @check_pos_shop
-    def put_ecom_payment_status(self, request, *args, **kwargs):
-        """
-            Update ecom order status
-        """
-        with transaction.atomic():
-            # Check if order exists
-            try:
-                order = Order.objects.select_for_update().get(pk=kwargs['pk'],
-                                                              seller_shop=kwargs['shop'],
-                                                              ordered_cart__cart_type__in=['ECOM'])
-            except ObjectDoesNotExist:
-                return api_response('Order Not Found!')
-
-            payment_status = self.request.data.get('payment_status')
-            if payment_status not in [0, 1]:
-                return api_response("Please Provide A Valid Status To Update Order")
-
-            if order.order_status == Order.PAYMENT_PENDING:
-                pass
-
-
 class OrderCentral(APIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (permissions.IsAuthenticated,)
