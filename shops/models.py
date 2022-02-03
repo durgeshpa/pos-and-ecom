@@ -704,6 +704,7 @@ class ExecutiveFeedback(models.Model):
     longitude = models.DecimalField(max_digits=30, decimal_places=15, null=True)
     is_valid = models.BooleanField(default=False)
     distance_in_km = models.DecimalField(max_digits=30, decimal_places=15, null=True)
+    last_shop_distance = models.DecimalField(max_digits=30, decimal_places=15, null=True)
 
 
 class ShopStatusLog(models.Model):
