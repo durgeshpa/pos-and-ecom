@@ -15,6 +15,7 @@ from addresses.models import Address, Pincode, City
 from products.models import (Product, ProductPrice, ProductImage, Tax, ProductTaxMapping, ProductOption, Size, Color,
                              Fragrance, Flavor, Weight, PackageSize, ParentProductImage, SlabProductPrice, PriceSlab)
 from retailer_backend.utils import getStrToYearDate
+from retailer_to_sp.common_model_functions import ShopCrateCommonFunctions
 from retailer_to_sp.common_validators import validate_shipment_crates_list, validate_shipment_package_list
 from retailer_to_sp.models import (CartProductMapping, Cart, Order, OrderedProduct, Note, CustomerCare, Payment,
                                    Dispatch, Feedback, OrderedProductMapping as RetailerOrderedProductMapping,
@@ -1652,7 +1653,7 @@ class RetailerOrderedProductMappingSerializer(serializers.ModelSerializer):
             instance, created = ShipmentPackaging.objects.get_or_create(
                 shipment=shipment, packaging_type=packaging_type, warehouse_id=warehouse_id, crate=crate,
                 defaults={'created_by': updated_by, 'updated_by': updated_by})
-            self.mark_crate_used(instance)
+            ShopCrateCommonFunctions.mark_crate_used(instance.shipment.current_shop.id, instance.crate.id)
         else:
             instance = ShipmentPackaging.objects.create(
                 shipment=shipment, packaging_type=packaging_type, warehouse_id=warehouse_id, crate=crate,
@@ -1671,13 +1672,6 @@ class RetailerOrderedProductMappingSerializer(serializers.ModelSerializer):
         except Exception as e:
             error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
             raise serializers.ValidationError(error)
-
-    def mark_crate_used(self, packaging_instance):
-        info_logger.info(f"mark_crate_used|Packaging instance {packaging_instance}")
-        shop_crate_instance = ShopCrate.objects.update_or_create(
-            shop=packaging_instance.shipment.current_shop, crate=packaging_instance.crate,
-            defaults={'is_available': False})
-        info_logger.info(f"mark_crate_used|Marked| {shop_crate_instance}")
 
     @transaction.atomic
     def update(self, instance, validated_data):
@@ -2719,7 +2713,8 @@ class ShipmentPackageSerializer(serializers.ModelSerializer):
             error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
             raise serializers.ValidationError(error)
         # self.post_shipment_packaging_status_change(packaging_instance.shipment)
-        self.mark_crate_available(packaging_instance)
+        ShopCrateCommonFunctions.mark_crate_available(
+            packaging_instance.shipment.current_shop.id, packaging_instance.crate.id)
         return packaging_instance
 
     def post_shipment_packaging_status_change(self, shipment_instance):
@@ -2737,13 +2732,6 @@ class ShipmentPackageSerializer(serializers.ModelSerializer):
                 shipment_instance.save()
             info_logger.info(f"post_shipment_packaging_status_change|Shipment status updated|Shipment ID "
                              f"{shipment_instance.id}")
-
-    def mark_crate_available(self, packaging_instance):
-        info_logger.info(f"mark_crate_used|Packaging instance {packaging_instance}")
-        shop_crate_instance = ShopCrate.objects.update_or_create(
-            shop=packaging_instance.shipment.current_shop, crate=packaging_instance.crate,
-            defaults={'is_available': True})
-        info_logger.info(f"mark_crate_used|Marked| {shop_crate_instance}")
 
 
 class VerifyRescheduledShipmentPackageSerializer(serializers.ModelSerializer):
@@ -3748,6 +3736,7 @@ class VerifyReturnShipmentProductsSerializer(serializers.ModelSerializer):
                                 float(product_returned_qty + product_returned_damage_qty)
 
         warehouse_id = mapping_instance.ordered_product.packaged_at
+        current_shop = mapping_instance.ordered_product.current_shop
 
         total_product_returned_qty = float(product_returned_qty + product_returned_damage_qty)
         # Make Packaging for Dispatch Trips only, Validation: Seller shop is not same as Source shop
@@ -3807,6 +3796,7 @@ class VerifyReturnShipmentProductsSerializer(serializers.ModelSerializer):
             instance, created = ShipmentPackaging.objects.get_or_create(
                 shipment=shipment, packaging_type=packaging_type, warehouse_id=warehouse_id, crate=crate,
                 movement_type=movement_type, defaults={'created_by': updated_by, 'updated_by': updated_by})
+            ShopCrateCommonFunctions.mark_crate_used(instance.shipment.current_shop.id, instance.crate.id)
         else:
             instance = ShipmentPackaging.objects.create(
                 shipment=shipment, packaging_type=packaging_type, warehouse_id=warehouse_id, crate=crate,
@@ -3901,7 +3891,7 @@ class ShipmentCratesValidatedSerializer(serializers.ModelSerializer):
                 ~Q(status__in=[ShipmentPackaging.DISPATCH_STATUS_CHOICES.RETURN_VERIFIED,
                                ShipmentPackaging.DISPATCH_STATUS_CHOICES.RETURN_MISSING,
                                ShipmentPackaging.DISPATCH_STATUS_CHOICES.RETURN_DAMAGED]),
-                packaging_type=ShipmentPackaging.CRATE).exists():
+                packaging_type=ShipmentPackaging.CRATE, movement_type=ShipmentPackaging.DISPATCH).exists():
             return True
         return False
 
