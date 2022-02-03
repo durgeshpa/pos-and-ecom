@@ -8775,7 +8775,6 @@ class LastMileTripCrudView(generics.GenericAPIView):
         vehicle_no = self.request.GET.get('vehicle_no')
         trip_status = self.request.GET.get('trip_status')
         t_status = self.request.GET.get('status')
-        trip_id = self.request.GET.get('trip_id')
         created_at = self.request.GET.get('date')
         data_days = self.request.GET.get('data_days')
 
