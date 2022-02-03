@@ -3438,7 +3438,7 @@ class DispatchTrip(BaseTimestampUserModel):
 
     @property
     def trip_amount(self):
-        return self.shipments_details.all() \
+        return self.shipments_details.filter(~Q(shipment_status='CANCELLED')) \
             .annotate(invoice_amount=RoundAmount(Sum(F(
                 'shipment__rt_order_product_order_product_mapping__effective_price') * F(
                 'shipment__rt_order_product_order_product_mapping__shipped_qty')))) \
