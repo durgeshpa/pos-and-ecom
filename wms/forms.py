@@ -169,32 +169,38 @@ def bin_id_validation(bin_id, bin_type):
         return False, "Bin ID must not be empty."
 
     if not len(bin_id) == 16:
-        return False, 'Bin Id min and max char limit is 16.Example:-B2BZ01SR001-0001'
+        return False, 'Bin Id min and max char limit is 16.Example:-W01Z01SR001-0001'
 
-    if not bin_id[0:3] in ['B2B', 'B2C']:
-        return False, 'First three letter should be start with either B2B and B2C.Example:-B2BZ01SR001-0001'
+    if not bin_id[0] in ['W']:
+        return False, 'Warehouse number should start with char W.Example:-W01Z01SR001-0001'
+
+    if not bool(re.match('^[0-9]+$', bin_id[1:3]) and not bin_id[1:3] == '00'):
+        return False, 'Warehouse number should be in between 01 to 99.Example:-W01Z01SR001-0001'
+
+    # if not bin_id[:3] in ['B2B', 'B2C']:
+    #     return False, 'First three letter should be start with either B2B and B2C.Example:-B2BZ01SR001-0001'
 
     if not bin_id[3] in ['Z']:
-        return False, 'Zone should be start with char Z.Example:-B2BZ01SR001-0001'
+        return False, 'Zone should be start with char Z.Example:-W01Z01SR001-0001'
 
     if not bool(re.match('^[0-9]+$', bin_id[4:6]) and not bin_id[4:6] == '00'):
-        return False, 'Zone number should be start in between 01 to 99.Example:-B2BZ01SR001-0001'
+        return False, 'Zone number should be start in between 01 to 99.Example:-W01Z01SR001-0001'
 
     if not bin_id[6:8] in ['SR', 'PA', 'HD']:
-        return False, 'Rack type should be start with either SR, PA and HD only.Example:-B2BZ01SR001-0001'
+        return False, 'Rack type should be start with either SR, PA and HD only.Example:-W01Z01SR001-0001'
 
     else:
         if not bin_id[6:8] == bin_type:
             return False, 'Type of Rack and Bin type should be same.'
 
     if not bool(re.match('^[0-9]+$', bin_id[8:11]) and not bin_id[8:11] == '000'):
-        return False, 'Rack number should be start in between 000 to 999.Example:- B2BZ01SR001-0001'
+        return False, 'Rack number should be start in between 000 to 999.Example:- W01Z01SR001-0001'
 
     if not bin_id[11] in ['-']:
-        return False, 'Only - allowed in between Rack number and Bin Number.Example:-B2BZ01SR001-0001'
+        return False, 'Only - allowed in between Rack number and Bin Number.Example:-W01Z01SR001-0001'
 
     if not bool(re.match('^[0-9]+$', bin_id[12:16]) and not bin_id[12:16] == '0000'):
-        return False, 'Bin number should be start in between 0000 to 9999. Example:-B2BZ01SR001-0001'
+        return False, 'Bin number should be start in between 0000 to 9999. Example:-W01Z01SR001-0001'
 
     return True, "Bin Id validation successfully passed."
 
