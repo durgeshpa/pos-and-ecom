@@ -710,8 +710,6 @@ class BasicOrderListSerializer(serializers.ModelSerializer):
         return None
 
     def payment_data(self, obj):
-        if not obj.rt_payment_retailer_order.exists():
-            return None
         return PaymentSerializer(obj.rt_payment_retailer_order.all(), many=True).data
 
     def get_delivery_persons(self, obj):
@@ -779,9 +777,13 @@ class OrderedDashBoardSerializer(serializers.Serializer):
 
     shop_name = serializers.CharField()
     orders = serializers.IntegerField()
+    pos_order_count = serializers.IntegerField()
+    ecom_order_count = serializers.IntegerField()
     registered_users = serializers.IntegerField(required=False)
     products = serializers.IntegerField(required=False)
     revenue = serializers.DecimalField(max_digits=9, decimal_places=2, required=False)
+    pos_revenue = serializers.DecimalField(max_digits=9, decimal_places=2, required=False)
+    ecom_revenue = serializers.DecimalField(max_digits=9, decimal_places=2, required=False)
 
 
 class ReturnItemsSerializer(serializers.ModelSerializer):
