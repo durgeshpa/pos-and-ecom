@@ -574,7 +574,7 @@ class RetailerOrderReturn(OrderReturn):
         return self.order.order_no
 
 
-class RetailerOrderCancel(OrderedProduct):
+class RetailerOrderCancel(Cart):
     """Cancel order ........."""
     class Meta:
         proxy = True
