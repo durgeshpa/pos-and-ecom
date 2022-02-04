@@ -3780,6 +3780,7 @@ class VerifyReturnShipmentProductsSerializer(serializers.ModelSerializer):
     last_modified_by = UserSerializer(read_only=True)
     shipment_product_packaging = ProductPackagingDetailsSerializer(read_only=True, many=True, source='return_pkg')
     is_fully_delivered = serializers.SerializerMethodField()
+    trip_belongs_to = serializers.SerializerMethodField()
 
 
     class Meta:
@@ -3788,7 +3789,17 @@ class VerifyReturnShipmentProductsSerializer(serializers.ModelSerializer):
                   'delivered_qty', 'returned_qty', 'damaged_qty', 'returned_damage_qty', 'expired_qty', 'missing_qty',
                   'rejected_qty', 'effective_price', 'discounted_price', 'delivered_at_price', 'cancellation_date',
                   'picked_pieces', 'rt_ordered_product_mapping', 'shipment_product_packaging', 'last_modified_by',
-                  'is_fully_delivered', 'created_at', 'modified_at')
+                  'is_fully_delivered', 'created_at', 'modified_at', 'trip_belongs_to')
+
+    @staticmethod
+    def get_trip_belongs_to(obj):
+        last_mile_trip = obj.ordered_product.last_mile_trip_shipment.last()
+        if last_mile_trip:
+            if last_mile_trip.trip.source_shop.shop_type.shop_type == 'sp':
+                return "WAREHOUSE"
+            elif last_mile_trip.trip.source_shop.shop_type.shop_type == 'dc':
+                return "DISPATCH"
+        return None
 
     def validate(self, data):
 
