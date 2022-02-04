@@ -2410,8 +2410,10 @@ class DispatchTripStatusChangeSerializers(serializers.ModelSerializer):
                 else:
                      raise serializers.ValidationError("'opening_kms' | This is mandatory")
 
-                if not dispatch_trip.shipments_details.exists():
-                    raise serializers.ValidationError("Load shipments to the trip to start.")
+                if not (dispatch_trip.shipments_details.exists() or dispatch_trip.trip_empty_crates.filter(
+                        crate_status__in=[DispatchTripCrateMapping.LOADED,
+                                          DispatchTripCrateMapping.DAMAGED_AT_LOADING]).exists()):
+                    raise serializers.ValidationError("Load shipments/empty crates to the trip to start.")
 
                 if dispatch_trip.shipments_details.filter(
                         shipment_status=DispatchTripShipmentMapping.LOADING_FOR_DC).exists():
@@ -2430,7 +2432,10 @@ class DispatchTripStatusChangeSerializers(serializers.ModelSerializer):
 
             if trip_status == DispatchTrip.CLOSED:
                 if dispatch_trip.shipments_details.filter(
-                        shipment_status=DispatchTripShipmentMapping.UNLOADING_AT_DC).exists():
+                        shipment_status=DispatchTripShipmentMapping.UNLOADING_AT_DC).exists() or \
+                    dispatch_trip.trip_empty_crates.filter(
+                        crate_status__in=[DispatchTripCrateMapping.LOADED,
+                                          DispatchTripCrateMapping.DAMAGED_AT_LOADING]).exists():
                     raise serializers.ValidationError(
                         "The trip can not complete until and unless all shipments get unloaded.")
 
