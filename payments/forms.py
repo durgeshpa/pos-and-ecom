@@ -99,14 +99,18 @@ class OrderPaymentForm(forms.ModelForm):
     payment_mode_name = forms.ChoiceField(choices=PAYMENT_MODE_NAME)
     paid_amount = forms.FloatField(required=True)
     reference_no = forms.CharField(required=False)
+    parent_payment = forms.ModelChoiceField(
+        queryset=Payment.objects.all(),
+        widget=forms.TextInput(attrs={'hidden': 'hidden'}), required=False)
 
     class Meta:
         model = OrderPayment
-        fields = ('description', 'order', 'paid_amount', 'payment_id')
+        fields = ('description', 'order', 'paid_amount', 'payment_id', 'parent_payment')
 
     def __init__(self, *args, **kwargs):
         super(OrderPaymentForm, self).__init__(*args, **kwargs)
         # self.fields.get('parent_payment').required = True
+
         self.fields.get('paid_amount').required = True
         self.fields.get('paid_by').required = True
         users = Shop.objects.filter(shop_type__shop_type="r").values('shop_owner__id')
@@ -122,14 +126,30 @@ class OrderPaymentForm(forms.ModelForm):
                 self.fields['paid_by'].initial = user_id
                 self.fields['paid_by'].widget.attrs['readonly'] = True
 
+    def clean(self):
+        cleaned_data = super(OrderPaymentForm, self).clean()
+        paid_by = cleaned_data.get('paid_by')
+        paid_amount = cleaned_data.get('paid_amount')
+        reference_no = cleaned_data.get('reference_no')
+        order = cleaned_data.get('order')
+        if paid_by and paid_amount and order:
+            payment = Payment.objects.create(paid_by=paid_by,
+                                             paid_amount=paid_amount,
+                                             reference_no=reference_no)
+            payment.order.add(order)
+            payment.save()
+            cleaned_data['parent_payment'] = payment
+        return cleaned_data
+
     def save(self, commit=True):
-        # instance = super(OrderPaymentForm, self).save(commit=False)
-        payment = Payment.objects.create(paid_by=self.cleaned_data['paid_by'],
-                                         paid_amount=self.cleaned_data['paid_amount'],
-                                         reference_no=self.cleaned_data['reference_no'])
-        payment.order.add(self.cleaned_data['order'])
-        self.cleaned_data['parent_payment_id'] = payment.id
-        return super(OrderPaymentForm, self).save(commit)
+
+        instance = super(OrderPaymentForm, self).save(commit=False)
+        # instance.parent_payment = self.cleaned_data['parent_payment']
+
+        # do custom stuff
+        if commit:
+            instance.save()
+        return instance
 
 
 class ShipmentPaymentInlineForm(forms.ModelForm):
