@@ -6,7 +6,7 @@ from retailer_backend.admin import InputFilter
 
 from .models import *
 from .forms import ShipmentPaymentForm, ShipmentPaymentInlineForm, \
-    PaymentForm, OrderPaymentForm, PaymentApprovalForm
+    PaymentForm, OrderPaymentForm, PaymentApprovalForm, ShipmentPaymentInlineFormFactory
 from .views import UserWithNameAutocomplete
 
 #from .forms import ShipmentPaymentApprovalForm
@@ -278,7 +278,6 @@ class AtLeastOneFormSet(BaseInlineFormSet):
             raise ValidationError("Please fill at least one form.")
 
 
-
 class ShipmentPaymentInlineAdmin(admin.TabularInline, PermissionMixin):
     model = ShipmentPayment
     form = ShipmentPaymentInlineForm
@@ -344,6 +343,71 @@ class ShipmentPaymentInlineAdmin(admin.TabularInline, PermissionMixin):
         return False
 
 
+def ShipmentPaymentInlineAdminFactory(user_id, object_id=None):
+    class ShipmentPaymentInlineAdmin(admin.TabularInline, PermissionMixin):
+        model = ShipmentPayment
+        form = ShipmentPaymentInlineFormFactory(user_id, object_id)
+        formset = AtLeastOneFormSet
+        #autocomplete_fields = ("parent_order_payment",)
+        fields = ("paid_amount", "parent_order_payment", "payment_mode_name", "reference_no", "description",
+            "payment_approval_status")
+        readonly_fields = ("payment_mode_name", "reference_no","payment_approval_status")
+        extra = 0
+
+        def formfield_for_foreignkey(self, db_field, request, **kwargs):
+            if db_field.name == "parent_order_payment":
+                try:
+                    parent_obj_id = request.resolver_match.kwargs['object_id']
+                    parent_obj = OrderedProduct.objects.get(pk=parent_obj_id)
+                    kwargs["queryset"] = OrderPayment.objects.filter(order=parent_obj.order)
+                except IndexError:
+                    pass
+            return super(
+                ShipmentPaymentInlineAdmin, self).formfield_for_foreignkey(db_field, request, **kwargs)
+
+        def has_add_permission(self, request, obj=None):
+            try:
+                parent_obj_id = request.resolver_match.kwargs['object_id']
+                parent_obj = OrderedProduct.objects.get(pk=parent_obj_id)
+                if parent_obj.trip.trip_status in [Trip.RETURN_VERIFIED, Trip.PAYMENT_VERIFIED]:
+                    return False
+                else:
+                    return True
+            except:
+                return True
+
+        def has_change_permission(self, request, obj=None):
+            try:
+                parent_obj_id = request.resolver_match.kwargs['object_id']
+                parent_obj = OrderedProduct.objects.get(pk=parent_obj_id)
+                if parent_obj.trip.trip_status in [Trip.RETURN_VERIFIED, Trip.PAYMENT_VERIFIED]:
+                    return False
+                else:
+                    return True
+            except:
+                return True
+
+        def payment_approval_status(self,obj):
+            return obj.parent_order_payment.parent_payment.payment_approval_status
+        payment_approval_status.short_description = 'Payment Approval Status'
+
+        def payment_mode_name(self,obj):
+            return obj.parent_order_payment.parent_payment.payment_mode_name
+        payment_mode_name.short_description = 'Payment Mode'
+
+        def reference_no(self,obj):
+            return obj.parent_order_payment.parent_payment.reference_no
+        reference_no.short_description = 'Reference No'
+
+        def description(self,obj):
+            return obj.description
+        description.short_description = 'Description'
+
+        def has_delete_permission(self, request, obj=None):
+            return False
+    return ShipmentPaymentInlineAdmin
+
+
 class ShipmentPaymentDataAdmin(admin.ModelAdmin, PermissionMixin):
     inlines = [ShipmentPaymentInlineAdmin]
     model = ShipmentData
@@ -355,6 +419,16 @@ class ShipmentPaymentDataAdmin(admin.ModelAdmin, PermissionMixin):
         'shipment_status', 'no_of_crates', 'no_of_packets', 'no_of_sacks']
     readonly_fields = ['order', 'trip', 'trip_status', 'invoice_no', 'invoice_amount', 'total_paid_amount', 'shipment_address', 'invoice_city',
         'shipment_status', 'no_of_crates', 'no_of_packets', 'no_of_sacks']
+
+    # we define inlines with factory to create Inline class with request inside
+    def change_view(self, request, object_id, form_url='', extra_context=None):
+        self.inlines = (ShipmentPaymentInlineAdminFactory(request.user.id, object_id),)
+        return super(ShipmentPaymentDataAdmin, self).change_view(request, object_id)
+
+    # we define inlines with factory to create Inline class with request inside
+    def add_view(self, request, form_url='', extra_context=None):
+        self.inlines = (ShipmentPaymentInlineAdminFactory(request.user.id),)
+        return super(ShipmentPaymentDataAdmin, self).add_view(request.user.id)
         
     def total_paid_amount(self,obj):
         return obj.total_paid_amount

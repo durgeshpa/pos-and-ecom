@@ -18,7 +18,7 @@ from django.utils.html import format_html
 from accounts.middlewares import get_current_user
 from accounts.models import UserWithName
 from payments.models import Payment, ShipmentPayment, OrderPayment, \
-    ShipmentPaymentApproval, PaymentApproval, PAYMENT_MODE_NAME
+    ShipmentPaymentApproval, PaymentApproval, PAYMENT_MODE_NAME, ShipmentData
 from retailer_to_sp.models import Order
 from shops.models import Shop
 from shops.views import UserAutocomplete
@@ -46,8 +46,8 @@ class RelatedFieldWidgetCanAdd(widgets.Select):
     def render(self, name, value, *args, **kwargs):
         self.related_url = reverse(self.related_url)
         output = [super(RelatedFieldWidgetCanAdd, self).render(name, value, *args, **kwargs)]
-        output.append('<a href="%s?_to_field=id&_popup=1&order=%s" class="add-another" id="add_id_%s" onclick="return showAddAnotherPopup(this);"> ' % \
-            (self.related_url, self.args[0].get('order'), name))
+        output.append('<a href="%s?_to_field=id&_popup=1&user_id=%s&object_id=%s" class="add-another" id="add_id_%s" onclick="return showAddAnotherPopup(this);"> ' % \
+            (self.related_url, self.args[0].get('user_id'), self.args[0].get('object_id'), name))
         output.append('<img src="%sadmin/img/icon_addlink.gif" width="10" height="10" alt="%s"/></a>' % (settings.STATIC_URL, 'Add Another'))
         return mark_safe(''.join(output))
 
@@ -108,13 +108,19 @@ class OrderPaymentForm(forms.ModelForm):
         super(OrderPaymentForm, self).__init__(*args, **kwargs)
         # self.fields.get('parent_payment').required = True
         self.fields.get('paid_amount').required = True
-        if kwargs is not None and kwargs.get('initial'):
-            if kwargs.get('initial').get('order') is not None:
-                self.fields['order'].initial = kwargs.get('initial').get('order')
-                self.fields['order'].widget.attrs['readonly'] = True
         self.fields.get('paid_by').required = True
         users = Shop.objects.filter(shop_type__shop_type="r").values('shop_owner__id')
         self.fields.get('paid_by').queryset = UserWithName.objects.filter(pk__in=users)
+        if kwargs is not None and kwargs.get('initial', None):
+            if kwargs.get('initial').get('object_id', None) is not None:
+                object_id = kwargs.get('initial').get('object_id')
+                shipment_data_instance = ShipmentData.objects.filter(id=object_id).last()
+                self.fields['order'].initial = shipment_data_instance.order.id
+                self.fields['order'].widget.attrs['readonly'] = True
+            if kwargs.get('initial').get('user_id', None) is not None:
+                user_id = kwargs.get('initial').get('user_id')
+                self.fields['paid_by'].initial = user_id
+                self.fields['paid_by'].widget.attrs['readonly'] = True
 
     def save(self, commit=True):
         # instance = super(OrderPaymentForm, self).save(commit=False)
@@ -143,6 +149,28 @@ class ShipmentPaymentInlineForm(forms.ModelForm):
         if self.fields.get('shipment') is not None:
             self.fields.get('parent_order_payment').widget = RelatedFieldWidgetCanAdd(
                 OrderPayment, None, {"order": self.fields['shipment'].order})
+        else:
+            self.fields.get('parent_order_payment').widget = RelatedFieldWidgetCanAdd(
+                OrderPayment, None, {"order": 271002})
+
+
+def ShipmentPaymentInlineFormFactory(user_id, object_id):
+    class ShipmentPaymentInlineForm(forms.ModelForm):
+        class Meta:
+            model = ShipmentPayment
+            fields = "__all__"
+
+        def __init__(self, *args, **kwargs):
+            # show only the payments for the relevant order
+            super(ShipmentPaymentInlineForm, self).__init__(*args, **kwargs)
+            self.fields.get('parent_order_payment').required = True
+            # shipment_payment = getattr(self, 'instance', None)
+
+            # self.fields['parent_payment'].queryset = Payment.objects.filter(order=shipment_payment.shipment.order)
+
+            self.fields.get('parent_order_payment').widget = RelatedFieldWidgetCanAdd(
+                    OrderPayment, None, {"user_id": user_id, "object_id": object_id})
+    return ShipmentPaymentInlineForm
 
 
 class PaymentApprovalForm(forms.ModelForm):
