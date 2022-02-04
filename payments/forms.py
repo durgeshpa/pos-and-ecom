@@ -92,6 +92,9 @@ class OrderPaymentForm(forms.ModelForm):
     #     widget=autocomplete.ModelSelect2(url='order-payment-autocomplete',
     #                                      forward=('order',))
     # )
+    parent_payment = forms.ModelChoiceField(
+        queryset=Payment.objects.all(),
+        widget=forms.TextInput(attrs={'hidden': 'hidden'}), required=False)
     paid_by = forms.ModelChoiceField(
         queryset=UserWithName.objects.all(),
         widget=autocomplete.ModelSelect2(url='admin:userwithname-autocomplete', )
@@ -99,9 +102,6 @@ class OrderPaymentForm(forms.ModelForm):
     payment_mode_name = forms.ChoiceField(choices=PAYMENT_MODE_NAME)
     paid_amount = forms.FloatField(required=True)
     reference_no = forms.CharField(required=False)
-    parent_payment = forms.ModelChoiceField(
-        queryset=Payment.objects.all(),
-        widget=forms.TextInput(attrs={'hidden': 'hidden'}), required=False)
 
     class Meta:
         model = OrderPayment
@@ -136,20 +136,10 @@ class OrderPaymentForm(forms.ModelForm):
             payment = Payment.objects.create(paid_by=paid_by,
                                              paid_amount=paid_amount,
                                              reference_no=reference_no)
-            payment.order.add(order)
+            # payment.order.add(order)
             payment.save()
             cleaned_data['parent_payment'] = payment
         return cleaned_data
-
-    def save(self, commit=True):
-
-        instance = super(OrderPaymentForm, self).save(commit=False)
-        # instance.parent_payment = self.cleaned_data['parent_payment']
-
-        # do custom stuff
-        if commit:
-            instance.save()
-        return instance
 
 
 class ShipmentPaymentInlineForm(forms.ModelForm):
