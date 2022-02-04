@@ -3127,9 +3127,7 @@ class LoadVerifyCrateSerializer(serializers.ModelSerializer):
         # Make crate used at source
         shop = trip_crate_mapping.trip.source_shop
         crate = trip_crate_mapping.crate
-        shop_crate_instance = ShopCrate.objects.update_or_create(
-            shop=shop, crate=crate, defaults={'is_available': False})
-        info_logger.info(f"Crate marked used| {shop_crate_instance}")
+        ShopCrateCommonFunctions.mark_crate_used(shop.id, crate.id)
 
 
 class UnloadVerifyCrateSerializer(serializers.ModelSerializer):
@@ -3170,8 +3168,7 @@ class UnloadVerifyCrateSerializer(serializers.ModelSerializer):
         # Check if crate already scanned
         if not trip.trip_empty_crates.filter(
                 crate=crate, crate_status__in=[
-                    DispatchTripCrateMapping.LOADED, DispatchTripCrateMapping.DAMAGED_AT_LOADING,
-                    DispatchTripCrateMapping.MISSING_AT_LOADING]).exists():
+                    DispatchTripCrateMapping.LOADED, DispatchTripCrateMapping.DAMAGED_AT_LOADING]).exists():
             raise serializers.ValidationError("This crate was not loaded to the trip.")
         if trip.trip_empty_crates.filter(
                 crate=crate, crate_status__in=[
@@ -3212,9 +3209,7 @@ class UnloadVerifyCrateSerializer(serializers.ModelSerializer):
         # Make crate available at destination
         shop = trip_crate_mapping.trip.destination_shop
         crate = trip_crate_mapping.crate
-        shop_crate_instance = ShopCrate.objects.update_or_create(
-            shop=shop, crate=crate, defaults={'is_available': True})
-        info_logger.info(f"Crate marked available| {shop_crate_instance}")
+        ShopCrateCommonFunctions.mark_crate_available(shop.id, crate.id)
 
 
 class LoadVerifyPackageSerializer(serializers.ModelSerializer):
