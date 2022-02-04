@@ -4420,12 +4420,18 @@ class LoadLastMileInvoiceSerializer(serializers.ModelSerializer):
         except:
             raise serializers.ValidationError("invalid Trip ID")
 
-        if 'shipment_id' not in self.initial_data or not self.initial_data['shipment_id']:
-            raise serializers.ValidationError("'shipment_id' | This is required.")
-        try:
-            shipment = OrderedProduct.objects.get(id=self.initial_data['shipment_id'])
-        except:
-            raise serializers.ValidationError("invalid Shipment ID")
+        if 'shipment_id' in self.initial_data and self.initial_data['shipment_id']:
+            try:
+                shipment = OrderedProduct.objects.get(id=self.initial_data['shipment_id'])
+            except:
+                raise serializers.ValidationError("invalid Shipment ID")
+        elif 'invoice_no' in self.initial_data and self.initial_data['invoice_no']:
+            try:
+                shipment = OrderedProduct.objects.get(invoice__invoice_no=self.initial_data['invoice_no'])
+            except:
+                raise serializers.ValidationError("invalid invoice number")
+        else:
+            raise serializers.ValidationError("Please provide 'shipment_id' or 'invoice_no'.")
 
         trip_shipment_mapping = LastMileTripShipmentMapping.objects.filter(trip=trip, shipment=shipment).last()
         if trip_shipment_mapping:
