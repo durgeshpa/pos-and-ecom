@@ -1,9 +1,10 @@
 from dal import autocomplete
+from django.http import JsonResponse
 from django.shortcuts import render
 from django.db.models import Q
 
 from retailer_to_sp.models import Order
-from .models import Payment
+from .models import Payment, OrderPayment
 from accounts.models import UserWithName
 # Create your views here.
 
@@ -39,3 +40,8 @@ class UserWithNameAutocomplete(autocomplete.Select2QuerySetView):
         if self.q:
             qs = qs.filter(Q(phone_number__icontains=self.q) | Q(first_name__icontains=self.q))
         return qs
+
+
+def GetOrderPaymentAmount(request, order_payment):
+    order_amount = OrderPayment.objects.filter(id=order_payment).last().paid_amount
+    return JsonResponse({"data": order_amount})

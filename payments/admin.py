@@ -284,7 +284,7 @@ class ShipmentPaymentInlineAdmin(admin.TabularInline, PermissionMixin):
     formset = AtLeastOneFormSet
     fields = ("paid_amount", "parent_order_payment", "payment_mode_name", "reference_no", "description",
               "payment_approval_status")
-    readonly_fields = ("payment_mode_name", "reference_no","payment_approval_status")
+    readonly_fields = ("paid_amount", "payment_mode_name", "reference_no","payment_approval_status")
     extra = 0
 
     class Media:
@@ -358,8 +358,8 @@ def ShipmentPaymentInlineAdminFactory(user_id, object_id=None):
         readonly_fields = ("payment_mode_name", "reference_no","payment_approval_status")
         extra = 0
 
-        # class Media:
-        #     js = ("js/shipment_payment_add_another.js",)
+        class Media:
+            js = ("js/shipment_payment_add_another.js",)
 
         def formfield_for_foreignkey(self, db_field, request, **kwargs):
             if db_field.name == "parent_order_payment":

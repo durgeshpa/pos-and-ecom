@@ -164,6 +164,7 @@ class ShipmentPaymentInlineForm(forms.ModelForm):
 def ShipmentPaymentInlineFormFactory(user_id, object_id):
     class ShipmentPaymentInlineForm(forms.ModelForm):
         user_id = forms.CharField(widget=forms.HiddenInput(), required=False)
+
         class Meta:
             model = ShipmentPayment
             fields = "__all__"
