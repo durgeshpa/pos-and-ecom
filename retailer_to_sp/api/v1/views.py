@@ -8777,11 +8777,14 @@ class LastMileTripCrudView(generics.GenericAPIView):
     def search_filter_trips_data(self):
         search_text = self.request.GET.get('search_text')
         seller_shop = self.request.GET.get('seller_shop')
+        source_shop = self.request.GET.get('source_shop')
         delivery_boy = self.request.GET.get('delivery_boy')
         dispatch_no = self.request.GET.get('dispatch_no')
         vehicle_no = self.request.GET.get('vehicle_no')
         trip_status = self.request.GET.get('trip_status')
         t_status = self.request.GET.get('status')
+        created_at = self.request.GET.get('date')
+        data_days = self.request.GET.get('data_days')
 
         '''search using seller_shop name, source_shop's firstname  and destination_shop's firstname'''
         if search_text:
@@ -8792,6 +8795,9 @@ class LastMileTripCrudView(generics.GenericAPIView):
         '''
         if seller_shop:
             self.queryset = self.queryset.filter(seller_shop__id=seller_shop)
+
+        if source_shop:
+            self.queryset = self.queryset.filter(source_shop__id=source_shop)
 
         if delivery_boy:
             self.queryset = self.queryset.filter(delivery_boy__id=delivery_boy)
@@ -8807,6 +8813,16 @@ class LastMileTripCrudView(generics.GenericAPIView):
 
         if t_status:
             self.queryset = self.queryset.filter(status=t_status)
+
+        if created_at:
+            if data_days:
+                end_date = datetime.strptime(created_at, "%Y-%m-%d")
+                start_date = end_date - timedelta(days=int(data_days))
+                self.queryset = self.queryset.filter(
+                    created_at__date__gte=start_date.date(), created_at__date__lte=end_date.date())
+            else:
+                created_at = datetime.strptime(created_at, "%Y-%m-%d")
+                self.queryset = self.queryset.filter(created_at__date=created_at)
 
         return self.queryset.distinct('id')
 
