@@ -15,6 +15,7 @@ from addresses.models import Address, Pincode, City
 from products.models import (Product, ProductPrice, ProductImage, Tax, ProductTaxMapping, ProductOption, Size, Color,
                              Fragrance, Flavor, Weight, PackageSize, ParentProductImage, SlabProductPrice, PriceSlab)
 from retailer_backend.utils import getStrToYearDate
+from retailer_to_sp.common_model_functions import ShopCrateCommonFunctions
 from retailer_to_sp.common_validators import validate_shipment_crates_list, validate_shipment_package_list
 from retailer_to_sp.models import (CartProductMapping, Cart, Order, OrderedProduct, Note, CustomerCare, Payment,
                                    Dispatch, Feedback, OrderedProductMapping as RetailerOrderedProductMapping,
@@ -1608,6 +1609,7 @@ class RetailerOrderedProductMappingSerializer(serializers.ModelSerializer):
                                               "(total qc pieces + missing pieces)")
 
         warehouse_id = mapping_instance.ordered_product.order.seller_shop.id
+        current_shop_id = mapping_instance.ordered_product.current_shop.id
 
         if 'packaging' in self.initial_data and self.initial_data['packaging']:
             if shipped_qty == 0:
@@ -1619,7 +1621,7 @@ class RetailerOrderedProductMappingSerializer(serializers.ModelSerializer):
                 if package_obj['type'] not in [ShipmentPackaging.CRATE, ShipmentPackaging.SACK, ShipmentPackaging.BOX]:
                     raise serializers.ValidationError("'packaging type' | Invalid packaging type")
                 if package_obj['type'] == ShipmentPackaging.CRATE:
-                    validate_crates = validate_shipment_crates_list(package_obj, warehouse_id,
+                    validate_crates = validate_shipment_crates_list(package_obj, current_shop_id,
                                                                     mapping_instance.ordered_product)
                     if 'error' in validate_crates:
                         raise serializers.ValidationError(validate_crates['error'])
@@ -1652,7 +1654,7 @@ class RetailerOrderedProductMappingSerializer(serializers.ModelSerializer):
             instance, created = ShipmentPackaging.objects.get_or_create(
                 shipment=shipment, packaging_type=packaging_type, warehouse_id=warehouse_id, crate=crate,
                 defaults={'created_by': updated_by, 'updated_by': updated_by})
-            self.mark_crate_used(instance)
+            ShopCrateCommonFunctions.mark_crate_used(instance.shipment.current_shop.id, instance.crate.id)
         else:
             instance = ShipmentPackaging.objects.create(
                 shipment=shipment, packaging_type=packaging_type, warehouse_id=warehouse_id, crate=crate,
@@ -1672,13 +1674,6 @@ class RetailerOrderedProductMappingSerializer(serializers.ModelSerializer):
         except Exception as e:
             error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
             raise serializers.ValidationError(error)
-
-    def mark_crate_used(self, packaging_instance):
-        info_logger.info(f"mark_crate_used|Packaging instance {packaging_instance}")
-        shop_crate_instance = ShopCrate.objects.update_or_create(
-            shop=packaging_instance.shipment.current_shop, crate=packaging_instance.crate,
-            defaults={'is_available': False})
-        info_logger.info(f"mark_crate_used|Marked| {shop_crate_instance}")
 
     @transaction.atomic
     def update(self, instance, validated_data):
@@ -1711,8 +1706,7 @@ class RetailerOrderedProductMappingSerializer(serializers.ModelSerializer):
                 if package_obj['type'] == ShipmentPackaging.CRATE:
                     for crate in package_obj['packages']:
                         crate_instance = Crate.objects.filter(
-                            crate_id=crate['crate_id'], warehouse__id=validated_data['warehouse_id'],
-                            crate_type=Crate.DISPATCH).last()
+                            crate_id=crate['crate_id'], crate_type=Crate.DISPATCH).last()
                         shipment_packaging = self.create_update_shipment_packaging(
                             process_shipments_instance.ordered_product, package_obj['type'],
                             validated_data['warehouse_id'], crate_instance, validated_data['last_modified_by'])
@@ -2751,7 +2745,8 @@ class ShipmentPackageSerializer(serializers.ModelSerializer):
             error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
             raise serializers.ValidationError(error)
         # self.post_shipment_packaging_status_change(packaging_instance.shipment)
-        self.mark_crate_available(packaging_instance)
+        ShopCrateCommonFunctions.mark_crate_available(
+            packaging_instance.shipment.current_shop.id, packaging_instance.crate.id)
         return packaging_instance
 
     def post_shipment_packaging_status_change(self, shipment_instance):
@@ -2769,13 +2764,6 @@ class ShipmentPackageSerializer(serializers.ModelSerializer):
                 shipment_instance.save()
             info_logger.info(f"post_shipment_packaging_status_change|Shipment status updated|Shipment ID "
                              f"{shipment_instance.id}")
-
-    def mark_crate_available(self, packaging_instance):
-        info_logger.info(f"mark_crate_used|Packaging instance {packaging_instance}")
-        shop_crate_instance = ShopCrate.objects.update_or_create(
-            shop=packaging_instance.shipment.current_shop, crate=packaging_instance.crate,
-            defaults={'is_available': True})
-        info_logger.info(f"mark_crate_used|Marked| {shop_crate_instance}")
 
 
 class VerifyRescheduledShipmentPackageSerializer(serializers.ModelSerializer):
@@ -2810,6 +2798,96 @@ class VerifyRescheduledShipmentPackageSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError("'shipment_id' | Invalid shipment selected.")
             shipment = OrderedProduct.objects.filter(
                 id=self.initial_data['shipment_id'], shipment_status=OrderedProduct.RESCHEDULED).last()
+            if shipment != shipment_packaging.shipment:
+                raise serializers.ValidationError("'shipment_id' | Invalid shipment for the selected package")
+            data['shipment'] = shipment
+        else:
+            raise serializers.ValidationError("'shipment_id' | This is mandatory")
+
+        if 'trip_id' in self.initial_data and self.initial_data['trip_id']:
+            if not Trip.objects.filter(id=self.initial_data['trip_id'],  trip_status=Trip.COMPLETED).exists():
+                raise serializers.ValidationError("'Trip' | Invalid trip.")
+            trip = Trip.objects.filter(id=self.initial_data['trip_id'],  trip_status=Trip.COMPLETED).last()
+            if not LastMileTripShipmentMapping.objects.filter(trip=trip, shipment=shipment).exists():
+                raise serializers.ValidationError("'shipment_id' | Invalid shipment for the selected trip")
+        else:
+            raise serializers.ValidationError("'trip_id' | This is mandatory")
+
+        if 'return_status' in self.initial_data and self.initial_data['return_status']:
+            if self.initial_data['return_status'] == PACKAGE_VERIFY_CHOICES.OK:
+                status = ShipmentPackaging.DISPATCH_STATUS_CHOICES.READY_TO_DISPATCH
+            elif self.initial_data['return_status'] == PACKAGE_VERIFY_CHOICES.DAMAGED:
+                status = ShipmentPackaging.DISPATCH_STATUS_CHOICES.RETURN_DAMAGED
+            elif self.initial_data['return_status'] == PACKAGE_VERIFY_CHOICES.MISSING:
+                status = ShipmentPackaging.DISPATCH_STATUS_CHOICES.RETURN_MISSING
+            else:
+                raise serializers.ValidationError("'return_status' | Invalid status for the selected shipment packaging.")
+            if shipment_packaging.status == status:
+                raise serializers.ValidationError(f"Packaging status is already {str(status)}.")
+            if shipment_packaging.status not in [ShipmentPackaging.DISPATCH_STATUS_CHOICES.REJECTED,
+                                                 ShipmentPackaging.DISPATCH_STATUS_CHOICES.DISPATCHED,
+                                                 ShipmentPackaging.DISPATCH_STATUS_CHOICES.DELIVERED]:
+                raise serializers.ValidationError(f"Current status is  {str(shipment_packaging.status)} | can't update")
+
+            if status in [ShipmentPackaging.DISPATCH_STATUS_CHOICES.RETURN_MISSING,
+                          ShipmentPackaging.DISPATCH_STATUS_CHOICES.RETURN_DAMAGED]:
+                if 'return_remark' in self.initial_data and self.initial_data['return_remark']:
+                    if any(self.initial_data['return_remark'] in i for i in ShipmentPackaging.RETURN_REMARK_CHOICES):
+                        data['return_remark'] = self.initial_data['return_remark']
+                    else:
+                        raise serializers.ValidationError("'return_remark' | Invalid remark.")
+                else:
+                    raise serializers.ValidationError("'return_remark' | This is mandatory for missing or damage.")
+            data['status'] = status
+        else:
+            raise serializers.ValidationError("'return_status' | This is mandatory")
+
+        return data
+
+    @transaction.atomic
+    def update(self, instance, validated_data):
+        """Update ShipmentPackaging"""
+        try:
+            packaging_instance = super().update(instance, validated_data)
+        except Exception as e:
+            error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
+            raise serializers.ValidationError(error)
+
+        return packaging_instance
+
+
+class VerifyNotAttemptShipmentPackageSerializer(serializers.ModelSerializer):
+    packaging_details = DispatchItemDetailsSerializer(many=True, read_only=True)
+    crate = CrateSerializer(read_only=True)
+    packaging_type = ChoicesSerializer(choices=ShipmentPackaging.PACKAGING_TYPE_CHOICES, required=True)
+    is_return_verified = serializers.SerializerMethodField()
+
+    def get_is_return_verified(self, obj):
+        return True if obj.status in [ShipmentPackaging.DISPATCH_STATUS_CHOICES.READY_TO_DISPATCH,
+                                      ShipmentPackaging.DISPATCH_STATUS_CHOICES.RETURN_MISSING,
+                                      ShipmentPackaging.DISPATCH_STATUS_CHOICES.RETURN_DAMAGED] else False
+
+    class Meta:
+        model = ShipmentPackaging
+        fields = ('id', 'packaging_type', 'crate', 'status', 'is_return_verified', 'return_remark', 'reason_for_rejection',
+                  'packaging_details')
+
+    def validate(self, data):
+
+        if 'package_id' in self.initial_data and self.initial_data['package_id']:
+            if ShipmentPackaging.objects.filter(id=self.initial_data['package_id']).exists():
+                shipment_packaging = ShipmentPackaging.objects.filter(id=self.initial_data['package_id']).last()
+            else:
+                raise serializers.ValidationError("Shipment packaging not found for selected shipment and crate.")
+        else:
+            raise serializers.ValidationError("'package_id' | This is mandatory")
+
+        if 'shipment_id' in self.initial_data and self.initial_data['shipment_id']:
+            if not OrderedProduct.objects.filter(
+                    id=self.initial_data['shipment_id'], shipment_status=OrderedProduct.NOT_ATTEMPT).exists():
+                raise serializers.ValidationError("'shipment_id' | Invalid shipment selected.")
+            shipment = OrderedProduct.objects.filter(
+                id=self.initial_data['shipment_id'], shipment_status=OrderedProduct.NOT_ATTEMPT).last()
             if shipment != shipment_packaging.shipment:
                 raise serializers.ValidationError("'shipment_id' | Invalid shipment for the selected package")
             data['shipment'] = shipment
@@ -3809,6 +3887,7 @@ class VerifyReturnShipmentProductsSerializer(serializers.ModelSerializer):
                                 float(product_returned_qty + product_returned_damage_qty)
 
         warehouse_id = mapping_instance.ordered_product.packaged_at
+        current_shop_id = mapping_instance.ordered_product.current_shop.id
 
         total_product_returned_qty = float(product_returned_qty + product_returned_damage_qty)
         # Make Packaging for Dispatch Trips only, Validation: Seller shop is not same as Source shop
@@ -3823,7 +3902,7 @@ class VerifyReturnShipmentProductsSerializer(serializers.ModelSerializer):
                     if package_obj['type'] not in [ShipmentPackaging.CRATE, ShipmentPackaging.SACK, ShipmentPackaging.BOX]:
                         raise serializers.ValidationError("'packaging type' | Invalid packaging type")
                     if package_obj['type'] == ShipmentPackaging.CRATE:
-                        validate_crates = validate_shipment_crates_list(package_obj, warehouse_id,
+                        validate_crates = validate_shipment_crates_list(package_obj, current_shop_id,
                                                                         mapping_instance.ordered_product)
                         if 'error' in validate_crates:
                             raise serializers.ValidationError(validate_crates['error'])
@@ -3869,6 +3948,7 @@ class VerifyReturnShipmentProductsSerializer(serializers.ModelSerializer):
             instance, created = ShipmentPackaging.objects.get_or_create(
                 shipment=shipment, packaging_type=packaging_type, warehouse_id=warehouse_id, crate=crate,
                 movement_type=movement_type, defaults={'created_by': updated_by, 'updated_by': updated_by})
+            ShopCrateCommonFunctions.mark_crate_used(instance.shipment.current_shop.id, instance.crate.id)
         else:
             instance = ShipmentPackaging.objects.create(
                 shipment=shipment, packaging_type=packaging_type, warehouse_id=warehouse_id, crate=crate,
@@ -3913,14 +3993,19 @@ class VerifyReturnShipmentProductsSerializer(serializers.ModelSerializer):
                                                                      .values_list('shipment_packaging_id', flat=True))
                 ShipmentPackagingMapping.objects.filter(ordered_product=shipment_map_instance,
                                                        shipment_packaging__movement_type=movement_type).delete()
+                crates_used = ShipmentPackaging.objects.filter(
+                    id__in=shipment_packaging_ids, packaging_details__isnull=True, crate__isnull=False).\
+                    values_list('crate__id', flat=True)
+                for crate_id in crates_used:
+                    ShopCrateCommonFunctions.mark_crate_available(
+                        shipment_map_instance.ordered_product.current_shop.id, crate_id)
                 ShipmentPackaging.objects.filter(id__in=shipment_packaging_ids, packaging_details__isnull=True).delete()
 
             for package_obj in packaging:
                 if package_obj['type'] == ShipmentPackaging.CRATE:
                     for crate in package_obj['packages']:
                         crate_instance = Crate.objects.filter(
-                            crate_id=crate['crate_id'], warehouse__id=validated_data['warehouse_id'],
-                            crate_type=Crate.DISPATCH).last()
+                            crate_id=crate['crate_id'], crate_type=Crate.DISPATCH).last()
                         shipment_packaging = self.create_update_shipment_packaging(
                             shipment_map_instance.ordered_product, package_obj['type'],
                             validated_data['warehouse_id'], crate_instance, validated_data['last_modified_by'],
@@ -3958,7 +4043,7 @@ class ShipmentCratesValidatedSerializer(serializers.ModelSerializer):
                 ~Q(status__in=[ShipmentPackaging.DISPATCH_STATUS_CHOICES.RETURN_VERIFIED,
                                ShipmentPackaging.DISPATCH_STATUS_CHOICES.RETURN_MISSING,
                                ShipmentPackaging.DISPATCH_STATUS_CHOICES.RETURN_DAMAGED]),
-                packaging_type=ShipmentPackaging.CRATE).exists():
+                packaging_type=ShipmentPackaging.CRATE, movement_type=ShipmentPackaging.DISPATCH).exists():
             return True
         return False
 
@@ -4000,7 +4085,7 @@ class ShipmentCompleteVerifySerializer(serializers.ModelSerializer):
                     ~Q(status__in=[ShipmentPackaging.DISPATCH_STATUS_CHOICES.RETURN_VERIFIED,
                                    ShipmentPackaging.DISPATCH_STATUS_CHOICES.RETURN_MISSING,
                                    ShipmentPackaging.DISPATCH_STATUS_CHOICES.RETURN_DAMAGED]),
-                    packaging_type=ShipmentPackaging.CRATE).exists():
+                    packaging_type=ShipmentPackaging.CRATE, movement_type=ShipmentPackaging.DISPATCH).exists():
                 raise serializers.ValidationError(f"All crates are not verified for shipment status "
                                                   f"{shipment.shipment_status} | Id { shipment.pk }")
 
