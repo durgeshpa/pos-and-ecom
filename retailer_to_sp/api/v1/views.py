@@ -8599,10 +8599,6 @@ class UnloadVerifyCrateView(generics.GenericAPIView):
         serializer = self.serializer_class(instance=trip_empty_crate, data=modified_data)
         if serializer.is_valid():
             serializer.save(updated_by=request.user)
-
-        serializer = self.serializer_class(data=modified_data)
-        if serializer.is_valid():
-            serializer.save(updated_by=request.user)
             info_logger.info("Crate unloaded Successfully.")
             return get_response('Crate unloaded successfully!', serializer.data)
         return get_response(serializer_error(serializer), False)
