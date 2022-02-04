@@ -7637,18 +7637,26 @@ class ShipmentPackagingView(generics.GenericAPIView):
     def get(self, request):
         """ GET API for Shipment Packaging """
         info_logger.info("Shipment Packaging GET api called.")
-        if not request.GET.get('packaging_id'):
-            return get_response("'packaging_id' | This is mandatory.")
-        """ Get Shipment Packaging for specific ID """
-        id_validation = validate_id(self.queryset, int(request.GET.get('packaging_id')))
-        if 'error' in id_validation:
-            return get_response(id_validation['error'])
-        packaging_data = id_validation['data']
-        shipment = packaging_data.last().shipment
-        movement_type = packaging_data.last().movement_type
+        if not request.GET.get('packaging_id') and not request.GET.get('shipment_id'):
+            return get_response("'packaging_id' or 'shipment_id' is required.")
+        if request.GET.get('packaging_id'):
+            """ Get Shipment Packaging for specific ID """
+            id_validation = validate_id(self.queryset, int(request.GET.get('packaging_id')))
+            if 'error' in id_validation:
+                return get_response(id_validation['error'])
+            packaging_data = id_validation['data']
+            shipment = packaging_data.last().shipment
+            movement_type = packaging_data.last().movement_type
+        elif request.GET.get('shipment_id'):
+            id_validation = validate_shipment_id(int(request.GET.get('shipment_id')))
+            if 'error' in id_validation:
+                return get_response(id_validation['error'])
+            shipment = id_validation['data']
+            movement_type = ShipmentPackaging.DISPATCH
+        self.queryset = self.queryset.filter(shipment=shipment, movement_type=movement_type)
         serializer = self.serializer_class(
             self.queryset.filter(shipment=shipment, movement_type=movement_type), many=True)
-        msg = "" if packaging_data else "no packaging found"
+        msg = "" if self.queryset.exists() else "no packaging found"
         return get_response(msg, serializer.data, True)
 
 

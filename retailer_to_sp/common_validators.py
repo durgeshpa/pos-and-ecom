@@ -102,7 +102,7 @@ def get_shipment_by_shipment_label(shipment_label_id):
 def validate_shipment_id(shipment_id):
     obj = OrderedProduct.objects.filter(id=shipment_id).last()
     if not obj:
-        return {'error': 'please provide a valid shipment_label_id'}
+        return {'error': 'please provide a valid shipment_id'}
     return {'data': obj.pk}
 
 
