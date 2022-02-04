@@ -115,27 +115,31 @@ class OrderPaymentForm(forms.ModelForm):
         self.fields.get('paid_by').required = True
         users = Shop.objects.filter(shop_type__shop_type="r").values('shop_owner__id')
         self.fields.get('paid_by').queryset = UserWithName.objects.filter(pk__in=users)
-        if kwargs is not None and kwargs.get('initial', None):
+        instance = getattr(self, 'instance', None)
+        if instance.pk:
+            self.fields['paid_by'].initial = instance.parent_payment.paid_by
+            self.fields['reference_no'].initial = instance.parent_payment.reference_no
+        elif kwargs is not None and kwargs.get('initial', None):
             if kwargs.get('initial').get('object_id', None) is not None:
                 object_id = kwargs.get('initial').get('object_id')
                 shipment_data_instance = ShipmentData.objects.filter(id=object_id).last()
                 self.fields['order'].initial = shipment_data_instance.order.id
-                self.fields['order'].widget.attrs['readonly'] = True
             if kwargs.get('initial').get('user_id', None) is not None:
                 user_id = kwargs.get('initial').get('user_id')
                 self.fields['paid_by'].initial = user_id
-                self.fields['paid_by'].widget.attrs['readonly'] = True
 
     def clean(self):
         cleaned_data = super(OrderPaymentForm, self).clean()
         paid_by = cleaned_data.get('paid_by')
         paid_amount = cleaned_data.get('paid_amount')
         reference_no = cleaned_data.get('reference_no')
+        payment_mode_name = cleaned_data.get('payment_mode_name')
         order = cleaned_data.get('order')
-        if paid_by and paid_amount and order:
+        if paid_by and paid_amount and order and payment_mode_name:
             payment = Payment.objects.create(paid_by=paid_by,
                                              paid_amount=paid_amount,
-                                             reference_no=reference_no)
+                                             reference_no=reference_no,
+                                             payment_mode_name=payment_mode_name)
             # payment.order.add(order)
             payment.save()
             cleaned_data['parent_payment'] = payment
@@ -156,16 +160,10 @@ class ShipmentPaymentInlineForm(forms.ModelForm):
 
         # self.fields['parent_payment'].queryset = Payment.objects.filter(order=shipment_payment.shipment.order)
 
-        if self.fields.get('shipment') is not None:
-            self.fields.get('parent_order_payment').widget = RelatedFieldWidgetCanAdd(
-                OrderPayment, None, {"order": self.fields['shipment'].order})
-        else:
-            self.fields.get('parent_order_payment').widget = RelatedFieldWidgetCanAdd(
-                OrderPayment, None, {"order": 271002})
-
 
 def ShipmentPaymentInlineFormFactory(user_id, object_id):
     class ShipmentPaymentInlineForm(forms.ModelForm):
+        user_id = forms.CharField(widget=forms.HiddenInput(), required=False)
         class Meta:
             model = ShipmentPayment
             fields = "__all__"
@@ -174,12 +172,14 @@ def ShipmentPaymentInlineFormFactory(user_id, object_id):
             # show only the payments for the relevant order
             super(ShipmentPaymentInlineForm, self).__init__(*args, **kwargs)
             self.fields.get('parent_order_payment').required = True
+            self.fields.get('user_id').initial = user_id
             # shipment_payment = getattr(self, 'instance', None)
 
             # self.fields['parent_payment'].queryset = Payment.objects.filter(order=shipment_payment.shipment.order)
-
-            self.fields.get('parent_order_payment').widget = RelatedFieldWidgetCanAdd(
-                    OrderPayment, None, {"user_id": user_id, "object_id": object_id})
+            self.fields.get('parent_order_payment').queryset = OrderPayment.objects.filter(
+                order__rt_order_order_product__id=object_id)
+            # self.fields.get('parent_order_payment').widget = RelatedFieldWidgetCanAdd(
+            #         OrderPayment, None, {"user_id": user_id, "object_id": object_id})
     return ShipmentPaymentInlineForm
 
 

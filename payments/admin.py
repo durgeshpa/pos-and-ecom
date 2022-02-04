@@ -282,11 +282,13 @@ class ShipmentPaymentInlineAdmin(admin.TabularInline, PermissionMixin):
     model = ShipmentPayment
     form = ShipmentPaymentInlineForm
     formset = AtLeastOneFormSet
-    #autocomplete_fields = ("parent_order_payment",)
     fields = ("paid_amount", "parent_order_payment", "payment_mode_name", "reference_no", "description",
-        "payment_approval_status")
+              "payment_approval_status")
     readonly_fields = ("payment_mode_name", "reference_no","payment_approval_status")
     extra = 0
+
+    class Media:
+        js = ("js/shipment_payment_add_another.js",)
 
     def formfield_for_foreignkey(self, db_field, request, **kwargs):
         if db_field.name == "parent_order_payment":
@@ -299,7 +301,6 @@ class ShipmentPaymentInlineAdmin(admin.TabularInline, PermissionMixin):
         return super(
             ShipmentPaymentInlineAdmin, self).formfield_for_foreignkey(db_field, request, **kwargs)
 
-
     def has_add_permission(self, request, obj=None):
         try:
             parent_obj_id = request.resolver_match.kwargs['object_id']
@@ -310,7 +311,6 @@ class ShipmentPaymentInlineAdmin(admin.TabularInline, PermissionMixin):
                 return True
         except: 
             return True
-
 
     def has_change_permission(self, request, obj=None):
         try:
@@ -350,9 +350,16 @@ def ShipmentPaymentInlineAdminFactory(user_id, object_id=None):
         formset = AtLeastOneFormSet
         #autocomplete_fields = ("parent_order_payment",)
         fields = ("paid_amount", "parent_order_payment", "payment_mode_name", "reference_no", "description",
-            "payment_approval_status")
+                  "payment_approval_status")
+        # fieldsets = (
+        #     (None, {'fields': ("paid_amount", "parent_order_payment", "payment_mode_name", "reference_no",
+        #                        "description", "payment_approval_status")}),
+        # )
         readonly_fields = ("payment_mode_name", "reference_no","payment_approval_status")
         extra = 0
+
+        # class Media:
+        #     js = ("js/shipment_payment_add_another.js",)
 
         def formfield_for_foreignkey(self, db_field, request, **kwargs):
             if db_field.name == "parent_order_payment":
@@ -411,14 +418,13 @@ def ShipmentPaymentInlineAdminFactory(user_id, object_id=None):
 class ShipmentPaymentDataAdmin(admin.ModelAdmin, PermissionMixin):
     inlines = [ShipmentPaymentInlineAdmin]
     model = ShipmentData
-    list_display = (
-        'order', 'trip','invoice_no', 'invoice_amount', 'total_paid_amount','invoice_city'
-        )
+    list_display = ('order', 'trip', 'invoice_no', 'invoice_amount', 'total_paid_amount', 'invoice_city')
     list_per_page = 50
-    fields = ['order', 'trip', 'trip_status', 'invoice_no', 'invoice_amount', 'total_paid_amount', 'shipment_address', 'invoice_city',
-        'shipment_status', 'no_of_crates', 'no_of_packets', 'no_of_sacks']
-    readonly_fields = ['order', 'trip', 'trip_status', 'invoice_no', 'invoice_amount', 'total_paid_amount', 'shipment_address', 'invoice_city',
-        'shipment_status', 'no_of_crates', 'no_of_packets', 'no_of_sacks']
+    fields = ['order', 'trip', 'trip_status', 'invoice_no', 'invoice_amount', 'total_paid_amount', 'shipment_address',
+              'invoice_city', 'shipment_status', 'no_of_crates', 'no_of_packets', 'no_of_sacks']
+    readonly_fields = ['order', 'trip', 'trip_status', 'invoice_no', 'invoice_amount', 'total_paid_amount',
+                       'shipment_address', 'invoice_city', 'shipment_status', 'no_of_crates', 'no_of_packets',
+                       'no_of_sacks']
 
     # we define inlines with factory to create Inline class with request inside
     def change_view(self, request, object_id, form_url='', extra_context=None):
@@ -429,7 +435,7 @@ class ShipmentPaymentDataAdmin(admin.ModelAdmin, PermissionMixin):
     def add_view(self, request, form_url='', extra_context=None):
         self.inlines = (ShipmentPaymentInlineAdminFactory(request.user.id),)
         return super(ShipmentPaymentDataAdmin, self).add_view(request.user.id)
-        
+
     def total_paid_amount(self,obj):
         return obj.total_paid_amount
     total_paid_amount.short_description = 'Total Paid Amount'
