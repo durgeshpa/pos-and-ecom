@@ -2961,14 +2961,18 @@ class SummarySerializer(serializers.Serializer):
     total_crates = serializers.IntegerField()
     total_packets = serializers.IntegerField()
     total_sack = serializers.IntegerField()
+    total_empty_crates = serializers.IntegerField()
     invoices_check = serializers.IntegerField()
     total_crates_check = serializers.IntegerField()
     total_packets_check = serializers.IntegerField()
     total_sack_check = serializers.IntegerField()
+    total_empty_crates_check = serializers.IntegerField()
     remaining_invoices = serializers.IntegerField()
     remaining_crates = serializers.IntegerField()
     remaining_packets = serializers.IntegerField()
     remaining_sacks = serializers.IntegerField()
+    remaining_empty_crates = serializers.IntegerField()
+
     weight = serializers.IntegerField()
 
 
@@ -3206,6 +3210,11 @@ class UnloadVerifyCrateSerializer(serializers.ModelSerializer):
 
     def post_crate_unload_trip_update(self, trip_crate_mapping):
         info_logger.info(f"post_crate_unload_trip_update|trip_crate_mapping {trip_crate_mapping}")
+        # Update total no of empty crates
+        trip = trip_crate_mapping.trip
+        if trip_crate_mapping.crate_status == DispatchTripCrateMapping.UNLOADED:
+            trip.no_of_empty_crates_check = trip.no_of_empty_crates_check + 1
+            trip.save()
         # Make crate available at destination
         shop = trip_crate_mapping.trip.destination_shop
         crate = trip_crate_mapping.crate

@@ -3421,6 +3421,9 @@ class DispatchTrip(BaseTimestampUserModel):
                                                       verbose_name="Total packets collected")
     no_of_sacks_check = models.PositiveIntegerField(default=0, null=True, blank=True,
                                                     verbose_name="Total sacks collected")
+    no_of_empty_crates_check = models.PositiveIntegerField(default=0, null=True, blank=True,
+                                                    verbose_name="Total empty crates collected")
+    weight = models.FloatField(null=True, default=0, verbose_name="Trip weight")
 
     class Meta:
         permissions = (
