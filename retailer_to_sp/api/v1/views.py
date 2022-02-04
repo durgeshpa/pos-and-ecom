@@ -8570,9 +8570,8 @@ class UnloadVerifyCrateView(generics.GenericAPIView):
 
     def validate_trip_empty_crate(self, crate_id, trip_id):
         trip_empty_crate = self.queryset.filter(
-            crate_status__in=[DispatchTripCrateMapping.LOADED, DispatchTripCrateMapping.DAMAGED_AT_LOADING,
-                              DispatchTripCrateMapping.MISSING_AT_LOADING],
-            crate_id=crate_id, trip__id=trip_id).last()
+            crate_status__in=[DispatchTripCrateMapping.LOADED, DispatchTripCrateMapping.DAMAGED_AT_LOADING],
+            crate__crate_id=crate_id, trip__id=trip_id).last()
         if not trip_empty_crate:
             return {"error": "invalid Crate"}
         return {"data": trip_empty_crate}
@@ -8592,8 +8591,7 @@ class UnloadVerifyCrateView(generics.GenericAPIView):
             return get_response("'status' | This is required.", False)
 
         # validations for input
-        crate_validation = self.validate_trip_empty_crate(int(modified_data['crate_id']),
-                                                             int(modified_data['trip_id']))
+        crate_validation = self.validate_trip_empty_crate(modified_data['crate_id'], int(modified_data['trip_id']))
         if 'error' in crate_validation:
             return get_response(crate_validation['error'])
         trip_empty_crate = crate_validation['data']
