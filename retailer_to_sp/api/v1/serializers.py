@@ -2493,8 +2493,8 @@ class DispatchTripStatusChangeSerializers(serializers.ModelSerializer):
             error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
             raise serializers.ValidationError(error)
 
-        if validated_data['trip_status'] == DispatchTrip.STARTED:
-            self.dispatch_added_shipments_to_trip(dispatch_trip_instance)
+        # if validated_data['trip_status'] == DispatchTrip.STARTED:
+        #     self.dispatch_added_shipments_to_trip(dispatch_trip_instance)
 
         if validated_data['trip_status'] == DispatchTrip.UNLOADING:
             self.unloading_added_shipments_to_trip(dispatch_trip_instance)
