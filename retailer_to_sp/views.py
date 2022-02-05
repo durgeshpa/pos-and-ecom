@@ -32,7 +32,8 @@ from retailer_to_sp.models import (CartProductMapping, Order, OrderedProduct, Or
                                    Dispatch, ShipmentRescheduling, PickerDashboard, update_full_part_order_status,
 
                                    Shipment, populate_data_on_qc_pass, OrderedProductBatch, ShipmentPackaging,
-                                   add_to_putaway_on_return, check_franchise_inventory_update, ShipmentNotAttempt)
+                                   add_to_putaway_on_return, check_franchise_inventory_update, ShipmentNotAttempt,
+                                   LastMileTripShipmentMapping)
 from products.models import Product
 from retailer_to_sp.forms import (
     OrderedProductForm, OrderedProductMappingShipmentForm,
@@ -85,22 +86,14 @@ class ShipmentMergedBarcode(APIView):
                 pck_type_r_id = str(packaging.packaging_type)
             customer_city_pincode = str(shipment.order.city) + " / " + str(shipment.order.pincode)
             route = "N/A"
+            dispatch_center = str(shipment.order.dispatch_center.pk) if \
+                shipment.order.dispatch_center else str(shipment.order.seller_shop.pk)
             shipment_count = str(str(cnt + 1) + " / " + str(pack_cnt))
-            if not packaging.crate and packaging.packaging_details.exists():
-                quantity = str(packaging.packaging_details.last().quantity)
-                product_name = str(packaging.packaging_details.last().ordered_product.product.product_name)
-                if product_name and len(product_name) > 32:
-                    product_name = product_name[:32] + "..."
-                data = {shipment_count: pck_type_r_id,
-                        shipment.order.order_no: customer_city_pincode,
-                        product_name: quantity,
-                        "route ": route}
-            else:
-                data = {shipment_count: pck_type_r_id,
-                        shipment.order.order_no: customer_city_pincode,
-                        "route ": route,
-                        "blank_row": ""}
-            shipment_id_list[barcode_id] = {"qty": 1, "data": data}
+            temp_data = {"qty": 1,
+                         "data": {shipment_count: pck_type_r_id,
+                                  shipment.order.order_no: customer_city_pincode,
+                                  dispatch_center: route}}
+            shipment_id_list[barcode_id] = temp_data
         return merged_barcode_gen(shipment_id_list, 'admin/retailer_to_sp/barcode.html')
 
 
@@ -460,6 +453,7 @@ def ordered_product_mapping_shipment(request):
                 with transaction.atomic():
                     shipment = form.save()
                     shipment.shipment_status = 'SHIPMENT_CREATED'
+                    shipment.current_shop = order.seller_shop
                     shipment.save()
                     for forms in form_set:
                         if forms.is_valid():
@@ -578,6 +572,7 @@ def trip_planning(request):
             selected_shipments = form.cleaned_data.get('selected_id', None)
             if selected_shipments:
                 selected_shipments = selected_shipments.split(',')
+                create_update_last_mile_trip_shipment_mapping(trip.id, selected_shipments, request.user)
                 selected_shipments = Dispatch.objects.filter(
                     pk__in=selected_shipments)
                 selected_shipments.update(trip=trip, shipment_status='READY_TO_DISPATCH')
@@ -611,6 +606,21 @@ TRIP_ORDER_STATUS_MAP = {
     'STARTED': Order.DISPATCHED,
     'COMPLETED': Order.COMPLETED
 }
+
+
+def create_update_last_mile_trip_shipment_mapping(trip_id, shipment_ids, request_user):
+    removed_shipments = LastMileTripShipmentMapping.objects.filter(
+        ~Q(shipment_id__in=shipment_ids), ~Q(shipment_status=LastMileTripShipmentMapping.CANCELLED), trip_id=trip_id)
+    if removed_shipments:
+        removed_shipments.update(shipment_status=LastMileTripShipmentMapping.CANCELLED, updated_by=request_user)
+    for shipment_id in shipment_ids:
+        if LastMileTripShipmentMapping.objects.filter(trip_id=trip_id, shipment_id=shipment_id).exists():
+            LastMileTripShipmentMapping.objects.filter(trip_id=trip_id, shipment_id=shipment_id).update(
+                shipment_status=LastMileTripShipmentMapping.LOADED_FOR_DC, updated_by=request_user)
+        else:
+            LastMileTripShipmentMapping.objects.create(
+                trip_id=trip_id, shipment_id=shipment_id, shipment_status=LastMileTripShipmentMapping.LOADED_FOR_DC,
+                created_by=request_user, updated_by=request_user)
 
 
 def trip_planning_change(request, pk):
@@ -707,6 +717,8 @@ def trip_planning_change(request, pk):
 
                     if selected_shipment_ids:
                         selected_shipment_list = selected_shipment_ids.split(',')
+                        create_update_last_mile_trip_shipment_mapping(
+                            trip_instance.pk, selected_shipment_list, request.user)
                         selected_shipments = Dispatch.objects.filter(~Q(shipment_status='CANCELLED'),
                                                                      pk__in=selected_shipment_list)
 
@@ -747,6 +759,7 @@ class LoadDispatches(APIView):
     def get(self, request):
 
         seller_shop = request.GET.get('seller_shop_id')
+        source_shop = request.GET.get('source_shop_id')
         area = request.GET.get('area')
         trip_id = request.GET.get('trip_id')
         invoice_id = request.GET.get('invoice_no')
@@ -832,6 +845,10 @@ class LoadDispatches(APIView):
             shipment__shipment_status=OrderedProduct.RESCHEDULED
         )
         dispatches = dispatches.exclude(id__in=reschedule_dispatches)
+        if source_shop and source_shop != seller_shop:
+            dispatches = dispatches.filter(order__dispatch_center_id=source_shop, current_shop=source_shop)
+        elif seller_shop:
+            dispatches = dispatches.filter(order__dispatch_center__isnull=True)
 
         if dispatches and commercial:
             serializer = CommercialShipmentSerializer(dispatches, many=True)
@@ -1932,7 +1949,8 @@ def create_order_shipment(order_instance):
     if OrderedProduct.objects.filter(order=order_instance).exists():
         info_logger.info(f"create_order_shipment|shipment already created for {order_instance.order_no}")
         return
-    shipment = OrderedProduct(order=order_instance, qc_area=order_instance.picker_order.last().qc_area)
+    shipment = OrderedProduct(order=order_instance, current_shop=order_instance.seller_shop,
+                              qc_area=order_instance.picker_order.last().qc_area)
     shipment.save()
     products_picked = Pickup.objects.filter(pickup_type_id=order_instance.order_no, status='picking_complete')\
         .prefetch_related('sku', 'bin_inventory','bin_inventory__bin__bin')
@@ -1988,19 +2006,34 @@ def create_order_shipment(order_instance):
 
 
 def update_shipment_package_status(shipment_instance):
-    if shipment_instance.shipment_status == OrderedProduct.OUT_FOR_DELIVERY:
-        shipment_instance.shipment_packaging.filter(status=ShipmentPackaging.DISPATCH_STATUS_CHOICES.READY_TO_DISPATCH) \
-            .update(status=ShipmentPackaging.DISPATCH_STATUS_CHOICES.DISPATCHED)
-    elif shipment_instance.shipment_status == OrderedProduct.MOVED_TO_DISPATCH:
-        shipment_instance.shipment_packaging.filter(status=ShipmentPackaging.DISPATCH_STATUS_CHOICES.DISPATCHED) \
+    # if shipment_instance.shipment_status == OrderedProduct.OUT_FOR_DELIVERY:
+    #     shipment_instance.shipment_packaging.filter(status=ShipmentPackaging.DISPATCH_STATUS_CHOICES.READY_TO_DISPATCH) \
+    #         .update(status=ShipmentPackaging.DISPATCH_STATUS_CHOICES.DISPATCHED)
+    if shipment_instance.shipment_status == OrderedProduct.MOVED_TO_DISPATCH:
+        shipment_instance.shipment_packaging.filter(status__in=[
+                                                    ShipmentPackaging.DISPATCH_STATUS_CHOICES.DISPATCHED,
+                                                    ShipmentPackaging.DISPATCH_STATUS_CHOICES.RETURN_VERIFIED]) \
             .update(status=ShipmentPackaging.DISPATCH_STATUS_CHOICES.READY_TO_DISPATCH)
-    elif shipment_instance.shipment_status in [OrderedProduct.FULLY_DELIVERED_AND_VERIFIED,
-                                      OrderedProduct.FULLY_RETURNED_AND_VERIFIED,
-                                      OrderedProduct.PARTIALLY_DELIVERED_AND_VERIFIED]:
-        shipment_instance.shipment_packaging.filter(status=ShipmentPackaging.DISPATCH_STATUS_CHOICES.DISPATCHED) \
-            .update(status=ShipmentPackaging.DISPATCH_STATUS_CHOICES.DELIVERED)
+    # elif shipment_instance.shipment_status in [OrderedProduct.FULLY_DELIVERED_AND_VERIFIED,
+    #                                   OrderedProduct.FULLY_RETURNED_AND_VERIFIED,
+    #                                   OrderedProduct.PARTIALLY_DELIVERED_AND_VERIFIED]:
+    #     shipment_instance.shipment_packaging.filter(status=ShipmentPackaging.DISPATCH_STATUS_CHOICES.DISPATCHED) \
+    #         .update(status=ShipmentPackaging.DISPATCH_STATUS_CHOICES.DELIVERED)
 
 
 def update_packages_on_shipment_status_change(shipments):
     for instance in shipments:
         update_shipment_package_status(instance)
+
+class SourceShopAutocomplete(autocomplete.Select2QuerySetView):
+    def get_queryset(self, *args, **kwargs):
+        if not self.request.user.is_authenticated:
+            return Shop.objects.none()
+
+        seller_shop_id = self.forwarded.get('seller_shop', None)
+        qs = Shop.objects.filter(Q(id=seller_shop_id)|Q(shop_type__shop_type='dc', retiler_mapping__status=True,
+                                                        retiler_mapping__parent_id=seller_shop_id))
+
+        if self.q:
+            qs = qs.filter(shop_name__icontains=self.q)
+        return qs

@@ -16,11 +16,13 @@ from .models import (
     PosShopUserMapping, Shop, ShopType, RetailerType, ParentRetailerMapping,
     ShopPhoto, ShopDocument, ShopInvoicePattern, ShopUserMapping,
     ShopRequestBrand, SalesAppVersion, ShopTiming, FavouriteProduct, BeatPlanning, DayBeatPlanning, ExecutiveFeedback, ShopStatusLog)
-from addresses.models import Address
+from addresses.models import Address, DispatchCenterCityMapping, DispatchCenterPincodeMapping
 from addresses.forms import AddressForm
 from .forms import (ParentRetailerMappingForm, PosShopUserMappingForm, ShopParentRetailerMappingForm,
                     ShopForm, RequiredInlineFormSet, BeatPlanningAdminForm,
-                    AddressInlineFormSet, ShopUserMappingForm, ShopTimingForm)
+                    AddressInlineFormSet, ShopUserMappingForm, ShopTimingForm, DispatchCenterCityMappingInlineFormSet,
+                    DispatchCenterPincodeMappingInlineFormSet, DispatchCenterCityMappingForm,
+                    DispatchCenterPincodeMappingForm)
 
 from .views import (StockAdjustmentView, bulk_shop_updation, ShopAutocomplete, UserAutocomplete, 
                     ShopUserMappingCsvView, ShopUserMappingCsvSample, ShopTimingAutocomplete
@@ -178,6 +180,22 @@ class AddressAdmin(admin.TabularInline):
     extra = 2
 
 
+class DispatchCenterCityAdmin(admin.TabularInline):
+    model = DispatchCenterCityMapping
+    formset = DispatchCenterCityMappingInlineFormSet
+    form = DispatchCenterCityMappingForm
+    fields = ('city', )
+    extra = 2
+
+
+class DispatchCenterPincodeAdmin(admin.TabularInline):
+    model = DispatchCenterPincodeMapping
+    formset = DispatchCenterPincodeMappingInlineFormSet
+    form = DispatchCenterPincodeMappingForm
+    fields = ('pincode', )
+    extra = 2
+
+
 class ShopParentRetailerMapping(admin.TabularInline):
     model = ParentRetailerMapping
     form = ShopParentRetailerMappingForm
@@ -232,11 +250,11 @@ class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
     resource_class = ShopResource
     form = ShopForm
     fields = ['shop_name', 'shop_owner', 'shop_type', 'status', 'pos_enabled', 'online_inventory_enabled',
-              'approval_status', ]
+              'latitude', 'longitude', 'approval_status', 'cutoff_time']
     actions = ["export_as_csv", "disable_shop", "download_status_report"]
     inlines = [
-        ShopPhotosAdmin, ShopDocumentsAdmin,
-        AddressAdmin, ShopInvoicePatternAdmin, ShopParentRetailerMapping, ShopStatusAdmin
+        ShopPhotosAdmin, ShopDocumentsAdmin, AddressAdmin, DispatchCenterCityAdmin, DispatchCenterPincodeAdmin,
+        ShopInvoicePatternAdmin, ShopParentRetailerMapping, ShopStatusAdmin
     ]
     list_display = (
         'shop_name', 'get_shop_shipping_address', 'get_shop_pin_code', 'get_shop_parent',

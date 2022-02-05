@@ -26,7 +26,8 @@ SHOP_TYPE_CHOICES = (
     ("r", "Retailer"),
     ("sr", "Super Retailer"),
     ("gf", "Gram Factory"),
-    ("f", "Franchise")
+    ("f", "Franchise"),
+    ("dc", "Dispatch Center")
 )
 
 RETAILER_TYPE_CHOICES = (
@@ -104,6 +105,7 @@ class Shop(models.Model):
     latitude = models.DecimalField(max_digits=30, decimal_places=15, null=True, verbose_name='Latitude For Ecommerce')
     longitude = models.DecimalField(max_digits=30, decimal_places=15, null=True, verbose_name='Longitude For Ecommerce')
     online_inventory_enabled = models.BooleanField(default=True, verbose_name='Online Inventory Enabled')
+    cutoff_time = models.TimeField(null=True, blank=True)
     dynamic_beat = models.BooleanField(default=False)
 
     # last_order_at = models.DateTimeField(auto_now_add=True)

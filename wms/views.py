@@ -22,6 +22,7 @@ from rest_framework import status
 from rest_framework.response import Response
 
 from accounts.models import User
+from addresses.models import DispatchCenterPincodeMapping
 from audit.models import AuditProduct, AUDIT_PRODUCT_STATUS
 from barCodeGenerator import barcodeGen
 # django imports
@@ -990,6 +991,28 @@ def pickup_entry_exists_for_order_zone(order_id, zone_id):
 #     cron_log_entry.save()
 
 
+def assign_dispatch_center_to_order_by_pincode(order_id):
+    try:
+        order_ins = Order.objects.get(id=order_id)
+        if not order_ins.dispatch_delivery and order_ins.dispatch_center is None:
+            order_pincode = order_ins.shipping_address.pincode_link if order_ins.shipping_address else None
+            if order_pincode:
+                dispatch_center_map = DispatchCenterPincodeMapping.objects.filter(pincode=order_pincode).last()
+                if dispatch_center_map:
+                    order_ins.dispatch_center = dispatch_center_map.dispatch_center
+                    order_ins.dispatch_delivery = True
+                    order_ins.save()
+                    info_logger.info("Dispatch center assigned to order no " + str(order_ins.order_no))
+                else:
+                    info_logger.info("No Dispatch center found mapped with pincode " + str(order_pincode.pincode))
+            else:
+                info_logger.info("No pincode for order " + str(order_ins))
+        else:
+            info_logger.info("Dispatch center already assigned to order no " + str(order_ins.order_no))
+    except Exception as ex:
+        info_logger.error("Unable to assign_dispatch_center_to_order, No order found for order Id: " + str(order_id) +
+                          ", Error msg: " + str(ex))
+
 # def pickup_entry_creation_with_cron():
 #     cron_name = CronRunLog.CRON_CHOICE.PICKUP_CREATION_CRON
 #     current_time = datetime.now() - timedelta(minutes=1)
@@ -1405,21 +1428,25 @@ def pickup_entry_creation_with_cron():
                 for zone_id in zones_list:
                     if not pickup_entry_exists_for_order_zone(order.id, zone_id):
                         # Get user and update last_assigned_at of ZonePickerUserAssignmentMapping
-                        zone_picker_assigned_user = ZonePickerUserAssignmentMapping.objects.filter(
-                            user_enabled=True, zone_id=zone_id, last_assigned_at=None).last()
-                        if not zone_picker_assigned_user:
+                        picker_user_assigned = False
+                        if order.seller_shop.cutoff_time is None or \
+                                order.seller_shop.cutoff_time < datetime.now().time():
                             zone_picker_assigned_user = ZonePickerUserAssignmentMapping.objects.filter(
-                                user_enabled=True, zone_id=zone_id). \
-                                order_by('-last_assigned_at').last()
-                        if zone_picker_assigned_user:
-                            picker_user = zone_picker_assigned_user.user
-                            zone_picker_assigned_user.last_assigned_at = datetime.now()
-                            zone_picker_assigned_user.save()
-                            # Create Entry in PickerDashboard with PICKING_ASSIGNED status
-                            PickerDashboard.objects.create(
-                                order=order, picking_status=PickerDashboard.PICKING_ASSIGNED, zone_id=zone_id,
-                                picker_boy=picker_user, picklist_id=generate_picklist_id(pincode))
-                        else:
+                                user_enabled=True, zone_id=zone_id, last_assigned_at=None).last()
+                            if not zone_picker_assigned_user:
+                                zone_picker_assigned_user = ZonePickerUserAssignmentMapping.objects.filter(
+                                    user_enabled=True, zone_id=zone_id). \
+                                    order_by('-last_assigned_at').last()
+                            if zone_picker_assigned_user:
+                                picker_user = zone_picker_assigned_user.user
+                                zone_picker_assigned_user.last_assigned_at = datetime.now()
+                                zone_picker_assigned_user.save()
+                                # Create Entry in PickerDashboard with PICKING_ASSIGNED status
+                                PickerDashboard.objects.create(
+                                    order=order, picking_status=PickerDashboard.PICKING_ASSIGNED, zone_id=zone_id,
+                                    picker_boy=picker_user, picklist_id=generate_picklist_id(pincode))
+                                picker_user_assigned = True
+                        if not picker_user_assigned:
                             order.order_status = Order.PICKUP_CREATED
                             cron_logger.info('Picker user not found for zone {}'.format(zone_id))
                             # Create Entry in PickerDashboard with PICKING_PENDING status
@@ -1433,6 +1460,7 @@ def pickup_entry_creation_with_cron():
                 info_logger.info("pickup_entry_creation_with_cron | " + str(order.order_no) + " | " +
                                  str(order.order_status))
                 order.save()
+                assign_dispatch_center_to_order_by_pincode(order.pk)
                 cron_logger.info('pickup entry created for order {}'.format(order.order_no))
         except Exception as e:
             cron_logger.info('Exception while creating pickup for order {}'.format(order.order_no))
@@ -1442,6 +1470,38 @@ def pickup_entry_creation_with_cron():
     cron_log_entry.completed_at = timezone.now()
     cron_logger.info("{} completed, cron log entry-{}".format(cron_log_entry.cron_name, cron_log_entry.id))
     cron_log_entry.save()
+
+
+def assign_picker_user_to_pickup_created_orders():
+    cron_logger.info("Started assign_picker_user_to_pickup_created_orders.")
+    current_time = datetime.now() - timedelta(minutes=1)
+    start_time = datetime.now() - timedelta(days=3)
+    picker_dash_ins = PickerDashboard.objects.filter(
+        picking_status="picking_pending", order_closed=False,
+        created_at__lt=current_time, created_at__gt=start_time).order_by('created_at')
+    if picker_dash_ins.count() == 0:
+        cron_logger.info("No pickup pending to assign picker user.")
+        return
+    for picker_dash_obj in picker_dash_ins:
+        zone_picker_assigned_user = ZonePickerUserAssignmentMapping.objects.filter(
+            user_enabled=True, zone=picker_dash_obj.zone, last_assigned_at=None).last()
+        if not zone_picker_assigned_user:
+            zone_picker_assigned_user = ZonePickerUserAssignmentMapping.objects.filter(
+                user_enabled=True, zone=picker_dash_obj.zone). \
+                order_by('-last_assigned_at').last()
+        if zone_picker_assigned_user:
+            picker_user = zone_picker_assigned_user.user
+            zone_picker_assigned_user.last_assigned_at = datetime.now()
+            zone_picker_assigned_user.save()
+            # Create Entry in PickerDashboard with PICKING_ASSIGNED status
+            picker_dash_obj.picking_status = PickerDashboard.PICKING_ASSIGNED
+            picker_dash_obj.picker_boy = picker_user
+            picker_dash_obj.save()
+            cron_logger.info(f"Picker user {picker_user} assigned to pickup entry {picker_dash_obj} "
+                             f"for order no {picker_dash_obj.order}")
+        else:
+            cron_logger.info(f"No picker found for zone {picker_dash_obj.zone}")
+    cron_logger.info("Completed assign_picker_user_to_pickup_created_orders.")
 
 
 class DownloadBinCSV(View):

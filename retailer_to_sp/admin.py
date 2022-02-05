@@ -52,7 +52,7 @@ from .models import (Cart, CartProductMapping, Commercial, CustomerCare, Dispatc
                      OrderedProduct, OrderedProductMapping, Payment, ReturnProductMapping, Shipment,
                      ShipmentProductMapping, Trip, ShipmentRescheduling, Feedback, PickerDashboard, Invoice,
                      ResponseComment, BulkOrder, RoundAmount, OrderedProductBatch, DeliveryData, PickerPerformanceData,
-                     ShipmentPackaging, ShipmentPackagingMapping, ShipmentNotAttempt)
+                     ShipmentPackaging, ShipmentPackagingMapping, ShipmentNotAttempt, ShopCrate)
 from .resources import OrderResource
 from .signals import ReservedOrder
 from .utils import (GetPcsFromQty, add_cart_user, create_order_from_cart, create_order_data_excel,
@@ -1515,7 +1515,7 @@ class ShipmentAdmin(NestedModelAdmin):
         'order__shipping_address__city',
     )
     list_display = (
-        'start_qc', 'order', 'created_at', 'trip', 'shipment_address',
+        'start_qc', 'order', 'created_at', 'qc_area', 'trip', 'shipment_address',
         'seller_shop', 'invoice_city', 'invoice_amount', 'payment_mode',
         'shipment_status', 'download_invoice', 'pincode',
     )
@@ -2564,6 +2564,27 @@ class ShipmentPackagingMappingAdmin(admin.ModelAdmin):
     def has_delete_permission(self, request, obj=None):
         return False
 
+
+class ShopCrateAdmin(admin.ModelAdmin):
+    list_display = ('shop', 'crate', 'is_available', 'created_at', 'created_by', 'updated_at', 'updated_by')
+    # list_select_related = ('warehouse', 'pickup', 'bin')
+    readonly_fields = ('shop', 'crate', 'is_available', 'created_at', 'created_by', 'updated_at', 'updated_by')
+    list_filter = ['is_available', CrateFilter, ('created_at', DateTimeRangeFilter)]
+    list_per_page = 50
+
+    class Media:
+        pass
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
 admin.site.register(Cart, CartAdmin)
 admin.site.register(BulkOrder, BulkOrderAdmin)
 admin.site.register(Order, OrderAdmin)
@@ -2581,4 +2602,5 @@ admin.site.register(Invoice, InvoiceAdmin)
 admin.site.register(DeliveryData, DeliveryPerformanceDashboard)
 admin.site.register(PickerPerformanceData, PickerPerformanceDashboard)
 admin.site.register(ShipmentPackaging, ShipmentPackagingAdmin)
+admin.site.register(ShopCrate, ShopCrateAdmin)
 admin.site.register(ShipmentPackagingMapping, ShipmentPackagingMappingAdmin)
