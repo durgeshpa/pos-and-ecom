@@ -8133,20 +8133,20 @@ class TripSummaryView(generics.GenericAPIView):
                 'total_crates': dispatch_trip_instance.no_of_crates,
                 'total_packets': dispatch_trip_instance.no_of_packets,
                 'total_sack': dispatch_trip_instance.no_of_sacks,
-                'total_empty_crates': dispatch_trip_instance.no_of_empty_crates,
+                'total_empty_crate': dispatch_trip_instance.no_of_empty_crates,
                 'weight': dispatch_trip_instance.get_trip_weight,
                 'invoices_check': dispatch_trip_instance.shipments_details.filter(
                     shipment_status=DispatchTripShipmentMapping.UNLOADED_AT_DC).count(),
                 'total_crates_check': dispatch_trip_instance.no_of_crates_check,
                 'total_packets_check': dispatch_trip_instance.no_of_packets_check,
                 'total_sack_check': dispatch_trip_instance.no_of_sacks_check,
-                'total_empty_crates_check': dispatch_trip_instance.no_of_empty_crates_check,
+                'total_empty_crate_check': dispatch_trip_instance.no_of_empty_crates_check,
                 'remaining_invoices': dispatch_trip_instance.shipments_details.filter(
                     shipment_status=DispatchTripShipmentMapping.UNLOADING_AT_DC).count(),
                 'remaining_crates': dispatch_trip_instance.no_of_crates-dispatch_trip_instance.no_of_crates_check,
                 'remaining_packets': dispatch_trip_instance.no_of_packets-dispatch_trip_instance.no_of_packets_check,
                 'remaining_sacks': dispatch_trip_instance.no_of_sacks-dispatch_trip_instance.no_of_sacks_check,
-                'remaining_empty_crates': dispatch_trip_instance.no_of_empty_crates-dispatch_trip_instance.no_of_empty_crates_check,
+                'remaining_empty_crate': dispatch_trip_instance.no_of_empty_crates-dispatch_trip_instance.no_of_empty_crates_check,
             }
         else:
             trip_summary_data = {
@@ -8154,15 +8154,18 @@ class TripSummaryView(generics.GenericAPIView):
                 'total_crates': 0,
                 'total_packets': 0,
                 'total_sack': 0,
+                'total_empty_crate': 0,
                 'weight': 0,
                 'invoices_check': 0,
                 'total_crates_check': 0,
                 'total_packets_check': 0,
                 'total_sack_check': 0,
+                'total_empty_crate_check': 0,
                 'remaining_invoices': 0,
                 'remaining_crates': 0,
                 'remaining_packets': 0,
-                'remaining_sacks': 0
+                'remaining_sacks': 0,
+                'remaining_empty_crate': 0
             }
         return trip_summary_data
 
@@ -8203,18 +8206,18 @@ class TripSummaryView(generics.GenericAPIView):
             'total_crates': resp_data['no_of_crates'] if resp_data['no_of_crates'] else 0,
             'total_packets': resp_data['no_of_packets'] if resp_data['no_of_packets'] else 0,
             'total_sack': resp_data['no_of_sacks'] if resp_data['no_of_sacks'] else 0,
-            'total_empty_crates': 0,
+            'total_empty_crate': 0,
             'weight': resp_data['weight'] if resp_data['weight'] else 0,
             'invoices_check': 0,
             'total_crates_check': 0,
             'total_packets_check': 0,
             'total_sack_check': 0,
-            'total_empty_crates_check': 0,
+            'total_empty_crate_check': 0,
             'remaining_invoices': 0,
             'remaining_crates': 0,
             'remaining_packets': 0,
             'remaining_sacks': 0,
-            'remaining_empty_crates': 0
+            'remaining_empty_crate': 0
         }
         return trip_summary_data
 
@@ -8238,18 +8241,18 @@ class TripSummaryView(generics.GenericAPIView):
             'total_crates': resp_data['no_of_crates'] if resp_data['no_of_crates'] else 0,
             'total_packets': resp_data['no_of_packets'] if resp_data['no_of_packets'] else 0,
             'total_sack': resp_data['no_of_sacks'] if resp_data['no_of_sacks'] else 0,
-            'total_empty_crates': ShopCrate.objects.filter(shop_id=dispatch_center, is_available=True).count(),
+            'total_empty_crate': ShopCrate.objects.filter(shop_id=dispatch_center, is_available=True).count(),
             'weight': 0,
             'invoices_check': 0,
             'total_crates_check': 0,
             'total_packets_check': 0,
             'total_sack_check': 0,
-            'total_empty_crates_check': 0,
+            'total_empty_crate_check': 0,
             'remaining_invoices': 0,
             'remaining_crates': 0,
             'remaining_packets': 0,
             'remaining_sacks': 0,
-            'remaining_empty_crates': 0
+            'remaining_empty_crate': 0
         }
         return trip_summary_data
 
