@@ -3267,8 +3267,9 @@ class LoadVerifyPackageSerializer(serializers.ModelSerializer):
 
         elif trip.trip_type == DispatchTrip.BACKWARD:
             package = ShipmentPackaging.objects.filter(
-                id=self.initial_data['package_id'], warehouse=trip.source_shop,
-                movement_type=ShipmentPackaging.RETURNED, shipment__order__seller_shop=trip.seller_shop).last()
+                                            id=self.initial_data['package_id'], warehouse=trip.source_shop,
+                                            movement_type=ShipmentPackaging.RETURNED,
+                                            shipment__order__seller_shop=trip.seller_shop).last()
             if not package:
                 raise serializers.ValidationError("Invalid package for the trip")
 
