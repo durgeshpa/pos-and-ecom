@@ -2721,10 +2721,10 @@ class ShipmentPackageSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError("'status' | Invalid status for the selected shipment packaging.")
             if shipment_packaging.status == status:
                 raise serializers.ValidationError(f"Packaging status is already {str(status)}.")
-            if shipment_packaging.status not in [ShipmentPackaging.DISPATCH_STATUS_CHOICES.REJECTED,
-                                                 ShipmentPackaging.DISPATCH_STATUS_CHOICES.DISPATCHED,
-                                                 ShipmentPackaging.DISPATCH_STATUS_CHOICES.DELIVERED]:
-                raise serializers.ValidationError(f"Invalid Crate status  | can't update")
+            # if shipment_packaging.status not in [ShipmentPackaging.DISPATCH_STATUS_CHOICES.REJECTED,
+            #                                      ShipmentPackaging.DISPATCH_STATUS_CHOICES.DISPATCHED,
+            #                                      ShipmentPackaging.DISPATCH_STATUS_CHOICES.DELIVERED]:
+            #     raise serializers.ValidationError(f"Invalid Crate status  | can't update")
 
             if status in [ShipmentPackaging.DISPATCH_STATUS_CHOICES.RETURN_MISSING,
                           ShipmentPackaging.DISPATCH_STATUS_CHOICES.RETURN_DAMAGED]:
@@ -2750,8 +2750,9 @@ class ShipmentPackageSerializer(serializers.ModelSerializer):
             error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
             raise serializers.ValidationError(error)
         # self.post_shipment_packaging_status_change(packaging_instance.shipment)
-        ShopCrateCommonFunctions.mark_crate_available(
-            packaging_instance.shipment.current_shop.id, packaging_instance.crate.id)
+        if packaging_instance.status != ShipmentPackaging.DISPATCH_STATUS_CHOICES.RETURN_MISSING:
+            ShopCrateCommonFunctions.mark_crate_available(
+                packaging_instance.shipment.current_shop.id, packaging_instance.crate.id)
         return packaging_instance
 
     def post_shipment_packaging_status_change(self, shipment_instance):
