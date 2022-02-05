@@ -8649,12 +8649,10 @@ class UnloadVerifyPackageView(generics.GenericAPIView):
     queryset = DispatchTripShipmentPackages.objects.all()
 
     def validate_trip_shipment_package(self, package_id, trip_id):
-        trip_shipment_package = self.queryset.filter(
-            package_status__in=[DispatchTripShipmentPackages.LOADED, DispatchTripShipmentPackages.DAMAGED_AT_LOADING,
-                                DispatchTripShipmentPackages.MISSING_AT_LOADING],
-            shipment_packaging_id=package_id, trip_shipment__trip__id=trip_id).last()
+        trip_shipment_package = self.queryset.filter(shipment_packaging_id=package_id,
+                                                     trip_shipment__trip__id=trip_id).last()
         if not trip_shipment_package:
-            return {"error": "invalid Package"}
+            return {"error": "Package does not belong to this trip."}
         return {"data": trip_shipment_package}
 
     def put(self, request):

@@ -50,8 +50,11 @@ def validate_shipment_crates_list(crates_dict, warehouse_id, shipment):
                                      shop_crates__shop__id=warehouse_id, shop_crates__is_available=True).last()
         if crate.crates_shipments.filter(
             ~Q(shipment=shipment),
-            ~Q(status__in=[ShipmentPackaging.DISPATCH_STATUS_CHOICES.DELIVERED,
-                           ShipmentPackaging.DISPATCH_STATUS_CHOICES.REJECTED])).exists():
+            Q(status__in=[ShipmentPackaging.DISPATCH_STATUS_CHOICES.PACKED,
+                           ShipmentPackaging.DISPATCH_STATUS_CHOICES.READY_TO_DISPATCH]),
+            ~Q(shipment__shipment_status__in=[OrderedProduct.PARTIALLY_DELIVERED_AND_VERIFIED,
+                                              OrderedProduct.FULLY_RETURNED_AND_VERIFIED,
+                                              OrderedProduct.FULLY_DELIVERED_AND_VERIFIED])).exists():
             return {"error": "This crate is being used for some other shipment."}
         crate_already_used.append(crate_obj['crate_id'])
     return {"data": crates_dict}
