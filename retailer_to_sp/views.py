@@ -1976,19 +1976,19 @@ def create_order_shipment(order_instance):
 
 
 def update_shipment_package_status(shipment_instance):
-    if shipment_instance.shipment_status == OrderedProduct.OUT_FOR_DELIVERY:
-        shipment_instance.shipment_packaging.filter(status=ShipmentPackaging.DISPATCH_STATUS_CHOICES.READY_TO_DISPATCH) \
-            .update(status=ShipmentPackaging.DISPATCH_STATUS_CHOICES.DISPATCHED)
-    elif shipment_instance.shipment_status == OrderedProduct.MOVED_TO_DISPATCH:
+    # if shipment_instance.shipment_status == OrderedProduct.OUT_FOR_DELIVERY:
+    #     shipment_instance.shipment_packaging.filter(status=ShipmentPackaging.DISPATCH_STATUS_CHOICES.READY_TO_DISPATCH) \
+    #         .update(status=ShipmentPackaging.DISPATCH_STATUS_CHOICES.DISPATCHED)
+    if shipment_instance.shipment_status == OrderedProduct.MOVED_TO_DISPATCH:
         shipment_instance.shipment_packaging.filter(status__in=[
                                                     ShipmentPackaging.DISPATCH_STATUS_CHOICES.DISPATCHED,
                                                     ShipmentPackaging.DISPATCH_STATUS_CHOICES.RETURN_VERIFIED]) \
             .update(status=ShipmentPackaging.DISPATCH_STATUS_CHOICES.READY_TO_DISPATCH)
-    elif shipment_instance.shipment_status in [OrderedProduct.FULLY_DELIVERED_AND_VERIFIED,
-                                      OrderedProduct.FULLY_RETURNED_AND_VERIFIED,
-                                      OrderedProduct.PARTIALLY_DELIVERED_AND_VERIFIED]:
-        shipment_instance.shipment_packaging.filter(status=ShipmentPackaging.DISPATCH_STATUS_CHOICES.DISPATCHED) \
-            .update(status=ShipmentPackaging.DISPATCH_STATUS_CHOICES.DELIVERED)
+    # elif shipment_instance.shipment_status in [OrderedProduct.FULLY_DELIVERED_AND_VERIFIED,
+    #                                   OrderedProduct.FULLY_RETURNED_AND_VERIFIED,
+    #                                   OrderedProduct.PARTIALLY_DELIVERED_AND_VERIFIED]:
+    #     shipment_instance.shipment_packaging.filter(status=ShipmentPackaging.DISPATCH_STATUS_CHOICES.DISPATCHED) \
+    #         .update(status=ShipmentPackaging.DISPATCH_STATUS_CHOICES.DELIVERED)
 
 
 def update_packages_on_shipment_status_change(shipments):
