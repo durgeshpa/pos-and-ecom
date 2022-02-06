@@ -33,15 +33,15 @@ def create_grn_id(sender, instance=None, created=False, **kwargs):
                                     po_validity_date=datetime.date.today() + datetime.timedelta(days=15)
                                     )
 
-            source_wh_id = get_config('wh_consolidation_source')
-            if source_wh_id is None:
+            source_wh_id_list = get_config('wh_consolidation_source')
+            if source_wh_id_list is None:
                 info_logger.info("process_GRN|wh_consolidation_source is not defined")
                 return
-            source_wh = Shop.objects.filter(pk=source_wh_id).last()
-            if shop.retailer.id == source_wh.id:
+            # source_wh_list = Shop.objects.filter(pk__in=source_wh_id_list).values_list('id', flat=True)
+            if shop.retailer.id in source_wh_id_list:
                 AutoOrderProcessing.objects.create(source_po=instance.order.ordered_cart,
                                                    grn=instance,
-                                                   grn_warehouse=source_wh,
+                                                   grn_warehouse_id=shop.retailer.id,
                                                    state=AutoOrderProcessing.ORDER_PROCESSING_STATUS.GRN
                                                    )
                 info_logger.info("updated AutoOrderProcessing for GRN.")
