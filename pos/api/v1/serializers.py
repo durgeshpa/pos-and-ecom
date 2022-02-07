@@ -949,6 +949,23 @@ class BasicOrderSerializer(serializers.ModelSerializer):
     seller_shop = PosEcomShopSerializer(read_only=True)
     gstn_no = serializers.SerializerMethodField()
     invoice_no = serializers.SerializerMethodField()
+    discount = serializers.SerializerMethodField()
+
+    def get_discount(self, obj):
+        discount = 0
+        offers = self.get_cart_offers(obj)
+        for offer in offers:
+            discount += float(offer['discount_value'])
+        return round(discount, 2)
+
+    @staticmethod
+    def get_cart_offers(obj):
+        offers = obj.ordered_cart.offers
+        cart_offers = []
+        for offer in offers:
+            if offer['coupon_type'] == 'cart' and offer['type'] == 'discount':
+                cart_offers.append(offer)
+        return cart_offers
 
     @staticmethod
     def get_invoice_no(obj):
@@ -1079,7 +1096,7 @@ class BasicOrderSerializer(serializers.ModelSerializer):
     class Meta:
         model = Order
         fields = ('id', 'order_no', 'ordered_cart', 'products', 'ongoing_return', 'seller_shop',
-                  'gstn_no', 'invoice_no')
+                  'gstn_no', 'invoice_no', 'discount')
 
 
 class OrderReturnCheckoutSerializer(serializers.ModelSerializer):
@@ -1838,6 +1855,23 @@ class BasicOrderDetailSerializer(serializers.ModelSerializer):
     order_status_display = serializers.CharField(source='get_order_status_display')
     payment = serializers.SerializerMethodField('payment_data')
     rt_return_order = OrderReturnSerializerID(many=True, read_only=True)
+    seller_shop = PosEcomShopSerializer(read_only=True)
+    gstn_no = serializers.SerializerMethodField()
+    invoice_no = serializers.SerializerMethodField()
+
+    @staticmethod
+    def get_invoice_no(obj):
+        return obj.rt_order_order_product.last().invoice_no
+
+    @staticmethod
+    def get_gstn_no(obj):
+        # GSTIN
+        retailer_gstin_number = ""
+        if obj.seller_shop.shop_name_documents.filter(shop_document_type='gstin'):
+            retailer_gstin_number = obj.seller_shop.shop_name_documents.filter(
+                shop_document_type='gstin').last().shop_document_number
+
+        return retailer_gstin_number
 
     @staticmethod
     def get_creation_date(obj):
@@ -1965,7 +1999,8 @@ class BasicOrderDetailSerializer(serializers.ModelSerializer):
     class Meta:
         model = Order
         fields = ('id', 'order_no', 'creation_date', 'order_status', 'items', 'order_summary', 'return_summary',
-                  'delivery_person', 'buyer', 'order_status_display', 'payment', 'rt_return_order')
+                  'delivery_person', 'buyer', 'order_status_display', 'payment', 'rt_return_order', 'seller_shop',
+                  'gstn_no', 'invoice_no')
 
 
 class AddressCheckoutSerializer(serializers.ModelSerializer):
