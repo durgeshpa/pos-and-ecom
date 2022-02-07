@@ -284,10 +284,15 @@ function CreateResponseTable(data){
       var trip = elem.trip;
       var order = "<td>" + elem.order + "</td>";
       var shipment_status = "<td>" + elem.shipment_status + "</td>";
-      if (GetTripStatus() == ('COMPLETED') || GetTripStatus() == 'CLOSED'){
-        var invoice_no = "<td><a href='/admin/retailer_to_sp/orderedproduct/"+elem.pk+"/change/' target='_blank'>"+ elem.invoice_no + "</a></td>";
-      }else {
-        var invoice_no = "<td><a href='/admin/retailer_to_sp/dispatch/"+elem.pk+"/change/' target='_blank'>"+ elem.invoice_no + "</a></td>";
+      if (GetTripSourceShopType() == 'dc'){
+        var invoice_no = "<td>"+ elem.invoice_no + "</td>";
+      }
+      else {
+          if (GetTripStatus() == ('COMPLETED') || GetTripStatus() == 'CLOSED'){
+            var invoice_no = "<td><a href='/admin/retailer_to_sp/orderedproduct/"+elem.pk+"/change/' target='_blank'>"+ elem.invoice_no + "</a></td>";
+          }else {
+            var invoice_no = "<td><a href='/admin/retailer_to_sp/dispatch/"+elem.pk+"/change/' target='_blank'>"+ elem.invoice_no + "</a></td>";
+          }
       }
       var invoice_amount = "<td>" + elem.invoice_amount + "</td>";
       var invoice_city = "<td>" + elem.invoice_city + "</td>";
@@ -335,6 +340,18 @@ function DisableCheckBox() {
 
 function GetTripStatus(){
   return $('select#id_trip_status').val();
+}
+
+function GetTripSourceShopType(){
+    var source_shop = $('select#id_source_shop  option:selected').text();
+    const arr = source_shop.split("-")
+    var source_shop_type = arr.at(-2);
+    if(source_shop_type == " Dispatch Center ") {
+        return "dc"
+    }
+    else{
+        return "sp"
+    }
 }
 
 

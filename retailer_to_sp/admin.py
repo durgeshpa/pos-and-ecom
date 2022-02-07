@@ -1742,7 +1742,7 @@ class TripAdmin(ExportCsvMixin, admin.ModelAdmin):
     change_list_template = 'admin/retailer_to_sp/trip/change_list.html'
     actions = ["export_as_csv_trip",]
     list_display = (
-        'dispathces', 'total_trip_shipments', 'delivery_boy', 'seller_shop', 'vehicle_no',
+        'dispathces', 'total_trip_shipments', 'delivery_boy', 'seller_shop', 'source_shop', 'vehicle_no',
         'trip_status', 'starts_at', 'completed_at', 'download_trip_pdf'
     )
     readonly_fields = ('dispathces',)

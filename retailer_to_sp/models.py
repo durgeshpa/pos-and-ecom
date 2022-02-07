@@ -3638,7 +3638,6 @@ class LastMileTripShipmentPackages(BaseTimestampUserModel):
     shipment_packaging = models.ForeignKey(ShipmentPackaging, related_name='last_mile_trip_packaging_details',
                                            on_delete=models.DO_NOTHING)
     package_status = models.CharField(max_length=100, choices=PACKAGE_STATUS)
-    is_return_verified = models.BooleanField(default=False)
 
 
 class ShopCrate(BaseTimestampUserModel):

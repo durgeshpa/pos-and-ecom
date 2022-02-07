@@ -25,7 +25,7 @@ from .views import (ProductsList, SearchProducts, CartCentral, CartCheckout, Ord
                     LoadInvoiceView, PackagesUnderTripView, MarkShipmentPackageVerifiedView,
                     ShipmentPackageProductsView, RemoveInvoiceFromTripView, DispatchCenterCrateView,
                     DispatchCenterShipmentPackageView, LoadLastMileInvoiceView, LastMileTripSummaryView,
-                    LastMileLoadVerifyPackageView, LastMileShipmentPackageView, RemoveLastMileInvoiceFromTripView,
+                    LastMileLoadVerifyPackageView, RemoveLastMileInvoiceFromTripView,
                     VerifyNotAttemptShipmentPackagesView
                     )
 
@@ -131,7 +131,6 @@ urlpatterns = [
     url('trip-invoices/', DispatchCenterShipmentView.as_view()),
     url('trip-crates/', DispatchCenterCrateView.as_view()),
     url('trip-shipment-packages/', DispatchCenterShipmentPackageView.as_view()),
-    url('trip-last-mile-shipment-packages/', LastMileShipmentPackageView.as_view()),
     url('trip-invoice-remove/', RemoveInvoiceFromTripView.as_view()),
     url('trip-load-empty-crate/', LoadVerifyCrateView.as_view()),
     url('trip-unload-empty-crate/', UnloadVerifyCrateView.as_view()),
