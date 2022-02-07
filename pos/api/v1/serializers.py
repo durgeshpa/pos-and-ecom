@@ -672,6 +672,25 @@ class OrderReturnSerializerID(serializers.ModelSerializer):
         fields = ('id', 'return_reason', 'refund_amount', 'refund_points', 'status')
 
 
+class PosEcomShopSerializer(serializers.ModelSerializer):
+    shop_owner = serializers.SerializerMethodField()
+    # shop_city = serializers.SerializerMethodField()
+
+    def get_shop_owner(self, obj):
+        if obj.shop_owner.first_name and obj.shop_owner.last_name:
+            return "%s %s - %s" % (obj.shop_owner.first_name, obj.shop_owner.last_name, str(obj.shop_owner.phone_number))
+        elif obj.shop_owner.first_name:
+            return "%s - %s" % (obj.shop_owner.first_name, str(obj.shop_owner.phone_number))
+
+    # def get_shop_city(self, obj):
+    #     if obj.shop_name_address_mapping.exists():
+    #         return obj.shop_name_address_mapping.filter(address_type='shipping').last().city.city_name
+
+    class Meta:
+        model = Shop
+        fields = ('id', 'shop_name', 'shop_owner', 'shipping_address', 'city_name', 'get_shop_pin_code')
+
+
 class BasicOrderListSerializer(serializers.ModelSerializer):
     """
         Order List For Basic Cart
@@ -687,6 +706,23 @@ class BasicOrderListSerializer(serializers.ModelSerializer):
     order_cancel_reson = serializers.SerializerMethodField()
     ordered_product = serializers.SerializerMethodField()
     rt_return_order = OrderReturnSerializerID(many=True, read_only=True)
+    seller_shop = PosEcomShopSerializer(read_only=True)
+    gstn_no = serializers.SerializerMethodField()
+    invoice_no = serializers.SerializerMethodField()
+
+    @staticmethod
+    def get_invoice_no(obj):
+        return obj.rt_order_order_product.last().invoice_no
+
+    @staticmethod
+    def get_gstn_no(obj):
+        # GSTIN
+        retailer_gstin_number = ""
+        if obj.seller_shop.shop_name_documents.filter(shop_document_type='gstin'):
+            retailer_gstin_number = obj.seller_shop.shop_name_documents.filter(
+                shop_document_type='gstin').last().shop_document_number
+
+        return retailer_gstin_number
 
     def get_created_at(self, obj):
         return obj.created_at.strftime("%b %d, %Y %-I:%M %p")
@@ -726,7 +762,8 @@ class BasicOrderListSerializer(serializers.ModelSerializer):
     class Meta:
         model = Order
         fields = ('id', 'order_status', 'order_cancel_reson', 'order_amount', 'order_no', 'buyer', 'created_at',
-                  'payment', 'invoice_amount', 'delivery_persons', 'ordered_product', 'rt_return_order', 'ordered_cart')
+                  'payment', 'invoice_amount', 'delivery_persons', 'ordered_product', 'rt_return_order', 'ordered_cart',
+                  'seller_shop', 'gstn_no', 'invoice_no')
 
 
 class BasicCartListSerializer(serializers.ModelSerializer):
@@ -909,6 +946,23 @@ class BasicOrderSerializer(serializers.ModelSerializer):
     """
     products = serializers.SerializerMethodField()
     ongoing_return = serializers.SerializerMethodField('ongoing_return_dt')
+    seller_shop = PosEcomShopSerializer(read_only=True)
+    gstn_no = serializers.SerializerMethodField()
+    invoice_no = serializers.SerializerMethodField()
+
+    @staticmethod
+    def get_invoice_no(obj):
+        return obj.rt_order_order_product.last().invoice_no
+
+    @staticmethod
+    def get_gstn_no(obj):
+        # GSTIN
+        retailer_gstin_number = ""
+        if obj.seller_shop.shop_name_documents.filter(shop_document_type='gstin'):
+            retailer_gstin_number = obj.seller_shop.shop_name_documents.filter(
+                shop_document_type='gstin').last().shop_document_number
+
+        return retailer_gstin_number
 
     @staticmethod
     def ongoing_return_dt(obj):
@@ -1024,7 +1078,8 @@ class BasicOrderSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Order
-        fields = ('id', 'order_no', 'ordered_cart', 'products', 'ongoing_return')
+        fields = ('id', 'order_no', 'ordered_cart', 'products', 'ongoing_return', 'seller_shop',
+                  'gstn_no', 'invoice_no')
 
 
 class OrderReturnCheckoutSerializer(serializers.ModelSerializer):
@@ -1688,6 +1743,11 @@ class OrderReturnGetSerializer(serializers.ModelSerializer):
     credit_note_no = serializers.SerializerMethodField()
     credit_note_created_at = serializers.SerializerMethodField()
     gstn_no = serializers.SerializerMethodField()
+    invoice_no = serializers.SerializerMethodField()
+
+    @staticmethod
+    def get_invoice_no(obj):
+        return obj.order.rt_order_order_product.last().invoice_no
 
     @staticmethod
     def get_credit_note_no(obj):
@@ -1762,8 +1822,8 @@ class OrderReturnGetSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = OrderReturn
-        fields = ('id', 'return_value', 'credit_note_no', 'credit_note_created_at', 'gstn_no', 'discount_adjusted',
-                  'refund_points_value', 'refund_amount', 'return_items')
+        fields = ('id', 'return_value', 'credit_note_no', 'credit_note_created_at', 'gstn_no', 'invoice_no',
+                  'discount_adjusted', 'refund_points_value', 'refund_amount', 'return_items')
 
 
 class BasicOrderDetailSerializer(serializers.ModelSerializer):
@@ -3679,22 +3739,3 @@ class BulkProductUploadSerializers(serializers.ModelSerializer):
 class ContectUs(serializers.Serializer):
     phone_number = serializers.CharField()
     email = serializers.EmailField()
-
-
-class PosEcomShopSerializer(serializers.ModelSerializer):
-    shop_owner = serializers.SerializerMethodField()
-    # shop_city = serializers.SerializerMethodField()
-
-    def get_shop_owner(self, obj):
-        if obj.shop_owner.first_name and obj.shop_owner.last_name:
-            return "%s %s - %s" % (obj.shop_owner.first_name, obj.shop_owner.last_name, str(obj.shop_owner.phone_number))
-        elif obj.shop_owner.first_name:
-            return "%s - %s" % (obj.shop_owner.first_name, str(obj.shop_owner.phone_number))
-
-    # def get_shop_city(self, obj):
-    #     if obj.shop_name_address_mapping.exists():
-    #         return obj.shop_name_address_mapping.filter(address_type='shipping').last().city.city_name
-
-    class Meta:
-        model = Shop
-        fields = ('id', 'shop_name', 'shop_owner', 'shipping_address', 'city_name', 'get_shop_pin_code')
