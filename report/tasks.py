@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 
+from django.db.models import query
 import requests
 import logging
 from datetime import datetime, timedelta

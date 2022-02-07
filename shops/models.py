@@ -15,7 +15,9 @@ from retailer_backend.validators import *
 import datetime
 from django.core.validators import MinLengthValidator
 from django.contrib.auth.models import Group
+from django.contrib.postgres.fields import JSONField
 from categories.models import BaseTimeModel, BaseTimestampUserStatusModel
+from .fields import CaseInsensitiveCharField
 # from analytics.post_save_signal import get_retailer_report
 
 Product = 'products.product'
@@ -315,6 +317,25 @@ def assign_franchise_group_to_user(sender, instance=None, created=False, **kwarg
         instance.shop_owner.save()
         my_group = Group.objects.get(name='Franchise')
         my_group.user_set.add(instance.shop_owner)
+
+
+@receiver(post_save, sender=Shop)
+def create_shop_status_log(sender, instance=None, created=False, **kwargs):
+    if not created:
+        user = instance.updated_by
+    else:
+        user = instance.created_by
+    if instance and instance.approval_status:
+        approval_status = instance.approval_status
+        if approval_status == 0:
+            reason = 'Disapproved'
+        elif approval_status == 1:
+            reason = 'Awaiting Approval'
+        else:
+            reason = 'Approved'
+        last_status = ShopStatusLog.objects.filter(shop=instance).last()
+        if not last_status or last_status.reason != reason:
+            ShopStatusLog.objects.create(reason=reason, user=user, shop=instance)
 
 
 class FavouriteProduct(models.Model):
@@ -695,3 +716,45 @@ class ShopStatusLog(models.Model):
     user = models.ForeignKey(get_user_model(), related_name='shop_status_changed_by', on_delete=models.CASCADE)
     shop = models.ForeignKey(Shop, related_name='shop_detail', on_delete=models.CASCADE)
     changed_at = models.DateTimeField(auto_now_add=True)
+
+
+class FOFOConfigCategory(models.Model):
+    """
+    Master model for FOFO configuration category
+    """
+    name = CaseInsensitiveCharField(max_length=125, unique=True)
+
+    def __str__(self):
+        return self.name
+
+    # def save(self, *args, **kwargs):
+    #     self.name = self.name.upper()
+    #     super(FOFOConfigCategory, self).save(*args, **kwargs)
+
+
+class FOFOConfigSubCategory(models.Model):
+    """
+    Master model for FOFO configuration sub-category
+    """
+    category = models.ForeignKey(FOFOConfigCategory, related_name='fofo_category_details', on_delete=models.CASCADE)
+    name = CaseInsensitiveCharField(max_length=125, unique=True)
+
+    def __str__(self):
+        return str(self.category) + " - " + str(self.name)
+
+
+class FOFOConfigurations(models.Model):
+    """
+        Master model for FOFO configuration
+    """
+    shop = models.ForeignKey(Shop, related_name='fofo_shop', on_delete=models.CASCADE)
+    key = models.ForeignKey(FOFOConfigSubCategory, related_name='fofo_category', on_delete=models.CASCADE)
+    value = JSONField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ('shop', 'key',)
+
+    def __str__(self):
+        return str(self.key)

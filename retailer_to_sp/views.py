@@ -31,7 +31,7 @@ from sp_to_gram.models import (
 from retailer_to_sp.models import (CartProductMapping, Order, OrderedProduct, OrderedProductMapping, Note, Trip,
                                    Dispatch, ShipmentRescheduling, PickerDashboard, update_full_part_order_status,
                                    Shipment, populate_data_on_qc_pass, add_to_putaway_on_return,
-                                   check_franchise_inventory_update, ShipmentNotAttempt)
+                                   check_franchise_inventory_update, ShipmentNotAttempt, BASIC, ECOM)
 from products.models import Product
 from retailer_to_sp.forms import (
     OrderedProductForm, OrderedProductMappingShipmentForm,

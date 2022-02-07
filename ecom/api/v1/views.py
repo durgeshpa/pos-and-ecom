@@ -18,9 +18,10 @@ from ecom.utils import (check_ecom_user, nearby_shops, validate_address_id, chec
                         get_categories_with_products)
 from ecom.models import Address, Tag
 from .serializers import (AccountSerializer, RewardsSerializer, TagSerializer, UserLocationSerializer, ShopSerializer,
-                          AddressSerializer, CategorySerializer, SubCategorySerializer, TagProductSerializer,
+                          AddressSerializer, CategorySerializer, SubCategorySerializer, TagProductSerializer, Parent_Product_Serilizer,
                           ShopInfoSerializer)
 
+from pos.api.v1.serializers import ContectUs
 
 class AccountView(APIView):
     serializer_class = AccountSerializer
@@ -252,3 +253,25 @@ class UserShopView(APIView):
             is_success, message = True, "Shop Found"
         return api_response(message, data, status.HTTP_200_OK, is_success)
 
+class Contect_Us(APIView):
+    authentication_classes = (TokenAuthentication,)
+    def get(self, request, format=None):
+        data = {'phone_number':"7777777777",'email' :'papertap@gmail.com'}
+        serializer = ContectUs(data=data)
+        if serializer.is_valid():
+            return api_response('contct us details',serializer.data,status.HTTP_200_OK, True)
+
+class ParentProductDetails(APIView):
+    """
+    retailer product details with parent product discriptions .....
+    """
+
+    authentication_classes = (TokenAuthentication,)
+    serializer_class = Parent_Product_Serilizer
+    @check_ecom_user_shop
+    def get(self, request, pk, *args, **kwargs):
+        '''get retailer product details ....'''
+        shop = kwargs['shop']
+        serializer = RetailerProduct.objects.filter(id=pk, shop=shop, is_deleted=False, online_enabled=True)
+        serializer = self.serializer_class(serializer, many=True)
+        return api_response('products information',serializer.data,status.HTTP_200_OK, True)

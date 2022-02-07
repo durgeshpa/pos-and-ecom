@@ -2,6 +2,7 @@
 from datetime import datetime, timedelta
 
 from ecom.utils import generate_ecom_order_csv_report
+from global_config.models import GlobalConfig
 from pos.utils import (
     create_order_data_excel,
     create_order_return_excel,
