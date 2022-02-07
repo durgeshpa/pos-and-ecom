@@ -7,18 +7,19 @@ from report.tasks import (HostReportGenerator,
 
 def async_report_post_save(sender, instance, created, *args, **kwargs):
     if instance.report_type  == 'AD':
-        if instance.source == 'HT':
+        if instance.report_choice.source == 'HT':
+            #HostReportGenerator.delay(instance.id)
             HostReportGenerator.delay(instance.id)
-            #HostReportGenerator(instance.id)
         else:
             #RedashReportGenerator.delay(instance.id)
-            #RedashReportGenerator(instance.id)
+            RedashReportGenerator.delay(instance.id)
             pass
     else:
-        if instance.source == 'HT':
-            ScheduledHostReportGenerator.delay(instance.id)
-            #ScheduledHostReportGenerator(instance.id)
+        if instance.report_choice.source == 'HT':
+            #ScheduledHostReportGenerator.delay(instance.id)
+            HostReportGenerator.delay(instance.id)
         else:
+
             #ScheduledRedashReportGenerator.delay(instance.id)
-            #ScheduledRedashReportGenerator(instance.id)
+            RedashReportGenerator.delay(instance.id)
             pass
