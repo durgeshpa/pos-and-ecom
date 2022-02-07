@@ -1,10 +1,9 @@
 from dal import autocomplete
-from django.http import JsonResponse
 from django.shortcuts import render
 from django.db.models import Q
 
 from retailer_to_sp.models import Order
-from .models import Payment, OrderPayment
+from .models import Payment
 from accounts.models import UserWithName
 # Create your views here.
 
