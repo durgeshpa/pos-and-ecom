@@ -31,5 +31,5 @@ def run():
 def create_shop_crate_mapping(crates, warehouse, available=True):
     for crate_id in crates:
         shop_crate_instance, _ = ShopCrate.objects.update_or_create(
-            shop=warehouse, crate_id=crate_id, defaults={'is_available': available})
+            shop_id=warehouse, crate_id=crate_id, defaults={'is_available': available})
         print("ShopCrate entry created, Instance " + str(shop_crate_instance))
