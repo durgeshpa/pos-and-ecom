@@ -108,6 +108,7 @@ class OrderPaymentForm(forms.ModelForm):
         fields = ('description', 'order', 'paid_amount', 'payment_id', 'parent_payment')
 
     def __init__(self, *args, **kwargs):
+        request = kwargs.pop('request', None)
         super(OrderPaymentForm, self).__init__(*args, **kwargs)
         # self.fields.get('parent_payment').required = True
 
@@ -124,9 +125,8 @@ class OrderPaymentForm(forms.ModelForm):
                 object_id = kwargs.get('initial').get('object_id')
                 shipment_data_instance = ShipmentData.objects.filter(id=object_id).last()
                 self.fields['order'].initial = shipment_data_instance.order.id
-            if kwargs.get('initial').get('user_id', None) is not None:
-                user_id = kwargs.get('initial').get('user_id')
-                self.fields['paid_by'].initial = user_id
+        if request:
+            self.fields['paid_by'].initial = request.user.id
 
     def clean(self):
         cleaned_data = super(OrderPaymentForm, self).clean()
@@ -161,9 +161,8 @@ class ShipmentPaymentInlineForm(forms.ModelForm):
         # self.fields['parent_payment'].queryset = Payment.objects.filter(order=shipment_payment.shipment.order)
 
 
-def ShipmentPaymentInlineFormFactory(user_id, object_id):
+def ShipmentPaymentInlineFormFactory(object_id):
     class ShipmentPaymentInlineForm(forms.ModelForm):
-        user_id = forms.CharField(widget=forms.HiddenInput(), required=False)
 
         class Meta:
             model = ShipmentPayment
@@ -173,7 +172,6 @@ def ShipmentPaymentInlineFormFactory(user_id, object_id):
             # show only the payments for the relevant order
             super(ShipmentPaymentInlineForm, self).__init__(*args, **kwargs)
             self.fields.get('parent_order_payment').required = True
-            self.fields.get('user_id').initial = user_id
             # shipment_payment = getattr(self, 'instance', None)
 
             # self.fields['parent_payment'].queryset = Payment.objects.filter(order=shipment_payment.shipment.order)
