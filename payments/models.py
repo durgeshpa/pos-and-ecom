@@ -314,16 +314,16 @@ class ShipmentPayment(AbstractDateTime):
             return 0
 
     def clean(self):
-        # if self.payment_utilised_excluding_current + self.paid_amount > self.parent_order_payment.paid_amount:
+        # if self.payment_utilised_excluding_current + self.parent_order_payment.paid_amount > self.parent_order_payment.paid_amount:
         #     error_msg = "Maximum amount to be utilised from parent order payment is " + str(self.parent_order_payment.paid_amount - self.payment_utilised_excluding_current)
         #     raise ValidationError(_(error_msg),)
         cash_to_be_collected = self.shipment.cash_to_be_collected()
-        if cash_to_be_collected < self.paid_amount:
+        if cash_to_be_collected < self.parent_order_payment.paid_amount:
             error_msg = "Maximum amount to be collected is " + str(cash_to_be_collected)
             raise ValidationError(_(error_msg),)
 
         try:
-            if float(self.payment_utilised_excluding_current) + float(self.paid_amount) > float(self.parent_order_payment.paid_amount):
+            if float(self.payment_utilised_excluding_current) + float(self.parent_order_payment.paid_amount) > float(self.parent_order_payment.paid_amount):
                 error_msg = "Maximum amount to be utilised from parent order payment is " + str(self.parent_order_payment.paid_amount - self.payment_utilised_excluding_current)
                 raise ValueTooLargeError #ValidationError(_(error_msg),)   
         except ValueTooLargeError:
@@ -342,6 +342,11 @@ class ShipmentPayment(AbstractDateTime):
 
     class Meta:
         unique_together = (("parent_order_payment", "shipment"),)
+
+    def save(self, *args, **kwargs):
+        if self.parent_order_payment and self.parent_order_payment.paid_amount:
+            self.paid_amount = self.parent_order_payment.paid_amount
+        super().save(*args, **kwargs)
 
 
 class OrderPaymentStatus(AbstractDateTime):

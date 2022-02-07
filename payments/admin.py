@@ -346,13 +346,13 @@ def ShipmentPaymentInlineAdminFactory(user_id, object_id=None):
         form = ShipmentPaymentInlineFormFactory(user_id, object_id)
         formset = AtLeastOneFormSet
         #autocomplete_fields = ("parent_order_payment",)
-        fields = ("paid_amount", "parent_order_payment", "payment_mode_name", "reference_no", "description",
+        fields = ("parent_order_payment", "description", "paid_amount", "payment_mode_name", "reference_no",
                   "payment_approval_status")
         # fieldsets = (
         #     (None, {'fields': ("paid_amount", "parent_order_payment", "payment_mode_name", "reference_no",
         #                        "description", "payment_approval_status")}),
         # )
-        readonly_fields = ("payment_mode_name", "reference_no","payment_approval_status")
+        readonly_fields = ("paid_amount", "payment_mode_name", "reference_no", "payment_approval_status")
         extra = 0
 
         class Media:
