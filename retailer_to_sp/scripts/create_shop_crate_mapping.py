@@ -23,7 +23,7 @@ def run():
         available_crates = Crate.objects.filter(
             ~Q(id__in=used_crates), warehouse=warehouse).values_list("id", flat=True)
         print(f"Warehouse {warehouse}, Available Crates Count {len(available_crates)}, List {available_crates}")
-        create_shop_crate_mapping(available_crates, warehouse, False)
+        create_shop_crate_mapping(available_crates, warehouse, True)
         print(f"Ended for Shop {warehouse}")
     print('create_shop_crate_mapping | ENDED')
 
