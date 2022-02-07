@@ -21,7 +21,7 @@ def run():
     print(f"Releasing QC Areas against orders, Count {len(order_nos)}, List {order_nos}")
     mappings = QCDeskQCAreaAssignmentMapping.objects.filter(token_id__in=order_nos, qc_done=False)
     released_qc_areas = mappings.values_list("qc_area__area_id", flat=True)
-    # mappings.update(qc_done=True)
     print(f"Released QC Areas, Count {len(released_qc_areas)}, List {released_qc_areas}")
+    mappings.update(qc_done=True)
 
     print('release_stucked_qc_areas | ENDED')
