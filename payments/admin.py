@@ -13,7 +13,9 @@ from .views import UserWithNameAutocomplete
 from django.utils.safestring import mark_safe
 from django.forms.models import BaseInlineFormSet
 
-from retailer_to_sp.models import Shipment
+from retailer_to_sp.models import Shipment, Trip
+
+
 # Register your models here.
 
 
@@ -59,7 +61,7 @@ class OrderNoSearch(InputFilter):
 
 class OrderPaymentAdmin(admin.ModelAdmin, PermissionMixin):
     model = OrderPayment
-    form  = OrderPaymentForm
+    form = OrderPaymentForm
     list_per_page = 25
     #autocomplete_fields = ('order', 'parent_payment', 'created_by', 'updated_by',)
     search_fields = ('order__order_no', 'parent_payment__payment_id')
@@ -67,6 +69,16 @@ class OrderPaymentAdmin(admin.ModelAdmin, PermissionMixin):
        "payment_id",
     )
     list_filter = (OrderNoSearch,  'parent_payment__payment_mode_name', )
+
+    def get_form(self, request, obj=None, **kwargs):
+        AdminForm = super(OrderPaymentAdmin, self).get_form(request, obj, **kwargs)
+
+        class AdminFormWithRequest(AdminForm):
+            def __new__(cls, *args, **kwargs):
+                kwargs['request'] = request
+                return AdminForm(*args, **kwargs)
+
+        return AdminFormWithRequest
 
 
 class ReferenceNoSearch(InputFilter):
@@ -340,10 +352,10 @@ class ShipmentPaymentInlineAdmin(admin.TabularInline, PermissionMixin):
         return False
 
 
-def ShipmentPaymentInlineAdminFactory(user_id, object_id=None):
+def ShipmentPaymentInlineAdminFactory(object_id=None):
     class ShipmentPaymentInlineAdmin(admin.TabularInline, PermissionMixin):
         model = ShipmentPayment
-        form = ShipmentPaymentInlineFormFactory(user_id, object_id)
+        form = ShipmentPaymentInlineFormFactory(object_id)
         formset = AtLeastOneFormSet
         #autocomplete_fields = ("parent_order_payment",)
         fields = ("parent_order_payment", "description", "paid_amount", "payment_mode_name", "reference_no",
@@ -422,13 +434,8 @@ class ShipmentPaymentDataAdmin(admin.ModelAdmin, PermissionMixin):
 
     # we define inlines with factory to create Inline class with request inside
     def change_view(self, request, object_id, form_url='', extra_context=None):
-        self.inlines = (ShipmentPaymentInlineAdminFactory(request.user.id, object_id),)
+        self.inlines = (ShipmentPaymentInlineAdminFactory(object_id),)
         return super(ShipmentPaymentDataAdmin, self).change_view(request, object_id)
-
-    # we define inlines with factory to create Inline class with request inside
-    def add_view(self, request, form_url='', extra_context=None):
-        self.inlines = (ShipmentPaymentInlineAdminFactory(request.user.id),)
-        return super(ShipmentPaymentDataAdmin, self).add_view(request.user.id)
 
     def total_paid_amount(self,obj):
         return obj.total_paid_amount
