@@ -40,8 +40,3 @@ class UserWithNameAutocomplete(autocomplete.Select2QuerySetView):
         if self.q:
             qs = qs.filter(Q(phone_number__icontains=self.q) | Q(first_name__icontains=self.q))
         return qs
-
-
-def GetOrderPaymentAmount(request, order_payment):
-    order_amount = OrderPayment.objects.filter(id=order_payment).last().paid_amount
-    return JsonResponse({"data": order_amount})

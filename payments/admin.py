@@ -13,7 +13,9 @@ from .views import UserWithNameAutocomplete
 from django.utils.safestring import mark_safe
 from django.forms.models import BaseInlineFormSet
 
-from retailer_to_sp.models import Shipment
+from retailer_to_sp.models import Shipment, Trip
+
+
 # Register your models here.
 
 
@@ -197,7 +199,6 @@ class ShipmentPaymentAdmin(admin.ModelAdmin, PermissionMixin):
     list_filter = (ShipmentOrderNoSearch,  InvoiceNoSearch, DispatchNoSearch, )
 
 
-
 class NoDeleteAdminMixin:
     def has_delete_permission(self, request, obj=None):
         
@@ -284,7 +285,7 @@ class ShipmentPaymentInlineAdmin(admin.TabularInline, PermissionMixin):
     formset = AtLeastOneFormSet
     fields = ("paid_amount", "parent_order_payment", "payment_mode_name", "reference_no", "description",
               "payment_approval_status")
-    readonly_fields = ("paid_amount", "payment_mode_name", "reference_no","payment_approval_status")
+    readonly_fields = ("paid_amount", "payment_mode_name", "reference_no", "payment_approval_status")
     extra = 0
 
     def formfield_for_foreignkey(self, db_field, request, **kwargs):

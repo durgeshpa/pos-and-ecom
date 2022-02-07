@@ -15,7 +15,4 @@ urlpatterns = [
     OrderAutocomplete.as_view(),
     name='order-autocomplete', ),
 
-    path('order-payment-amount/<order_payment>/',
-        GetOrderPaymentAmount,
-        name='order-payment-amount', ),
     ]
