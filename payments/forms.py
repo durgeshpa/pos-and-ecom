@@ -1,6 +1,7 @@
 import datetime
 
 from dal import autocomplete
+from django.db.models import Sum
 from django_select2.forms import Select2MultipleWidget, ModelSelect2Widget
 from tempus_dominus.widgets import DatePicker
 
@@ -135,14 +136,24 @@ class OrderPaymentForm(forms.ModelForm):
         reference_no = cleaned_data.get('reference_no')
         payment_mode_name = cleaned_data.get('payment_mode_name')
         order = cleaned_data.get('order')
-        if paid_by and paid_amount and order and payment_mode_name:
-            payment = Payment.objects.create(paid_by=paid_by,
-                                             paid_amount=paid_amount,
-                                             reference_no=reference_no,
-                                             payment_mode_name=payment_mode_name)
-            # payment.order.add(order)
-            payment.save()
-            cleaned_data['parent_payment'] = payment
+        if order:
+            cash_to_be_collected = 0
+            shipment = order.rt_order_order_product.last()
+            if shipment:
+                cash_to_be_collected = shipment.cash_to_be_collected()
+                total_payments = Payment.objects.filter(order=order).aggregate(paid_amount=Sum('paid_amount'))
+                total_paid_amount = total_payments.get('paid_amount') if total_payments.get('paid_amount') else 0
+                if (float(total_paid_amount) + float(paid_amount)) > float(cash_to_be_collected):
+                    raise ValidationError(_(f"Max amount to be paid is {cash_to_be_collected-total_paid_amount}"))
+
+            if paid_by and paid_amount and order and payment_mode_name:
+                payment = Payment.objects.create(paid_by=paid_by,
+                                                 paid_amount=paid_amount,
+                                                 reference_no=reference_no,
+                                                 payment_mode_name=payment_mode_name)
+                # payment.order.add(order)
+                payment.save()
+                cleaned_data['parent_payment'] = payment
         return cleaned_data
 
 
