@@ -712,7 +712,9 @@ class BasicOrderListSerializer(serializers.ModelSerializer):
 
     @staticmethod
     def get_invoice_no(obj):
-        return obj.rt_order_order_product.last().invoice_no
+        if obj.rt_order_order_product.last():
+            return obj.rt_order_order_product.last().invoice_no
+        return None
 
     @staticmethod
     def get_gstn_no(obj):
@@ -981,7 +983,9 @@ class BasicOrderSerializer(serializers.ModelSerializer):
 
     @staticmethod
     def get_invoice_no(obj):
-        return obj.rt_order_order_product.last().invoice_no
+        if obj.rt_order_order_product.last():
+            return obj.rt_order_order_product.last().invoice_no
+        return None
 
     @staticmethod
     def get_gstn_no(obj):
@@ -1776,7 +1780,9 @@ class OrderReturnGetSerializer(serializers.ModelSerializer):
 
     @staticmethod
     def get_invoice_no(obj):
-        return obj.order.rt_order_order_product.last().invoice_no
+        if obj.order.rt_order_order_product.last():
+            return obj.rt_order_order_product.last().invoice_no
+        return None
 
     @staticmethod
     def get_credit_note_no(obj):
@@ -1873,7 +1879,9 @@ class BasicOrderDetailSerializer(serializers.ModelSerializer):
 
     @staticmethod
     def get_invoice_no(obj):
-        return obj.rt_order_order_product.last().invoice_no
+        if obj.rt_order_order_product.last():
+            return obj.rt_order_order_product.last().invoice_no
+        return None
 
     @staticmethod
     def get_gstn_no(obj):
