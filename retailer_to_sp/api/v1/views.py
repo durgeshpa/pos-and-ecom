@@ -9254,10 +9254,7 @@ class LoadInvoiceView(generics.GenericAPIView):
 class PackagesUnderTripView(generics.GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
-    queryset = ShipmentPackaging.objects\
-        .exclude(trip_packaging_details__package_status=DispatchTripShipmentPackages.CANCELLED)\
-        .exclude(last_mile_trip_packaging_details__package_status=LastMileTripShipmentPackages.CANCELLED)\
-        .order_by('packaging_type')
+    queryset = ShipmentPackaging.objects.order_by('packaging_type')
     serializer_class = PackagesUnderTripSerializer
 
     # @check_whc_manager_dispatch_executive
@@ -9313,11 +9310,7 @@ class PackagesUnderTripView(generics.GenericAPIView):
             self.queryset = self.queryset.filter(status=package_status)
 
         if is_return_verified:
-            if isinstance(trip_instance, DispatchTrip):
-                self.queryset = self.queryset.filter(trip_packaging_details__is_return_verified=is_return_verified)
-            else:
-                self.queryset = self.queryset.filter(
-                    last_mile_trip_packaging_details__is_return_verified=is_return_verified)
+            self.queryset = self.queryset.filter(trip_packaging_details__is_return_verified=is_return_verified)
 
         return self.queryset.distinct('id', 'packaging_type')
 
@@ -9707,13 +9700,12 @@ class LastMileShipmentPackageView(generics.GenericAPIView):
         trip_id = self.request.GET.get('trip_id')
         availability = int(self.request.GET.get('availability'))
 
-        if trip_id:
-            trip_source_shop = Trip.objects.filter(id=trip_id).last().source_shop
-            self.queryset = self.queryset.filter(shipment__current_shop=trip_source_shop)
-            if trip_source_shop.shop_type.shop_type == 'sp':
-                self.queryset = self.queryset.filter(shipment__order__dispatch_center__isnull=True)
-            if trip_source_shop.shop_type.shop_type == 'dc':
-                self.queryset = self.queryset.filter(shipment__order__dispatch_center=trip_source_shop)
+        trip_source_shop = Trip.objects.filter(id=trip_id).last().source_shop
+        self.queryset = self.queryset.filter(shipment__current_shop=trip_source_shop)
+        if trip_source_shop.shop_type.shop_type == 'sp':
+            self.queryset = self.queryset.filter(shipment__order__dispatch_center__isnull=True)
+        if trip_source_shop.shop_type.shop_type == 'dc':
+            self.queryset = self.queryset.filter(shipment__order__dispatch_center=trip_source_shop)
 
         if package_id:
             self.queryset = self.queryset.filter(id=package_id)
@@ -9729,15 +9721,16 @@ class LastMileShipmentPackageView(generics.GenericAPIView):
                 availability = int(availability)
                 if availability == INVOICE_AVAILABILITY_CHOICES.ADDED:
                     self.queryset = self.queryset.filter(
-                        status='READY_TO_DISPATCH').filter(Q(shipment__trip_shipment__trip_id=trip_id) |
-                                                           Q(shipment__last_mile_trip_shipment__trip_id=trip_id))
+                        status='READY_TO_DISPATCH', shipment__last_mile_trip_shipment__trip_id=trip_id)
                 elif availability == INVOICE_AVAILABILITY_CHOICES.NOT_ADDED:
-                    self.queryset = self.queryset.filter(status='PACKED')
+                    self.queryset = self.queryset.filter(
+                        status='READY_TO_DISPATCH').filter(Q(shipment__last_mile_trip_shipment__isnull=True),
+                                                           shipment__current_shop=trip_source_shop)
                 elif availability == INVOICE_AVAILABILITY_CHOICES.ALL:
                     self.queryset = self.queryset.filter(
-                        status__in=['PACKED', 'READY_TO_DISPATCH']).filter(
-                        Q(shipment__trip_shipment__trip_id=trip_id) |
-                        Q(shipment__last_mile_trip_shipment__trip_id=trip_id))
+                        status='READY_TO_DISPATCH').filter(
+                        Q(shipment__last_mile_trip_shipment__trip_id=trip_id) |
+                        Q(shipment__current_shop=trip_source_shop))
             except:
                 pass
 
