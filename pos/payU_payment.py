@@ -1,19 +1,20 @@
 import requests
 import hashlib
 import datetime
+from decouple import config
 
 url = "https://info.payu.in/merchant/postservice?form=2"
 headers = { "Accept": "application/json", "Content-Type": "application/x-www-form-urlencoded" }
 def hash_gen(trxn_id, key, commond):
     """Create hash ........."""
-    salt = 'g0nGFe03'
+    salt = str(config('PAYU_SALT'))
     hash_string = "{}|{}|{}|{}".format(key, commond, trxn_id, salt)
     return hashlib.sha512(hash_string.encode()).hexdigest().lower()
 
 
 def send_request_payu_api(trxn_id):
     """Send post request for very thr tranjection......."""
-    key = '3TnMpV'
+    key = str(config('PAYU_KEY'))
     commond = 'verify_payment'
     hash_value = hash_gen(trxn_id, key, commond)
     payload = "key={}&command={}&var1={}&hash={}".format(key,commond ,trxn_id,hash_value)
@@ -25,7 +26,7 @@ def send_request_refund(payment_id, amount):
     """send request for payment refund 
        on PAYU api .....
     """
-    key = '3TnMpV'
+    key = str(config('PAYU_KEY'))
     commond = 'cancel_refund_transaction'
     hash_value = hash_gen(payment_id, key, commond)
     uniq_id = str(datetime.datetime.now())
@@ -35,7 +36,7 @@ def send_request_refund(payment_id, amount):
 
 
 def track_status_refund(request_id):
-    key = '3TnMpV'
+    key = str(config('PAYU_KEY'))
     commond = "check_action_status"
     hash_value = hash_gen(request_id, key, commond)
     payload="key={}&hash={}&command={}&var1={}".format(key,hash_value,commond,request_id)
@@ -43,7 +44,7 @@ def track_status_refund(request_id):
     return response
 
 def getAllRefundsFromTxnIds(trxn_id):
-    key = '3TnMpV'
+    key = str(config('PAYU_KEY'))
     commond = 'getAllRefundsFromTxnIds'
     hash_value = hash_gen(trxn_id, key, commond)
     payload = "key={}&command={}&var1={}&hash={}".format(key,commond ,trxn_id,hash_value)
