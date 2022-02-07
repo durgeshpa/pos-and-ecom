@@ -7,12 +7,13 @@ from decouple import config
 from wms.models import PosInventory
 from services.models import  PosInventoryHistoric
 from coupon.models import Coupon
-from .models import PaymentReconsile, Payment
+from .models import PaymentReconsile, Payment, PaymentRefund
 from retailer_backend.common_function import bulk_create
 import hashlib
 import requests
 from retailer_to_sp.models import Order
 import datetime
+from pos.payU_payment import *
 # logger configuration
 info_logger = logging.getLogger('file-info')
 cron_logger = logging.getLogger('cron_log')
@@ -157,3 +158,24 @@ def payment_reconsilation_per_24_hours():
         except Exception as e:
             cron_logger.error(e)
             cron_logger.error('Exception during getting trnjection id .........')
+
+
+def payment_refund_status_upadte():
+    """payment Refund cron update status crone ........"""
+    cron_logger.info('payment_refund_status_upadte start ..........................')
+
+    objects = PaymentRefund.objects.filter(status='queued')
+    for obj in objects:
+        request_id = obj.request_id
+        try:
+            response = track_status_refund(request_id)
+            response = response['transaction_details'][str(request_id)][str(request_id)]
+            obj.status = response['status']
+            obj.refund_mode = response['refund_mode']
+            obj.refund_date  = response['value_date']
+            obj.bank_ref_num = response['bank_ref_num']
+            obj.save()
+        except Exception as e:
+            cron_logger.error(response)
+            cron_logger.info(e)
+            cron_logger.error('Exception during getting payment_refund_status_upadte start .........')
