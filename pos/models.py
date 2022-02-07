@@ -246,7 +246,9 @@ class PaymentReconsile(models.Model):
         ('payment_not_found', 'PAYMENT_NOT_FOUND'),
         ('payment_failed', 'PAYMENT_FAILED'),
         ('payment_success', 'PAYMENT_SUCCESS'),
-        ('payment_conflict', 'RECONSILE_CONFLICT')
+        ('payment_conflict', 'RECONSILE_CONFLICT'),
+        ('double_payment', 'DOUBLE_PAYMENT'),
+        ('payment_not_required', 'PAYMENT_NOT_REQUIRED'),
         )
     MODE_CHOICES = (
         ('CREDIT_CARD', 'Credit Card'),
@@ -572,7 +574,7 @@ class RetailerOrderReturn(OrderReturn):
         return self.order.order_no
 
 
-class RetailerOrderCancel(OrderedProduct):
+class RetailerOrderCancel(Cart):
     """Cancel order ........."""
     class Meta:
         proxy = True
@@ -781,3 +783,16 @@ class BulkRetailerProduct(models.Model):
             super().save(*args, **kwargs)
 
 
+class PaymentRefund(models.Model):
+    """Refund ammount models ..............."""
+    trxn_id = models.CharField(max_length=15, blank=True, null=True)
+    request_id = models.CharField(max_length=18, blank=True, null=True)
+    payment_id = models.CharField(max_length=18, blank=True, null=True)
+    bank_ref_num = models.CharField(max_length=50 , blank=True, null=True)
+    refund_amount = models.DecimalField(max_digits=10, decimal_places=2, null=True)
+    status = models.CharField(max_length=18, blank=True, null=True)
+    refund_mode = models.CharField(max_length=100, blank=True , null=True)
+    refund_date = models.DateTimeField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    class Meta:
+        verbose_name = 'Payment Refund'
