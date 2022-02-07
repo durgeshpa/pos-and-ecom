@@ -1,5 +1,6 @@
 import decimal
 from copy import deepcopy
+from datetime import datetime
 
 from django.db import transaction
 from django.apps import apps
@@ -48,9 +49,13 @@ def bulk_create_update_validated_products(uploaded_by, shop_id, uploaded_data_by
 
             if not row['offer_start_date']:
                 row['offer_start_date'] = None
+            else:
+                row['offer_start_date'] = datetime.strptime(row['offer_start_date'], "%Y-%m-%d")
 
             if not row['offer_end_date']:
                 row['offer_end_date'] = None
+            else:
+                row['offer_end_date'] = datetime.strptime(row['offer_end_date'], "%Y-%m-%d")
 
             name, ean, mrp, sp, offer_price, offer_sd, offer_ed, linked_pid, description, stock_qty, \
             online_enabled, online_price, is_visible, product_pack_type, initial_purchase_value = row.get('product_name'), row.get('product_ean_code'), \
@@ -66,6 +71,10 @@ def bulk_create_update_validated_products(uploaded_by, shop_id, uploaded_data_by
                 measure_cat_id = None
                 if row.get('measurement_category'):
                     measure_cat_id = MeasurementCategory.objects.get(category=row.get('measurement_category')).id
+                if offer_price is None:
+                    add_offer_price = False
+                else:
+                    add_offer_price = True
                 if 'linked_product_sku' in row.keys() and not row.get('linked_product_sku') == '':
                     if row.get('linked_product_sku') != '':
                         # If product is linked with existing product
@@ -79,7 +88,8 @@ def bulk_create_update_validated_products(uploaded_by, shop_id, uploaded_data_by
                                                                        row.get('status'), offer_price, offer_sd,
                                                                        offer_ed, None, online_enabled, online_price,
                                                                        purchase_pack_size, is_visible,
-                                                                                   initial_purchase_value)
+                                                                                   initial_purchase_value,
+                                                                                   add_offer_price=add_offer_price)
                 else:
                     # If product is not linked with existing product, Create a new Product with SKU_TYPE == "Created"
                     r_product = RetailerProductCls.create_retailer_product(shop_id, name, mrp,
@@ -88,7 +98,8 @@ def bulk_create_update_validated_products(uploaded_by, shop_id, uploaded_data_by
                                                                measure_cat_id, None, row.get('status'),
                                                                offer_price, offer_sd, offer_ed, None,
                                                                online_enabled, online_price,
-                                                               purchase_pack_size, is_visible, initial_purchase_value)
+                                                               purchase_pack_size, is_visible, initial_purchase_value,
+                                                                           add_offer_price=add_offer_price)
                 # Add Inventory
                 PosInventoryCls.stock_inventory(r_product.id, PosInventoryState.NEW, PosInventoryState.AVAILABLE,
                                                 round(decimal.Decimal(row.get('quantity')), 3), uploaded_by,
@@ -147,8 +158,15 @@ def bulk_create_update_validated_products(uploaded_by, shop_id, uploaded_data_by
 
                     if product.online_enabled != row['online_enabled']:
                         product.online_enabled = row['online_enabled']
-                    if product.online_price != row['online_price']:
-                        product.online_price = row['online_price']
+                    if str(row.get('available_for_online_orders').lower()) == 'yes':
+                        if online_enabled is True and float(online_price) == 0.0 and offer_price is not None:
+                            product.online_price = offer_price
+                        elif online_enabled is True and float(online_price) == 0.0:
+                            product.online_price = sp if sp else product.selling_price
+                        else:
+                            product.online_price = online_price if online_price else sp
+                    else:
+                        product.online_price = online_price if online_price else sp
 
                     if product.description != row.get('description'):
                         product.description = row.get('description')
@@ -158,12 +176,19 @@ def bulk_create_update_validated_products(uploaded_by, shop_id, uploaded_data_by
 
                     if row['offer_price']:
                         product.offer_price = decimal.Decimal(row['offer_price'])
+                    else:
+                        product.offer_price = None
 
-                    if row['offer_start_date']:
+
+                    if row['offer_start_date'] and row['offer_price']:
                         product.offer_start_date = row['offer_start_date']
+                    else:
+                        product.offer_start_date = None
 
-                    if row['offer_end_date']:
+                    if row['offer_end_date'] and row['offer_price']:
                         product.offer_end_date = row['offer_end_date']
+                    else:
+                        product.offer_end_date = None
 
                     if product_pack_type:
                         product.product_pack_type = product_pack_type.lower()
@@ -186,7 +211,10 @@ def bulk_create_update_validated_products(uploaded_by, shop_id, uploaded_data_by
 
                             initial_state = PosInventoryState.NEW
                             tr_type = PosInventoryChange.STOCK_ADD
-
+                            if offer_price is None:
+                                add_offer_price = False
+                            else:
+                                add_offer_price = True
                             discounted_product = RetailerProductCls.create_retailer_product(product.shop.id,
                                                                                             product.name,
                                                                                             product.mrp,
@@ -201,7 +229,8 @@ def bulk_create_update_validated_products(uploaded_by, shop_id, uploaded_data_by
                                                                                             product.measurement_category_id,
                                                                                             None, product_status,
                                                                                             None, None, None, product,
-                                                                                            False, None)
+                                                                                            False, None,
+                                                                                            add_offer_price=add_offer_price)
                         else:
                             RetailerProductCls.update_price(discounted_product.id, discounted_price, product_status,
                                                             uploaded_by, 'product', discounted_product.sku)

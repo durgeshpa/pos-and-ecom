@@ -17,15 +17,16 @@ from django.db.models import Q, Sum, F, Count, Subquery, OuterRef, FloatField, E
 from django.db.models.functions import Coalesce
 from rest_framework import status, authentication, permissions
 from rest_framework.generics import GenericAPIView, ListAPIView
+from rest_framework.permissions import AllowAny
 from rest_framework.views import APIView
 
 from coupon.models import CouponRuleSet, RuleSetProductMapping, DiscountValue, Coupon
 
 from pos.models import (RetailerProduct, RetailerProductImage, ShopCustomerMap, Vendor, PosCart, PosGRNOrder,
-                        PaymentType, MeasurementCategory, PosReturnGRNOrder, BulkRetailerProduct)
+                        PaymentType, MeasurementCategory, PosReturnGRNOrder, BulkRetailerProduct, Payment)
 from pos.common_functions import (RetailerProductCls, OffersCls, serializer_error, api_response, PosInventoryCls,
                                   check_pos_shop, ProductChangeLogs, pos_check_permission_delivery_person,
-                                  pos_check_permission, check_return_status)
+                                  pos_check_permission, check_return_status, pos_check_user_permission)
 
 from pos.common_validators import compareList, validate_user_type_for_pos_shop, validate_id
 from pos.models import RetailerProduct, RetailerProductImage, ShopCustomerMap, Vendor, PosCart, PosGRNOrder, \
@@ -47,7 +48,7 @@ from .serializers import (PaymentTypeSerializer, RetailerProductCreateSerializer
                           POSerializer, POGetSerializer, POProductInfoSerializer, POListSerializer,
                           PosGrnOrderCreateSerializer, PosGrnOrderUpdateSerializer, GrnListSerializer,
                           GrnOrderGetSerializer, MeasurementCategorySerializer, ReturnGrnOrderSerializer,
-                          GrnOrderGetListSerializer, PRNOrderSerializer, BulkProductUploadSerializers,)
+                          GrnOrderGetListSerializer, PRNOrderSerializer, BulkProductUploadSerializers,ContectUs)
 from global_config.views import get_config
 from ...forms import RetailerProductsStockUpdateForm
 from ...views import stock_update
@@ -101,7 +102,8 @@ class PosProductView(GenericAPIView):
                                                                      data['product_pack_type'], data['measurement_category_id'],
                                                                      None, 'active', offer_price, offer_sd, offer_ed,
                                                                      None, online_enabled, online_price,
-                                                                     data['purchase_pack_size'])
+                                                                     data['purchase_pack_size'],
+                                                                     add_offer_price=data['add_offer_price'])
                 # Upload images
                 if 'images' in modified_data:
                     RetailerProductCls.create_images(product, modified_data['images'])
@@ -118,6 +120,7 @@ class PosProductView(GenericAPIView):
 
     @check_pos_shop
     @pos_check_permission_delivery_person
+    @pos_check_user_permission
     def put(self, request, *args, **kwargs):
         """
             Update product
@@ -126,6 +129,7 @@ class PosProductView(GenericAPIView):
         modified_data, success_msg = self.validate_update(shop.id)
         if 'error' in modified_data:
             return api_response(modified_data['error'])
+
         if not compareList(list(modified_data.keys()), ['product_id', 'stock_qty', 'shop_id', 'reason_for_update']):
             pos_shop_user_obj = validate_user_type_for_pos_shop(shop, request.user)
             if 'error' in pos_shop_user_obj:
@@ -134,8 +138,8 @@ class PosProductView(GenericAPIView):
         if serializer.is_valid():
             data = serializer.data
             product = RetailerProduct.objects.get(id=data['product_id'], shop_id=shop.id)
-            name, ean, mrp, sp, description, stock_qty, online_enabled, online_price, product_pack_type= data['product_name'], data['product_ean_code'], data[
-                'mrp'], data['selling_price'], data['description'], data['stock_qty'], data['online_enabled'], data.get('online_price', None), data.get('product_pack_type',product.product_pack_type)
+            name, ean, mrp, sp, description, stock_qty, online_enabled, online_price, product_pack_type = data['product_name'], data['product_ean_code'], data[
+                'mrp'], data['selling_price'], data['description'], data['stock_qty'], data['online_enabled'] if 'online_enabled' in data else None, data.get('online_price', None), data.get('product_pack_type',product.product_pack_type)
             measurement_category_id = data.get("measurement_category_id",product.measurement_category_id)
             offer_price, offer_sd, offer_ed = data['offer_price'], data['offer_start_date'], data['offer_end_date']
             add_offer_price = data['add_offer_price']
@@ -157,9 +161,16 @@ class PosProductView(GenericAPIView):
                     product.offer_end_date = offer_ed
                 product.status = data['status'] if data['status'] else product.status
                 product.description = description if description else product.description
-                product.online_enabled = online_enabled
-                product.online_price = online_price if online_price else product.online_price 
-
+                if online_enabled is not None:
+                    product.online_enabled = online_enabled
+                    if online_enabled is True and float(online_price) == 0.0 and add_offer_price is True:
+                        product.online_price = offer_price
+                    elif online_enabled is True and float(online_price) == 0.0:
+                        product.online_price = sp if sp else product.selling_price
+                    else:
+                        product.online_price = online_price if online_price else sp
+                else:
+                    product.online_price = online_price if online_price else sp
                 product.product_pack_type = product_pack_type
                 product.measurement_category_id = measurement_category_id
                 # Update images
@@ -1204,6 +1215,19 @@ class PaymentTypeDetailView(GenericAPIView):
         return api_response(msg, serializer.data, status.HTTP_200_OK, True)
 
 
+class EcomPaymentTypeDetailView(GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    queryset = PaymentType.objects.filter(app='ecom')
+    serializer_class = PaymentTypeSerializer
+
+    def get(self, request):
+        """ GET Payment Type List """
+        payment_type = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        serializer = self.serializer_class(payment_type, many=True)
+        msg = "" if payment_type else "No payment found"
+        return api_response(msg, serializer.data, status.HTTP_200_OK, True)
+
+
 class IncentiveView(GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
 
@@ -1519,7 +1543,9 @@ class CreateBulkProductView(GenericAPIView):
             if success:
                 data = "Product Uploaded Successfully"
                 info_logger.info("CreateBulkProductView upload successfully")
-            return api_response(data, success=success)
+                return api_response(data, success=success, status_code=status.HTTP_200_OK)
+            else:
+                return api_response(data, success=success)
         return api_response(serializer_error(serializer), False)
 
 
@@ -1549,5 +1575,40 @@ class UpdateInventoryStockView(GenericAPIView):
                 count = 0
             stock_update(request, uploaded_data_list)
             info_logger.info("Stock updated successfully")
-            return api_response("Stock updated successfully", success=True)
+            return api_response("Stock updated successfully", None, status.HTTP_200_OK, True)
         return api_response(serializer_error(form), False)
+
+
+class Contect_Us(APIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    def get(self, request, format=None):
+        data = {'phone_number':"9999999999",'email' :'papertap@gmail.com'}
+        serializer = ContectUs(data=data)
+        if serializer.is_valid():
+            return api_response('contct us details',serializer.data,status.HTTP_200_OK, True)
+
+
+class PaymentStatusList(GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+
+    def get(self, request):
+        '''
+        API to get payment status list
+        '''
+        fields = ['id', 'value']
+        data = [dict(zip(fields, d)) for d in Payment.PAYMENT_STATUS]
+        return api_response('', data, status.HTTP_200_OK, True)
+
+
+class PaymentModeChoicesList(GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+
+    def get(self, request):
+        '''
+        API to get payment mode choices list
+        '''
+        fields = ['id', 'value']
+        data = [dict(zip(fields, d)) for d in Payment.MODE_CHOICES]
+        return api_response('', data, status.HTTP_200_OK, True)
