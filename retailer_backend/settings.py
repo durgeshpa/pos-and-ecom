@@ -390,6 +390,7 @@ TEMPUS_DOMINUS_INCLUDE_ASSETS = False
 
 CRONJOBS = [
     ('*/1 * * * *', 'pos.cron.payment_reconsilation'),
+    ('*/1 * * * *', 'pos.cron.payment_refund_status_upadte'),
     ('*/10 * * * *', 'pos.cron.payment_reconsilation_per_ten_minutes'),
     ('0 0 12 * * ?', 'pos.cron.payment_reconsilation_per_24_hours'),
     ('* * * * *', 'retailer_backend.cron.discounted_order_cancellation', '>> /tmp/discounted_cancellation.log'),

@@ -30,7 +30,7 @@ from pos.common_functions import (RetailerProductCls, OffersCls, serializer_erro
 
 from pos.common_validators import compareList, validate_user_type_for_pos_shop, validate_id
 from pos.models import RetailerProduct, RetailerProductImage, ShopCustomerMap, Vendor, PosCart, PosGRNOrder, \
-    PaymentType, PosReturnGRNOrder
+    PaymentType, PosReturnGRNOrder, PaymentReconsile, PaymentRefund
 from pos.services import grn_product_search, grn_return_search, non_grn_return_search
 from products.models import Product
 from retailer_backend.utils import SmallOffsetPagination, OffsetPaginationDefault50
@@ -48,10 +48,11 @@ from .serializers import (PaymentTypeSerializer, RetailerProductCreateSerializer
                           POSerializer, POGetSerializer, POProductInfoSerializer, POListSerializer,
                           PosGrnOrderCreateSerializer, PosGrnOrderUpdateSerializer, GrnListSerializer,
                           GrnOrderGetSerializer, MeasurementCategorySerializer, ReturnGrnOrderSerializer,
-                          GrnOrderGetListSerializer, PRNOrderSerializer, BulkProductUploadSerializers,ContectUs)
+                          GrnOrderGetListSerializer, PRNOrderSerializer, BulkProductUploadSerializers, ContectUs)
 from global_config.views import get_config
 from ...forms import RetailerProductsStockUpdateForm
 from ...views import stock_update
+from pos.payU_payment import *
 
 info_logger = logging.getLogger('file-info')
 error_logger = logging.getLogger('file-error')
@@ -88,10 +89,12 @@ class PosProductView(GenericAPIView):
         serializer = RetailerProductCreateSerializer(data=modified_data)
         if serializer.is_valid():
             data = serializer.data
-            name, ean, mrp, sp, offer_price, offer_sd, offer_ed, linked_pid, description, stock_qty, online_enabled, online_price = data[
-                'product_name'], data['product_ean_code'], data['mrp'], data['selling_price'], data[
+            name, ean, mrp, sp, offer_price, offer_sd, offer_ed, linked_pid, description, stock_qty, online_enabled, online_price = \
+                data[
+                    'product_name'], data['product_ean_code'], data['mrp'], data['selling_price'], data[
                     'offer_price'], data['offer_start_date'], data['offer_end_date'], data[
-                        'linked_product_id'], data['description'], data['stock_qty'], data['online_enabled'], data.get('online_price',None)
+                    'linked_product_id'], data['description'], data['stock_qty'], data['online_enabled'], data.get(
+                    'online_price', None)
             with transaction.atomic():
                 # Decide sku_type 2 = using GF product, 1 = new product
                 sku_type = 2 if linked_pid else 1
@@ -99,7 +102,8 @@ class PosProductView(GenericAPIView):
                 # Create product
                 product = RetailerProductCls.create_retailer_product(shop.id, name, mrp, sp, linked_pid, sku_type,
                                                                      description, ean, self.request.user, 'product',
-                                                                     data['product_pack_type'], data['measurement_category_id'],
+                                                                     data['product_pack_type'],
+                                                                     data['measurement_category_id'],
                                                                      None, 'active', offer_price, offer_sd, offer_ed,
                                                                      None, online_enabled, online_price,
                                                                      data['purchase_pack_size'],
@@ -110,8 +114,8 @@ class PosProductView(GenericAPIView):
                 product.save()
                 # Add Inventory
                 PosInventoryCls.app_stock_inventory(product.id, PosInventoryState.NEW, PosInventoryState.AVAILABLE,
-                                                round(Decimal(stock_qty), 3), self.request.user, product.sku,
-                                                PosInventoryChange.STOCK_ADD)
+                                                    round(Decimal(stock_qty), 3), self.request.user, product.sku,
+                                                    PosInventoryChange.STOCK_ADD)
                 serializer = RetailerProductResponseSerializer(product)
                 return api_response('Product has been created successfully!', serializer.data, status.HTTP_200_OK,
                                     True)
@@ -138,9 +142,22 @@ class PosProductView(GenericAPIView):
         if serializer.is_valid():
             data = serializer.data
             product = RetailerProduct.objects.get(id=data['product_id'], shop_id=shop.id)
-            name, ean, mrp, sp, description, stock_qty, online_enabled, online_price, product_pack_type = data['product_name'], data['product_ean_code'], data[
-                'mrp'], data['selling_price'], data['description'], data['stock_qty'], data['online_enabled'] if 'online_enabled' in data else None, data.get('online_price', None), data.get('product_pack_type',product.product_pack_type)
-            measurement_category_id = data.get("measurement_category_id",product.measurement_category_id)
+            name, ean, mrp, sp, description, stock_qty, online_enabled, online_price, product_pack_type = data[
+                                                                                                              'product_name'], \
+                                                                                                          data[
+                                                                                                              'product_ean_code'], \
+                                                                                                          data[
+                                                                                                              'mrp'], \
+                                                                                                          data[
+                                                                                                              'selling_price'], \
+                                                                                                          data[
+                                                                                                              'description'], \
+                                                                                                          data[
+                                                                                                              'stock_qty'], \
+                                                                                                          data[
+                                                                                                              'online_enabled'] if 'online_enabled' in data else None, data.get(
+                'online_price', None), data.get('product_pack_type', product.product_pack_type)
+            measurement_category_id = data.get("measurement_category_id", product.measurement_category_id)
             offer_price, offer_sd, offer_ed = data['offer_price'], data['offer_start_date'], data['offer_end_date']
             add_offer_price = data['add_offer_price']
             ean_not_available = data['ean_not_available']
@@ -154,7 +171,8 @@ class PosProductView(GenericAPIView):
                 product.mrp = mrp if mrp else product.mrp
                 product.name = name if name else product.name
                 product.selling_price = sp if sp else product.selling_price
-                product.purchase_pack_size = data['purchase_pack_size'] if data['purchase_pack_size'] else product.purchase_pack_size
+                product.purchase_pack_size = data['purchase_pack_size'] if data[
+                    'purchase_pack_size'] else product.purchase_pack_size
                 if add_offer_price is not None:
                     product.offer_price = offer_price
                     product.offer_start_date = offer_sd
@@ -183,8 +201,8 @@ class PosProductView(GenericAPIView):
                 if 'stock_qty' in modified_data:
                     # Update Inventory
                     PosInventoryCls.app_stock_inventory(product.id, PosInventoryState.AVAILABLE,
-                                                    PosInventoryState.AVAILABLE, stock_qty, self.request.user,
-                                                    product.sku, PosInventoryChange.STOCK_UPDATE, remarks)
+                                                        PosInventoryState.AVAILABLE, stock_qty, self.request.user,
+                                                        product.sku, PosInventoryChange.STOCK_UPDATE, remarks)
                 # Change logs
                 ProductChangeLogs.product_update(product, old_product, self.request.user, 'product', product.sku)
                 serializer = RetailerProductResponseSerializer(product)
@@ -219,8 +237,9 @@ class PosProductView(GenericAPIView):
                                                         self.request.user, 'product', discounted_product.sku)
 
                     PosInventoryCls.app_stock_inventory(discounted_product.id, initial_state,
-                                                    PosInventoryState.AVAILABLE, discounted_stock, self.request.user,
-                                                    discounted_product.sku, tr_type, remarks)
+                                                        PosInventoryState.AVAILABLE, discounted_stock,
+                                                        self.request.user,
+                                                        discounted_product.sku, tr_type, remarks)
                 return api_response(success_msg, serializer.data, status.HTTP_200_OK, True)
         else:
             return api_response(serializer_error(serializer))
@@ -462,8 +481,8 @@ class CouponOfferCreation(GenericAPIView):
                                                      retailer_primary_product=retailer_free_product_obj,
                                                      rule__coupon_ruleset__is_active=True)
 
-        if offer and  offer[0].retailer_free_product.id == data['primary_product_id']:
-            return api_response("Offer already exists for this Primary Product as a free product for same free product" )
+        if offer and offer[0].retailer_free_product.id == data['primary_product_id']:
+            return api_response("Offer already exists for this Primary Product as a free product for same free product")
 
         combo_code = f"Buy {purchased_product_qty} {retailer_primary_product_obj.name}" \
                      f" + Get {free_product_qty} {retailer_free_product_obj.name} Free"
@@ -1322,7 +1341,7 @@ class GetGrnOrderListView(ListAPIView):
 
     @check_pos_shop
     def get(self, request, *args, **kwargs):
-        grn_order = PosGRNOrder.objects.filter(order__ordered_cart__retailer_shop=kwargs['shop']).\
+        grn_order = PosGRNOrder.objects.filter(order__ordered_cart__retailer_shop=kwargs['shop']). \
             order_by('-modified_at')
         if request.GET.get('id'):
             """ Get GRN Order for specific ID """
@@ -1436,7 +1455,7 @@ class PRNwithoutGRNView(GenericAPIView):
         """ GET PRN List for without GRN Products"""
         return_products = PosReturnGRNOrder.objects.filter(
             vendor_id__retailer_shop=kwargs['shop'],
-            status=kwargs['status']).prefetch_related('grn_ordered_id', 'vendor_id', 'grn_order_return', ).\
+            status=kwargs['status']).prefetch_related('grn_ordered_id', 'vendor_id', 'grn_order_return', ). \
             select_related('last_modified_by', ).order_by('-modified_at')
 
         if request.GET.get('id'):
@@ -1533,7 +1552,7 @@ class CreateBulkProductView(GenericAPIView):
     serializer_class = BulkProductUploadSerializers
 
     @check_pos_shop
-    def post(self, request, *args,  **kwargs):
+    def post(self, request, *args, **kwargs):
         """ POST API for Create/update Bulk Product """
         shop = kwargs['shop']
         info_logger.info("BulkSlabProductPriceView POST api called.")
@@ -1553,7 +1572,7 @@ class UpdateInventoryStockView(GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
 
     @check_pos_shop
-    def post(self, request, *args,  **kwargs):
+    def post(self, request, *args, **kwargs):
         """ POST API for Create/update Bulk Product """
         shop = kwargs['shop']
         info_logger.info("UpdateInventoryStockView POST api called.")
@@ -1581,11 +1600,12 @@ class UpdateInventoryStockView(GenericAPIView):
 
 class Contect_Us(APIView):
     authentication_classes = (authentication.TokenAuthentication,)
+
     def get(self, request, format=None):
-        data = {'phone_number':"9999999999",'email' :'papertap@gmail.com'}
+        data = {'phone_number': "9999999999", 'email': 'papertap@gmail.com'}
         serializer = ContectUs(data=data)
         if serializer.is_valid():
-            return api_response('contct us details',serializer.data,status.HTTP_200_OK, True)
+            return api_response('contct us details', serializer.data, status.HTTP_200_OK, True)
 
 
 class PaymentStatusList(GenericAPIView):
@@ -1612,3 +1632,45 @@ class PaymentModeChoicesList(GenericAPIView):
         fields = ['id', 'value']
         data = [dict(zip(fields, d)) for d in Payment.MODE_CHOICES]
         return api_response('', data, status.HTTP_200_OK, True)
+
+
+class RefundPayment(GenericAPIView):
+    """Refund payment api"""
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+
+    @check_pos_shop
+    def post(self, request, *args, **kwargs):
+        """Create refund ..............."""
+        data = request.data
+        trxn_id = data.get('trxn_id')
+        if not trxn_id:
+            return api_response('transaction id must be', '', status.HTTP_200_OK, True)
+        payment_datails = PaymentReconsile.objects.filter(tranjection_id=trxn_id,
+                                                          reconcile_status='payment_success').values('payment_id',
+                                                                                                     'amount').first()
+
+        if not payment_datails:
+            return api_response('transaction does not found .....', '', status.HTTP_200_OK, True)
+        refund_amount = None
+        if data.get('amount', None):
+            if data.get('amount') > payment_datails.get('amount'):
+                return api_response('amount should less then or equal transaction amount.....', '', status.HTTP_200_OK,
+                                    True)
+            refund_amount = data.get('amount')
+        else:
+            refund_amount = payment_datails.get('amount')
+        payment_id = payment_datails.get('payment_id')
+
+        response = send_request_refund(payment_id, refund_amount)
+
+        if not response.get('status'):
+            return api_response('refund request failed', response, status.HTTP_200_OK, True)
+
+        request_id = response.get('request_id')
+
+        obj = PaymentRefund.objects.create(trxn_id=trxn_id, payment_id=payment_id, request_id=request_id,
+                                           status='queued', refund_amount=refund_amount)
+        obj.save()
+
+        return api_response('refund request successful .....', response, status.HTTP_200_OK, True)
