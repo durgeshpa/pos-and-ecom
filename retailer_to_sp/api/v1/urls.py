@@ -24,7 +24,9 @@ from .views import (ProductsList, SearchProducts, CartCentral, CartCheckout, Ord
                     CrateRemarkReasonsListView, LastMileTripStatusList, LoadVerifyCrateView, UnloadVerifyCrateView,
                     LoadInvoiceView, PackagesUnderTripView, MarkShipmentPackageVerifiedView,
                     ShipmentPackageProductsView, RemoveInvoiceFromTripView, DispatchCenterCrateView,
-                    DispatchCenterShipmentPackageView, VerifyNotAttemptShipmentPackagesView
+                    DispatchCenterShipmentPackageView, LoadLastMileInvoiceView, LastMileTripSummaryView,
+                    LastMileLoadVerifyPackageView, LastMileShipmentPackageView, RemoveLastMileInvoiceFromTripView, 
+                    VerifyNotAttemptShipmentPackagesView
                     )
 
 router = routers.DefaultRouter()
@@ -129,6 +131,7 @@ urlpatterns = [
     url('trip-invoices/', DispatchCenterShipmentView.as_view()),
     url('trip-crates/', DispatchCenterCrateView.as_view()),
     url('trip-shipment-packages/', DispatchCenterShipmentPackageView.as_view()),
+    url('trip-last-mile-shipment-packages/', LastMileShipmentPackageView.as_view()),
     url('trip-invoice-remove/', RemoveInvoiceFromTripView.as_view()),
     url('trip-load-empty-crate/', LoadVerifyCrateView.as_view()),
     url('trip-unload-empty-crate/', UnloadVerifyCrateView.as_view()),
@@ -137,6 +140,10 @@ urlpatterns = [
     url('trip-unload-shipment/', UnloadVerifyPackageView.as_view()),
     url('last-mile-trips/', LastMileTripCrudView.as_view(), name='last_mile_trips'),
     url('last-mile-invoices/', LastMileTripShipmentsView.as_view(), name='last_mile_invoices'),
+    url('last-mile-summary/', LastMileTripSummaryView.as_view(), name='last_mile_summary'),
+    url('trip-last-mile-add-invoice/', LoadLastMileInvoiceView.as_view()),
+    url('trip-last-mile-invoice-remove/', RemoveLastMileInvoiceFromTripView.as_view()),
+    url('trip-last-mile-load-package/', LastMileLoadVerifyPackageView.as_view()),
     url('update-last-mile-trip-status/', LastMileTripStatusChangeView.as_view(), name='update_last_mile_trip_status'),
     url('package-status-choice/', DispatchPackageStatusList.as_view()),
     url('rescheduling-reason-choice/', ReschedulingReasonsListView.as_view(), name='rescheduling_reason_choice'),
