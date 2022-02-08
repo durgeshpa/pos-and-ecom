@@ -16,8 +16,7 @@ def run():
     # create last mile trip shipment mapping for existing data
     shipments = OrderedProduct.objects.filter(trip__isnull=False, trip__last_mile_trip_shipments_details__isnull=True,
                                               trip__trip_status__in=['READY', 'STARTED', 'COMPLETED'],
-                                              trip__created_at__gte='2022-02-01',
-                                              trip__created_at__lte='2022-02-07 00:00')
+                                              trip__created_at__gte='2022-02-01')
 
     for shipment in shipments:
         trip_shipment, created = LastMileTripShipmentMapping.objects.update_or_create(
