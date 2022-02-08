@@ -8,7 +8,7 @@ from elasticsearch import Elasticsearch
 
 from accounts.models import User
 from brand.models import Brand
-from categories.models import Category
+from categories.models import Category, B2cCategory
 from shops.models import Shop
 from addresses.models import City
 from retailer_backend.settings import ELASTICSEARCH_PREFIX as es_prefix
@@ -168,14 +168,16 @@ class RuleSetBrandMapping(models.Model):
 
 class Discount(models.Model):
     """
-    Discount for category and Brand
+    Discount for category | Brand | b2c category
     """
     DISCOUNT_TYPE = (
         ('brand', "brand"),
         ('category', "category"),
+        ('b2c_category', "b2c category")
     )
     discount_type = models.CharField(max_length=255, choices=DISCOUNT_TYPE)
     category = models.ForeignKey(Category, on_delete=models.CASCADE, related_name='category_discount', null=True, blank=True)
+    b2c_category = models.ForeignKey(B2cCategory, on_delete=models.CASCADE, related_name='b2c_category_discount', null=True, blank=True)
     brand = models.ForeignKey(Brand, on_delete=models.CASCADE, related_name='Brand_discount', null=True, blank=True)
     discount_value = models.ForeignKey(DiscountValue, on_delete=models.CASCADE, related_name='retailer_discount_value')
     start_price = models.IntegerField()
