@@ -1781,7 +1781,7 @@ class OrderReturnGetSerializer(serializers.ModelSerializer):
     @staticmethod
     def get_invoice_no(obj):
         if obj.order.rt_order_order_product.last():
-            return obj.rt_order_order_product.last().invoice_no
+            return obj.order.rt_order_order_product.last().invoice_no
         return None
 
     @staticmethod
