@@ -207,18 +207,3 @@ def notify_customer_on_trip_start(sender, instance=None, created=False, **kwargs
 		send_sms_on_trip_start(instance)
 
 
-@receiver(post_save, sender=OrderedProduct)
-def update_packages_on_shipment_status_change(sender, instance=None, created=False, **kwargs):
-	if instance.shipment_status == OrderedProduct.OUT_FOR_DELIVERY:
-		instance.shipment_packaging.filter(status=ShipmentPackaging.DISPATCH_STATUS_CHOICES.READY_TO_DISPATCH) \
-			.update(status=ShipmentPackaging.DISPATCH_STATUS_CHOICES.DISPATCHED)
-	elif instance.shipment_status == OrderedProduct.MOVED_TO_DISPATCH:
-		instance.shipment_packaging.filter(status=ShipmentPackaging.DISPATCH_STATUS_CHOICES.DISPATCHED) \
-			.update(status=ShipmentPackaging.DISPATCH_STATUS_CHOICES.READY_TO_DISPATCH)
-	elif instance.shipment_status in [OrderedProduct.FULLY_DELIVERED_AND_VERIFIED,
-											   OrderedProduct.FULLY_RETURNED_AND_VERIFIED,
-											   OrderedProduct.PARTIALLY_DELIVERED_AND_VERIFIED]:
-		instance.shipment_packaging.filter(status=ShipmentPackaging.DISPATCH_STATUS_CHOICES.DISPATCHED) \
-			.update(status=ShipmentPackaging.DISPATCH_STATUS_CHOICES.DELIVERED)
-
-
