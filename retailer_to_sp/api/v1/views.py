@@ -8098,7 +8098,9 @@ class TripSummaryView(generics.GenericAPIView):
         resp_data['weight'] = 0
         for ss in shipment_qs.all():
             smt_pack_data = ss.shipment_packaging. \
-                exclude(trip_packaging_details__trip_shipment__trip__trip_status=DispatchTrip.NEW). \
+                exclude(Q(trip_packaging_details__isnull=True) |
+                        Q(~Q(trip_packaging_details__package_status=DispatchTripShipmentPackages.CANCELLED),
+                          trip_packaging_details__trip_shipment__trip__trip_status=DispatchTrip.NEW)). \
                 aggregate(no_of_crates=Count(Case(When(packaging_type=ShipmentPackaging.CRATE, then=1))),
                           no_of_packets=Count(Case(When(packaging_type=ShipmentPackaging.BOX, then=1))),
                           no_of_sacks=Count(Case(When(packaging_type=ShipmentPackaging.SACK, then=1)))
@@ -8629,10 +8631,10 @@ class RemoveInvoiceFromTripView(generics.GenericAPIView):
 
     def validate_trip_invoice(self, shipment_id, trip_id):
         if not self.queryset.filter(~Q(shipment_status=DispatchTripShipmentMapping.CANCELLED),
-                                                          trip_id=trip_id, shipment_id=shipment_id).exists():
+                                    trip_id=trip_id, shipment_id=shipment_id).exists():
             return {"error": "invalid Shipment"}
         return {"data" : self.queryset.filter(~Q(shipment_status=DispatchTripShipmentMapping.CANCELLED),
-                                                          trip_id=trip_id, shipment_id=shipment_id)}
+                                              trip_id=trip_id, shipment_id=shipment_id)}
 
 
 class LastMileTripCrudView(generics.GenericAPIView):
