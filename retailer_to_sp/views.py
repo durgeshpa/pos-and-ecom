@@ -1529,6 +1529,7 @@ def not_attempt_update_shipment(shipment, shipment_proudcts_formset, shipment_no
             instance.returned_damage_qty = 0
             instance.save()
 
+
 class RetailerCart(APIView):
     permission_classes = (AllowAny,)
 

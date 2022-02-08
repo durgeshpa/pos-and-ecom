@@ -54,7 +54,7 @@ from pos.api.v1.serializers import (BasicCartSerializer, BasicCartListSerializer
                                     OrderReturnGetSerializer, BasicOrderDetailSerializer, AddressCheckoutSerializer,
                                     RetailerProductResponseSerializer, PosShopUserMappingListSerializer,
                                     PaymentTypeSerializer, PosEcomOrderDetailSerializer,
-                                    RetailerOrderedDashBoardSerializer)
+                                    RetailerOrderedDashBoardSerializer, PosEcomShopSerializer)
 from pos.common_functions import (api_response, delete_cart_mapping, ORDER_STATUS_MAP, RetailerProductCls,
                                   update_customer_pos_cart, PosInventoryCls, RewardCls, serializer_error,
                                   check_pos_shop, PosAddToCart, PosCartCls, ONLINE_ORDER_STATUS_MAP,
@@ -4464,6 +4464,7 @@ class OrderReturns(APIView):
             data = dict()
             data['returns'] = OrderReturnGetSerializer(returns, many=True).data
             data['buyer'] = PosUserSerializer(order.buyer).data
+            data['seller_shop'] = PosEcomShopSerializer(order.seller_shop).data
             return api_response("Order Returns", data, status.HTTP_200_OK, True)
         else:
             return api_response("No Returns For This Order", None, status.HTTP_200_OK, False)
