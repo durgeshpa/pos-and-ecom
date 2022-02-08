@@ -31,33 +31,11 @@ class ReportModelSerializer(serializers.ModelSerializer):
             else:
                 pass
             report_choice = data.get('report_choice')
+            if self.context['request'].META.get('HTTP_SHOP_ID'):
+                data.get('input_params')['shop'] = int(self.context['request'].META.get('HTTP_SHOP_ID'))
             input_params_errors = validate_input_params(data.get('input_params'), report_choice.required_mappings)
             if input_params_errors:
                 errors['input_params'] = input_params_errors
-            # if data.get('source', 'HT') == 'HT':
-            #     errors = validate_host_input_params(data.get('report_name'), 
-            #                                         data.get('input_params'), 
-            #                                         errors,
-            #                                         data.get('report_type'))
-            #     if errors:
-            #         raise serializers.ValidationError(errors)
-            #     else:
-            #         data['input_params'] = set_host_input_params(data.get('report_name'), 
-            #                                                      data.get('input_params'), 
-            #                                                      data.get('report_type'), 
-            #                                                      data.get('frequency'))
-            #         return data
-            # else:
-            #     errors = validate_redash_input_params(data.get('report_name'), 
-            #                                           data.get('input_params'), 
-            #                                           errors, 
-            #                                           data.get('report_type'))
-            #     if errors:
-            #         raise serializers.ValidationError(errors)
-            #     else:
-            #         data['input_params'] = set_redash_input_params(data.get('report_name'), 
-            #                                                        data.get('input_params'))
-            #         return data
         else:
             pass
         if errors:
