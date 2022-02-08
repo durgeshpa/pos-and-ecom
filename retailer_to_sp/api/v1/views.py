@@ -4953,13 +4953,22 @@ class CartStockCheckView(APIView):
         cart_products = cart.rt_cart_list.all()
         cart_products = PosCartCls.refresh_prices(cart_products)
         # Minimum Order Value
-        order_config = GlobalConfig.objects.filter(key='ecom_minimum_order_amount').last()
-        if order_config.value is not None:
+        # order_config = GlobalConfig.objects.filter(key='ecom_minimum_order_amount').last()
+        # if order_config.value is not None:
+        #     order_amount = cart.order_amount_after_discount
+        #     if order_amount < order_config.value:
+        #         return api_response(
+        #             "A minimum total purchase amount of {} is required to checkout.".format(order_config.value),
+        #             None, status.HTTP_200_OK, False)
+
+        order_config = get_config_fofo_shop('Minimum order value', shop.id)
+        if order_config is not None:
             order_amount = cart.order_amount_after_discount
-            if order_amount < order_config.value:
+            if order_amount < order_config:
                 return api_response(
-                    "A minimum total purchase amount of {} is required to checkout.".format(order_config.value),
+                    "A minimum total purchase amount of {} is required to checkout.".format(order_config),
                     None, status.HTTP_200_OK, False)
+            
         if shop.online_inventory_enabled:
             out_of_stock_items = PosCartCls.out_of_stock_items(cart_products)
 
