@@ -31,7 +31,7 @@ from sp_to_gram.models import (
 from retailer_to_sp.models import (CartProductMapping, Order, OrderedProduct, OrderedProductMapping, Note, Trip,
                                    Dispatch, ShipmentRescheduling, PickerDashboard, update_full_part_order_status,
                                    Shipment, populate_data_on_qc_pass, OrderedProductBatch, ShipmentPackaging,
-                                   ShipmentNotAttempt, LastMileTripShipmentMapping)
+                                   ShipmentNotAttempt, LastMileTripShipmentMapping, LastMileTripShipmentPackages)
 from products.models import Product
 from retailer_to_sp.forms import (
     OrderedProductForm, OrderedProductMappingShipmentForm,
@@ -618,14 +618,21 @@ def create_update_last_mile_trip_shipment_mapping(trip_id, shipment_ids, request
         ~Q(shipment_id__in=shipment_ids), ~Q(shipment_status=LastMileTripShipmentMapping.CANCELLED), trip_id=trip_id)
     if removed_shipments:
         removed_shipments.update(shipment_status=LastMileTripShipmentMapping.CANCELLED, updated_by=request_user)
+
     for shipment_id in shipment_ids:
         if LastMileTripShipmentMapping.objects.filter(trip_id=trip_id, shipment_id=shipment_id).exists():
+            trip_shipment = LastMileTripShipmentMapping.objects.filter(trip_id=trip_id, shipment_id=shipment_id).last()
             LastMileTripShipmentMapping.objects.filter(trip_id=trip_id, shipment_id=shipment_id).update(
                 shipment_status=LastMileTripShipmentMapping.LOADED_FOR_DC, updated_by=request_user)
         else:
-            LastMileTripShipmentMapping.objects.create(
+            trip_shipment = LastMileTripShipmentMapping.objects.create(
                 trip_id=trip_id, shipment_id=shipment_id, shipment_status=LastMileTripShipmentMapping.LOADED_FOR_DC,
                 created_by=request_user, updated_by=request_user)
+        LastMileTripShipmentPackages.objects.filter(trip_shipment=trip_shipment).delete()
+        for package in ShipmentPackaging.objects.filter(
+                shipment_id=shipment_id, status=ShipmentPackaging.DISPATCH_STATUS_CHOICES.READY_TO_DISPATCH):
+            LastMileTripShipmentPackages.objects.create(trip_shipment=trip_shipment, shipment_package=package,
+                                                        package_status=LastMileTripShipmentPackages.LOADED)
 
 
 def trip_planning_change(request, pk):
@@ -681,7 +688,6 @@ def trip_planning_change(request, pk):
                         else:
                             trip_instance.rt_invoice_trip.all().update(
                                 shipment_status=TRIP_SHIPMENT_STATUS_MAP[current_trip_status])
-                            update_packages_on_shipment_status_change(trip_instance.rt_invoice_trip.all())
                         return redirect('/admin/retailer_to_sp/trip/')
 
                     if trip_status == Trip.READY:
@@ -691,13 +697,11 @@ def trip_planning_change(request, pk):
                             update_full_part_order_status(OrderedProduct.objects.get(id=shipment))
 
                         trip_instance.rt_invoice_trip.all().update(trip=None, shipment_status='MOVED_TO_DISPATCH')
-                        update_packages_on_shipment_status_change(trip_instance.rt_invoice_trip.all())
 
                     if current_trip_status == Trip.CANCELLED:
                         trip_instance.rt_invoice_trip.all().update(
                             shipment_status=TRIP_SHIPMENT_STATUS_MAP[current_trip_status], trip=None)
 
-                        update_packages_on_shipment_status_change(trip_instance.rt_invoice_trip.all())
                         # updating order status for shipments when trip is cancelled
                         trip_shipments = trip_instance.rt_invoice_trip.values_list('id', flat=True)
                         for shipment in trip_shipments:
@@ -731,7 +735,6 @@ def trip_planning_change(request, pk):
                         if current_trip_status not in ['COMPLETED', 'CLOSED']:
                             selected_shipments.update(shipment_status=TRIP_SHIPMENT_STATUS_MAP[current_trip_status],
                                                       trip=trip_instance)
-                            update_packages_on_shipment_status_change(selected_shipments)
                         # updating order status for shipments with respect to trip status
                         if current_trip_status in TRIP_ORDER_STATUS_MAP.keys():
                             Order.objects.filter(rt_order_order_product__in=selected_shipment_list).update(
@@ -1982,26 +1985,6 @@ def create_order_shipment(order_instance):
             i.save()
     info_logger.info(f"create_order_shipment|shipment created|order no{order_instance.order_no}")
 
-
-def update_shipment_package_status(shipment_instance):
-    # if shipment_instance.shipment_status == OrderedProduct.OUT_FOR_DELIVERY:
-    #     shipment_instance.shipment_packaging.filter(status=ShipmentPackaging.DISPATCH_STATUS_CHOICES.READY_TO_DISPATCH) \
-    #         .update(status=ShipmentPackaging.DISPATCH_STATUS_CHOICES.DISPATCHED)
-    if shipment_instance.shipment_status == OrderedProduct.MOVED_TO_DISPATCH:
-        shipment_instance.shipment_packaging.filter(status__in=[
-                                                    ShipmentPackaging.DISPATCH_STATUS_CHOICES.DISPATCHED,
-                                                    ShipmentPackaging.DISPATCH_STATUS_CHOICES.RETURN_VERIFIED]) \
-            .update(status=ShipmentPackaging.DISPATCH_STATUS_CHOICES.READY_TO_DISPATCH)
-    # elif shipment_instance.shipment_status in [OrderedProduct.FULLY_DELIVERED_AND_VERIFIED,
-    #                                   OrderedProduct.FULLY_RETURNED_AND_VERIFIED,
-    #                                   OrderedProduct.PARTIALLY_DELIVERED_AND_VERIFIED]:
-    #     shipment_instance.shipment_packaging.filter(status=ShipmentPackaging.DISPATCH_STATUS_CHOICES.DISPATCHED) \
-    #         .update(status=ShipmentPackaging.DISPATCH_STATUS_CHOICES.DELIVERED)
-
-
-def update_packages_on_shipment_status_change(shipments):
-    for instance in shipments:
-        update_shipment_package_status(instance)
 
 class SourceShopAutocomplete(autocomplete.Select2QuerySetView):
     def get_queryset(self, *args, **kwargs):

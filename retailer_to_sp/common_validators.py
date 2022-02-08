@@ -82,21 +82,6 @@ def validate_shipment_dispatch_item(queryset, dispatch_item_id, shipment_id):
         return {"error": "Invalid item for this shipment"}
     return {"data": queryset.filter(id=dispatch_item_id, shipment_id=shipment_id).last()}
 
-
-def validate_package_by_crate_id(queryset, crate_id, crate_type=None, shipment_id=None):
-    """ validation only crate_id that belong to a selected related model """
-    if shipment_id:
-        queryset = queryset.filter(shipment_id=shipment_id)
-        if not queryset.exists():
-            return {'error': 'please provide a valid shipment_id'}
-    obj = queryset.filter(crate__crate_id=crate_id).last()
-    if not obj:
-        return {'error': 'please provide a valid crate_id'}
-    if crate_type and obj.crate.crate_type != crate_type:
-        return {'error': 'selected carte type is not allowed.'}
-    return {'data': obj}
-
-
 def get_shipment_by_crate_id(crate_id, crate_type=None):
     """ validation only crate_id that belong to a selected related model """
     obj = ShipmentPackaging.objects.filter(crate__crate_id=crate_id).last()

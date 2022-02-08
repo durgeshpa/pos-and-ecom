@@ -122,9 +122,9 @@ from .serializers import (ProductsSearchSerializer, CartSerializer, OrderSeriali
                           DispatchCenterCrateSerializer, DispatchCenterShipmentPackageSerializer,
                           LoadLastMileInvoiceSerializer, LastMileTripSummarySerializer,
                           LastMileLoadVerifyPackageSerializer, RemoveLastMileInvoiceFromTripSerializer,
-                          VerifyNotAttemptShipmentPackageSerializer
+                          VerifyNotAttemptShipmentPackageSerializer, VerifyShipmentPackageSerializer
                           )
-from ...common_validators import validate_shipment_dispatch_item, validate_package_by_crate_id, validate_trip_user, \
+from ...common_validators import validate_shipment_dispatch_item, validate_trip_user, \
     get_shipment_by_crate_id, get_shipment_by_shipment_label, validate_shipment_id, validate_trip_shipment, \
     validate_trip, validate_shipment_label, validate_trip_shipment_package, check_user_can_plan_trip, \
     validate_last_mile_trip_user
@@ -7713,32 +7713,8 @@ class ShipmentDetailsByCrateView(generics.GenericAPIView):
 class ShipmentCratesPackagingView(generics.GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
-    queryset = ShipmentPackaging.objects. \
-        select_related('crate', 'warehouse', 'warehouse__shop_owner', 'shipment', 'shipment__invoice',
-                       'shipment__order',  'shipment__order__shipping_address', 'shipment__order__buyer_shop',
-                       'shipment__order__shipping_address__shop_name', 'shipment__order__buyer_shop__shop_owner',
-                       'warehouse__shop_type',  'warehouse__shop_type__shop_sub_type', 'created_by', 'updated_by'). \
-        prefetch_related('packaging_details', 'trip_packaging_details', 'shipment__trip_shipment',
-                         'shipment__rescheduling_shipment', 'shipment__not_attempt_shipment',
-                         'shipment__last_mile_trip_shipment'). \
-        order_by('-id')
-    serializer_class = ShipmentPackageSerializer
-
-    def get(self, request):
-        """ GET API for Shipment Packaging """
-        info_logger.info("Shipment Packaging GET api called.")
-        if not request.GET.get('crate_id'):
-            return get_response("'crate_id' | This is mandatory.")
-        """ Get Shipment Packaging for specific ID """
-        id_validation = validate_package_by_crate_id(self.queryset, request.GET.get('crate_id'), Crate.DISPATCH)
-        if 'error' in id_validation:
-            return get_response(id_validation['error'])
-        packaging_data = id_validation['data']
-        shipment = packaging_data.shipment
-
-        serializer = self.serializer_class(self.queryset.filter(shipment=shipment, crate__isnull=False), many=True)
-        msg = "" if packaging_data else "no packaging found"
-        return get_response(msg, serializer.data, True)
+    queryset = LastMileTripShipmentPackages.objects.order_by('-id')
+    serializer_class = VerifyShipmentPackageSerializer
 
     @check_whc_manager_dispatch_executive
     def put(self, request):
@@ -7753,12 +7729,10 @@ class ShipmentCratesPackagingView(generics.GenericAPIView):
             return get_response('please provide crate_id and shipment_id to verify shipment crate', False)
 
         # validations for input id
-        id_validation = validate_package_by_crate_id(self.queryset, modified_data['crate_id'], Crate.DISPATCH,
-                                                     modified_data['shipment_id'])
+        id_validation = self.validate_package_by_crate_id(modified_data['crate_id'], modified_data['shipment_id'])
         if 'error' in id_validation:
             return get_response(id_validation['error'])
         packaging_data = id_validation['data']
-        modified_data['packaging_type'] = packaging_data.packaging_type
         modified_data['shop'] = request.user.shop_employee.all().last().shop_id
 
         serializer = self.serializer_class(instance=packaging_data, data=modified_data)
@@ -7768,6 +7742,13 @@ class ShipmentCratesPackagingView(generics.GenericAPIView):
             return get_response('shipment crate verified!', serializer.data)
         return get_response(serializer_error(serializer), False)
 
+    def validate_package_by_crate_id(self, crate_id, shipment_id=None):
+        if self.queryset.filter(shipment_packaging__shipment_id=shipment_id,
+                                shipment_packaging__crate__crate_id=crate_id).exists():
+            return {'data': self.queryset.filter(shipment_packaging__shipment_id=shipment_id,
+                                shipment_packaging__crate__crate_id=crate_id).last()}
+        return {'error': 'Invalid Crate for selected shipment.' }
+
 
 class VerifyRescheduledShipmentPackagesView(generics.GenericAPIView):
     """
@@ -7775,40 +7756,16 @@ class VerifyRescheduledShipmentPackagesView(generics.GenericAPIView):
     """
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
-    queryset = ShipmentPackaging.objects. \
-        select_related('crate', 'warehouse', 'warehouse__shop_owner', 'shipment', 'shipment__invoice',
-                       'shipment__order',  'shipment__order__shipping_address', 'shipment__order__buyer_shop',
-                       'shipment__order__shipping_address__shop_name', 'shipment__order__buyer_shop__shop_owner',
-                       'warehouse__shop_type',  'warehouse__shop_type__shop_sub_type', 'created_by', 'updated_by'). \
-        prefetch_related('packaging_details', 'trip_packaging_details', 'shipment__trip_shipment',
-                         'shipment__rescheduling_shipment', 'shipment__not_attempt_shipment',
-                         'shipment__last_mile_trip_shipment'). \
-        order_by('-id')
+    queryset = LastMileTripShipmentPackages.objects.all()
     serializer_class = VerifyRescheduledShipmentPackageSerializer
 
-    def get(self, request):
-        """ GET API for Shipment Packaging """
-        info_logger.info("Shipment Packaging GET api called.")
-        if not request.GET.get('package_id'):
-            return get_response("'package_id' | This is mandatory.")
-        """ Get Shipment Packaging for specific ID """
-        id_validation = validate_id(self.queryset, request.GET.get('package_id'))
-        if 'error' in id_validation:
-            return get_response(id_validation['error'])
-        packaging_data = id_validation['data'].last()
-        shipment = packaging_data.shipment
-
-        serializer = self.serializer_class(packaging_data)
-        msg = "" if packaging_data else "no packaging found"
-        return get_response(msg, serializer.data, True)
-
-    def validate_package_by_shipment_package(self, package_id, shipment_id):
-        shipment_package = self.queryset.filter(
-            id=package_id, shipment_id=shipment_id).last()
+    def validate_package_by_shipment_package(self, package_id, shipment_id, trip_id):
+        shipment_package = self.queryset.filter(shipment_packaging_id=package_id,
+                                                trip_shipment__shipment_id=shipment_id,
+                                                trip_shipment__trip_id=trip_id,
+                                                package_status=LastMileTripShipmentPackages.LOADED).last()
         if not shipment_package:
-            return {"error": "invalid Package"}
-        if shipment_package.shipment.shipment_status != OrderedProduct.RESCHEDULED:
-            return {"error": f"Package for {OrderedProduct.RESCHEDULED} shipment can verify."}
+            return {"error": "Package does not belong to this trip."}
 
         return {"data": shipment_package}
 
@@ -7825,16 +7782,18 @@ class VerifyRescheduledShipmentPackagesView(generics.GenericAPIView):
             return get_response("'package_id' | This is required.", False)
         if 'shipment_id' not in modified_data:
             return get_response("'shipment_id' | This is required.", False)
+        if 'trip_id' not in modified_data:
+            return get_response("'trip_id' | This is required.", False)
         if 'return_status' not in modified_data:
             return get_response("'return_status' | This is required.", False)
 
         # validations for input id
         id_validation = self.validate_package_by_shipment_package(modified_data['package_id'],
-                                                                  modified_data['shipment_id'])
+                                                                  modified_data['shipment_id'],
+                                                                  modified_data['trip_id'])
         if 'error' in id_validation:
             return get_response(id_validation['error'])
         packaging_data = id_validation['data']
-        modified_data['packaging_type'] = packaging_data.packaging_type
 
         serializer = self.serializer_class(instance=packaging_data, data=modified_data)
         if serializer.is_valid():
@@ -7850,40 +7809,17 @@ class VerifyNotAttemptShipmentPackagesView(generics.GenericAPIView):
     """
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
-    queryset = ShipmentPackaging.objects. \
-        select_related('crate', 'warehouse', 'warehouse__shop_owner', 'shipment', 'shipment__invoice',
-                       'shipment__order',  'shipment__order__shipping_address', 'shipment__order__buyer_shop',
-                       'shipment__order__shipping_address__shop_name', 'shipment__order__buyer_shop__shop_owner',
-                       'warehouse__shop_type',  'warehouse__shop_type__shop_sub_type', 'created_by', 'updated_by'). \
-        prefetch_related('packaging_details', 'trip_packaging_details', 'shipment__trip_shipment',
-                         'shipment__rescheduling_shipment', 'shipment__not_attempt_shipment',
-                         'shipment__last_mile_trip_shipment'). \
-        order_by('-id')
+    queryset = LastMileTripShipmentPackages.objects.all()
     serializer_class = VerifyNotAttemptShipmentPackageSerializer
 
-    def get(self, request):
-        """ GET API for Shipment Packaging """
-        info_logger.info("Shipment Packaging GET api called.")
-        if not request.GET.get('package_id'):
-            return get_response("'package_id' | This is mandatory.")
-        """ Get Shipment Packaging for specific ID """
-        id_validation = validate_id(self.queryset, request.GET.get('package_id'))
-        if 'error' in id_validation:
-            return get_response(id_validation['error'])
-        packaging_data = id_validation['data'].last()
-        shipment = packaging_data.shipment
-
-        serializer = self.serializer_class(packaging_data)
-        msg = "" if packaging_data else "no packaging found"
-        return get_response(msg, serializer.data, True)
-
-    def validate_package_by_shipment_package(self, package_id, shipment_id):
-        shipment_package = self.queryset.filter(
-            id=package_id, shipment_id=shipment_id).last()
+    def validate_package_by_shipment_package(self, package_id, shipment_id, trip_id):
+        shipment_package = self.queryset.filter(shipment_packaging_id=package_id,
+                                                trip_shipment__shipment_id=shipment_id,
+                                                trip_shipment__trip_id=trip_id).last()
         if not shipment_package:
-            return {"error": "invalid Package"}
+            return {"error": "Package does not belong to this trip."}
         if shipment_package.shipment.shipment_status != OrderedProduct.NOT_ATTEMPT:
-            return {"error": f"Package for {OrderedProduct.NOT_ATTEMPT} shipment can verify."}
+            return {"error": f"Invalid Shipment status."}
 
         return {"data": shipment_package}
 
@@ -7900,16 +7836,19 @@ class VerifyNotAttemptShipmentPackagesView(generics.GenericAPIView):
             return get_response("'package_id' | This is required.", False)
         if 'shipment_id' not in modified_data:
             return get_response("'shipment_id' | This is required.", False)
+        if 'trip_id' not in modified_data:
+            return get_response("'trip_id' | This is required.", False)
         if 'return_status' not in modified_data:
             return get_response("'return_status' | This is required.", False)
 
         # validations for input id
         id_validation = self.validate_package_by_shipment_package(modified_data['package_id'],
-                                                                  modified_data['shipment_id'])
+                                                                  modified_data['shipment_id'],
+                                                                  modified_data['trip_id'])
         if 'error' in id_validation:
             return get_response(id_validation['error'])
+
         packaging_data = id_validation['data']
-        modified_data['packaging_type'] = packaging_data.packaging_type
 
         serializer = self.serializer_class(instance=packaging_data, data=modified_data)
         if serializer.is_valid():
@@ -8001,20 +7940,7 @@ class ShipmentCratesValidatedView(generics.GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
     serializer_class = ShipmentCratesValidatedSerializer
-    queryset = OrderedProduct.objects.\
-        select_related('order', 'order__seller_shop', 'order__shipping_address', 'order__shipping_address__city',
-                       'order__shipping_address__state', 'order__shipping_address__pincode_link', 'invoice', 'qc_area').\
-        prefetch_related('qc_area__qc_desk_areas', 'qc_area__qc_desk_areas__qc_executive').\
-        only('id', 'order__order_no', 'order__seller_shop__id', 'order__seller_shop__shop_name',
-             'order__buyer_shop__id', 'order__buyer_shop__shop_name', 'order__shipping_address__pincode',
-             'order__dispatch_center__id', 'order__dispatch_center__shop_name', 'order__dispatch_delivery',
-             'order__shipping_address__pincode_link_id', 'order__shipping_address__nick_name',
-             'order__shipping_address__address_line1', 'order__shipping_address__address_contact_name',
-             'order__shipping_address__address_contact_number', 'order__shipping_address__address_type',
-             'order__shipping_address__city_id', 'order__shipping_address__city__city_name',
-             'order__shipping_address__state__state_name', 'shipment_status', 'invoice__invoice_no', 'qc_area__id',
-             'qc_area__area_id', 'qc_area__area_type', 'created_at').\
-        order_by('-id')
+    queryset = OrderedProduct.objects.order_by('-id')
 
     def get(self, request):
         if not request.GET.get('id'):
@@ -8054,21 +7980,6 @@ class ShipmentCompleteVerifyView(generics.GenericAPIView):
              'order__shipping_address__state__state_name', 'shipment_status', 'invoice__invoice_no', 'qc_area__id',
              'qc_area__area_id', 'qc_area__area_type', 'created_at').\
         order_by('-id')
-
-    def get(self, request):
-        if not request.GET.get('id'):
-            return get_response("'id' | This is mandatory")
-
-        """ Get Shipment for specific id """
-        id_validation = validate_id(self.queryset, int(request.GET.get('id')))
-        if 'error' in id_validation:
-            return get_response(id_validation['error'])
-        self.queryset = id_validation['data']
-
-        shipment_data = SmallOffsetPagination().paginate_queryset(self.queryset, request)
-        serializer = self.serializer_class(shipment_data, many=True)
-        msg = "" if shipment_data else "no shipment found"
-        return get_response(msg, serializer.data, True)
 
     @check_qc_dispatch_executive
     def put(self, request):
@@ -9302,13 +9213,19 @@ class PackagesUnderTripView(generics.GenericAPIView):
                 self.queryset = self.queryset.filter(shipment__trip_shipment__trip=trip_instance,
                                                      movement_type=ShipmentPackaging.RETURNED)
         elif isinstance(trip_instance, Trip):
-            self.queryset = self.queryset.filter(shipment__last_mile_trip_shipment__trip=trip_instance)
+            package_ids = LastMileTripShipmentPackages.objects.filter(
+                                                            ~Q(package_status=LastMileTripShipmentPackages.CANCELLED),
+                                                            trip_shipment__trip=trip_instance,
+                                                            trip_shipment__shipment_status__in=[
+                                                                LastMileTripShipmentMapping.TO_BE_LOADED,
+                                                                LastMileTripShipmentMapping.LOADING_FOR_DC,
+                                                                LastMileTripShipmentMapping.LOADED_FOR_DC]
+                                                        )\
+                                                .values_list('shipment_packaging_id', flat=True)
+            self.queryset = self.queryset.filter(id__in=package_ids)
 
         if shipment_id:
             self.queryset = self.queryset.filter(shipment_id=shipment_id)
-
-        if package_status:
-            self.queryset = self.queryset.filter(status=package_status)
 
         if is_return_verified:
             self.queryset = self.queryset.filter(trip_packaging_details__is_return_verified=is_return_verified)
