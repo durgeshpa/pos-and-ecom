@@ -955,7 +955,7 @@ class OrderedProductReschedule(forms.ModelForm):
 
     def clean(self):
         data = self.cleaned_data
-        if not self.instance.trip:
+        if not self.instance.trip and not data['shipment_status'] == 'RESCHEDULED':
             raise forms.ValidationError(
                 _('Please add the shipment in a'
                   ' trip first'),
