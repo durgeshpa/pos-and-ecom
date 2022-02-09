@@ -332,22 +332,34 @@ class ProductSerializer(serializers.ModelSerializer):
 
 
     def get_brand(self, obj):
-        brand = str(obj.linked_product.product_brand)
-        return brand if brand else ''
+        try:
+            brand = str(obj.linked_product.product_brand)
+            return brand if brand else ''
+        except:
+            return ''
 
     def get_brand_id(self, obj):
-        brand_id = str(obj.linked_product.product_brand.id)
-        return brand_id if brand_id else ''
+        try:
+            brand_id = str(obj.linked_product.product_brand.id)
+            return brand_id if brand_id else ''
+        except:
+            return ''
 
     def get_category(self, obj):
-        category = [str(c.category) for c in
-                    obj.linked_product.parent_product.parent_product_pro_category.filter(status=True)]
-        return category if category else ''
+        try:
+            category = [str(c.category) for c in
+                        obj.linked_product.parent_product.parent_product_pro_category.filter(status=True)]
+            return category if category else ''
+        except:
+            return ''
 
     def get_category_id(self, obj):
-        category_id = [str(c.category_id) for c in
-                       obj.linked_product.parent_product.parent_product_pro_category.filter(status=True)]
-        return category_id if category_id else ''
+        try:
+            category_id = [str(c.category_id) for c in
+                           obj.linked_product.parent_product.parent_product_pro_category.filter(status=True)]
+            return category_id if category_id else ''
+        except:
+            return ''
 
     def get_online_price(self, obj):
         if obj.online_price:
