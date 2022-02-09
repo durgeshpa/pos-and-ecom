@@ -256,7 +256,7 @@ class UserShopView(APIView):
 class Contect_Us(APIView):
     authentication_classes = (TokenAuthentication,)
     def get(self, request, format=None):
-        data = {'phone_number':"7777777777",'email' :'papertap@gmail.com'}
+        data = {'phone_number':"999-010-5700",'email' :'care@peppertap.in'}
         serializer = ContectUs(data=data)
         if serializer.is_valid():
             return api_response('contct us details',serializer.data,status.HTTP_200_OK, True)

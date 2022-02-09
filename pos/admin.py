@@ -29,7 +29,7 @@ from .models import (RetailerProduct, RetailerProductImage, Payment, ShopCustome
                      RetailerCartProductMapping, RetailerOrderReturn, RetailerReturnItems, InventoryPos,
                      InventoryChangePos, InventoryStatePos, MeasurementCategory, MeasurementUnit, PosReturnGRNOrder,
                      PosReturnItems, RetailerOrderedReport, BulkRetailerProduct, PaymentReconsile, PaymentRefund,
-                     RetailerOrderCancel)
+                     RetailerOrderCancel, BulkRetailerProduct, RetailerOrderCancel)
 from .views import upload_retailer_products_list, download_retailer_products_list_form_view, \
     DownloadRetailerCatalogue, RetailerCatalogueSampleFile, RetailerProductMultiImageUpload, DownloadPurchaseOrder, \
     download_discounted_products_form_view, download_discounted_products, \
