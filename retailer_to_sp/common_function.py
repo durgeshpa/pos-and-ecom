@@ -1,19 +1,11 @@
 import datetime
 import json
-import time
-import random
 
-from django.db.models import Sum
-from django.db import transaction
-
-today = datetime.datetime.today()
 from django.core.exceptions import ObjectDoesNotExist
-
 from shops.models import ParentRetailerMapping
-
-today = datetime.datetime.today()
 from global_config.views import get_config
 
+today = datetime.datetime.today()
 
 def getShopMapping(shop_id):
     try:
@@ -151,3 +143,5 @@ def getGSTINNumber(shop_name):
 #     if shop_id == 600:
 #         return get_config('gfdn_license_no', None)
 #     return get_config('addistro_license_no', None)
+
+

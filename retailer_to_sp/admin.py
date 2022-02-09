@@ -42,7 +42,7 @@ from sp_to_gram.models import (
 )
 from sp_to_gram.models import OrderedProductReserved
 from common.constants import DOWNLOAD_BULK_INVOICE, ZERO, FIFTY
-from wms.admin import ZoneFilter, QCAreaFilter
+from wms.admin import ZoneFilter, QCAreaAutocomplete, CrateFilter, Warehouse
 from wms.models import Pickup
 from .forms import (CartForm, CartProductMappingForm, CommercialForm, CustomerCareForm,
                     ReturnProductMappingForm, ShipmentForm, ShipmentProductMappingForm, ShipmentReschedulingForm,
@@ -52,7 +52,7 @@ from .models import (Cart, CartProductMapping, Commercial, CustomerCare, Dispatc
                      OrderedProduct, OrderedProductMapping, Payment, ReturnProductMapping, Shipment,
                      ShipmentProductMapping, Trip, ShipmentRescheduling, Feedback, PickerDashboard, Invoice,
                      ResponseComment, BulkOrder, RoundAmount, OrderedProductBatch, DeliveryData, PickerPerformanceData,
-                     ShipmentNotAttempt)
+                     ShipmentPackaging, ShipmentPackagingMapping, ShipmentNotAttempt)
 from .resources import OrderResource
 from .signals import ReservedOrder
 from .utils import (GetPcsFromQty, add_cart_user, create_order_from_cart, create_order_data_excel,
@@ -819,8 +819,8 @@ class PickerDashboardAdmin(admin.ModelAdmin):
         'order_date', 'refreshed_at', 'picking_completion_time')
     # fields = ['order', 'picklist_id', 'picker_boy', 'order_date']
     # readonly_fields = ['picklist_id']
-    list_filter = ['picking_status', PickerBoyFilter, PicklistIdFilter, ZoneFilter, QCAreaFilter, OrderNumberSearch,
-                   ('created_at', DateTimeRangeFilter)]
+    list_filter = ['picking_status', PickerBoyFilter, PicklistIdFilter, ZoneFilter, QCAreaAutocomplete,
+                   OrderNumberSearch, ('created_at', DateTimeRangeFilter)]
 
     class Media:
         js = ('admin/js/picker.js', )
@@ -1067,7 +1067,7 @@ class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
                     'app_type', 'created_at', 'payment_mode', 'shipment_date', 'invoice_amount', 'shipment_status',
                     'trip_id', 'shipment_status_reason', 'delivery_date', 'cn_amount', 'cash_collected',
                     'picking_status', 'picklist_id', 'picklist_refreshed_at', 'picker_boy', 'zone', 'qc_area',
-                    'pickup_completed_at', 'picking_completion_time', 'create_purchase_order'
+                    'qc_desk', 'qc_executive', 'pickup_completed_at', 'picking_completion_time', 'create_purchase_order'
                     )
 
     readonly_fields = ('payment_mode', 'paid_amount', 'total_paid_amount',
@@ -1212,6 +1212,8 @@ class ShipmentReschedulingAdminNested(NestedTabularInline):
         return False
 
     def has_change_permission(self, request, obj=None):
+        if not request.user.has_perm('retailer_to_sp.change_shipmentrescheduling'):
+            return False
         if obj:
             instance = ShipmentRescheduling.objects.filter(shipment=obj).last()
             if instance and instance.rescheduled_count > 1:
@@ -1316,6 +1318,22 @@ class OrderedProductAdmin(NestedModelAdmin):
     ordering = ['-created_at']
     classes = ['table_inline', ]
 
+    def get_inline_instances(self, request, obj=None):
+        inline_instances = []
+        inlines = self.inlines
+
+        for inline_class in inlines:
+            inline = inline_class(self.model, self.admin_site)
+            if request:
+                if not (inline.has_add_permission(request, obj) or
+                        inline.has_change_permission(request, obj) or
+                        inline.has_delete_permission(request, obj)):
+                    continue
+                if not inline.has_add_permission(request, obj):
+                    inline.max_num = 0
+            inline_instances.append(inline)
+        return inline_instances
+
     def previous_trip(self, obj):
         if obj and obj.rescheduling_shipment.all().exists() and obj.not_attempt_shipment.all().exists():
             rescheduling_shipment = obj.rescheduling_shipment.last()
@@ -1331,7 +1349,7 @@ class OrderedProductAdmin(NestedModelAdmin):
         return '-'
 
     def download_invoice(self, obj):
-        if obj.shipment_status == 'SHIPMENT_CREATED':
+        if obj.shipment_status in ['SHIPMENT_CREATED', 'READY_TO_SHIP']:
             return format_html("-")
         return format_html(
             "<a href= '%s' >Download Invoice</a>" %
@@ -1563,7 +1581,7 @@ class ShipmentAdmin(NestedModelAdmin):
         return False
 
     def download_invoice(self, obj):
-        if obj.shipment_status == 'SHIPMENT_CREATED' or obj.invoice_no == '-':
+        if obj.shipment_status in ['SHIPMENT_CREATED', 'QC_STARTED', 'READY_TO_SHIP'] or obj.invoice_no == '-':
             return format_html("-")
         return format_html(
             "<a href= '%s' >Download Invoice</a>" %
@@ -1639,12 +1657,17 @@ class ShipmentAdmin(NestedModelAdmin):
             city = obj.order.seller_shop.shop_name_address_mapping.last().city
         return str(city)
 
+    def invoice_amount(self, obj):
+        if obj.shipment_status in ['SHIPMENT_CREATED', 'QC_STARTED', 'READY_TO_SHIP'] or obj.invoice_no == '-':
+            return format_html("-")
+        return obj.invoice_amount
+
     def start_qc(self,obj):
         if obj.order.order_status == Order.CANCELLED:
             return format_html("<a href='/admin/retailer_to_sp/shipment/%s/change/' class='button'>Order Cancelled</a>" %(obj.id))
-
-        return obj.invoice_no if obj.invoice_no != '-' else format_html(
-            "<a href='/admin/retailer_to_sp/shipment/%s/change/' class='button'>Start QC</a>" %(obj.id))
+        return obj.invoice_no
+        # return obj.invoice_no if obj.invoice_no != '-' else format_html(
+        #     "<a href='/admin/retailer_to_sp/shipment/%s/change/' class='button'>Start QC</a>" %(obj.id))
     start_qc.short_description = 'Invoice No'
 
     def save_model(self, request, obj, form, change):
@@ -2516,6 +2539,53 @@ class PickerPerformanceDashboard(admin.ModelAdmin):
                              self.picked_pieces_count(obj)])
         return response
 
+
+class ShipmentPackagingAdmin(admin.ModelAdmin):
+    list_display = ('warehouse', 'shipment', 'packaging_type', 'crate', 'status', 'reason_for_rejection',
+                    'created_at', 'created_by', 'updated_at', 'updated_by')
+    # list_select_related = ('warehouse', 'pickup', 'bin')
+    readonly_fields = ('warehouse', 'shipment', 'packaging_type', 'crate', 'status', 'reason_for_rejection',
+                       'created_at', 'created_by', 'updated_at', 'updated_by')
+    search_fields = ('shipment__invoice_number', 'shipment__order__order_no', 'shipment__invoice__invoice_no', )
+    list_filter = [Warehouse, CrateFilter, 'packaging_type', 'status', ('created_at', DateTimeRangeFilter)]
+    list_per_page = 50
+    actions = ['download_csv']
+
+    class Media:
+        pass
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
+class ShipmentPackagingMappingAdmin(admin.ModelAdmin):
+    list_display = ('shipment_packaging', 'ordered_product', 'quantity',
+                    'created_at', 'created_by', 'updated_at', 'updated_by')
+    # list_select_related = ('warehouse', 'pickup', 'bin')
+    readonly_fields = ('shipment_packaging', 'ordered_product', 'quantity',
+                       'created_at', 'created_by', 'updated_at', 'updated_by')
+    list_filter = [('created_at', DateTimeRangeFilter)]
+    list_per_page = 50
+    actions = ['download_csv']
+
+    class Media:
+        pass
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
 admin.site.register(Cart, CartAdmin)
 admin.site.register(BulkOrder, BulkOrderAdmin)
 admin.site.register(Order, OrderAdmin)
@@ -2532,3 +2602,5 @@ admin.site.register(PickerDashboard, PickerDashboardAdmin)
 admin.site.register(Invoice, InvoiceAdmin)
 admin.site.register(DeliveryData, DeliveryPerformanceDashboard)
 admin.site.register(PickerPerformanceData, PickerPerformanceDashboard)
+admin.site.register(ShipmentPackaging, ShipmentPackagingAdmin)
+admin.site.register(ShipmentPackagingMapping, ShipmentPackagingMappingAdmin)
