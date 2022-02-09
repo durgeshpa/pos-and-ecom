@@ -22,7 +22,7 @@ from requests.models import Response
 
 from dal import autocomplete
 from dateutil.relativedelta import relativedelta
-from django.db.models import Q, Sum
+from django.db.models import Q, Sum, F
 
 from django.http import HttpResponse, JsonResponse, response, Http404, FileResponse, HttpResponseBadRequest
 from django.shortcuts import render, get_object_or_404
@@ -47,7 +47,7 @@ from pos.forms import RetailerProductsCSVDownloadForm, RetailerProductsCSVUpload
 from pos.tasks import generate_pdf_data, update_es
 from products.models import Product, ParentProductCategory
 from shops.models import Shop, PosShopUserMapping
-from retailer_to_sp.models import OrderReturn, OrderedProduct, CreditNote
+from retailer_to_sp.models import OrderReturn, OrderedProduct, CreditNote, OrderedProductMapping, RoundAmount
 from wms.models import PosInventory, PosInventoryState, PosInventoryChange
 
 info_logger = logging.getLogger('file-info')
@@ -1202,31 +1202,32 @@ class RetailerOrderedReportView(APIView):
                                                             RetailerOrderedReport.PICKUP_CREATED). \
             aggregate(amt=Sum('order__rt_payment_retailer_order__amount'))
 
-        ecom_cash_order_qs = OrderedProduct.objects.filter(invoice__created_at__date__gte=start_date,
-                                                           invoice__created_at__date__lte=end_date,
-                                                           order__ordered_cart__cart_type='ECOM',
-                                                           order__seller_shop__id=shop,
-                                                           order__rt_payment_retailer_order__payment_type__type__iexact='cod',
-                                                           order__ordered_by__id=user,
-                                                           order__order_status__in=[RetailerOrderedReport.DELIVERED,
-                                                                                    RetailerOrderedReport.PARTIALLY_RETURNED,
-                                                                                    RetailerOrderedReport.FULLY_RETURNED]).\
-            aggregate(amt=Sum('order__rt_payment_retailer_order__amount'))
+        ecom_cash_order_qs = OrderedProductMapping.objects.filter(
+            ordered_product__invoice__created_at__date__gte=start_date,
+            ordered_product__invoice__created_at__date__lte=end_date,
+            ordered_product__order__ordered_cart__cart_type='ECOM',
+            ordered_product__order__seller_shop__id=shop,
+            ordered_product__order__rt_payment_retailer_order__payment_type__type__iexact='cod',
+            ordered_product__order__ordered_by__id=user,
+            ordered_product__order__order_status__in=[RetailerOrderedReport.DELIVERED,
+                                                      RetailerOrderedReport.PARTIALLY_RETURNED,
+                                                      RetailerOrderedReport.FULLY_RETURNED]).\
+            annotate(inv_amt=RoundAmount(Sum(F('effective_price') * F('shipped_qty')))).aggregate(amt=Sum('inv_amt'))
 
-        ecom_online_order_qs = OrderedProduct.objects.filter(invoice__created_at__date__gte=start_date,
-                                                             invoice__created_at__date__lte=end_date,
-                                                             order__ordered_cart__cart_type='ECOM',
-                                                             order__seller_shop__id=shop,
-                                                             order__rt_payment_retailer_order__payment_type__type__in=
-                                                             ['cod_upi', 'credit', 'online'],
-                                                             order__ordered_by__id=user,
-                                                             order__order_status__in=[
-                                                                 RetailerOrderedReport.OUT_FOR_DELIVERY,
-                                                                 RetailerOrderedReport.PARTIALLY_RETURNED,
-                                                                 RetailerOrderedReport.DELIVERED,
-                                                                 RetailerOrderedReport.FULLY_RETURNED],
-                                                             ). \
-            aggregate(amt=Sum('order__rt_payment_retailer_order__amount'))
+        ecom_online_order_qs = OrderedProductMapping.objects.filter(
+            ordered_product__invoice__created_at__date__gte=start_date,
+            ordered_product__invoice__created_at__date__lte=end_date,
+            ordered_product__order__ordered_cart__cart_type='ECOM',
+            ordered_product__order__seller_shop__id=shop,
+            ordered_product__order__rt_payment_retailer_order__payment_type__type__in=
+            ['cod_upi', 'credit', 'online'],
+            ordered_product__order__ordered_by__id=user,
+            ordered_product__order__order_status__in=[
+                RetailerOrderedReport.OUT_FOR_DELIVERY,
+                RetailerOrderedReport.PARTIALLY_RETURNED,
+                RetailerOrderedReport.DELIVERED,
+                RetailerOrderedReport.FULLY_RETURNED],).\
+            annotate(inv_amt=RoundAmount(Sum(F('effective_price') * F('shipped_qty')))).aggregate(amt=Sum('inv_amt'))
 
         pos_cash_order_amt = pos_cash_order_qs['amt'] if 'amt' in pos_cash_order_qs and pos_cash_order_qs['amt'] else 0
         pos_online_order_amt = pos_online_order_qs['amt'] if 'amt' in pos_online_order_qs and pos_online_order_qs['amt'] else 0
