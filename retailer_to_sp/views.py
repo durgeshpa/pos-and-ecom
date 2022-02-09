@@ -631,7 +631,7 @@ def create_update_last_mile_trip_shipment_mapping(trip_id, shipment_ids, request
         LastMileTripShipmentPackages.objects.filter(trip_shipment=trip_shipment).delete()
         for package in ShipmentPackaging.objects.filter(
                 shipment_id=shipment_id, status=ShipmentPackaging.DISPATCH_STATUS_CHOICES.READY_TO_DISPATCH):
-            LastMileTripShipmentPackages.objects.create(trip_shipment=trip_shipment, shipment_package=package,
+            LastMileTripShipmentPackages.objects.create(trip_shipment=trip_shipment, shipment_packaging=package,
                                                         package_status=LastMileTripShipmentPackages.LOADED)
 
 
