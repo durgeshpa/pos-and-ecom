@@ -8096,8 +8096,8 @@ class TripSummaryView(generics.GenericAPIView):
         resp_data['weight'] = 0
         for ss in shipment_qs.all():
             smt_pack_data = ss.shipment_packaging. \
-                exclude(~Q(trip_packaging_details__package_status=DispatchTripShipmentPackages.CANCELLED),
-                          trip_packaging_details__trip_shipment__trip__trip_status=DispatchTrip.NEW). \
+                exclude(trip_packaging_details__package_status=DispatchTripShipmentPackages.LOADED,
+                        trip_packaging_details__trip_shipment__trip__trip_status=DispatchTrip.NEW). \
                 aggregate(no_of_crates=Count(Case(When(packaging_type=ShipmentPackaging.CRATE, then=1))),
                           no_of_packets=Count(Case(When(packaging_type=ShipmentPackaging.BOX, then=1))),
                           no_of_sacks=Count(Case(When(packaging_type=ShipmentPackaging.SACK, then=1)))
