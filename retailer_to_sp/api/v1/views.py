@@ -372,9 +372,9 @@ class SearchProducts(APIView):
                 query_string = {"query": "*" + keyword + "*", "fields": ["name"], "minimum_should_match": 2}
 
         if category_ids:
-            #category = category_ids.split(',')
-            #category_filter = str(category)
-            filter_list.append({"term": {"category_id": category_ids}})
+            category = category_ids.split(',')
+            category_filter = str(categorymodel.Category.objects.filter(id__in=category, status=True).last())
+            filter_list.append({"match": {"category": {"query": category_filter, "operator": "and"}}})
 
         if filter_list and query_string:
             body['query'] = {"bool": {"must": {"query_string": query_string}, "filter": filter_list}}
