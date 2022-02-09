@@ -1654,7 +1654,7 @@ class RetailerOrderedProductMappingSerializer(serializers.ModelSerializer):
             instance, created = ShipmentPackaging.objects.get_or_create(
                 shipment=shipment, packaging_type=packaging_type, warehouse_id=warehouse_id, crate=crate,
                 defaults={'created_by': updated_by, 'updated_by': updated_by})
-            ShopCrateCommonFunctions.mark_crate_used(instance.shipment.current_shop.id, instance.crate.id)
+            # ShopCrateCommonFunctions.mark_crate_used(instance.shipment.current_shop.id, instance.crate.id)
         else:
             instance = ShipmentPackaging.objects.create(
                 shipment=shipment, packaging_type=packaging_type, warehouse_id=warehouse_id, crate=crate,
@@ -1983,6 +1983,7 @@ class ShipmentQCSerializer(serializers.ModelSerializer):
             info_logger.info(f"post_shipment_status_change|QCDesk Mapping updated|Shipment ID {shipment_instance.id}")
         elif shipment_instance.shipment_status in [OrderedProduct.READY_TO_SHIP, OrderedProduct.QC_REJECTED]:
             release_picking_crates(shipment_instance.order)
+            self.reserve_dispatch_crates(shipment_instance, ShipmentPackaging.DISPATCH)
             self.update_order_status_post_qc_done(shipment_instance)
             info_logger.info(f"post_shipment_status_change|shipment_status {shipment_instance.shipment_status} "
                              f"|Picking Crates released|OrderNo {shipment_instance.order.order_no}")
@@ -1997,7 +1998,11 @@ class ShipmentQCSerializer(serializers.ModelSerializer):
                 self.create_shipment_not_attempt(shipment_instance, shipment_not_attempt['not_attempt_reason'],
                                                  shipment_not_attempt['trip'])
                 info_logger.info(f"post_shipment_status_change|Not Attempted|Shipment ID {shipment_instance.id}")
-
+        elif shipment_instance.shipment_status in [OrderedProduct.PARTIALLY_DELIVERED_AND_VERIFIED,
+                                                   OrderedProduct.FULLY_RETURNED_AND_VERIFIED]:
+            self.reserve_dispatch_crates(shipment_instance, ShipmentPackaging.RETURNED)
+            info_logger.info(f"post_shipment_status_change|shipment_status {shipment_instance.shipment_status} "
+                             f"|Dispatch Crates reserved|OrderNo {shipment_instance.order.order_no}")
 
     @staticmethod
     def update_order_status_post_qc_done(shipment_instance):
@@ -2016,6 +2021,20 @@ class ShipmentQCSerializer(serializers.ModelSerializer):
         elif shipment_instance.shipment_status == OrderedProduct.QC_REJECTED:
             shipment_instance.order.order_status = Order.QC_FAILED
         shipment_instance.order.save()
+
+
+    @staticmethod
+    def reserve_dispatch_crates(shipment_instance, movement_type):
+        info_logger.info(f"reserve_dispatch_crates|Order No {shipment_instance.order.order_no}")
+        crates_used = shipment_instance.shipment_packaging.filter(
+                                                    packaging_type=ShipmentPackaging.PACKAGING_TYPE_CHOICES.CRATE,
+                                                    movement_type=movement_type
+                                                    ).values_list('crate_id', flat=True)
+        for crate_id in crates_used:
+            ShopCrateCommonFunctions.mark_crate_used(shipment_instance.current_shop.id, crate_id)
+            info_logger.info(f"reserve_dispatch_crates| Crate{crate_id} | Reserved")
+
+        info_logger.info(f"reserve_dispatch_crates|Done|Order No {shipment_instance.order.order_no}")
 
 
 class CitySerializer(serializers.ModelSerializer):
@@ -3944,7 +3963,7 @@ class VerifyReturnShipmentProductsSerializer(serializers.ModelSerializer):
             instance, created = ShipmentPackaging.objects.get_or_create(
                 shipment=shipment, packaging_type=packaging_type, warehouse_id=warehouse_id, crate=crate,
                 movement_type=movement_type, defaults={'created_by': updated_by, 'updated_by': updated_by})
-            ShopCrateCommonFunctions.mark_crate_used(instance.shipment.current_shop.id, instance.crate.id)
+            # ShopCrateCommonFunctions.mark_crate_used(instance.shipment.current_shop.id, instance.crate.id)
         else:
             instance = ShipmentPackaging.objects.create(
                 shipment=shipment, packaging_type=packaging_type, warehouse_id=warehouse_id, crate=crate,
