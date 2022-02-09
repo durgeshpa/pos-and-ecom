@@ -3122,7 +3122,11 @@ def auto_qc_area_assignment_to_order(order_no=None):
                                       created_at__gt=start_time, created_at__lt=current_time).distinct()\
             .order_by('created_at')
     info_logger.info("Total orders to be process, Count: " + str(orders.count()))
+    processed_orders = []
     for order in orders:
+        if order.id in processed_orders:
+            continue
+        processed_orders.append(order.id)
         with transaction.atomic():
             info_logger.info("Process order no: " + str(order.order_no) + " to assign QC Area.")
             least_used_desk = QCDeskQCAreaAssignmentMapping.objects.filter(
