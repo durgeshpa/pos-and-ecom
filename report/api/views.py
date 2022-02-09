@@ -142,7 +142,8 @@ class ReportCreateUpdateView(mixins.CreateModelMixin,
         if serializer.is_valid():
             return api_response("Report successfully queued", 
                                 data=serializer.data, 
-                                status_code=status.HTTP_201_CREATED)
+                                status_code=status.HTTP_201_CREATED,
+                                success=True)
         else:
             errors = [serializer.errors[error][0] for error in serializer.errors]
             errors = "\n".join(errors)
