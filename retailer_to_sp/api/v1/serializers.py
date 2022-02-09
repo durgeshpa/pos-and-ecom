@@ -1695,13 +1695,14 @@ class RetailerOrderedProductMappingSerializer(serializers.ModelSerializer):
             product_batch.pop('total_qc_qty')
             self.update_product_batch_data(product_batch_instance, product_batch)
 
-        if packaging:
-            if ShipmentPackagingMapping.objects.filter(ordered_product=process_shipments_instance).exists():
-                shipment_packaging_ids = list(ShipmentPackagingMapping.objects.filter(ordered_product=process_shipments_instance)\
-                                                                     .values_list('shipment_packaging_id', flat=True))
-                ShipmentPackagingMapping.objects.filter(ordered_product=process_shipments_instance).delete()
+        if ShipmentPackagingMapping.objects.filter(ordered_product=process_shipments_instance).exists():
+            shipment_packaging_ids = list(ShipmentPackagingMapping.objects.filter(ordered_product=process_shipments_instance)\
+                                                                 .values_list('shipment_packaging_id', flat=True))
+            ShipmentPackagingMapping.objects.filter(ordered_product=process_shipments_instance).delete()
 
-                ShipmentPackaging.objects.filter(id__in=shipment_packaging_ids, packaging_details__isnull=True).delete()
+            ShipmentPackaging.objects.filter(id__in=shipment_packaging_ids, packaging_details__isnull=True).delete()
+
+        if packaging:
 
             for package_obj in packaging:
                 if package_obj['type'] == ShipmentPackaging.CRATE:
@@ -4024,21 +4025,16 @@ class VerifyReturnShipmentProductsSerializer(serializers.ModelSerializer):
             self.update_product_batch_data(product_batch_instance, product_batch)
 
         movement_type = self.get_movement_type(shipment_map_instance.ordered_product)
+        if ShipmentPackagingMapping.objects.filter(ordered_product=shipment_map_instance,
+                                                   shipment_packaging__movement_type=movement_type).exists():
+            shipment_packaging_ids = list(ShipmentPackagingMapping.objects.filter(
+                ordered_product=shipment_map_instance, shipment_packaging__movement_type=movement_type) \
+                                          .values_list('shipment_packaging_id', flat=True))
+            ShipmentPackagingMapping.objects.filter(ordered_product=shipment_map_instance,
+                                                    shipment_packaging__movement_type=movement_type).delete()
+            ShipmentPackaging.objects.filter(id__in=shipment_packaging_ids, packaging_details__isnull=True).delete()
+
         if packaging:
-            if ShipmentPackagingMapping.objects.filter(ordered_product=shipment_map_instance,
-                                                       shipment_packaging__movement_type=movement_type).exists():
-                shipment_packaging_ids = list(ShipmentPackagingMapping.objects.filter(
-                    ordered_product=shipment_map_instance, shipment_packaging__movement_type=movement_type)\
-                                                                     .values_list('shipment_packaging_id', flat=True))
-                ShipmentPackagingMapping.objects.filter(ordered_product=shipment_map_instance,
-                                                       shipment_packaging__movement_type=movement_type).delete()
-                crates_used = ShipmentPackaging.objects.filter(
-                    id__in=shipment_packaging_ids, packaging_details__isnull=True, crate__isnull=False).\
-                    values_list('crate__id', flat=True)
-                for crate_id in crates_used:
-                    ShopCrateCommonFunctions.mark_crate_available(
-                        shipment_map_instance.ordered_product.current_shop.id, crate_id)
-                ShipmentPackaging.objects.filter(id__in=shipment_packaging_ids, packaging_details__isnull=True).delete()
 
             for package_obj in packaging:
                 if package_obj['type'] == ShipmentPackaging.CRATE:
