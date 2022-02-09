@@ -1451,7 +1451,6 @@ class RetailerReturnReportView(APIView):
         return response
 
 
-
 class RetailerOrderedReportFormView(View):
     def get(self, request):
         form = RetailerOrderedReportForm()
@@ -1460,6 +1459,7 @@ class RetailerOrderedReportFormView(View):
             'admin/services/retailer-order-report.html',
             {'form': form}
         )
+
 
 class RetailerReturnReportFormView(View):
     def get(self, request):
