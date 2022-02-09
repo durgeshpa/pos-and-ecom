@@ -5,7 +5,7 @@ import io
 from django.http import FileResponse
 
 from rest_framework.views import APIView
-from rest_framework import status
+from rest_framework import status, mixins, viewsets
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.authentication import TokenAuthentication
 from rest_framework.response import Response
@@ -19,6 +19,7 @@ from report.api.serializers import (ReportChoiceMetaSerializer,
                                     ReportModelSerializer)
 from retailer_backend.utils import SmallOffsetPagination
 from report.models import ReportChoice, ReportRequest
+from pos.common_functions import api_response
 
 class ReportChoiceListView(DataWrapperListRetrieveViewSet):
     
@@ -119,7 +120,9 @@ class DownloadPrivateFileAws(APIView):
                             status=status.HTTP_400_BAD_REQUEST)
 
 
-class ReportCreateUpdateView(DataWrapperCreateUpdateViewSet):
+class ReportCreateUpdateView(mixins.CreateModelMixin, 
+                            mixins.UpdateModelMixin, 
+                            viewsets.GenericViewSet):
     
     authentication_classes = (TokenAuthentication,)
     permission_classes = (IsAuthenticated,)
@@ -133,3 +136,14 @@ class ReportCreateUpdateView(DataWrapperCreateUpdateViewSet):
     
     def perform_update(self, serializer):
         serializer.save(user=self.request.user)
+    
+    def create(self, request, *args, **kwargs):
+        serializer = self.serializer_class(data=request.data, context={'request': request})
+        if serializer.is_valid():
+            return api_response("Report successfully queued", 
+                                data=serializer.data, 
+                                status_code=status.HTTP_201_CREATED)
+        else:
+            errors = [serializer.errors[error][0] for error in serializer.errors]
+            errors = "\n".join(errors)
+            return api_response(errors)
