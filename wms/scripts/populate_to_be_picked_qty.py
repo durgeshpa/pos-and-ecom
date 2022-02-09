@@ -30,8 +30,7 @@ def populate_to_be_picked_quantity(warehouse):
     """
     pck_inv_objs = PickupBinInventory.objects.filter(
         pickup__status__in=['picking_complete', 'picking_cancelled'], warehouse=warehouse, bin__to_be_picked_qty__gt=0)\
-        .values('bin_id').annotate(pickup_qty=Sum('quantity'), picked_qty=Sum('pickup_quantity')) \
-        .filter(pickup_qty=F('picked_qty'))
+        .values('bin_id')
     bin_inv_ids = [x['bin_id'] for x in pck_inv_objs]
     print("Updating to_be_picked_qty = 0 for Bin-Inventory-Ids-{}".format(bin_inv_ids))
     BinInventory.objects.filter(id__in=bin_inv_ids).update(to_be_picked_qty=0)
