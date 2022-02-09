@@ -7762,11 +7762,9 @@ class VerifyRescheduledShipmentPackagesView(generics.GenericAPIView):
     def validate_package_by_shipment_package(self, package_id, shipment_id, trip_id):
         shipment_package = self.queryset.filter(shipment_packaging_id=package_id,
                                                 trip_shipment__shipment_id=shipment_id,
-                                                trip_shipment__trip_id=trip_id,
-                                                package_status=LastMileTripShipmentPackages.LOADED).last()
+                                                trip_shipment__trip_id=trip_id).last()
         if not shipment_package:
             return {"error": "Package does not belong to this trip."}
-
         return {"data": shipment_package}
 
     @check_whc_manager_dispatch_executive
@@ -8103,7 +8101,8 @@ class TripSummaryView(generics.GenericAPIView):
         resp_data['weight'] = 0
         for ss in shipment_qs.all():
             smt_pack_data = ss.shipment_packaging. \
-                exclude(trip_packaging_details__trip_shipment__trip__trip_status=DispatchTrip.NEW). \
+                exclude(~Q(trip_packaging_details__package_status=DispatchTripShipmentPackages.CANCELLED),
+                          trip_packaging_details__trip_shipment__trip__trip_status=DispatchTrip.NEW). \
                 aggregate(no_of_crates=Count(Case(When(packaging_type=ShipmentPackaging.CRATE, then=1))),
                           no_of_packets=Count(Case(When(packaging_type=ShipmentPackaging.BOX, then=1))),
                           no_of_sacks=Count(Case(When(packaging_type=ShipmentPackaging.SACK, then=1)))
@@ -8373,13 +8372,13 @@ class DispatchCenterCrateView(generics.GenericAPIView):
             try:
                 availability = int(availability)
                 if availability == INVOICE_AVAILABILITY_CHOICES.ADDED:
-                    self.queryset = self.queryset.filter(is_available=False, crate__crate_trips__isnull=False,
+                    self.queryset = self.queryset.filter(crate__crate_trips__isnull=False,
                                                          crate__crate_trips__trip_id=trip_id)
                 elif availability == INVOICE_AVAILABILITY_CHOICES.NOT_ADDED:
-                    self.queryset = self.queryset.filter(is_available=True, crate__crate_trips__isnull=True)
+                    self.queryset = self.queryset.filter(is_available=True)
                 elif availability == INVOICE_AVAILABILITY_CHOICES.ALL:
                     self.queryset = self.queryset.filter(Q(crate__crate_trips__trip_id=trip_id) |
-                                                         Q(is_available=True, crate__crate_trips__isnull=True))
+                                                         Q(is_available=True))
             except:
                 pass
 
@@ -8634,10 +8633,10 @@ class RemoveInvoiceFromTripView(generics.GenericAPIView):
 
     def validate_trip_invoice(self, shipment_id, trip_id):
         if not self.queryset.filter(~Q(shipment_status=DispatchTripShipmentMapping.CANCELLED),
-                                                          trip_id=trip_id, shipment_id=shipment_id).exists():
+                                    trip_id=trip_id, shipment_id=shipment_id).exists():
             return {"error": "invalid Shipment"}
         return {"data" : self.queryset.filter(~Q(shipment_status=DispatchTripShipmentMapping.CANCELLED),
-                                                          trip_id=trip_id, shipment_id=shipment_id)}
+                                              trip_id=trip_id, shipment_id=shipment_id)}
 
 
 class LastMileTripCrudView(generics.GenericAPIView):

@@ -3595,6 +3595,9 @@ PACKAGE_VERIFY_CHOICES = Choices((1, 'OK', 'Okay'), (2, 'DAMAGED', 'Damaged'), (
 TRIP_TYPE_CHOICE = Choices(('LAST_MILE', 'Last Mile trip'), ('DISPATCH_FORWARD', 'Forward Dispatch Trip'),
                            ('DISPATCH_BACKWARD', 'Backward Dispatch Trip'))
 
+RETURN_REMARK_CHOICES = Choices(('LABEL_MISSING', 'Label Missing'),('LABEL_DAMAGED', 'Label Damaged'),
+                                ('OTHER', 'Other'))
+
 
 class LastMileTripShipmentMapping(BaseTimestampUserModel):
     TO_BE_LOADED, LOADING_FOR_DC, LOADED_FOR_DC = 'TO_BE_LOADED', 'LOADING_FOR_DC', 'LOADED_FOR_DC'
@@ -3642,6 +3645,7 @@ class LastMileTripShipmentPackages(BaseTimestampUserModel):
     shipment_packaging = models.ForeignKey(ShipmentPackaging, related_name='last_mile_trip_packaging_details',
                                            on_delete=models.DO_NOTHING)
     package_status = models.CharField(max_length=100, choices=PACKAGE_STATUS)
+    return_remark = models.CharField(max_length=100, choices=RETURN_REMARK_CHOICES)
 
 
 class ShopCrate(BaseTimestampUserModel):
