@@ -3642,10 +3642,14 @@ class LastMileTripShipmentMapping(BaseTimestampUserModel):
 class LastMileTripShipmentPackages(BaseTimestampUserModel):
     LOADED, DAMAGED_AT_LOADING = 'LOADED', 'DAMAGED_AT_LOADING'
     MISSING_AT_LOADING, CANCELLED = 'MISSING_AT_LOADING', 'CANCELLED'
+    RETURN_VERIFIED, RETURN_MISSING, RETURN_DAMAGED = 'RETURN_VERIFIED', 'RETURN_MISSING', 'RETURN_DAMAGED'
     PACKAGE_STATUS = (
         (LOADED, 'Loaded'),
         (DAMAGED_AT_LOADING, 'Damaged At Loading'),
         (MISSING_AT_LOADING, 'Missing At Loading'),
+        (RETURN_VERIFIED, 'Return Verified'),
+        (RETURN_MISSING, 'Return Missing'),
+        (RETURN_DAMAGED, 'Return Damaged'),
         (CANCELLED, 'Cancelled'),
     )
     trip_shipment = models.ForeignKey(LastMileTripShipmentMapping,

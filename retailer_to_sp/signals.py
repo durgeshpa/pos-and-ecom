@@ -1,3 +1,4 @@
+import logging
 
 from django.db.models.signals import post_save, post_delete, pre_save
 from django.dispatch import receiver
@@ -5,6 +6,7 @@ from django.db.models import Sum
 import logging
 
 from shops.models import ParentRetailerMapping
+from .common_model_functions import ShopCrateCommonFunctions
 from .models import CartProductMapping, Cart, Trip, OrderedProduct, ShipmentPackaging
 from pos.offers import BasicCartOffers
 from retailer_backend import common_function
@@ -56,6 +58,9 @@ debug_logger = logging.getLogger('file-debug')
 #             )
 from .utils import send_sms_on_trip_start
 
+
+# Logger
+info_logger = logging.getLogger('file-info')
 
 class ReservedOrder(object):
 	"""docstring for ReservedOrder"""
@@ -212,19 +217,3 @@ def create_cart_no(sender, instance=None, created=False, **kwargs):
 def notify_customer_on_trip_start(sender, instance=None, created=False, **kwargs):
 	if instance.trip_status == Trip.STARTED:
 		send_sms_on_trip_start(instance)
-
-
-@receiver(post_save, sender=OrderedProduct)
-def update_packages_on_shipment_status_change(sender, instance=None, created=False, **kwargs):
-	if instance.shipment_status == OrderedProduct.OUT_FOR_DELIVERY:
-		instance.shipment_packaging.filter(status=ShipmentPackaging.DISPATCH_STATUS_CHOICES.READY_TO_DISPATCH) \
-			.update(status=ShipmentPackaging.DISPATCH_STATUS_CHOICES.DISPATCHED)
-	elif instance.shipment_status == OrderedProduct.MOVED_TO_DISPATCH:
-		instance.shipment_packaging.filter(status=ShipmentPackaging.DISPATCH_STATUS_CHOICES.DISPATCHED) \
-			.update(status=ShipmentPackaging.DISPATCH_STATUS_CHOICES.READY_TO_DISPATCH)
-	elif instance.shipment_status in [OrderedProduct.FULLY_DELIVERED_AND_VERIFIED,
-											   OrderedProduct.FULLY_RETURNED_AND_VERIFIED,
-											   OrderedProduct.PARTIALLY_DELIVERED_AND_VERIFIED]:
-		instance.shipment_packaging.filter(status=ShipmentPackaging.DISPATCH_STATUS_CHOICES.DISPATCHED) \
-			.update(status=ShipmentPackaging.DISPATCH_STATUS_CHOICES.DELIVERED)
-

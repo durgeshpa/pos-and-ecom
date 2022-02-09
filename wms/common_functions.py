@@ -2626,15 +2626,14 @@ def get_logged_user_wise_query_set_for_shipment(user, queryset):
 def send_update_to_qcdesk(shipment_instance):
     '''Update the QCArea assignment mapping on shipment QC start'''
     info_logger.info(f"send_update_to_qcdesk|QC Started|Shipment ID {shipment_instance.id}")
-    if shipment_instance.qc_area.qc_area_assigned_desks.filter(token_id=shipment_instance.order.order_no).exists():
-        assigned_qc_area = shipment_instance.qc_area.qc_area_assigned_desks.filter(
-                                                token_id=shipment_instance.order.order_no).last()
-        assigned_qc_area.qc_done=True
-        assigned_qc_area.save()
+    order_no = shipment_instance.order.order_no
+    if shipment_instance.qc_area.qc_area_assigned_desks.filter(token_id=order_no).exists():
+        shipment_instance.qc_area.qc_area_assigned_desks.filter(token_id=order_no).update(qc_done=True)
+        info_logger.info(f"send_update_to_qcdesk|QCDesk Mapping updated|Shipment ID {shipment_instance.id}, "
+                         f"Order no {order_no}")
     else:
-        raise Exception(f"QC Area Assignment mapping not found for this order {shipment_instance.order.order_no}")
-
-    info_logger.info(f"send_update_to_qcdesk|QCDesk Mapping updated|Shipment ID {shipment_instance.id}")
+        error_logger.error(f"send_update_to_qcdesk|QC Area Assignment mapping not found for this order {order_no}")
+        raise Exception(f"QC Area Assignment mapping not found for this order {order_no}")
 
 
 def release_picking_crates(order_instance):
