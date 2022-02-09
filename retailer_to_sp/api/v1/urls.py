@@ -9,13 +9,12 @@ from .views import (ProductsList, SearchProducts, CartCentral, CartCheckout, Ord
                     ReturnReason, ShipmentDeliveryUpdate, ShipmentDeliveryBulkUpdate, DownloadCreditNoteDiscounted,
                     AutoSuggest, RefreshEs, RefreshEsRetailer, CartUserView, UserView, PosUserShopsList,
                     PosShopUsersList, RetailerList, PaymentDataView, CartStockCheckView, OrderCommunication,
-                    ShipmentView, EcomPaymentView, EcomPaymentSuccessView, EcomPaymentFailureView, ShipmentProductView,
+                    OrderPaymentStatusChangeView, OrderStatusChoicesList, ShipmentView, EcomPaymentView,
+                    EcomPaymentSuccessView, EcomPaymentFailureView, ShipmentProductView,
                     ProcessShipmentView, ShipmentStatusList, ShipmentQCView, ShipmentCityFilterView,
                     ShipmentPincodeFilterView, ShipmentShopFilterView, ShipmentProductRejectionReasonList,
                     PackagingTypeList, DispatchItemsView, DispatchItemsUpdateView, DispatchDashboardView,
-                    DownloadShipmentInvoice, DispatchPackageRejectionReasonList, NotAttemptReason, OrderPaymentStatusChangeView, OrderStatusChoicesList
-
-)
+                    DownloadShipmentInvoice, DispatchPackageRejectionReasonList, NotAttemptReason)
 
 router = routers.DefaultRouter()
 router.register(r'picker-dashboard', PickerDashboardViewSet)

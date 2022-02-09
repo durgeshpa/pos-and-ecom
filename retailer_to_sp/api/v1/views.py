@@ -7594,7 +7594,19 @@ class DownloadShipmentInvoice(APIView):
 
 
 class DispatchPackageRejectionReasonList(generics.GenericAPIView):
-=======
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+
+    def get(self, request):
+        '''
+        API to get shipment package rejection reason list
+        '''
+        fields = ['id', 'value']
+        data = [dict(zip(fields, d)) for d in ShipmentPackaging.REASON_FOR_REJECTION]
+        msg = ""
+        return get_response(msg, data, True)
+
+
 class OrderPaymentStatusChangeView(generics.GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (permissions.IsAuthenticated,)
@@ -7673,9 +7685,11 @@ class OrderStatusChoicesList(GenericAPIView):
 
     def get(self, request):
         '''
-        API to get shipment package rejection reason list
+        API to get payment mode choices list
         '''
         fields = ['id', 'value']
-        data = [dict(zip(fields, d)) for d in ShipmentPackaging.REASON_FOR_REJECTION]
-        msg = ""
-        return get_response(msg, data, True)
+        data = [dict(zip(fields, d)) for d in [(Order.PAYMENT_PENDING, "Payment Pending"),
+                                               (Order.PAYMENT_FAILED, "Payment Failed"),
+                                               (Order.PAYMENT_APPROVED, "Payment Approved"),
+                                               (Order.PAYMENT_COD, "Payment COD")]]
+        return api_response('', data, status.HTTP_200_OK, True)

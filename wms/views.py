@@ -1256,7 +1256,8 @@ def pickup_entry_creation_with_cron():
                                      order_closed=False,
                                      created_at__lt=current_time,
                                      created_at__gt=start_time)\
-                             .exclude(ordered_cart__cart_type__in=['AUTO', 'BASIC', 'ECOM'])
+                             .exclude(Q(ordered_cart__cart_type__in=['AUTO', 'BASIC', 'ECOM'])|
+                                      Q(ordered_cart__cart_type='DISCOUNTED', ordered_cart__approval_status=False))
     if order_obj.count() == 0:
         cron_logger.info("{}| no orders to generate picklist for".format(cron_name))
         return

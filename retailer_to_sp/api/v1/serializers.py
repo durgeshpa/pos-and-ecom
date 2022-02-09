@@ -11,8 +11,8 @@ from decimal import Decimal
 from rest_framework import serializers
 
 from accounts.models import UserWithName
-from addresses.models import Address, Pincode, City
 from pos.models import PaymentType
+from addresses.models import Address, Pincode, City
 from products.models import (Product, ProductPrice, ProductImage, Tax, ProductTaxMapping, ProductOption, Size, Color,
                              Fragrance, Flavor, Weight, PackageSize, ParentProductImage, SlabProductPrice, PriceSlab)
 from retailer_to_sp.common_validators import validate_shipment_crates_list, validate_shipment_package_list
