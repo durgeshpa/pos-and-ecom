@@ -2773,12 +2773,12 @@ class VerifyShipmentPackageSerializer(serializers.ModelSerializer):
         """Update ShipmentPackaging"""
         try:
             packaging_instance = super().update(instance, validated_data)
+            if packaging_instance.package_status != LastMileTripShipmentPackages.RETURN_MISSING:
+                ShopCrateCommonFunctions.mark_crate_available(
+                    packaging_instance.trip_shipment.shipment.current_shop.id, packaging_instance.crate.id)
         except Exception as e:
             error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
             raise serializers.ValidationError(error)
-        if packaging_instance.package_status != LastMileTripShipmentPackages.RETURN_MISSING:
-            ShopCrateCommonFunctions.mark_crate_available(
-                packaging_instance.trip_shipment.shipment.current_shop.id, packaging_instance.crate.id)
         return packaging_instance
 
 
@@ -3410,6 +3410,29 @@ class UnloadVerifyPackageSerializer(serializers.ModelSerializer):
         fields = ('trip_shipment', 'created_by', 'updated_by')
 
     def validate(self, data):
+        # Validate request data
+
+        if 'trip_id' not in self.initial_data or not self.initial_data['trip_id']:
+            raise serializers.ValidationError("'trip_id' | This is required.")
+        try:
+            trip = DispatchTrip.objects.get(id=self.initial_data['trip_id'])
+        except:
+            raise serializers.ValidationError("invalid Trip ID")
+
+        # Check for trip status
+        if trip.trip_status != DispatchTrip.UNLOADING:
+            raise serializers.ValidationError(f"Trip is in {trip.trip_status} state, cannot unload package")
+
+        if 'package_id' not in self.initial_data or not self.initial_data['package_id']:
+            raise serializers.ValidationError("'package_id' | This is required.")
+        try:
+            package = ShipmentPackaging.objects.get(id=self.initial_data['package_id'])
+        except:
+            raise serializers.ValidationError("Invalid Package ID")
+
+        # Check for package status
+        # if package.status != ShipmentPackaging.DISPATCH_STATUS_CHOICES.DISPATCHED:
+        #     raise serializers.ValidationError(f"Package is in {package.status} state, Can't be unloaded")
 
         # Check if invoice loading already completed
         if DispatchTripShipmentMapping.objects.filter(

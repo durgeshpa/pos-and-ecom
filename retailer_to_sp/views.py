@@ -25,6 +25,7 @@ from celery.task import task
 from django.http import JsonResponse
 from django.urls import reverse
 
+from retailer_to_sp.common_model_functions import ShopCrateCommonFunctions
 from sp_to_gram.models import (
     OrderedProductReserved, OrderedProductMapping as SPOrderedProductMapping,
     OrderedProduct as SPOrderedProduct)
@@ -1267,6 +1268,17 @@ def update_delivered_qty(instance, inline_form):
     instance.save()
 
 
+def release_dispatch_crates_used_in_shipment(shipment_instance):
+    info_logger.info(f"reserve_dispatch_crates|Done|Order No {shipment_instance.order.order_no}")
+    crates_used = shipment_instance.shipment_packaging.filter(
+        packaging_type=ShipmentPackaging.PACKAGING_TYPE_CHOICES.CRATE,
+        movement_type=ShipmentPackaging.DISPATCH).values_list('crate_id', flat=True)
+    for crate_id in crates_used:
+        ShopCrateCommonFunctions.mark_crate_available(shipment_instance.current_shop.id, crate_id)
+        info_logger.info(f"reserve_dispatch_crates| Crate{crate_id} | Released at {shipment_instance.current_shop}")
+    info_logger.info(f"reserve_dispatch_crates|Done|Order No {shipment_instance.order.order_no}")
+
+
 def update_shipment_status_verified(form_instance, formset):
     shipped_qty_list = []
     returned_qty_list = []
@@ -1291,7 +1303,7 @@ def update_shipment_status_verified(form_instance, formset):
 
         elif shipped_qty > (returned_qty + damaged_qty):
             form_instance.shipment_status = 'PARTIALLY_DELIVERED_AND_VERIFIED'
-
+        release_dispatch_crates_used_in_shipment(form_instance)
         form_instance.save()
 
 

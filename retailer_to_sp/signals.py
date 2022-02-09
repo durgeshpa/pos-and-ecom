@@ -1,9 +1,11 @@
+import logging
 
 from django.db.models.signals import post_save, post_delete, pre_save
 from django.dispatch import receiver
 from django.db.models import Sum
 
 from shops.models import ParentRetailerMapping
+from .common_model_functions import ShopCrateCommonFunctions
 from .models import CartProductMapping, Cart, Trip, OrderedProduct, ShipmentPackaging
 from pos.offers import BasicCartOffers
 from retailer_backend import common_function
@@ -49,6 +51,9 @@ from retailer_backend import common_function
 #             )
 from .utils import send_sms_on_trip_start
 
+
+# Logger
+info_logger = logging.getLogger('file-info')
 
 class ReservedOrder(object):
 	"""docstring for ReservedOrder"""
@@ -205,5 +210,3 @@ def create_cart_no(sender, instance=None, created=False, **kwargs):
 def notify_customer_on_trip_start(sender, instance=None, created=False, **kwargs):
 	if instance.trip_status == Trip.STARTED:
 		send_sms_on_trip_start(instance)
-
-
