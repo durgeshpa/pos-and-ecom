@@ -23,9 +23,7 @@ def cancel_beat_plan(*args, **kwargs):
     day_config = GlobalConfig.objects.filter(key='beat_order_days').last()
     if day_config and day_config.value:
         tday = datetime.today().date()
-        print(tday, "Today")
         lday = tday - timedelta(days=int(day_config.value))
-        print(lday, "Last day")
         cancelled_plannings = DayBeatPlanning.objects.filter(
             # Q(
             #     Q(beat_plan_date=tday) |
@@ -38,12 +36,10 @@ def cancel_beat_plan(*args, **kwargs):
             shop__rt_buyer_shop_cart__isnull=False,
             shop__rt_buyer_shop_cart__rt_order_cart_mapping__created_at__gte=lday
         )
-        print(cancelled_plannings, "objects of day beat plan")
         if cancelled_plannings:
             shops = Shop.objects.filter(
                 id__in=cancelled_plannings.values_list('shop', flat=True)
             )
-            print(shops, "Shop")
             cp_count = cancelled_plannings.update(is_active=False)  # future daily beat plans disabled
             logger.info('task done shop {0}, plannings {1}'.format(shops, cp_count))
         else:
@@ -94,13 +90,9 @@ def set_feedbacks():
                 if last_feedback.latitude and last_feedback.longitude:
                     last_shop_distance = distance((last_feedback.latitude, last_feedback.longitude),
                                                   (feedback_lat, feedback_lng))
-                print(feedback.day_beat_plan.beat_plan.executive, feedback.feedback_date, feedback.feedback_time,
-                      last_feedback.feedback_time, last_shop_distance)
 
             else:
                 last_shop_distance = -0.001
-                print(feedback.day_beat_plan.beat_plan.executive, feedback.feedback_date, feedback.feedback_time, "No",
-                      last_shop_distance)
 
             feedback.last_shop_distance = last_shop_distance
             feedback.save()
