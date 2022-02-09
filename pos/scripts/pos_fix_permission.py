@@ -14,7 +14,7 @@ info_logger = logging.getLogger('file-info')
 def run(*args):
     for model in apps.get_models():
         opts = model._meta
-        if opts.app_label == 'pos':
+        if opts.app_label == 'ecom':
             ctype, created = ContentType.objects.get_or_create(
                 app_label=opts.app_label,
                 model=opts.object_name.lower())
