@@ -125,6 +125,7 @@ from pos.models import PaymentReconsile, PaymentRefund
 import math
 from pos.payU_payment import *
 from fcm.utils import get_device_model
+from django.template.loader import render_to_string
 from datetime import datetime
 
 Device = get_device_model()
@@ -5617,6 +5618,7 @@ def pdf_generation_retailer(request, order_id, delay=True):
         # Total Ordered Amount
         total_mrp = 0
         total = 0
+        count = 0
         for m in ordered_product.rt_order_product_order_product_mapping.filter(shipped_qty__gt=0):
             sum_qty += m.shipped_qty
             cart_product_map = ordered_product.order.ordered_cart.rt_cart_list.filter(
@@ -5643,6 +5645,10 @@ def pdf_generation_retailer(request, order_id, delay=True):
             total += ordered_p['product_sub_total']
             total_mrp += m.shipped_qty * m.retailer_product.mrp
             product_listing.append(ordered_p)
+            if len(m.retailer_product.product_short_description) > 34:
+                count = count + 2  # height of double line
+            else:
+                count = count + 1  # height of sinlge line
         cart = ordered_product.order.ordered_cart
         product_listing = sorted(product_listing, key=itemgetter('id'))
         # Total payable amount
@@ -5689,6 +5695,7 @@ def pdf_generation_retailer(request, order_id, delay=True):
             retailer_gstin_number = order.seller_shop.shop_name_documents.filter(
                 shop_document_type='gstin').last().shop_document_number
 
+        height = 140 + 5 * count  # calculating page height of invoice 145 is base value
         data = {"shipment": ordered_product, "order": ordered_product.order, "url": request.get_host(),
                 "scheme": request.is_secure() and "https" or "http", "total_amount": total_amount, 'total': total,
                 'discount': discount, "barcode": barcode, "product_listing": product_listing, "rupees": rupees,
@@ -5698,12 +5705,11 @@ def pdf_generation_retailer(request, order_id, delay=True):
                 "license_number": license_number, "retailer_gstin_number": retailer_gstin_number,
                 "cin": cin_number,
                 "payment_type": ordered_product.order.rt_payment_retailer_order.last().payment_type.type}
-        cmd_option = {"margin-top": 10, "margin-left": 0, "margin-right": 0, "javascript-delay": 0,
-                      "footer-center": "[page]/[topage]", "page-height": 300, "page-width": 80,
-                      "no-stop-slow-scripts": True, "quiet": True, }
+        cmd_option = {"margin-top": 2, "margin-left": 0, "margin-right": 0, "margin-bottom": 2, "javascript-delay": 0,
+                      "page-height": height, "page-width": 80, "no-stop-slow-scripts": True, "quiet": True, }
         response = PDFTemplateResponse(request=request, template=template_name, filename=filename,
                                        context=data, show_content_in_browser=False, cmd_options=cmd_option)
-        # with open("/home/amit/env/test5/qa4/heelo.pdf", "wb") as f:
+        # with open("/var/www/gmfact/retailer-backend/heelo.pdf", "wb") as f:
         #     f.write(response.rendered_content)
         # content = render_to_string(template_name, data)
         # with open("abc.html", 'w') as static_file:
@@ -5786,6 +5792,7 @@ def pdf_generation_return_retailer(request, order, ordered_product, order_return
         # Total Returned Amount
         total = 0
         return_qty = 0
+        count=0
 
         for item in return_items:
             product = item.ordered_product.retailer_product
@@ -5806,6 +5813,10 @@ def pdf_generation_return_retailer(request, order, ordered_product, order_return
             return_qty += item.return_qty
             total += return_p['product_sub_total']
             return_item_listing.append(return_p)
+            if len(item.ordered_product.retailer_product.product_short_description) > 34:
+                count = count + 2  # height of double line
+            else:
+                count = count + 1  # height of sinlge line
 
         return_item_listing = sorted(return_item_listing, key=itemgetter('id'))
         # redeem value
@@ -5851,6 +5862,7 @@ def pdf_generation_return_retailer(request, order, ordered_product, order_return
             retailer_gstin_number = order.seller_shop.shop_name_documents.filter(
                 shop_document_type='gstin').last().shop_document_number
 
+        height = 140 + 5 * count  # calculating page height of invoice 145 is base value
         data = {
             "url": request.get_host(),
             "scheme": request.is_secure() and "https" or "http",
@@ -5877,7 +5889,7 @@ def pdf_generation_return_retailer(request, order, ordered_product, order_return
         }
 
         cmd_option = {"margin-top": 10, "margin-left": 0, "margin-right": 0, "javascript-delay": 0,
-                      "footer-center": "[page]/[topage]", "page-height": 300, "page-width": 80,
+                       "page-height": height, "page-width": 80,
                       "no-stop-slow-scripts": True, "quiet": True, }
         response = PDFTemplateResponse(request=request, template=template_name, filename=filename,
                                        context=data, show_content_in_browser=False, cmd_options=cmd_option)
@@ -7060,12 +7072,11 @@ class EcomPaymentFailureView(APIView):
 class ShipmentProductView(generics.GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
-    queryset = OrderedProduct.objects.\
-        select_related('order', 'order__buyer_shop', 'order__buyer_shop__shop_owner').\
+    queryset = OrderedProduct.objects. \
+        select_related('order', 'order__buyer_shop', 'order__buyer_shop__shop_owner'). \
         prefetch_related('rt_order_product_order_product_mapping',
                          'rt_order_product_order_product_mapping__rt_ordered_product_mapping')
     serializer_class = ShipmentProductSerializer
-
 
     def get(self, request):
         """ GET API for Shipment Product """
@@ -7086,10 +7097,9 @@ class ShipmentProductView(generics.GenericAPIView):
 class ProcessShipmentView(generics.GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
-    queryset = OrderedProductMapping.objects.\
+    queryset = OrderedProductMapping.objects. \
         all()
     serializer_class = RetailerOrderedProductMappingSerializer
-
 
     def get(self, request):
         """ GET API for Process Shipment """
@@ -7157,18 +7167,17 @@ class ProcessShipmentView(generics.GenericAPIView):
 
 
 class ShipmentQCView(generics.GenericAPIView):
-
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
     serializer_class = ShipmentQCSerializer
-    queryset = OrderedProduct.objects.\
+    queryset = OrderedProduct.objects. \
         annotate(status=Case(
-                         When(shipment_status__in=[OrderedProduct.SHIPMENT_CREATED, OrderedProduct.QC_STARTED],
-                              then=Value(OrderedProduct.SHIPMENT_CREATED)),
-                         default=F('shipment_status'))).\
+        When(shipment_status__in=[OrderedProduct.SHIPMENT_CREATED, OrderedProduct.QC_STARTED],
+             then=Value(OrderedProduct.SHIPMENT_CREATED)),
+        default=F('shipment_status'))). \
         select_related('order', 'order__seller_shop', 'order__shipping_address', 'order__shipping_address__city',
-                       'order__shipping_address__state', 'order__shipping_address__pincode_link', 'invoice', 'qc_area').\
-        prefetch_related('qc_area__qc_desk_areas', 'qc_area__qc_desk_areas__qc_executive').\
+                       'order__shipping_address__state', 'order__shipping_address__pincode_link', 'invoice', 'qc_area'). \
+        prefetch_related('qc_area__qc_desk_areas', 'qc_area__qc_desk_areas__qc_executive'). \
         only('id', 'order__order_no', 'order__seller_shop__id', 'order__seller_shop__shop_name',
              'order__buyer_shop__id', 'order__buyer_shop__shop_name', 'order__shipping_address__pincode',
              'order__shipping_address__pincode_link_id', 'order__shipping_address__nick_name',
@@ -7176,9 +7185,8 @@ class ShipmentQCView(generics.GenericAPIView):
              'order__shipping_address__address_contact_number', 'order__shipping_address__address_type',
              'order__shipping_address__city_id', 'order__shipping_address__city__city_name',
              'order__shipping_address__state__state_name', 'shipment_status', 'invoice__invoice_no', 'qc_area__id',
-             'qc_area__area_id', 'qc_area__area_type', 'created_at').\
+             'qc_area__area_id', 'qc_area__area_type', 'created_at'). \
         order_by('-id')
-
 
     def get(self, request):
 
@@ -7239,7 +7247,7 @@ class ShipmentQCView(generics.GenericAPIView):
             self.queryset = self.queryset.filter(created_at__date=date)
 
         if qc_desk:
-            self.queryset = self.queryset.filter(Q(qc_area__qc_desk_areas__desk_number__icontains=qc_desk)|
+            self.queryset = self.queryset.filter(Q(qc_area__qc_desk_areas__desk_number__icontains=qc_desk) |
                                                  Q(qc_area__qc_desk_areas__name__icontains=qc_desk))
 
         if qc_executive:
@@ -7321,7 +7329,7 @@ class ShipmentPincodeFilterView(generics.GenericAPIView):
         city = self.request.GET.get('city')
 
         if search_text:
-            self.queryset = self.queryset.filter(Q(pincode__icontains=search_text)|
+            self.queryset = self.queryset.filter(Q(pincode__icontains=search_text) |
                                                  Q(city__city_name__icontains=search_text))
 
         if city:
@@ -7333,10 +7341,10 @@ class ShipmentPincodeFilterView(generics.GenericAPIView):
 class ShipmentShopFilterView(generics.GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (permissions.AllowAny,)
-    queryset = Shop.objects.filter(shop_type__shop_type__in =['r', 'f'], status=True, approval_status=2).\
-                            prefetch_related('shop_owner').\
-                            only('id', 'shop_name', 'shop_owner', 'shop_owner__phone_number', 'shop_type'). \
-                            order_by('-id')
+    queryset = Shop.objects.filter(shop_type__shop_type__in=['r', 'f'], status=True, approval_status=2). \
+        prefetch_related('shop_owner'). \
+        only('id', 'shop_name', 'shop_owner', 'shop_owner__phone_number', 'shop_type'). \
+        order_by('-id')
     serializer_class = ShopBasicSerializer
 
     def get(self, request):
@@ -7361,10 +7369,10 @@ class ShipmentShopFilterView(generics.GenericAPIView):
                 retiler_mapping__parent__shop_name__icontains=search_text))
         if city:
             self.queryset = self.queryset.filter(shop_name_address_mapping__address_type='shipping',
-                                            shop_name_address_mapping__city_id=city)
+                                                 shop_name_address_mapping__city_id=city)
         if pincode:
             self.queryset = self.queryset.filter(shop_name_address_mapping__address_type='shipping',
-                                            shop_name_address_mapping__pincode=pincode)
+                                                 shop_name_address_mapping__pincode=pincode)
         return self.queryset
 
 
@@ -7485,7 +7493,7 @@ class DispatchDashboardView(generics.GenericAPIView):
 
         self.queryset = get_logged_user_wise_query_set_for_dispatch(self.request.user, self.queryset)
         self.queryset = self.filter_dispatch_summary_data()
-        dispatch_summary_data = {"total": 0, "qc_done": 0, "moved_to_dispatch":0}
+        dispatch_summary_data = {"total": 0, "qc_done": 0, "moved_to_dispatch": 0}
         for obj in self.queryset:
             if obj.shipment_status == OrderedProduct.READY_TO_SHIP:
                 dispatch_summary_data['total'] += 1
