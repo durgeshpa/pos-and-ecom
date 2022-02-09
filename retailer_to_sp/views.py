@@ -30,9 +30,8 @@ from sp_to_gram.models import (
     OrderedProduct as SPOrderedProduct)
 from retailer_to_sp.models import (CartProductMapping, Order, OrderedProduct, OrderedProductMapping, Note, Trip,
                                    Dispatch, ShipmentRescheduling, PickerDashboard, update_full_part_order_status,
-
                                    Shipment, populate_data_on_qc_pass, OrderedProductBatch, ShipmentPackaging,
-                                   add_to_putaway_on_return, check_franchise_inventory_update, ShipmentNotAttempt)
+                                   add_to_putaway_on_return, check_franchise_inventory_update, ShipmentNotAttempt,ShipmentNotAttempt, BASIC, ECOM)
 from products.models import Product
 from retailer_to_sp.forms import (
     OrderedProductForm, OrderedProductMappingShipmentForm,
@@ -1569,6 +1568,7 @@ def not_attempt_update_shipment(shipment, shipment_proudcts_formset, shipment_no
             instance.returned_qty = 0
             instance.returned_damage_qty = 0
             instance.save()
+
 
 class RetailerCart(APIView):
     permission_classes = (AllowAny,)

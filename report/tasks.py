@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 
+from django.db.models import query
 import requests
 import logging
 from datetime import datetime
@@ -12,7 +13,7 @@ import requests
 from celery.task import task
 from celery.utils.log import get_task_logger
 
-from report.utils import return_report_operators
+from report.utils import return_host_report_operators, return_redash_query_no_and_key
 from report.models import AsyncReport
 from global_config.models import GlobalConfig
 from retailer_backend.common_function import send_mail
@@ -21,10 +22,10 @@ logger = logging.getLogger('report_task')
 celery_logger = get_task_logger(__name__)
 
 @task
-def ReportGenerator(rid):
+def HostReportGenerator(rid):
     try:
         report = AsyncReport.objects.get(id=rid)
-        generator_fnc, model = return_report_operators(report.report_name)
+        generator_fnc, model = return_host_report_operators(report.report_name)
         params = report.input_params
         queryset = model.objects.filter(**params)
         try:
@@ -36,6 +37,37 @@ def ReportGenerator(rid):
             mail_report.delay(rid)
         except Exception as exp:
             AsyncReport.objects.filter(id=rid).update(status='F')
+            logger.exception("Report generation failed due to {}".format(exp))
+            celery_logger.exception("Report generation failed due to {}".format(exp))
+    except AsyncReport.DoesNotExist:
+        logger.info("Async report entry does not exist with ID {}".format(rid))
+        celery_logger.exception("Async report entry does not exist with ID {}".format(rid))
+
+
+@task
+def RedashReportGenerator(rid):
+    try:
+        report = AsyncReport.objects.get(id=rid)
+        try:
+            query_no, api_key = return_redash_query_no_and_key(report.report_name)
+            #('336','CnT3JxUSvHeoNWA90G7baIJaRt1j4NazmKA4D0Mu')
+            #
+            URL = "https://redash.gramfactory.com/api/queries/{}/results.csv?api_key={}".format(query_no, api_key)
+            with requests.Session() as s:
+                try:
+                    response = s.post(URL, json=report.input_params)
+                    print(response, URL, report.input_params)
+                    file_name = "{}.csv".format(report.rid)
+                    report.report.save(file_name, BytesIO(response.content), save=False)
+                    AsyncReport.objects.filter(id=rid).update(status='S',
+                                                                report=report.report, 
+                                                                report_created_at=datetime.now())
+                    mail_report.delay(rid)
+                except Exception as exp:
+                    AsyncReport.objects.filter(id=rid).update(status='F')
+                    logger.exception("Report generation failed due to {}".format(exp))
+                    celery_logger.exception("Report generation failed due to {}".format(exp))
+        except KeyError as exp:
             logger.exception("Report generation failed due to {}".format(exp))
             celery_logger.exception("Report generation failed due to {}".format(exp))
     except AsyncReport.DoesNotExist:

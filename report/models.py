@@ -14,7 +14,7 @@ def rid_generator(self):
 
 class AsyncReport(models.Model):
 
-    REPORT_CHOICE = (
+    REPORT_CHOICES = (
         ('EO', 'Ecom - Orders'),
         ('BO', 'Buyer - Orders'),
         ('BP', 'Buyer - Payements'),
@@ -27,7 +27,11 @@ class AsyncReport(models.Model):
         ('C', 'Commercial'),
         ('CC', 'Customer Care'),
     )
-    REPORT_TYPE = (
+    REPORT_SOURCES = (
+        ('HT', 'Host'),
+        ('RH', 'Redash')
+    )
+    REPORT_TYPES = (
         ('AD', 'AdHoc'),
         ('SC', 'Scheduled')
     )
@@ -89,11 +93,13 @@ class AsyncReport(models.Model):
                            null=True,
                            blank=True)
     input_params = JSONField(null=True)
-    report_name = models.CharField(choices=REPORT_CHOICE,
+    report_name = models.CharField(choices=REPORT_CHOICES,
                                    max_length=5)
-    report_type = models.CharField(choices=REPORT_TYPE,
-                                   max_length=5,
+    report_type = models.CharField(choices=REPORT_TYPES,
+                                   max_length=5, 
                                    default='AD')
+    source = models.CharField(choices=REPORT_SOURCES, 
+                                   max_length=5, default='HT')
     status = models.CharField(choices=STATUS,
                              max_length=3, 
                              default='N')

@@ -949,10 +949,10 @@ def ParentProductsDownloadSampleCSV(request):
     writer = csv.writer(response)
     writer.writerow(
         ["Name", "Brand", "Category", "HSN", "GST", "CESS", "Surcharge", "Brand Case Size", "Inner Case Size",
-         "Product Type"])
+         "Product Type","parent_product_discription"])
     writer.writerow(
         ["testparent2", "Nestle", "Health Care, Beverages, Grocery & Staples", "123456", "18", "12", "100", "10", "10",
-         "b2c"])
+         "b2c",'product discription'])
     return response
 
 
@@ -1000,7 +1000,8 @@ def parent_product_upload(request):
                         product_hsn=ProductHSN.objects.filter(product_hsn_code=row[3].replace("'", '')).last(),
                         brand_case_size=int(row[7]),
                         inner_case_size=int(row[8]),
-                        product_type=row[9]
+                        product_type=row[9],
+                        product_discription=row[10]
                     )
                     parent_product.save()
                     parent_gst = gst_mapper(row[4])

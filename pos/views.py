@@ -685,6 +685,15 @@ def DownloadRetailerCatalogue(request, *args, **kwargs):
             if not product['is_deleted']:
                 is_visible = 'Yes'
 
+            if PosCartProductMapping.objects.filter(product__id=product['id'], is_grn_done=True,
+                                                    cart__retailer_shop__id=product['shop']).exists():
+                po_grn_initial_value = PosCartProductMapping.objects.filter(
+                    product__id=product['id'], is_grn_done=True).last()
+                initial_purchase_value = po_grn_initial_value.price * po_grn_initial_value.pack_size
+            else:
+                initial_purchase_value = product['initial_purchase_value'] \
+                    if product['initial_purchase_value'] else 0
+
             writer.writerow(
                 [product['id'], product['shop'], product['shop__shop_name'], product['sku'], product['name'],
                  product['mrp'], product['selling_price'], product['linked_product__product_sku'],
@@ -695,7 +704,7 @@ def DownloadRetailerCatalogue(request, *args, **kwargs):
                  product['discounted_product__sku'], discounted_stock, discounted_price, product['product_pack_type'],
                  measurement_category, product['purchase_pack_size'], online_enabled,
                  product['online_price'], is_visible, product['offer_price'], product['offer_start_date'],
-                 product['offer_end_date'], product['initial_purchase_value']])
+                 product['offer_end_date'], initial_purchase_value])
     else:
         writer.writerow(["Products for selected shop doesn't exists"])
     return response
@@ -1163,9 +1172,7 @@ class RetailerOrderedReportView(APIView):
                                                           invoice__created_at__date__lte=end_date,
                                                           order__ordered_cart__cart_type='BASIC',
                                                           order__seller_shop__id=shop,
-                                                          order__rt_payment_retailer_order__payment_type__type__in=
-                                                          ['cash', 'Cash On Delivery',
-                                                           'cash on delivery', 'Cash on delivery'],
+                                                          order__rt_payment_retailer_order__payment_type__type__iexact='cash',
                                                           order__ordered_by__id=user,
                                                           order__order_status__in=
                                                           [RetailerOrderedReport.ORDERED,
@@ -1178,7 +1185,7 @@ class RetailerOrderedReportView(APIView):
                                                             order__ordered_cart__cart_type='BASIC',
                                                             order__seller_shop__id=shop,
                                                             order__rt_payment_retailer_order__payment_type__type__in=
-                                                            ['PayU', 'credit', 'online', 'payu'],
+                                                            ['credit', 'online'],
                                                             order__ordered_by__id=user,
                                                             order__order_status__in=[
                                                                 RetailerOrderedReport.ORDERED,
@@ -1199,9 +1206,7 @@ class RetailerOrderedReportView(APIView):
                                                            invoice__created_at__date__lte=end_date,
                                                            order__ordered_cart__cart_type='ECOM',
                                                            order__seller_shop__id=shop,
-                                                           order__rt_payment_retailer_order__payment_type__type__in=
-                                                           ['cash', 'Cash On Delivery', 'cash on delivery',
-                                                            'Cash on delivery'],
+                                                           order__rt_payment_retailer_order__payment_type__type__iexact='cod',
                                                            order__ordered_by__id=user,
                                                            order__order_status__in=[RetailerOrderedReport.DELIVERED,
                                                                                     RetailerOrderedReport.PARTIALLY_RETURNED,
@@ -1213,7 +1218,7 @@ class RetailerOrderedReportView(APIView):
                                                              order__ordered_cart__cart_type='ECOM',
                                                              order__seller_shop__id=shop,
                                                              order__rt_payment_retailer_order__payment_type__type__in=
-                                                             ['PayU', 'credit', 'online', 'payu'],
+                                                             ['cod_upi', 'credit', 'online'],
                                                              order__ordered_by__id=user,
                                                              order__order_status__in=[
                                                                  RetailerOrderedReport.OUT_FOR_DELIVERY,

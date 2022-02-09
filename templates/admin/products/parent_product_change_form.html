@@ -10,6 +10,26 @@
             margin-left: 2px;
         }
     </style>
+    <script type="text/javascript">
+    tinyMCE.init({
+    mode: "textareas",
+   
+    theme: "silver",
+     plugins: [
+      'advlist autolink link image lists charmap print preview hr anchor pagebreak',
+      'searchreplace wordcount visualblocks visualchars code fullscreen insertdatetime media nonbreaking',
+      'table emoticons template paste help'
+    ],
+    toolbar: 'undo redo | styleselect | bold italic | alignleft aligncenter alignright alignjustify |bullist numlist outdent indent| ' +
+      'forecolor backcolor emoticons | help',
+    menu: {
+      favs: {title: 'My Favorites', items: 'code visualaid | searchreplace | emoticons'}
+    },
+    menubar: 'favs  edit view format tools table help',
+    branding: false,
+});
+    </script>
+
     <script>
         $(document).ready(function(jQuery) {
             var inline_admins = document.getElementsByClassName("tabular inline-related");
