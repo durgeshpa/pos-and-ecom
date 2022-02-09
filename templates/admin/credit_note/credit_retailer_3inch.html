@@ -47,14 +47,13 @@
 
         </div>
 
-         <div class="col-md-12  ">
+         <div class="col-md-12row  small" >
              <center>
                         <address>
-                            <span><strong>Credit Note</strong></span><br>
-                            <img src="{{scheme}}://{{url}}/static/admin/img/logo-peppertap.png" style="width: 150px; padding: 10px 0px 10px"><br/>
-                            <span style="font:16px"><strong>{{shipment.order.seller_shop.shop_name}}</strong></span>
-                            <br>
-                           {{address_line1}}<br>
+                            <br/>
+                            <img src="{{scheme}}://{{url}}/static/admin/img/logo-peppertap.png" style="width: 150px; padding: 10px 0px 10px">
+                            <br/><span style="font:16px"><strong>{{shipment.order.seller_shop.shop_name}}</strong></span><br>
+                            {{address_line1}}<br>
                             {{city}}, {{state}}, {{pincode}}<br>
                             GSTIN No : {{retailer_gstin_number}}<br>
                             Contact : {{address_contact_number}}<br>
@@ -62,11 +61,11 @@
              </center>
         </div>
         <hr style="border-top: 1px solid black;">
-        <div class="col-md-12" >
+        <div class="col-md-12 " >
             <div class="table ">
-                <table class="table" >
+                <table class="table small" >
                     <tr>
-                        <td class="text-left no-line" >
+                        <td class="text-left no-line" colspan="2">
                             <b>Customer:&nbsp;</b>{{shipment.order.buyer.first_name}}
                         </td>
                         </tr>
@@ -74,20 +73,16 @@
                         <td class="text-left no-line">
                             <b>Date:&nbsp;</b>{{order.created_at|date:"M d, Y" }}
                         </td>
-                    </tr>
-                    <tr>
                         <td class="text-left no-line" >
                             <b>Order No:&nbsp;</b>{{order.order_no}}
                         </td>
                     </tr>
                     <tr>
-                        <td class="text-left no-line" >
-                            <b>Credit Note No:&nbsp</b>{{credit_note.credit_note_id}}
+                        <td class="text-left no-line">
+                            <b>Pay Type:&nbsp;</b>{{payment_type}}
                         </td>
-                    </tr>
-                     <tr>
                         <td class="text-left no-line" >
-                            <b>Credit Note Date:&nbsp</b>{{credit_note.created_at|date:"M d, Y"}}
+                            <b>Cr Note Date:&nbsp</b>{{credit_note.created_at|date:"M d, Y"}}
                         </td>
                     </tr>
                 </table>
@@ -119,29 +114,29 @@
 </div>
 
 <div class="row">
-    <div class="panel panel-default">
+    <div class="panel panel-default small">
         <!-- <div class="panel-heading">
             <h3 class="panel-title">Order summary</h3>
         </div> -->
         <div class="panel-body">
             <div class="table" style="margin: auto; border : 1px;">
-                <table class="table table-condensed">
+                <table class="table table-condensed small" >
                     <thead>
-                    <tr class="text-center small">
-                        <td>No.</td>
-                        <td colspan="4">Product</td>
-                        <td>MRP</td>
-                        <td>QTY </td>
-                        <td>Rate</td>
-                        <td>Amount</td>
+                    <tr class="text-center">
+                        <th>No.</th>
+                        <th>Product</th>
+                        <th>MRP</th>
+                        <th>QTY </th>
+                        <th> Rate</th>
+                        <th>Amount</th>
                     </tr>
                     </thead>
                     <tbody>
                     {% for m in return_item_listing %}
                     {% if m.qty != 0 %}
-                    <tr class="text-center small" style="text-align:center;">
+                    <tr class="text-center " >
                         <td>{{forloop.counter}}</td>
-                        <td colspan="4">{{ m.product_short_description}}</td>
+                        <td>{{ m.product_short_description}}</td>
                         <td>{{ m.mrp}}</td>
                         <td>{{m.qty}}</td>
                         <td>{{m.rate}}</td>
@@ -152,7 +147,7 @@
                     {% endfor %}
                     <tr class="text-center small" style="text-align:center;">
                         <td></td>
-                        <td colspan="4"></td>
+                        <td></td>
                         <td></td>
                         <td class="thick-line">{{sum_qty}} PCS</td>
                         <td class="thick-line"></td>
@@ -160,7 +155,7 @@
                     </tr>
                     <tr class="text-center small" style="text-align:center;">
                         <td class="no-line"></td>
-                        <td class="no-line" colspan="4"></td>
+                        <td class="no-line"></td>
                         <td class="no-line"></td>
                         <td class="no-line"></td>
                         <td class="thick-line"></td>
@@ -168,18 +163,18 @@
                     </tr>
                     <tr class="text-center small" style="text-align:center;">
                         <td class="no-line"></td>
-                        <td class="no-line" colspan="4"></td>
+                        <td class="no-line"></td>
                         <td class="no-line"></td>
                         <td class="no-line"></td>
                         <td class="no-line">Discount Adjusted</td>
-                        <td class="no-line" colspan="3">
+                        <td class="no-line">
                             ₹{{discount| intcomma}}/-
                         </td>
                     </tr>
                     {% if reward_value != 0 %}
                     <tr class="text-center small" style="text-align:center;">
                         <td class="no-line"></td>
-                        <td class="no-line" colspan="4"></td>
+                        <td class="no-line"></td>
                         <td class="no-line"></td>
                         <td class="no-line"></td>
                         <td class="no-line">Reward Value Returned</td>
@@ -188,13 +183,13 @@
                         </td>
                     </tr>
                     {% endif %}
-                    <tr class="text-center small" style="text-align:left;">
+                    <tr class="text-center small" style="text-align:center;">
                         <td class="no-line"></td>
-                        <td class="no-line" colspan="4"></td>
+                        <td class="no-line"></td>
                         <td class="no-line"></td>
                         <td class="no-line"></td>
                         <td class="no-line">Total</td>
-                        <td class="no-line" colspan="2">
+                        <td class="no-line">
                             <strong> ₹{{total_amount|floatformat:0| intcomma}}/-</strong>
                         </td>
                     </tr>
@@ -207,18 +202,18 @@
                     </tbody>
                 </table>
 
-            <div class="text-left" style="margin: auto;">
+            <div class="text-left small" style="margin: auto;">
                 Declaration:
                 <br>
-                              We declare that this credit note shows
-                                        the actual price of the goods described and that all particulars are
-                                        true and correct.
+                               We declare that this invoice shows the actual
+                               price of the goods described and that
+                               all particulars are true and correct.
                 <br>
                                Note: This is a computer generated
                                         credit note <br><br>
 
             </div>
-            <div class="col-md-6">
+            <div class="col-md-6 small">
                 <div class="barcode">
 
                     <div style="text-align:center;">Credit Note No:<img src="data:image/png;base64,{{barcode}}" height="60px" width="200px">

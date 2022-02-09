@@ -11,7 +11,7 @@
     <title>invoice</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link href="{{scheme}}://{{url}}/static/admin/css/bootstrap.css" rel="stylesheet" id="bootstrap-css">
-    <link rel="stylesheet" type="text/css" href="{{scheme}}://{{url}}/static/admin/css/test.css">
+    <link rel="stylesheet" type="text/css" href="{{scheme}}://{{url}}/static/admin/css/invoice_retailer_3inch.css">
     <style>
 		/*
         .receipt{
@@ -156,7 +156,7 @@
                     <tbody>
                     {% for m in product_listing %}
                     {% if m.qty != 0 %}
-                    <tr class="text-center small" style="text-align:center;">
+                    <tr class="text-center " >
                         <td>{{forloop.counter}}</td>
                         <td>{{ m.product_short_description}}</td>
                         <td>{{ m.mrp}}</td>

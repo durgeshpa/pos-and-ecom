@@ -3980,7 +3980,7 @@ class OrderListCentral(GenericAPIView):
                                                               ordered_cart__cart_type='ECOM')
             if PosShopUserMapping.objects.get(shop=kwargs['shop'],
                                               user=self.request.user).user_type == 'delivery_person' or int(
-                    self.request.GET.get('self_assigned', '0')):
+                self.request.GET.get('self_assigned', '0')):
                 qs = qs.filter(delivery_person=self.request.user)
             if order_status:
                 order_status_actual = ONLINE_ORDER_STATUS_MAP.get(int(order_status), None)
@@ -5437,26 +5437,27 @@ def pdf_generation_retailer(request, order_id, delay=True):
     try:
         # Don't create pdf if already created
         if ordered_product.invoice.invoice_pdf.url:
-            raise Exception("testing")
             try:
                 phone_number, shop_name = order.buyer.phone_number, order.seller_shop.shop_name
                 media_url, file_name, manager = ordered_product.invoice.invoice_pdf.url, ordered_product.invoice.invoice_no, \
                                                 order.ordered_cart.seller_shop.pos_shop.filter(
                                                     user_type='manager').last()
 
-                # if delay:
-                #     whatsapp_opt_in.delay(phone_number, shop_name, media_url, file_name)
-                #     if manager and manager.user.email:
-                #         send_invoice_pdf_email.delay(manager.user.email, shop_name, order.order_no, media_url, file_name, 'order')
-                #     else:
-                #         logger.exception("Email not present for Manager {}".format(str(manager)))
-                #     # email task to send manager order invoice ^
-                # else:
-                #     if manager and manager.user.email:
-                #         send_invoice_pdf_email(manager.user.email, shop_name, order.order_no, media_url, file_name, 'order')
-                #     else:
-                #         logger.exception("Email not present for Manager {}".format(str(manager)))
-                #     return whatsapp_opt_in(phone_number, shop_name, media_url, file_name)
+                if delay:
+                    whatsapp_opt_in.delay(phone_number, shop_name, media_url, file_name)
+                    if manager and manager.user.email:
+                        send_invoice_pdf_email.delay(manager.user.email, shop_name, order.order_no, media_url,
+                                                     file_name, 'order')
+                    else:
+                        logger.exception("Email not present for Manager {}".format(str(manager)))
+                    # email task to send manager order invoice ^
+                else:
+                    if manager and manager.user.email:
+                        send_invoice_pdf_email(manager.user.email, shop_name, order.order_no, media_url, file_name,
+                                               'order')
+                    else:
+                        logger.exception("Email not present for Manager {}".format(str(manager)))
+                    return whatsapp_opt_in(phone_number, shop_name, media_url, file_name)
             except Exception as e:
                 logger.exception("Retailer Invoice send error order {}".format(order.order_no))
                 logger.exception(e)
@@ -5498,10 +5499,10 @@ def pdf_generation_retailer(request, order_id, delay=True):
             total += ordered_p['product_sub_total']
             total_mrp += m.shipped_qty * m.retailer_product.mrp
             product_listing.append(ordered_p)
-            if len(m.retailer_product.product_short_description) > 39:
+            if len(m.retailer_product.product_short_description) > 34:
                 count = count + 2  # height of double line
             else:
-                count = count + 1 # height of sinlge line
+                count = count + 1  # height of sinlge line
         cart = ordered_product.order.ordered_cart
         product_listing = sorted(product_listing, key=itemgetter('id'))
         # Total payable amount
@@ -5548,7 +5549,7 @@ def pdf_generation_retailer(request, order_id, delay=True):
             retailer_gstin_number = order.seller_shop.shop_name_documents.filter(
                 shop_document_type='gstin').last().shop_document_number
 
-        height = 140 + 5 * count #calculating page height of invoice 145 is base value
+        height = 140 + 5 * count  # calculating page height of invoice 145 is base value
         data = {"shipment": ordered_product, "order": ordered_product.order, "url": request.get_host(),
                 "scheme": request.is_secure() and "https" or "http", "total_amount": total_amount, 'total': total,
                 'discount': discount, "barcode": barcode, "product_listing": product_listing, "rupees": rupees,
@@ -5562,38 +5563,38 @@ def pdf_generation_retailer(request, order_id, delay=True):
                       "page-height": height, "page-width": 80, "no-stop-slow-scripts": True, "quiet": True, }
         response = PDFTemplateResponse(request=request, template=template_name, filename=filename,
                                        context=data, show_content_in_browser=False, cmd_options=cmd_option)
-        with open("/var/www/gmfact/retailer-backend/heelo.pdf", "wb") as f:
-            f.write(response.rendered_content)
-        content = render_to_string(template_name, data)
-        with open("abc.html", 'w') as static_file:
-            static_file.write(content)
+        # with open("/var/www/gmfact/retailer-backend/heelo.pdf", "wb") as f:
+        #     f.write(response.rendered_content)
+        # content = render_to_string(template_name, data)
+        # with open("abc.html", 'w') as static_file:
+        #     static_file.write(content)
 
-        # try:
-        #     # create_invoice_data(ordered_product)
-        #     ordered_product.invoice.invoice_pdf.save("{}".format(filename), ContentFile(response.rendered_content),
-        #                                              save=True)
-        #     phone_number = order.buyer.phone_number
-        #     shop_name = order.seller_shop.shop_name
-        #     media_url = ordered_product.invoice.invoice_pdf.url
-        #     file_name = ordered_product.invoice.invoice_no
-        #     manager = order.ordered_cart.seller_shop.pos_shop.filter(user_type='manager').last()
-        #     # whatsapp api call for sending an invoice
-        #     if delay:
-        #         whatsapp_opt_in.delay(phone_number, shop_name, media_url, file_name)
-        #         if manager and manager.user.email:
-        #             send_invoice_pdf_email.delay(manager.user.email, shop_name, order.order_no, media_url, file_name, 'order')
-        #         else:
-        #             logger.exception("Email not present for Manager {}".format(str(manager)))
-        #         # send email
-        #     else:
-        #         if manager and manager.user.email:
-        #             send_invoice_pdf_email(manager.user.email, shop_name, order.order_no, media_url, file_name, 'order')
-        #         else:
-        #             logger.exception("Email not present for Manager {}".format(str(manager)))
-        #         return whatsapp_opt_in(phone_number, shop_name, media_url, file_name)
-        # except Exception as e:
-        #     logger.exception("Retailer Invoice save and send error order {}".format(order.order_no))
-        #     logger.exception(e)
+        try:
+            # create_invoice_data(ordered_product)
+            ordered_product.invoice.invoice_pdf.save("{}".format(filename), ContentFile(response.rendered_content),
+                                                     save=True)
+            phone_number = order.buyer.phone_number
+            shop_name = order.seller_shop.shop_name
+            media_url = ordered_product.invoice.invoice_pdf.url
+            file_name = ordered_product.invoice.invoice_no
+            manager = order.ordered_cart.seller_shop.pos_shop.filter(user_type='manager').last()
+            # whatsapp api call for sending an invoice
+            if delay:
+                whatsapp_opt_in.delay(phone_number, shop_name, media_url, file_name)
+                if manager and manager.user.email:
+                    send_invoice_pdf_email.delay(manager.user.email, shop_name, order.order_no, media_url, file_name, 'order')
+                else:
+                    logger.exception("Email not present for Manager {}".format(str(manager)))
+                # send email
+            else:
+                if manager and manager.user.email:
+                    send_invoice_pdf_email(manager.user.email, shop_name, order.order_no, media_url, file_name, 'order')
+                else:
+                    logger.exception("Email not present for Manager {}".format(str(manager)))
+                return whatsapp_opt_in(phone_number, shop_name, media_url, file_name)
+        except Exception as e:
+            logger.exception("Retailer Invoice save and send error order {}".format(order.order_no))
+            logger.exception(e)
 
 
 def pdf_generation_return_retailer(request, order, ordered_product, order_return, return_items,
@@ -5644,6 +5645,7 @@ def pdf_generation_return_retailer(request, order, ordered_product, order_return
         # Total Returned Amount
         total = 0
         return_qty = 0
+        count=0
 
         for item in return_items:
             product = item.ordered_product.retailer_product
@@ -5664,6 +5666,10 @@ def pdf_generation_return_retailer(request, order, ordered_product, order_return
             return_qty += item.return_qty
             total += return_p['product_sub_total']
             return_item_listing.append(return_p)
+            if len(item.ordered_product.retailer_product.product_short_description) > 34:
+                count = count + 2  # height of double line
+            else:
+                count = count + 1  # height of sinlge line
 
         return_item_listing = sorted(return_item_listing, key=itemgetter('id'))
         # redeem value
@@ -5709,6 +5715,7 @@ def pdf_generation_return_retailer(request, order, ordered_product, order_return
             retailer_gstin_number = order.seller_shop.shop_name_documents.filter(
                 shop_document_type='gstin').last().shop_document_number
 
+        height = 140 + 5 * count  # calculating page height of invoice 145 is base value
         data = {
             "url": request.get_host(),
             "scheme": request.is_secure() and "https" or "http",
@@ -5735,7 +5742,7 @@ def pdf_generation_return_retailer(request, order, ordered_product, order_return
         }
 
         cmd_option = {"margin-top": 10, "margin-left": 0, "margin-right": 0, "javascript-delay": 0,
-                      "footer-center": "[page]/[topage]", "page-height": 300, "page-width": 80,
+                       "page-height": height, "page-width": 80,
                       "no-stop-slow-scripts": True, "quiet": True, }
         response = PDFTemplateResponse(request=request, template=template_name, filename=filename,
                                        context=data, show_content_in_browser=False, cmd_options=cmd_option)
