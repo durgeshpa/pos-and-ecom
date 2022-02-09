@@ -325,6 +325,29 @@ class ProductSerializer(serializers.ModelSerializer):
     """
     image = serializers.SerializerMethodField()
     online_price = serializers.SerializerMethodField()
+    category_id = serializers.SerializerMethodField()
+    category = serializers.SerializerMethodField()
+    brand_id = serializers.SerializerMethodField()
+    brand = serializers.SerializerMethodField()
+
+
+    def get_brand(self, obj):
+        brand = str(obj.linked_product.product_brand)
+        return brand if brand else ''
+
+    def get_brand_id(self, obj):
+        brand_id = str(obj.linked_product.product_brand.id)
+        return brand_id if brand_id else ''
+
+    def get_category(self, obj):
+        category = [str(c.category) for c in
+                    obj.linked_product.parent_product.parent_product_pro_category.filter(status=True)]
+        return category if category else ''
+
+    def get_category_id(self, obj):
+        category_id = [str(c.category_id) for c in
+                       obj.linked_product.parent_product.parent_product_pro_category.filter(status=True)]
+        return category_id if category_id else ''
 
     def get_online_price(self, obj):
         if obj.online_price:
@@ -353,7 +376,7 @@ class ProductSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = RetailerProduct
-        fields = ('id', 'name', 'mrp', 'online_price', 'image')
+        fields = ('id', 'name', 'mrp', 'online_price', 'image', 'category', 'category_id', 'brand', 'brand_id',)
 
 
 class TagProductSerializer(serializers.ModelSerializer):

@@ -565,13 +565,13 @@ LOGGING = {
        'file-info': {
            'level': 'INFO',
            'class': 'logging.FileHandler',
-           'filename': '/var/log/retailer-backend/info.log',
+           'filename': 'info.log',
            'formatter': 'verbose',
        },
        'file-error': {
            'level': 'ERROR',
            'class': 'logging.FileHandler',
-           'filename': '/var/log/retailer-backend/error.log',
+           'filename': 'error.log',
            'formatter': 'verbose',
        },
        # 'console': {
@@ -581,7 +581,7 @@ LOGGING = {
         'cron_log_file': {
              'level': 'INFO',
              'class': 'logging.FileHandler',
-             'filename': '/var/log/retailer-backend/scheduled_jobs.log',
+             'filename': 'scheduled_jobs.log',
              'formatter': 'verbose'
          },
 
@@ -627,3 +627,27 @@ LOGIN_URL = 'rest_framework:login'
 LOGOUT_URL = 'rest_framework:logout'
 
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'console': {
+            'level': 'DEBUG',
+            'class': 'logging.StreamHandler',
+        }
+    },
+    'loggers': {
+        'django.db.backends': {
+            'handlers': ['console'],
+            'level': 'DEBUG',
+        },
+    }
+}
+
+WKHTMLTOPDF_CMD = '/usr/local/bin/wkhtmltopdf'
+WKHTMLTOPDF_CMD_OPTIONS = {
+    'quiet': True,
+    'enable_local_file_access': True
+}
+
