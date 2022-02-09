@@ -3033,7 +3033,7 @@ class DispatchCenterCrateSerializer(serializers.ModelSerializer):
 
     def get_trip_loading_status(self, obj):
         if not obj.is_available and obj.crate.crate_trips.exists():
-            return obj.crate.crate_trips.last().crate_status
+            return obj.crate.crate_trips.last().get_crate_status_display()
         return None
 
 
