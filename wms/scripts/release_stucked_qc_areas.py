@@ -5,6 +5,10 @@ from wms.models import Putaway, QCDeskQCAreaAssignmentMapping
 
 
 def run():
+    release_stucked_qc_areas_by_cron()
+
+
+def release_stucked_qc_areas_by_cron():
     print('release_stucked_qc_areas | STARTED')
 
     query = """
