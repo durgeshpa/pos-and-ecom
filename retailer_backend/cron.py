@@ -159,15 +159,3 @@ def sync_es_products():
         cron_logger.info('sync_es_products ended for Shop {} '.format(shop))
         logger.info("sleep 10")
         time.sleep(10)
-
-from sp_to_gram.tasks import upload_shop_stock
-def sync_es_products_api(request):
-    sp_shop_type = ShopType.objects.all().filter(shop_type="sp").last()
-    shop_list = Shop.objects.filter(shop_type=sp_shop_type).all()
-    for shop in shop_list:
-        logger.info("sync shop: %s", shop)
-        cron_logger.info('sync_es_products started for Shop {} '.format(shop))
-        upload_shop_stock(600)
-        cron_logger.info('sync_es_products ended for Shop {} '.format(shop))
-        logger.info("sleep 10")
-        #time.sleep(10)
