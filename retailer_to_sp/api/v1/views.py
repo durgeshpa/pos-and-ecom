@@ -4454,7 +4454,7 @@ class OrderedItemCentralDashBoard(APIView):
             inv_amt=RoundAmount(Sum(F('effective_price') * F('shipped_qty')))).\
             aggregate(amt=Sum('inv_amt')).get('amt')
         pos_total_invoice_refund_amount = pos_invoice_returns.aggregate(Sum('order_return__refund_amount')).\
-            get('order_return__refund_amount')
+            get('order_return__refund_amount__sum')
         if pos_total_invoice_refund_amount:
             pos_total_invoices_final_amount -= Decimal(pos_total_invoice_refund_amount)
         # ECOM Invoice Count
@@ -4462,7 +4462,7 @@ class OrderedItemCentralDashBoard(APIView):
             inv_amt=RoundAmount(Sum(F('effective_price') * F('shipped_qty')))).\
             aggregate(amt=Sum('inv_amt')).get('amt')
         ecom_total_invoice_refund_amount = ecom_invoice_returns.aggregate(Sum('order_return__refund_amount')). \
-            get('order_return__refund_amount')
+            get('order_return__refund_amount__sum')
         if ecom_total_invoice_refund_amount:
             ecom_total_invoices_final_amount -= Decimal(ecom_total_invoice_refund_amount)
 
