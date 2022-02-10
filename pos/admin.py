@@ -198,13 +198,24 @@ class RetailerProductAdmin(admin.ModelAdmin):
 
 
 class PaymentAdmin(admin.ModelAdmin):
-    list_display = ( 'order', 'order_status', 'seller_shop', 'payment_type', 'transaction_id', 'amount', 'paid_by', 'processed_by', 'created_at')
+    list_display = ( 'order', 'order_status', 'seller_shop', 'payment_type', 'transaction_id', 'order_amount',
+                     'invoice_amount', 'paid_by', 'processed_by', 'created_at')
     list_per_page = 10
     search_fields = ('order__order_no', 'paid_by__phone_number', 'order__seller_shop__shop_name')
     list_filter = [('order__seller_shop', RelatedOnlyDropdownFilter),
                    ('payment_type', RelatedOnlyDropdownFilter),
                    ('created_at', DateRangeFilter)]
     actions = ['download_payment_report']
+
+    def order_amount(self, obj):
+        if obj:
+            return obj.amount
+        return None
+
+    def invoice_amount(self, obj):
+        if obj and obj.order.rt_order_order_product.last():
+            return obj.order.rt_order_order_product.last().invoice_amount
+        return None
 
     def get_queryset(self, request):
         qs = super(PaymentAdmin, self).get_queryset(request)
