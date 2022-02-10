@@ -663,7 +663,7 @@ class PaymentSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Payment
-        fields = ('payment_type', 'transaction_id', 'amount')
+        fields = ('id', 'payment_type', 'transaction_id', 'amount')
 
 
 class OrderReturnSerializerID(serializers.ModelSerializer):
@@ -726,7 +726,7 @@ class BasicOrderListSerializer(serializers.ModelSerializer):
     class Meta:
         model = Order
         fields = ('id', 'order_status', 'order_cancel_reson', 'order_amount', 'order_no', 'buyer', 'created_at',
-                  'payment', 'invoice_amount', 'delivery_persons', 'ordered_product', 'rt_return_order')
+                  'payment', 'invoice_amount', 'delivery_persons', 'ordered_product', 'rt_return_order', 'ordered_cart')
 
 
 class BasicCartListSerializer(serializers.ModelSerializer):
@@ -1024,7 +1024,7 @@ class BasicOrderSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Order
-        fields = ('id', 'order_no', 'products', 'ongoing_return')
+        fields = ('id', 'order_no', 'ordered_cart', 'products', 'ongoing_return')
 
 
 class OrderReturnCheckoutSerializer(serializers.ModelSerializer):
@@ -3117,6 +3117,7 @@ class PosEcomOrderDetailSerializer(serializers.ModelSerializer):
     payment = serializers.SerializerMethodField('payment_data')
     order_cancel_reson = serializers.SerializerMethodField()
     ordered_product = serializers.SerializerMethodField()
+
     def __init__(self, *args, **kwargs):
         super(PosEcomOrderDetailSerializer,self).__init__( *args, **kwargs)
         self.total_mrp = 0.0
@@ -3329,7 +3330,7 @@ class PosEcomOrderDetailSerializer(serializers.ModelSerializer):
         fields = ('id', 'order_no', 'creation_date', 'order_status', 'items', 'order_summary', 'return_summary',
                   'invoice_summary', 'ordered_product', 'invoice_amount', 'address', 'order_update',
                   'ecom_estimated_delivery_time', 'delivery_person', 'order_status_display', 'order_cancel_reson',
-                  'payment')
+                  'payment', 'ordered_cart')
 
 
 class PRNReturnItemsSerializer(serializers.ModelSerializer):

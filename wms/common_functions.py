@@ -10,6 +10,7 @@ from celery.task import task
 from decouple import config
 # django imports
 from django import forms
+
 from django.db import transaction
 from django.db.models import Sum, Q
 from rest_framework import status
@@ -2628,7 +2629,9 @@ def send_update_to_qcdesk(shipment_instance):
     info_logger.info(f"send_update_to_qcdesk|QC Started|Shipment ID {shipment_instance.id}")
     order_no = shipment_instance.order.order_no
     if shipment_instance.qc_area.qc_area_assigned_desks.filter(token_id=order_no).exists():
-        shipment_instance.qc_area.qc_area_assigned_desks.filter(token_id=order_no).update(qc_done=True)
+        assigned_qc_area = shipment_instance.qc_area.qc_area_assigned_desks.filter(token_id=order_no).last()
+        assigned_qc_area.qc_done = True
+        assigned_qc_area.save()
         info_logger.info(f"send_update_to_qcdesk|QCDesk Mapping updated|Shipment ID {shipment_instance.id}, "
                          f"Order no {order_no}")
     else:

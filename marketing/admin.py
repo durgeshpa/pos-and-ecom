@@ -155,10 +155,10 @@ class RewardLogAdmin(admin.ModelAdmin):
             return sales_obj.shop_loc if sales_obj else '-'
         if obj.transaction_type in ['order_indirect_credit', 'order_credit', 'order_debit',
                                     'order_cancel_credit', 'order_cancel_debit']:
-            order = Order.objects.get(order_no=obj.transaction_id)
+            order = Order.objects.filter(order_no=obj.transaction_id).last()
             return order.seller_shop
         if obj.transaction_type in ['order_return_credit', 'order_return_debit']:
-            order = Order.objects.get(rt_return_order__id=obj.transaction_id)
+            order = Order.objects.filter(rt_return_order__id=obj.transaction_id).last()
             return order.seller_shop
         return '-'
 
@@ -169,10 +169,10 @@ class RewardLogAdmin(admin.ModelAdmin):
             return sales_obj.invoice_number if sales_obj else '-'
         if obj.transaction_type in ['order_indirect_credit', 'order_credit', 'order_debit',
                                     'order_cancel_credit', 'order_cancel_debit']:
-            order = OrderedProduct.objects.get(order__order_no=obj.transaction_id)
+            order = OrderedProduct.objects.filter(order__order_no=obj.transaction_id).last()
             return order.invoice_no
         if obj.transaction_type in ['order_return_credit', 'order_return_debit']:
-            order = OrderedProduct.objects.get(order__rt_return_order__id=obj.transaction_id)
+            order = OrderedProduct.objects.filter(order__rt_return_order__id=obj.transaction_id).last()
             return order.invoice_no
         return '-'
 

@@ -1205,14 +1205,20 @@ class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
 class ShipmentReschedulingAdminNested(NestedTabularInline):
     model = ShipmentRescheduling
     form = ShipmentReschedulingForm
-    fields = ['rescheduling_reason', 'rescheduling_date']
+    fields = ['rescheduling_reason', 'rescheduling_date', 'rescheduled_count']
     max_num = 1
 
     def has_delete_permission(self, request, obj=None):
         return False
 
     def has_change_permission(self, request, obj=None):
-        return False
+        if not request.user.has_perm('retailer_to_sp.change_shipmentrescheduling'):
+            return False
+        if obj:
+            instance = ShipmentRescheduling.objects.filter(shipment=obj).last()
+            if instance and instance.rescheduled_count > 1:
+                return False
+        return True
 
 
 @admin.register(ShipmentNotAttempt)
@@ -1311,6 +1317,22 @@ class OrderedProductAdmin(NestedModelAdmin):
     form = OrderedProductReschedule
     ordering = ['-created_at']
     classes = ['table_inline', ]
+
+    def get_inline_instances(self, request, obj=None):
+        inline_instances = []
+        inlines = self.inlines
+
+        for inline_class in inlines:
+            inline = inline_class(self.model, self.admin_site)
+            if request:
+                if not (inline.has_add_permission(request, obj) or
+                        inline.has_change_permission(request, obj) or
+                        inline.has_delete_permission(request, obj)):
+                    continue
+                if not inline.has_add_permission(request, obj):
+                    inline.max_num = 0
+            inline_instances.append(inline)
+        return inline_instances
 
     def previous_trip(self, obj):
         if obj and obj.rescheduling_shipment.all().exists() and obj.not_attempt_shipment.all().exists():
