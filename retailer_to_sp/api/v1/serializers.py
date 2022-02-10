@@ -2060,10 +2060,10 @@ class OrderPaymentStatusChangeSerializers(serializers.ModelSerializer):
             raise serializers.ValidationError(f"Invalid payment {payment_instance} for the order {order_instance}")
 
         if order_status == Order.PAYMENT_COD and order_instance.order_app_type == Order.POS_WALKIN:
-            payment_type_instance = PaymentType.objects.get(id=1)
+            payment_type_instance = PaymentType.objects.filter(type="cash", app='pos').last()
 
         elif order_status == Order.PAYMENT_COD and order_instance.order_app_type == Order.POS_ECOMM:
-            payment_type_instance = PaymentType.objects.get(id=4)
+            payment_type_instance = PaymentType.objects.filter(type="cod", app='ecom').last()
         else:
             if 'payment_type_id' not in self.initial_data or not self.initial_data['payment_type_id']:
                 raise serializers.ValidationError("'payment_type_id' | This is mandatory")
