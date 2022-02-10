@@ -4225,8 +4225,12 @@ class OrderedItemCentralDashBoard(APIView):
         ecom_orders = orders.filter(order_app_type=Order.POS_ECOMM)
 
         # invoices for shop
-        invoices = OrderedProductMapping.objects.filter(ordered_product__order__seller_shop=shop)\
+        invoices = OrderedProductMapping.objects.filter(ordered_product__order__seller_shop=shop).filter(
+            ~Q(ordered_product__order__ordered_cart__cart_type='ECOM',
+               ordered_product__order__rt_payment_retailer_order__payment_type__type__iexact='cod',
+               ordered_product__order__order_status = Order.OUT_FOR_DELIVERY))\
             .exclude(ordered_product__order__order_status=Order.CANCELLED)
+
         # pos invoices for shop
         pos_invoices = invoices.filter(ordered_product__order__order_app_type=Order.POS_WALKIN)
         # ecom invoices for shop
