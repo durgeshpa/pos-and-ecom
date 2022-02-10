@@ -122,7 +122,9 @@ from .serializers import (ProductsSearchSerializer, CartSerializer, OrderSeriali
                           DispatchCenterCrateSerializer, DispatchCenterShipmentPackageSerializer,
                           LoadLastMileInvoiceSerializer, LastMileTripSummarySerializer,
                           LastMileLoadVerifyPackageSerializer, RemoveLastMileInvoiceFromTripSerializer,
-                          VerifyNotAttemptShipmentPackageSerializer, VerifyShipmentPackageSerializer
+                          VerifyNotAttemptShipmentPackageSerializer, VerifyShipmentPackageSerializer,
+                          DetailedShipmentPackageInfoSerializer, DetailedShipmentPackagingMappingInfoSerializer,
+                          VerifyBackwardTripItemsSerializer
                           )
 from ...common_validators import validate_shipment_dispatch_item, validate_trip_user, \
     get_shipment_by_crate_id, get_shipment_by_shipment_label, validate_shipment_id, validate_trip_shipment, \
@@ -9595,3 +9597,84 @@ class LastMileLoadVerifyPackageView(generics.GenericAPIView):
             return get_response('Package loaded successfully!', serializer.data)
         return get_response(serializer_error(serializer), False)
 
+class VerifyBackwardTripItems(generics.GenericAPIView):
+    """
+    API view to verify Packages reaching warehouse in backward dispatch trip
+    """
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    serializer_class = VerifyBackwardTripItemsSerializer
+    queryset = ShipmentPackagingMapping.objects\
+        .select_related('ordered_product','ordered_product__product')\
+        .prefetch_related('shipment_packaging__trip_packaging_details__trip_shipment',
+                          'ordered_product__rt_ordered_product_mapping')\
+        .order_by('-id')
+
+
+    def get(self, request):
+
+        info_logger.info(f"VerifyBackwardTripItems | GET | user {request.user} | request {request.GET}")
+
+        if request.GET.get('id'):
+            id_validation = validate_id(self.queryset, int(request.GET.get('id')))
+            if 'error' in id_validation:
+                return get_response(id_validation['error'])
+            item_data = id_validation['data']
+
+        else:
+            """ Get Item Data for specific trip and batch/ean """
+            if not request.GET.get('trip_id'):
+                return get_response('trip_id is required', False)
+            elif not (request.GET.get('batch_id') or request.GET.get('ean')):
+                return get_response('please batch_id id / ean  is required', False)
+            item_data = self.filter_item_data()
+
+        serializer = self.serializer_class(item_data, many=True)
+        msg = "" if item_data.exists() else "no item found"
+        return get_response(msg, serializer.data, True)
+
+    ## Permission to return executive only
+    def put(self, request):
+
+        info_logger.info(f"VerifyBackwardTripItems | GET | user {request.user} | request data {request.data}")
+
+        modified_data = validate_data_format(self.request)
+        if 'error' in modified_data:
+            return get_response(modified_data['error'])
+
+        if 'trip_id' not in modified_data:
+            return get_response('trip_id is required.', False)
+        elif 'package_id' not in modified_data:
+            return get_response('package_id is required.', False)
+        elif 'id' not in modified_data:
+            return get_response('id is required.', False)
+
+        # validations for input id
+        id_validation = validate_id(self.queryset, int(modified_data['id']))
+        if 'error' in id_validation:
+            return get_response(id_validation['error'])
+        item_instance = id_validation['data'].last()
+
+        serializer = self.serializer_class(instance=item_instance, data=modified_data)
+        if serializer.is_valid():
+            serializer.save(updated_by=request.user)
+            info_logger.info(" ")
+            return get_response('process_shipment updated!', serializer.data)
+        return get_response(serializer_error(serializer), False)
+
+    def filter_item_data(self):
+        """ Filters the Shipment data based on request"""
+        trip_id = self.request.GET.get('trip_id')
+        batch_id = self.request.GET.get('batch_id')
+        ean = self.request.GET.get('ean')
+
+        if trip_id:
+            self.queryset = self.queryset.filter(shipment_packaging__trip_packaging_details__trip_shipment__trip_id=trip_id)
+
+        if batch_id:
+            self.queryset = self.queryset.filter(ordered_product__rt_ordered_product_mapping__batch_id=batch_id)
+
+        if ean:
+            self.queryset = self.queryset.filter(ordered_product__product__product_ean_code__icontains=ean)
+
+        return self.queryset.distinct('id')

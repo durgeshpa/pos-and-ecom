@@ -3357,16 +3357,18 @@ class ShipmentPackagingMapping(BaseTimestampUserModel):
     ordered_product = models.ForeignKey(OrderedProductMapping, related_name='shipment_product_packaging',
                                         on_delete=models.DO_NOTHING)
     quantity = models.PositiveIntegerField(null=True)
-    return_qty = models.PositiveIntegerField(null=True)
+    return_qty = models.PositiveIntegerField(default=0)
+    damaged_qty = models.PositiveIntegerField(default=0)
+    missing_qty = models.PositiveIntegerField(default=0)
     is_verified = models.BooleanField(default=False)
-
 
 
 class ShipmentPackagingBatch(BaseTimestampUserModel):
     shipment_product_packaging = models.ForeignKey(ShipmentPackagingMapping, related_name='packaging_product_details',
                                                    on_delete=models.DO_NOTHING)
-    product_batch_no = models.CharField(max_length=50)
-    return_qty = models.PositiveIntegerField(null=True)
+    batch_id = models.CharField(max_length=50)
+    return_qty = models.PositiveIntegerField(default=0)
+    damaged_qty = models.PositiveIntegerField(default=0)
 
 
 class DispatchTrip(BaseTimestampUserModel):
