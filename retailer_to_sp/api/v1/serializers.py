@@ -1681,13 +1681,14 @@ class RetailerOrderedProductMappingSerializer(serializers.ModelSerializer):
             product_batch.pop('total_qc_qty')
             self.update_product_batch_data(product_batch_instance, product_batch)
 
-        if packaging:
-            if ShipmentPackagingMapping.objects.filter(ordered_product=process_shipments_instance).exists():
-                shipment_packaging_ids = list(ShipmentPackagingMapping.objects.filter(ordered_product=process_shipments_instance)\
-                                                                     .values_list('shipment_packaging_id', flat=True))
-                ShipmentPackagingMapping.objects.filter(ordered_product=process_shipments_instance).delete()
+        if ShipmentPackagingMapping.objects.filter(ordered_product=process_shipments_instance).exists():
+            shipment_packaging_ids = list(ShipmentPackagingMapping.objects.filter(ordered_product=process_shipments_instance)\
+                                                                 .values_list('shipment_packaging_id', flat=True))
+            ShipmentPackagingMapping.objects.filter(ordered_product=process_shipments_instance).delete()
 
-                ShipmentPackaging.objects.filter(id__in=shipment_packaging_ids, packaging_details__isnull=True).delete()
+            ShipmentPackaging.objects.filter(id__in=shipment_packaging_ids, packaging_details__isnull=True).delete()
+
+        if packaging:
 
             for package_obj in packaging:
                 if package_obj['type'] == ShipmentPackaging.CRATE:
