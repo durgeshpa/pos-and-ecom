@@ -23,7 +23,7 @@ from retailer_to_sp.models import (CartProductMapping, Cart, Order, OrderedProdu
                                    ShipmentPackagingMapping, DispatchTrip, DispatchTripShipmentMapping,
                                    DispatchTripShipmentPackages, ShipmentNotAttempt, PACKAGE_VERIFY_CHOICES,
                                    LastMileTripShipmentMapping, ShopCrate, DispatchTripCrateMapping,
-                                   add_to_putaway_on_return, LastMileTripShipmentPackages)
+                                   add_to_putaway_on_return, LastMileTripShipmentPackages, ShipmentPackagingBatch)
 
 from retailer_to_gram.models import (Cart as GramMappedCart, CartProductMapping as GramMappedCartProductMapping,
                                      Order as GramMappedOrder, OrderedProduct as GramMappedOrderedProduct,
@@ -4299,27 +4299,44 @@ class PackagesUnderTripSerializer(serializers.ModelSerializer):
 
 
 class ShipmentPackagingBatchInfoSerializer(serializers.ModelSerializer):
-    product_batch_no = serializers.CharField(read_only=True)
-    return_qty = serializers.IntegerField(read_only=True)
 
     class Meta:
-        model = ShipmentPackagingMapping
-        fields = ('id', 'product_batch_no', 'return_qty')
+        model = ShipmentPackagingBatch
+        fields = ('batch_id', 'return_qty', 'damaged_qty')
 
+
+class ProductDetailsForBckTripVerification(serializers.ModelSerializer):
+    product = serializers.SerializerMethodField(read_only=True)
+    batch_details = serializers.SerializerMethodField(read_only=True)
+
+    def get_product(self, obj):
+        return ProductSerializer(obj.product).data
+
+    def get_batch_details(self, obj):
+        if self.context['shipment_packaging_mapping'].packaging_product_details.exists():
+            return ShipmentPackagingBatchInfoSerializer(
+                                            self.context['shipment_packaging_mapping'].packaging_product_details, many=True).data
+        return obj.rt_ordered_product_mapping.values('batch_id')
+
+    class Meta:
+        model = OrderedProductMapping
+        fields = ('product', 'batch_details')
 
 class DetailedShipmentPackagingMappingInfoSerializer(serializers.ModelSerializer):
-    packaging_product_details = ShipmentPackagingBatchInfoSerializer(read_only=True, many=True)
-    product = serializers.SerializerMethodField(read_only=True)
+    product_details = serializers.SerializerMethodField()
     quantity = serializers.IntegerField(read_only=True)
     return_qty = serializers.IntegerField(read_only=True)
     is_verified = serializers.BooleanField(read_only=True)
 
-    def get_product(self, obj):
-        return ProductSerializer(obj.ordered_product.product).data
+    def get_product_details(self, obj):
+        return ProductDetailsForBckTripVerification(obj.ordered_product,
+                                                    context={'shipment_packaging_mapping':obj}).data
 
     class Meta:
         model = ShipmentPackagingMapping
-        fields = ('id', 'product', 'quantity', 'return_qty', 'is_verified', 'packaging_product_details')
+        fields = ('id', 'product_details', 'quantity', 'return_qty', 'damaged_qty', 'missing_qty', 'is_verified',
+                  'product_details')
+
 
 
 class DetailedShipmentPackageInfoSerializer(serializers.ModelSerializer):
@@ -4337,16 +4354,12 @@ class DetailedShipmentPackageInfoSerializer(serializers.ModelSerializer):
 
 
 class MarkShipmentPackageVerifiedSerializer(serializers.ModelSerializer):
-    shipment_packaging = DetailedShipmentPackageInfoSerializer(read_only=True)
-    trip_shipment = DispatchTripShipmentMappingSerializer(read_only=True)
+    shipment_packaging = DispatchItemsSerializer(read_only=True)
     package_status = ChoicesSerializer(choices=DispatchTripShipmentPackages.PACKAGE_STATUS, required=False)
-    created_by = UserSerializer(read_only=True)
-    updated_by = UserSerializer(read_only=True)
 
     class Meta:
         model = DispatchTripShipmentPackages
-        fields = ('id', 'shipment_packaging', 'trip_shipment', 'package_status', 'is_return_verified',
-                  'created_at', 'created_by', 'updated_at', 'updated_by')
+        fields = ('id', 'shipment_packaging', 'package_status', 'is_return_verified')
 
     def validate(self, data):
         # Validate request data
@@ -4373,16 +4386,16 @@ class MarkShipmentPackageVerifiedSerializer(serializers.ModelSerializer):
             trip_shipment_map = DispatchTripShipmentPackages.objects.filter(
                 trip_shipment__trip=trip, shipment_packaging=package).last()
             if trip_shipment_map.is_return_verified:
-                return serializers.ValidationError("This package is already verified.")
+                raise serializers.ValidationError("This package is already verified.")
             if trip_shipment_map.package_status != DispatchTripShipmentPackages.UNLOADED:
-                return serializers.ValidationError(f"Package is in {trip_shipment_map.package_status} state, "
+                raise serializers.ValidationError(f"Package is in {trip_shipment_map.package_status} state, "
                                                    f"cannot verify at the moment")
         else:
-            return serializers.ValidationError("Invalid package to the Trip")
+            raise serializers.ValidationError("Invalid package to the Trip")
 
-        if 'force_verify' not in self.initial_data or self.initial_data['force_verify'] is False:
-            if ShipmentPackagingMapping.objects.filter(shipment_packaging=package, is_verified=False).exists():
-                return serializers.ValidationError("This shipment has unverified products.")
+        # if 'force_verify' not in self.initial_data or self.initial_data['force_verify'] is False:
+        if ShipmentPackagingMapping.objects.filter(shipment_packaging=package, is_verified=False).exists():
+            raise serializers.ValidationError("This shipment has unverified products.")
 
         data['is_return_verified'] = True
 
@@ -4747,3 +4760,90 @@ class LastMileLoadVerifyPackageSerializer(serializers.ModelSerializer):
                                             output_field=FloatField())).get('total_weight')
             trip.weight = trip.weight + package_weight
 
+
+class VerifyBackwardTripItemsSerializer(serializers.ModelSerializer):
+    product_details = serializers.SerializerMethodField()
+    quantity = serializers.IntegerField(read_only=True)
+    return_qty = serializers.IntegerField(read_only=True)
+    is_verified = serializers.BooleanField(read_only=True)
+
+    def get_product_details(self, obj):
+        return ProductDetailsForBckTripVerification(obj.ordered_product,
+                                                    context={'shipment_packaging_mapping': obj}).data
+
+    class Meta:
+        model = ShipmentPackagingMapping
+        fields = ('id', 'product_details', 'quantity', 'return_qty', 'damaged_qty', 'missing_qty', 'is_verified',
+                  'product_details')
+
+    def validate(self, data):
+        if self.instance.shipment_packaging_id != self.initial_data['package_id']:
+            raise serializers.ValidationError('Item does not belong to this package.')
+        elif self.instance.ordered_product.product_id != self.initial_data['product_id']:
+            raise serializers.ValidationError('Invalid product id.')
+        elif not DispatchTripShipmentPackages.objects.filter(
+                shipment_packaging=self.instance.shipment_packaging,
+                trip_shipment__trip_id=self.initial_data['trip_id']).exists():
+            raise serializers.ValidationError('package does not belong to this trip.')
+        trip_package = DispatchTripShipmentPackages.objects.filter(
+                shipment_packaging=self.instance.shipment_packaging,
+                trip_shipment__trip_id=self.initial_data['trip_id']).last()
+        if trip_package.package_status != DispatchTripShipmentPackages.UNLOADED:
+            raise serializers.ValidationError(f'Invalid package state {trip_package.get_package_status_display()}')
+
+        item_damaged_qty = 0
+        item_missing_qty = 0
+        item_return_qty = 0
+
+        # Batch Validations
+        if 'batch_details' not in self.initial_data or not isinstance(self.initial_data['batch_details'], list) or \
+                not self.initial_data['batch_details']:
+            raise serializers.ValidationError("'batch_details' | This is mandatory")
+
+        for product_batch in self.initial_data['batch_details']:
+            if 'batch_id' not in product_batch or not product_batch['batch_id']:
+                raise serializers.ValidationError("'batch_id' | This is mandatory.")
+
+            if 'return_qty' not in product_batch or product_batch['return_qty'] is None:
+                raise serializers.ValidationError("'return_qty' | This is mandatory.")
+
+            if 'damaged_qty' not in product_batch or product_batch['damaged_qty'] is None:
+                raise serializers.ValidationError("'damaged_qty' | This is mandatory.")
+            try:
+                return_qty = int(product_batch['return_qty'])
+                damaged_qty = int(product_batch['damaged_qty'])
+            except:
+                raise serializers.ValidationError("'return_qty'/'damaged_qty' | Invalid quantity.")
+
+            if not self.instance.ordered_product.rt_ordered_product_mapping.filter(
+                                                        batch_id=product_batch['batch_id']).exists():
+                raise serializers.ValidationError("'batch_id' | Invalid batch.")
+
+            item_return_qty += return_qty
+            item_damaged_qty += damaged_qty
+
+        if self.instance.quantity < item_return_qty + item_damaged_qty:
+            raise serializers.ValidationError("Quantity mismatch!! Sum of returned quantity and damaged quantity "
+                                              f"for all batches cannot be greater than {self.instance.quantity}")
+
+        data['batch_details'] = self.initial_data['batch_details']
+        data['return_qty'] = item_return_qty
+        data['damaged_qty'] = item_damaged_qty
+        data['missing_qty'] = self.instance.quantity - item_return_qty - item_damaged_qty
+        data['is_verified'] = True
+        return data
+
+    @transaction.atomic
+    def update(self, instance, validated_data):
+        try:
+            batch_details = validated_data.pop('batch_details')
+            shipment_package_mapping = super().update(instance, validated_data)
+            ShipmentPackagingBatch.objects.filter(shipment_product_packaging=shipment_package_mapping).delete()
+            for product_batch in batch_details:
+                product_batch['shipment_product_packaging'] = shipment_package_mapping
+                product_batch['created_by'] = validated_data['updated_by']
+                ShipmentPackagingBatch.objects.create(**product_batch)
+        except Exception as e:
+            error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
+            raise serializers.ValidationError(error)
+        return shipment_package_mapping
