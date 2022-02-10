@@ -4406,6 +4406,9 @@ class MarkShipmentPackageVerifiedSerializer(serializers.ModelSerializer):
         """update Dispatch Trip Shipment Package"""
         try:
             trip_shipment_package = super().update(instance, validated_data)
+            if trip_shipment_package.shipment_packaging.packaging_type == ShipmentPackaging.CRATE:
+                ShopCrateCommonFunctions.mark_crate_available(trip_shipment_package.trip_shipment.trip.destination_shop,
+                                                              trip_shipment_package.shipment_packaging.crate_id)
         except Exception as e:
             error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
             raise serializers.ValidationError(error)
@@ -4847,3 +4850,4 @@ class VerifyBackwardTripItemsSerializer(serializers.ModelSerializer):
             error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
             raise serializers.ValidationError(error)
         return shipment_package_mapping
+

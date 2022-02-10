@@ -9656,7 +9656,6 @@ class VerifyBackwardTripItems(generics.GenericAPIView):
         serializer = self.serializer_class(instance=item_instance, data=modified_data)
         if serializer.is_valid():
             serializer.save(updated_by=request.user)
-            info_logger.info(" ")
             return get_response('process_shipment updated!', serializer.data)
         return get_response(serializer_error(serializer), False)
 
