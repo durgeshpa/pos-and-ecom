@@ -100,10 +100,8 @@ urlpatterns = [
     url('dispatch-dashboard/', DispatchDashboardView.as_view()),
     url('shipment-invoice/', DownloadShipmentInvoice.as_view()),
     url('package-reject-reason/', DispatchPackageRejectionReasonList.as_view()),
-
     url('update-order-payment-status/', OrderPaymentStatusChangeView.as_view(), name='update_order_payment_status'),
     url(r'^order-status-choice/$', OrderStatusChoicesList.as_view()),
-
 ]
 
 urlpatterns += router.urls
