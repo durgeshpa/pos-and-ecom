@@ -31,6 +31,7 @@ from .models import (Bin, In, Putaway, PutawayBinInventory, BinInventory, Out, P
                      BinInternalInventoryChange, StockCorrectionChange, OrderReserveRelease, Audit,
                      ExpiredInventoryMovement, Zone, WarehouseAssortment, QCArea, ZonePickerUserAssignmentMapping,
                      ZonePutawayUserAssignmentMapping, Crate, PickupCrate, QCDeskQCAreaAssignmentMapping, QCDesk)
+from .utils import create_warehouse_assortment_excel
 from .views import bins_upload, put_away, CreatePickList, audit_download, audit_upload, bulk_putaway, \
     WarehouseAssortmentDownloadSampleCSV, WarehouseAssortmentUploadCsvView, InOutLedgerFormView, InOutLedgerReport, \
     IncorrectProductBinMappingReport, IncorrectProductBinMappingFormView, bulk_crate_creation
@@ -39,6 +40,28 @@ from .views import bins_upload, put_away, CreatePickList, audit_download, audit_
 info_logger = logging.getLogger('file-info')
 error_logger = logging.getLogger('file-error')
 debug_logger = logging.getLogger('file-debug')
+
+
+class ExportCsvMixin:
+
+    def export_as_csv(self, request, queryset):
+        meta = self.model._meta
+        exclude_fields = ['modified_at']
+        field_names = [field.name for field in meta.fields if field.name not in exclude_fields]
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename={}.csv'.format(meta)
+        writer = csv.writer(response)
+        writer.writerow(field_names)
+        for obj in queryset:
+            row = writer.writerow([getattr(obj, field) for field in field_names])
+        return response
+
+    export_as_csv.short_description = "Download CSV of Selected Objects"
+
+    def export_warehouse_assortment_as_csv(self, request, queryset):
+        return create_warehouse_assortment_excel(queryset)
+
+    export_warehouse_assortment_as_csv.short_description = "Download CSV of Selected Warehouse Assortments"
 
 
 class BinResource(resources.ModelResource):
@@ -1081,7 +1104,8 @@ class ZoneAdmin(admin.ModelAdmin):
         pass
 
 
-class WarehouseAssortmentAdmin(admin.ModelAdmin):
+class WarehouseAssortmentAdmin(admin.ModelAdmin, ExportCsvMixin):
+    actions = ['export_warehouse_assortment_as_csv']
     form = WarehouseAssortmentForm
     list_display = ('warehouse', 'product', 'zone', 'created_at', 'updated_at', 'created_by',
                     'updated_by',)
