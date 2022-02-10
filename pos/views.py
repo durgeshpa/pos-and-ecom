@@ -1237,6 +1237,7 @@ class RetailerOrderedReportView(APIView):
 
         pos_cash_return_order_qs = CreditNote.objects.filter(order_return__order__ordered_cart__cart_type='BASIC',
                                                              order_return__order__seller_shop__id=shop,
+                                                             order_return__status='completed',
                                                              created_at__date__gte=start_date,
                                                              created_at__date__lte=end_date,
                                                              order_return__processed_by__id=user,
@@ -1245,6 +1246,7 @@ class RetailerOrderedReportView(APIView):
 
         pos_online_return_order_qs = CreditNote.objects.filter(order_return__order__ordered_cart__cart_type='BASIC',
                                                                order_return__order__seller_shop__id=shop,
+                                                               order_return__status='completed',
                                                                created_at__date__gte=start_date,
                                                                created_at__date__lte=end_date,
                                                                order_return__processed_by__id=user,
@@ -1253,6 +1255,7 @@ class RetailerOrderedReportView(APIView):
 
         ecom_cash_return_order_qs = CreditNote.objects.filter(order_return__order__ordered_cart__cart_type='ECOM',
                                                               order_return__order__seller_shop__id=shop,
+                                                              order_return__status='completed',
                                                               created_at__date__gte=start_date,
                                                               created_at__date__lte=end_date,
                                                               order_return__processed_by__id=user,
@@ -1261,6 +1264,7 @@ class RetailerOrderedReportView(APIView):
 
         ecom_online_return_order_qs = CreditNote.objects.filter(order_return__order__ordered_cart__cart_type='ECOM',
                                                                 order_return__order__seller_shop__id=shop,
+                                                                order_return__status='completed',
                                                                 created_at__date__gte=start_date,
                                                                 created_at__date__lte=end_date,
                                                                 order_return__processed_by__id=user,
