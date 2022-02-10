@@ -2711,6 +2711,7 @@ class VerifyShipmentPackageSerializer(serializers.ModelSerializer):
     is_return_verified = serializers.SerializerMethodField()
     shipment_packaging = DispatchItemsSerializer(read_only=True)
     package_status = serializers.ChoiceField(choices=LastMileTripShipmentPackages.PACKAGE_STATUS, read_only=True)
+    return_remark = serializers.CharField(read_only=True)
 
     def get_is_return_verified(self, obj):
         return True if obj.package_status in [
