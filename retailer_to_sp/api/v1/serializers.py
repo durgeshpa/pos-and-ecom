@@ -4778,21 +4778,27 @@ class OrderPaymentStatusChangeSerializers(serializers.ModelSerializer):
         if payment_instance.order != order_instance:
             raise serializers.ValidationError(f"Invalid payment {payment_instance} for the order {order_instance}")
 
-        if 'payment_type_id' not in self.initial_data or not self.initial_data['payment_type_id']:
-            raise serializers.ValidationError("'payment_type_id' | This is mandatory")
-        payment_type_instance = PaymentType.objects.filter(id=int(self.initial_data['payment_type_id'])).last()
-        if not payment_type_instance:
-            raise serializers.ValidationError(f"'payment_type_id' | "
-                                              f"{self.initial_data['payment_type_id']} not found.")
+        if order_status == Order.PAYMENT_COD and order_instance.order_app_type == Order.POS_WALKIN:
+            payment_type_instance = PaymentType.objects.filter(type="cash", app='pos').last()
 
-        if order_instance.order_app_type == Order.POS_WALKIN:
-            if payment_type_instance.app != 'pos':
-                raise serializers.ValidationError(f"'payment_type_id' | Invalid choice "
-                                                  f"{self.initial_data['payment_type_id']}.")
-        if order_instance.order_app_type == Order.POS_ECOMM:
-            if payment_type_instance.app != 'ecom':
-                raise serializers.ValidationError(f"'payment_type_id' | Invalid choice "
-                                                  f"{self.initial_data['payment_type_id']}.")
+        elif order_status == Order.PAYMENT_COD and order_instance.order_app_type == Order.POS_ECOMM:
+            payment_type_instance = PaymentType.objects.filter(type="cod", app='ecom').last()
+        else:
+            if 'payment_type_id' not in self.initial_data or not self.initial_data['payment_type_id']:
+                raise serializers.ValidationError("'payment_type_id' | This is mandatory")
+            payment_type_instance = PaymentType.objects.filter(id=int(self.initial_data['payment_type_id'])).last()
+            if not payment_type_instance:
+                raise serializers.ValidationError(f"'payment_type_id' | "
+                                                  f"{self.initial_data['payment_type_id']} not found.")
+
+            if order_instance.order_app_type == Order.POS_WALKIN:
+                if payment_type_instance.app != 'pos':
+                    raise serializers.ValidationError(f"'payment_type_id' | Invalid choice "
+                                                      f"{self.initial_data['payment_type_id']}.")
+            if order_instance.order_app_type == Order.POS_ECOMM:
+                if payment_type_instance.app != 'ecom':
+                    raise serializers.ValidationError(f"'payment_type_id' | Invalid choice "
+                                                      f"{self.initial_data['payment_type_id']}.")
 
         transaction_id = ""
         if 'transaction_id' in self.initial_data and self.initial_data['transaction_id']:
