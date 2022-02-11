@@ -9623,6 +9623,8 @@ class VerifyBackwardTripItems(generics.GenericAPIView):
             """ Get Item Data for specific trip and batch/ean """
             if not request.GET.get('trip_id'):
                 return get_response('trip_id is required', False)
+            elif not request.GET.get('package_id') :
+                return get_response('package_id is required', False)
             elif not (request.GET.get('batch_id') or request.GET.get('ean')):
                 return get_response('please batch_id id / ean  is required', False)
             item_data = self.filter_item_data()
@@ -9662,11 +9664,15 @@ class VerifyBackwardTripItems(generics.GenericAPIView):
     def filter_item_data(self):
         """ Filters the Shipment data based on request"""
         trip_id = self.request.GET.get('trip_id')
+        package_id = self.request.GET.get('package_id')
         batch_id = self.request.GET.get('batch_id')
         ean = self.request.GET.get('ean')
 
         if trip_id:
             self.queryset = self.queryset.filter(shipment_packaging__trip_packaging_details__trip_shipment__trip_id=trip_id)
+
+        if package_id:
+            self.queryset = self.queryset.filter(shipment_packaging_id=package_id)
 
         if batch_id:
             self.queryset = self.queryset.filter(ordered_product__rt_ordered_product_mapping__batch_id=batch_id)
