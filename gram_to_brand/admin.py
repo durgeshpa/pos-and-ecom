@@ -427,7 +427,7 @@ class GRNOrderAdmin(admin.ModelAdmin):
                 temp_data = {"qty": math.ceil(grn_product.delivered_qty / int(product_mrp.last().case_size)),
                              "data": {"SKU": grn_product.product.product_name,
                                       "Batch": grn_product.batch_id,
-                                      "MRP": product_mrp.last().product_mrp if product_mrp.exists() else ''}}
+                                      "MRP": grn_product.product.product_mrp if grn_product.product.exists() else ''}}
                 bin_id_list[barcode_id] = temp_data
         return merged_barcode_gen(bin_id_list)
 
