@@ -357,13 +357,13 @@ def ShipmentPaymentInlineAdminFactory(object_id=None):
         form = ShipmentPaymentInlineFormFactory(object_id)
         formset = AtLeastOneFormSet
         #autocomplete_fields = ("parent_order_payment",)
-        fields = ("parent_order_payment", "description", "paid_amount", "payment_mode_name", "reference_no",
+        fields = ("parent_order_payment", "description", "paid_amt", "payment_mode_name", "reference_no",
                   "payment_approval_status")
         # fieldsets = (
         #     (None, {'fields': ("paid_amount", "parent_order_payment", "payment_mode_name", "reference_no",
         #                        "description", "payment_approval_status")}),
         # )
-        readonly_fields = ("paid_amount", "payment_mode_name", "reference_no", "payment_approval_status")
+        readonly_fields = ("paid_amt", "payment_mode_name", "reference_no", "payment_approval_status")
         extra = 0
 
         def formfield_for_foreignkey(self, db_field, request, **kwargs):
@@ -406,6 +406,10 @@ def ShipmentPaymentInlineAdminFactory(object_id=None):
         def payment_mode_name(self,obj):
             return obj.parent_order_payment.parent_payment.payment_mode_name
         payment_mode_name.short_description = 'Payment Mode'
+
+        def paid_amt(self,obj):
+            return obj.paid_amount
+        paid_amt.short_description = 'Paid Amount'
 
         def reference_no(self,obj):
             return obj.parent_order_payment.parent_payment.reference_no
