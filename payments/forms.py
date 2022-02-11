@@ -184,10 +184,11 @@ class ShipmentPaymentInlineForm(forms.ModelForm):
 
 def ShipmentPaymentInlineFormFactory(object_id):
     class ShipmentPaymentInlineForm(forms.ModelForm):
+        paid_amount = forms.DecimalField(widget=forms.TextInput(attrs={'hidden': 'hidden'}), required=False)
 
         class Meta:
             model = ShipmentPayment
-            fields = "__all__"
+            fields = ('paid_amount', 'description', 'shipment', 'parent_order_payment', 'paid_amount',)
 
         def __init__(self, *args, **kwargs):
             # show only the payments for the relevant order
@@ -200,6 +201,14 @@ def ShipmentPaymentInlineFormFactory(object_id):
                 order__rt_order_order_product__id=object_id)
             # self.fields.get('parent_order_payment').widget = RelatedFieldWidgetCanAdd(
             #         OrderPayment, None, {"user_id": user_id, "object_id": object_id})
+
+        def clean(self):
+            cleaned_data = super(ShipmentPaymentInlineForm, self).clean()
+            parent_order_payment = cleaned_data.get('parent_order_payment')
+            if parent_order_payment:
+                self.instance.paid_amount = float(parent_order_payment.paid_amount)
+            return cleaned_data
+
     return ShipmentPaymentInlineForm
 
 
