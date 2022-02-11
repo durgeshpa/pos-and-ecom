@@ -550,7 +550,7 @@ class RetailerOrderProductAdmin(admin.ModelAdmin):
         pass
 
     def order_data_excel_action(self, request, queryset):
-        return create_order_data_excel(request, queryset)
+        return create_order_data_excel(queryset, request)
 
     order_data_excel_action.short_description = "Download CSV of selected orders"
 
