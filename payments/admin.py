@@ -80,6 +80,9 @@ class OrderPaymentAdmin(admin.ModelAdmin, PermissionMixin):
 
         return AdminFormWithRequest
 
+    def has_change_permission(self, request, obj=None):
+        return False
+
 
 class ReferenceNoSearch(InputFilter):
     parameter_name = 'reference_no'
