@@ -1746,6 +1746,8 @@ class RetailerOrderedProductMappingSerializer(serializers.ModelSerializer):
                     .values_list('shipment_packaging_id', flat=True))
                 ShipmentPackagingMapping.objects.filter(ordered_product=process_shipments_instance).delete()
 
+                ShipmentPackaging.objects.filter(id__in=shipment_packaging_ids, packaging_details__isnull=True).delete()
+
             for package_obj in packaging:
                 if package_obj['type'] == ShipmentPackaging.CRATE:
                     for crate in package_obj['packages']:
