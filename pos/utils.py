@@ -10,7 +10,7 @@ from .models import PAYMENT_MODE_POS, RetailerProduct
 from .views import get_product_details, get_tax_details
 
 
-def create_order_data_excel(request, queryset):
+def create_order_data_excel(queryset, request=None):
     retailer_product_type = dict(((0, 'Free'),
                                   (1, 'Purchased')))
 
