@@ -80,6 +80,7 @@ from pos.api.v1.serializers import (BasicCartSerializer, BasicCartListSerializer
                                     RetailerProductResponseSerializer, PosShopUserMappingListSerializer,
                                     PaymentTypeSerializer, PosEcomOrderDetailSerializer,
                                     RetailerOrderedDashBoardSerializer, PosEcomShopSerializer)
+
 from pos.common_functions import (api_response, delete_cart_mapping, ORDER_STATUS_MAP, RetailerProductCls,
                                   update_customer_pos_cart, PosInventoryCls, RewardCls, serializer_error,
                                   check_pos_shop, PosAddToCart, PosCartCls, ONLINE_ORDER_STATUS_MAP,
@@ -119,8 +120,7 @@ from .serializers import (ProductsSearchSerializer, CartSerializer, OrderSeriali
                           ShipmentDetailSerializer, TripSerializer, ShipmentSerializer, PickerDashboardSerializer,
                           ShipmentReschedulingSerializer, ShipmentReturnSerializer, ParentProductImageSerializer,
                           ShopSerializer, OrderPaymentStatusChangeSerializers)
-from .serializers import (ShipmentNotAttemptSerializer
-                          )
+
 from pos.models import PaymentReconsile, PaymentRefund
 import math
 from pos.payU_payment import *
@@ -5817,6 +5817,7 @@ def pdf_generation_retailer(request, order_id, delay=True):
                 shop_document_type='gstin').last().shop_document_number
 
         height = 140 + 5 * count  # calculating page height of invoice 145 is base value
+
         data = {"shipment": ordered_product, "order": ordered_product.order, "url": request.get_host(),
                 "scheme": request.is_secure() and "https" or "http", "total_amount": total_amount, 'total': total,
                 'discount': discount, "barcode": barcode, "product_listing": product_listing, "rupees": rupees,
