@@ -4496,7 +4496,8 @@ class LoadLastMileInvoiceSerializer(serializers.ModelSerializer):
         else:
             raise serializers.ValidationError("Please provide 'shipment_id' or 'invoice_no'.")
 
-        trip_shipment_mapping = LastMileTripShipmentMapping.objects.filter(trip=trip, shipment=shipment).last()
+        trip_shipment_mapping = LastMileTripShipmentMapping.objects.filter(
+            ~Q(shipment_status=LastMileTripShipmentMapping.CANCELLED), trip=trip, shipment=shipment).last()
         if trip_shipment_mapping:
             raise serializers.ValidationError(f"Invoice {shipment} already mapped with {trip}")
 
