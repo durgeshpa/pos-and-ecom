@@ -132,7 +132,7 @@ class OrderPaymentForm(forms.ModelForm):
     def clean(self):
         cleaned_data = super(OrderPaymentForm, self).clean()
         paid_by = cleaned_data.get('paid_by')
-        paid_amount = cleaned_data.get('paid_amount')
+        paid_amount = cleaned_data.get('paid_amount', 0)
         reference_no = cleaned_data.get('reference_no')
         payment_mode_name = cleaned_data.get('payment_mode_name')
         online_payment_type = cleaned_data.get('online_payment_type')
@@ -158,6 +158,8 @@ class OrderPaymentForm(forms.ModelForm):
                         existing_payment.order.remove(order)
                     else:
                         existing_payment.delete()
+                if payment_mode_name == "online_payment" and not reference_no:
+                    raise ValidationError('Referece number is required.')
                 payment = Payment.objects.create(paid_by=paid_by,
                                                  paid_amount=paid_amount,
                                                  payment_mode_name=payment_mode_name,
