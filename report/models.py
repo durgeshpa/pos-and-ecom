@@ -16,7 +16,7 @@ from report.validators import validate_input_params
 
 def rid_generator(report_type, report_name):
     #print(report_type, report_name)
-    return  report_type + ''.join(str(time.time()).split('.'))[:-2] + (report_name if report_name else 'RD')
+    return  report_type + ''.join(str(time.time()).split('.'))[:-8] + (report_name if report_name else 'RD')
 
 
 class ReportChoice(models.Model):
