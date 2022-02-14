@@ -1212,7 +1212,8 @@ def cancel_order_with_pick(instance):
                 quantity = 0
                 pick_up_bin_quantity = 0
                 if instance.rt_order_order_product.all():
-                    if (instance.rt_order_order_product.all()[0].shipment_status in ['READY_TO_SHIP',
+                    if (instance.rt_order_order_product.all()[0].shipment_status in ['QC_STARTED',
+                                                                                     'READY_TO_SHIP',
                                                                                      'MOVED_TO_DISPATCH',
                                                                                      'READY_TO_DISPATCH']):
                         pickup_order = pickup_bin.shipment_batch

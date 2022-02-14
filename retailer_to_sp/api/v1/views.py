@@ -7003,7 +7003,7 @@ class ShipmentQCView(generics.GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
     serializer_class = ShipmentQCSerializer
-    queryset = OrderedProduct.objects.\
+    queryset = OrderedProduct.objects.filter(~Q(order__order_status=Order.CANCELLED)).\
         annotate(status=Case(
                          When(shipment_status__in=[OrderedProduct.SHIPMENT_CREATED, OrderedProduct.QC_STARTED],
                               then=Value(OrderedProduct.SHIPMENT_CREATED)),
