@@ -67,7 +67,7 @@ from pos.tasks import update_es, order_loyalty_points_credit
 from products.models import ProductPrice, ProductOption, Product
 from retailer_backend.common_function import getShopMapping, checkNotShopAndMapping
 from retailer_backend.messages import ERROR_MESSAGES
-from retailer_backend.settings import AWS_MEDIA_URL
+from retailer_backend.settings import AWS_MEDIA_URL, es
 from retailer_backend.utils import SmallOffsetPagination
 from retailer_to_gram.models import (Cart as GramMappedCart, CartProductMapping as GramMappedCartProductMapping,
                                      Order as GramMappedOrder)
@@ -104,8 +104,6 @@ from fcm.utils import get_device_model
 from datetime import datetime
 
 Device = get_device_model()
-
-es = Elasticsearch(["https://search-gramsearch-7ks3w6z6mf2uc32p3qc4ihrpwu.ap-south-1.es.amazonaws.com"])
 
 User = get_user_model()
 

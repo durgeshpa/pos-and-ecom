@@ -11,9 +11,9 @@ https://docs.djangoproject.com/en/2.1/ref/settings/
 """
 
 import os
-import logging.config
 import sentry_sdk
 from sentry_sdk.integrations.django import DjangoIntegration
+from elasticsearch import Elasticsearch
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # Decouple used to get values from .env file
@@ -627,3 +627,9 @@ LOGIN_URL = 'rest_framework:login'
 LOGOUT_URL = 'rest_framework:logout'
 
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
+environment = config('ENVIRONMENT')
+if environment.lower() == 'production':
+    es = Elasticsearch(["https://search-gramsearch-7ks3w6z6mf2uc32p3qc4ihrpwu.ap-south-1.es.amazonaws.com"])
+else:
+    es = Elasticsearch(["https://search-testsearch-y6dggxgs3ojhijiaq76pjd3bwy.ap-south-1.es.amazonaws.com/"])
