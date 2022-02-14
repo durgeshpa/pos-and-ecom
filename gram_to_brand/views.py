@@ -169,7 +169,7 @@ class MergedBarcode(APIView):
         pk = self.kwargs.get('pk')
         grn_product = GRNOrderProductMapping.objects.filter(pk=pk).last()
         grn_order = grn_product.grn_order
-        product_mrp = grn_product.vendor_product
+        product_mrp = grn_product.product
         barcode_id=grn_product.barcode_id
         if barcode_id is None:
             product_id = str(grn_product.product_id).zfill(5)
