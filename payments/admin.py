@@ -415,7 +415,9 @@ def ShipmentPaymentInlineAdminFactory(object_id=None):
         paid_amt.short_description = 'Paid Amount'
 
         def reference_no(self,obj):
-            return obj.parent_order_payment.parent_payment.reference_no
+            if obj.parent_order_payment.parent_payment.reference_no is not None:
+                return obj.parent_order_payment.parent_payment.reference_no
+            return ""
         reference_no.short_description = 'Reference No'
 
         def description(self,obj):

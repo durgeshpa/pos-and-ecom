@@ -19,7 +19,7 @@ from django.utils.html import format_html
 from accounts.middlewares import get_current_user
 from accounts.models import UserWithName
 from payments.models import Payment, ShipmentPayment, OrderPayment, \
-    ShipmentPaymentApproval, PaymentApproval, PAYMENT_MODE_NAME, ShipmentData
+    ShipmentPaymentApproval, PaymentApproval, PAYMENT_MODE_NAME, ShipmentData, ONLINE_PAYMENT_TYPE_CHOICES
 from retailer_to_sp.models import Order
 from shops.models import Shop
 from shops.views import UserAutocomplete
@@ -101,6 +101,7 @@ class OrderPaymentForm(forms.ModelForm):
         widget=autocomplete.ModelSelect2(url='admin:userwithname-autocomplete', )
     )
     payment_mode_name = forms.ChoiceField(choices=PAYMENT_MODE_NAME)
+    online_payment_type = forms.ChoiceField(choices=ONLINE_PAYMENT_TYPE_CHOICES)
     paid_amount = forms.FloatField(required=True)
     reference_no = forms.CharField(required=False)
 
@@ -111,7 +112,6 @@ class OrderPaymentForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         request = kwargs.pop('request', None)
         super(OrderPaymentForm, self).__init__(*args, **kwargs)
-        # self.fields.get('parent_payment').required = True
 
         self.fields.get('paid_amount').required = True
         self.fields.get('paid_by').required = True
@@ -132,9 +132,10 @@ class OrderPaymentForm(forms.ModelForm):
     def clean(self):
         cleaned_data = super(OrderPaymentForm, self).clean()
         paid_by = cleaned_data.get('paid_by')
-        paid_amount = cleaned_data.get('paid_amount')
+        paid_amount = cleaned_data.get('paid_amount', 0)
         reference_no = cleaned_data.get('reference_no')
         payment_mode_name = cleaned_data.get('payment_mode_name')
+        online_payment_type = cleaned_data.get('online_payment_type')
         order = cleaned_data.get('order')
         existing_payment = None
         if order:
@@ -157,11 +158,15 @@ class OrderPaymentForm(forms.ModelForm):
                         existing_payment.order.remove(order)
                     else:
                         existing_payment.delete()
+                if payment_mode_name == "online_payment" and not reference_no:
+                    raise ValidationError('Referece number is required.')
                 payment = Payment.objects.create(paid_by=paid_by,
                                                  paid_amount=paid_amount,
-                                                 reference_no=reference_no,
-                                                 payment_mode_name=payment_mode_name)
-                # payment.order.add(order)
+                                                 payment_mode_name=payment_mode_name,
+                                                 )
+                if payment_mode_name == "online_payment":
+                    payment.reference_no = reference_no
+                    payment.online_payment_type = online_payment_type
                 payment.save()
                 cleaned_data['parent_payment'] = payment
         return cleaned_data
