@@ -632,6 +632,6 @@ SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 environment = config('ENVIRONMENT')
 if environment.lower() == 'production':
-    es = Elasticsearch(["https://search-gramsearch-7ks3w6z6mf2uc32p3qc4ihrpwu.ap-south-1.es.amazonaws.com"])
+    es = Elasticsearch([config('ES_INDEX')])
 else:
-    es = Elasticsearch(["https://search-testsearch-y6dggxgs3ojhijiaq76pjd3bwy.ap-south-1.es.amazonaws.com/"])
+    es = Elasticsearch([config('ES_INDEX')])
