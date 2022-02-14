@@ -7025,11 +7025,8 @@ class ShipmentQCView(generics.GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
     serializer_class = ShipmentQCSerializer
-    queryset = OrderedProduct.objects.\
-        annotate(status=Case(
-                         When(shipment_status__in=[OrderedProduct.SHIPMENT_CREATED, OrderedProduct.QC_STARTED],
-                              then=Value(OrderedProduct.SHIPMENT_CREATED)),
-                         default=F('shipment_status'))).\
+    queryset = OrderedProduct.objects.filter(~Q(order__order_status=Order.CANCELLED)).\
+        annotate(status=F('shipment_status')).\
         select_related('order', 'order__seller_shop', 'order__shipping_address', 'order__shipping_address__city',
                        'order__shipping_address__state', 'order__shipping_address__pincode_link', 'invoice', 'qc_area').\
         prefetch_related('qc_area__qc_desk_areas', 'qc_area__qc_desk_areas__qc_executive').\
