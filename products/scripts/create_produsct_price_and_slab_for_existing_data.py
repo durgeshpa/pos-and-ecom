@@ -31,5 +31,5 @@ def run():
                 new_price_slab = PriceSlab.objects.create(**price_slab)
                 print(f"PriceSlab entry {new_price_slab.pk} --> {new_price_slab}")
 
-        print(f"{cnt}/{total_price} | ProductPrice Completed.")
+        print(f"{cnt + 1}/{total_price} | ProductPrice Completed.")
 
