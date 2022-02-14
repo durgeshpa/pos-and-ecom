@@ -13,8 +13,10 @@ from retailer_backend.utils import SmallOffsetPagination
 from shops.models import Shop, ParentRetailerMapping
 from wms.common_functions import get_stock_available_category_list
 from .serializers import CategorySerializer, CategoryDataSerializer, BrandSerializer, AllCategorySerializer, \
-    SubCategorySerializer, CategoryCrudSerializers, CategoryExportAsCSVSerializers
-from categories.models import Category, CategoryData, CategoryPosation
+    SubCategorySerializer, CategoryCrudSerializers, CategoryExportAsCSVSerializers, B2cCategoryCrudSerializers,\
+        B2cCategoryExportAsCSVSerializers, B2cCategorySerializer, B2cParentCategorySerializers, B2cSubCategorySerializer,\
+            B2cSubCategorySerializers, AllB2cCategorySerializer, B2cCategoryDataSerializer
+from categories.models import Category, CategoryData, CategoryPosation, B2cCategory,B2cCategoryData
 from rest_framework import viewsets
 from rest_framework.decorators import list_route
 from rest_framework.permissions import (AllowAny, IsAuthenticated)
@@ -45,6 +47,18 @@ class GetAllSubCategoryListView(viewsets.ModelViewSet):
         return Response(serializer.data)
 
 
+class GetAllB2cSubCategoryListView(viewsets.ModelViewSet):
+    permission_classes = (AllowAny,)
+    queryset = B2cCategory.objects.filter(category_parent=None)
+    serializer_class = B2cCategorySerializer
+
+    @list_route
+    def roots(self, request):
+        queryset = B2cCategory.objects.filter(category_parent=None)
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
+
+
 class GetCategoryListBySlot(APIView):
     permission_classes = (AllowAny,)
 
@@ -55,6 +69,20 @@ class GetCategoryListBySlot(APIView):
         else:
             category_data = CategoryData.objects.all()
         category_data_serializer = CategoryDataSerializer(category_data, many=True)
+        is_success = True if category_data else False
+        return Response({"message": [""], "response_data": category_data_serializer.data, "is_success": is_success})
+
+
+class GetB2cCategoryListBySlot(APIView):
+    permission_classes = (AllowAny,)
+
+    def get(self, *args, **kwargs):
+        slot_name = self.kwargs.get("slot_name")
+        if slot_name:
+            category_data = B2cCategoryData.objects.filter(category_pos__posation_name=slot_name)
+        else:
+            category_data = B2cCategoryData.objects.all()
+        category_data_serializer = B2cCategoryDataSerializer(category_data, many=True)
         is_success = True if category_data else False
         return Response({"message": [""], "response_data": category_data_serializer.data, "is_success": is_success})
 

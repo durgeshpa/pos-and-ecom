@@ -15,7 +15,7 @@ from decimal import Decimal
 
 from addresses.models import Address, Area, City, Country, Pincode, State
 from brand.models import Brand, Vendor
-from categories.models import BaseTimeModel, BaseTimestampUserStatusModel, Category
+from categories.models import BaseTimeModel, BaseTimestampUserStatusModel, Category, B2cCategory
 from coupon.models import Coupon, Discount
 from global_config.views import get_config
 from retailer_backend.validators import *
@@ -208,6 +208,16 @@ class ParentProductCategory(BaseTimeModel):
         verbose_name = _("Parent Product Category")
         verbose_name_plural = _("Parent Product Categories")
 
+
+class ParentProductB2cCategory(BaseTimeModel):
+    parent_product = models.ForeignKey(ParentProduct, related_name='parent_product_pro_b2c_category',
+                                       on_delete=models.CASCADE)
+    category = models.ForeignKey(B2cCategory, related_name='parent_category_pro_b2c_category', on_delete=models.CASCADE)
+    status = models.BooleanField(default=True)
+
+    class Meta:
+        verbose_name = _("Parent Product Category")
+        verbose_name_plural = _("Parent Product Categories")
 
 class ParentProductImage(BaseTimeModel):
     parent_product = models.ForeignKey(ParentProduct, related_name='parent_product_pro_image', on_delete=models.CASCADE)
@@ -1122,6 +1132,7 @@ class CentralLog(models.Model):
     child_product = models.ForeignKey(Product, related_name='child_product_log', blank=True, null=True,
                                       on_delete=models.CASCADE)
     category = models.ForeignKey(Category, related_name='category_log', blank=True, null=True, on_delete=models.CASCADE)
+    b2c_category = models.ForeignKey(B2cCategory, related_name='b2c_category_log', blank=True, null=True, on_delete=models.CASCADE)
     brand = models.ForeignKey(Brand, related_name='brand_log', blank=True, null=True, on_delete=models.CASCADE)
     tax = models.ForeignKey(Tax, related_name='tax_log', blank=True, null=True, on_delete=models.CASCADE)
     weight = models.ForeignKey(Weight, related_name='weight_log', blank=True, null=True, on_delete=models.CASCADE)
