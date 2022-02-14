@@ -634,4 +634,7 @@ environment = config('ENVIRONMENT')
 if environment.lower() == 'production':
     es = Elasticsearch([config('ES_INDEX')])
 else:
-    es = Elasticsearch([config('ES_INDEX')])
+    es = Elasticsearch(
+        hosts=[config('ES_INDEX')],
+        http_auth=(config('ES_USER_NAME'), config('ES_PASSWORD')),
+    )
