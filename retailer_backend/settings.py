@@ -567,13 +567,13 @@ LOGGING = {
        'file-info': {
            'level': 'INFO',
            'class': 'logging.FileHandler',
-           'filename': 'info.log',
+           'filename': '/var/log/retailer-backend/info.log',
            'formatter': 'verbose',
        },
        'file-error': {
            'level': 'ERROR',
            'class': 'logging.FileHandler',
-           'filename': 'error.log',
+           'filename': '/var/log/retailer-backend/error.log',
            'formatter': 'verbose',
        },
        # 'console': {
@@ -583,7 +583,7 @@ LOGGING = {
         'cron_log_file': {
              'level': 'INFO',
              'class': 'logging.FileHandler',
-             'filename': 'scheduled_jobs.log',
+             'filename': '/var/log/retailer-backend/scheduled_jobs.log',
              'formatter': 'verbose'
          },
 
@@ -635,27 +635,3 @@ if environment.lower() == 'production':
     es = Elasticsearch(["https://search-gramsearch-7ks3w6z6mf2uc32p3qc4ihrpwu.ap-south-1.es.amazonaws.com"])
 else:
     es = Elasticsearch(["https://search-testsearch-y6dggxgs3ojhijiaq76pjd3bwy.ap-south-1.es.amazonaws.com/"])
-
-LOGGING = {
-    'version': 1,
-    'disable_existing_loggers': False,
-    'handlers': {
-        'console': {
-            'level': 'DEBUG',
-            'class': 'logging.StreamHandler',
-        }
-    },
-    'loggers': {
-        'django.db.backends': {
-            'handlers': ['console'],
-            'level': 'DEBUG',
-        },
-    }
-}
-
-WKHTMLTOPDF_CMD = '/usr/local/bin/wkhtmltopdf'
-WKHTMLTOPDF_CMD_OPTIONS = {
-    'quiet': True,
-    'enable_local_file_access': True
-}
-
