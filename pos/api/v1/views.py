@@ -1602,7 +1602,7 @@ class Contect_Us(APIView):
     authentication_classes = (authentication.TokenAuthentication,)
 
     def get(self, request, format=None):
-        data = {'phone_number': "9999999999", 'email': 'papertap@gmail.com'}
+        data = {'phone_number':"989-989-9551",'email' :'partners@peppertap.in'}
         serializer = ContectUs(data=data)
         if serializer.is_valid():
             return api_response('contct us details', serializer.data, status.HTTP_200_OK, True)

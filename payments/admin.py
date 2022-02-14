@@ -80,6 +80,9 @@ class OrderPaymentAdmin(admin.ModelAdmin, PermissionMixin):
 
         return AdminFormWithRequest
 
+    def has_change_permission(self, request, obj=None):
+        return False
+
 
 class ReferenceNoSearch(InputFilter):
     parameter_name = 'reference_no'
@@ -357,13 +360,13 @@ def ShipmentPaymentInlineAdminFactory(object_id=None):
         form = ShipmentPaymentInlineFormFactory(object_id)
         formset = AtLeastOneFormSet
         #autocomplete_fields = ("parent_order_payment",)
-        fields = ("parent_order_payment", "description", "paid_amount", "payment_mode_name", "reference_no",
+        fields = ("parent_order_payment", "description", "paid_amt", "payment_mode_name", "reference_no",
                   "payment_approval_status")
         # fieldsets = (
         #     (None, {'fields': ("paid_amount", "parent_order_payment", "payment_mode_name", "reference_no",
         #                        "description", "payment_approval_status")}),
         # )
-        readonly_fields = ("paid_amount", "payment_mode_name", "reference_no", "payment_approval_status")
+        readonly_fields = ("paid_amt", "payment_mode_name", "reference_no", "payment_approval_status")
         extra = 0
 
         def formfield_for_foreignkey(self, db_field, request, **kwargs):
@@ -407,8 +410,14 @@ def ShipmentPaymentInlineAdminFactory(object_id=None):
             return obj.parent_order_payment.parent_payment.payment_mode_name
         payment_mode_name.short_description = 'Payment Mode'
 
+        def paid_amt(self,obj):
+            return obj.paid_amount
+        paid_amt.short_description = 'Paid Amount'
+
         def reference_no(self,obj):
-            return obj.parent_order_payment.parent_payment.reference_no
+            if obj.parent_order_payment.parent_payment.reference_no is not None:
+                return obj.parent_order_payment.parent_payment.reference_no
+            return ""
         reference_no.short_description = 'Reference No'
 
         def description(self,obj):
