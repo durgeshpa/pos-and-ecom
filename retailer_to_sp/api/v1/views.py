@@ -33,6 +33,7 @@ from accounts.api.v1.serializers import PosUserSerializer, PosShopUserSerializer
 from addresses.models import Address, City, Pincode
 from audit.views import BlockUnblockProduct
 from barCodeGenerator import barcodeGen
+from global_config.views import get_config
 from shops.api.v1.serializers import ShopBasicSerializer
 from wms.common_validators import validate_id, validate_data_format, validate_shipment
 from wms.services import check_whc_manager_coordinator_supervisor_qc_executive, shipment_search, \
@@ -6679,7 +6680,7 @@ class RefreshEs(APIView):
 
 
 def refresh_cron_es():
-    shop_id = 600
+    shop_id = int(get_config('current_wh_active', 50484))
     info_logger.info('RefreshEs| shop {}, Started'.format(shop_id))
     upload_shop_stock(shop_id)
     info_logger.info('RefreshEs| shop {}, Ended'.format(shop_id))
