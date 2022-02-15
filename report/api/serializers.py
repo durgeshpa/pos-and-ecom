@@ -112,7 +112,7 @@ class ReportListSerializer(serializers.ModelSerializer):
         model = ReportRequest
         fields = ('id', 'rid', 'status',
                   'report_type', 'report_choice', 
-                  'user', 'report', 'emails', 'scheduled_reports')
+                  'user', 'report', 'emails', 'scheduled_reports', 'created_at')
 
 
 class ReportRetrieveSerializer(ReportListSerializer):
