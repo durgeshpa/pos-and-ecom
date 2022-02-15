@@ -3641,7 +3641,8 @@ class LastMileTripCrudSerializers(serializers.ModelSerializer):
                     else:
                         raise serializers.ValidationError("'opening_kms' | This is mandatory")
 
-                    if not trip_instance.last_mile_trip_shipments_details.exists():
+                    if not trip_instance.last_mile_trip_shipments_details.filter(
+                            ~Q(shipment_status=LastMileTripShipmentMapping.CANCELLED)).exists():
                         raise serializers.ValidationError("Load shipments to the trip to start.")
 
                     if trip_instance.last_mile_trip_shipments_details.filter(
