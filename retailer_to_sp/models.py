@@ -1246,7 +1246,6 @@ class Trip(models.Model):
         (COMPLETED, 'Completed'),
         (RETURN_VERIFIED, 'Return Verified'),
         (PAYMENT_VERIFIED, 'Payment Verified'),
-        ('RETURN_V', 'Return Verified'),
     )
 
     seller_shop = models.ForeignKey(

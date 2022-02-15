@@ -1395,6 +1395,21 @@ class OrderedProductAdmin(NestedModelAdmin):
 
         return super(OrderedProductAdmin, self).change_view(request, object_id, form_url, extra_context)
 
+    def has_add_permission(cls, request):
+        ''' remove add and save and add another button '''
+        return False
+
+    def changeform_view(self, request, object_id=None, form_url='', extra_context=None):
+        extra_context = extra_context or {}
+        if object_id:
+            shipment = OrderedProduct.objects.filter(id=object_id).last()
+            if shipment.last_trip and isinstance(shipment.last_trip, Trip) and \
+                    shipment.last_trip.source_shop.shop_type.shop_type == 'dc':
+                extra_context['show_save_and_continue'] = False
+                extra_context['show_save'] = False
+                extra_context['show_delete_link'] = False
+        return super(OrderedProductAdmin, self).changeform_view(request, object_id, extra_context=extra_context)
+
     class Media:
         css = {"all": ("admin/css/hide_admin_inline_object_name.css",)}
         js = ('admin/js/shipment.js','https://ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js')
