@@ -23,6 +23,7 @@ from retailer_backend.utils import isDateValid
 info_logger = logging.getLogger('file-info')
 error_logger = logging.getLogger('file-error')
 
+
 class ShopAutocomplete(autocomplete.Select2QuerySetView):
     def get_queryset(self, *args, **kwargs):
         qs = Shop.objects.filter(shop_type__shop_type__in=['r','f'])
@@ -43,6 +44,7 @@ def get_scheme_shop_mapping_sample_csv(request):
                      "Shop Mapping Start Date (YYYY-MM-DD)", "Shop Mapping End Date (YYYY-MM-DD)"])
     writer.writerow(["1", "March Munafa", "5", "Pal Shop", "P1", "2021-04-30", "2021-05-01"])
     return response
+
 
 def scheme_shop_mapping_csv_upload(request):
     """

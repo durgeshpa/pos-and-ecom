@@ -385,7 +385,7 @@ def ShipmentPaymentInlineAdminFactory(object_id=None):
                 parent_obj_id = request.resolver_match.kwargs['object_id']
                 parent_obj = OrderedProduct.objects.get(pk=parent_obj_id)
                 if parent_obj.trip.trip_status in [Trip.RETURN_VERIFIED, Trip.PAYMENT_VERIFIED]:
-                    return False
+                    return True
                 else:
                     return True
             except:
@@ -396,7 +396,7 @@ def ShipmentPaymentInlineAdminFactory(object_id=None):
                 parent_obj_id = request.resolver_match.kwargs['object_id']
                 parent_obj = OrderedProduct.objects.get(pk=parent_obj_id)
                 if parent_obj.trip.trip_status in [Trip.RETURN_VERIFIED, Trip.PAYMENT_VERIFIED]:
-                    return False
+                    return True
                 else:
                     return True
             except:

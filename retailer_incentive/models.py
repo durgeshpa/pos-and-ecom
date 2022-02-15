@@ -20,6 +20,29 @@ class BaseTimestampModel(models.Model):
         abstract = True
 
 
+class BaseTimestampUserModel(models.Model):
+    """
+        Abstract Model to have helper fields of created_at, created_by, updated_at and updated_by
+    """
+    created_at = models.DateTimeField(verbose_name="Created at", auto_now_add=True)
+    updated_at = models.DateTimeField(verbose_name="Updated at", auto_now=True)
+    created_by = models.ForeignKey(
+        get_user_model(), null=True,
+        verbose_name="Created by",
+        related_name="%(app_label)s_%(class)s_created_by",
+        on_delete=models.DO_NOTHING
+    )
+    updated_by = models.ForeignKey(
+        get_user_model(), null=True,
+        verbose_name="Updated by",
+        related_name="%(app_label)s_%(class)s_updated_by",
+        on_delete=models.DO_NOTHING
+    )
+
+    class Meta:
+        abstract = True
+
+
 class Scheme(BaseTimestampModel):
     """
     This class is used as representation of Incentive Scheme
@@ -97,3 +120,17 @@ class IncentiveDashboardDetails(BaseTimestampModel):
 
     def __str__(self):
         return "{}-{}, {}".format(self.shop, self.start_date, self.end_date)
+
+
+class Incentive(BaseTimestampUserModel):
+    """
+       This class represents of Incentive
+    """
+
+    shop = models.ForeignKey(Shop, on_delete=models.CASCADE)
+    capping_applicable = models.BooleanField(default=False)
+    capping_value = models.DecimalField(max_digits=4, decimal_places=2)
+    date_of_calculation = models.DateField()
+    total_ex_tax_delivered_value = models.DecimalField(max_digits=4, decimal_places=2)
+
+
