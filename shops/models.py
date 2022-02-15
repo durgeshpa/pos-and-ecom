@@ -765,7 +765,9 @@ class FOFOConfigurations(models.Model):
         unique_together = ('shop', 'key',)
 
     def clean(self):
-        if self.value.__class__.__name__ != self.key.type:
+        if self.value and self.value.__class__.__name__ == 'JSONString':
+            self.value = str(self.value)
+        if self.value and self.value.__class__.__name__ != self.key.type:
             raise ValidationError('value {} can only be {} type'.format(self.value, self.key.get_type_display()))
 
     def __str__(self):
