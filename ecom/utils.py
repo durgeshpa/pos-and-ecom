@@ -9,6 +9,7 @@ from django.http import HttpResponse
 from rest_framework.response import Response
 from rest_framework import status
 
+from global_config.views import get_config_fofo_shop
 from shops.models import Shop
 from wms.models import PosInventory, PosInventoryState
 from retailer_to_sp.models import RoundAmount, OrderedProduct
@@ -50,7 +51,7 @@ def check_ecom_user_shop(view_func):
     return _wrapped_view_func
 
 
-def nearby_shops(lat, lng, radius=10, limit=1):
+def nearby_shops(lat, lng, radius=10, limit=10):
     """
     Returns shop(s) within radius from lat,lng point
     lat: latitude
@@ -70,7 +71,13 @@ def nearby_shops(lat, lng, radius=10, limit=1):
                                                                               radius, limit)
 
     queryset = Shop.objects.raw(query)
-    return queryset[0] if queryset else None
+    for shop in queryset:
+        shop_radius = get_config_fofo_shop('Delivery radius', shop.id)
+        if not shop_radius:
+            shop_radius = get_config_fofo_shop('Delivery radius')
+        if shop_radius and float(shop.distance) < float(shop_radius):
+            return shop
+    return None
 
 
 def validate_address_id(func):

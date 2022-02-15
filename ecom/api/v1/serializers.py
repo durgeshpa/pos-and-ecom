@@ -473,6 +473,7 @@ class Parent_Product_Serilizer(serializers.ModelSerializer):
     parent_product_discription = serializers.SerializerMethodField()
     online_price= serializers.SerializerMethodField()
     image = serializers.SerializerMethodField()
+    off_percentage = serializers.SerializerMethodField()
 
     def get_parent_product_discription(self, obj):
         """Return Parent product discription ...."""
@@ -490,20 +491,24 @@ class Parent_Product_Serilizer(serializers.ModelSerializer):
 
     def get_image(self, obj):
         """Return retailer image if retailer image not found then return linked product image...."""
-        retailer_object = obj.retailer_product_image.last()
-        image = None
-        if retailer_object is None:
-            image = obj.linked_product.product_pro_image.all().first().image.url if obj.linked_product and \
+        retailer_object = obj.retailer_product_image.all()
+        images = None
+        if not retailer_object.exists():
+            images = obj.linked_product.product_pro_image.all() if obj.linked_product and \
             obj.linked_product.product_pro_image.all().first() else None
-            image = obj.linked_product.parent_product.parent_product_pro_image.all().first().image.url\
-            if not image  and obj.linked_product and obj.linked_product.parent_product \
-            and obj.linked_product.parent_product.parent_product_pro_image.all().first() else image
+            images = obj.linked_product.parent_product.parent_product_pro_image.all()\
+            if not images  and obj.linked_product and obj.linked_product.parent_product \
+            and obj.linked_product.parent_product.parent_product_pro_image.all().first() else images
 
         else:
-            image = retailer_object.image.url
+            images = retailer_object
+        image = [ i.image.url for i in images]
         return image
 
+    def get_off_percentage(self,obj):
+        price = obj.online_price if obj.online_price else obj.selling_price
+        return round(100-((price*100)/obj.mrp),2)
 
     class Meta:
         model = RetailerProduct
-        fields = ('id', 'name','parent_product_discription' ,'mrp', 'online_price', 'image')
+        fields = ('id', 'name','parent_product_discription' ,'mrp', 'online_price', 'off_percentage', 'image')

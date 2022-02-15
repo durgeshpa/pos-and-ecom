@@ -239,6 +239,33 @@ class Payment(models.Model):
         verbose_name = 'Buyer - Payment'
 
 
+class PaymentReconsile(models.Model):
+    """payment reconsilation models ....."""
+    PAYMENT_RECONSILE = 'to_be_reconsile'
+    PAYMENT_STATUS = (('to_be_reconsile', 'TO_BE_RECONSILE'),
+        ('payment_not_found', 'PAYMENT_NOT_FOUND'),
+        ('payment_failed', 'PAYMENT_FAILED'),
+        ('payment_success', 'PAYMENT_SUCCESS'),
+        ('payment_conflict', 'RECONSILE_CONFLICT')
+        )
+    MODE_CHOICES = (
+        ('CREDIT_CARD', 'Credit Card'),
+        ('DEBIT_CARD', 'Debit Card'),
+        ('UPI', 'UPI'),
+        ('NET_BANKING', 'Net Banking'),
+        ('WALLET', 'Wallet'),
+    )
+    tranjection_id = models.CharField(max_length=50,)
+    reconcile_status = models.CharField(max_length=50, default=PAYMENT_RECONSILE, choices=PAYMENT_STATUS)
+    payment_id = models.CharField(max_length=50, blank=True, null=True, default=None)
+    amount = models.DecimalField(max_digits=10, decimal_places=2, null=True)
+    payment_mode = models.CharField(max_length=50, default=None, blank=True , null=True)
+    count = models.IntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
+    class Meta:
+        verbose_name = 'Payment-Reconsile'
+
 class DiscountedRetailerProduct(RetailerProduct):
     class Meta:
         proxy = True

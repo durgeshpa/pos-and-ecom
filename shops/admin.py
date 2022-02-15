@@ -21,12 +21,12 @@ from addresses.models import Address
 from addresses.forms import AddressForm
 from .forms import (ParentRetailerMappingForm, PosShopUserMappingForm, ShopParentRetailerMappingForm,
                     ShopForm, RequiredInlineFormSet, BeatPlanningAdminForm,
-                    AddressInlineFormSet, ShopUserMappingForm, ShopTimingForm)
+                    AddressInlineFormSet, ShopUserMappingForm, ShopTimingForm, FOFOShopConfigForm)
 
 from .views import (StockAdjustmentView, bulk_shop_updation, ShopAutocomplete, UserAutocomplete, 
                     ShopUserMappingCsvView, ShopUserMappingCsvSample, ShopTimingAutocomplete
 )
-from pos.filters import NonPosShopAutocomplete, PosShopAutocomplete
+from pos.filters import NonPosShopAutocomplete, PosShopAutocomplete, FofoOnlineEnabledShopAutocomplete
 from retailer_backend.admin import InputFilter
 from services.views import SalesReportFormView, SalesReport
 from .utils import create_shops_excel
@@ -259,12 +259,13 @@ class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
         css = {"all": ("admin/css/hide_admin_inline_object_name.css",)}
         js = ("js/shop_fofo.js",)
 
-    def change_view(self, request, object_id, form_url='', extra_context=None):
+    def changeform_view(self, request, object_id, form_url='', extra_context=None):
         self.inlines = [ShopPhotosAdmin, ShopDocumentsAdmin, AddressAdmin, ShopInvoicePatternAdmin,
                         ShopParentRetailerMapping, ShopStatusAdmin, ]
         if request.user.is_superuser:
             self.inlines.append(FOFOConfigurationsInline)
-        return super(ShopAdmin, self).change_view(request, object_id, form_url, extra_context)
+        return super(ShopAdmin, self).changeform_view(request, object_id, form_url, extra_context)
+
 
     def get_readonly_fields(self, request, obj=None):
         if obj and obj.shop_type.shop_type == 'f':
@@ -568,11 +569,15 @@ class PosShopUserMappingAdmin(admin.ModelAdmin):
                         self.admin_site.admin_view(NonPosShopAutocomplete.as_view()),
                         name="pos-shop-complete"
                     ),
+                   url(
+                       r'^pos-online_inventory_enabled-shop-complete/$',
+                       self.admin_site.admin_view(FofoOnlineEnabledShopAutocomplete.as_view()),
+                       name="pos-online_inventory_enabled-shop-complete"
+                   ),
 
                ] + urls
         return urls
 
-    
 
 class SalesAppVersionAdmin(admin.ModelAdmin):
     list_display = ('app_version', 'update_recommended', 'force_update_required', 'created_at', 'modified_at')
@@ -707,7 +712,7 @@ class FOFOConfigCategoryAdmin(admin.ModelAdmin):
 
 
 class FOFOConfigSubCategoryAdmin(admin.ModelAdmin):
-    fields = ('name', 'category')
+    fields = ('name', 'category', 'type')
 
     def has_add_permission(self, request, obj=None):
         if request.user.is_superuser:
@@ -725,9 +730,25 @@ class FOFOConfigSubCategoryAdmin(admin.ModelAdmin):
         return False
 
 
-class FOFOConfigurationsAdmin(admin.ModelAdmin):
-    list_display = ('id', 'shop', 'key', 'value')
-    fields = ('shop', 'key', 'value')
+# class FOFOConfigurationsAdmin(admin.ModelAdmin):
+#     form = FOFOShopConfigForm
+#     list_display = ('shop', 'key', 'value')
+#     fields = ('shop', 'key', 'value')
+#
+#     def has_add_permission(self, request, obj=None):
+#         if request.user.is_superuser:
+#             return True
+#         return False
+#
+#     def has_change_permission(self, request, obj=None):
+#         if request.user.is_superuser:
+#             return True
+#         return False
+#
+#     def has_delete_permission(self, request, obj=None):
+#         if request.user.is_superuser:
+#             return True
+#         return False
 
 
 admin.site.register(ParentRetailerMapping, ParentRetailerMappingAdmin)
@@ -744,4 +765,4 @@ admin.site.register(PosShopUserMapping, PosShopUserMappingAdmin)
 admin.site.register(ExecutiveFeedback, ExecutiveFeedbackAdmin)
 admin.site.register(FOFOConfigCategory, FOFOConfigCategoryAdmin)
 admin.site.register(FOFOConfigSubCategory, FOFOConfigSubCategoryAdmin)
-admin.site.register(FOFOConfigurations, FOFOConfigurationsAdmin)
+# admin.site.register(FOFOConfigurations, FOFOConfigurationsAdmin)

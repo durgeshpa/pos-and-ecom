@@ -1463,10 +1463,13 @@ class OrderPaymentStatusChangeSerializers(serializers.ModelSerializer):
                 order_instance.order_status == order_status:
             raise serializers.ValidationError(f"Order status can't update")
 
-        if order_instance.order_status == Order.PAYMENT_PENDING and \
+        if self.context.get('app-type', None) == 3 and order_instance.order_status == Order.PAYMENT_PENDING and \
                 order_status not in [Order.PAYMENT_FAILED, Order.PAYMENT_APPROVED, Order.PAYMENT_COD]:
-            raise serializers.ValidationError(
-                f"Please Provide valid Payment status")
+            raise serializers.ValidationError(f"Please Provide valid Payment status")
+
+        elif self.context.get('app-type', None) == 2 and order_instance.order_status == Order.PAYMENT_PENDING and \
+                order_status != Order.PAYMENT_COD:
+            raise serializers.ValidationError(f"Please Provide valid Payment status")
 
         if 'payment_id' not in self.initial_data and not self.initial_data['payment_id']:
             raise serializers.ValidationError("'payment_id' | This is mandatory.")
@@ -1504,7 +1507,7 @@ class OrderPaymentStatusChangeSerializers(serializers.ModelSerializer):
         if order_status == Order.PAYMENT_FAILED:
             payment_status = PosPayment.PAYMENT_FAILED
             data['order_status'] = Order.PAYMENT_FAILED
-        elif order_status == 'COD':
+        elif order_status == Order.PAYMENT_COD:
             data['order_status'] = Order.ORDERED
         elif order_status == 'PAYMENT_APPROVED':
             if payment_type_instance.type == 'online':
