@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from retailer_incentive.models import SchemeShopMapping, SchemeSlab, Scheme
+from retailer_incentive.models import SchemeShopMapping, SchemeSlab, Scheme, Incentive
 from shops.models import ShopUserMapping, Shop
 from accounts.models import User
 
@@ -76,3 +76,15 @@ class SchemeDetailSerializer(serializers.ModelSerializer):
         """ Meta class """
         model = SchemeSlab
         fields = ['id', 'scheme', ]
+
+
+class IncentiveSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        """ Meta class """
+        model = Incentive
+        fields = ('file', )
+
+    def validate(self, data):
+        if not data['file'].name[-5:] in ('.xlsx'):
+            raise serializers.ValidationError('Sorry! Only xlsx file accepted.')

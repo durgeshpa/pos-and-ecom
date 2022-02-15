@@ -1,15 +1,18 @@
 import datetime
 import logging
 from math import floor
+import io
+import xlsxwriter
 
+from django.http import HttpResponse
 from rest_framework import authentication, permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from retailer_backend.messages import SUCCESS_MESSAGES, VALIDATION_ERROR_MESSAGES, ERROR_MESSAGES
 from retailer_incentive.api.v1.serializers import SchemeShopMappingSerializer, SalesExecutiveListSerializer, \
-    SchemeDetailSerializer, SchemeSlabSerializer
-from retailer_incentive.models import SchemeSlab, IncentiveDashboardDetails
+    SchemeDetailSerializer, SchemeSlabSerializer, IncentiveSerializer
+from retailer_incentive.models import SchemeSlab, IncentiveDashboardDetails, Incentive
 from retailer_incentive.utils import get_shop_scheme_mapping, get_shop_scheme_mapping_based
 from shops.models import ShopUserMapping, Shop, ParentRetailerMapping
 from retailer_incentive.common_function import get_user_id_from_token, get_total_sales, shop_scheme_not_mapped
@@ -17,7 +20,11 @@ from accounts.models import User
 
 from retailer_backend.utils import SmallOffsetPagination
 
+# Get an instance of a logger
 logger = logging.getLogger('dashboard-api')
+info_logger = logging.getLogger('file-info')
+error_logger = logging.getLogger('file-error')
+debug_logger = logging.getLogger('file-debug')
 
 today = datetime.date.today()
 
@@ -319,3 +326,67 @@ class ShopSchemeDetails(APIView):
             serializer = SchemeDetailSerializer(scheme_slab)
         msg = {'is_success': True, 'message': ['OK'], 'data': serializer.data}
         return Response(msg, status=status.HTTP_200_OK)
+
+
+class BulkIncentiveSampleFileView(APIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+
+    def get(self, request):
+        """ Get API for Download sample XLSX to Create Incentive """
+
+        # Set up the Http response.
+        filename = 'incentive_sheet.xlsx'
+        info_logger.info("Get API for Download sample XLSX to Create Incentive api called.")
+
+        output = io.BytesIO()
+        workbook = xlsxwriter.Workbook(output)
+        worksheet = workbook.add_worksheet()
+
+        bold = workbook.add_format({'bold': True})
+        worksheet.write('A1', 'shop', bold)
+        worksheet.write('B1', 'shop_name', bold)
+        worksheet.write('C1', 'capping_applicable', bold)
+        worksheet.write('D1', 'capping_value', bold)
+        worksheet.write('E1', 'date_of_calculation', bold)
+        worksheet.write('F1', 'total_ex_tax_delivered_value', bold)
+        row = 1
+        col = 0
+        worksheet.write(row, col, 322)
+        worksheet.write(row, col + 1, 'GFDN')
+        worksheet.write(row, col + 2, 'Yes')
+        worksheet.write(row, col + 3, 50000)
+        worksheet.write(row, col + 4, '22-01-2022')
+        worksheet.write(row, col + 5, 4550)
+
+        workbook.close()
+        # Rewind the buffer.
+        output.seek(0)
+        response = HttpResponse(
+            output,
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        response['Content-Disposition'] = 'attachment; filename=%s' % filename
+
+        return response
+
+
+class BulkIncentiveView(APIView):
+
+    def post(self, request, *args, **kwargs):
+        """ POST API for Create Bulk Incentive """
+        user = self.check_user(request.user)
+        info_logger.info("BulkIncentiveView POST api called.")
+        if type(user) == str:
+            return Response(user, status=status.HTTP_400_BAD_REQUEST)
+
+        incentive_serializer = IncentiveSerializer(data=request.data)
+        if incentive_serializer.is_valid():
+            incentive_serializer.save()
+            return Response(incentive_serializer.data, status=status.HTTP_201_CREATED)
+        else:
+            return Response(incentive_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def check_user(self, user):
+        if not user.user_type == 7 or not user.user_type == 6:
+            return "User is not Authorised"
+        return user
