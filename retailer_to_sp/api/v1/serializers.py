@@ -3624,15 +3624,18 @@ class LastMileTripCrudSerializers(serializers.ModelSerializer):
     seller_shop = ShopSerializer(read_only=True)
     source_shop = ShopSerializer(read_only=True)
     delivery_boy = UserSerializers(read_only=True)
-    # status = serializers.SerializerMethodField()
+    weight = serializers.SerializerMethodField()
     # last_mile_trip_shipments_details = LastMileTripShipmentMappingListSerializers(read_only=True, many=True)
+
+    def get_weight(self, obj):
+        return obj.get_trip_weight()
 
     class Meta:
         model = Trip
         fields = ('id', 'trip_id', 'seller_shop', 'source_shop', 'dispatch_no', 'vehicle_no', 'delivery_boy',
                   'e_way_bill_no', 'trip_status', 'starts_at', 'completed_at', 'opening_kms', 'closing_kms',
                   'no_of_crates', 'no_of_packets', 'no_of_sacks', 'no_of_crates_check', 'no_of_packets_check',
-                  'no_of_sacks_check', 'trip_amount', 'no_of_shipments', 'created_at', 'modified_at')
+                  'no_of_sacks_check', 'trip_amount', 'no_of_shipments', 'weight', 'created_at', 'modified_at')
 
     def validate(self, data):
 
@@ -4666,7 +4669,7 @@ class LastMileLoadVerifyPackageSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("'package_id' | This is required.")
 
         package = ShipmentPackaging.objects.filter(
-            id=self.initial_data['package_id'], warehouse=trip.source_shop, movement_type__in=[
+            id=self.initial_data['package_id'], movement_type__in=[
                 ShipmentPackaging.DISPATCH, ShipmentPackaging.RESCHEDULED, ShipmentPackaging.NOT_ATTEMPT],
             shipment__order__seller_shop=trip.seller_shop).last()
         if not package:
@@ -4770,6 +4773,16 @@ class LastMileLoadVerifyPackageSerializer(serializers.ModelSerializer):
                 .aggregate(total_weight=Sum(F('ordered_product__product__weight_value') * F('quantity'),
                                             output_field=FloatField())).get('total_weight')
             trip.weight = trip.weight + package_weight
+        trip.save()
+        if trip_shipment.shipment_status == LastMileTripShipmentMapping.TO_BE_LOADED:
+            if not ShipmentPackaging.objects.filter(
+                    shipment=trip_shipment.shipment, movement_type__in=[
+                        ShipmentPackaging.DISPATCH, ShipmentPackaging.RESCHEDULED, ShipmentPackaging.NOT_ATTEMPT]).\
+                    filter(
+                Q(last_mile_trip_packaging_details__isnull=True) | Q(
+                    last_mile_trip_packaging_details__package_status=LastMileTripShipmentPackages.CANCELLED)).exists():
+                trip_shipment.shipment_status = LastMileTripShipmentMapping.LOADED_FOR_DC
+                trip_shipment.save()
 
 
 class VerifyBackwardTripItemsSerializer(serializers.ModelSerializer):
