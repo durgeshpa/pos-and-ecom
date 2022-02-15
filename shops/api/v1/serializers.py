@@ -891,10 +891,11 @@ class FOFOSubCategoryConfigurationsGetSerializer(serializers.ModelSerializer):
     key = serializers.SerializerMethodField()
     name = serializers.SerializerMethodField()
     value = serializers.SerializerMethodField()
+    type = serializers.SerializerMethodField()
 
     class Meta:
         model = FOFOConfigSubCategory
-        fields = ('id', 'key', 'name', 'value',)
+        fields = ('id', 'key', 'name', 'value', 'type')
 
     def get_key(self, obj):
         return obj.id
@@ -909,6 +910,9 @@ class FOFOSubCategoryConfigurationsGetSerializer(serializers.ModelSerializer):
     def get_id(self, obj):
         instance = FOFOConfigurations.objects.filter(shop=self.context.get('shop'), key=obj).last()
         return instance.id if instance else None
+
+    def get_type(self, obj):
+        return obj.type
 
 
 class FOFOCategoryConfigurationsGetSerializer(serializers.ModelSerializer):
