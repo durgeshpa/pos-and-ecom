@@ -59,7 +59,7 @@ class OrderNoSearch(InputFilter):
             )
 
 
-class InvoiceNoSearch(InputFilter):
+class InvoiceNoFilter(InputFilter):
     parameter_name = 'invoice_no'
     title = 'Invoice No.'
 
@@ -69,7 +69,7 @@ class InvoiceNoSearch(InputFilter):
             if invoice_no is None:
                 return
             return queryset.filter(
-                Q(order__order_no__icontains=invoice_no)
+                Q(invoice__invoice_no__icontains=invoice_no)
             )
 
 
@@ -195,7 +195,7 @@ class InvoiceNoSearch(InputFilter):
             if invoice_no is None:
                 return
             return queryset.filter(
-                Q(invoice__invoice_no__icontains=invoice_no)
+                Q(shipment__invoice__invoice_no__icontains=invoice_no)
             )
 
 
@@ -449,7 +449,7 @@ class ShipmentPaymentDataAdmin(admin.ModelAdmin, PermissionMixin):
     model = ShipmentData
     list_display = ('order', 'trip', 'invoice_no', 'invoice_amount', 'total_paid_amount', 'invoice_city')
     search_fields = ['order__order_no', 'trip__dispatch_no', 'invoice_number']
-    list_filter = (InvoiceNoSearch,)
+    list_filter = (InvoiceNoFilter,)
     list_per_page = 50
     fields = ['order', 'trip', 'trip_status', 'invoice_no', 'invoice_amount', 'total_paid_amount', 'shipment_address',
               'invoice_city', 'shipment_status', 'no_of_crates', 'no_of_packets', 'no_of_sacks']
