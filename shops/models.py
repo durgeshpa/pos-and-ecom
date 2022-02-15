@@ -737,8 +737,15 @@ class FOFOConfigSubCategory(models.Model):
     """
     Master model for FOFO configuration sub-category
     """
+    FIELD_TYPE_CHOICES = (
+        ("str", "String"),
+        ("int", "Integer"),
+        ("float", "Float"),
+        ("bool", "Boolean"),
+    )
     category = models.ForeignKey(FOFOConfigCategory, related_name='fofo_category_details', on_delete=models.CASCADE)
     name = CaseInsensitiveCharField(max_length=125, unique=True)
+    type = models.CharField(max_length=20, choices=FIELD_TYPE_CHOICES, default='int')
 
     def __str__(self):
         return str(self.category) + " - " + str(self.name)
@@ -756,6 +763,12 @@ class FOFOConfigurations(models.Model):
 
     class Meta:
         unique_together = ('shop', 'key',)
+
+    def clean(self):
+        if self.value and self.value.__class__.__name__ == 'JSONString':
+            self.value = str(self.value)
+        if self.value and self.value.__class__.__name__ != self.key.type:
+            raise ValidationError('value {} can only be {} type'.format(self.value, self.key.get_type_display()))
 
     def __str__(self):
         return str(self.key)

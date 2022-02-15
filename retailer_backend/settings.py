@@ -11,9 +11,9 @@ https://docs.djangoproject.com/en/2.1/ref/settings/
 """
 
 import os
-import logging.config
 import sentry_sdk
 from sentry_sdk.integrations.django import DjangoIntegration
+from elasticsearch import Elasticsearch
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # Decouple used to get values from .env file
@@ -389,8 +389,8 @@ WKHTMLTOPDF_CMD_OPTIONS = {
 TEMPUS_DOMINUS_INCLUDE_ASSETS = False
 
 CRONJOBS = [
-    ('*/1 * * * *', 'pos.cron.payment_reconsilation'),
-    ('*/1 * * * *', 'pos.cron.payment_refund_status_upadte'),
+    ('*/1 * * * *', 'pos.cron.payment_reconsilation_'),
+    ('*/3 * * * *', 'pos.cron.payment_refund_status_update'),
     ('*/10 * * * *', 'pos.cron.payment_reconsilation_per_ten_minutes'),
     ('0 0 12 * * ?', 'pos.cron.payment_reconsilation_per_24_hours'),
     ('* * * * *', 'retailer_backend.cron.discounted_order_cancellation', '>> /tmp/discounted_cancellation.log'),
@@ -629,3 +629,12 @@ LOGIN_URL = 'rest_framework:login'
 LOGOUT_URL = 'rest_framework:logout'
 
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
+environment = config('ENVIRONMENT')
+if environment.lower() == 'production':
+    es = Elasticsearch([config('ES_INDEX')])
+else:
+    es = Elasticsearch(
+        hosts=[config('ES_INDEX')],
+        http_auth=(config('ES_USER_NAME'), config('ES_PASSWORD')),
+    )

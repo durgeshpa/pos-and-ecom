@@ -15,7 +15,7 @@ from django.core.mail import EmailMessage
 
 from global_config.models import GlobalConfig
 from global_config.views import get_config
-from retailer_backend.settings import ELASTICSEARCH_PREFIX as es_prefix
+from retailer_backend.settings import ELASTICSEARCH_PREFIX as es_prefix, es
 from pos.models import RetailerProduct, PosCart, PosReturnGRNOrder, PosReturnItems, MeasurementUnit, \
     PosCartProductMapping
 from wms.models import PosInventory, PosInventoryState
@@ -25,7 +25,6 @@ from pos.common_functions import RewardCls, RetailerProductCls, generate_debit_n
 from marketing.sms import SendSms
 from pos.offers import BasicCartOffers
 
-es = Elasticsearch(["https://search-gramsearch-7ks3w6z6mf2uc32p3qc4ihrpwu.ap-south-1.es.amazonaws.com"])
 info_logger = logging.getLogger('file-info')
 error_logger = logging.getLogger('file-error')
 

@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 
-from django.db.models import query
 import requests
 import logging
 from datetime import datetime, timedelta
@@ -15,7 +14,8 @@ from report.redash import Redash
 from report.utils import (return_host_generator_function, 
                           return_model_ref, 
                           flat_to_nested_dict)
-from report.models import ReportChoice, ReportRequest, ScheduledReport
+from report.models import (ReportRequest, 
+                           ScheduledReport)
 from global_config.models import GlobalConfig
 from retailer_backend.common_function import send_mail
 
@@ -112,7 +112,6 @@ def RedashReportGenerator(rid, date_params=None):
     except ReportRequest.DoesNotExist:
         logger.info(" report entry does not exist with ID {}".format(rid))
         celery_logger.exception(" report entry does not exist with ID {}".format(rid))
-
 
 @task
 def ScheduledHostReportGenerator(rid, date_params=None):
@@ -264,13 +263,15 @@ def mail_report(rid):
                 }]
                 sender = GlobalConfig.objects.filter(key='report_mail_sender').last()
                 if not sender:
-                    ReportRequest.objects.filter(id=rid).update(status='EF')
+                    ReportRequest.objects.filter(id=rid).update(status='EF', 
+                                                                failed_message="Please add a sender with key ::: report_mail_sender :::")
                     celery_logger.exception("Please add a sender with key ::: report_mail_sender :::")
                     return
                 emails = report.emails + [report.user.email]
                 send_mail(sender.value, emails, subject, '', attachements)
             except Exception as err:
-                ReportRequest.objects.filter(id=rid).update(status='EF')
+                ReportRequest.objects.filter(id=rid).update(status='EF', 
+                                                            failed_message=err)
                 celery_logger.exception("Sending of report over email failed due to {}".format(err))
     except ReportRequest.DoesNotExist:
         logger.info(" report entry does not exist with ID {}".format(rid))
