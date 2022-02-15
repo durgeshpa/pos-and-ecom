@@ -4469,13 +4469,13 @@ class OrderedItemCentralDashBoard(APIView):
         products_count = products.count()
 
         order_count = orders.count()
-        invoice_count = invoices.count()
+        invoice_count = invoices.values('ordered_product_id').distinct('ordered_product_id').count()
 
         ecom_order_count = ecom_orders.count()
-        ecom_invoice_count = ecom_invoices.count()
+        ecom_invoice_count = ecom_invoices.values('ordered_product_id').distinct('ordered_product_id').count()
 
         pos_order_count = pos_orders.count()
-        pos_invoice_count = pos_invoices.count()
+        pos_invoice_count = pos_invoices.values('ordered_product_id').distinct('ordered_product_id').count()
 
         overview = [{"shop_name": shop.shop_name, "orders": order_count, "products": products_count,
                      "revenue": total_ordered_final_amount, "ecom_order_count": ecom_order_count,
