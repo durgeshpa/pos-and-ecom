@@ -870,7 +870,9 @@ def validate_fofo_sub_category(sub_cat_ids, shop):
             return {'error': 'option {} not found'.format(sub_cat_id['key'])}
         if str(fofo_sub_cat_obj.name).lower() != str(sub_cat_id['name']).lower():
             return {'error': 'name {} not found'.format(sub_cat_id['name'])}
-
+        if fofo_sub_cat_obj.type != (sub_cat_id['value']).__class__.__name__:
+            return {'error': 'value {} can only be {} type'.format(sub_cat_id['value'],
+                                                                   fofo_sub_cat_obj.get_type_display())}
         # check for update / create validation for existing data
         if 'id' in sub_cat_id and sub_cat_id['id']:
             if not FOFOConfigurations.objects.filter(id=sub_cat_id['id'], shop=shop, key=fofo_sub_cat_obj).exists():
