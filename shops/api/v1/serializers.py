@@ -852,7 +852,7 @@ class FOFOSubCategoryConfigurationsCrudSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = FOFOConfigSubCategory
-        fields = ('id', 'category', 'name')
+        fields = ('id', 'category', 'name', 'type')
 
     def validate(self, data):
         """
@@ -969,7 +969,7 @@ class FOFOSubCategoryConfigurationsGetListSerializer(serializers.ModelSerializer
 
     class Meta:
         model = FOFOConfigSubCategory
-        fields = ('id', 'name')
+        fields = ('id', 'name', 'type')
 
 
 class FOFOListSerializer(serializers.ModelSerializer):
