@@ -8934,7 +8934,13 @@ class LastMileTripShipmentsView(generics.GenericAPIView):
                                                                         LastMileTripShipmentMapping.LOADED_FOR_DC],
                           last_mile_trip_shipment__trip_id=trip_id) | Q(trip_id=trip_id))
                 elif availability == INVOICE_AVAILABILITY_CHOICES.NOT_ADDED:
-                    self.queryset = self.queryset.filter(shipment_status=OrderedProduct.MOVED_TO_DISPATCH).filter(
+                    current_date = datetime.now().date()
+                    self.queryset = self.queryset.filter(
+                        Q(shipment_status=OrderedProduct.MOVED_TO_DISPATCH) |
+                        Q(shipment_status=OrderedProduct.NOT_ATTEMPT,
+                          not_attempt_shipment__created_at__date__lt=current_date) |
+                        Q(shipment_status=OrderedProduct.RESCHEDULED,
+                          rescheduling_shipment__rescheduling_date__gte=current_date)).filter(
                         Q(last_mile_trip_shipment__isnull=True) |
                         Q(last_mile_trip_shipment__shipment_status=LastMileTripShipmentMapping.CANCELLED))
                 elif availability == INVOICE_AVAILABILITY_CHOICES.ALL:
@@ -9489,7 +9495,11 @@ class LastMileTripSummaryView(generics.GenericAPIView):
         """ GET API for trip summary """
         info_logger.info("Added shipmets to Trip Summary called.")
         # self.queryset = get_logged_user_wise_query_set_for_trip(self.request.user, self.queryset)
-        shipment_qs = OrderedProduct.objects.filter(shipment_status=OrderedProduct.MOVED_TO_DISPATCH).\
+        current_date = datetime.now().date()
+        shipment_qs = OrderedProduct.objects.filter(
+            Q(shipment_status=OrderedProduct.MOVED_TO_DISPATCH) |
+            Q(shipment_status=OrderedProduct.NOT_ATTEMPT, not_attempt_shipment__created_at__date__lt=current_date) |
+            Q(shipment_status=OrderedProduct.RESCHEDULED, rescheduling_shipment__rescheduling_date__gte=current_date)).\
             select_related('order', 'order__seller_shop'). \
             order_by('-id')
         shipment_qs = get_logged_user_wise_query_set_for_trip_invoices(request.user, shipment_qs)
