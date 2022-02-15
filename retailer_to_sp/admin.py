@@ -1216,7 +1216,7 @@ class ShipmentReschedulingAdminNested(NestedTabularInline):
 @admin.register(ShipmentNotAttempt)
 class ShipmentNotAttemptAdmin(admin.ModelAdmin):
     model = ShipmentNotAttempt
-    list_display = ('shipment', 'order', 'trip', 'not_attempt_reason', 'created_by')
+    list_display = ('shipment', 'order', 'trip', 'not_attempt_reason', 'created_at', 'created_by')
     list_per_page = 20
     search_fields = ('shipment__order__order_no', 'not_attempt_reason', 'shipment__invoice__invoice_no',
                      'trip__dispatch_no')
