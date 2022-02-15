@@ -526,19 +526,22 @@ class Parent_Product_Serilizer(serializers.ModelSerializer):
 
     def get_image(self, obj):
         """Return retailer image if retailer image not found then return linked product image...."""
-        retailer_object = obj.retailer_product_image.all()
-        images = None
-        if not retailer_object.exists():
-            images = obj.linked_product.product_pro_image.all() if obj.linked_product and \
-            obj.linked_product.product_pro_image.all().first() else None
-            images = obj.linked_product.parent_product.parent_product_pro_image.all()\
-            if not images  and obj.linked_product and obj.linked_product.parent_product \
-            and obj.linked_product.parent_product.parent_product_pro_image.all().first() else images
+        try:
+            retailer_object = obj.retailer_product_image.all()
+            images = None
+            if not retailer_object.exists():
+                images = obj.linked_product.product_pro_image.all() if obj.linked_product and \
+                obj.linked_product.product_pro_image.all().first() else None
+                images = obj.linked_product.parent_product.parent_product_pro_image.all()\
+                if not images  and obj.linked_product and obj.linked_product.parent_product \
+                and obj.linked_product.parent_product.parent_product_pro_image.all().first() else images
 
-        else:
-            images = retailer_object
-        image = [ i.image.url for i in images]
-        return image
+            else:
+                images = retailer_object
+            image = [ i.image.url for i in images]
+            return image
+        except:
+            return ''
 
     def get_off_percentage(self,obj):
         price = obj.online_price if obj.online_price else obj.selling_price
