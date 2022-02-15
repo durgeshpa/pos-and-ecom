@@ -25,7 +25,7 @@ def check_user_can_plan_trip(view_func):
 
 def validate_shipment_crates_list(crates_dict, warehouse_id, shipment):
     if 'packages' not in crates_dict or not crates_dict['packages']:
-        return {"error": "Missing 'packages' in shipment_crates for packaging_type 'CRATE'."}
+        return {"error": "Missing 'packages' for packaging_type 'CRATE'."}
     if not isinstance(crates_dict['packages'], list):
         return {"error": "Key 'packages' can be of list type only."}
     crate_already_used = []
@@ -62,7 +62,7 @@ def validate_shipment_crates_list(crates_dict, warehouse_id, shipment):
 
 def validate_shipment_package_list(package_dict):
     if 'packages' not in package_dict or not package_dict['packages']:
-        return {"error": "Missing 'packages' in shipment_crates for packaging_type 'CRATE'."}
+        return {"error": f"Missing 'packages' for packaging_type {package_dict['type']}."}
     if not isinstance(package_dict['packages'], list):
         return {"error": "Key 'packages' can be of list type only."}
     for package in package_dict['packages']:

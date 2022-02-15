@@ -4,7 +4,6 @@ import logging
 
 from django.core.exceptions import ObjectDoesNotExist
 from django.db.models import Q
-
 from shops.models import ParentRetailerMapping
 from global_config.views import get_config
 

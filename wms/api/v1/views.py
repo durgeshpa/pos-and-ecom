@@ -23,10 +23,8 @@ from django.db import transaction, models
 from gram_to_brand.models import GRNOrderProductMapping
 import datetime
 from wms.common_functions import (CommonBinInventoryFunctions, PutawayCommonFunctions, CommonBinFunctions,
-                                  updating_tables_on_putaway,
-                                  CommonWarehouseInventoryFunctions, InternalInventoryChange,
+                                  updating_tables_on_putaway, CommonWarehouseInventoryFunctions, InternalInventoryChange,
                                   get_logged_user_wise_query_set_for_pickup_list)
-
 from ..v2.serializers import PicklistSerializer
 from ...common_validators import validate_pickup_crates_list, validate_pickup_request
 from ...services import check_whc_manager_coordinator_supervisor_picker, pickup_search, check_picker
@@ -448,7 +446,7 @@ class PickupList(APIView):
                                     default=F('order'),
                                     output_field=models.CharField(),
                                 )).\
-            order_by('-created_at')
+            order_by('order__created_at', 'repackaging__created_at')
         self.queryset = get_logged_user_wise_query_set_for_pickup_list(self.request.user, 1, self.queryset)
 
         validate_request = validate_pickup_request(request)
@@ -508,12 +506,11 @@ class PickupList(APIView):
         if picking_status:
             self.queryset = self.queryset.filter(picking_status__iexact=picking_status)
 
-
         if selected_date:
             if data_days:
                 end_date = datetime.datetime.strptime(selected_date, "%Y-%m-%d")
                 start_date = end_date - datetime.timedelta(days=int(data_days))
-                end_date = end_date +datetime.timedelta(days=1)
+                end_date = end_date + datetime.timedelta(days=1)
                 self.queryset = self.queryset.filter(
                     created_at__gte=start_date.date(), created_at__lt=end_date.date())
             else:
@@ -568,7 +565,7 @@ class BinIDList(APIView):
         pickup_assigned_date = pd_qs.last().picker_assigned_date
         zones = pd_qs.values_list('zone', flat=True)
         pickup_bin_obj = PickupBinInventory.objects.filter(pickup__pickup_type_id=order_no,
-                                                           pickup__zone__in=zones) \
+                                                           pickup__zone__in=zones, quantity__gt=0) \
                                                    .exclude(pickup__status='picking_cancelled')\
                                                    .prefetch_related('bin__bin')\
                                                    .order_by('bin__bin__bin_id')
@@ -578,12 +575,11 @@ class BinIDList(APIView):
             if bins_added.get(pick_up.bin.bin.id) is not None and \
                     bins_added[pick_up.bin.bin.id]["pickup_status"] != 'picking_complete':
                 continue
-            if pick_up.pickup_quantity is None:
-                pickup_status = 'picking_pending'
+
+            if pick_up.pickup_quantity is not None and pick_up.pickup_quantity < pick_up.quantity:
+                pickup_status = 'picking_partial'
             elif pick_up.pickup_quantity == pick_up.quantity:
                 pickup_status = 'picking_complete'
-            elif 0 < pick_up.pickup_quantity < pick_up.quantity:
-                pickup_status = 'picking_partial'
             else:
                 pickup_status = 'picking_pending'
 
@@ -649,7 +645,7 @@ class PickupDetail(APIView):
             return Response(msg, status=status.HTTP_200_OK)
 
         picking_details = PickupBinInventory.objects.filter(pickup__pickup_type_id=order_no, bin__bin__bin_id=bin_id,
-                                                            pickup__zone__picker_users=request.user)\
+                                                            pickup__zone__picker_users=request.user, quantity__gt=0)\
                                                     .exclude(pickup__status='picking_cancelled')
 
         if not picking_details.exists():
@@ -763,7 +759,8 @@ class PickupDetail(APIView):
             for j, i in diction.items():
                 picking_details = PickupBinInventory.objects.filter(pickup__pickup_type_id=order_no,
                                                                     pickup__zone__picker_users=request.user,
-                                                                    bin__bin__bin_id=bin_id, pickup__sku__id=j)\
+                                                                    bin__bin__bin_id=bin_id, pickup__sku__id=j,
+                                                                    quantity__gt=0)\
                                                             .exclude(pickup__status='picking_cancelled')
                 if picking_details.count() == 0:
                     return Response({'is_success': False,
@@ -878,18 +875,16 @@ class PickupComplete(APIView):
                 pd_obj = PickerDashboard.objects.select_for_update().filter(
                     repackaging_id=rep_obj, zone__picker_users=request.user)
 
-            pd_obj = pd_obj.exclude(picking_status__in=['picking_complete', 'picking_cancelled'])
+            if pd_obj.filter(picking_status='picking_complete').exists():
+                return Response({'is_success': True, 'message': "Pickup completed for the selected items"})
 
-            if pd_obj.count() > 1:
-                msg = {'is_success': True, 'message': 'Multiple picklists exist for this order', 'data': None}
-                return Response(msg, status=status.HTTP_200_OK)
             pick_obj = Pickup.objects.select_for_update(). \
                 filter(pickup_type_id=order_no, zone__picker_users=request.user). \
                 exclude(status__in=['picking_complete', 'picking_cancelled'])
 
             if pick_obj.exists():
                 for pickup in pick_obj:
-                    pickup_bin_list = PickupBinInventory.objects.filter(pickup=pickup)
+                    pickup_bin_list = PickupBinInventory.objects.filter(pickup=pickup, quantity__gt=0)
                     for pickup_bin in pickup_bin_list:
                         if pickup_bin.pickup_quantity is None:
                             return Response({'is_success': False,
@@ -1007,12 +1002,19 @@ class DecodeBarcode(APIView):
         data = []
         for barcode in barcode_list:
             barcode_length = len(barcode)
-            if barcode_length != 13:
+            if barcode_length == 8:
+                barcode_data = {'type': 'EAN', 'id': barcode, 'barcode': barcode}
+                data_item = {'is_success': True, 'message': '', 'data': barcode_data}
+                data.append(data_item)
+                continue
+            elif barcode_length < 13:
+                barcode = barcode.zfill(13)
+            elif barcode_length != 13:
                 barcode_data = {'type': None, 'id': None, 'barcode': barcode}
                 data_item = {'is_success': False, 'message': 'Barcode length must be 13 characters',
                              'data': barcode_data}
                 data.append(data_item)
-                continue;
+                continue
             type_identifier = barcode[0:2]
             if type_identifier[0] == '1':
                 id = barcode[1:12].lstrip('0')
@@ -1022,8 +1024,8 @@ class DecodeBarcode(APIView):
                     id = 0
                 bin = Bin.objects.filter(pk=id).last()
                 if bin is None:
-                    barcode_data = {'type': None, 'id': None, 'barcode': barcode}
-                    data_item = {'is_success': False, 'message': 'Bin Id not found', 'data': barcode_data}
+                    barcode_data = {'type': 'EAN', 'id': barcode, 'barcode': barcode}
+                    data_item = {'is_success': True, 'message': '', 'data': barcode_data}
                     data.append(data_item)
                 else:
                     bin_id = bin.bin_id
@@ -1070,7 +1072,7 @@ class DecodeBarcode(APIView):
                     barcode_data = {'type': 'qc area', 'id': area_id, 'barcode': barcode}
                     data_item = {'is_success': True, 'message': '', 'data': barcode_data}
                     data.append(data_item)
-            elif type_identifier == '40':
+            elif type_identifier == '04':
                 id = barcode[2:12].lstrip('0')
                 if id is not None:
                     id = int(id)
@@ -1086,7 +1088,7 @@ class DecodeBarcode(APIView):
                     barcode_data = {'type': 'crate', 'id': crate_id, 'barcode': barcode}
                     data_item = {'is_success': True, 'message': '', 'data': barcode_data}
                     data.append(data_item)
-            elif type_identifier == '50':
+            elif type_identifier == '05':
                 id = barcode[2:12].lstrip('0')
                 if id is not None:
                     id = int(id)
@@ -1102,8 +1104,9 @@ class DecodeBarcode(APIView):
                     data_item = {'is_success': True, 'message': '', 'data': barcode_data}
                     data.append(data_item)
             else:
-                barcode_data = {'type': '', 'id': '', 'barcode': barcode}
-                data_item = {'is_success': False, 'message': 'Barcode type not supported', 'data': barcode_data}
+                barcode_data = {'type': 'EAN', 'id': barcode, 'barcode': barcode}
+                data_item = {'is_success': True, 'message': '', 'data': barcode_data}
                 data.append(data_item)
         msg = {'is_success': True, 'message': '', 'data': data}
         return Response(msg, status=status.HTTP_200_OK)
+

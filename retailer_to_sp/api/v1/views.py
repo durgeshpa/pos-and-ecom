@@ -15,6 +15,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
 from django.core import validators
 from django.core.exceptions import ObjectDoesNotExist
+from django.db.models import F, Sum, Q, Case, When, Value
 from django.core.files.base import ContentFile
 from django.db import transaction, models
 from django.db.models import F, Sum, Q, Count, Value, Case, When
@@ -66,7 +67,6 @@ from pos.tasks import update_es, order_loyalty_points_credit
 from products.models import ProductPrice, ProductOption, Product
 from retailer_backend.common_function import getShopMapping, checkNotShopAndMapping
 from retailer_backend.messages import ERROR_MESSAGES
-from retailer_backend.settings import AWS_MEDIA_URL
 from retailer_backend.utils import SmallOffsetPagination
 from retailer_to_gram.models import (Cart as GramMappedCart, CartProductMapping as GramMappedCartProductMapping,
                                      Order as GramMappedOrder)
@@ -93,6 +93,7 @@ from wms.common_functions import OrderManagement, get_stock, is_product_not_elig
     get_logged_user_wise_query_set_for_dispatch_trip, get_logged_user_wise_query_set_for_dispatch_crates, \
     get_logged_user_wise_query_set_for_shipment_packaging
 from wms.common_validators import validate_id, validate_data_format, validate_data_days_date_request, validate_shipment
+from retailer_backend.settings import AWS_MEDIA_URL
 from wms.models import OrderReserveRelease, InventoryType, PosInventoryState, PosInventoryChange, Crate
 from wms.services import check_whc_manager_coordinator_supervisor_qc_executive, shipment_search, \
     check_whc_manager_dispatch_executive, check_qc_dispatch_executive, check_dispatch_executive
@@ -6783,7 +6784,7 @@ class ProcessShipmentView(generics.GenericAPIView):
 
         else:
             """ Get Process Shipment for specific Shipment and batch Id """
-            if not request.GET.get('shipment_id') or not request.GET.get('batch_id'):
+            if not request.GET.get('shipment_id') or not (request.GET.get('batch_id') or request.GET.get('ean_code')):
                 return get_response('please provide id / shipment_id & batch_id to get shipment product detail', False)
             process_shipments_data = self.filter_shipment_data()
 
@@ -6820,6 +6821,7 @@ class ProcessShipmentView(generics.GenericAPIView):
         """ Filters the Shipment data based on request"""
         shipment_id = self.request.GET.get('shipment_id')
         batch_id = self.request.GET.get('batch_id')
+        ean_code = self.request.GET.get('ean_code')
 
         '''Filters using shipment_id & batch_id'''
         if shipment_id:
@@ -6827,6 +6829,9 @@ class ProcessShipmentView(generics.GenericAPIView):
 
         if batch_id:
             self.queryset = self.queryset.filter(rt_ordered_product_mapping__batch_id=batch_id)
+
+        if ean_code:
+            self.queryset = self.queryset.filter(product__product_ean_code__startswith=ean_code)
 
         return self.queryset.distinct('id')
 
@@ -6837,7 +6842,10 @@ class ShipmentQCView(generics.GenericAPIView):
     permission_classes = (AllowAny,)
     serializer_class = ShipmentQCSerializer
     queryset = OrderedProduct.objects.filter(~Q(order__order_status=Order.CANCELLED)).\
-        annotate(status=F('shipment_status')).\
+        annotate(status=Case(
+                         When(shipment_status__in=[OrderedProduct.SHIPMENT_CREATED, OrderedProduct.QC_STARTED],
+                              then=Value(OrderedProduct.SHIPMENT_CREATED)),
+                         default=F('shipment_status'))).\
         select_related('order', 'order__seller_shop', 'order__shipping_address', 'order__shipping_address__city',
                        'order__shipping_address__state', 'order__shipping_address__pincode_link', 'invoice', 'qc_area').\
         prefetch_related('qc_area__qc_desk_areas', 'qc_area__qc_desk_areas__qc_executive').\
@@ -6853,8 +6861,6 @@ class ShipmentQCView(generics.GenericAPIView):
         order_by('-id')
 
     def get(self, request):
-        if not request.GET.get('status'):
-            return get_response("'status' | This is mandatory")
 
         if request.GET.get('id'):
             """ Get Shipments for specific warehouse """
@@ -6878,7 +6884,6 @@ class ShipmentQCView(generics.GenericAPIView):
         modified_data = validate_data_format(self.request)
         if 'error' in modified_data:
             return get_response(modified_data['error'])
-        # shipment_data = validate_shipment_qc_desk(self.queryset, int(modified_data['id']), request.user)
         shipment_data = validate_shipment(self.queryset, int(modified_data['id']))
         if 'error' in shipment_data:
             return get_response(shipment_data['error'])
@@ -9187,13 +9192,10 @@ class PackagesUnderTripView(generics.GenericAPIView):
         return get_response(msg, serializer.data, True)
 
     def filter_packaging_items(self, trip_instance):
-        trip_id = self.request.GET.get('trip_id')
         shipment_id = self.request.GET.get('shipment_id')
         package_status = self.request.GET.get('package_status')
         trip_type = self.request.GET.get('trip_type')
         is_return_verified = self.request.GET.get('is_return_verified')
-
-
         if isinstance(trip_instance, DispatchTrip):
 
             package_ids = DispatchTripShipmentPackages.objects.filter(

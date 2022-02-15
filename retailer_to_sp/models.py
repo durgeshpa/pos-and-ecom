@@ -27,7 +27,8 @@ from .common_function import reserved_args_json_data
 from .utils import (order_invoices, order_shipment_status, order_shipment_amount, order_shipment_details_util,
                     order_shipment_date, order_delivery_date, order_cash_to_be_collected, order_cn_amount,
                     order_damaged_amount, order_delivered_value, order_shipment_status_reason,
-                    picking_statuses, picker_boys, picklist_ids, picklist_refreshed_at, qc_areas, zones)
+                    picking_statuses, picker_boys, picklist_ids, picklist_refreshed_at, qc_areas, zones, qc_desks,
+                    qc_executives)
 
 from addresses.models import Address
 
@@ -895,7 +896,7 @@ class Order(models.Model):
     FULLY_RETURNED = 'fully_returned'
     PICKED = 'picked'
     OUT_FOR_DELIVERY = 'out_for_delivery'
-
+    QC_FAILED = 'QC_FAILED'
     ORDER_STATUS = (
         (ORDERED, 'Order Placed'),  # 1
         (DISPATCH_PENDING, 'Dispatch Pending'),  # 2
@@ -929,7 +930,8 @@ class Order(models.Model):
         (PARTIALLY_RETURNED, 'Partially Returned'),
         (FULLY_RETURNED, 'Fully Returned'),
         (PICKED, 'Order Processing'),
-        (OUT_FOR_DELIVERY, 'Out For Delivery')
+        (OUT_FOR_DELIVERY, 'Out For Delivery'),
+        (QC_FAILED, 'QC Failed')
     )
 
     CASH_NOT_AVAILABLE = 'cna'
@@ -1103,6 +1105,14 @@ class Order(models.Model):
         return qc_areas(self.picker_dashboards())
 
     @property
+    def qc_desk(self):
+        return qc_desks(self.picker_dashboards())
+
+    @property
+    def qc_executive(self):
+        return qc_executives(self.picker_dashboards())
+
+    @property
     def zone(self):
         return zones(self.picker_dashboards())
 
@@ -1236,7 +1246,6 @@ class Trip(models.Model):
         (COMPLETED, 'Completed'),
         (RETURN_VERIFIED, 'Return Verified'),
         (PAYMENT_VERIFIED, 'Payment Verified'),
-        ('RETURN_V', 'Return Verified'),
     )
 
     seller_shop = models.ForeignKey(
@@ -2457,7 +2466,8 @@ class Shipment(OrderedProduct):
 
 
 class OrderedProductBatch(models.Model):
-    REJECTION_REASON_CHOICE = Choices((1,'Near Expiry'), (2, 'Not Clean'), (10, 'Other'))
+    REJECTION_REASON_CHOICE = Choices((1,'Near Expiry'), (2, 'Not Clean'), (3, 'Damaged'), (4, 'Expired'),
+                                      (10, 'Other'))
     batch_id = models.CharField(max_length=50, null=True, blank=True)
     bin_ids = models.CharField(max_length=17, null=True, blank=True, verbose_name='bin_id')
     pickup_inventory = models.ForeignKey(PickupBinInventory, null=True, related_name='rt_pickup_bin_inv',
@@ -3414,6 +3424,7 @@ class DispatchTrip(BaseTimestampUserModel):
                                                     verbose_name="Total sacks collected")
     no_of_empty_crates_check = models.PositiveIntegerField(default=0, null=True, blank=True,
                                                     verbose_name="Total empty crates collected")
+    weight = models.FloatField(null=True, default=0, verbose_name="Trip weight")
 
     class Meta:
         permissions = (

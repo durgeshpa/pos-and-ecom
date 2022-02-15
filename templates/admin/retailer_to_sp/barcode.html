@@ -7,10 +7,15 @@
 <body>
 {% for key,value in barcode_list.items %}
     {% for item in value.qty %}
-        <div><img src="data:image/png;base64,{{value.code}}" height="100px"></div>
+        <div><img src="data:image/png;base64,{{value.code}}" height="95px"></div>
         {% if value.data is not None%}
             {% for key, value in  value.data.items %}
-                <div style="font-size:15px;">{{key}}:{{value}}</div>
+                {% if key == 'blank_row' %}
+                    <div style="font-size:13px;"></div>
+                {% else %}
+                    <div style="font-size:13px;">{{key}}:{{value}}</div>
+                {% endif %}
+
             {% endfor %}
         {% endif %}
     {% endfor %}

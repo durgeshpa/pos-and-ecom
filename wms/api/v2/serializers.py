@@ -28,7 +28,7 @@ from wms.common_functions import ZoneCommonFunction, WarehouseAssortmentCommonFu
 from global_config.views import get_config
 from wms.models import In, Out, InventoryType, Zone, WarehouseAssortment, Bin, BIN_TYPE_CHOICES, \
     ZonePutawayUserAssignmentMapping, Putaway, PutawayBinInventory, BinInventory, InventoryState, \
-    ZonePickerUserAssignmentMapping, QCArea, QCDesk, QCDeskQCAreaAssignmentMapping
+    ZonePickerUserAssignmentMapping, QCArea, QCDesk, QCDeskQCAreaAssignmentMapping, Pickup, PickupCrate, Crate
 from wms.common_validators import get_validate_putaway_users, read_warehouse_assortment_file, get_validate_picker_users, \
     get_validate_qc_areas
 
@@ -1446,9 +1446,9 @@ class PicklistSerializer(serializers.ModelSerializer):
 
     def get_order_create_date(self, obj):
         if obj.order:
-            return obj.order.created_at.strftime("%d-%m-%Y")
+            return obj.order.created_at.strftime("%d-%m-%Y %H:%M")
         elif obj.repackaging:
-            return obj.repackaging.created_at.strftime("%d-%m-%Y")
+            return obj.repackaging.created_at.strftime("%d-%m-%Y %H:%M")
 
     def m_delivery_location(self, obj):
         if obj.order:
@@ -1993,3 +1993,30 @@ class QCDeskSerializer(QCDeskCrudSerializers):
     class Meta:
         model=QCDesk
         fields = ('id', 'desk_number', 'name', 'qc_executive')
+
+
+class ZoneSerializerForCrate(ZoneSerializer):
+    class Meta:
+        model = Zone
+        fields = ('id', 'zone_number', 'name', 'warehouse',)
+
+
+class CrateSerializer(serializers.ModelSerializer):
+    zone = ZoneSerializerForCrate()
+
+    class Meta:
+        model = Crate
+        fields = ('id', 'crate_id', 'zone')
+
+
+class PendingQCJobsSerializer(serializers.ModelSerializer):
+    order = OrderSerializer(read_only=True)
+    qc_area = QCAreaSerializer(read_only=True)
+    status = serializers.SerializerMethodField()
+
+    def get_status(self, obj):
+        return obj.get_shipment_status_display()
+
+    class Meta:
+        model = OrderedProduct
+        fields = ('id', 'status', 'shipment_status', 'order', 'qc_area')
