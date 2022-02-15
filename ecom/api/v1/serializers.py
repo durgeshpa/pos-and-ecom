@@ -160,7 +160,7 @@ class PaymentSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Payment
-        fields = ('id', 'payment_type', 'transaction_id', 'amount')
+        fields = ('id', 'payment_type', 'payment_status' ,'transaction_id', 'amount')
 
 
 class EcomOrderListSerializer(serializers.ModelSerializer):

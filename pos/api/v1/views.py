@@ -30,7 +30,7 @@ from pos.common_functions import (RetailerProductCls, OffersCls, serializer_erro
 
 from pos.common_validators import compareList, validate_user_type_for_pos_shop, validate_id
 from pos.models import RetailerProduct, RetailerProductImage, ShopCustomerMap, Vendor, PosCart, PosGRNOrder, \
-    PaymentType, PosReturnGRNOrder, PaymentReconsile, PaymentRefund
+    PaymentType, PosReturnGRNOrder,Payment
 from pos.services import grn_product_search, grn_return_search, non_grn_return_search
 from products.models import Product
 from retailer_backend.utils import SmallOffsetPagination, OffsetPaginationDefault50
@@ -1646,21 +1646,20 @@ class RefundPayment(GenericAPIView):
         trxn_id = data.get('trxn_id')
         if not trxn_id:
             return api_response('transaction id must be', '', status.HTTP_200_OK, True)
-        payment_datails = PaymentReconsile.objects.filter(tranjection_id=trxn_id,
-                                                          reconcile_status='payment_success').values('payment_id',
-                                                                                                     'amount').first()
+        payment_datails = Payment.objects.filter(transaction_id=trxn_id,
+                                                          payment_status__in=["payment_approved", 'double_payment']).first()
 
         if not payment_datails:
             return api_response('transaction does not found .....', '', status.HTTP_200_OK, True)
         refund_amount = None
         if data.get('amount', None):
-            if data.get('amount') > payment_datails.get('amount'):
+            if data.get('amount') > payment_datails.amount:
                 return api_response('amount should less then or equal transaction amount.....', '', status.HTTP_200_OK,
                                     True)
-            refund_amount = data.get('amount')
+            refund_amount = data.amount
         else:
-            refund_amount = payment_datails.get('amount')
-        payment_id = payment_datails.get('payment_id')
+            refund_amount = payment_datails.amount
+        payment_id = payment_datails.payment_id
 
         response = send_request_refund(payment_id, refund_amount)
 
@@ -1668,9 +1667,10 @@ class RefundPayment(GenericAPIView):
             return api_response('refund request failed', response, status.HTTP_200_OK, True)
 
         request_id = response.get('request_id')
-
-        obj = PaymentRefund.objects.create(trxn_id=trxn_id, payment_id=payment_id, request_id=request_id,
-                                           status='queued', refund_amount=refund_amount)
-        obj.save()
+        payment_datails.is_refund = True
+        payment_datails.refund_status = 'queued'
+        payment_datails.request_id= request_id
+        payment_datails.refund_amount = refund_amount
+        payment_datails.save()
 
         return api_response('refund request successful .....', response, status.HTTP_200_OK, True)

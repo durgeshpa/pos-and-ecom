@@ -1,4 +1,5 @@
 ### Django ###
+.test.patch.swp
 *.log
 *.pot
 *.pyc
