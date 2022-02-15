@@ -32,7 +32,8 @@ def populate_to_be_picked_quantity(warehouse):
     """
         Case 1 | Set to_be_picked_qty = 0 whose pickup is completed or cancelled
     """
-    BinInventory.objects.filter(~Q(id__in=pbi_qs.values_list('bin_id', flat=True))).update(to_be_picked_qty=0)
+    BinInventory.objects.filter(~Q(id__in=pbi_qs.values_list('bin_id', flat=True)), warehouse_id=warehouse)\
+                        .update(to_be_picked_qty=0)
 
     """
         Case 2 | Set to_be_picked_qty from PickupBinInventory whose pickup status not in [completed and cancelled]
