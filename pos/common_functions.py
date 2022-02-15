@@ -502,7 +502,7 @@ class RewardCls(object):
                 redeem_points = max_redeem_points.value
         if this_month_reward_point_used and this_month_reward_point_used + redeem_points > max_month_limit:
             redeem_points = 0
-            message = "only {} redeem_points can be used in a month".format(max_month_limit)
+            message = "only {} Loyalty Point can be used in a month".format(max_month_limit)
         cart.redeem_points = redeem_points
         cart.redeem_factor = value_factor
         cart.save()

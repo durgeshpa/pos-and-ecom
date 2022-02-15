@@ -28,7 +28,8 @@ from .models import (RetailerProduct, RetailerProductImage, Payment, ShopCustome
                      RetailerCouponRuleSet, RetailerRuleSetProductMapping, RetailerOrderedProductMapping, RetailerCart,
                      RetailerCartProductMapping, RetailerOrderReturn, RetailerReturnItems, InventoryPos,
                      InventoryChangePos, InventoryStatePos, MeasurementCategory, MeasurementUnit, PosReturnGRNOrder,
-                     PosReturnItems, RetailerOrderedReport, BulkRetailerProduct, PaymentReconsile)
+                     PosReturnItems, RetailerOrderedReport, BulkRetailerProduct,
+                     RetailerOrderCancel)
 from .views import upload_retailer_products_list, download_retailer_products_list_form_view, \
     DownloadRetailerCatalogue, RetailerCatalogueSampleFile, RetailerProductMultiImageUpload, DownloadPurchaseOrder, \
     download_discounted_products_form_view, download_discounted_products, \
@@ -41,11 +42,11 @@ from .views import upload_retailer_products_list, download_retailer_products_lis
 from retailer_to_sp.models import Order, RoundAmount
 from shops.models import Shop
 from .filters import ShopFilter, ProductInvEanSearch, ProductEanSearch
-from .utils import (create_order_data_excel, create_order_return_excel, \
+from .utils import (create_order_data_excel, create_order_return_excel, create_cancel_order_csv ,\
     generate_prn_csv_report, generate_csv_payment_report, download_grn_cvs)
 from .forms import RetailerProductsForm, DiscountedRetailerProductsForm, PosInventoryChangeCSVDownloadForm,\
     MeasurementUnitFormSet
-
+from retailer_to_sp.models import Order
 
 class ExportCsvMixin:
 
@@ -197,13 +198,26 @@ class RetailerProductAdmin(admin.ModelAdmin):
 
 
 class PaymentAdmin(admin.ModelAdmin):
-    list_display = ( 'order', 'order_status', 'seller_shop', 'payment_type', 'transaction_id', 'amount', 'paid_by', 'processed_by', 'created_at')
+
+    list_display = ( 'order', 'payment_status', 'order_status', 'seller_shop', 'payment_type',
+                     'transaction_id', 'amount', 'paid_by', 'processed_by', 'created_at')
     list_per_page = 10
     search_fields = ('order__order_no', 'paid_by__phone_number', 'order__seller_shop__shop_name')
     list_filter = [('order__seller_shop', RelatedOnlyDropdownFilter),
                    ('payment_type', RelatedOnlyDropdownFilter),
-                   ('created_at', DateRangeFilter)]
+                   ('created_at', DateRangeFilter),
+                   ]
     actions = ['download_payment_report']
+
+    def order_amount(self, obj):
+        if obj:
+            return obj.amount
+        return None
+
+    def invoice_amount(self, obj):
+        if obj and obj.order.rt_order_order_product.last():
+            return obj.order.rt_order_order_product.last().invoice_amount
+        return None
 
     def get_queryset(self, request):
         qs = super(PaymentAdmin, self).get_queryset(request)
@@ -538,7 +552,7 @@ class RetailerOrderProductAdmin(admin.ModelAdmin):
         pass
 
     def order_data_excel_action(self, request, queryset):
-        return create_order_data_excel(request, queryset)
+        return create_order_data_excel(queryset, request)
 
     order_data_excel_action.short_description = "Download CSV of selected orders"
 
@@ -746,6 +760,65 @@ class RetailerOrderReturnAdmin(admin.ModelAdmin, ExportCsvMixin):
 
     def has_add_permission(self, request, obj=None):
         return False
+class OrderCartMappingAdmin(admin.TabularInline):
+    model = Order
+    fieldsets = (
+        (_('Shop Details'), {
+            'fields': ('seller_shop',)}),
+
+        (_('Order Details'), {
+            'fields': ( 'order_no', 'order_status', 'buyer')}),
+    )
+
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+@admin.register(RetailerOrderCancel)
+class OrderCancelAdmin(admin.ModelAdmin):
+    inlines = (RetailerCartProductMappingAdmin, OrderCartMappingAdmin)
+    list_per_page = 50
+    fields = ('cart_no', 'cart_status', 'cart_type', 'order_id', 'seller_shop', 'buyer', 'offers', 'redeem_points', 'redeem_factor',
+              'created_at')
+    list_display = ('cart_no', 'cart_status','order_status', 'order_id', 'seller_shop', 'buyer', 'created_at')
+    list_filter = (SellerShopFilter, OrderIDFilter, PosBuyerFilter)
+    actions = ['order_data_excel_action',]
+    def order_status(self, obj):
+        return obj.rt_order_cart_mapping.order_status
+    # def order_payment_status(self,obj):
+    #     return  obj.rt_order_cart_mapping.order_payment
+    def get_queryset(self, request):
+
+        qs = super(OrderCancelAdmin, self).get_queryset(request)
+        qs = qs.filter(cart_type__in=['BASIC','ECOM'],id__in=Order.objects.filter(order_status='CANCELLED').values('ordered_cart'))
+        if request.user.is_superuser:
+            return qs
+        return qs.filter(seller_shop__pos_shop__user=request.user,
+                         seller_shop__pos_shop__status=True)
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    class Media:
+        pass
+
+    def order_data_excel_action(self, request, queryset):
+        return create_cancel_order_csv(request, queryset)
+
+    order_data_excel_action.short_description = "Download CSV of selected Cancel Orders"
+
 
 
 class DiscountedRetailerProductAdmin(admin.ModelAdmin):
@@ -1109,20 +1182,8 @@ class BulkRetailerProductAdmin(admin.ModelAdmin):
 
     def has_delete_permission(self, request, obj=None):
         return False
-class PaymentReconsileAdmin(admin.ModelAdmin):
-    list_display = ('id', 'tranjection_id', 'reconcile_status', 'payment_id', 'amount', 'payment_mode', 'created_at', 'modified_at')
-    actions = ['delete']
-    def has_change_permission(self, request, obj=None):
-        return False
-
-    def has_add_permission(self, request, obj=None):
-        return False
-
-    def has_delete_permission(self, request, obj=None):
-        return True
 
 
-admin.site.register(PaymentReconsile, PaymentReconsileAdmin)
 admin.site.register(RetailerProduct, RetailerProductAdmin)
 admin.site.register(DiscountedRetailerProduct, DiscountedRetailerProductAdmin)
 admin.site.register(Payment, PaymentAdmin)

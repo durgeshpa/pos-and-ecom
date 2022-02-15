@@ -12,7 +12,7 @@ from rest_framework import status
 from global_config.views import get_config_fofo_shop
 from shops.models import Shop
 from wms.models import PosInventory, PosInventoryState
-from retailer_to_sp.models import RoundAmount, OrderedProduct
+from retailer_to_sp.models import RoundAmount, OrderedProduct, Order
 from .models import Address
 from pos.models import RetailerProduct
 
@@ -123,7 +123,7 @@ def generate_ecom_order_csv_report(queryset):
         'Purchased Product Id', 'Purchased Product SKU', 'Purchased Product Name', 'Purchased Product Ean Code','Product Category',
         'Product SubCategory', 'Quantity',
         'Product Type', 'MRP', 'Selling Price' , 'Offer Applied' ,'Offer Discount',
-        'Subtotal', 'Order Amount', 'Payment Mode',
+        'Subtotal', 'Order Amount', 'Invoice Amount', 'Payment Mode',
         'Parent Id', 'Parent Name', 'Child Name', 'Brand', 
         'Tax Slab(GST)', 'Discount' ,'Delivered Quantity', 'Delivered Value', 'Delivery Start Time', 'Delivery End Time', 'PickUp Time' ,'Redeemed Points'
     ])
@@ -164,9 +164,13 @@ def generate_ecom_order_csv_report(queryset):
                 'rt_order_order_product__rt_order_product_order_product_mapping__retailer_product__linked_product__parent_product__parent_brand__brand_parent__brand_name',
                 'rt_order_order_product__rt_order_product_order_product_mapping__retailer_product__linked_product__parent_product__parent_brand__brand_name',
                 'purchased_subtotal', 'order_amount', 'rt_payment_retailer_order__payment_type__type',
-                'ordered_cart__offers', 'rt_order_order_product__pos_trips__trip_start_at', 'rt_order_order_product__pos_trips__trip_end_at','ordered_cart__redeem_points', 'created_at'
+                'ordered_cart__offers', 'rt_order_order_product__pos_trips__trip_start_at', 'rt_order_order_product__pos_trips__trip_end_at',
+                'ordered_cart__redeem_points', 'created_at',
                 ).iterator()
     for order in orders:
+        inv_amt = None
+        if Order.objects.get(id=order.get('id')).rt_order_order_product.last():
+            inv_amt = Order.objects.get(id=order.get('id')).rt_order_order_product.last().invoice_amount
         retailer_product_id = order.get('rt_order_order_product__rt_order_product_order_product_mapping__retailer_product__id')
         retailer_product = RetailerProduct.objects.filter(id=retailer_product_id)
         if retailer_product:
@@ -242,6 +246,7 @@ def generate_ecom_order_csv_report(queryset):
             #order.get('purchased_subtotal'),
             sub_total[0] if sub_total else None,
             order.get('order_amount'),
+            inv_amt,
             order.get('rt_payment_retailer_order__payment_type__type'),
             order.get('rt_order_order_product__rt_order_product_order_product_mapping__retailer_product__linked_product__parent_product__parent_id'),
             order.get('rt_order_order_product__rt_order_product_order_product_mapping__retailer_product__linked_product__parent_product__name'),

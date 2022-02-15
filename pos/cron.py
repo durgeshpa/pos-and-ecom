@@ -7,12 +7,13 @@ from decouple import config
 from wms.models import PosInventory
 from services.models import  PosInventoryHistoric
 from coupon.models import Coupon
-from .models import PaymentReconsile, Payment
+from pos.models import Payment
 from retailer_backend.common_function import bulk_create
 import hashlib
 import requests
 from retailer_to_sp.models import Order
 import datetime
+from pos.payU_payment import *
 # logger configuration
 info_logger = logging.getLogger('file-info')
 cron_logger = logging.getLogger('cron_log')
@@ -75,30 +76,35 @@ def send_request_payu_api(trxn_id):
     payload = "key={}&command={}&var1={}&hash={}".format(key,commond ,trxn_id,hash_value)
     return requests.request("POST", url, data=payload, headers=headers).json().get('transaction_details')
 
-def payment_reconsilations(trxn_id):
+def payment_reconsilations(trxn_id, payment_type='online', obj = None):
     """payment reconciliation status update ......"""
     try:
         response = send_request_payu_api(trxn_id)
-        obj , created = PaymentReconsile.objects.get_or_create(tranjection_id=trxn_id)
-        if created:
-            pass
-            #obj.order_id=199905
-        if response[trxn_id].get('status') == 'failure' and obj.reconcile_status !=  "payment_failed":
-            obj.reconcile_status = 'payment_failed'
+        if response[trxn_id].get('status') == 'success' and payment_type != 'online':
+            obj.payment_status = 'double_payment'
+            obj.transaction_id = trxn_id
             obj.payment_id = response[trxn_id].get('mihpayid',None)
-            obj.amount = response[trxn_id].get('transaction_amount',None)
-            obj.count +=1
-        elif response[trxn_id].get('status') == 'success' and obj.reconcile_status !=  "payment_success":
-            obj.reconcile_status = 'payment_success'
+            obj.save()
+            return
+
+        if response[trxn_id].get('status') == 'failure' and obj.payment_status !=  "payment_failed":
+            obj.payment_status = 'payment_failed'
+            obj.transaction_id = trxn_id
             obj.payment_id = response[trxn_id].get('mihpayid',None)
-            obj.amount = response[trxn_id].get('transaction_amount',None)
-            obj.payment_mode = response[trxn_id].get('mode',None)
-            obj.count +=1
-        elif response[trxn_id].get('status') == 'Not Found' and obj.reconcile_status !=  "payment_not_found":
-            obj.reconcile_status = "payment_not_found"
+        elif response[trxn_id].get('status') == 'success' and not obj.transaction_id:
+            obj.payment_status = "payment_approved"
+            if obj.order.order_status != 'ordered':
+                objs = Order.objects.filter(id=obj.order.id).last()
+                objs.order_status = 'ordered'
+                objs.save()
+            obj.transaction_id = trxn_id
             obj.payment_id = response[trxn_id].get('mihpayid',None)
-            obj.amount = response[trxn_id].get('transaction_amount',None)
-            obj.count +=1
+
+        elif response[trxn_id].get('status') == 'Not Found' and obj.payment_status !=  "payment_not_found":
+            obj.payment_status = "payment_not_found"
+            obj.transaction_id = trxn_id
+            obj.payment_id = response[trxn_id].get('mihpayid',None)
+
         obj.save()
 
 
@@ -107,14 +113,14 @@ def payment_reconsilations(trxn_id):
         cron_logger.error('Exception during order payment_reconsilation .........')
 
 
-def payment_reconsilation():
+def payment_reconsilation_():
     cron_logger.info('cron_perminutes payment_reconsilation start..........................')
     try:
-        time_threshold = datetime.datetime.now() - datetime.timedelta(minutes=1)
-        objects = Payment.objects.filter(payment_type__type="online" , created_at__gt=time_threshold).values("order__ordered_cart_id")
+        time_threshold = datetime.datetime.now() - datetime.timedelta(minutes=45)
+        objects = Payment.objects.filter(created_at__gt=time_threshold)
         for obj in objects:
             try:
-               payment_reconsilations(str(obj['order__ordered_cart_id']))
+               payment_reconsilations(str(obj.order.ordered_cart_id), obj.payment_type.type, obj)
             except Exception as e:
                 cron_logger.error(e)
                 cron_logger.error('Exception during getting trnjection id .........')
@@ -124,11 +130,11 @@ def payment_reconsilation():
 
 def payment_reconsilation_per_ten_minutes():
     cron_logger.info('cron_per 10 minutes payment_reconsilation start..........................')
-    time_threshold = datetime.datetime.now() - datetime.timedelta(minutes=10)
-    objects = Payment.objects.filter(payment_type__type="online" , created_at__gt=time_threshold).values("order__ordered_cart_id")
+    time_threshold = datetime.datetime.now() - datetime.timedelta(minutes=60)
+    objects = Payment.objects.filter(created_at__gt=time_threshold).values("order__ordered_cart_id")
     for obj in objects:
         try:
-           payment_reconsilations(str(obj['order__ordered_cart_id']))
+           payment_reconsilations(str(obj.order.ordered_cart_id), obj.payment_type.type, obj)
         except Exception as e:
             cron_logger.error(e)
             cron_logger.error('Exception during getting trnjection id .........')
@@ -137,10 +143,29 @@ def payment_reconsilation_per_ten_minutes():
 def payment_reconsilation_per_24_hours():
     cron_logger.info('cron_per 24 minutes payment_reconsilation start..........................')
     time_threshold = datetime.datetime.now() - datetime.timedelta(hours=24)
-    objects = Payment.objects.filter(payment_type__type="online" , created_at__gt=time_threshold).values("order__ordered_cart_id")
+    objects = Payment.objects.filter(created_at__gt=time_threshold).values("order__ordered_cart_id", "payment_type__type")
     for obj in objects:
         try:
-           payment_reconsilations(str(obj['order__ordered_cart_id']))
+           payment_reconsilations(str(obj.order.ordered_cart_id), obj.payment_type.type, obj)
         except Exception as e:
             cron_logger.error(e)
             cron_logger.error('Exception during getting trnjection id .........')
+
+
+def payment_refund_status_update():
+    """payment Refund cron update status crone ........"""
+    cron_logger.info('payment_refund_status_update start ..........................')
+
+    objects = Payment.objects.filter(refund_status__in=['queued', 'pending'], is_refund=True)
+    for obj in objects:
+        request_id = obj.request_id
+        try:
+            response = track_status_refund(request_id)
+            response = response['transaction_details'][str(request_id)][str(request_id)]
+            obj.refund_status = response['status']
+            obj.save()
+            cron_logger.info("refund {} ".format(response['status']))
+        except Exception as e:
+            cron_logger.error(response)
+            cron_logger.info(e)
+            cron_logger.error('Exception during getting payment_refund_status_upadte start .........')

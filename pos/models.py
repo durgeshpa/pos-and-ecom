@@ -210,7 +210,12 @@ class Payment(models.Model):
     PAYMENT_STATUS = (
         (PAYMENT_PENDING, "Payment Pending"),
         (PAYMENT_APPROVED, "Payment Approved"),
-        (PAYMENT_FAILED, "Payment Failed")
+        (PAYMENT_FAILED, "Payment Failed"),
+        ('to_be_reconsile', 'TO_BE_RECONSILE'),
+        ('payment_conflict', 'RECONSILE_CONFLICT'),
+        ('double_payment', 'DOUBLE_PAYMENT'),
+        ('payment_not_required', 'PAYMENT_NOT_REQUIRED'),
+
     )
     MODE_CHOICES = (
         ('CREDIT_CARD', 'Credit Card'),
@@ -227,6 +232,7 @@ class Payment(models.Model):
     payment_mode = models.CharField(max_length=50, null=True, blank=True, choices=MODE_CHOICES, )
     transaction_id = models.CharField(max_length=70, default=None, null=True, blank=True,
                                       help_text="Transaction ID for Non Cash Payments.")
+    payment_id = models.CharField(max_length=50, blank=True, null=True, default=None)
     paid_by = models.ForeignKey(User, related_name='rt_payment_retailer_buyer', null=True, blank=True,
                                 on_delete=models.DO_NOTHING)
     processed_by = models.ForeignKey(User, related_name='rt_payment_retailer', null=True, blank=True,
@@ -234,9 +240,25 @@ class Payment(models.Model):
     amount = models.DecimalField(max_digits=10, decimal_places=2, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
+    is_refund = models.BooleanField(default=False, blank=True , null=True)
+    request_id = models.CharField(max_length=18, blank=True, null=True)
+    refund_amount = models.DecimalField(max_digits=10, decimal_places=2, null=True)
+    refund_status = models.CharField(max_length=18, blank=True, null=True)
+
 
     class Meta:
         verbose_name = 'Buyer - Payment'
+
+# class PaymentRefund(models.Model):
+#     """Refund ammount models ..............."""
+#     = models.ForeignKey(Payment, default=None, null=True, related_name='payment_type_payment',
+#                                      on_delete=models.DO_NOTHING)
+#     request_id = models.CharField(max_length=18, blank=True, null=True)
+#     refund_amount = models.DecimalField(max_digits=10, decimal_places=2, null=True)
+#     status = models.CharField(max_length=18, blank=True, null=True)
+#     class Meta:
+#         verbose_name = 'Payment Refund'
+
 
 
 class PaymentReconsile(models.Model):
@@ -246,7 +268,9 @@ class PaymentReconsile(models.Model):
         ('payment_not_found', 'PAYMENT_NOT_FOUND'),
         ('payment_failed', 'PAYMENT_FAILED'),
         ('payment_success', 'PAYMENT_SUCCESS'),
-        ('payment_conflict', 'RECONSILE_CONFLICT')
+        ('payment_conflict', 'RECONSILE_CONFLICT'),
+        ('double_payment', 'DOUBLE_PAYMENT'),
+        ('payment_not_required', 'PAYMENT_NOT_REQUIRED'),
         )
     MODE_CHOICES = (
         ('CREDIT_CARD', 'Credit Card'),
@@ -572,6 +596,15 @@ class RetailerOrderReturn(OrderReturn):
         return self.order.order_no
 
 
+class RetailerOrderCancel(Cart):
+    """Cancel order ........."""
+    class Meta:
+        proxy = True
+        verbose_name = 'Cancel Order'
+
+
+
+
 class RetailerReturnItems(ReturnItems):
     class Meta:
         proxy = True
@@ -770,5 +803,4 @@ class BulkRetailerProduct(models.Model):
             self.bulk_no = starts_with + str(last_number).zfill(3)
             self.uploaded_by = self.uploaded_by
             super().save(*args, **kwargs)
-
 
