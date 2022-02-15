@@ -1,8 +1,18 @@
+from django.db import transaction
+import logging
+from django.utils.safestring import mark_safe
 from rest_framework import serializers
 
+from retailer_incentive.common_validators import bulk_incentive_data_validation
 from retailer_incentive.models import SchemeShopMapping, SchemeSlab, Scheme, Incentive
 from shops.models import ShopUserMapping, Shop
 from accounts.models import User
+
+
+info_logger = logging.getLogger('file-info')
+error_logger = logging.getLogger('file-error')
+debug_logger = logging.getLogger('file-debug')
+cron_logger = logging.getLogger('cron_log')
 
 
 class SchemeSlabSerializer(serializers.ModelSerializer):
@@ -88,3 +98,26 @@ class IncentiveSerializer(serializers.ModelSerializer):
     def validate(self, data):
         if not data['file'].name[-5:] in ('.xlsx'):
             raise serializers.ValidationError('Sorry! Only xlsx file accepted.')
+
+    @transaction.atomic
+    def create(self, validated_data):
+        """ create incentive """
+        try:
+            bulk_product_obj = self.create_data_from_file(**validated_data)
+        except Exception as e:
+            error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
+            raise serializers.ValidationError(error)
+
+        return bulk_product_obj
+
+    def create_data_from_file(self, file):
+        if file:
+            error_dict, validated_rows = bulk_incentive_data_validation(file)
+            self.bulk_create_validated_incentives(validated_rows)
+            if len(error_dict) > 0:
+                error_logger.info(f"Product can't create/update for some rows: {error_dict}")
+                return False, mark_safe(f"{self.uploaded_product_list_status(file, error_dict)}")
+        return True, None
+
+    def bulk_create_validated_incentives(self):
+        pass

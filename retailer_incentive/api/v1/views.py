@@ -348,15 +348,14 @@ class BulkIncentiveSampleFileView(APIView):
         worksheet.write('C1', 'capping_applicable', bold)
         worksheet.write('D1', 'capping_value', bold)
         worksheet.write('E1', 'date_of_calculation', bold)
-        worksheet.write('F1', 'total_ex_tax_delivered_value', bold)
+        worksheet.write('E1', 'total_ex_tax_delivered_value', bold)
         row = 1
         col = 0
         worksheet.write(row, col, 322)
-        worksheet.write(row, col + 1, 'GFDN')
-        worksheet.write(row, col + 2, 'Yes')
-        worksheet.write(row, col + 3, 50000)
-        worksheet.write(row, col + 4, '22-01-2022')
-        worksheet.write(row, col + 5, 4550)
+        worksheet.write(row, col + 1, 'Yes')
+        worksheet.write(row, col + 2, 50000)
+        worksheet.write(row, col + 3, '22-01-2022')
+        worksheet.write(row, col + 4, 4550)
 
         workbook.close()
         # Rewind the buffer.
