@@ -2694,12 +2694,17 @@ class ShipmentPackageSerializer(serializers.ModelSerializer):
 
     def get_is_return_verified(self, obj):
         return True if obj.status in [ShipmentPackaging.DISPATCH_STATUS_CHOICES.RETURN_VERIFIED,
-                               ShipmentPackaging.DISPATCH_STATUS_CHOICES.RETURN_MISSING,
-                               ShipmentPackaging.DISPATCH_STATUS_CHOICES.RETURN_DAMAGED] else False
+                                      ShipmentPackaging.DISPATCH_STATUS_CHOICES.RETURN_MISSING,
+                                      ShipmentPackaging.DISPATCH_STATUS_CHOICES.RETURN_DAMAGED] else False
 
     def get_trip_loading_status(self, obj):
-        return obj.trip_packaging_details.last().package_status \
-            if obj.trip_packaging_details.filter(~Q(package_status=DispatchTripShipmentPackages.CANCELLED)).exists() else None
+        if obj.shipment.last_trip and isinstance(obj.shipment.last_trip, DispatchTrip):
+            return obj.trip_packaging_details.last().package_status if obj.trip_packaging_details.\
+                filter(~Q(package_status=DispatchTripShipmentPackages.CANCELLED)).exists() else None
+        elif obj.shipment.last_trip and isinstance(obj.shipment.last_trip, Trip):
+            return obj.last_mile_trip_packaging_details.last().package_status if obj.last_mile_trip_packaging_details.\
+                filter(~Q(package_status=LastMileTripShipmentPackages.CANCELLED)).exists() else None
+        return None
 
     class Meta:
         model = ShipmentPackaging
@@ -3697,7 +3702,8 @@ class LastMileTripCrudSerializers(serializers.ModelSerializer):
                     else:
                         raise serializers.ValidationError("'opening_kms' | This is mandatory")
 
-                    if not trip_instance.last_mile_trip_shipments_details.exists():
+                    if not trip_instance.last_mile_trip_shipments_details.filter(
+                            ~Q(shipment_status=LastMileTripShipmentMapping.CANCELLED)).exists():
                         raise serializers.ValidationError("Load shipments to the trip to start.")
 
                     if trip_instance.last_mile_trip_shipments_details.filter(

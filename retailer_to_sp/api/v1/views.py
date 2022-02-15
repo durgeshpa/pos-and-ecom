@@ -6836,7 +6836,7 @@ class ShipmentQCView(generics.GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
     serializer_class = ShipmentQCSerializer
-    queryset = OrderedProduct.objects.\
+    queryset = OrderedProduct.objects.filter(~Q(order__order_status=Order.CANCELLED)).\
         annotate(status=F('shipment_status')).\
         select_related('order', 'order__seller_shop', 'order__shipping_address', 'order__shipping_address__city',
                        'order__shipping_address__state', 'order__shipping_address__pincode_link', 'invoice', 'qc_area').\
