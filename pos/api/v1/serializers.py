@@ -1446,6 +1446,7 @@ class CouponListSerializer(serializers.ModelSerializer):
 class PosShopSerializer(serializers.ModelSerializer):
     shop_id = serializers.SerializerMethodField()
     shop_name = serializers.SerializerMethodField()
+    shop_type = serializers.SerializerMethodField()
 
     @staticmethod
     def get_shop_id(obj):
@@ -1455,9 +1456,13 @@ class PosShopSerializer(serializers.ModelSerializer):
     def get_shop_name(obj):
         return obj.shop.shop_name
 
+    @staticmethod
+    def get_shop_type(obj):
+        return obj.shop.shop_type.__str__()
+
     class Meta:
         model = PosShopUserMapping
-        fields = ('shop_id', 'shop_name', 'user_type', 'is_delivery_person')
+        fields = ('shop_id', 'shop_name', 'shop_type', 'user_type', 'is_delivery_person')
 
 
 class BasicCartUserViewSerializer(serializers.Serializer):
