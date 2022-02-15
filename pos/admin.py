@@ -198,7 +198,9 @@ class RetailerProductAdmin(admin.ModelAdmin):
 
 
 class PaymentAdmin(admin.ModelAdmin):
-    list_display = ( 'order', 'payment_status', 'order_status', 'seller_shop', 'payment_type', 'transaction_id', 'amount', 'paid_by', 'processed_by', 'created_at')
+
+    list_display = ( 'order', 'payment_status', 'order_status', 'seller_shop', 'payment_type',
+                     'transaction_id', 'amount', 'paid_by', 'processed_by', 'created_at')
     list_per_page = 10
     search_fields = ('order__order_no', 'paid_by__phone_number', 'order__seller_shop__shop_name')
     list_filter = [('order__seller_shop', RelatedOnlyDropdownFilter),
@@ -206,6 +208,16 @@ class PaymentAdmin(admin.ModelAdmin):
                    ('created_at', DateRangeFilter),
                    ]
     actions = ['download_payment_report']
+
+    def order_amount(self, obj):
+        if obj:
+            return obj.amount
+        return None
+
+    def invoice_amount(self, obj):
+        if obj and obj.order.rt_order_order_product.last():
+            return obj.order.rt_order_order_product.last().invoice_amount
+        return None
 
     def get_queryset(self, request):
         qs = super(PaymentAdmin, self).get_queryset(request)
@@ -540,7 +552,7 @@ class RetailerOrderProductAdmin(admin.ModelAdmin):
         pass
 
     def order_data_excel_action(self, request, queryset):
-        return create_order_data_excel(request, queryset)
+        return create_order_data_excel(queryset, request)
 
     order_data_excel_action.short_description = "Download CSV of selected orders"
 

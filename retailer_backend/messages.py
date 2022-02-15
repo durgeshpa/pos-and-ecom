@@ -51,6 +51,7 @@ SUCCESS_MESSAGES = {
     'AUDIT_ENDED_BIN': 'Audit completed for BIN {}',
     'SCHEME_SLAB_ADD_MORE':'Buy worth ₹{} more to earn ₹{} incentive at {}%',''
     'SCHEME_SLAB_HIGHEST':'You are already in the highest incentive slab earning margin at 2%. Buy more to earn more incentive',
+    'SCHEME_BUY_MORE': 'Buy more to earn more incentive.',
     'ARS_MAIL_PO_APPROVAL_SUBJECT':'Summary of Auto PO’s generated on {}',
     'ARS_MAIL_PO_APPROVAL_BODY':'PFA the list of Auto PO’s generated on {}. '
                                 'Please note that these PO’s will not be placed until approved '

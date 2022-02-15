@@ -1,5 +1,4 @@
 ### Django ###
-dump.rdb
 *.log
 *.pot
 *.pyc
@@ -12,7 +11,7 @@ db.sqlite3
 retailer_backend.sock
 env/
 venv/
-
+prod/
 # Distribution / packaging
 .Python
 env/
@@ -33,9 +32,6 @@ var/
 *.egg-info/
 .installed.cfg
 *.egg
-.test.patch.swp
-pos/.test.patch.swp
-
 
 # PyInstaller
 #  Usually these files are written by a python script from a template

@@ -17,7 +17,7 @@ class DiscountSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Discount
-        fields = ('id', 'discount_type', 'category', 'brand', 'start_price', 'end_price', 'start_date', 'end_date')
+        fields = ('id', 'discount_type', 'category', 'b2c_category', 'brand', 'start_price', 'end_price', 'start_date', 'end_date')
 
     def validate(self, data):
         if 'start_date' in data and 'end_date' in data and data['start_date'] > data['end_date']:
