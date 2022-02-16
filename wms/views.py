@@ -1367,16 +1367,16 @@ def pickup_entry_creation_with_cron():
                     bin_inv_dict = {}
                     qty = obj.quantity
                     total_to_be_picked = 0
-                    bin_lists = BinInventory.objects.select_for_update().filter(
+                    bin_lists = BinInventory.objects.filter(
                         sku=obj.sku, warehouse=warehouse, bin__zone=obj.zone, quantity__gt=0,
                         inventory_type=inventory_type)
                     if not bin_lists.exists():
                         cron_logger.info("{}| bin mapping seem to be missing for this product {} and zone {}"
                                          .format(cron_name, obj.sku_id, obj.zone))
-                        bin_lists = BinInventory.objects.select_for_update().filter(
+                        bin_lists = BinInventory.objects.filter(
                             sku=obj.sku, warehouse=warehouse, quantity__gt=0, inventory_type=inventory_type)
                     if not bin_lists.exists():
-                        bin_lists = BinInventory.objects.select_for_update().filter(
+                        bin_lists = BinInventory.objects.filter(
                             sku=obj.sku, warehouse=warehouse, quantity=0,
                             inventory_type=inventory_type)[:1]
 
@@ -1402,17 +1402,19 @@ def pickup_entry_creation_with_cron():
                         if qty - already_picked <= qty_in_bin:
                             already_picked += qty
                             remaining_qty = qty_in_bin - already_picked
-                            bin_inv.quantity = remaining_qty
-                            bin_inv.to_be_picked_qty += already_picked
-                            bin_inv.save()
+                            # bin_inv.quantity = remaining_qty
+                            # bin_inv.to_be_picked_qty += already_picked
+                            # bin_inv.save()
+                            CommonBinInventoryFunctions.move_to_to_be_picked(already_picked, bin_inv)
                             qty = 0
                             total_to_be_picked += already_picked
                         else:
                             already_picked = qty_in_bin
                             remaining_qty = qty - already_picked
-                            bin_inv.quantity = qty_in_bin - already_picked
-                            bin_inv.to_be_picked_qty += already_picked
-                            bin_inv.save()
+                            # bin_inv.quantity = qty_in_bin - already_picked
+                            # bin_inv.to_be_picked_qty += already_picked
+                            # bin_inv.save()
+                            CommonBinInventoryFunctions.move_to_to_be_picked(already_picked, bin_inv)
                             qty = remaining_qty
                             total_to_be_picked += already_picked
 
