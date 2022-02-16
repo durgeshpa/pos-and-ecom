@@ -1390,9 +1390,10 @@ class Trip(models.Model):
 
     @property
     def trip_amount(self):
-        return self.rt_invoice_trip.all() \
-            .annotate(invoice_amount=RoundAmount(Sum(F('rt_order_product_order_product_mapping__effective_price') * F(
-            'rt_order_product_order_product_mapping__shipped_qty')))) \
+        return self.last_mile_trip_shipments_details.filter(~Q(shipment_status='CANCELLED')) \
+            .annotate(invoice_amount=RoundAmount(Sum(F(
+                'shipment__rt_order_product_order_product_mapping__effective_price') * F(
+                'shipment__rt_order_product_order_product_mapping__shipped_qty')))) \
             .aggregate(trip_amount=Sum(F('invoice_amount'), output_field=FloatField())).get('trip_amount')
 
     @property
