@@ -567,6 +567,9 @@ class BinIDList(APIView):
         if not pd_qs.exists():
             msg = {'is_success': False, 'message': ERROR_MESSAGES['PICKER_DASHBOARD_ENTRY_MISSING'], 'data': None}
             return Response(msg, status=status.HTTP_200_OK)
+        if pd_qs.last().picking_status == PickerDashboard.PICKING_CANCELLED:
+            msg = {'is_success': False, 'message': ERROR_MESSAGES['ORDER_CANCELLED'].format(order_no), 'data': None}
+            return Response(msg, status=status.HTTP_200_OK)
         pickup_assigned_date = pd_qs.last().picker_assigned_date
         zones = pd_qs.values_list('zone', flat=True)
         pickup_bin_obj = PickupBinInventory.objects.filter(pickup__pickup_type_id=order_no,
@@ -625,8 +628,15 @@ class PickupDetail(APIView):
             msg = {'is_success': True, 'message': 'Order number field is empty.', 'data': None}
             return Response(msg, status=status.HTTP_200_OK)
 
+        order = Order.objects.filter(order_no=order_no).last()
+        if not order:
+            msg = {'is_success': True, 'message': 'Invalid order no.', 'data': None}
+            return Response(msg, status=status.HTTP_200_OK)
+        elif order.order_status == Order.CANCELLED:
+            msg = {'is_success': True, 'message': ERROR_MESSAGES['ORDER_CANCELLED'].format(order_no), 'data': None}
+            return Response(msg, status=status.HTTP_200_OK)
         try:
-            warehouse = request.user.shop_employee.all().last().shop_id
+            warehouse = request.user.shop_employee.last().shop_id
 
         except Exception as e:
             error_logger.error(e)
@@ -652,7 +662,6 @@ class PickupDetail(APIView):
             msg = {'is_success': False, 'message': ERROR_MESSAGES['PICK_BIN_DETAILS_NOT_FOUND'], 'data': None}
             info_logger.info(f"PickupDetail | GET | response {msg}" )
             return Response(msg, status=status.HTTP_200_OK)
-        order = Order.objects.filter(order_no=order_no).last()
         pd_qs = PickerDashboard.objects.filter(order=order, zone__picker_users=request.user)
         if not pd_qs.exists():
             msg = {'is_success': False, 'message': ERROR_MESSAGES['PICKER_DASHBOARD_ENTRY_MISSING'], 'data': None}
@@ -670,8 +679,17 @@ class PickupDetail(APIView):
         info_logger.info("Pick up detail POST API called.")
         info_logger.info(f"PickupDetail | POST | request user {request.user}, data{request.data}" )
         msg = {'is_success': False, 'message': 'Missing Required field.', 'data': None}
+
+        order_no = request.data.get('order_no')
+        if not order_no:
+            return Response(msg, status=status.HTTP_200_OK)
+        order = Order.objects.filter(order_no=order_no).last()
+        if order.order_status == Order.CANCELLED:
+            msg = {'is_success': True, 'message': ERROR_MESSAGES['ORDER_CANCELLED'].format(order_no), 'data': None}
+            return Response(msg, status=status.HTTP_200_OK)
+
         try:
-            warehouse = request.user.shop_employee.all().last().shop_id
+            warehouse = request.user.shop_employee.last().shop_id
 
         except Exception as e:
             error_logger.error(e)
@@ -692,9 +710,6 @@ class PickupDetail(APIView):
             msg = {'is_success': False, 'message': "Bin id is not associated with the user's warehouse.", 'data': None}
             return Response(msg, status=status.HTTP_200_OK)
 
-        order_no = request.data.get('order_no')
-        if not order_no:
-            return Response(msg, status=status.HTTP_200_OK)
         pickup_quantity = request.data.get('pickup_quantity')
         if not pickup_quantity:
             return Response(msg, status=status.HTTP_200_OK)
@@ -857,14 +872,13 @@ class PickupComplete(APIView):
     def post(self, request):
         order_no = request.data.get('order_no')
         if not order_no:
-            msg = {'is_success': True, 'message': 'Order number field is empty.', 'data': None}
+            msg = {'is_success': False, 'message': 'Order number field is empty.', 'data': None}
             return Response(msg, status=status.HTTP_200_OK)
 
         is_repackaging = 0
 
         order_qs = Order.objects.filter(order_no=order_no)
         order_obj = order_qs.last()
-
         with transaction.atomic():
 
             if order_obj:
@@ -879,6 +893,10 @@ class PickupComplete(APIView):
 
             if pd_obj.filter(picking_status='picking_complete').exists():
                 return Response({'is_success': True, 'message': "Pickup completed for the selected items"})
+
+            if pd_obj.last().picking_status == PickerDashboard.PICKING_CANCELLED:
+                msg = {'is_success': False, 'message': ERROR_MESSAGES['ORDER_CANCELLED'].format(order_no), 'data': None}
+                return Response(msg, status=status.HTTP_200_OK)
 
             pick_obj = Pickup.objects.select_for_update(). \
                 filter(pickup_type_id=order_no, zone__picker_users=request.user). \
