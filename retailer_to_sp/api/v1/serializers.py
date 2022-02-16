@@ -4750,6 +4750,7 @@ class LastMileLoadVerifyPackageSerializer(serializers.ModelSerializer):
             if not trip_shipment:
                 trip_shipment = LastMileTripShipmentMapping.objects.create(**validated_data['trip_shipment_mapping'])
             else:
+                trip_shipment.shipment_status = validated_data['trip_shipment_mapping']['shipment_status']
                 trip_shipment.shipment_health = validated_data['trip_shipment_mapping']['shipment_health']
                 trip_shipment.save()
             validated_data['trip_package_mapping']['trip_shipment'] = trip_shipment
