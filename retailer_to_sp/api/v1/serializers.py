@@ -3813,10 +3813,15 @@ class LastMileTripCrudSerializers(serializers.ModelSerializer):
 
 class LastMileTripInvoicesBasicDetailsSerializer(serializers.ModelSerializer):
     order = OrderSerializerForShipment(read_only=True)
+    invoice_status = serializers.SerializerMethodField()
+
+    def get_invoice_status(self, obj):
+        mapping = obj.last_mile_trip_shipment.filter(~Q(shipment_status=LastMileTripShipmentMapping.CANCELLED)).last()
+        return mapping.shipment_status if mapping else None
 
     class Meta:
         model = OrderedProduct
-        fields = ('id', 'order', 'shipment_status', 'invoice_no', 'invoice_amount',
+        fields = ('id', 'order', 'shipment_status', 'invoice_no', 'invoice_amount', 'invoice_status',
                   'shipment_weight', 'created_at', 'modified_at')
 
 
