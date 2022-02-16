@@ -3816,7 +3816,8 @@ class LastMileTripInvoicesBasicDetailsSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = OrderedProduct
-        fields = ('id', 'order', 'shipment_status', 'invoice_no', 'invoice_amount', 'created_at', 'modified_at')
+        fields = ('id', 'order', 'shipment_status', 'invoice_no', 'invoice_amount',
+                  'shipment_weight', 'created_at', 'modified_at')
 
 
 class LastMileTripShipmentsSerializer(serializers.Serializer):
