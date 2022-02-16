@@ -3771,10 +3771,10 @@ class LastMileTripCrudSerializers(serializers.ModelSerializer):
 
     def cancel_added_shipments_to_trip(self, last_mile_trip):
         shipment_details = last_mile_trip.last_mile_trip_shipments_details.all()
-        # for mapping in shipment_details:
-        #     if mapping.shipment.shipment_status == OrderedProduct.READY_TO_DISPATCH:
-        #         mapping.shipment.shipment_status = OrderedProduct.MOVED_TO_DISPATCH
-        #         mapping.shipment.save()
+        for mapping in shipment_details:
+            if mapping.shipment.shipment_status == OrderedProduct.READY_TO_DISPATCH:
+                mapping.shipment.shipment_status = OrderedProduct.MOVED_TO_DISPATCH
+                mapping.shipment.save()
         shipment_details.update(shipment_status=LastMileTripShipmentMapping.CANCELLED)
 
     @transaction.atomic
@@ -3813,10 +3813,15 @@ class LastMileTripCrudSerializers(serializers.ModelSerializer):
 
 class LastMileTripInvoicesBasicDetailsSerializer(serializers.ModelSerializer):
     order = OrderSerializerForShipment(read_only=True)
+    invoice_status = serializers.SerializerMethodField()
+
+    def get_invoice_status(self, obj):
+        mapping = obj.last_mile_trip_shipment.filter(~Q(shipment_status=LastMileTripShipmentMapping.CANCELLED)).last()
+        return mapping.shipment_status if mapping else None
 
     class Meta:
         model = OrderedProduct
-        fields = ('id', 'order', 'shipment_status', 'invoice_no', 'invoice_amount',
+        fields = ('id', 'order', 'shipment_status', 'invoice_no', 'invoice_amount', 'invoice_status',
                   'shipment_weight', 'created_at', 'modified_at')
 
 
@@ -4507,9 +4512,12 @@ class LoadLastMileInvoiceSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Please provide 'shipment_id' or 'invoice_no'.")
 
         trip_shipment_mapping = LastMileTripShipmentMapping.objects.filter(
-            ~Q(shipment_status=LastMileTripShipmentMapping.CANCELLED), shipment=shipment).last()
+            ~Q(shipment_status=LastMileTripShipmentMapping.CANCELLED), trip=trip, shipment=shipment).last()
         if trip_shipment_mapping:
-            raise serializers.ValidationError(f"Invoice {shipment} already mapped with {trip_shipment_mapping.trip}")
+            raise serializers.ValidationError(f"Invoice {shipment} already mapped with {trip}")
+
+        if shipment.shipment_status != OrderedProduct.READY_TO_DISPATCH:
+            raise serializers.ValidationError(f"Invoice {shipment} already mapped with another trip.")
 
         if shipment.shipment_status != OrderedProduct.MOVED_TO_DISPATCH:
             raise serializers.ValidationError(f"Invoice {shipment} not in {OrderedProduct.MOVED_TO_DISPATCH} state, "
@@ -4750,6 +4758,7 @@ class LastMileLoadVerifyPackageSerializer(serializers.ModelSerializer):
             if not trip_shipment:
                 trip_shipment = LastMileTripShipmentMapping.objects.create(**validated_data['trip_shipment_mapping'])
             else:
+                trip_shipment.shipment_status = validated_data['trip_shipment_mapping']['shipment_status']
                 trip_shipment.shipment_health = validated_data['trip_shipment_mapping']['shipment_health']
                 trip_shipment.save()
             validated_data['trip_package_mapping']['trip_shipment'] = trip_shipment
@@ -4775,13 +4784,13 @@ class LastMileLoadVerifyPackageSerializer(serializers.ModelSerializer):
                                             output_field=FloatField())).get('total_weight')
             trip.weight = trip.weight + package_weight
         trip.save()
-        if trip_shipment.shipment_status == LastMileTripShipmentMapping.TO_BE_LOADED:
+        if trip_shipment.shipment_status == LastMileTripShipmentMapping.LOADING_FOR_DC:
             if not ShipmentPackaging.objects.filter(
-                    shipment=trip_shipment.shipment, movement_type__in=[
-                        ShipmentPackaging.DISPATCH, ShipmentPackaging.RESCHEDULED, ShipmentPackaging.NOT_ATTEMPT]).\
-                    filter(
-                Q(last_mile_trip_packaging_details__isnull=True) | Q(
-                    last_mile_trip_packaging_details__package_status=LastMileTripShipmentPackages.CANCELLED)).exists():
+                    ~Q(last_mile_trip_packaging_details__package_status__in=[
+                        LastMileTripShipmentPackages.LOADED, LastMileTripShipmentPackages.MISSING_AT_LOADING,
+                        LastMileTripShipmentPackages.DAMAGED_AT_LOADING]), shipment=trip_shipment.shipment,
+                    movement_type__in=[ShipmentPackaging.DISPATCH, ShipmentPackaging.RESCHEDULED,
+                                       ShipmentPackaging.NOT_ATTEMPT]).exists():
                 trip_shipment.shipment_status = LastMileTripShipmentMapping.LOADED_FOR_DC
                 trip_shipment.save()
 
