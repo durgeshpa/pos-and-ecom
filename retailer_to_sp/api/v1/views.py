@@ -37,6 +37,7 @@ from accounts.api.v1.serializers import PosUserSerializer, PosShopUserSerializer
 from addresses.models import Address, City, Pincode
 from audit.views import BlockUnblockProduct
 from barCodeGenerator import barcodeGen
+from global_config.views import get_config
 from brand.models import Brand
 from categories import models as categorymodel
 from common.common_utils import (create_file_name, single_pdf_file, create_merge_pdf_name, merge_pdf_files,
@@ -6657,7 +6658,7 @@ class RefreshEs(APIView):
 
 
 def refresh_cron_es():
-    shop_id = 600
+    shop_id = int(get_config('current_wh_active', 50484))
     info_logger.info('RefreshEs| shop {}, Started'.format(shop_id))
     upload_shop_stock(shop_id)
     info_logger.info('RefreshEs| shop {}, Ended'.format(shop_id))
