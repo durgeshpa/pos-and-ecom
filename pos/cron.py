@@ -86,13 +86,24 @@ def payment_reconsilations(trxn_id, payment_type='online', obj = None):
             obj.payment_id = response[trxn_id].get('mihpayid',None)
             obj.save()
             return
+        if response[trxn_id].get('mihpayid',None) == 'Not Found' and payment_type != 'online':
+            return
 
         if response[trxn_id].get('status') == 'failure' and obj.payment_status !=  "payment_failed":
             obj.payment_status = 'payment_failed'
             obj.transaction_id = trxn_id
             obj.payment_id = response[trxn_id].get('mihpayid',None)
-        elif response[trxn_id].get('status') == 'success' and not obj.transaction_id:
+        elif response[trxn_id].get('status') == 'success' and (not obj.payment_id or obj.payment_id == 'Not Found'):
             obj.payment_status = "payment_approved"
+            if response[trxn_id].get('mode') == 'CC':
+                obj.payment_mode = 'CREDIT_CARD'
+            elif response[trxn_id].get('mode') == 'DC':
+                obj.payment_mode = 'DEBIT_CARD'
+            elif response[trxn_id].get('mode') == 'UPI':
+                 obj.payment_mode = 'UPI'
+            else:
+                obj.payment_mode = 'Net Banking'
+
             if obj.order.order_status != 'ordered':
                 objs = Order.objects.filter(id=obj.order.id).last()
                 objs.order_status = 'ordered'
