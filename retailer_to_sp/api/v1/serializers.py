@@ -4775,7 +4775,7 @@ class LastMileLoadVerifyPackageSerializer(serializers.ModelSerializer):
                                             output_field=FloatField())).get('total_weight')
             trip.weight = trip.weight + package_weight
         trip.save()
-        if trip_shipment.shipment_status == LastMileTripShipmentMapping.TO_BE_LOADED:
+        if trip_shipment.shipment_status == LastMileTripShipmentMapping.LOADING_FOR_DC:
             if not ShipmentPackaging.objects.filter(
                     shipment=trip_shipment.shipment, movement_type__in=[
                         ShipmentPackaging.DISPATCH, ShipmentPackaging.RESCHEDULED, ShipmentPackaging.NOT_ATTEMPT]).\
