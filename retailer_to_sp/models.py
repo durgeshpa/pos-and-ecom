@@ -1486,7 +1486,9 @@ class Trip(models.Model):
 
     @property
     def no_of_shipments(self):
-        return self.rt_invoice_trip.all().count()
+        return self.last_mile_trip_shipments_details.exclude(
+            shipment_status__in=[DispatchTripShipmentMapping.LOADING_FOR_DC,
+                                 DispatchTripShipmentMapping.CANCELLED]).count()
 
     @property
     def trip_id(self):
