@@ -4516,7 +4516,7 @@ class LoadLastMileInvoiceSerializer(serializers.ModelSerializer):
         if trip_shipment_mapping:
             raise serializers.ValidationError(f"Invoice {shipment} already mapped with {trip}")
 
-        if shipment.shipment_status != OrderedProduct.READY_TO_DISPATCH:
+        if shipment.shipment_status == OrderedProduct.READY_TO_DISPATCH:
             raise serializers.ValidationError(f"Invoice {shipment} already mapped with another trip.")
 
         if shipment.shipment_status not in [OrderedProduct.MOVED_TO_DISPATCH, OrderedProduct.RESCHEDULED,
