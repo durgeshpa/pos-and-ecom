@@ -7745,11 +7745,15 @@ class ShipmentCratesPackagingView(generics.GenericAPIView):
         return get_response(serializer_error(serializer), False)
 
     def validate_package_by_crate_id(self, crate_id, shipment_id=None):
-        if self.queryset.filter(shipment_packaging__shipment_id=shipment_id,
-                                shipment_packaging__crate__crate_id=crate_id).exists():
-            return {'data': self.queryset.filter(shipment_packaging__shipment_id=shipment_id,
-                                shipment_packaging__crate__crate_id=crate_id).last()}
-        return {'error': 'Invalid Crate for selected shipment.' }
+        shipment = OrderedProduct.objects.filter(id=shipment_id).last()
+        if not shipment:
+            return {'error': 'Invalid shipment.'}
+        trip_package = self.queryset.filter(
+                trip_shipment__trip=shipment.last_trip, shipment_packaging__shipment=shipment,
+                shipment_packaging__crate__crate_id=crate_id).last()
+        if not trip_package:
+            return {'error': 'Invalid Crate for selected shipment.'}
+        return {'data': trip_package}
 
 
 class VerifyRescheduledShipmentPackagesView(generics.GenericAPIView):
