@@ -214,6 +214,9 @@ class Route(BaseTimestampUserModel):
     class Meta:
         unique_together = ("city", "name", )
 
+    def __str__(self):
+        return f"{self.city} -> {self.name}"
+
 
 class ShopRoute(BaseTimestampUserModel):
     """
@@ -224,3 +227,6 @@ class ShopRoute(BaseTimestampUserModel):
 
     class Meta:
         unique_together = ("shop", "route", )
+
+    def __str__(self):
+        return f"{self.route} - {self.shop.id}"

@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from addresses.models import (Country, State, City, Area, Address, Pincode)
+from addresses.models import (Country, State, City, Area, Address, Pincode, Route)
 from retailer_backend.validators import PinCodeValidator
 
 class CountrySerializer(serializers.ModelSerializer):
@@ -77,3 +77,36 @@ class PinCityStateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Pincode
         fields = ('pincode', 'city', 'state')
+
+
+class StateBasicSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = State
+        fields = ('id', 'state_name', 'state_code')
+
+
+class CityBasicSerializer(serializers.ModelSerializer):
+    state = StateBasicSerializer(read_only=True)
+
+    class Meta:
+        model = City
+        fields = ('id', 'city_name', 'state')
+
+
+class RouteSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Route
+        fields = ('id', 'name')
+
+
+class CityRouteSerializer(serializers.Serializer):
+    city = serializers.SerializerMethodField()
+    routes = serializers.SerializerMethodField()
+
+    @staticmethod
+    def get_city(obj):
+        return CityBasicSerializer(City.objects.filter(id=obj['city_id']).last(), read_only=True).data
+
+    @staticmethod
+    def get_routes(obj):
+        return RouteSerializer(Route.objects.filter(city=obj['city_id']), read_only=True, many=True).data
