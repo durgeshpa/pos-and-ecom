@@ -20,14 +20,7 @@ def bulk_incentive_data_validation(file):
             values_only=True
     )):
         error_msg = []
-        #
-        # worksheet.write('A1', 'shop_id', bold)
-        # worksheet.write('B1', 'shop_name', bold)
-        # worksheet.write('C1', 'capping_applicable', bold)
-        # worksheet.write('D1', 'capping_value', bold)
-        # worksheet.write('E1', 'date_of_calculation', bold)
-        # worksheet.write('E1', 'total_ex_tax_delivered_value', bold)
-        #
+
         if not row[0]:
             error_msg.append(f"{first_row[0]} cant be blank")
         if row[0] and not shops.filter(id=int(row[0])).exists():

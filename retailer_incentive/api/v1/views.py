@@ -368,16 +368,17 @@ class BulkIncentiveSampleFileView(APIView):
         worksheet.write('C1', 'capping_applicable', bold)
         worksheet.write('D1', 'capping_value', bold)
         worksheet.write('E1', 'date_of_calculation', bold)
-        worksheet.write('E1', 'total_ex_tax_delivered_value', bold)
-        worksheet.write('E1', 'incentive', bold)
+        worksheet.write('F1', 'total_ex_tax_delivered_value', bold)
+        worksheet.write('G1', 'incentive', bold)
         row = 1
         col = 0
         worksheet.write(row, col, 322)
-        worksheet.write(row, col + 1, 'Yes')
-        worksheet.write(row, col + 2, 50000)
-        worksheet.write(row, col + 3, '2021-11-23')
-        worksheet.write(row, col + 4, 4550)
-        worksheet.write(row, col + 5, 1200)
+        worksheet.write(row, col + 1, 'GFDN')
+        worksheet.write(row, col + 2, 'YES')
+        worksheet.write(row, col + 3, 50000)
+        worksheet.write(row, col + 4, '2021-11-23')
+        worksheet.write(row, col + 5, 4550)
+        worksheet.write(row, col + 6, 1200)
 
         workbook.close()
         # Rewind the buffer.
@@ -393,30 +394,23 @@ class BulkIncentiveSampleFileView(APIView):
 
 class BulkCreateIncentiveView(APIView):
 
-    def get(self, request):
-        scheme_slab = BulkIncentive.objects.order_by('-id')
-        if scheme_slab:
-            serializer = GetIncentiveSerializer(scheme_slab, many=True)
-        msg = {'is_success': True, 'message': ['OK'], 'data': serializer.data}
-        return Response(msg, status=status.HTTP_200_OK)
-
     def post(self, request, *args, **kwargs):
         """ POST API for Create Bulk Incentive """
-        # user = self.check_user(request.user)
-        # info_logger.info("BulkIncentiveView POST api called.")
-        # if type(user) == str:
-        #     return Response(user, status=status.HTTP_400_BAD_REQUEST)
+        user = self.check_user(request.user)
+        info_logger.info("BulkIncentiveView POST api called.")
+        if type(user) == str:
+            return Response(user, status=status.HTTP_400_BAD_REQUEST)
 
         incentive_serializer = IncentiveSerializer(data=request.data)
         if incentive_serializer.is_valid():
             response = incentive_serializer.save(uploaded_by=request.user)
             if isinstance(response, HttpResponse):
                 return response
-            return Response("File uploaded sucessfully.", status=status.HTTP_201_CREATED)
+            return Response("File uploaded successfully.", status=status.HTTP_201_CREATED)
         else:
             return Response(incentive_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-    # def check_user(self, user):
-    #     if not user.user_type == 7 or not user.user_type == 6:
-    #         return "User is not Authorised"
-    #     return user
+    def check_user(self, user):
+        if not user.user_type == 7 or not user.user_type == 6:
+            return "User is not Authorised"
+        return user
