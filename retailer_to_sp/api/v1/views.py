@@ -355,6 +355,7 @@ class SearchProducts(APIView):
         keyword = self.request.GET.get('keyword')
         output_type = self.request.GET.get('output_type', '1')
         category_ids = self.request.GET.get('category_ids')
+        sub_category_ids = self.request.GET.get('sub_category_ids')
         filter_list = [{"term": {"is_deleted": False}}]
 
         if app_type == '3':
@@ -399,6 +400,11 @@ class SearchProducts(APIView):
             category = category_ids.split(',')
             category_filter = str(categorymodel.Category.objects.filter(id__in=category, status=True).last())
             filter_list.append({"match": {"category": {"query": category_filter, "operator": "and"}}})
+
+        if sub_category_ids:
+            #sub_category = sub_category_ids.split(',')
+            #sub_category_filter = str(categorymodel.Category.objects.filter(id__in=sub_category, status=True).last())
+            filter_list.append({"term": {"sub_category": sub_category_ids}})
 
         if filter_list and query_string:
             body['query'] = {"bool": {"must": {"query_string": query_string}, "filter": filter_list}}
