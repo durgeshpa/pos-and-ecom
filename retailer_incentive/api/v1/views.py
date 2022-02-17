@@ -30,6 +30,7 @@ debug_logger = logging.getLogger('file-debug')
 today = datetime.date.today()
 
 
+# retailer - app
 class ShopPurchaseMatrix(APIView):
     """
     This class is used to get the purchase matrix of a shop under mapped scheme
@@ -250,7 +251,7 @@ class IncentiveDashBoard(APIView):
         else:
             shop_mapping_object = ShopUserMapping.objects.filter(manager__in=self.get_manager(),
                                                                  employee=user.shop_employee.instance,
-                                                                 status=True).order_by('shop').distinct('shop')
+                                                                 status=True, shop_id=2020).order_by('shop').distinct('shop')
         if shop_mapping_object:
             scheme_shop_mapping_list = []
             scheme_data_list = []
