@@ -1189,11 +1189,12 @@ class PaymentStatusUpdateBYCronAdmin(admin.ModelAdmin):
     list_display = ('order', 'payment_status', 'order_status', 'seller_shop', 'payment_type',
                      'transaction_id',)
     list_per_page = 10
-    search_fields = ('order__order_no', 'paid_by__phone_number', 'order__seller_shop__shop_name')
+    search_fields = ('order__order_no', 'order__seller_shop__shop_name')
     list_filter = [('order__seller_shop', RelatedOnlyDropdownFilter),
                    ('payment_type', RelatedOnlyDropdownFilter),
                    ('created_at', DateRangeFilter),
                    ]
+    action = ['delete']
 
     def order_amount(self, obj):
         if obj:
@@ -1210,7 +1211,7 @@ class PaymentStatusUpdateBYCronAdmin(admin.ModelAdmin):
         return False
 
     def has_delete_permission(self, request, obj=None):
-        return False
+        return True
 
     def seller_shop(self, obj):
         return obj.order.seller_shop
