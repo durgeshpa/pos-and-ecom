@@ -333,9 +333,10 @@ class RouteView(generics.GenericAPIView):
         try:
             for data in data_list:
                 if 'id' in data and data['id']:
-                    Route.objects.filter(id=data['id'], city_id=data['city']).update(name=data['name'])
+                    Route.objects.filter(id=data['id'], city_id=data['city']).\
+                        update(name=data['name'], updated_by=self.request.user)
                 else:
-                    Route.objects.create(city_id=data['city'], name=data['name'])
+                    Route.objects.create(city_id=data['city'], name=data['name'], created_by=self.request.user)
         except Exception as ex:
             return {"error": "Unable to add/update route."}
         return {'data': 'City Route has been done successfully!'}
