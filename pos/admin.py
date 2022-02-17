@@ -29,7 +29,7 @@ from .models import (RetailerProduct, RetailerProductImage, Payment, ShopCustome
                      RetailerCartProductMapping, RetailerOrderReturn, RetailerReturnItems, InventoryPos,
                      InventoryChangePos, InventoryStatePos, MeasurementCategory, MeasurementUnit, PosReturnGRNOrder,
                      PosReturnItems, RetailerOrderedReport, BulkRetailerProduct,
-                     RetailerOrderCancel)
+                     RetailerOrderCancel, PaymentStatusUpdateByCron)
 from .views import upload_retailer_products_list, download_retailer_products_list_form_view, \
     DownloadRetailerCatalogue, RetailerCatalogueSampleFile, RetailerProductMultiImageUpload, DownloadPurchaseOrder, \
     download_discounted_products_form_view, download_discounted_products, \
@@ -1183,7 +1183,44 @@ class BulkRetailerProductAdmin(admin.ModelAdmin):
     def has_delete_permission(self, request, obj=None):
         return False
 
+class PaymentStatusUpdateBYCronAdmin(admin.ModelAdmin):
+    """add cron log on admin pannel
+    """
+    list_display = ('order', 'payment_status', 'order_status', 'seller_shop', 'payment_type',
+                     'transaction_id',)
+    list_per_page = 10
+    search_fields = ('order__order_no', 'paid_by__phone_number', 'order__seller_shop__shop_name')
+    list_filter = [('order__seller_shop', RelatedOnlyDropdownFilter),
+                   ('payment_type', RelatedOnlyDropdownFilter),
+                   ('created_at', DateRangeFilter),
+                   ]
 
+    def order_amount(self, obj):
+        if obj:
+            return obj.amount
+        return None
+
+    def order_status(self, obj):
+        return str(obj.order.order_status).capitalize()
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    def seller_shop(self, obj):
+        return obj.order.seller_shop
+
+
+    class Media:
+        pass
+
+
+admin.site.register(PaymentStatusUpdateByCron, PaymentStatusUpdateBYCronAdmin)
 admin.site.register(RetailerProduct, RetailerProductAdmin)
 admin.site.register(DiscountedRetailerProduct, DiscountedRetailerProductAdmin)
 admin.site.register(Payment, PaymentAdmin)

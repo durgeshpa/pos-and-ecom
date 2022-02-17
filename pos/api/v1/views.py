@@ -1656,7 +1656,7 @@ class RefundPayment(GenericAPIView):
             if data.get('amount') > payment_datails.amount:
                 return api_response('amount should less then or equal transaction amount.....', '', status.HTTP_200_OK,
                                     True)
-            refund_amount = data.amount
+            refund_amount = data.get('amount')
         else:
             refund_amount = payment_datails.amount
         payment_id = payment_datails.payment_id
