@@ -1,10 +1,15 @@
 from django.db import transaction
+from decimal import Decimal
 import logging
+import io
+import xlsxwriter
+from django.http import HttpResponse
 from django.utils.safestring import mark_safe
+from django.urls import reverse
 from rest_framework import serializers
 
 from retailer_incentive.common_validators import bulk_incentive_data_validation
-from retailer_incentive.models import SchemeShopMapping, SchemeSlab, Scheme, Incentive
+from retailer_incentive.models import SchemeShopMapping, SchemeSlab, Scheme, Incentive, BulkIncentive
 from shops.models import ShopUserMapping, Shop
 from accounts.models import User
 
@@ -88,36 +93,94 @@ class SchemeDetailSerializer(serializers.ModelSerializer):
         fields = ['id', 'scheme', ]
 
 
-class IncentiveSerializer(serializers.ModelSerializer):
+class GetIncentiveSerializer(serializers.ModelSerializer):
 
     class Meta:
         """ Meta class """
-        model = Incentive
-        fields = ('file', )
+        model = BulkIncentive
+        fields = '__all__'
+
+
+class IncentiveSerializer(serializers.ModelSerializer):
+    uploaded_file = serializers.FileField(label='Upload Incentive')
+
+    class Meta:
+        """ Meta class """
+        model = BulkIncentive
+        fields = ('uploaded_file',)
 
     def validate(self, data):
-        if not data['file'].name[-5:] in ('.xlsx'):
+        if not data['uploaded_file'].name[-5:] in ('.xlsx'):
             raise serializers.ValidationError('Sorry! Only xlsx file accepted.')
+
+        return data
 
     @transaction.atomic
     def create(self, validated_data):
         """ create incentive """
         try:
-            bulk_product_obj = self.create_data_from_file(**validated_data)
+            bulk_incentive_obj = BulkIncentive.objects.create(**validated_data)
         except Exception as e:
             error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
             raise serializers.ValidationError(error)
+        data = self.pos_save_file(bulk_incentive_obj)
+        return data if data else bulk_incentive_obj
 
-        return bulk_product_obj
+    def pos_save_file(self, bulk_incentive_obj):
+        response_file = None
+        if bulk_incentive_obj:
+            if bulk_incentive_obj.uploaded_file:
+                error_list, validated_rows = bulk_incentive_data_validation(bulk_incentive_obj.uploaded_file)
+                if validated_rows:
+                    self.bulk_create_incentives(validated_rows, bulk_incentive_obj.uploaded_by)
+                if len(error_list) > 1:
+                    response_file = self.error_incentives_xlsx(error_list, bulk_incentive_obj)
+        return response_file
 
-    def create_data_from_file(self, file):
-        if file:
-            error_dict, validated_rows = bulk_incentive_data_validation(file)
-            self.bulk_create_validated_incentives(validated_rows)
-            if len(error_dict) > 0:
-                error_logger.info(f"Product can't create/update for some rows: {error_dict}")
-                return False, mark_safe(f"{self.uploaded_product_list_status(file, error_dict)}")
-        return True, None
+    def bulk_create_incentives(self, data, uploaded_by):
+        with transaction.atomic():
+            for row in data:
+                try:
+                    Incentive.objects.create(shop_id=int(row[0]),
+                                             capping_applicable=True if str(row[2]).lower() == "yes" else False,
+                                             capping_value=str(round(row[3], 2)),
+                                             date_of_calculation=row[4].date(),
+                                             total_ex_tax_delivered_value=str(round(row[5], 2)),
+                                             incentive=str(round(row[6], 2)),
+                                             created_by=uploaded_by, updated_by=uploaded_by)
+                except Exception as e:
+                    info_logger.info("BulkCreateIncentiveView | can't create Incentive", e.args)
 
-    def bulk_create_validated_incentives(self):
-        pass
+    def error_incentives_xlsx(self, list_data, bulk_incentive_obj):
+        filename = f'incentive_error_sheet_{bulk_incentive_obj.pk}.xlsx'
+        info_logger.info("Get API for Download sample XLSX to Create Incentive api called.")
+        output = io.BytesIO()
+        workbook = xlsxwriter.Workbook(output)
+        worksheet = workbook.add_worksheet()
+        bold = workbook.add_format({'bold': True})
+
+        # Write error msg in xlsx sheet.
+        for row_num, columns in enumerate(list_data):
+            for col_num, cell_data in enumerate(columns):
+                worksheet.write(row_num, col_num, cell_data, bold if row_num == 0 else None)
+        workbook.close()
+        output.seek(0)
+        response = HttpResponse(
+            output,
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        response['Content-Disposition'] = 'attachment; filename=%s' % filename
+        return response
+
+
+class GetListIncentiveSerializer(serializers.ModelSerializer):
+    shop_name = serializers.SerializerMethodField()
+
+    class Meta:
+        """ Meta class """
+        model = Incentive
+        fields = ('shop', 'shop_name', 'capping_applicable', 'capping_value', 'date_of_calculation',
+                  'total_ex_tax_delivered_value', 'incentive',)
+
+    def get_shop_name(self, obj):
+        return obj.shop.shop_name

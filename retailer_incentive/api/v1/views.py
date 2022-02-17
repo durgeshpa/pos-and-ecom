@@ -11,8 +11,9 @@ from rest_framework.views import APIView
 
 from retailer_backend.messages import SUCCESS_MESSAGES, VALIDATION_ERROR_MESSAGES, ERROR_MESSAGES
 from retailer_incentive.api.v1.serializers import SchemeShopMappingSerializer, SalesExecutiveListSerializer, \
-    SchemeDetailSerializer, SchemeSlabSerializer, IncentiveSerializer
-from retailer_incentive.models import SchemeSlab, IncentiveDashboardDetails, Incentive
+    SchemeDetailSerializer, SchemeSlabSerializer, IncentiveSerializer, GetIncentiveSerializer, \
+    GetListIncentiveSerializer
+from retailer_incentive.models import SchemeSlab, IncentiveDashboardDetails, Incentive, BulkIncentive
 from retailer_incentive.utils import get_shop_scheme_mapping, get_shop_scheme_mapping_based
 from shops.models import ShopUserMapping, Shop, ParentRetailerMapping
 from retailer_incentive.common_function import get_user_id_from_token, get_total_sales, shop_scheme_not_mapped
@@ -48,6 +49,10 @@ class ShopPurchaseMatrix(APIView):
         current_month = today_date.month
         input_month = int(request.GET.get('month', current_month))
         response_data = list()
+        # Incentive
+        incentive = Incentive.objects.filter(
+            shop_id=shop_id, created_at__date__year=current_year, created_at__date__month=input_month).last()
+        incentive_data = GetListIncentiveSerializer(incentive, read_only=True).data
         # Active Scheme
         if input_month == current_month:
             scheme_shop_mapping = get_shop_scheme_mapping(shop_id)
@@ -70,8 +75,8 @@ class ShopPurchaseMatrix(APIView):
                 se, sm = self.current_contact(shop)
                 scheme_data = self.per_scheme_data(scheme, total_sales, discount_percentage, discount_value,
                                                    scheme.start_date, scheme.end_date, sm, se)
-                message = SUCCESS_MESSAGES['SCHEME_BUY_MORE']
-                scheme_data['message'] = message
+                # message = SUCCESS_MESSAGES['SCHEME_BUY_MORE']
+                # scheme_data['message'] = message
                 response_data.append(scheme_data)
 
         # Inactive schemes
@@ -90,7 +95,7 @@ class ShopPurchaseMatrix(APIView):
                                                           scheme.start_date, scheme.end_date, scheme.sales_manager,
                                                           scheme.sales_executive))
 
-        msg = {'is_success': True, 'message': ['OK'], 'data': response_data}
+        msg = {'is_success': True, 'message': ['OK'], 'incentive_data': incentive_data, 'data': response_data,}
         if not response_data:
             msg = {'is_success': False, 'message': ['No Scheme Found for this shop'], 'data':None}
         return Response(msg, status=status.HTTP_200_OK)
@@ -261,6 +266,7 @@ class IncentiveDashBoard(APIView):
             if scheme_shop_mapping_list:
                 for scheme_shop_map in scheme_shop_mapping_list:
                     if month == today.month:
+                        current_year = today.year
                         try:
                             scheme = scheme_shop_map.scheme
                             total_sales = get_total_sales(scheme_shop_map.shop_id, scheme_shop_map.start_date,
@@ -271,6 +277,13 @@ class IncentiveDashBoard(APIView):
                             if scheme_slab is not None:
                                 discount_percentage = scheme_slab.discount_value
                             discount_value = floor(discount_percentage * total_sales / 100)
+
+                            # Incentive
+                            incentive = Incentive.objects.filter(
+                                shop_id=scheme_shop_map.shop_id, created_at__date__year=current_year,
+                                created_at__date__month=today.month).last()
+                            incentive_data = GetListIncentiveSerializer(incentive, read_only=True).data
+                            # scheme_data = incentive_data
                             shop = Shop.objects.filter(id=scheme_shop_map.shop_id).last()
                             scheme_data = {'shop_id': shop.id,
                                            'shop_name': str(shop.shop_name),
@@ -343,19 +356,21 @@ class BulkIncentiveSampleFileView(APIView):
         worksheet = workbook.add_worksheet()
 
         bold = workbook.add_format({'bold': True})
-        worksheet.write('A1', 'shop', bold)
+        worksheet.write('A1', 'shop_id', bold)
         worksheet.write('B1', 'shop_name', bold)
         worksheet.write('C1', 'capping_applicable', bold)
         worksheet.write('D1', 'capping_value', bold)
         worksheet.write('E1', 'date_of_calculation', bold)
         worksheet.write('E1', 'total_ex_tax_delivered_value', bold)
+        worksheet.write('E1', 'incentive', bold)
         row = 1
         col = 0
         worksheet.write(row, col, 322)
         worksheet.write(row, col + 1, 'Yes')
         worksheet.write(row, col + 2, 50000)
-        worksheet.write(row, col + 3, '22-01-2022')
+        worksheet.write(row, col + 3, '2021-11-23')
         worksheet.write(row, col + 4, 4550)
+        worksheet.write(row, col + 5, 1200)
 
         workbook.close()
         # Rewind the buffer.
@@ -369,23 +384,32 @@ class BulkIncentiveSampleFileView(APIView):
         return response
 
 
-class BulkIncentiveView(APIView):
+class BulkCreateIncentiveView(APIView):
+
+    def get(self, request):
+        scheme_slab = BulkIncentive.objects.order_by('-id')
+        if scheme_slab:
+            serializer = GetIncentiveSerializer(scheme_slab, many=True)
+        msg = {'is_success': True, 'message': ['OK'], 'data': serializer.data}
+        return Response(msg, status=status.HTTP_200_OK)
 
     def post(self, request, *args, **kwargs):
         """ POST API for Create Bulk Incentive """
-        user = self.check_user(request.user)
-        info_logger.info("BulkIncentiveView POST api called.")
-        if type(user) == str:
-            return Response(user, status=status.HTTP_400_BAD_REQUEST)
+        # user = self.check_user(request.user)
+        # info_logger.info("BulkIncentiveView POST api called.")
+        # if type(user) == str:
+        #     return Response(user, status=status.HTTP_400_BAD_REQUEST)
 
         incentive_serializer = IncentiveSerializer(data=request.data)
         if incentive_serializer.is_valid():
-            incentive_serializer.save()
-            return Response(incentive_serializer.data, status=status.HTTP_201_CREATED)
+            response = incentive_serializer.save(uploaded_by=request.user)
+            if isinstance(response, HttpResponse):
+                return response
+            return Response("File uploaded sucessfully.", status=status.HTTP_201_CREATED)
         else:
             return Response(incentive_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-    def check_user(self, user):
-        if not user.user_type == 7 or not user.user_type == 6:
-            return "User is not Authorised"
-        return user
+    # def check_user(self, user):
+    #     if not user.user_type == 7 or not user.user_type == 6:
+    #         return "User is not Authorised"
+    #     return user

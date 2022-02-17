@@ -11,7 +11,7 @@ from nested_admin.nested import NestedTabularInline
 
 from retailer_incentive.forms import SchemeCreationForm, SchemeSlabCreationForm, SchemeShopMappingCreationForm, \
     SlabInlineFormSet
-from retailer_incentive.models import Scheme, SchemeSlab, SchemeShopMapping, IncentiveDashboardDetails
+from retailer_incentive.models import Scheme, SchemeSlab, SchemeShopMapping, IncentiveDashboardDetails, Incentive
 from retailer_incentive.utils import get_active_mappings
 from retailer_incentive.views import get_scheme_shop_mapping_sample_csv, scheme_shop_mapping_csv_upload
 
@@ -219,6 +219,24 @@ class IncentiveDashboardDetails(admin.ModelAdmin):
     """
     model = SchemeSlab
     list_display = ('scheme', 'min_value', 'max_value', 'discount_value', 'discount_type',)
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    class Media:
+        pass
+
+
+@admin.register(Incentive)
+class IncentiveAdmin(admin.ModelAdmin):
+    """
+    This class is used to get the SchemeSlab
+    """
+    model = Incentive
+    list_display = ('shop', 'capping_applicable', 'capping_value', 'date_of_calculation', 'total_ex_tax_delivered_value',)
 
     def has_change_permission(self, request, obj=None):
         return False

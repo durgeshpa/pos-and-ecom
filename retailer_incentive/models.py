@@ -1,12 +1,21 @@
+import logging
+import datetime
 from django.contrib.auth import get_user_model
 from django.core.validators import RegexValidator
 from django.db import models
-
+from django.urls import reverse
 # Create your models here.
 from model_utils import Choices
 
 from accounts.middlewares import get_current_user
 from shops.models import Shop
+
+logger = logging.getLogger(__name__)
+
+# Logger
+info_logger = logging.getLogger('file-info')
+error_logger = logging.getLogger('file-error')
+debug_logger = logging.getLogger('file-debug')
 
 
 class BaseTimestampModel(models.Model):
@@ -122,6 +131,19 @@ class IncentiveDashboardDetails(BaseTimestampModel):
         return "{}-{}, {}".format(self.shop, self.start_date, self.end_date)
 
 
+class BulkIncentive(models.Model):
+    uploaded_file = models.FileField(
+        upload_to='incentive/uploaded_file',
+        null=True, blank=False
+    )
+    uploaded_by = models.ForeignKey(
+        get_user_model(), null=True, related_name='incentive_uploaded_by',
+        on_delete=models.DO_NOTHING
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
+
+
 class Incentive(BaseTimestampUserModel):
     """
        This class represents of Incentive
@@ -129,8 +151,9 @@ class Incentive(BaseTimestampUserModel):
 
     shop = models.ForeignKey(Shop, on_delete=models.CASCADE)
     capping_applicable = models.BooleanField(default=False)
-    capping_value = models.DecimalField(max_digits=4, decimal_places=2)
+    capping_value = models.DecimalField(max_digits=8, decimal_places=2)
     date_of_calculation = models.DateField()
-    total_ex_tax_delivered_value = models.DecimalField(max_digits=4, decimal_places=2)
+    total_ex_tax_delivered_value = models.DecimalField(max_digits=8, decimal_places=2)
+    incentive = models.DecimalField(max_digits=8, decimal_places=2)
 
 
