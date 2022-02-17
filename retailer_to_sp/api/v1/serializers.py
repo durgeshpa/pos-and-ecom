@@ -3771,10 +3771,10 @@ class LastMileTripCrudSerializers(serializers.ModelSerializer):
 
     def cancel_added_shipments_to_trip(self, last_mile_trip):
         shipment_details = last_mile_trip.last_mile_trip_shipments_details.all()
-        # for mapping in shipment_details:
-        #     if mapping.shipment.shipment_status == OrderedProduct.READY_TO_DISPATCH:
-        #         mapping.shipment.shipment_status = OrderedProduct.MOVED_TO_DISPATCH
-        #         mapping.shipment.save()
+        for mapping in shipment_details:
+            if mapping.shipment.shipment_status == OrderedProduct.READY_TO_DISPATCH:
+                mapping.shipment.shipment_status = OrderedProduct.MOVED_TO_DISPATCH
+                mapping.shipment.save()
         shipment_details.update(shipment_status=LastMileTripShipmentMapping.CANCELLED)
 
     @transaction.atomic
@@ -4516,12 +4516,12 @@ class LoadLastMileInvoiceSerializer(serializers.ModelSerializer):
         if trip_shipment_mapping:
             raise serializers.ValidationError(f"Invoice {shipment} already mapped with {trip}")
 
-        if shipment.shipment_status != OrderedProduct.READY_TO_DISPATCH:
+        if shipment.shipment_status == OrderedProduct.READY_TO_DISPATCH:
             raise serializers.ValidationError(f"Invoice {shipment} already mapped with another trip.")
 
-        if shipment.shipment_status != OrderedProduct.MOVED_TO_DISPATCH:
-            raise serializers.ValidationError(f"Invoice {shipment} not in {OrderedProduct.MOVED_TO_DISPATCH} state, "
-                                              f"unable to load this invoice to this trip.")
+        if shipment.shipment_status not in [OrderedProduct.MOVED_TO_DISPATCH, OrderedProduct.RESCHEDULED,
+                                            OrderedProduct.NOT_ATTEMPT]:
+            raise serializers.ValidationError(f"Invoice {shipment} not in a good state to load into this trip.")
 
         if shipment.current_shop != trip.source_shop:
             raise serializers.ValidationError(
@@ -4544,7 +4544,8 @@ class LoadLastMileInvoiceSerializer(serializers.ModelSerializer):
         """create a Last Mile Trip Shipment Mapping"""
         try:
             trip_shipment = LastMileTripShipmentMapping.objects.create(**validated_data)
-            if trip_shipment.shipment.shipment_status == OrderedProduct.MOVED_TO_DISPATCH:
+            if trip_shipment.shipment.shipment_status in [OrderedProduct.MOVED_TO_DISPATCH, OrderedProduct.RESCHEDULED,
+                                                          OrderedProduct.NOT_ATTEMPT]:
                 trip_shipment.shipment.shipment_status = OrderedProduct.READY_TO_DISPATCH
                 trip_shipment.shipment.save()
         except Exception as e:
