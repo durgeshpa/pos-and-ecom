@@ -1,13 +1,19 @@
+from admin_auto_filters.filters import AutocompleteFilter
 from django.contrib import admin
 
 from import_export.admin import ImportExportModelAdmin
 
 from .models import (
     Country, State, City, Address, Area, InvoiceCityMapping, Pincode, DispatchCenterCityMapping,
-    DispatchCenterPincodeMapping
+    DispatchCenterPincodeMapping, Route
 )
 from .forms import AddressForm, StateForm
 from .resources import PincodeResource
+
+
+class CityFilter(AutocompleteFilter):
+    title = 'City'
+    field_name = 'city'
 
 
 class StateAdmin(admin.ModelAdmin):
@@ -70,6 +76,13 @@ class DispatchCenterPincodeMappingAdmin(admin.ModelAdmin):
         return False
 
 
+class RouteAdmin(admin.ModelAdmin):
+    fields = ('city', 'name')
+    list_display = ('city', 'name')
+    list_filter = (CityFilter,)
+    search_fields = ('city__city_name', 'name')
+
+
 admin.site.register(Country)
 admin.site.register(Area)
 admin.site.register(City, CityAdmin)
@@ -79,4 +92,5 @@ admin.site.register(InvoiceCityMapping, InvoiceCityMappingAdmin)
 admin.site.register(DispatchCenterCityMapping, DispatchCenterCityMappingAdmin)
 admin.site.register(DispatchCenterPincodeMapping, DispatchCenterPincodeMappingAdmin)
 admin.site.register(Pincode, PincodeAdmin)
+admin.site.register(Route, RouteAdmin)
 
