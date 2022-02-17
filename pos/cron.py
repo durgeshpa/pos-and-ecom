@@ -111,12 +111,12 @@ def payment_reconsilations(trxn_id, payment_type='online', obj = None):
             obj.transaction_id = trxn_id
             obj.payment_id = response[trxn_id].get('mihpayid',None)
 
-        elif response[trxn_id].get('status') == 'success' and (not obj.payment_id or obj.payment_id == 'Not Found'):
-
+        elif response[trxn_id].get('status') == 'success' and (not obj.transaction_id or not obj.payment_id or obj.payment_id == 'Not Found'):
+            log_obj = None
             if obj.payment_status != "payment_approved":
                 try:
                     log_obj,created =  PaymentStatusUpdateByCron.objects.get_or_create(order=obj.order, payment_type=obj.payment_type)
-                    log_obj.payment_status = "payment_not_found"
+                    log_obj.payment_status = "payment_approved"
                     log_obj.transaction_id = trxn_id
                     log_obj.payment_id = response[trxn_id].get('mihpayid',None)
                 except Exception as e:
@@ -139,8 +139,9 @@ def payment_reconsilations(trxn_id, payment_type='online', obj = None):
                 objs.save()
             obj.transaction_id = trxn_id
             obj.payment_id = response[trxn_id].get('mihpayid',None)
-            log_obj.payment_mode = obj.payment_mode
-            log_obj.save()
+            if log_obj:
+                log_obj.payment_mode = obj.payment_mode
+                log_obj.save()
 
         elif response[trxn_id].get('status') == 'Not Found' and obj.payment_status !=  "payment_not_found":
             obj.payment_status = "payment_not_found"
@@ -181,7 +182,7 @@ def payment_reconsilation_():
 def payment_reconsilation_per_ten_minutes():
     cron_logger.info('cron_per 10 minutes payment_reconsilation start..........................')
     time_threshold = datetime.datetime.now() - datetime.timedelta(minutes=60)
-    objects = Payment.objects.filter(created_at__gt=time_threshold).values("order__ordered_cart_id")
+    objects = Payment.objects.filter(created_at__gt=time_threshold)
     for obj in objects:
         try:
            payment_reconsilations(str(obj.order.ordered_cart_id), obj.payment_type.type, obj)
@@ -193,7 +194,7 @@ def payment_reconsilation_per_ten_minutes():
 def payment_reconsilation_per_24_hours():
     cron_logger.info('cron_per 24 minutes payment_reconsilation start..........................')
     time_threshold = datetime.datetime.now() - datetime.timedelta(hours=24)
-    objects = Payment.objects.filter(created_at__gt=time_threshold).values("order__ordered_cart_id", "payment_type__type")
+    objects = Payment.objects.filter(created_at__gt=time_threshold)
     for obj in objects:
         try:
            payment_reconsilations(str(obj.order.ordered_cart_id), obj.payment_type.type, obj)
