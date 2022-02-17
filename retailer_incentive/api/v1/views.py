@@ -16,7 +16,8 @@ from retailer_incentive.api.v1.serializers import SchemeShopMappingSerializer, S
 from retailer_incentive.models import SchemeSlab, IncentiveDashboardDetails, Incentive, BulkIncentive
 from retailer_incentive.utils import get_shop_scheme_mapping, get_shop_scheme_mapping_based
 from shops.models import ShopUserMapping, Shop, ParentRetailerMapping
-from retailer_incentive.common_function import get_user_id_from_token, get_total_sales, shop_scheme_not_mapped
+from retailer_incentive.common_function import get_user_id_from_token, get_total_sales, shop_scheme_not_mapped, \
+    get_incentive_data_by_shop_month
 from accounts.models import User
 
 from retailer_backend.utils import SmallOffsetPagination
@@ -50,10 +51,12 @@ class ShopPurchaseMatrix(APIView):
         current_month = today_date.month
         input_month = int(request.GET.get('month', current_month))
         response_data = list()
+
         # Incentive
-        incentive = Incentive.objects.filter(
-            shop_id=shop_id, created_at__date__year=current_year, created_at__date__month=input_month).last()
-        incentive_data = GetListIncentiveSerializer(incentive, read_only=True).data
+        incentive_data = GetListIncentiveSerializer(
+            get_incentive_data_by_shop_month(shop_id, input_month, current_year),
+            read_only=True).data
+
         # Active Scheme
         if input_month == current_month:
             scheme_shop_mapping = get_shop_scheme_mapping(shop_id)
@@ -251,7 +254,7 @@ class IncentiveDashBoard(APIView):
         else:
             shop_mapping_object = ShopUserMapping.objects.filter(manager__in=self.get_manager(),
                                                                  employee=user.shop_employee.instance,
-                                                                 status=True, shop_id=2020).order_by('shop').distinct('shop')
+                                                                 status=True).order_by('shop').distinct('shop')
         if shop_mapping_object:
             scheme_shop_mapping_list = []
             scheme_data_list = []
@@ -268,6 +271,9 @@ class IncentiveDashBoard(APIView):
                 for scheme_shop_map in scheme_shop_mapping_list:
                     if month == today.month:
                         current_year = today.year
+                        incentive_data = GetListIncentiveSerializer(
+                            get_incentive_data_by_shop_month(scheme_shop_map.shop_id, month, current_year), 
+                            read_only=True).data
                         try:
                             scheme = scheme_shop_map.scheme
                             total_sales = get_total_sales(scheme_shop_map.shop_id, scheme_shop_map.start_date,
@@ -279,12 +285,6 @@ class IncentiveDashBoard(APIView):
                                 discount_percentage = scheme_slab.discount_value
                             discount_value = floor(discount_percentage * total_sales / 100)
 
-                            # Incentive
-                            incentive = Incentive.objects.filter(
-                                shop_id=scheme_shop_map.shop_id, created_at__date__year=current_year,
-                                created_at__date__month=today.month).last()
-                            incentive_data = GetListIncentiveSerializer(incentive, read_only=True).data
-                            # scheme_data = incentive_data
                             shop = Shop.objects.filter(id=scheme_shop_map.shop_id).last()
                             scheme_data = {'shop_id': shop.id,
                                            'shop_name': str(shop.shop_name),
@@ -294,7 +294,8 @@ class IncentiveDashBoard(APIView):
                                            'discount_percentage': str(discount_percentage),
                                            'incentive_earned': str(discount_value),
                                            'start_date': str(scheme_shop_map.start_date.strftime("%Y-%m-%d")),
-                                           'end_date': str(scheme_shop_map.end_date.strftime("%Y-%m-%d"))
+                                           'end_date': str(scheme_shop_map.end_date.strftime("%Y-%m-%d")),
+                                           'incentive_data': incentive_data
                                            }
                         except:
                             shop = Shop.objects.filter(id=scheme_shop_map.shop_id).last()
@@ -306,9 +307,14 @@ class IncentiveDashBoard(APIView):
                                            'discount_percentage': str(scheme_shop_map.discount_percentage),
                                            'incentive_earned': str(scheme_shop_map.incentive_earned),
                                            'start_date': str(scheme_shop_map.start_date.strftime("%Y-%m-%d")),
-                                           'end_date': str(scheme_shop_map.end_date.strftime("%Y-%m-%d"))
+                                           'end_date': str(scheme_shop_map.end_date.strftime("%Y-%m-%d")),
+                                           'incentive_data': incentive_data
                                            }
                     else:
+                        incentive_data = GetListIncentiveSerializer(
+                            get_incentive_data_by_shop_month(scheme_shop_map.shop_id, month, current_year),
+                            read_only=True).data
+                        
                         shop = Shop.objects.filter(id=scheme_shop_map.shop_id).last()
                         scheme_data = {'shop_id': shop.id,
                                        'shop_name': str(shop.shop_name),
