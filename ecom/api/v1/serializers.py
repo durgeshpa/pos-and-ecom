@@ -160,7 +160,7 @@ class PaymentSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Payment
-        fields = ('id', 'payment_type', 'transaction_id', 'amount')
+        fields = ('id', 'payment_type', 'payment_status' ,'transaction_id', 'amount')
 
 
 class EcomOrderListSerializer(serializers.ModelSerializer):
@@ -325,6 +325,41 @@ class ProductSerializer(serializers.ModelSerializer):
     """
     image = serializers.SerializerMethodField()
     online_price = serializers.SerializerMethodField()
+    category_id = serializers.SerializerMethodField()
+    category = serializers.SerializerMethodField()
+    brand_id = serializers.SerializerMethodField()
+    brand = serializers.SerializerMethodField()
+
+
+    def get_brand(self, obj):
+        try:
+            brand = str(obj.linked_product.product_brand)
+            return brand if brand else ''
+        except:
+            return ''
+
+    def get_brand_id(self, obj):
+        try:
+            brand_id = str(obj.linked_product.product_brand.id)
+            return brand_id if brand_id else ''
+        except:
+            return ''
+
+    def get_category(self, obj):
+        try:
+            category = [str(c.category) for c in
+                        obj.linked_product.parent_product.parent_product_pro_category.filter(status=True)]
+            return category if category else ''
+        except:
+            return ''
+
+    def get_category_id(self, obj):
+        try:
+            category_id = [str(c.category_id) for c in
+                           obj.linked_product.parent_product.parent_product_pro_category.filter(status=True)]
+            return category_id if category_id else ''
+        except:
+            return ''
 
     def get_online_price(self, obj):
         if obj.online_price:
@@ -353,7 +388,7 @@ class ProductSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = RetailerProduct
-        fields = ('id', 'name', 'mrp', 'online_price', 'image')
+        fields = ('id', 'name', 'mrp', 'online_price', 'image', 'category', 'category_id', 'brand', 'brand_id',)
 
 
 class TagProductSerializer(serializers.ModelSerializer):
@@ -464,3 +499,54 @@ class ShopInfoSerializer(serializers.ModelSerializer):
         data = super().to_representation(instance)
         data['address'] = instance.shipping_address
         return data
+
+
+class Parent_Product_Serilizer(serializers.ModelSerializer):
+    """
+    Serializer to get product with parent product descriptions  ...
+    """
+    parent_product_discription = serializers.SerializerMethodField()
+    online_price= serializers.SerializerMethodField()
+    image = serializers.SerializerMethodField()
+    off_percentage = serializers.SerializerMethodField()
+
+    def get_parent_product_discription(self, obj):
+        """Return Parent product discription ...."""
+        if obj.linked_product:
+            return obj.linked_product.parent_product.product_discription
+
+
+    def get_online_price(self, obj):
+        """Return retailer product online price ...."""
+        if obj.online_price:
+            return obj.online_price
+        else:
+            return obj.selling_price
+
+
+    def get_image(self, obj):
+        """Return retailer image if retailer image not found then return linked product image...."""
+        try:
+            retailer_object = obj.retailer_product_image.all()
+            images = None
+            if not retailer_object.exists():
+                images = obj.linked_product.product_pro_image.all() if obj.linked_product and \
+                obj.linked_product.product_pro_image.all().first() else None
+                images = obj.linked_product.parent_product.parent_product_pro_image.all()\
+                if not images  and obj.linked_product and obj.linked_product.parent_product \
+                and obj.linked_product.parent_product.parent_product_pro_image.all().first() else images
+
+            else:
+                images = retailer_object
+            image = [ i.image.url for i in images]
+            return image
+        except:
+            return ''
+
+    def get_off_percentage(self,obj):
+        price = obj.online_price if obj.online_price else obj.selling_price
+        return round(100-((price*100)/obj.mrp),2)
+
+    class Meta:
+        model = RetailerProduct
+        fields = ('id', 'name','parent_product_discription' ,'mrp', 'online_price', 'off_percentage', 'image')

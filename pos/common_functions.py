@@ -502,7 +502,7 @@ class RewardCls(object):
                 redeem_points = max_redeem_points.value
         if this_month_reward_point_used and this_month_reward_point_used + redeem_points > max_month_limit:
             redeem_points = 0
-            message = "only {} redeem_points can be used in a month".format(max_month_limit)
+            message = "only {} Loyalty Point can be used in a month".format(max_month_limit)
         cart.redeem_points = redeem_points
         cart.redeem_factor = value_factor
         cart.save()
@@ -761,6 +761,19 @@ def pos_check_user_permission(view_func):
             return api_response("You are not authorised to make this change!")
         return view_func(self, request, *args, **kwargs)
 
+    return _wrapped_view_func
+
+
+def check_logged_in_user_is_superuser(view_func):
+    """
+    Decorator to validate request from Superuser
+    """
+    @wraps(view_func)
+    def _wrapped_view_func(self, request, *args, **kwargs):
+        user = request.user
+        if user.is_superuser:
+            return view_func(self, request, *args, **kwargs)
+        return api_response("Logged In user does not have required permission to perform this action.")
     return _wrapped_view_func
 
 
@@ -1057,4 +1070,35 @@ def generate_debit_note_number(returned_obj, billing_address_instance):
     return "DNPR" + str(returned_obj.pr_number) + str(billing_address_instance)
 
 
+def check_fofo_shop(view_func):
+    """
+        Decorator to validate pos request
+    """
 
+    @wraps(view_func)
+    def _wrapped_view_func(self, request, *args, **kwargs):
+        # data format
+        if request.method == 'POST':
+            msg = validate_data_format(request)
+            if msg:
+                return api_response(msg)
+        app_type = request.META.get('HTTP_APP_TYPE', None)
+        shop_id = request.META.get('HTTP_SHOP_ID', None)
+        if not shop_id:
+            return api_response("No Shop Selected!")
+
+        shop = Shop.objects.filter(id=shop_id).last()
+        if not shop:
+            return api_response("Shop not available!")
+
+        if not shop.online_inventory_enabled:
+            return api_response("Franchise Shop Is Not Online Enabled!")
+
+        if shop.shop_type.shop_sub_type.retailer_type_name !='fofo':
+            return api_response("Shop Type Not Franchise - fofo")
+
+        kwargs['shop'] = shop
+        kwargs['app_type'] = app_type
+        return view_func(self, request, *args, **kwargs)
+
+    return _wrapped_view_func

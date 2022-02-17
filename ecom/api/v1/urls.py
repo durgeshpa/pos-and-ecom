@@ -1,7 +1,7 @@
 from django.conf.urls import url
 
 from .views import AccountView, RewardsView, ShopView, AddressView, AddressListView, CategoriesView, SubCategoriesView, TagView, TagProductView, UserShopView \
-,Contect_Us
+,Contect_Us, ParentProductDetails
 
 
 urlpatterns = [
@@ -16,5 +16,6 @@ urlpatterns = [
     url(r'^tags/', TagView.as_view(), name='ecom-tag'),
     url(r'^tag-product/(?P<pk>\d+)/$', TagProductView.as_view(), name='ecom-tag-product'),
     url(r'^shop-user-mapping/$', UserShopView.as_view(), name='shop-user-mapping'),
-    url(r'contect_us_details/', Contect_Us.as_view(), name='contect_us_ecom')
+    url(r'^contect_us_details/', Contect_Us.as_view(), name='contect_us_ecom'),
+    url(r'^parent_product/(?P<pk>\d+)/$', ParentProductDetails.as_view(),name='parent_product_discription'),
 ]

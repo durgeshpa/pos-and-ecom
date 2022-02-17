@@ -15,7 +15,9 @@ from retailer_backend.validators import *
 import datetime
 from django.core.validators import MinLengthValidator
 from django.contrib.auth.models import Group
+from django.contrib.postgres.fields import JSONField
 from categories.models import BaseTimeModel, BaseTimestampUserStatusModel
+from .fields import CaseInsensitiveCharField
 # from analytics.post_save_signal import get_retailer_report
 
 Product = 'products.product'
@@ -715,3 +717,58 @@ class ShopStatusLog(models.Model):
     user = models.ForeignKey(get_user_model(), related_name='shop_status_changed_by', on_delete=models.CASCADE)
     shop = models.ForeignKey(Shop, related_name='shop_detail', on_delete=models.CASCADE)
     changed_at = models.DateTimeField(auto_now_add=True)
+
+
+class FOFOConfigCategory(models.Model):
+    """
+    Master model for FOFO configuration category
+    """
+    name = CaseInsensitiveCharField(max_length=125, unique=True)
+
+    def __str__(self):
+        return self.name
+
+    # def save(self, *args, **kwargs):
+    #     self.name = self.name.upper()
+    #     super(FOFOConfigCategory, self).save(*args, **kwargs)
+
+
+class FOFOConfigSubCategory(models.Model):
+    """
+    Master model for FOFO configuration sub-category
+    """
+    FIELD_TYPE_CHOICES = (
+        ("str", "String"),
+        ("int", "Integer"),
+        ("float", "Float"),
+        ("bool", "Boolean"),
+    )
+    category = models.ForeignKey(FOFOConfigCategory, related_name='fofo_category_details', on_delete=models.CASCADE)
+    name = CaseInsensitiveCharField(max_length=125, unique=True)
+    type = models.CharField(max_length=20, choices=FIELD_TYPE_CHOICES, default='int')
+
+    def __str__(self):
+        return str(self.category) + " - " + str(self.name)
+
+
+class FOFOConfigurations(models.Model):
+    """
+        Master model for FOFO configuration
+    """
+    shop = models.ForeignKey(Shop, related_name='fofo_shop', on_delete=models.CASCADE)
+    key = models.ForeignKey(FOFOConfigSubCategory, related_name='fofo_category', on_delete=models.CASCADE)
+    value = JSONField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ('shop', 'key',)
+
+    def clean(self):
+        if self.value and self.value.__class__.__name__ == 'JSONString':
+            self.value = str(self.value)
+        if self.value and self.value.__class__.__name__ != self.key.type:
+            raise ValidationError('value {} can only be {} type'.format(self.value, self.key.get_type_display()))
+
+    def __str__(self):
+        return str(self.key)

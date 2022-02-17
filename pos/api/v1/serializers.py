@@ -325,6 +325,41 @@ class RetailerProductsSearchSerializer(serializers.ModelSerializer):
     product_pack_type = serializers.CharField(source='get_product_pack_type_display')
     image = serializers.SerializerMethodField()
     current_stock = serializers.SerializerMethodField()
+    category_id = serializers.SerializerMethodField()
+    category = serializers.SerializerMethodField()
+    brand_id = serializers.SerializerMethodField()
+    brand = serializers.SerializerMethodField()
+
+
+    def get_brand(self, obj):
+        try:
+            brand = str(obj.linked_product.product_brand)
+            return brand if brand else ''
+        except:
+            return ''
+
+    def get_brand_id(self, obj):
+        try:
+            brand_id = str(obj.linked_product.product_brand.id)
+            return brand_id if brand_id else ''
+        except:
+            return ''
+
+    def get_category(self, obj):
+        try:
+            category = [str(c.category) for c in
+                        obj.linked_product.parent_product.parent_product_pro_category.filter(status=True)]
+            return category if category else ''
+        except:
+            return ''
+
+    def get_category_id(self, obj):
+        try:
+            category_id = [str(c.category_id) for c in
+                           obj.linked_product.parent_product.parent_product_pro_category.filter(status=True)]
+            return category_id if category_id else ''
+        except:
+            return ''
 
     @staticmethod
     def get_default_measurement_unit(obj):
@@ -373,7 +408,7 @@ class RetailerProductsSearchSerializer(serializers.ModelSerializer):
         model = RetailerProduct
         fields = ('id', 'name', 'selling_price', 'online_price', 'mrp', 'is_discounted', 'image',
                   'product_pack_type', 'measurement_category', 'default_measurement_unit', 'current_stock',
-                  'product_ean_code')
+                  'product_ean_code', 'category', 'category_id', 'brand', 'brand_id',)
 
 
 class BasicCartProductMappingSerializer(serializers.ModelSerializer):
@@ -663,7 +698,7 @@ class PaymentSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Payment
-        fields = ('id', 'payment_type', 'transaction_id', 'amount')
+        fields = ('id', 'payment_status', 'payment_type', 'transaction_id', 'amount')
 
 
 class OrderReturnSerializerID(serializers.ModelSerializer):
@@ -816,13 +851,31 @@ class OrderedDashBoardSerializer(serializers.Serializer):
 
     shop_name = serializers.CharField()
     orders = serializers.IntegerField()
+    invoices = serializers.IntegerField()
     pos_order_count = serializers.IntegerField()
     ecom_order_count = serializers.IntegerField()
+    pos_invoice_count = serializers.IntegerField()
+    ecom_invoice_count = serializers.IntegerField()
     registered_users = serializers.IntegerField(required=False)
     products = serializers.IntegerField(required=False)
     revenue = serializers.DecimalField(max_digits=9, decimal_places=2, required=False)
+    invoice_revenue = serializers.DecimalField(max_digits=9, decimal_places=2, required=False)
     pos_revenue = serializers.DecimalField(max_digits=9, decimal_places=2, required=False)
     ecom_revenue = serializers.DecimalField(max_digits=9, decimal_places=2, required=False)
+    pos_invoice_revenue = serializers.DecimalField(max_digits=9, decimal_places=2, required=False)
+    ecom_invoice_revenue = serializers.DecimalField(max_digits=9, decimal_places=2, required=False)
+
+
+class RetailerOrderedDashBoardSerializer(serializers.Serializer):
+    """
+        Get Order, User, Product & total_final_amount count
+    """
+
+    shop_name = serializers.CharField()
+    orders = serializers.IntegerField()
+    registered_users = serializers.IntegerField(required=False)
+    products = serializers.IntegerField(required=False)
+    revenue = serializers.DecimalField(max_digits=9, decimal_places=2, required=False)
 
 
 class ReturnItemsSerializer(serializers.ModelSerializer):
@@ -1508,6 +1561,7 @@ class CouponListSerializer(serializers.ModelSerializer):
 class PosShopSerializer(serializers.ModelSerializer):
     shop_id = serializers.SerializerMethodField()
     shop_name = serializers.SerializerMethodField()
+    shop_type = serializers.SerializerMethodField()
 
     @staticmethod
     def get_shop_id(obj):
@@ -1517,9 +1571,13 @@ class PosShopSerializer(serializers.ModelSerializer):
     def get_shop_name(obj):
         return obj.shop.shop_name
 
+    @staticmethod
+    def get_shop_type(obj):
+        return obj.shop.shop_type.__str__()
+
     class Meta:
         model = PosShopUserMapping
-        fields = ('shop_id', 'shop_name', 'user_type', 'is_delivery_person')
+        fields = ('shop_id', 'shop_name', 'shop_type', 'user_type', 'is_delivery_person')
 
 
 class BasicCartUserViewSerializer(serializers.Serializer):
