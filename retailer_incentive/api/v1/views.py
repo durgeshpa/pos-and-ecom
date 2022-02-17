@@ -265,14 +265,18 @@ class IncentiveDashBoard(APIView):
                         scheme_shop_mapping_list.append(scheme_sh_map)
                 else:
                     shop = Shop.objects.filter(id=shop_scheme.shop_id).last()
-                    scheme_data = shop_scheme_not_mapped(shop)
+                    incentive_data = GetListIncentiveSerializer(
+                        get_incentive_data_by_shop_month(shop.id, month, today.year),
+                        read_only=True).data
+                    scheme_data = shop_scheme_not_mapped(shop,incentive_data)
+
                     scheme_data_list.append(scheme_data)
             if scheme_shop_mapping_list:
                 for scheme_shop_map in scheme_shop_mapping_list:
                     if month == today.month:
                         current_year = today.year
                         incentive_data = GetListIncentiveSerializer(
-                            get_incentive_data_by_shop_month(scheme_shop_map.shop_id, month, current_year), 
+                            get_incentive_data_by_shop_month(scheme_shop_map.shop_id, month, current_year),
                             read_only=True).data
                         try:
                             scheme = scheme_shop_map.scheme
@@ -312,7 +316,7 @@ class IncentiveDashBoard(APIView):
                                            }
                     else:
                         incentive_data = GetListIncentiveSerializer(
-                            get_incentive_data_by_shop_month(scheme_shop_map.shop_id, month, current_year),
+                            get_incentive_data_by_shop_month(scheme_shop_map.shop_id, month, today.year),
                             read_only=True).data
                         
                         shop = Shop.objects.filter(id=scheme_shop_map.shop_id).last()
@@ -324,7 +328,8 @@ class IncentiveDashBoard(APIView):
                                        'discount_percentage': str(scheme_shop_map.discount_percentage),
                                        'incentive_earned': str(scheme_shop_map.incentive_earned),
                                        'start_date': str(scheme_shop_map.start_date.strftime("%Y-%m-%d")),
-                                       'end_date': str(scheme_shop_map.end_date.strftime("%Y-%m-%d"))
+                                       'end_date': str(scheme_shop_map.end_date.strftime("%Y-%m-%d")),
+                                       'incentive_data': incentive_data
                                        }
                     scheme_data_list.append(scheme_data)
             scheme_data_list = SmallOffsetPagination().paginate_queryset(scheme_data_list, self.request)
@@ -376,7 +381,7 @@ class BulkIncentiveSampleFileView(APIView):
         worksheet.write(row, col + 1, 'GFDN')
         worksheet.write(row, col + 2, 'YES')
         worksheet.write(row, col + 3, 50000)
-        worksheet.write(row, col + 4, '2021-11-23')
+        worksheet.write(row, col + 4, 2021-11-23)
         worksheet.write(row, col + 5, 4550)
         worksheet.write(row, col + 6, 1200)
 
@@ -406,11 +411,13 @@ class BulkCreateIncentiveView(APIView):
             response = incentive_serializer.save(uploaded_by=request.user)
             if isinstance(response, HttpResponse):
                 return response
-            return Response("File uploaded successfully.", status=status.HTTP_201_CREATED)
+
+            return Response({"message": ["File uploaded successfully."], "data": None, 'is_success': True},
+                            status=status.HTTP_201_CREATED)
         else:
             return Response(incentive_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def check_user(self, user):
-        if not user.user_type == 7 or not user.user_type == 6:
+        if user.user_type not in [7, 6]:
             return "User is not Authorised"
         return user

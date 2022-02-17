@@ -236,7 +236,11 @@ class IncentiveAdmin(admin.ModelAdmin):
     This class is used to get the SchemeSlab
     """
     model = Incentive
-    list_display = ('shop', 'capping_applicable', 'capping_value', 'date_of_calculation', 'total_ex_tax_delivered_value',)
+    list_display = ('shop', 'capping_applicable', 'capping_value', 'date_of_calculation', 'total_ex_tax_delivered_value',
+                    'incentive', 'created_by', 'created_at')
+
+    def has_add_permission(self, request, obj=None):
+        return False
 
     def has_change_permission(self, request, obj=None):
         return False

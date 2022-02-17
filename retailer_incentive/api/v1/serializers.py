@@ -1,3 +1,5 @@
+import datetime
+
 from django.db import transaction
 from decimal import Decimal
 import logging
@@ -141,13 +143,10 @@ class IncentiveSerializer(serializers.ModelSerializer):
         with transaction.atomic():
             for row in data:
                 try:
-                    Incentive.objects.create(shop_id=int(row[0]),
-                                             capping_applicable=True if str(row[2]).lower() == "yes" else False,
-                                             capping_value=str(round(row[3], 2)),
-                                             date_of_calculation=row[4].date(),
-                                             total_ex_tax_delivered_value=str(round(row[5], 2)),
-                                             incentive=str(round(row[6], 2)),
-                                             created_by=uploaded_by, updated_by=uploaded_by)
+                    Incentive.objects.create(
+                        shop_id=row[0], capping_applicable=row[2],capping_value=row[3], date_of_calculation=row[4],
+                        total_ex_tax_delivered_value=row[5], incentive=row[6], created_by=uploaded_by,
+                        updated_by=uploaded_by)
                 except Exception as e:
                     info_logger.info("BulkCreateIncentiveView | can't create Incentive", e.args)
 

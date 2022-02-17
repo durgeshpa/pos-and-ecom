@@ -84,7 +84,7 @@ def get_total_sales(shop_id, start_date, end_date):
     return floor(total_sales)
 
 
-def shop_scheme_not_mapped(shop):
+def shop_scheme_not_mapped(shop, incentive_data):
     scheme_data = {'shop_id': shop.id,
                    'shop_name': str(shop.shop_name),
                    'mapped_scheme_id': "NA",
@@ -94,7 +94,7 @@ def shop_scheme_not_mapped(shop):
                    'incentive_earned': "NA",
                    'start_date': "NA",
                    'end_date': "NA",
-
+                   'incentive_data': incentive_data
                    }
     return scheme_data
 
