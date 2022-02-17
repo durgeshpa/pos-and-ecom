@@ -3771,10 +3771,10 @@ class LastMileTripCrudSerializers(serializers.ModelSerializer):
 
     def cancel_added_shipments_to_trip(self, last_mile_trip):
         shipment_details = last_mile_trip.last_mile_trip_shipments_details.all()
-        for mapping in shipment_details:
-            if mapping.shipment.shipment_status == OrderedProduct.READY_TO_DISPATCH:
-                mapping.shipment.shipment_status = OrderedProduct.MOVED_TO_DISPATCH
-                mapping.shipment.save()
+        # for mapping in shipment_details:
+        #     if mapping.shipment.shipment_status == OrderedProduct.READY_TO_DISPATCH:
+        #         mapping.shipment.shipment_status = OrderedProduct.MOVED_TO_DISPATCH
+        #         mapping.shipment.save()
         shipment_details.update(shipment_status=LastMileTripShipmentMapping.CANCELLED)
 
     @transaction.atomic
