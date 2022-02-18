@@ -4703,7 +4703,7 @@ class LastMileLoadVerifyPackageSerializer(serializers.ModelSerializer):
 
         # Check if package already scanned
         if package.last_mile_trip_packaging_details.filter(
-                ~Q(package_status=LastMileTripShipmentPackages.CANCELLED)).exists():
+                ~Q(package_status=LastMileTripShipmentPackages.CANCELLED), trip_shipment__trip=trip).exists():
             raise serializers.ValidationError("This package has already been verified.")
         if 'status' not in self.initial_data or not self.initial_data['status']:
             raise serializers.ValidationError("'status' | This is required.")
@@ -4789,7 +4789,12 @@ class LastMileLoadVerifyPackageSerializer(serializers.ModelSerializer):
             trip.weight = trip.weight + package_weight
         trip.save()
         if trip_shipment.shipment_status == LastMileTripShipmentMapping.LOADING_FOR_DC:
+            """ 
+                Check for the package if not remaining to load in the current trip, mark shipment loaded.
+            """
             if not ShipmentPackaging.objects.filter(
+                    Q(last_mile_trip_packaging_details__trip_shipment__trip=trip_shipment.trip) |
+                    Q(last_mile_trip_packaging_details__isnull=True)).filter(
                     ~Q(last_mile_trip_packaging_details__package_status__in=[
                         LastMileTripShipmentPackages.LOADED, LastMileTripShipmentPackages.MISSING_AT_LOADING,
                         LastMileTripShipmentPackages.DAMAGED_AT_LOADING]), shipment=trip_shipment.shipment,
