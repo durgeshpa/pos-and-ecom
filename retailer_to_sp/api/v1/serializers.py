@@ -4703,7 +4703,7 @@ class LastMileLoadVerifyPackageSerializer(serializers.ModelSerializer):
 
         # Check if package already scanned
         if package.last_mile_trip_packaging_details.filter(
-                ~Q(package_status=LastMileTripShipmentPackages.CANCELLED)).exists():
+                ~Q(package_status=LastMileTripShipmentPackages.CANCELLED), trip_shipment__trip=trip).exists():
             raise serializers.ValidationError("This package has already been verified.")
         if 'status' not in self.initial_data or not self.initial_data['status']:
             raise serializers.ValidationError("'status' | This is required.")
