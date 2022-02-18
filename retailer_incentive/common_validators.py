@@ -22,7 +22,7 @@ def bulk_incentive_data_validation(file):
 
         error_msg = []
         row = list(row)
-        if not row:
+        if row == [None, None, None, None, None, None, None]:
             break
         if not row[0]:
             error_msg.append(f"{first_row[0]} cant be blank")
