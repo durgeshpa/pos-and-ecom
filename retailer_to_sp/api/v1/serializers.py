@@ -4792,14 +4792,13 @@ class LastMileLoadVerifyPackageSerializer(serializers.ModelSerializer):
             """ 
                 Check for the package if not remaining to load in the current trip, mark shipment loaded.
             """
-            if not ShipmentPackaging.objects.filter(
-                    Q(last_mile_trip_packaging_details__trip_shipment__trip=trip_shipment.trip) |
-                    Q(last_mile_trip_packaging_details__isnull=True)).filter(
-                    ~Q(last_mile_trip_packaging_details__package_status__in=[
-                        LastMileTripShipmentPackages.LOADED, LastMileTripShipmentPackages.MISSING_AT_LOADING,
-                        LastMileTripShipmentPackages.DAMAGED_AT_LOADING]), shipment=trip_shipment.shipment,
-                    movement_type__in=[ShipmentPackaging.DISPATCH, ShipmentPackaging.RESCHEDULED,
-                                       ShipmentPackaging.NOT_ATTEMPT]).exists():
+            packages_counts = ShipmentPackaging.objects.filter(
+                shipment=trip_shipment.shipment, movement_type__in=[
+                    ShipmentPackaging.DISPATCH, ShipmentPackaging.RESCHEDULED, ShipmentPackaging.NOT_ATTEMPT]).count()
+            trip_packages_count = LastMileTripShipmentPackages.objects.filter(package_status__in=[
+                LastMileTripShipmentPackages.LOADED, LastMileTripShipmentPackages.MISSING_AT_LOADING,
+                LastMileTripShipmentPackages.DAMAGED_AT_LOADING], trip_shipment__trip=trip_shipment.trip).count()
+            if packages_counts == trip_packages_count:
                 trip_shipment.shipment_status = LastMileTripShipmentMapping.LOADED_FOR_DC
                 trip_shipment.save()
 
