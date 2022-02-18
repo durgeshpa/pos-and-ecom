@@ -1,20 +1,19 @@
 import datetime
 import re
-
 import openpyxl
-from openpyxl.styles import Font
-
-from retailer_backend.utils import getStrToDate, isDateValid
 from shops.models import Shop
 
 
+# validation of uploaded incentive file
 def bulk_incentive_data_validation(file):
     error_file_list = []
     validated_rows = []
+
     wb_obj = openpyxl.load_workbook(file)
     sheet_obj = wb_obj.active
     first_row = next(sheet_obj.iter_rows(values_only=True))
     error_file_list.append(list(first_row) + ["Status"])
+
     shops = Shop.objects.filter(shop_type__shop_type__in=['r', 'f'])
     for row_id, row in enumerate(sheet_obj.iter_rows(
             min_row=2, max_row=None, min_col=None, max_col=None,
