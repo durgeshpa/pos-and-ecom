@@ -399,9 +399,9 @@ CRONJOBS = [
     ('30 2 * * *', 'retailer_backend.cron.sync_es_products'),
     ('0 2 * * *', 'wms.views.archive_inventory_cron'),
     ('0 3 * * *', 'wms.views.move_expired_inventory_cron'),
-    ('0 23 * * *', 'audit.cron.update_audit_status_cron'),
-    ('*/30 * * * *', 'audit.cron.create_audit_tickets_cron'),
-    ('0 */1 * * *', 'audit.cron.release_products_from_audit'),
+    # ('0 23 * * *', 'audit.cron.update_audit_status_cron'),
+    # ('*/30 * * * *', 'audit.cron.create_audit_tickets_cron'),
+    # ('0 */1 * * *', 'audit.cron.release_products_from_audit'),
     ('30 19 * * *', 'franchise.crons.cron.franchise_sales_returns_inventory'),
     ('30 21 * * *', 'franchise.crons.sales_rewards.process_rewards_on_sales'),
     ('30 22 * * *', 'wms.views.auto_report_for_expired_product'),
@@ -425,7 +425,7 @@ CRONJOBS = [
     ('*/5 * * * *', 'wms.cron.assign_putaway_users_to_new_putways'),
     ('0 6 * * *', 'shops.cron.get_feedback_valid'),
     ('30 21 * * *', 'shops.tasks.cancel_beat_plan'),
-    ('0 1 * * *', 'wms.scripts.populate_to_be_picked_qty.populate_to_be_picked_quantity_by_cron'),
+    ('0 2 * * *', 'wms.scripts.populate_to_be_picked_qty.populate_to_be_picked_quantity_by_cron'),
     ('0 */6 * * *', 'wms.scripts.release_stucked_qc_areas.release_stucked_qc_areas_by_cron'),
 ]
 
