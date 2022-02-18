@@ -405,7 +405,8 @@ class BulkCreateIncentiveView(APIView):
         user = self.check_user(request.user)
         info_logger.info("BulkIncentiveView POST api called.")
         if type(user) == str:
-            return Response(user, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"message": [user], "data": None, 'is_success': False},
+                            status=status.HTTP_400_BAD_REQUEST)
 
         incentive_serializer = IncentiveSerializer(data=request.data)
         if incentive_serializer.is_valid():
@@ -420,5 +421,5 @@ class BulkCreateIncentiveView(APIView):
 
     def check_user(self, user):
         if user.user_type not in [7, 6]:
-            return "User is not Authorised"
+            return "User is not Authorised "
         return user
