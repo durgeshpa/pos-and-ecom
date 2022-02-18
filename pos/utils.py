@@ -5,7 +5,7 @@ from io import StringIO
 from django.db.models import Sum, F, FloatField
 from django.http import HttpResponse
 
-from retailer_to_sp.models import ReturnItems, RoundAmount, Invoice
+from retailer_to_sp.models import ReturnItems, RoundAmount, Invoice, Order
 from .models import PAYMENT_MODE_POS, RetailerProduct
 from .views import get_product_details, get_tax_details
 
@@ -399,7 +399,8 @@ def generate_csv_payment_report(payments):
             'Max coupon discount',
             'spot discount',
             'spot discount value',
-            'AMOUNT',
+            'Order Amount',
+            'Invoice Amount',
             'PAID BY',
             'PROCCESSED BY',
             'PAID AT'
@@ -407,6 +408,9 @@ def generate_csv_payment_report(payments):
     )
     rows = []
     for payment in payments:
+        inv_amt = None
+        if Order.objects.get(id=payment.order.id).rt_order_order_product.last():
+            inv_amt = Order.objects.get(id=payment.order.id).rt_order_order_product.last().invoice_amount
         row = []
         row.append(payment.order.order_no)
         row.append(getattr(payment.order.shipments()[0],'invoice','')  if payment.order.shipments() else '')
@@ -444,6 +448,7 @@ def generate_csv_payment_report(payments):
         row.append(spot_discount)
         row.append(spot_discount_v)
         row.append(payment.amount)
+        row.append(inv_amt)
         row.append(payment.paid_by)
         row.append(payment.processed_by)
         row.append(payment.created_at.strftime("%m/%d/%Y-%H:%M:%S"))

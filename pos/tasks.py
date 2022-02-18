@@ -15,7 +15,7 @@ from django.core.mail import EmailMessage
 
 from global_config.models import GlobalConfig
 from global_config.views import get_config
-from retailer_backend.settings import ELASTICSEARCH_PREFIX as es_prefix
+from retailer_backend.settings import ELASTICSEARCH_PREFIX as es_prefix, es
 from pos.models import RetailerProduct, PosCart, PosReturnGRNOrder, PosReturnItems, MeasurementUnit, \
     PosCartProductMapping
 from wms.models import PosInventory, PosInventoryState
@@ -25,7 +25,6 @@ from pos.common_functions import RewardCls, RetailerProductCls, generate_debit_n
 from marketing.sms import SendSms
 from pos.offers import BasicCartOffers
 
-es = Elasticsearch(["https://search-gramsearch-7ks3w6z6mf2uc32p3qc4ihrpwu.ap-south-1.es.amazonaws.com"])
 info_logger = logging.getLogger('file-info')
 error_logger = logging.getLogger('file-error')
 
@@ -99,12 +98,24 @@ def update_es(products, shop_id):
                     ]
         # get brand and category from linked GramFactory product
         brand = ''
+        brand_id = ''
         category = ''
+        category_id = ''
+        sub_category = ''
+        sub_category_id = ''
         if product.linked_product and product.linked_product.parent_product:
             brand = str(product.linked_product.product_brand)
+            brand_id = str(product.linked_product.product_brand.id)
             if product.linked_product.parent_product.parent_product_pro_category:
                 category = [str(c.category) for c in
                             product.linked_product.parent_product.parent_product_pro_category.filter(status=True)]
+                category_id = [str(c.category_id) for c in
+                            product.linked_product.parent_product.parent_product_pro_category.filter(status=True)]
+
+                sub_category = [str(c.category) for c in
+                            product.linked_product.parent_product.parent_product_pro_category.filter(status=True)]
+                sub_category_id = [str(c.category_id) for c in
+                               product.linked_product.parent_product.parent_product_pro_category.filter(status=True)]
 
         inv_available = PosInventoryState.objects.get(inventory_state=PosInventoryState.AVAILABLE)
         pos_inv = PosInventory.objects.filter(product=product, inventory_state=inv_available).last()
@@ -152,7 +163,11 @@ def update_es(products, shop_id):
             'margin': margin,
             'product_images': product_images,
             'brand': brand,
+            'brand_id': brand_id,
             'category': category,
+            'category_id': category_id,
+            'sub_category': sub_category,
+            'sub_category_id': sub_category_id,
             'ean': product.product_ean_code,
             'status': product.status,
             'created_at': product.created_at,
@@ -180,7 +195,7 @@ def update_es(products, shop_id):
             'initial_purchase_value': initial_purchase_value
 
         }
-        #es.indices.delete(index='{}-rp-{}'.format(es_prefix, shop_id), ignore=[400, 404])
+        # es.indices.delete(index='{}-rp-{}'.format(es_prefix, shop_id), ignore=[400, 404])
         es.index(index=create_es_index('rp-{}'.format(shop_id)), id=params['id'], body=params)
 
 

@@ -491,7 +491,7 @@ class GRNOrderProductMapping(models.Model):
 
     @property
     def product_mrp(self):
-        return self.vendor_product.product_mrp if self.vendor_product else '-'
+        return self.product.product_mrp if self.product else '-'
 
     def clean(self):
         super(GRNOrderProductMapping, self).clean()

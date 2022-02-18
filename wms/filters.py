@@ -7,7 +7,7 @@ from django.db.models import Q, F
 
 from products.models import ParentProduct
 from shops.models import Shop
-from wms.models import InventoryType, InventoryState, In, PickupBinInventory, Pickup, Zone, QCArea
+from wms.models import InventoryType, InventoryState, In, PickupBinInventory, Pickup, Zone, QCArea, Crate, QCDesk
 from accounts.models import User
 
 
@@ -57,7 +57,7 @@ class PutawayUserFilter(autocomplete.Select2QuerySetView):
 
         if self.q:
             qs = qs.filter(first_name__icontains=self.q)
-        return qs
+        return qs.distinct()
 
 
 class PutawayUserAutcomplete(autocomplete.Select2QuerySetView):
@@ -101,7 +101,7 @@ class SupervisorFilter(autocomplete.Select2QuerySetView):
 
         if self.q:
             qs = qs.filter(Q(first_name__icontains=self.q) | Q(phone_number__icontains=self.q))
-        return qs
+        return qs.distinct()
 
 
 class CoordinatorFilter(autocomplete.Select2QuerySetView):
@@ -113,7 +113,7 @@ class CoordinatorFilter(autocomplete.Select2QuerySetView):
 
         if self.q:
             qs = qs.filter(Q(first_name__icontains=self.q) | Q(phone_number__icontains=self.q))
-        return qs
+        return qs.distinct()
 
 
 class CoordinatorAvailableFilter(autocomplete.Select2QuerySetView):
@@ -126,7 +126,7 @@ class CoordinatorAvailableFilter(autocomplete.Select2QuerySetView):
 
         if self.q:
             qs = qs.filter(Q(first_name__icontains=self.q) | Q(phone_number__icontains=self.q))
-        return qs
+        return qs.distinct()
 
 
 class ParentProductFilter(autocomplete.Select2QuerySetView):
@@ -168,6 +168,33 @@ class ZoneFilter(autocomplete.Select2QuerySetView):
         return qs
 
 
+class CrateFilter(autocomplete.Select2QuerySetView):
+    def get_queryset(self, *args, **kwargs):
+        if not self.request.user.is_authenticated:
+            return Crate.objects.none()
+
+        if self.request.user.has_perm('wms.can_have_zone_warehouse_permission'):
+            qs = Crate.objects.filter(warehouse=self.request.user.shop_employee.all().last().shop_id)
+        elif self.request.user.has_perm('wms.can_have_zone_supervisor_permission'):
+            qs = Crate.objects.filter(zone__supervisor=self.request.user)
+        elif self.request.user.has_perm('wms.can_have_zone_coordinator_permission'):
+            qs = Crate.objects.filter(zone__coordinator=self.request.user)
+        else:
+            qs = Crate.objects.none()
+
+        # qs = Zone.objects.all()
+
+        crate_type = self.forwarded.get('crate_type', None)
+        if crate_type:
+            qs = qs.filter(crate_type=crate_type)
+
+        if self.q:
+            qs = qs.filter(Q(crate_id__icontains=self.q) | Q(zone__zone_number__icontains=self.q) |
+                           Q(zone__name__icontains=self.q) | Q(warehouse__id__icontains=self.q) |
+                           Q(warehouse__shop_name__icontains=self.q))
+        return qs
+
+
 class QCAreaFilter(autocomplete.Select2QuerySetView):
     def get_queryset(self, *args, **kwargs):
         if not self.request.user.is_authenticated:
@@ -183,6 +210,89 @@ class QCAreaFilter(autocomplete.Select2QuerySetView):
             qs = qs.filter(Q(id__icontains=self.q) | Q(area_id__icontains=self.q) |
                            Q(area_barcode_txt__icontains=self.q))
         return qs
+
+
+class QCAreaNonMappedFilter(autocomplete.Select2QuerySetView):
+    def get_queryset(self, *args, **kwargs):
+        if not self.request.user.is_authenticated:
+            return QCArea.objects.none()
+
+        qs = QCArea.objects.filter(qc_desk_areas__isnull=True)
+
+        warehouse = self.forwarded.get('warehouse', None)
+        if warehouse:
+            qs = qs.filter(warehouse=warehouse)
+
+        if self.q:
+            qs = qs.filter(Q(id__icontains=self.q) | Q(area_id__icontains=self.q) |
+                           Q(area_barcode_txt__icontains=self.q))
+        return qs
+
+
+class QCDeskFilter(autocomplete.Select2QuerySetView):
+    def get_queryset(self, *args, **kwargs):
+        if not self.request.user.is_authenticated:
+            return QCDesk.objects.none()
+
+        qs = QCDesk.objects.all()
+
+        warehouse = self.forwarded.get('warehouse', None)
+        if warehouse:
+            qs = qs.filter(warehouse=warehouse)
+
+        if self.q:
+            qs = qs.filter(Q(id__icontains=self.q) | Q(desk_number__icontains=self.q) | Q(name__icontains=self.q))
+        return qs
+
+
+class QCExecutiveFilter(autocomplete.Select2QuerySetView):
+    def get_queryset(self, *args, **kwargs):
+        if not self.request.user.is_authenticated:
+            return User.objects.none()
+        perm = Permission.objects.get(codename='can_have_qc_executive_permission')
+        qs = User.objects.filter(Q(groups__permissions=perm) | Q(user_permissions=perm)).distinct()
+
+        warehouse = self.forwarded.get('warehouse', None)
+        if warehouse:
+            qs = qs.filter(shop_employee__shop_id=warehouse)
+
+        if self.q:
+            qs = qs.filter(Q(phone_number__icontains=self.q) | Q(first_name__icontains=self.q) | Q(
+                last_name__icontains=self.q))
+        return qs.distinct()
+
+
+class QCExecutiveNonMappedFilter(autocomplete.Select2QuerySetView):
+    def get_queryset(self, *args, **kwargs):
+        if not self.request.user.is_authenticated:
+            return User.objects.none()
+        perm = Permission.objects.get(codename='can_have_qc_executive_permission')
+        qs = User.objects.filter(Q(groups__permissions=perm) | Q(user_permissions=perm)).distinct()
+        qs = qs.filter(qc_executive_desk_user__isnull=True)
+
+        warehouse = self.forwarded.get('warehouse', None)
+        if warehouse:
+            qs = qs.filter(shop_employee__shop_id=warehouse)
+
+        if self.q:
+            qs = qs.filter(Q(phone_number__icontains=self.q) | Q(first_name__icontains=self.q) | Q(
+                last_name__icontains=self.q))
+        return qs.distinct()
+
+
+class AlternateDeskFilter(autocomplete.Select2QuerySetView):
+    def get_queryset(self, *args, **kwargs):
+        if not self.request.user.is_authenticated:
+            return QCDesk.objects.none()
+        qs = QCDesk.objects.filter(desk_enabled=True)
+
+        warehouse = self.forwarded.get('warehouse', None)
+        if warehouse:
+            qs = qs.filter(warehouse_id=warehouse)
+
+        if self.q:
+            qs = qs.filter(Q(id__icontains=self.q) | Q(desk_number__icontains=self.q) | Q(name__icontains=self.q))
+        return qs.distinct()
 
 
 class UserFilter(autocomplete.Select2QuerySetView):
@@ -245,3 +355,30 @@ class ExpiryDateFilter(SimpleListFilter):
             return queryset
         else:
             return queryset
+
+
+class CrateFilter(autocomplete.Select2QuerySetView):
+    def get_queryset(self, *args, **kwargs):
+        if not self.request.user.is_authenticated:
+            return Crate.objects.none()
+
+        if self.request.user.has_perm('wms.can_have_zone_warehouse_permission'):
+            qs = Crate.objects.filter(warehouse=self.request.user.shop_employee.all().last().shop_id)
+        elif self.request.user.has_perm('wms.can_have_zone_supervisor_permission'):
+            qs = Crate.objects.filter(zone__supervisor=self.request.user)
+        elif self.request.user.has_perm('wms.can_have_zone_coordinator_permission'):
+            qs = Crate.objects.filter(zone__coordinator=self.request.user)
+        else:
+            qs = Crate.objects.none()
+
+        # qs = Zone.objects.all()
+
+        crate_type = self.forwarded.get('crate_type', None)
+        if crate_type:
+            qs = qs.filter(crate_type=crate_type)
+
+        if self.q:
+            qs = qs.filter(Q(crate_id__icontains=self.q) | Q(zone__zone_number__icontains=self.q) |
+                           Q(zone__name__icontains=self.q) | Q(warehouse__id__icontains=self.q) |
+                           Q(warehouse__shop_name__icontains=self.q))
+        return qs

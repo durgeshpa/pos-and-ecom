@@ -6,6 +6,7 @@ import csv
 import codecs
 import datetime
 
+from django.db import transaction
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny
@@ -181,6 +182,22 @@ def qc_areas(picker_dashboards):
             ) for s in picker_dashboards)
     )
 
+def qc_desks(picker_dashboards):
+    return format_html_join(
+        "", "{}<br><br>",
+        (((s.qc_area.qc_desk_areas.last().name if s.qc_area.qc_desk_areas.last() else s.qc_area.qc_desk_areas.last()) if s.qc_area else "-",) for s in picker_dashboards)
+    )
+
+def qc_executives(picker_dashboards):
+    # var = [(
+    #        s.qc_area.qc_desk_areas.last().qc_executive if s.qc_area.qc_desk_areas.last() else s.qc_area.qc_desk_areas.last() if s.qc_area else "-",)
+    #        for s in picker_dashboards]
+    # print(var)
+    return format_html_join(
+        "", "{}<br><br>",
+        (((s.qc_area.qc_desk_areas.last().qc_executive if s.qc_area.qc_desk_areas.last() else s.qc_area.qc_desk_areas.last()) if s.qc_area else "-",) for s in picker_dashboards)
+    )
+
 def zones(picker_dashboards):
     return format_html_join(
     "","{}<br><br>",
@@ -209,7 +226,7 @@ def order_shipment_status_reason(shipments):
 def order_shipment_amount(shipments):
     return format_html_join(
     "","{}<br><br>",
-            ((s.invoice_amount,
+            ((s.invoice_amount if s.shipment_status not in ['SHIPMENT_CREATED', 'QC_STARTED', 'READY_TO_SHIP'] else '-',
             ) for s in shipments)
     )
 
@@ -498,4 +515,3 @@ def send_sms_on_trip_start(trip_instance):
             except Exception as e:
                 info_logger.info("Exception|send_sms_on_trip_start| e {} ".format(e))
                 info_logger.error(e)
-

@@ -4,12 +4,12 @@ from datetime import datetime
 from django.core.exceptions import ValidationError
 from django.contrib.auth import get_user_model
 from django.db import models
-from django.db.models import Subquery, OuterRef, Case, When
+from django.db.models import Subquery, OuterRef, Case, When, Q
 from django.db.models.functions import Cast
 
 from shops.models import Shop
 from products.models import ParentProduct
-from wms.models import Zone, WarehouseAssortment, Putaway, In, Pickup
+from wms.models import Zone, WarehouseAssortment, Putaway, In, Crate, Pickup, QCArea
 
 logger = logging.getLogger(__name__)
 
@@ -102,6 +102,7 @@ def get_validate_picker_users(picker_users):
         picker_users_list.append(picker_user)
     return {'picker_users': picker_users_obj}
 
+
 def get_validate_picker_users(picker_users, warehouse_id):
     """
     validate ids that belong to a User model also
@@ -125,6 +126,28 @@ def get_validate_picker_users(picker_users, warehouse_id):
             return {'error': '{} do not repeat same picker_user for one Zone'.format(picker_user)}
         picker_users_list.append(picker_user)
     return {'picker_users': picker_users_obj}
+
+
+def get_validate_qc_areas(qc_areas, warehouse_id):
+    """
+    validate ids that belong to a QCAres model also
+    checking qc_area shouldn't repeat else through error
+    """
+    qc_areas_list = []
+    qc_areas_obj = []
+    for qc_areas_data in qc_areas:
+        try:
+            qc_area = QCArea.objects.get(id=int(qc_areas_data['id']))
+            if qc_area.warehouse.id != warehouse_id:
+                return {'error': '{} qc_area does not mapped to selected warehouse.'.format(str(qc_area.id))}
+        except Exception as e:
+            logger.error(e)
+            return {'error': '{} qc_area not found'.format(qc_areas_data['id'])}
+        qc_areas_obj.append(qc_area)
+        if qc_area in qc_areas_list:
+            return {'error': '{} do not repeat same qc_area for one QC Desk'.format(qc_area)}
+        qc_areas_list.append(qc_area)
+    return {'qc_areas': qc_areas_obj}
 
 
 def get_csv_file_data(csv_file, csv_file_headers):
@@ -281,9 +304,39 @@ def validate_putaway_user_against_putaway(putaway_id, user_id):
     return {'data': putaway}
 
 
+def validate_pickup_crates_list(crates_dict, pickup_quantity, warehouse_id, zone, order_no):
+    if 'is_crate_applicable' not in crates_dict:
+        return {"error": "Missing 'is_crate_applicable' in pickup_crates."}
+    if crates_dict['is_crate_applicable'] is True:
+        if 'crates' not in crates_dict or not crates_dict['crates']:
+            return {"error": "Missing 'crates' in pickup_crates for 'is_crate_applicable' is True."}
+        if not isinstance(crates_dict['crates'], list):
+            return {"error": "Key 'crates' can be of list type only."}
+        total_crate_qty = 0
+        for crate_obj in crates_dict['crates']:
+            if not isinstance(crate_obj, dict):
+                return {"error": "Key 'crates' can be of list of object type only."}
+            if 'crate_id' not in crate_obj or not crate_obj['crate_id']:
+                return {"error": "Missing 'crate_id' in pickup_crates for 'is_crate_applicable' is True."}
+            if 'quantity' not in crate_obj or not crate_obj['quantity']:
+                return {"error": "Missing 'quantity' in pickup_crates for 'is_crate_applicable' is True."}
+            if not Crate.objects.filter(crate_id=crate_obj['crate_id'], warehouse__id=warehouse_id,
+                                        crate_type=Crate.PICKING, zone=zone).exists():
+                return {"error": "Invalid crates selected in pickup_crates."}
+            crate = Crate.objects.filter(crate_id=crate_obj['crate_id'], warehouse__id=warehouse_id,
+                                        crate_type=Crate.PICKING, zone=zone).last()
+            if crate.crates_pickup.filter(~Q(pickup__pickup_type_id=order_no), is_in_use=True).exists():
+                return {"error" : f"Crate {crate_obj['crate_id']} is already being used for some other pickup"}
+            total_crate_qty += int(crate_obj['quantity'])
+        if total_crate_qty != pickup_quantity:
+            return {"error": "Crates quantity should be matched with pickup quantity."}
+    return {"data": crates_dict}
+
+
 def validate_pickup_request(request):
     data_days = request.GET.get('data_days')
     created_at = request.GET.get('date')
+    pickuptype = request.GET.get('type')
 
     if data_days and int(data_days) > 30:
         return {"error": "'data_days' can't be more than 30 days."}
@@ -291,7 +344,49 @@ def validate_pickup_request(request):
     if created_at:
         try:
             created_at = datetime.strptime(created_at, "%Y-%m-%d")
+            if created_at.date() > datetime.today().date():
+                return {"error": "Invalid date | Picking date can not be greater than today."}
+
         except Exception as e:
             return {"error": "Invalid format | 'created_at' format should be YYYY-MM-DD."}
+    else:
+        return {"error": "Date | This is required."}
+
+
+    if pickuptype and int(pickuptype) not in [1, 2]:
+        return {"error": "'type' | This is invalid."}
 
     return {"data": request}
+
+
+def validate_data_days_date_request(request):
+    data_days = request.GET.get('data_days')
+    date = request.GET.get('date', None)
+
+    if not date:
+        return {"error": "'date' | This is mandatory."}
+    else:
+        try:
+            date = datetime.strptime(date, "%Y-%m-%d")
+        except Exception as e:
+            return {"error": "Invalid format | 'date' format should be YYYY-MM-DD."}
+
+    if data_days and int(data_days) > 30:
+        return {"error": "'data_days' can't be more than 30 days."}
+
+    return {"data": request}
+
+def validate_shipment(queryset, shipment_id):
+    shipment = queryset.filter(id=shipment_id).last()
+    if not shipment:
+        return {"error": "Invalid shipment id"}
+    return {"data": shipment}
+
+def validate_shipment_qc_desk(queryset, shipment_id, user):
+    shipment = queryset.filter(id=shipment_id).last()
+    if not shipment:
+        return {"error" : "Invalid shipment id"}
+
+    if shipment.qc_area.qc_desk_areas.filter(desk_enabled=True, qc_executive=user).exists():
+        return {"data": shipment}
+    return {"error": 'Logged in user is not allowed to start QC for this shipment'}

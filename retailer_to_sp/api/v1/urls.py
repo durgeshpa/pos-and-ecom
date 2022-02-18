@@ -9,10 +9,14 @@ from .views import (ProductsList, SearchProducts, CartCentral, CartCheckout, Ord
                     ReturnReason, ShipmentDeliveryUpdate, ShipmentDeliveryBulkUpdate, DownloadCreditNoteDiscounted,
                     AutoSuggest, RefreshEs, RefreshEsRetailer, CartUserView, UserView, PosUserShopsList,
                     PosShopUsersList, RetailerList, PaymentDataView, CartStockCheckView, OrderCommunication,
-                    ShipmentView, EcomPaymentView, EcomPaymentSuccessView, EcomPaymentFailureView, NotAttemptReason,
-                    OrderPaymentStatusChangeView, OrderStatusChoicesList
-                    )
+                    OrderPaymentStatusChangeView, OrderStatusChoicesList, ShipmentView, EcomPaymentView,
+                    EcomPaymentSuccessView, EcomPaymentFailureView, ShipmentProductView,
+                    ProcessShipmentView, ShipmentStatusList, ShipmentQCView, ShipmentCityFilterView,
+                    ShipmentPincodeFilterView, ShipmentShopFilterView, ShipmentProductRejectionReasonList,
+                    PackagingTypeList, DispatchItemsView, DispatchItemsUpdateView, DispatchDashboardView,
+                    DownloadShipmentInvoice, DispatchPackageRejectionReasonList, NotAttemptReason)
 
+from retailer_backend.cron import sync_es_products_api
 router = routers.DefaultRouter()
 router.register(r'picker-dashboard', PickerDashboardViewSet)
 router.register(r'ordered-product-mapping', OrderedProductMappingView)
@@ -51,6 +55,7 @@ urlpatterns = [
     # Products ES Refresh
     url('^refresh-es/$', RefreshEs.as_view()),
     url('^refresh-es-retailer/$', RefreshEsRetailer.as_view()),
+    url('^cron-es/$', sync_es_products_api),
     # Shipment
     url(r'^ecom-shipment/', ShipmentView.as_view(), name='ecom-shipment'),
     # Payment
@@ -83,9 +88,22 @@ urlpatterns = [
         name='discounted_credit_note'),
     url('^autosearch/suggest/$', AutoSuggest.as_view()),
     url(r'^ordered-product/$', OrderedProductViewSet.as_view()),
+    url(r'^shipment-products/$', ShipmentProductView.as_view()),
+    url(r'^process-shipment/$', ProcessShipmentView.as_view()),
+    url(r'^shipment-status-list/$', ShipmentStatusList.as_view()),
+    url('shipments/', ShipmentQCView.as_view()),
+    url('shipment-city-list/', ShipmentCityFilterView.as_view()),
+    url('shipment-pincode-list/', ShipmentPincodeFilterView.as_view()),
+    url('shipment-shop-list/', ShipmentShopFilterView.as_view()),
+    url('rejection-reason/', ShipmentProductRejectionReasonList.as_view()),
+    url('packaging-type/', PackagingTypeList.as_view()),
+    url('dispatch-items/', DispatchItemsView.as_view()),
+    url('dispatch-update/', DispatchItemsUpdateView.as_view()),
+    url('dispatch-dashboard/', DispatchDashboardView.as_view()),
+    url('shipment-invoice/', DownloadShipmentInvoice.as_view()),
+    url('package-reject-reason/', DispatchPackageRejectionReasonList.as_view()),
     url('update-order-payment-status/', OrderPaymentStatusChangeView.as_view(), name='update_order_payment_status'),
     url(r'^order-status-choice/$', OrderStatusChoicesList.as_view()),
-
 ]
 
 urlpatterns += router.urls
