@@ -156,4 +156,7 @@ class Incentive(BaseTimestampUserModel):
     total_ex_tax_delivered_value = models.DecimalField(max_digits=8, decimal_places=2)
     incentive = models.DecimalField(max_digits=8, decimal_places=2)
 
+    def __str__(self):
+        return "{}-{}, {}".format(self.shop, self.date_of_calculation, self.incentive)
+
 

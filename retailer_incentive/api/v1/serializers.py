@@ -144,7 +144,7 @@ class IncentiveSerializer(serializers.ModelSerializer):
 
     def error_incentives_xlsx(self, list_data, bulk_incentive_obj):
         filename = f'incentive_error_sheet_{bulk_incentive_obj.pk}.xlsx'
-        info_logger.info("Get API for Download sample XLSX to Create Incentive api called.")
+        info_logger.info("creating xlsx for wrong data.")
         output = io.BytesIO()
         workbook = xlsxwriter.Workbook(output)
         worksheet = workbook.add_worksheet()
