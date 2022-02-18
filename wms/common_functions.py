@@ -253,6 +253,15 @@ class CommonBinInventoryFunctions(object):
         obj.to_be_picked_qty = obj.to_be_picked_qty + qty
         obj.save()
 
+
+    @classmethod
+    @transaction.atomic
+    def move_to_to_be_picked(cls, qty, bin_inv_obj):
+        obj = BinInventory.objects.select_for_update().get(pk=bin_inv_obj.id)
+        obj.to_be_picked_qty = obj.to_be_picked_qty + qty
+        obj.quantity = obj.quantity - qty
+        obj.save()
+
     @classmethod
     @transaction.atomic
     def product_shift_across_bins(cls, data):
@@ -1283,6 +1292,7 @@ def cancel_order_with_pick(instance):
                     warehouse, pickup_bin.bin.sku, type_normal, state_picked, -1 * pick_up_bin_quantity,
                     "order_cancelled", instance.order_no)
         pickup_qs.update(status='picking_cancelled')
+        instance.picker_order.update(picking_status='picking_cancelled')
 
 
 class AuditInventory(object):
