@@ -95,14 +95,6 @@ class SchemeDetailSerializer(serializers.ModelSerializer):
         fields = ['id', 'scheme', ]
 
 
-class GetIncentiveSerializer(serializers.ModelSerializer):
-
-    class Meta:
-        """ Meta class """
-        model = BulkIncentive
-        fields = '__all__'
-
-
 class IncentiveSerializer(serializers.ModelSerializer):
     uploaded_file = serializers.FileField(label='Upload Incentive')
 
@@ -179,7 +171,7 @@ class GetListIncentiveSerializer(serializers.ModelSerializer):
         """ Meta class """
         model = Incentive
         fields = ('shop', 'shop_name', 'capping_applicable', 'capping_value', 'date_of_calculation',
-                  'total_ex_tax_delivered_value', 'incentive',)
+                  'total_ex_tax_delivered_value', 'incentive')
 
     def get_shop_name(self, obj):
         return obj.shop.shop_name

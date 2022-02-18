@@ -11,8 +11,7 @@ from rest_framework.views import APIView
 
 from retailer_backend.messages import SUCCESS_MESSAGES, VALIDATION_ERROR_MESSAGES, ERROR_MESSAGES
 from retailer_incentive.api.v1.serializers import SchemeShopMappingSerializer, SalesExecutiveListSerializer, \
-    SchemeDetailSerializer, SchemeSlabSerializer, IncentiveSerializer, GetIncentiveSerializer, \
-    GetListIncentiveSerializer
+    SchemeDetailSerializer, SchemeSlabSerializer, IncentiveSerializer, GetListIncentiveSerializer
 from retailer_incentive.models import SchemeSlab, IncentiveDashboardDetails, Incentive, BulkIncentive
 from retailer_incentive.utils import get_shop_scheme_mapping, get_shop_scheme_mapping_based
 from shops.models import ShopUserMapping, Shop, ParentRetailerMapping
@@ -364,7 +363,7 @@ class BulkIncentiveSampleFileView(APIView):
         info_logger.info("Get API for Download sample XLSX to Create Incentive api called.")
 
         output = io.BytesIO()
-        workbook = xlsxwriter.Workbook(output)
+        workbook = xlsxwriter.Workbook(output, {'default_date_format': 'yyyy-mm-dd'})
         worksheet = workbook.add_worksheet()
 
         bold = workbook.add_format({'bold': True})
@@ -377,11 +376,13 @@ class BulkIncentiveSampleFileView(APIView):
         worksheet.write('G1', 'incentive', bold)
         row = 1
         col = 0
+        date_time = datetime.datetime.now().date()
+
         worksheet.write(row, col, 322)
         worksheet.write(row, col + 1, 'GFDN')
         worksheet.write(row, col + 2, 'YES')
         worksheet.write(row, col + 3, 50000)
-        worksheet.write(row, col + 4, 2021-11-23)
+        worksheet.write(row, col + 4, date_time)
         worksheet.write(row, col + 5, 4550)
         worksheet.write(row, col + 6, 1200)
 
