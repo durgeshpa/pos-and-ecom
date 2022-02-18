@@ -33,6 +33,7 @@ from accounts.api.v1.serializers import PosUserSerializer, PosShopUserSerializer
 from addresses.models import Address, City, Pincode
 from audit.views import BlockUnblockProduct
 from barCodeGenerator import barcodeGen
+from global_config.views import get_config
 from shops.api.v1.serializers import ShopBasicSerializer
 from wms.common_validators import validate_id, validate_data_format, validate_shipment
 from wms.services import check_whc_manager_coordinator_supervisor_qc_executive, shipment_search, \
@@ -354,6 +355,7 @@ class SearchProducts(APIView):
         keyword = self.request.GET.get('keyword')
         output_type = self.request.GET.get('output_type', '1')
         category_ids = self.request.GET.get('category_ids')
+        sub_category_ids = self.request.GET.get('sub_category_ids')
         filter_list = [{"term": {"is_deleted": False}}]
 
         if app_type == '3':
@@ -398,6 +400,11 @@ class SearchProducts(APIView):
             category = category_ids.split(',')
             category_filter = str(categorymodel.Category.objects.filter(id__in=category, status=True).last())
             filter_list.append({"match": {"category": {"query": category_filter, "operator": "and"}}})
+
+        if sub_category_ids:
+            #sub_category = sub_category_ids.split(',')
+            #sub_category_filter = str(categorymodel.Category.objects.filter(id__in=sub_category, status=True).last())
+            filter_list.append({"term": {"sub_category": sub_category_ids}})
 
         if filter_list and query_string:
             body['query'] = {"bool": {"must": {"query_string": query_string}, "filter": filter_list}}
@@ -2801,23 +2808,23 @@ class OrderCentral(APIView):
                 order.order_status = order_status
                 order.last_modified_by = self.request.user
                 order.save()
-                try:
-                    trxn_id = order.ordered_cart
-                    payment_datails = PosPayment.objects.filter(order=order.id, transaction_id=trxn_id).first()
-                    if payment_datails:
-                        refund_amount = payment_datails.amount
-                        payment_id = payment_datails.payment_id
-                        response = send_request_refund(payment_id, refund_amount)
-                        request_id = response.get('request_id')
-                        if response.get('status'):
-                            request_id = response.get('request_id')
-                            payment_datails.is_refund = True
-                            payment_datails.refund_status = 'queued'
-                            payment_datails.request_id= request_id
-                            payment_datails.refund_amount = refund_amount
-                            payment_datails.save()
-                except  Exception as e:
-                    pass
+                # try:
+                #     trxn_id = order.ordered_cart
+                #     payment_datails = PosPayment.objects.filter(order=order.id, transaction_id=trxn_id).first()
+                #     if payment_datails:
+                #         refund_amount = payment_datails.amount
+                #         payment_id = payment_datails.payment_id
+                #         response = send_request_refund(payment_id, refund_amount)
+                #         request_id = response.get('request_id')
+                #         if response.get('status'):
+                #             request_id = response.get('request_id')
+                #             payment_datails.is_refund = True
+                #             payment_datails.refund_status = 'queued'
+                #             payment_datails.request_id= request_id
+                #             payment_datails.refund_amount = refund_amount
+                #             payment_datails.save()
+                # except  Exception as e:
+                #     pass
                 # Refund redeemed loyalty points
                 # Deduct loyalty points awarded on order
                 points_credit, points_debit, net_points = RewardCls.adjust_points_on_return_cancel(
@@ -2934,23 +2941,23 @@ class OrderCentral(APIView):
             whatsapp_order_cancel.delay(order_number, shop_name, phone_number, points_credit, points_debit,
                                         net_points)
             response = None
-            try:
-                trxn_id = order.ordered_cart
-                payment_datails = PosPayment.objects.filter(order=order.id, transaction_id=trxn_id).first()
-                if payment_datails:
-                    refund_amount = payment_datails.amount
-                    payment_id = payment_datails.payment_id
-                    response = send_request_refund(payment_id, refund_amount)
-                    request_id = response.get('request_id')
-                    if response.get('status'):
-                        request_id = response.get('request_id')
-                        payment_datails.is_refund = True
-                        payment_datails.refund_status = 'queued'
-                        payment_datails.request_id= request_id
-                        payment_datails.refund_amount = refund_amount
-                        payment_datails.save()
-            except Exception as e:
-                pass
+            # try:
+            #     trxn_id = order.ordered_cart
+            #     payment_datails = PosPayment.objects.filter(order=order.id, transaction_id=trxn_id).first()
+            #     if payment_datails:
+            #         refund_amount = payment_datails.amount
+            #         payment_id = payment_datails.payment_id
+            #         response = send_request_refund(payment_id, refund_amount)
+            #         request_id = response.get('request_id')
+            #         if response.get('status'):
+            #             request_id = response.get('request_id')
+            #             payment_datails.is_refund = True
+            #             payment_datails.refund_status = 'queued'
+            #             payment_datails.request_id= request_id
+            #             payment_datails.refund_amount = refund_amount
+            #             payment_datails.save()
+            # except Exception as e:
+            #     pass
         return api_response("Order cancelled successfully!", response, status.HTTP_200_OK, True)
 
     def put_retail_order(self, pk):
@@ -6946,7 +6953,7 @@ class RefreshEs(APIView):
 
 
 def refresh_cron_es():
-    shop_id = 600
+    shop_id = int(get_config('current_wh_active', 50484))
     info_logger.info('RefreshEs| shop {}, Started'.format(shop_id))
     upload_shop_stock(shop_id)
     info_logger.info('RefreshEs| shop {}, Ended'.format(shop_id))
@@ -7291,7 +7298,7 @@ class ShipmentQCView(generics.GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
     serializer_class = ShipmentQCSerializer
-    queryset = OrderedProduct.objects. \
+    queryset = OrderedProduct.objects. filter(~Q(order__order_status=Order.CANCELLED)).\
         annotate(status=Case(
         When(shipment_status__in=[OrderedProduct.SHIPMENT_CREATED, OrderedProduct.QC_STARTED],
              then=Value(OrderedProduct.SHIPMENT_CREATED)),

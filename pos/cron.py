@@ -7,7 +7,7 @@ from decouple import config
 from wms.models import PosInventory
 from services.models import  PosInventoryHistoric
 from coupon.models import Coupon
-from pos.models import Payment
+from pos.models import Payment, PaymentStatusUpdateByCron
 from retailer_backend.common_function import bulk_create
 import hashlib
 import requests
@@ -81,29 +81,80 @@ def payment_reconsilations(trxn_id, payment_type='online', obj = None):
     try:
         response = send_request_payu_api(trxn_id)
         if response[trxn_id].get('status') == 'success' and payment_type != 'online':
+            try:
+                log_obj,created =  PaymentStatusUpdateByCron.objects.get_or_create(order=obj.order, payment_type=obj.payment_type)
+                log_obj.payment_status = 'double_payment'
+                log_obj.transaction_id = trxn_id
+                log_obj.payment_id = response[trxn_id].get('mihpayid',None)
+                log_obj.save()
+            except Exception as e:
+                cron_logger.error(e)
             obj.payment_status = 'double_payment'
             obj.transaction_id = trxn_id
             obj.payment_id = response[trxn_id].get('mihpayid',None)
             obj.save()
             return
+        if response[trxn_id].get('mihpayid',None) == 'Not Found' and payment_type != 'online':
+            return
 
         if response[trxn_id].get('status') == 'failure' and obj.payment_status !=  "payment_failed":
+            try:
+                log_obj,created =  PaymentStatusUpdateByCron.objects.get_or_create(order=obj.order, payment_type=obj.payment_type)
+                log_obj.payment_status = 'payment_failed'
+                log_obj.transaction_id = trxn_id
+                log_obj.payment_id = response[trxn_id].get('mihpayid',None)
+                log_obj.save()
+            except Exception as e:
+                cron_logger.error(e)
+
             obj.payment_status = 'payment_failed'
             obj.transaction_id = trxn_id
             obj.payment_id = response[trxn_id].get('mihpayid',None)
-        elif response[trxn_id].get('status') == 'success' and not obj.transaction_id:
+
+        elif response[trxn_id].get('status') == 'success' and (not obj.transaction_id or not obj.payment_id or obj.payment_id == 'Not Found'):
+            log_obj = None
+            if obj.payment_status != "payment_approved":
+                try:
+                    log_obj,created =  PaymentStatusUpdateByCron.objects.get_or_create(order=obj.order, payment_type=obj.payment_type)
+                    log_obj.payment_status = "payment_approved"
+                    log_obj.transaction_id = trxn_id
+                    log_obj.payment_id = response[trxn_id].get('mihpayid',None)
+                except Exception as e:
+                    cron_logger.error(e)
+
+
             obj.payment_status = "payment_approved"
+            if response[trxn_id].get('mode') == 'CC':
+                obj.payment_mode = 'CREDIT_CARD'
+            elif response[trxn_id].get('mode') == 'DC':
+                obj.payment_mode = 'DEBIT_CARD'
+            elif response[trxn_id].get('mode') == 'UPI':
+                 obj.payment_mode = 'UPI'
+            else:
+                obj.payment_mode = 'Net Banking'
+
             if obj.order.order_status != 'ordered':
                 objs = Order.objects.filter(id=obj.order.id).last()
                 objs.order_status = 'ordered'
                 objs.save()
             obj.transaction_id = trxn_id
             obj.payment_id = response[trxn_id].get('mihpayid',None)
+            if log_obj:
+                log_obj.payment_mode = obj.payment_mode
+                log_obj.save()
 
         elif response[trxn_id].get('status') == 'Not Found' and obj.payment_status !=  "payment_not_found":
             obj.payment_status = "payment_not_found"
             obj.transaction_id = trxn_id
             obj.payment_id = response[trxn_id].get('mihpayid',None)
+            try:
+                log_obj,created =  PaymentStatusUpdateByCron.objects.get_or_create(order=obj.order, payment_type=obj.payment_type)
+                log_obj.payment_status = "payment_not_found"
+                log_obj.transaction_id = trxn_id
+                log_obj.payment_id = response[trxn_id].get('mihpayid',None)
+                log_obj.save()
+            except Exception as e:
+                cron_logger.error(e)
 
         obj.save()
 
@@ -131,7 +182,7 @@ def payment_reconsilation_():
 def payment_reconsilation_per_ten_minutes():
     cron_logger.info('cron_per 10 minutes payment_reconsilation start..........................')
     time_threshold = datetime.datetime.now() - datetime.timedelta(minutes=60)
-    objects = Payment.objects.filter(created_at__gt=time_threshold).values("order__ordered_cart_id")
+    objects = Payment.objects.filter(created_at__gt=time_threshold)
     for obj in objects:
         try:
            payment_reconsilations(str(obj.order.ordered_cart_id), obj.payment_type.type, obj)
@@ -143,7 +194,7 @@ def payment_reconsilation_per_ten_minutes():
 def payment_reconsilation_per_24_hours():
     cron_logger.info('cron_per 24 minutes payment_reconsilation start..........................')
     time_threshold = datetime.datetime.now() - datetime.timedelta(hours=24)
-    objects = Payment.objects.filter(created_at__gt=time_threshold).values("order__ordered_cart_id", "payment_type__type")
+    objects = Payment.objects.filter(created_at__gt=time_threshold)
     for obj in objects:
         try:
            payment_reconsilations(str(obj.order.ordered_cart_id), obj.payment_type.type, obj)
