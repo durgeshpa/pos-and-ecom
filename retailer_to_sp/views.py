@@ -614,6 +614,15 @@ TRIP_ORDER_STATUS_MAP = {
 }
 
 
+def update_trip_package_count(trip_id):
+    trip = Trip.objects.filter(id=trip_id).last()
+    package_data = trip.get_package_data()
+    trip.no_of_crates = package_data['no_of_crates']
+    trip.no_of_packets = package_data['no_of_packs']
+    trip.no_of_sacks = package_data['no_of_sacks']
+    trip.save()
+
+
 def create_update_last_mile_trip_shipment_mapping(trip_id, shipment_ids, request_user):
     removed_shipments = LastMileTripShipmentMapping.objects.filter(
         ~Q(shipment_id__in=shipment_ids), ~Q(shipment_status=LastMileTripShipmentMapping.CANCELLED), trip_id=trip_id)
@@ -634,6 +643,7 @@ def create_update_last_mile_trip_shipment_mapping(trip_id, shipment_ids, request
                 shipment_id=shipment_id, status=ShipmentPackaging.DISPATCH_STATUS_CHOICES.READY_TO_DISPATCH):
             LastMileTripShipmentPackages.objects.create(trip_shipment=trip_shipment, shipment_packaging=package,
                                                         package_status=LastMileTripShipmentPackages.LOADED)
+    update_trip_package_count(trip_id)
 
 
 def trip_planning_change(request, pk):
