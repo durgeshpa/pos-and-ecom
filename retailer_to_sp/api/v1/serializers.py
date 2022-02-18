@@ -4789,6 +4789,9 @@ class LastMileLoadVerifyPackageSerializer(serializers.ModelSerializer):
             trip.weight = trip.weight + package_weight
         trip.save()
         if trip_shipment.shipment_status == LastMileTripShipmentMapping.LOADING_FOR_DC:
+            """ 
+                Check for the package if not remaining to load in the current trip, mark shipment loaded.
+            """
             if not ShipmentPackaging.objects.filter(
                     Q(last_mile_trip_packaging_details__trip_shipment__trip=trip_shipment.trip) |
                     Q(last_mile_trip_packaging_details__isnull=True)).filter(
