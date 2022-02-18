@@ -32,8 +32,19 @@ class PincodeAdmin(ImportExportModelAdmin):
     resource_class = PincodeResource
 
 
+class RouteInlineAdmin(admin.TabularInline):
+    model = Route
+    fields = ('city', 'name')
+    extra = 1
+
+
 class CityAdmin(admin.ModelAdmin):
+    list_display = ('city_name', 'state', 'routes',)
     search_fields = ('city_name',)
+    inlines = [RouteInlineAdmin]
+
+    def routes(self, obj):
+        return ", ".join(obj.city_routes.values_list('name', flat=True))
 
 
 class AddressAdmin(admin.ModelAdmin):
