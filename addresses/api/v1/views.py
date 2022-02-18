@@ -7,7 +7,8 @@ from rest_framework.response import Response
 from addresses.models import Country, State, City, Area, Address, Pincode, Route
 from retailer_backend.utils import SmallOffsetPagination
 from .serializers import (CountrySerializer, StateSerializer, CitySerializer,
-                          AreaSerializer, AddressSerializer, PinCityStateSerializer, CityRouteSerializer)
+                          AreaSerializer, AddressSerializer, PinCityStateSerializer, CityRouteSerializer,
+                          StateBasicSerializer, CityBasicSerializer)
 from rest_framework import generics
 from rest_framework import status
 from rest_framework import permissions, authentication
@@ -289,6 +290,62 @@ class PinCityStateView(APIView):
             data = self.serializer_class(pin_code_obj).data
             return api_response('', data, status.HTTP_200_OK, True)
         return api_response('No City Found For Given Pin Code')
+
+
+class StateFilterView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    serializer_class = StateBasicSerializer
+    queryset = State.objects.all()
+
+    def get(self, request):
+        self.queryset = self.search_filter_state()
+        state_data = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        serializer = self.serializer_class(state_data, many=True)
+        msg = "" if state_data else "no state found"
+        return api_response(msg, serializer.data, status.HTTP_200_OK, True)
+
+    def search_filter_state(self):
+        """ Filters the data based on request"""
+        search_text = self.request.GET.get('search_text')
+        country = self.request.GET.get('country')
+
+        if search_text:
+            self.queryset = self.queryset.filter(Q(state_name__icontains=search_text)|
+                                                 Q(country__country_name__icontains=search_text))
+
+        if country:
+            self.queryset = self.queryset.filter(country_id=country)
+
+        return self.queryset.distinct('id')
+
+
+class CityFilterView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    serializer_class = CityBasicSerializer
+    queryset = City.objects.all()
+
+    def get(self, request):
+        self.queryset = self.search_filter_city()
+        city_data = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        serializer = self.serializer_class(city_data, many=True)
+        msg = "" if city_data else "no city found"
+        return api_response(msg, serializer.data, status.HTTP_200_OK, True)
+
+    def search_filter_city(self):
+        """ Filters the data based on request"""
+        search_text = self.request.GET.get('search_text')
+        state = self.request.GET.get('state')
+
+        if search_text:
+            self.queryset = self.queryset.filter(Q(city_name__icontains=search_text)|
+                                                 Q(state__state_name__icontains=search_text))
+
+        if state:
+            self.queryset = self.queryset.filter(state_id=state)
+
+        return self.queryset.distinct('id')
 
 
 class RouteView(generics.GenericAPIView):
