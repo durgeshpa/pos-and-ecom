@@ -7822,7 +7822,7 @@ class VerifyNotAttemptShipmentPackagesView(generics.GenericAPIView):
                                                 trip_shipment__trip_id=trip_id).last()
         if not shipment_package:
             return {"error": "Package does not belong to this trip."}
-        if shipment_package.shipment.shipment_status != OrderedProduct.NOT_ATTEMPT:
+        if shipment_package.trip_shipment.shipment.shipment_status != OrderedProduct.NOT_ATTEMPT:
             return {"error": f"Invalid Shipment status."}
 
         return {"data": shipment_package}
