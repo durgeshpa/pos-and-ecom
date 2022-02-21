@@ -17,7 +17,7 @@ from addresses.models import Address
 from addresses.api.v1.serializers import AddressSerializer
 from common.data_wrapper_view import DataWrapperViewSet
 from pos.common_functions import check_pos_shop, pos_check_permission, api_response, check_logged_in_user_is_superuser, \
-    check_fofo_shop
+    check_fofo_shop, check_logged_in_user_has_fofo_config_perm
 from retailer_backend.utils import SmallOffsetPagination
 from retailer_backend import messages
 from retailer_backend.messages import SUCCESS_MESSAGES, ERROR_MESSAGES
@@ -1370,7 +1370,7 @@ class FOFOConfigurationsView(generics.GenericAPIView):
     queryset = FOFOConfigurations.objects.order_by('-id')
     serializer_class = FOFOConfigurationsCrudSerializer
 
-    @check_logged_in_user_is_superuser
+    # @check_logged_in_user_has_fofo_config_perm
     @check_fofo_shop
     def get(self, request, *args, **kwargs):
         """ GET FOFO  List """
@@ -1389,7 +1389,7 @@ class FOFOConfigurationsView(generics.GenericAPIView):
         msg = "" if queryset else "no configurations found"
         return get_response(msg, serializer.data, True)
 
-    @check_logged_in_user_is_superuser
+    @check_logged_in_user_has_fofo_config_perm
     @check_fofo_shop
     def post(self, request, *args, **kwargs):
         shop = kwargs['shop']
@@ -1405,7 +1405,7 @@ class FOFOConfigurationsView(generics.GenericAPIView):
             return get_response('Configurations has been done Successfully!', None, True, status.HTTP_200_OK)
         return get_response(serializer_error_batch(serializer), False)
 
-    @check_logged_in_user_is_superuser
+    @check_logged_in_user_has_fofo_config_perm
     @check_fofo_shop
     def put(self, request, *args, **kwargs):
         shop = kwargs['shop']
