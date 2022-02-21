@@ -23,7 +23,8 @@ from retailer_to_sp.models import (CartProductMapping, Cart, Order, OrderedProdu
                                    ShipmentPackagingMapping, DispatchTrip, DispatchTripShipmentMapping,
                                    DispatchTripShipmentPackages, ShipmentNotAttempt, PACKAGE_VERIFY_CHOICES,
                                    LastMileTripShipmentMapping, ShopCrate, DispatchTripCrateMapping,
-                                   add_to_putaway_on_return, LastMileTripShipmentPackages, ShipmentPackagingBatch)
+                                   add_to_putaway_on_return, LastMileTripShipmentPackages, ShipmentPackagingBatch,
+                                   RETURN_REMARK_CHOICES)
 
 from retailer_to_gram.models import (Cart as GramMappedCart, CartProductMapping as GramMappedCartProductMapping,
                                      Order as GramMappedOrder, OrderedProduct as GramMappedOrderedProduct,
@@ -2899,15 +2900,11 @@ class VerifyNotAttemptShipmentPackageSerializer(serializers.ModelSerializer):
                                             LastMileTripShipmentPackages.RETURN_MISSING,
                                             LastMileTripShipmentPackages.RETURN_DAMAGED] else False
 
-
-
     class Meta:
         model = LastMileTripShipmentPackages
         fields = ('id', 'shipment_packaging', 'package_status', 'is_return_verified')
 
-
     def validate(self, data):
-
         if 'package_id' in self.initial_data and self.initial_data['package_id']:
             if ShipmentPackaging.objects.filter(id=self.initial_data['package_id']).exists():
                 shipment_packaging = ShipmentPackaging.objects.filter(id=self.initial_data['package_id']).last()
@@ -2939,26 +2936,31 @@ class VerifyNotAttemptShipmentPackageSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("'trip_id' | This is mandatory")
 
         shipment_package = LastMileTripShipmentPackages.objects.filter(
-                                                           trip_shipment=trip_shipment,
-                                                           shipment_packaging=shipment_packaging,
-                                                           package_status=LastMileTripShipmentPackages.LOADED).last()
+            ~Q(package_status=LastMileTripShipmentPackages.CANCELLED),
+            trip_shipment=trip_shipment, shipment_packaging=shipment_packaging).last()
+        if not shipment_package:
+            raise serializers.ValidationError("Invalid package.")
+        if shipment_package and shipment_package.package_status in [LastMileTripShipmentPackages.RETURN_VERIFIED,
+                                                                    LastMileTripShipmentPackages.RETURN_MISSING,
+                                                                    LastMileTripShipmentPackages.RETURN_DAMAGED]:
+            raise serializers.ValidationError("Package already verified.")
 
         if 'return_status' in self.initial_data and self.initial_data['return_status']:
             if self.initial_data['return_status'] == PACKAGE_VERIFY_CHOICES.OK:
-                status = ShipmentPackaging.DISPATCH_STATUS_CHOICES.READY_TO_DISPATCH
+                status = LastMileTripShipmentPackages.RETURN_VERIFIED
             elif self.initial_data['return_status'] == PACKAGE_VERIFY_CHOICES.DAMAGED:
-                status = ShipmentPackaging.DISPATCH_STATUS_CHOICES.RETURN_DAMAGED
+                status = LastMileTripShipmentPackages.RETURN_DAMAGED
             elif self.initial_data['return_status'] == PACKAGE_VERIFY_CHOICES.MISSING:
-                status = ShipmentPackaging.DISPATCH_STATUS_CHOICES.RETURN_MISSING
+                status = LastMileTripShipmentPackages.RETURN_MISSING
             else:
                 raise serializers.ValidationError("'return_status' | Invalid status for the selected shipment packaging.")
             if shipment_package.package_status == status:
                 raise serializers.ValidationError(f"Packaging already marked {status}")
 
-            if status in [ShipmentPackaging.DISPATCH_STATUS_CHOICES.RETURN_MISSING,
-                          ShipmentPackaging.DISPATCH_STATUS_CHOICES.RETURN_DAMAGED]:
+            if status in [LastMileTripShipmentPackages.RETURN_MISSING,
+                          LastMileTripShipmentPackages.RETURN_DAMAGED]:
                 if 'return_remark' in self.initial_data and self.initial_data['return_remark']:
-                    if any(self.initial_data['return_remark'] in i for i in ShipmentPackaging.RETURN_REMARK_CHOICES):
+                    if any(self.initial_data['return_remark'] in i for i in RETURN_REMARK_CHOICES):
                         data['return_remark'] = self.initial_data['return_remark']
                     else:
                         raise serializers.ValidationError("'return_remark' | Invalid remark.")
@@ -2972,7 +2974,7 @@ class VerifyNotAttemptShipmentPackageSerializer(serializers.ModelSerializer):
 
     @transaction.atomic
     def update(self, instance, validated_data):
-        """Update ShipmentPackaging"""
+        """Update LastMileTripShipmentPackages"""
         try:
             packaging_instance = super().update(instance, validated_data)
         except Exception as e:
