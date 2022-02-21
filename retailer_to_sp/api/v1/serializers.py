@@ -4514,6 +4514,10 @@ class LoadLastMileInvoiceSerializer(serializers.ModelSerializer):
         else:
             raise serializers.ValidationError("Please provide 'shipment_id' or 'invoice_no'.")
 
+        if shipment.last_trip and isinstance(shipment.last_trip, Trip):
+            if shipment.last_trip.trip_status in [Trip.READY, Trip.STARTED, Trip.COMPLETED]:
+                raise serializers.ValidationError(f"Invoice {shipment} already mapped with {shipment.last_trip}")
+
         trip_shipment_mapping = LastMileTripShipmentMapping.objects.filter(
             ~Q(shipment_status=LastMileTripShipmentMapping.CANCELLED), trip=trip, shipment=shipment).last()
         if trip_shipment_mapping:
@@ -4692,10 +4696,9 @@ class LastMileLoadVerifyPackageSerializer(serializers.ModelSerializer):
         if package.shipment.shipment_status != OrderedProduct.READY_TO_DISPATCH:
             raise serializers.ValidationError(f"The invoice is in {package.shipment.shipment_status} state, "
                                               f"cannot load package")
-        if package.shipment.last_mile_trip_shipment.exclude(
-                Q(trip=trip) | Q(shipment_status=LastMileTripShipmentMapping.CANCELLED)).exists():
-            raise serializers.ValidationError(f"The invoice is already being added to another trip, "
-                                              f"cannot add this package")
+        if not LastMileTripShipmentMapping.objects.filter(trip=trip, shipment=package.shipment, shipment_status__in=[
+            LastMileTripShipmentMapping.TO_BE_LOADED, LastMileTripShipmentMapping.LOADING_FOR_DC]).exists():
+            raise serializers.ValidationError(f"Please add invoice to the trip to load their package")
 
         # Check for package status
         if package.status != ShipmentPackaging.DISPATCH_STATUS_CHOICES.READY_TO_DISPATCH:
