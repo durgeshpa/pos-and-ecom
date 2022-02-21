@@ -4472,7 +4472,7 @@ class OrderedItemCentralDashBoard(APIView):
         products_count = products.count()
 
         order_count = orders.count()
-        invoice_count = invoices.values('id').distinct('id').count()
+        invoice_count = invoices.count()
 
         ecom_order_count = ecom_orders.count()
         ecom_invoice_count = ecom_invoices.count()
