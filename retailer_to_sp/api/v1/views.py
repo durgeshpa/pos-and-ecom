@@ -129,6 +129,8 @@ from fcm.utils import get_device_model
 from django.template.loader import render_to_string
 from datetime import datetime
 
+from ...utils import round_half_down
+
 Device = get_device_model()
 
 User = get_user_model()
@@ -4447,11 +4449,11 @@ class OrderedItemCentralDashBoard(APIView):
         # POS Invoice Count
         pos_total_invoices_final_amount = 0
         for invoice in pos_invoices:
-            pos_total_invoices_final_amount += round(invoice.invoice_amount_final)
+            pos_total_invoices_final_amount += round_half_down(invoice.invoice_amount_final)
         pos_total_invoice_refund_amount = pos_invoice_returns.aggregate(Sum('order_return__refund_amount')).\
             get('order_return__refund_amount__sum')
         if pos_total_invoice_refund_amount:
-            pos_total_invoices_final_amount -= Decimal(pos_total_invoice_refund_amount)
+            pos_total_invoices_final_amount -= float(pos_total_invoice_refund_amount)
 
         ecom_total_invoices_final_amount = 0
         for invoice in ecom_invoices:
@@ -4459,14 +4461,14 @@ class OrderedItemCentralDashBoard(APIView):
         ecom_total_invoice_refund_amount = ecom_invoice_returns.aggregate(Sum('order_return__refund_amount')). \
             get('order_return__refund_amount__sum')
         if ecom_total_invoice_refund_amount:
-            ecom_total_invoices_final_amount -= Decimal(ecom_total_invoice_refund_amount)
+            ecom_total_invoices_final_amount -= float(ecom_total_invoice_refund_amount)
 
         # Invoice Count
         total_invoices_final_amount = pos_total_invoices_final_amount + ecom_total_invoices_final_amount
         total_invoice_refund_amount = invoice_returns.aggregate(Sum('order_return__refund_amount')). \
             get('order_return__refund_amount__sum')
         if total_invoice_refund_amount:
-            total_invoices_final_amount -= Decimal(total_invoice_refund_amount)
+            total_invoices_final_amount -= float(total_invoice_refund_amount)
 
         # counts of order for shop_id with total_ordered_final_amount, total_invoices_final_amount  & products
         products_count = products.count()
