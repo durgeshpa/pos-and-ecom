@@ -4514,7 +4514,8 @@ class LoadLastMileInvoiceSerializer(serializers.ModelSerializer):
         else:
             raise serializers.ValidationError("Please provide 'shipment_id' or 'invoice_no'.")
 
-        if shipment.last_trip and isinstance(shipment.last_trip, Trip) and shipment.last_trip != trip:
+        if shipment.shipment_status in [OrderedProduct.RESCHEDULED, OrderedProduct.NOT_ATTEMPT] and shipment.last_trip\
+                and isinstance(shipment.last_trip, Trip) and shipment.last_trip != trip:
             if shipment.last_trip.trip_status in [Trip.READY, Trip.STARTED, Trip.COMPLETED]:
                 raise serializers.ValidationError(f"Invoice {shipment} already mapped with {shipment.last_trip}")
 
