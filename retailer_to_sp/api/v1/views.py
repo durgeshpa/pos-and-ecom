@@ -4455,6 +4455,7 @@ class OrderedItemCentralDashBoard(APIView):
         if pos_total_invoice_refund_amount:
             pos_total_invoices_final_amount -= float(pos_total_invoice_refund_amount)
 
+        # ECOM Invoice Count
         ecom_total_invoices_final_amount = 0
         for invoice in ecom_invoices:
             ecom_total_invoices_final_amount += invoice.invoice_amount_final
@@ -4465,11 +4466,6 @@ class OrderedItemCentralDashBoard(APIView):
 
         # Invoice Count
         total_invoices_final_amount = pos_total_invoices_final_amount + ecom_total_invoices_final_amount
-        total_invoice_refund_amount = invoice_returns.aggregate(Sum('order_return__refund_amount')). \
-            get('order_return__refund_amount__sum')
-        if total_invoice_refund_amount:
-            total_invoices_final_amount -= float(total_invoice_refund_amount)
-
         # counts of order for shop_id with total_ordered_final_amount, total_invoices_final_amount  & products
         products_count = products.count()
 
