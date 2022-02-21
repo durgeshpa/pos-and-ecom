@@ -4144,7 +4144,7 @@ class ShipmentCompleteVerifySerializer(serializers.ModelSerializer):
             if shipment_status not in [OrderedProduct.FULLY_DELIVERED_AND_COMPLETED,
                                        OrderedProduct.PARTIALLY_DELIVERED_AND_COMPLETED,
                                        OrderedProduct.FULLY_RETURNED_AND_COMPLETED,
-                                       OrderedProduct.RESCHEDULED]:
+                                       OrderedProduct.RESCHEDULED, OrderedProduct.NOT_ATTEMPT]:
                 raise serializers.ValidationError(f"Shipment not in valid state to complete verify.")
 
             if shipment.last_mile_trip_shipment.last().last_mile_trip_shipment_mapped_packages.filter(
@@ -4159,14 +4159,19 @@ class ShipmentCompleteVerifySerializer(serializers.ModelSerializer):
                     raise serializers.ValidationError(f"All returned products verification needed for shipment status "
                                                       f"{shipment.shipment_status} | Id { shipment.pk }")
 
-            if shipment_status == OrderedProduct.RESCHEDULED:
-                if shipment.shipment_packaging.filter(
-                        ~Q(status__in=[ShipmentPackaging.DISPATCH_STATUS_CHOICES.RETURN_VERIFIED,
-                                       ShipmentPackaging.DISPATCH_STATUS_CHOICES.RETURN_MISSING,
-                                       ShipmentPackaging.DISPATCH_STATUS_CHOICES.RETURN_DAMAGED])).exists():
+            if shipment_status in [OrderedProduct.RESCHEDULED, OrderedProduct.NOT_ATTEMPT]:
+                last_trip = shipment.last_trip
+                if not last_trip or not isinstance(last_trip, Trip):
+                    raise serializers.ValidationError("Invalid shipment for the trip.")
+                if LastMileTripShipmentPackages.objects.filter(
+                        ~Q(trip_shipment__shipment_status=LastMileTripShipmentMapping.CANCELLED),
+                        ~Q(package_status__in=[LastMileTripShipmentPackages.RETURN_VERIFIED,
+                                               LastMileTripShipmentPackages.RETURN_MISSING,
+                                               LastMileTripShipmentPackages.RETURN_DAMAGED]),
+                        trip_shipment__trip=last_trip, trip_shipment__shipment=shipment).exists():
                     raise serializers.ValidationError(f"All packages are not verified for shipment status "
-                                                      f"{shipment.shipment_status} | Id {shipment.pk}")
-                data['shipment_status'] = OrderedProduct.RESCHEDULED
+                                                          f"{shipment.shipment_status} | Id {shipment.pk}")
+                data['shipment_status'] = shipment_status
 
             elif shipment_status == OrderedProduct.FULLY_RETURNED_AND_COMPLETED:
                 data['shipment_status'] = OrderedProduct.FULLY_RETURNED_AND_VERIFIED
