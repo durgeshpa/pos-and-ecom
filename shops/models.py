@@ -772,3 +772,8 @@ class FOFOConfigurations(models.Model):
 
     def __str__(self):
         return str(self.key)
+
+    class Meta:
+        permissions = (
+            ("has_fofo_config_operations", "Has update FOFO config operations"),
+        )

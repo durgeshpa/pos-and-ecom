@@ -262,10 +262,9 @@ class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
     def changeform_view(self, request, object_id, form_url='', extra_context=None):
         self.inlines = [ShopPhotosAdmin, ShopDocumentsAdmin, AddressAdmin, ShopInvoicePatternAdmin,
                         ShopParentRetailerMapping, ShopStatusAdmin, ]
-        if request.user.is_superuser:
+        if request.user.is_superuser or request.user.has_perm('shops.has_fofo_config_operations'):
             self.inlines.append(FOFOConfigurationsInline)
         return super(ShopAdmin, self).changeform_view(request, object_id, form_url, extra_context)
-
 
     def get_readonly_fields(self, request, obj=None):
         if obj and obj.shop_type.shop_type == 'f':
@@ -696,12 +695,12 @@ class FOFOConfigCategoryAdmin(admin.ModelAdmin):
     fields = ('name', )
 
     def has_add_permission(self, request, obj=None):
-        if request.user.is_superuser:
+        if request.user.is_superuser or request.user.has_perm('shops.has_fofo_config_operations'):
             return True
         return False
 
     def has_change_permission(self, request, obj=None):
-        if request.user.is_superuser:
+        if request.user.is_superuser or request.user.has_perm('shops.has_fofo_config_operations'):
             return True
         return False
 
@@ -715,12 +714,12 @@ class FOFOConfigSubCategoryAdmin(admin.ModelAdmin):
     fields = ('name', 'category', 'type')
 
     def has_add_permission(self, request, obj=None):
-        if request.user.is_superuser:
+        if request.user.is_superuser or request.user.has_perm('shops.has_fofo_config_operations'):
             return True
         return False
 
     def has_change_permission(self, request, obj=None):
-        if request.user.is_superuser:
+        if request.user.is_superuser or request.user.has_perm('shops.has_fofo_config_operations'):
             return True
         return False
 
