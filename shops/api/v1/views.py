@@ -1262,7 +1262,7 @@ class FOFOConfigCategoryView(generics.GenericAPIView):
     queryset = FOFOConfigCategory.objects.order_by('-id')
     serializer_class = FOFOCategoryConfigurationsCrudSerializer
 
-    @check_logged_in_user_is_superuser
+    @check_logged_in_user_has_fofo_config_perm
     def get(self, request):
         """ GET Category List """
         search_text = self.request.GET.get('search_text')
@@ -1273,7 +1273,7 @@ class FOFOConfigCategoryView(generics.GenericAPIView):
         msg = "" if category else "no category found"
         return get_response(msg, serializer.data, True)
 
-    @check_logged_in_user_is_superuser
+    @check_logged_in_user_has_fofo_config_perm
     def post(self, request, *args, **kwargs):
         serializer = self.serializer_class(data=request.data)
         if serializer.is_valid():
@@ -1281,7 +1281,7 @@ class FOFOConfigCategoryView(generics.GenericAPIView):
             return get_response('category created Successfully!', None, True, status.HTTP_200_OK)
         return get_response(serializer_error(serializer), False)
 
-    @check_logged_in_user_is_superuser
+    @check_logged_in_user_has_fofo_config_perm
     def put(self, request):
         """ PUT API for Category Updation """
 
@@ -1307,7 +1307,7 @@ class FOFOConfigSubCategoryView(generics.GenericAPIView):
     queryset = FOFOConfigSubCategory.objects.order_by('-id')
     serializer_class = FOFOSubCategoryConfigurationsCrudSerializer
 
-    @check_logged_in_user_is_superuser
+    @check_logged_in_user_has_fofo_config_perm
     def get(self, request):
         """ GET Sub-Category List """
         search_text = self.request.GET.get('search_text')
@@ -1318,7 +1318,7 @@ class FOFOConfigSubCategoryView(generics.GenericAPIView):
         msg = "" if sub_category else "no sub category found"
         return get_response(msg, serializer.data, True)
 
-    @check_logged_in_user_is_superuser
+    @check_logged_in_user_has_fofo_config_perm
     def post(self, request, *args, **kwargs):
         serializer = self.serializer_class(data=request.data)
         if serializer.is_valid():
@@ -1326,7 +1326,7 @@ class FOFOConfigSubCategoryView(generics.GenericAPIView):
             return get_response('sub category created Successfully!', None, True, status.HTTP_200_OK)
         return get_response(serializer_error(serializer), False)
 
-    @check_logged_in_user_is_superuser
+    @check_logged_in_user_has_fofo_config_perm
     def put(self, request):
         """ PUT API for Sub Category Updation """
 
@@ -1352,7 +1352,7 @@ class FOFOListView(generics.GenericAPIView):
     queryset = FOFOConfigCategory.objects.order_by('-id')
     serializer_class = FOFOListSerializer
 
-    @check_logged_in_user_is_superuser
+    @check_logged_in_user_has_fofo_config_perm
     def get(self, request, *args, **kwargs):
         """ GET Cat Sub-Cat Configurations List """
         search_text = self.request.GET.get('search_text')
@@ -1370,7 +1370,7 @@ class FOFOConfigurationsView(generics.GenericAPIView):
     queryset = FOFOConfigurations.objects.order_by('-id')
     serializer_class = FOFOConfigurationsCrudSerializer
 
-    # @check_logged_in_user_has_fofo_config_perm
+    @check_logged_in_user_has_fofo_config_perm
     @check_fofo_shop
     def get(self, request, *args, **kwargs):
         """ GET FOFO  List """
