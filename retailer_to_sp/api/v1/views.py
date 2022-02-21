@@ -7771,6 +7771,8 @@ class VerifyRescheduledShipmentPackagesView(generics.GenericAPIView):
                                                 trip_shipment__trip_id=trip_id).last()
         if not shipment_package:
             return {"error": "Package does not belong to this trip."}
+        if shipment_package.trip_shipment.shipment.shipment_status != OrderedProduct.RESCHEDULED:
+            return {"error": f"Invalid Shipment status."}
         return {"data": shipment_package}
 
     @check_whc_manager_dispatch_executive
