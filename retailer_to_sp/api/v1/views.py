@@ -2801,23 +2801,24 @@ class OrderCentral(APIView):
                 order.order_status = order_status
                 order.last_modified_by = self.request.user
                 order.save()
-                # try:
-                #     trxn_id = order.ordered_cart
-                #     payment_datails = PosPayment.objects.filter(order=order.id, transaction_id=trxn_id).first()
-                #     if payment_datails:
-                #         refund_amount = payment_datails.amount
-                #         payment_id = payment_datails.payment_id
-                #         response = send_request_refund(payment_id, refund_amount)
-                #         request_id = response.get('request_id')
-                #         if response.get('status'):
-                #             request_id = response.get('request_id')
-                #             payment_datails.is_refund = True
-                #             payment_datails.refund_status = 'queued'
-                #             payment_datails.request_id= request_id
-                #             payment_datails.refund_amount = refund_amount
-                #             payment_datails.save()
-                # except  Exception as e:
-                #     pass
+                try:
+                    trxn_id = order.ordered_cart
+                    payment_datails = PosPayment.objects.filter(order=order.id, transaction_id=trxn_id, payment_type__type='online',
+                                                                order__ordered_cart__cart_type='ECOM' ).first()
+                    if payment_datails:
+                        refund_amount = payment_datails.amount
+                        payment_id = payment_datails.payment_id
+                        response = send_request_refund(payment_id, refund_amount)
+                        request_id = response.get('request_id')
+                        if response.get('status'):
+                            request_id = response.get('request_id')
+                            payment_datails.is_refund = True
+                            payment_datails.refund_status = 'queued'
+                            payment_datails.request_id= request_id
+                            payment_datails.refund_amount = refund_amount
+                            payment_datails.save()
+                except  Exception as e:
+                    pass
                 # Refund redeemed loyalty points
                 # Deduct loyalty points awarded on order
                 points_credit, points_debit, net_points = RewardCls.adjust_points_on_return_cancel(
@@ -2934,23 +2935,24 @@ class OrderCentral(APIView):
             whatsapp_order_cancel.delay(order_number, shop_name, phone_number, points_credit, points_debit,
                                         net_points)
             response = None
-            # try:
-            #     trxn_id = order.ordered_cart
-            #     payment_datails = PosPayment.objects.filter(order=order.id, transaction_id=trxn_id).first()
-            #     if payment_datails:
-            #         refund_amount = payment_datails.amount
-            #         payment_id = payment_datails.payment_id
-            #         response = send_request_refund(payment_id, refund_amount)
-            #         request_id = response.get('request_id')
-            #         if response.get('status'):
-            #             request_id = response.get('request_id')
-            #             payment_datails.is_refund = True
-            #             payment_datails.refund_status = 'queued'
-            #             payment_datails.request_id= request_id
-            #             payment_datails.refund_amount = refund_amount
-            #             payment_datails.save()
-            # except Exception as e:
-            #     pass
+            try:
+                trxn_id = order.ordered_cart
+                payment_datails = PosPayment.objects.filter(order=order.id, transaction_id=trxn_id, payment_type__type='online',
+                order__ordered_cart__cart_type='ECOM' ).first()
+                if payment_datails:
+                    refund_amount = payment_datails.amount
+                    payment_id = payment_datails.payment_id
+                    response = send_request_refund(payment_id, refund_amount)
+                    request_id = response.get('request_id')
+                    if response.get('status'):
+                        request_id = response.get('request_id')
+                        payment_datails.is_refund = True
+                        payment_datails.refund_status = 'queued'
+                        payment_datails.request_id= request_id
+                        payment_datails.refund_amount = refund_amount
+                        payment_datails.save()
+            except Exception as e:
+                pass
         return api_response("Order cancelled successfully!", response, status.HTTP_200_OK, True)
 
     def put_retail_order(self, pk):
