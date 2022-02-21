@@ -3648,7 +3648,7 @@ class LastMileTripShipmentPackages(BaseTimestampUserModel):
                                       on_delete=models.DO_NOTHING)
     shipment_packaging = models.ForeignKey(ShipmentPackaging, related_name='last_mile_trip_packaging_details',
                                            on_delete=models.DO_NOTHING)
-    package_status = models.CharField(max_length=100, choices=PACKAGE_STATUS)
+    package_status = models.CharField(max_length=100, choices=PACKAGE_STATUS, null=True)
     return_remark = models.CharField(max_length=100, choices=RETURN_REMARK_CHOICES, null=True)
 
 
