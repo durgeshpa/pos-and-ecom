@@ -4226,16 +4226,16 @@ class OrderedItemCentralDashBoard(APIView):
         ecom_orders = orders.filter(order_app_type=Order.POS_ECOMM)
 
         # invoices for shop
-        invoices = OrderedProductMapping.objects.filter(ordered_product__order__seller_shop=shop).filter(
-            ~Q(ordered_product__order__ordered_cart__cart_type='ECOM',
-               ordered_product__order__rt_payment_retailer_order__payment_type__type__iexact='cod',
-               ordered_product__order__order_status = Order.OUT_FOR_DELIVERY))\
-            .exclude(ordered_product__order__order_status=Order.CANCELLED)
+        invoices = OrderedProduct.objects.filter(order__seller_shop=shop).filter(
+            ~Q(order__ordered_cart__cart_type='ECOM',
+               order__rt_payment_retailer_order__payment_type__type__iexact='cod',
+               order__order_status=Order.OUT_FOR_DELIVERY))\
+            .exclude(order__order_status=Order.CANCELLED)
 
         # pos invoices for shop
-        pos_invoices = invoices.filter(ordered_product__order__order_app_type=Order.POS_WALKIN)
+        pos_invoices = invoices.filter(order__order_app_type=Order.POS_WALKIN)
         # ecom invoices for shop
-        ecom_invoices = invoices.filter(ordered_product__order__order_app_type=Order.POS_ECOMM)
+        ecom_invoices = invoices.filter(order__order_app_type=Order.POS_ECOMM)
 
         # Return for shop
         returns = OrderReturn.objects.filter(order__seller_shop=shop, status='completed')
@@ -4260,10 +4260,10 @@ class OrderedItemCentralDashBoard(APIView):
             pos_orders = pos_orders.filter(order_status=order_status_actual) if order_status_actual else orders
             ecom_orders = ecom_orders.filter(order_status=order_status_actual) if order_status_actual else orders
 
-            invoices = invoices.filter(ordered_product__order__order_status=order_status_actual) if order_status_actual else invoices
-            pos_invoices = pos_invoices.filter(ordered_product__order__order_status=order_status_actual) if \
+            invoices = invoices.filter(order__order_status=order_status_actual) if order_status_actual else invoices
+            pos_invoices = pos_invoices.filter(order__order_status=order_status_actual) if \
                 order_status_actual else invoices
-            ecom_invoices = ecom_invoices.filter(ordered_product__order__order_status=order_status_actual) if \
+            ecom_invoices = ecom_invoices.filter(order__order_status=order_status_actual) if \
                 order_status_actual else invoices
 
         # filter for date range
@@ -4277,9 +4277,9 @@ class OrderedItemCentralDashBoard(APIView):
             ecom_orders = ecom_orders.filter(created_at__date=today_date)
 
             # invoice
-            invoices = invoices.filter(ordered_product__invoice__created_at__date=today_date)
-            pos_invoices = pos_invoices.filter(ordered_product__invoice__created_at__date=today_date)
-            ecom_invoices = ecom_invoices.filter(ordered_product__invoice__created_at__date=today_date)
+            invoices = invoices.filter(invoice__created_at__date=today_date)
+            pos_invoices = pos_invoices.filter(invoice__created_at__date=today_date)
+            ecom_invoices = ecom_invoices.filter(invoice__created_at__date=today_date)
 
             # orders returns
             returns = returns.filter(modified_at__date=today_date)
@@ -4300,9 +4300,9 @@ class OrderedItemCentralDashBoard(APIView):
             ecom_orders = ecom_orders.filter(created_at__date=yesterday)
 
             # invoice
-            invoices = invoices.filter(ordered_product__invoice__created_at__date=yesterday)
-            pos_invoices = pos_invoices.filter(ordered_product__invoice__created_at__date=yesterday)
-            ecom_invoices = ecom_invoices.filter(ordered_product__invoice__created_at__date=yesterday)
+            invoices = invoices.filter(invoice__created_at__date=yesterday)
+            pos_invoices = pos_invoices.filter(invoice__created_at__date=yesterday)
+            ecom_invoices = ecom_invoices.filter(invoice__created_at__date=yesterday)
 
             # orders returns
             returns = returns.filter(modified_at__date=yesterday)
@@ -4322,9 +4322,9 @@ class OrderedItemCentralDashBoard(APIView):
             ecom_orders = ecom_orders.filter(created_at__week=today_date.isocalendar()[1])
 
             # invoice
-            invoices = invoices.filter(ordered_product__invoice__created_at__week=today_date.isocalendar()[1])
-            pos_invoices = pos_invoices.filter(ordered_product__invoice__created_at__week=today_date.isocalendar()[1])
-            ecom_invoices = ecom_invoices.filter(ordered_product__invoice__created_at__week=today_date.isocalendar()[1])
+            invoices = invoices.filter(invoice__created_at__week=today_date.isocalendar()[1])
+            pos_invoices = pos_invoices.filter(invoice__created_at__week=today_date.isocalendar()[1])
+            ecom_invoices = ecom_invoices.filter(invoice__created_at__week=today_date.isocalendar()[1])
 
             # orders returns
             returns = returns.filter(modified_at__week=today_date.isocalendar()[1])
@@ -4345,9 +4345,9 @@ class OrderedItemCentralDashBoard(APIView):
             ecom_orders = ecom_orders.filter(created_at__week=last_week.isocalendar()[1])
 
             # invoice
-            invoices = invoices.filter(ordered_product__invoice__created_at__week=last_week.isocalendar()[1])
-            pos_invoices = pos_invoices.filter(ordered_product__invoice__created_at__week=last_week.isocalendar()[1])
-            ecom_invoices = ecom_invoices.filter(ordered_product__invoice__created_at__week=last_week.isocalendar()[1])
+            invoices = invoices.filter(invoice__created_at__week=last_week.isocalendar()[1])
+            pos_invoices = pos_invoices.filter(invoice__created_at__week=last_week.isocalendar()[1])
+            ecom_invoices = ecom_invoices.filter(invoice__created_at__week=last_week.isocalendar()[1])
 
             # orders returns
             returns = returns.filter(modified_at__week=last_week.isocalendar()[1])
@@ -4367,9 +4367,9 @@ class OrderedItemCentralDashBoard(APIView):
             ecom_orders = ecom_orders.filter(created_at__month=today_date.month)
 
             # invoice
-            invoices = invoices.filter(ordered_product__invoice__created_at__month=today_date.month)
-            pos_invoices = pos_invoices.filter(ordered_product__invoice__created_at__month=today_date.month)
-            ecom_invoices = ecom_invoices.filter(ordered_product__invoice__created_at__month=today_date.month)
+            invoices = invoices.filter(invoice__created_at__month=today_date.month)
+            pos_invoices = pos_invoices.filter(invoice__created_at__month=today_date.month)
+            ecom_invoices = ecom_invoices.filter(invoice__created_at__month=today_date.month)
 
             # orders returns
             returns = returns.filter(modified_at__month=today_date.month)
@@ -4390,9 +4390,9 @@ class OrderedItemCentralDashBoard(APIView):
             ecom_orders = ecom_orders.filter(created_at__month=last_month.month)
 
             # invoice
-            invoices = invoices.filter(ordered_product__invoice__created_at__month=last_month.month)
-            pos_invoices = pos_invoices.filter(ordered_product__invoice__created_at__month=last_month.month)
-            ecom_invoices = ecom_invoices.filter(ordered_product__invoice__created_at__month=last_month.month)
+            invoices = invoices.filter(invoice__created_at__month=last_month.month)
+            pos_invoices = pos_invoices.filter(invoice__created_at__month=last_month.month)
+            ecom_invoices = ecom_invoices.filter(invoice__created_at__month=last_month.month)
 
             # orders returns
             returns = returns.filter(modified_at__month=last_month.month)
@@ -4412,9 +4412,9 @@ class OrderedItemCentralDashBoard(APIView):
             ecom_orders = ecom_orders.filter(created_at__year=today_date.year)
 
             # invoice
-            invoices = invoices.filter(ordered_product__invoice__created_at__year=today_date.year)
-            pos_invoices = pos_invoices.filter(ordered_product__invoice__created_at__year=today_date.year)
-            ecom_invoices = ecom_invoices.filter(ordered_product__invoice__created_at__year=today_date.year)
+            invoices = invoices.filter(invoice__created_at__year=today_date.year)
+            pos_invoices = pos_invoices.filter(invoice__created_at__year=today_date.year)
+            ecom_invoices = ecom_invoices.filter(invoice__created_at__year=today_date.year)
 
             # orders returns
             returns = returns.filter(modified_at__year=today_date.year)
@@ -4431,52 +4431,54 @@ class OrderedItemCentralDashBoard(APIView):
         total_refund_amount = returns.aggregate(Sum('refund_amount')).get('refund_amount__sum')
         if total_refund_amount:
             total_ordered_final_amount -= float(total_refund_amount)
+
         # POS Ordered Count
         pos_total_ordered_final_amount = pos_orders.aggregate(Sum('order_amount')).get('order_amount__sum')
         pos_total_refund_amount = pos_returns.aggregate(Sum('refund_amount')).get('refund_amount__sum')
         if pos_total_refund_amount:
             pos_total_ordered_final_amount -= float(pos_total_refund_amount)
+
         # ECOM Ordered Count
         ecom_total_ordered_final_amount = ecom_orders.aggregate(Sum('order_amount')).get('order_amount__sum')
         ecom_total_refund_amount = ecom_returns.aggregate(Sum('refund_amount')).get('refund_amount__sum')
         if ecom_total_refund_amount:
             ecom_total_ordered_final_amount -= float(ecom_total_refund_amount)
 
-        # Invoice Count
-        total_invoices_final_amount = invoices.annotate(inv_amt=RoundAmount(Sum(F('effective_price') * F('shipped_qty')))).\
-            aggregate(amt=Sum('inv_amt')).get('amt')
-        total_invoice_refund_amount = invoice_returns.aggregate(Sum('order_return__refund_amount')).\
-            get('order_return__refund_amount__sum')
-        if total_invoice_refund_amount:
-            total_invoices_final_amount -= Decimal(total_invoice_refund_amount)
         # POS Invoice Count
-        pos_total_invoices_final_amount = pos_invoices.annotate(
-            inv_amt=RoundAmount(Sum(F('effective_price') * F('shipped_qty')))).\
-            aggregate(amt=Sum('inv_amt')).get('amt')
+        pos_total_invoices_final_amount = 0
+        for invoice in pos_invoices:
+            pos_total_invoices_final_amount += round(invoice.invoice_amount_final)
         pos_total_invoice_refund_amount = pos_invoice_returns.aggregate(Sum('order_return__refund_amount')).\
             get('order_return__refund_amount__sum')
         if pos_total_invoice_refund_amount:
             pos_total_invoices_final_amount -= Decimal(pos_total_invoice_refund_amount)
-        # ECOM Invoice Count
-        ecom_total_invoices_final_amount = ecom_invoices.annotate(
-            inv_amt=RoundAmount(Sum(F('effective_price') * F('shipped_qty')))).\
-            aggregate(amt=Sum('inv_amt')).get('amt')
+
+        ecom_total_invoices_final_amount = 0
+        for invoice in ecom_invoices:
+            ecom_total_invoices_final_amount += invoice.invoice_amount_final
         ecom_total_invoice_refund_amount = ecom_invoice_returns.aggregate(Sum('order_return__refund_amount')). \
             get('order_return__refund_amount__sum')
         if ecom_total_invoice_refund_amount:
             ecom_total_invoices_final_amount -= Decimal(ecom_total_invoice_refund_amount)
 
+        # Invoice Count
+        total_invoices_final_amount = pos_total_invoices_final_amount + ecom_total_invoices_final_amount
+        total_invoice_refund_amount = invoice_returns.aggregate(Sum('order_return__refund_amount')). \
+            get('order_return__refund_amount__sum')
+        if total_invoice_refund_amount:
+            total_invoices_final_amount -= Decimal(total_invoice_refund_amount)
+
         # counts of order for shop_id with total_ordered_final_amount, total_invoices_final_amount  & products
         products_count = products.count()
 
         order_count = orders.count()
-        invoice_count = invoices.values('ordered_product_id').distinct('ordered_product_id').count()
+        invoice_count = invoices.values('id').distinct('id').count()
 
         ecom_order_count = ecom_orders.count()
-        ecom_invoice_count = ecom_invoices.values('ordered_product_id').distinct('ordered_product_id').count()
+        ecom_invoice_count = ecom_invoices.count()
 
         pos_order_count = pos_orders.count()
-        pos_invoice_count = pos_invoices.values('ordered_product_id').distinct('ordered_product_id').count()
+        pos_invoice_count = pos_invoices.count()
 
         overview = [{"shop_name": shop.shop_name, "orders": order_count, "products": products_count,
                      "revenue": total_ordered_final_amount, "ecom_order_count": ecom_order_count,
