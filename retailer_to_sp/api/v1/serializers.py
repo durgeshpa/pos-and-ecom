@@ -3731,11 +3731,23 @@ class LastMileTripCrudSerializers(serializers.ModelSerializer):
                         raise serializers.ValidationError("'closing_kms' | This is mandatory")
 
                 if trip_status == Trip.RETURN_VERIFIED:
-                    if trip_instance.last_mile_trip_shipments_details.filter(~Q(shipment__shipment_status__in=[
-                        OrderedProduct.FULLY_DELIVERED_AND_VERIFIED,  OrderedProduct.FULLY_RETURNED_AND_VERIFIED,
-                            OrderedProduct.PARTIALLY_DELIVERED_AND_VERIFIED])).exists():
+                    if trip_instance.last_mile_trip_shipments_details.filter(
+                            ~Q(shipment_status=LastMileTripShipmentMapping.CANCELLED),
+                            ~Q(shipment__shipment_status__in=[
+                                OrderedProduct.FULLY_DELIVERED_AND_VERIFIED,  OrderedProduct.FULLY_RETURNED_AND_VERIFIED,
+                                OrderedProduct.PARTIALLY_DELIVERED_AND_VERIFIED, OrderedProduct.RESCHEDULED,
+                                OrderedProduct.NOT_ATTEMPT])).exists():
                         raise serializers.ValidationError(
                             "The trip can not return verified until and unless all shipments get verified.")
+                    if trip_instance.last_mile_trip_shipments_details.filter(
+                            ~Q(last_mile_trip_shipment_mapped_packages__package_status__in=[
+                                LastMileTripShipmentPackages.RETURN_VERIFIED,
+                                LastMileTripShipmentPackages.RETURN_MISSING,
+                                LastMileTripShipmentPackages.RETURN_DAMAGED]),
+                            ~Q(shipment_status=LastMileTripShipmentMapping.CANCELLED), shipment__shipment_status__in=[
+                                OrderedProduct.RESCHEDULED, OrderedProduct.NOT_ATTEMPT]).exists():
+                        raise serializers.ValidationError("The trip can not return verified until and unless all "
+                                                          "shipment packages get verified.")
             else:
                 raise serializers.ValidationError("'trip_status' | This is mandatory")
 
