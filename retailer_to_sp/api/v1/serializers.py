@@ -4425,18 +4425,19 @@ class MarkShipmentPackageVerifiedSerializer(serializers.ModelSerializer):
                 trip_shipment__trip=trip, shipment_packaging=package).last()
             if trip_shipment_map.is_return_verified:
                 raise serializers.ValidationError("This package is already verified.")
-            if trip_shipment_map.package_status != DispatchTripShipmentPackages.UNLOADED:
+            if trip_shipment_map.package_status not in [DispatchTripShipmentPackages.UNLOADED,
+                                                        DispatchTripShipmentPackages.PARTIALLY_VERIFIED]:
                 raise serializers.ValidationError(f"Package is in {trip_shipment_map.package_status} state, "
                                                    f"cannot verify at the moment")
         else:
             raise serializers.ValidationError("Invalid package to the Trip")
 
-        # if 'force_verify' not in self.initial_data or self.initial_data['force_verify'] is False:
-        if ShipmentPackagingMapping.objects.filter(shipment_packaging=package, is_verified=False).exists():
-            raise serializers.ValidationError("This shipment has unverified products.")
-
-        data['is_return_verified'] = True
-
+        if ('force_verify' not in self.initial_data or self.initial_data['force_verify'] is False) and \
+                ShipmentPackagingMapping.objects.filter(shipment_packaging=package, is_verified=False).exists():
+            data['package_status'] = DispatchTripShipmentPackages.PARTIALLY_VERIFIED
+        else:
+            data['package_status'] = DispatchTripShipmentPackages.VERIFIED
+            data['is_return_verified'] = True
         return data
 
     @transaction.atomic
@@ -4912,4 +4913,15 @@ class VerifyBackwardTripItemsSerializer(serializers.ModelSerializer):
             error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
             raise serializers.ValidationError(error)
         return shipment_package_mapping
+
+
+class BackwardTripQCSerializer(serializers.Serializer):
+    package_count = serializers.SerializerMethodField()
+    packages = serializers.SerializerMethodField()
+
+    def get_packages(self, obj):
+        return DispatchTripShipmentPackagesSerializers(obj, many=True).data
+
+    def get_package_count(self, obj):
+        return obj.count()
 

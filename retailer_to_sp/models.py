@@ -1548,6 +1548,7 @@ class OrderedProduct(models.Model):  # Shipment
     PARTIALLY_DELIVERED_AND_VERIFIED = 'PARTIALLY_DELIVERED_AND_VERIFIED'
     FULLY_RETURNED_AND_COMPLETED = 'FULLY_RETURNED_AND_COMPLETED'
     FULLY_RETURNED_AND_VERIFIED = 'FULLY_RETURNED_AND_VERIFIED'
+    CANCELLED = 'CANCELLED'
     SHIPMENT_STATUS = (
         (SHIPMENT_CREATED, 'QC Pending'),
         (READY_TO_SHIP, 'QC Passed'),
@@ -1566,7 +1567,7 @@ class OrderedProduct(models.Model):  # Shipment
         ('FULLY_RETURNED_AND_CLOSED', 'Fully Returned and Closed'),
         ('PARTIALLY_DELIVERED_AND_CLOSED', 'Partially Delivered and Closed'),
         ('FULLY_DELIVERED_AND_CLOSED', 'Fully Delivered and Closed'),
-        ('CANCELLED', 'Cancelled'),
+        (CANCELLED, 'Cancelled'),
         (CLOSED, 'Closed'),
         (RESCHEDULED, 'Rescheduled'),
         (DELIVERED, 'Delivered'),
@@ -3204,6 +3205,49 @@ def update_order_status_from_shipment(sender, instance=None, created=False,
         update_full_part_order_status(instance)
 
 
+def update_last_mile_trip_package_count(trip_id):
+    trip = Trip.objects.filter(id=trip_id).last()
+    package_data = trip.get_package_data()
+    trip.no_of_crates = package_data['no_of_crates']
+    trip.no_of_packets = package_data['no_of_packs']
+    trip.no_of_sacks = package_data['no_of_sacks']
+    trip.save()
+
+
+def update_dispatch_trip_package_count(trip_id):
+    trip = DispatchTrip.objects.filter(id=trip_id).last()
+    package_data = trip.get_package_data()
+    trip.no_of_crates = package_data['no_of_crates']
+    trip.no_of_packets = package_data['no_of_packs']
+    trip.no_of_sacks = package_data['no_of_sacks']
+    trip.save()
+
+
+@receiver(post_save, sender=OrderedProduct)
+def mark_shipment_cancelled_in_trip_shipment_mapping(sender, instance=None, created=False, **kwargs):
+    """
+        Changing LastMileTripShipmentMapping & DispatchTripShipmentMapping status to CANCELLED
+        when shipment status is CANCELLED.
+    """
+    if instance.shipment_status == OrderedProduct.CANCELLED:
+        last_mile_shipments_mapping = LastMileTripShipmentMapping.objects.filter(
+                ~Q(trip__trip_status=Trip.CANCELLED), ~Q(shipment_status=LastMileTripShipmentMapping.CANCELLED),
+                shipment=instance)
+        if last_mile_shipments_mapping:
+            for mapping in last_mile_shipments_mapping:
+                mapping.shipment_status = LastMileTripShipmentMapping.CANCELLED
+                mapping.save()
+                update_last_mile_trip_package_count(mapping.trip.id)
+        dispatch_shipments_mapping = DispatchTripShipmentMapping.objects.filter(
+                ~Q(trip__trip_status=DispatchTrip.CANCELLED), ~Q(shipment_status=DispatchTripShipmentMapping.CANCELLED),
+                shipment=instance)
+        if dispatch_shipments_mapping:
+            for mapping in dispatch_shipments_mapping:
+                mapping.shipment_status = DispatchTripShipmentMapping.CANCELLED
+                mapping.save()
+                update_dispatch_trip_package_count(mapping.trip.id)
+
+
 def populate_data_on_qc_pass(order):
     pick_bin_inv = PickupBinInventory.objects.filter(pickup__pickup_type_id=order.order_no)
     for i in pick_bin_inv:
@@ -3577,6 +3621,7 @@ class DispatchTripShipmentPackages(BaseTimestampUserModel):
     DAMAGED_AT_LOADING, DAMAGED_AT_UNLOADING = 'DAMAGED_AT_LOADING', 'DAMAGED_AT_UNLOADING'
     MISSING_AT_LOADING, MISSING_AT_UNLOADING = 'MISSING_AT_LOADING', 'MISSING_AT_UNLOADING'
     CANCELLED = 'CANCELLED'
+    PARTIALLY_VERIFIED, VERIFIED = 'PARTIALLY_VERIFIED', 'VERIFIED'
     PACKAGE_STATUS = (
         (LOADED, 'Loaded'),
         (UNLOADED, 'Unloaded'),
@@ -3585,6 +3630,8 @@ class DispatchTripShipmentPackages(BaseTimestampUserModel):
         (MISSING_AT_LOADING, 'Missing At Loading'),
         (MISSING_AT_UNLOADING, 'Missing At Unloading'),
         (CANCELLED, 'Cancelled'),
+        (PARTIALLY_VERIFIED, 'Partially Verified'),
+        (VERIFIED, 'Verified')
     )
     trip_shipment = models.ForeignKey(DispatchTripShipmentMapping, related_name='trip_shipment_mapped_packages',
                                       on_delete=models.DO_NOTHING)
