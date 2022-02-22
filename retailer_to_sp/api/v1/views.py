@@ -1456,6 +1456,15 @@ class CartCentral(GenericAPIView):
             return api_response('Added To Cart', self.post_serialize_process_basic(cart), status.HTTP_200_OK, True)
 
     def pos_cart_product_create(self, shop_id, product_info, cart_id):
+
+        if product_info['ean'] and (not product_info['linked_pid'] or product_info['linked_pid']==''):
+            try:
+                pid = Product.objects.filter(product_ean_code=product_info['ean']).values('id').last()
+                if pid:
+                    product_info['linked_pid'] = pid.get('id')
+            except:
+                 pass
+
         product = RetailerProductCls.create_retailer_product(shop_id, product_info['name'], product_info['mrp'],
                                                              product_info['sp'], product_info['linked_pid'],
                                                              product_info['type'], product_info['name'],
