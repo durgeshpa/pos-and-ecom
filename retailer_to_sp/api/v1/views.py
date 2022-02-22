@@ -8826,8 +8826,7 @@ class LastMileTripShipmentsView(generics.GenericAPIView):
     queryset = OrderedProduct.objects.filter(~Q(shipment_status__in=[OrderedProduct.SHIPMENT_CREATED,
                                                                      OrderedProduct.QC_STARTED,
                                                                      OrderedProduct.QC_REJECTED,
-                                                                     OrderedProduct.READY_TO_SHIP,
-                                                                     'CANCELLED'])).\
+                                                                     OrderedProduct.READY_TO_SHIP])).\
         select_related('order', 'order__seller_shop', 'order__shipping_address', 'order__shipping_address__city',
                        'invoice'). \
         only('id', 'order__order_no', 'order__seller_shop__id', 'order__seller_shop__shop_name',
