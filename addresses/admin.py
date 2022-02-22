@@ -9,6 +9,7 @@ from .models import (
 )
 from .forms import AddressForm, StateForm
 from .resources import PincodeResource
+from .views import RouteAutocomplete
 
 
 class CityFilter(AutocompleteFilter):
@@ -45,6 +46,18 @@ class CityAdmin(admin.ModelAdmin):
 
     def routes(self, obj):
         return ", ".join(obj.city_routes.values_list('name', flat=True))
+
+    def get_urls(self):
+        from django.conf.urls import url
+        urls = super(CityAdmin, self).get_urls()
+        urls = [
+           url(
+               r'^route-autocomplete/$',
+               self.admin_site.admin_view(RouteAutocomplete.as_view()),
+               name="route_autocomplete"
+           ),
+        ] + urls
+        return urls
 
 
 class AddressAdmin(admin.ModelAdmin):

@@ -1,5 +1,5 @@
 from django import forms
-from .models import Address, City, State, Pincode
+from .models import Address, City, State, Pincode, ShopRoute, Route
 from django.urls import reverse
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
@@ -62,3 +62,28 @@ class PincodeForm(forms.ModelForm):
     class Meta:
         Model = Pincode
         fields = ('city', 'pincode')
+
+
+class ShopRouteForm(forms.ModelForm):
+    city = forms.ModelChoiceField(
+        queryset=City.objects.all(),
+        widget=autocomplete.ModelSelect2(url='admin:city_autocomplete'),
+        required=True
+    )
+    route = forms.ModelChoiceField(
+        queryset=Route.objects.all(),
+        widget=autocomplete.ModelSelect2(url='admin:route_autocomplete',
+                                         forward=('city',)),
+        required=True
+    )
+
+    class Meta:
+        model = ShopRoute
+        fields = ('city', 'route')
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        instance = getattr(self, 'instance', None)
+        if instance and instance.pk:
+            self.fields['city'].initial = instance.route.city
+

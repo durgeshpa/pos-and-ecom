@@ -17,8 +17,8 @@ from .models import (
     ShopPhoto, ShopDocument, ShopInvoicePattern, ShopUserMapping,
     ShopRequestBrand, SalesAppVersion, ShopTiming, FavouriteProduct, BeatPlanning, DayBeatPlanning,ExecutiveFeedback,
     ShopStatusLog, FOFOConfigCategory, FOFOConfigSubCategory, FOFOConfigurations)
-from addresses.models import Address, DispatchCenterCityMapping, DispatchCenterPincodeMapping
-from addresses.forms import AddressForm
+from addresses.models import Address, DispatchCenterCityMapping, DispatchCenterPincodeMapping, ShopRoute
+from addresses.forms import AddressForm, ShopRouteForm
 from .forms import (ParentRetailerMappingForm, PosShopUserMappingForm, ShopParentRetailerMappingForm,
                     ShopForm, RequiredInlineFormSet, BeatPlanningAdminForm,
                     AddressInlineFormSet, ShopUserMappingForm, ShopTimingForm, DispatchCenterCityMappingInlineFormSet,
@@ -172,6 +172,16 @@ class ShopInvoicePatternAdmin(admin.TabularInline):
     fields = ('pattern', 'status')
 
 
+class ShopRouteInlineAdmin(admin.TabularInline):
+    model = ShopRoute
+    form = ShopRouteForm
+    max_num = 1
+    fields = ('city', 'route',)
+
+    def city(self, obj):
+        return obj.route.city
+
+
 class AddressAdmin(admin.TabularInline):
     model = Address
     formset = AddressInlineFormSet
@@ -261,7 +271,7 @@ class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
     actions = ["export_as_csv", "disable_shop", "download_status_report"]
     inlines = [
         ShopPhotosAdmin, ShopDocumentsAdmin, AddressAdmin, DispatchCenterCityAdmin, DispatchCenterPincodeAdmin,
-        ShopInvoicePatternAdmin, ShopParentRetailerMapping, ShopStatusAdmin
+        ShopRouteInlineAdmin, ShopInvoicePatternAdmin, ShopParentRetailerMapping, ShopStatusAdmin
     ]
     list_display = (
         'shop_name', 'get_shop_shipping_address', 'get_shop_pin_code', 'get_shop_parent',
