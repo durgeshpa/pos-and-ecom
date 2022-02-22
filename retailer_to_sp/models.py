@@ -3577,6 +3577,7 @@ class DispatchTripShipmentPackages(BaseTimestampUserModel):
     DAMAGED_AT_LOADING, DAMAGED_AT_UNLOADING = 'DAMAGED_AT_LOADING', 'DAMAGED_AT_UNLOADING'
     MISSING_AT_LOADING, MISSING_AT_UNLOADING = 'MISSING_AT_LOADING', 'MISSING_AT_UNLOADING'
     CANCELLED = 'CANCELLED'
+    PARTIALLY_VERIFIED, VERIFIED = 'PARTIALLY_VERIFIED', 'VERIFIED'
     PACKAGE_STATUS = (
         (LOADED, 'Loaded'),
         (UNLOADED, 'Unloaded'),
@@ -3585,6 +3586,8 @@ class DispatchTripShipmentPackages(BaseTimestampUserModel):
         (MISSING_AT_LOADING, 'Missing At Loading'),
         (MISSING_AT_UNLOADING, 'Missing At Unloading'),
         (CANCELLED, 'Cancelled'),
+        (PARTIALLY_VERIFIED, 'Partially Verified'),
+        (VERIFIED, 'Verified')
     )
     trip_shipment = models.ForeignKey(DispatchTripShipmentMapping, related_name='trip_shipment_mapped_packages',
                                       on_delete=models.DO_NOTHING)

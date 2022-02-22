@@ -26,7 +26,7 @@ from .views import (ProductsList, SearchProducts, CartCentral, CartCheckout, Ord
                     ShipmentPackageProductsView, RemoveInvoiceFromTripView, DispatchCenterCrateView,
                     DispatchCenterShipmentPackageView, LoadLastMileInvoiceView, LastMileTripSummaryView,
                     LastMileLoadVerifyPackageView, RemoveLastMileInvoiceFromTripView,
-                    VerifyNotAttemptShipmentPackagesView, VerifyBackwardTripItems
+                    VerifyNotAttemptShipmentPackagesView, VerifyBackwardTripItems, BackwardTripQCView
                     )
 
 router = routers.DefaultRouter()
@@ -155,6 +155,7 @@ urlpatterns = [
     url('mark-shipment-verified/', MarkShipmentPackageVerifiedView.as_view(), name='mark_shipment_verified'),
     url('shipment-package-products/', ShipmentPackageProductsView.as_view(), name='shipment_package_products'),
     url('bck-trip-verify-items/', VerifyBackwardTripItems.as_view()),
+    url('bck-trip-qc-packages/', BackwardTripQCView.as_view()),
 ]
 
 urlpatterns += router.urls
