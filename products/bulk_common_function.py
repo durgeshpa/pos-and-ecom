@@ -5,7 +5,7 @@ from products.master_data import UploadMasterData, DownloadMasterData
 from products.common_validators import get_csv_file_data
 
 
-def create_update_master_data(validated_data):
+def create_update_master_data(validated_data, category):
     csv_file = csv.reader(codecs.iterdecode(validated_data['file'], 'utf-8', errors='ignore'))
     excel_file_header_list = next(csv_file)  # headers of the uploaded csv file
     # Converting headers into lowercase
@@ -27,9 +27,10 @@ def create_update_master_data(validated_data):
     if validated_data['upload_type'] == "child_product_update":
         UploadMasterData.update_child_data(uploaded_data_by_user_list, validated_data['updated_by'])
     if validated_data['upload_type'] == "parent_product_update":
-        UploadMasterData.update_parent_data(uploaded_data_by_user_list, validated_data['updated_by'])
+        UploadMasterData.update_parent_data(uploaded_data_by_user_list, validated_data['updated_by'],
+                                            category)
     if validated_data['upload_type'] == "brand_update":
-        UploadMasterData.update_brand_data(uploaded_data_by_user_list, validated_data['updated_by'])
+        UploadMasterData.update_brand_data(uploaded_data_by_user_list, validated_data['updated_by'],)
     if validated_data['upload_type'] == "category_update":
         UploadMasterData.update_category_data(uploaded_data_by_user_list, validated_data['updated_by'])
 

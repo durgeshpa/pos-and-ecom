@@ -1,7 +1,7 @@
 import csv
 from datetime import date
 from io import StringIO
-
+from django.db.models import Q, Sum
 from django.contrib import admin
 from django.conf.urls import url
 from django.db.models import Q
@@ -28,21 +28,25 @@ from .models import (RetailerProduct, RetailerProductImage, Payment, ShopCustome
                      RetailerCouponRuleSet, RetailerRuleSetProductMapping, RetailerOrderedProductMapping, RetailerCart,
                      RetailerCartProductMapping, RetailerOrderReturn, RetailerReturnItems, InventoryPos,
                      InventoryChangePos, InventoryStatePos, MeasurementCategory, MeasurementUnit, PosReturnGRNOrder,
-                     PosReturnItems, RetailerOrderedReport)
+                     PosReturnItems, RetailerOrderedReport, BulkRetailerProduct,
+                     RetailerOrderCancel, PaymentStatusUpdateByCron)
 from .views import upload_retailer_products_list, download_retailer_products_list_form_view, \
     DownloadRetailerCatalogue, RetailerCatalogueSampleFile, RetailerProductMultiImageUpload, DownloadPurchaseOrder, \
     download_discounted_products_form_view, download_discounted_products, \
     download_posinventorychange_products_form_view, \
     download_posinventorychange_products, get_product_details, RetailerProductStockDownload, stock_update, \
-    update_retailer_product_stock, RetailerOrderedReportView, RetailerOrderedReportFormView, RetailerOrderProductInvoiceView,\
-    RetailerOrderReturnCreditNoteView,posinventorychange_data_excel
+    update_retailer_product_stock, RetailerOrderedReportView, RetailerOrderedReportFormView, RetailerReturnReportFormView, \
+    RetailerOrderProductInvoiceView, \
+    RetailerOrderReturnCreditNoteView, posinventorychange_data_excel, RetailerPurchaseReportView, \
+    RetailerPurchaseReportFormView, products_list_status, RetailerReturnReportView
 from retailer_to_sp.models import Order, RoundAmount
 from shops.models import Shop
 from .filters import ShopFilter, ProductInvEanSearch, ProductEanSearch
-from .utils import create_order_data_excel, create_order_return_excel, generate_prn_csv_report, generate_csv_payment_report
+from .utils import (create_order_data_excel, create_order_return_excel, create_cancel_order_csv ,\
+    generate_prn_csv_report, generate_csv_payment_report, download_grn_cvs)
 from .forms import RetailerProductsForm, DiscountedRetailerProductsForm, PosInventoryChangeCSVDownloadForm,\
     MeasurementUnitFormSet
-
+from retailer_to_sp.models import Order
 
 class ExportCsvMixin:
 
@@ -104,16 +108,18 @@ class RetailerProductImageAdmin(admin.ModelAdmin):
 
 
 class RetailerProductAdmin(admin.ModelAdmin):
+    change_list_template = 'admin/pos/pos_change_list.html'
+    change_form_template = 'admin/pos/pos_change_form.html'
     form = RetailerProductsForm
     list_display = ('id', 'shop', 'sku', 'name', 'mrp', 'selling_price', 'product_ean_code', 'image',
                     'linked_product', 'description', 'sku_type', 'status', 'product_pack_type', 'created_at',
                     'modified_at')
     fields = ('shop', 'linked_product', 'sku', 'name', 'mrp', 'selling_price', 'product_ean_code',
-              'description', 'sku_type', 'status', 'is_deleted', 'purchase_pack_size',
-              'online_enabled', 'online_price', 'created_at', 'modified_at','measurement_category','product_pack_type')
+              'description', 'sku_type', 'status', 'is_deleted', 'purchase_pack_size', 'initial_purchase_value',
+              'online_enabled', 'online_price', 'created_at', 'modified_at','product_pack_type','measurement_category')
     readonly_fields = ('shop', 'sku', 'product_ean_code',
                        'purchase_pack_size', 'online_enabled', 'online_price', 'name', 'created_at',
-                       'sku_type', 'mrp', 'modified_at', 'description')
+                       'sku_type', 'mrp', 'modified_at', 'description', 'initial_purchase_value')
 
     def get_queryset(self, request):
         qs = super(RetailerProductAdmin, self).get_queryset(request)
@@ -146,8 +152,6 @@ class RetailerProductAdmin(admin.ModelAdmin):
     def has_delete_permission(self, request, obj=None):
         return False
 
-    change_list_template = 'admin/pos/pos_change_list.html'
-
     def get_urls(self):
         urls = super(RetailerProductAdmin, self).get_urls()
         urls = [
@@ -171,6 +175,21 @@ class RetailerProductAdmin(admin.ModelAdmin):
                        self.admin_site.admin_view(RetailerProductMultiImageUpload.as_view()),
                        name='retailer_product_multiple_images_upload'),
 
+                   url(
+                       r'^retailer-purchase-value-report/$',
+                       self.admin_site.admin_view(RetailerPurchaseReportView.as_view()),
+                       name="retailer-purchase-value-report"
+                   ),
+                   url(
+                      r'^retailer-purchase-value-form/$',
+                      self.admin_site.admin_view(RetailerPurchaseReportFormView.as_view()),
+                      name="retailer-purchase-value-form"
+                   ),
+                   url(
+                       r'^products-list-status/(?P<product_status_info>(.*))/$',
+                       self.admin_site.admin_view(products_list_status),
+                       name='products-list-status'
+                   ),
                ] + urls
         return urls
 
@@ -179,13 +198,26 @@ class RetailerProductAdmin(admin.ModelAdmin):
 
 
 class PaymentAdmin(admin.ModelAdmin):
-    list_display = ( 'order', 'seller_shop', 'payment_type', 'transaction_id', 'amount', 'paid_by', 'processed_by', 'created_at')
+
+    list_display = ( 'order', 'payment_status', 'order_status', 'seller_shop', 'payment_type',
+                     'transaction_id', 'amount', 'paid_by', 'processed_by', 'created_at')
     list_per_page = 10
     search_fields = ('order__order_no', 'paid_by__phone_number', 'order__seller_shop__shop_name')
     list_filter = [('order__seller_shop', RelatedOnlyDropdownFilter),
                    ('payment_type', RelatedOnlyDropdownFilter),
-                   ('created_at', DateRangeFilter)]
+                   ('created_at', DateRangeFilter),
+                   ]
     actions = ['download_payment_report']
+
+    def order_amount(self, obj):
+        if obj:
+            return obj.amount
+        return None
+
+    def invoice_amount(self, obj):
+        if obj and obj.order.rt_order_order_product.last():
+            return obj.order.rt_order_order_product.last().invoice_amount
+        return None
 
     def get_queryset(self, request):
         qs = super(PaymentAdmin, self).get_queryset(request)
@@ -193,6 +225,9 @@ class PaymentAdmin(admin.ModelAdmin):
             return qs
         return qs.filter(order__seller_shop__pos_shop__user=request.user,
                          order__seller_shop__pos_shop__status=True)
+
+    def order_status(self, obj):
+        return str(obj.order.order_status).capitalize()
 
     def has_change_permission(self, request, obj=None):
         return False
@@ -485,6 +520,17 @@ class RetailerOrderProductAdmin(admin.ModelAdmin):
                        self.admin_site.admin_view(RetailerOrderedReportFormView.as_view()),
                        name="retailer-order-report-form"
                    ),
+                    url(
+                       r'^retailer-return-report/$',
+                       self.admin_site.admin_view(RetailerReturnReportView.as_view()),
+                       name="retailer-return-report"
+                   ),
+                   
+                   url(
+                       r'^retailer-return-report-form/$',
+                       self.admin_site.admin_view(RetailerReturnReportFormView.as_view()),
+                       name="retailer-return-report-form"
+                   ),
                    url(
                        r'^retailer-order-invoice/(?P<pk>\d+)/$',
                        self.admin_site.admin_view(RetailerOrderProductInvoiceView.as_view()),
@@ -506,7 +552,7 @@ class RetailerOrderProductAdmin(admin.ModelAdmin):
         pass
 
     def order_data_excel_action(self, request, queryset):
-        return create_order_data_excel(request, queryset)
+        return create_order_data_excel(queryset, request)
 
     order_data_excel_action.short_description = "Download CSV of selected orders"
 
@@ -665,7 +711,7 @@ class RetailerReturnItemsAdmin(admin.TabularInline):
 class RetailerOrderReturnAdmin(admin.ModelAdmin, ExportCsvMixin):
     actions = ['export_order_return_as_csv']
     list_display = (
-    'order_no', 'download_credit_note', 'status', 'processed_by', 'return_value', 'refunded_amount', 'discount_adjusted', 'refund_points',
+    'order_no', 'cart_type', 'download_credit_note', 'status', 'processed_by', 'return_value', 'refunded_amount', 'discount_adjusted', 'refund_points',
     'refund_mode', 'created_at')
     fields = list_display
     list_per_page = 10
@@ -674,7 +720,7 @@ class RetailerOrderReturnAdmin(admin.ModelAdmin, ExportCsvMixin):
 
     def get_queryset(self, request):
         qs = super(RetailerOrderReturnAdmin, self).get_queryset(request)
-        qs = qs.filter(order__ordered_cart__cart_type='BASIC')
+        qs = qs.filter(order__ordered_cart__cart_type__in=['BASIC', 'ECOM'])
         if request.user.is_superuser:
             return qs
         return qs.filter(order__seller_shop__pos_shop__user=request.user,
@@ -690,6 +736,9 @@ class RetailerOrderReturnAdmin(admin.ModelAdmin, ExportCsvMixin):
             return format_html("<a href= '%s' >Download Credit Note</a>" % (reverse('admin:pos_download_order_return_credit_note', args=[obj.pk])))
         else:
             return '-'
+
+    def cart_type(self, obj):
+        return obj.order.ordered_cart.cart_type
 
     def get_urls(self):
         from django.conf.urls import url
@@ -711,6 +760,65 @@ class RetailerOrderReturnAdmin(admin.ModelAdmin, ExportCsvMixin):
 
     def has_add_permission(self, request, obj=None):
         return False
+class OrderCartMappingAdmin(admin.TabularInline):
+    model = Order
+    fieldsets = (
+        (_('Shop Details'), {
+            'fields': ('seller_shop',)}),
+
+        (_('Order Details'), {
+            'fields': ( 'order_no', 'order_status', 'buyer')}),
+    )
+
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+@admin.register(RetailerOrderCancel)
+class OrderCancelAdmin(admin.ModelAdmin):
+    inlines = (RetailerCartProductMappingAdmin, OrderCartMappingAdmin)
+    list_per_page = 50
+    fields = ('cart_no', 'cart_status', 'cart_type', 'order_id', 'seller_shop', 'buyer', 'offers', 'redeem_points', 'redeem_factor',
+              'created_at')
+    list_display = ('cart_no', 'cart_status','order_status', 'order_id', 'seller_shop', 'buyer', 'created_at')
+    list_filter = (SellerShopFilter, OrderIDFilter, PosBuyerFilter)
+    actions = ['order_data_excel_action',]
+    def order_status(self, obj):
+        return obj.rt_order_cart_mapping.order_status
+    # def order_payment_status(self,obj):
+    #     return  obj.rt_order_cart_mapping.order_payment
+    def get_queryset(self, request):
+
+        qs = super(OrderCancelAdmin, self).get_queryset(request)
+        qs = qs.filter(cart_type__in=['BASIC','ECOM'],id__in=Order.objects.filter(order_status='CANCELLED').values('ordered_cart'))
+        if request.user.is_superuser:
+            return qs
+        return qs.filter(seller_shop__pos_shop__user=request.user,
+                         seller_shop__pos_shop__status=True)
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    class Media:
+        pass
+
+    def order_data_excel_action(self, request, queryset):
+        return create_cancel_order_csv(request, queryset)
+
+    order_data_excel_action.short_description = "Download CSV of selected Cancel Orders"
+
 
 
 class DiscountedRetailerProductAdmin(admin.ModelAdmin):
@@ -742,7 +850,7 @@ class DiscountedRetailerProductAdmin(admin.ModelAdmin):
                 image.image.url, (image.image_alt_text or image.image_name), image.image.url))
 
     def has_add_permission(self, request, obj=None):
-        return True
+        return False
 
     def has_delete_permission(self, request, obj=None):
         return False
@@ -888,15 +996,17 @@ class PosCartAdmin(admin.ModelAdmin):
         writer.writerow(['PO No', 'Status', 'Vendor', 'Store Id', 'Store Name', 'Shop User', 'Raised By',
                          'GF Order No', 'Created At', 'SKU', 'Product Name', 'Parent Product', 'Category',
                          'Sub Category',
-                         'Brand', 'Sub Brand', 'Quantity', 'Price'])
+                         'Brand', 'Sub Brand', 'Quantity', 'Purchase Price', 'Purchase Value', 'linked_product_sku'])
 
         for obj in queryset:
             for p in obj.po_products.all():
                 parent_id, category, sub_category, brand, sub_brand = get_product_details(p.product)
+                purchase_value = p.price * p.qty
                 writer.writerow([obj.po_no, obj.status, obj.vendor, obj.retailer_shop.id, obj.retailer_shop.shop_name,
                                  obj.retailer_shop.shop_owner, obj.raised_by, obj.gf_order_no,
                                  obj.created_at, p.product.sku, p.product.name, parent_id, category, sub_category,
-                                 brand, sub_brand, p.qty, p.price])
+                                 brand, sub_brand, p.qty, p.price, purchase_value,
+                                 p.product.linked_product.product_sku if p.product.linked_product else ''])
 
         f.seek(0)
         response = HttpResponse(f, content_type='text/csv')
@@ -952,28 +1062,7 @@ class PosGrnOrderAdmin(admin.ModelAdmin):
         return False
 
     def download_grns(self, request, queryset):
-        f = StringIO()
-        writer = csv.writer(f)
-        writer.writerow(['GRN Id', 'PO No', 'PO Status', 'Supplier Invoice No', 'Invoice Date', 'Invoice Amount',
-                         'Created At', 'Vendor', 'Store Id', 'Store Name', 'Shop User',
-                         'SKU', 'Product Name', 'Parent Product', 'Category', 'Sub Category', 'Brand', 'Sub Brand',
-                         'Recieved Quantity'])
-
-        for obj in queryset:
-            for p in obj.po_grn_products.all():
-                parent_id, category, sub_category, brand, sub_brand = get_product_details(p.product)
-                writer.writerow([obj.grn_id, obj.order.ordered_cart.po_no, obj.invoice_no, obj.invoice_date,
-                                 obj.invoice_amount, obj.order.ordered_cart.status, obj.created_at,
-                                 obj.order.ordered_cart.vendor, obj.order.ordered_cart.retailer_shop.id,
-                                 obj.order.ordered_cart.retailer_shop.shop_name,
-                                 obj.order.ordered_cart.retailer_shop.shop_owner,
-                                 p.product.sku, p.product.name, parent_id, category, sub_category,
-                                 brand, sub_brand, p.received_qty])
-
-        f.seek(0)
-        response = HttpResponse(f, content_type='text/csv')
-        response['Content-Disposition'] = 'attachment; filename=pos_grns_' + date.today().isoformat() + '.csv'
-        return response
+        return download_grn_cvs(queryset)
 
 
 @admin.register(PaymentType)
@@ -1076,6 +1165,63 @@ class PosReturnGRNOrderAdmin(admin.ModelAdmin):
         return generate_prn_csv_report(queryset)
 
 
+class BulkRetailerProductAdmin(admin.ModelAdmin):
+    list_display = ('id', 'products_csv', 'seller_shop', 'uploaded_by', 'created_at', 'modified_at')
+
+    def get_queryset(self, request):
+        qs = super(BulkRetailerProductAdmin, self).get_queryset(request)
+        if request.user.is_superuser:
+            return qs
+        return qs.none()
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+class PaymentStatusUpdateBYCronAdmin(admin.ModelAdmin):
+    """add cron log on admin pannel
+    """
+    list_display = ('order', 'payment_status', 'order_status', 'seller_shop', 'payment_type',
+                     'transaction_id',)
+    list_per_page = 10
+    search_fields = ('order__order_no', 'order__seller_shop__shop_name')
+    list_filter = [('order__seller_shop', RelatedOnlyDropdownFilter),
+                   ('payment_type', RelatedOnlyDropdownFilter),
+                   ('created_at', DateRangeFilter),
+                   ]
+    action = ['delete']
+
+    def order_amount(self, obj):
+        if obj:
+            return obj.amount
+        return None
+
+    def order_status(self, obj):
+        return str(obj.order.order_status).capitalize()
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return True
+
+    def seller_shop(self, obj):
+        return obj.order.seller_shop
+
+
+    class Media:
+        pass
+
+
+admin.site.register(PaymentStatusUpdateByCron, PaymentStatusUpdateBYCronAdmin)
 admin.site.register(RetailerProduct, RetailerProductAdmin)
 admin.site.register(DiscountedRetailerProduct, DiscountedRetailerProductAdmin)
 admin.site.register(Payment, PaymentAdmin)
@@ -1086,3 +1232,4 @@ admin.site.register(RetailerCoupon, RetailerCouponAdmin)
 admin.site.register(RetailerRuleSetProductMapping, RetailerRuleSetProductMappingAdmin)
 admin.site.register(RetailerCart, RetailerCartAdmin)
 admin.site.register(RetailerOrderedProduct, RetailerOrderProductAdmin)
+admin.site.register(BulkRetailerProduct, BulkRetailerProductAdmin)

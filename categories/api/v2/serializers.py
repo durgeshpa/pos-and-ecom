@@ -14,6 +14,7 @@ class CategorySerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Category
+        ref_name = "Category v2"
         fields = ('id', 'category_name', 'category_desc', 'category_slug', 'category_sku_part', 'category_image',
                   'status',)
 

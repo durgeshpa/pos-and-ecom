@@ -1,8 +1,9 @@
 import datetime
 from datetime import datetime, timedelta
 from django import forms
-from .models import ParentRetailerMapping, PosShopUserMapping, Shop, ShopType, ShopUserMapping, ShopTiming, BeatPlanning
 from addresses.models import Address, City, DispatchCenterCityMapping, DispatchCenterPincodeMapping, Pincode
+from .models import ParentRetailerMapping, PosShopUserMapping, Shop, ShopType, ShopUserMapping, ShopTiming, \
+    BeatPlanning, ShopStatusLog, FOFOConfigurations
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
 from django.core.validators import RegexValidator
@@ -162,7 +163,7 @@ class ShopForm(forms.ModelForm):
     @classmethod
     def shop_type_retailer(cls, data):
         shop_type = cls.get_shop_type(data)
-        if shop_type.shop_type not in ['r', 'f']:
+        if shop_type and shop_type.shop_type not in ['r', 'f']:
             return False
         return True
 
@@ -308,7 +309,7 @@ class ShopUserMappingForm(forms.ModelForm):
 class PosShopUserMappingForm(forms.ModelForm):
     shop = forms.ModelChoiceField(
         queryset=Shop.objects.filter(pos_enabled=True).all(),
-        widget=autocomplete.ModelSelect2(url='admin:pos-shop-autocomplete',)
+        widget=autocomplete.ModelSelect2(url='admin:pos-shop-complete',)
     )
     user = forms.ModelChoiceField(
         queryset=get_user_model().objects.all(),
@@ -370,9 +371,9 @@ class BeatPlanningAdminForm(forms.ModelForm):
         """
         super(BeatPlanningAdminForm, self).__init__(*args, **kwargs)
         # get manager object
-        shop_mapping_object = (ShopUserMapping.objects.filter(
-            employee=self.current_user.shop_employee.instance,
-            employee_group__permissions__codename='can_sales_manager_add_shop', status=True).last())
+        # shop_mapping_object = (ShopUserMapping.objects.filter(
+        #     employee=self.current_user.shop_employee.instance,
+        #     employee_group__permissions__codename='can_sales_manager_add_shop', status=True).last())
         # condition to check the current user is super user  or manager
         if self.current_user.shop_employee.instance.is_superuser:
             self.fields['executive'] = forms.ModelChoiceField(
@@ -380,7 +381,9 @@ class BeatPlanningAdminForm(forms.ModelForm):
                 widget=autocomplete.ModelSelect2(url='admin:user-autocomplete',))
         else:
             self.fields['executive'] = forms.ModelChoiceField(queryset=ShopUserMapping.objects.filter(
-                manager=shop_mapping_object, status=True).distinct('employee_id'), widget=autocomplete.ModelSelect2())
+                manager__in=ShopUserMapping.objects.filter(employee=self.current_user, status=True),
+                status=True).order_by(
+                'employee').distinct('employee'), widget=autocomplete.ModelSelect2())
 
 
 class BeatUserMappingCsvViewForm(forms.Form):
@@ -534,3 +537,15 @@ class DispatchCenterPincodeMappingInlineFormSet(BaseInlineFormSet):
                 raise forms.ValidationError('You cant delete all pincodes of dispatch center')
             elif flag == 0:
                 raise forms.ValidationError('Please add at least one pincode of dispatch center')
+
+
+class FOFOShopConfigForm(forms.ModelForm):
+    shop = forms.ModelChoiceField(
+        queryset=Shop.objects.filter(online_inventory_enabled=True,
+                                     shop_type__shop_sub_type__retailer_type_name='fofo').all(),
+        widget=autocomplete.ModelSelect2(url='admin:pos-online_inventory_enabled-shop-complete',)
+    )
+
+    class Meta:
+        model = FOFOConfigurations
+        fields = ('shop', 'key', 'value')

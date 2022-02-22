@@ -2,16 +2,14 @@ from rest_framework import routers
 from django.conf.urls import url
 from django.urls import path
 
-from shops.api.v1.views import (PosShopUserMappingView, RetailerTypeView, ShopListView, ShopTypeView,
-                                ShopView, ShopPhotoView, ShopDocumentView, FavouriteProductView,
-                                FavouriteProductListView, UserTypeListView, SellerShopFilterView,
-                                DispatchCenterFilterView, RetailerShopFilterView)
-from addresses.api.v1.views import AddressView, DefaultAddressView, AddressDetail
-
 from shops.api.v1.views import (RetailerTypeView, ShopTypeView,ShopView, ShopPhotoView, ShopDocumentView, ShopTimingView,
         TeamListView, SellerShopView, SellerShopOrder, SellerShopProfile, SalesPerformanceView,
         SellerShopListView, CheckUser, CheckAppVersion, StatusChangedAfterAmountCollected, SalesPerformanceUserView,
-        ShopRequestBrandViewSet, FavouriteProductView, FavouriteProductListView, DayBeatPlan, ExecutiveReport, set_shop_map_cron)
+        ShopRequestBrandViewSet, FavouriteProductView, FavouriteProductListView, DayBeatPlan, ExecutiveReport, set_shop_map_cron,
+        UserTypeListView, SellerShopFilterView, DispatchCenterFilterView, RetailerShopFilterView, UserDocumentChoices,
+        ShopDocumentChoices, FOFOConfigurationsView, FOFOConfigCategoryView, FOFOConfigSubCategoryView, FOFOListView,
+        ShopListView, PosShopUserMappingView)
+
 from addresses.api.v1.views import AddressView, DefaultAddressView, AddressDetail, SellerShopAddress
 
 router = routers.DefaultRouter()
@@ -55,6 +53,16 @@ urlpatterns = [
     url(r'^pos-shop-user/(?P<pk>\d+)/$', PosShopUserMappingView.as_view()),
     url('shop-list/', ShopListView.as_view(), name='shop-list'),
     url('pos-user-type-list/', UserTypeListView.as_view(), name='pos-user-type-list'),
+    url('shop-doc-user-choices/', UserDocumentChoices.as_view(), name='shop-doc-user-choices'),
+    url('shop-doc-shop-choices/', ShopDocumentChoices.as_view(), name='shop-doc-shop-choices'),
+
+    url('fofo-all-categories/', FOFOListView.as_view(),
+        name='fofo-all-categories'),
+    url('fofo-category-configurations/', FOFOConfigCategoryView.as_view(),
+        name='fofo-category-configurations'),
+    url('fofo-subcategory-configurations/', FOFOConfigSubCategoryView.as_view(),
+        name='fofo-subcategory-configurations'),
+    url('fofo-configurations/', FOFOConfigurationsView.as_view(), name='fofo-configurations'),
 
     url('seller-shops-list/', SellerShopFilterView.as_view(), name='seller-shops-list'),
     url('dispatch-centers-list/', DispatchCenterFilterView.as_view(), name='dispatch-centers-list'),

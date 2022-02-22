@@ -1115,7 +1115,7 @@ def cancel_pickup(pickup_object):
         if picked_qty is None:
             picked_qty = 0
         remaining_qty = item.quantity - picked_qty
-        total_remaining += remaining_qty
+        # total_remaining += remaining_qty
         bin_quantity = bi.quantity + remaining_qty
         to_be_picked_qty = bi.to_be_picked_qty - remaining_qty
         if to_be_picked_qty < 0:
@@ -1139,6 +1139,9 @@ def cancel_pickup(pickup_object):
 
             info_logger.info("cancel_pickup | created putaway | Bin-{}, batch-{}, quantity-{}"
                              .format(bi.bin_id, bi.batch_id, picked_qty))
+
+
+    total_remaining = pickup_object.quantity-pickup_object.pickup_quantity
     if total_remaining > 0:
         CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
             pickup_object.warehouse, pickup_object.sku, pickup_object.inventory_type,
@@ -1208,7 +1211,8 @@ def cancel_order_with_pick(instance):
                 quantity = 0
                 pick_up_bin_quantity = 0
                 if instance.rt_order_order_product.all():
-                    if (instance.rt_order_order_product.all()[0].shipment_status in ['READY_TO_SHIP',
+                    if (instance.rt_order_order_product.all()[0].shipment_status in ['QC_STARTED',
+                                                                                     'READY_TO_SHIP',
                                                                                      'MOVED_TO_DISPATCH',
                                                                                      'READY_TO_DISPATCH']):
                         pickup_order = pickup_bin.shipment_batch
@@ -1585,7 +1589,7 @@ def common_on_return_and_partial(shipment, flag):
                                            shipment_product_batch.returned_damage_qty)
 
                 elif flag == "partial_shipment":
-                    partial_ship_qty = (shipment_product_batch.pickup_quantity - shipment_product_batch.quantity)
+                    partial_ship_qty = (shipment_product_batch.pickup_quantity - (shipment_product_batch.quantity-(int(shipment_product_batch.expired_qty)+shipment_product_batch.damaged_qty+shipment_product_batch.missing_qty+shipment_product_batch.rejected_qty)))
                     if partial_ship_qty <= 0:
                         continue
                     else:
@@ -2625,7 +2629,9 @@ def send_update_to_qcdesk(shipment_instance):
     info_logger.info(f"send_update_to_qcdesk|QC Started|Shipment ID {shipment_instance.id}")
     order_no = shipment_instance.order.order_no
     if shipment_instance.qc_area.qc_area_assigned_desks.filter(token_id=order_no).exists():
-        shipment_instance.qc_area.qc_area_assigned_desks.filter(token_id=order_no).update(qc_done=True)
+        assigned_qc_area = shipment_instance.qc_area.qc_area_assigned_desks.filter(token_id=order_no).last()
+        assigned_qc_area.qc_done = True
+        assigned_qc_area.save()
         info_logger.info(f"send_update_to_qcdesk|QCDesk Mapping updated|Shipment ID {shipment_instance.id}, "
                          f"Order no {order_no}")
     else:

@@ -36,7 +36,7 @@ ORDER_STATUS_MAP = {
 }
 
 ONLINE_ORDER_STATUS_MAP = {
-    1: [Order.ORDERED],
+    1: [Order.ORDERED, Order.PAYMENT_PENDING, Order.PAYMENT_FAILED],
     2: [Order.OUT_FOR_DELIVERY, Order.PICKUP_CREATED],
     3: [Order.DELIVERED, Order.PARTIALLY_RETURNED, Order.FULLY_RETURNED, Order.CLOSED, Order.CANCELLED],
     4: [Order.CANCELLED],
@@ -48,7 +48,7 @@ ONLINE_ORDER_STATUS_MAP = {
 }
 
 ECOM_ORDER_STATUS_MAP = {
-    1: [Order.ORDERED, Order.PICKUP_CREATED],
+    1: [Order.ORDERED, Order.PICKUP_CREATED, Order.PAYMENT_PENDING, Order.PAYMENT_FAILED],
     2: [Order.OUT_FOR_DELIVERY],
     3: [Order.DELIVERED],
     4: [Order.PARTIALLY_RETURNED],
@@ -71,11 +71,18 @@ class RetailerProductCls(object):
                                 product_ean_code, user, event_type, pack_type, measure_cat_id, event_id=None,
                                 product_status='active', offer_price=None, offer_sd=None, offer_ed=None,
                                 product_ref=None, online_enabled=True, online_price=None, purchase_pack_size=1,
-                                is_visible=False):
+                                is_visible=False, initial_purchase_value=None, add_offer_price=False):
         """
             General Response For API
         """
         product_status = 'active' if product_status is None else product_status
+        try:
+            if online_enabled is True and float(online_price) == 0.0 and add_offer_price is True:
+                online_price = offer_price
+            elif online_enabled is True and float(online_price) == 0.0:
+                online_price = selling_price
+        except:
+            online_price = selling_price
         product = RetailerProduct.objects.create(shop_id=shop_id, name=name, linked_product_id=linked_product_id,
                                                  mrp=mrp, sku_type=sku_type, selling_price=selling_price,
                                                  offer_price=offer_price, offer_start_date=offer_sd,
@@ -84,7 +91,8 @@ class RetailerProductCls(object):
                                                  product_ref=product_ref, product_pack_type=pack_type,
                                                  measurement_category_id=measure_cat_id,
                                                  online_enabled=online_enabled, online_price=online_price,
-                                                 purchase_pack_size=purchase_pack_size, is_deleted=is_visible)
+                                                 purchase_pack_size=purchase_pack_size, is_deleted=is_visible,
+                                                 initial_purchase_value=initial_purchase_value)
         event_id = product.sku if not event_id else event_id
         # Change logs
         ProductChangeLogs.product_create(product, user, event_type, event_id)
@@ -446,6 +454,9 @@ class PosCartCls(object):
                 }]
         return deleted_items
 
+def get_back_date(day=0):
+    """return back date accourding to given date"""
+    return datetime.datetime.today()-datetime.timedelta(days=day)
 
 class RewardCls(object):
 
@@ -473,9 +484,29 @@ class RewardCls(object):
                 redeem_points = 0
         else:
             redeem_points = 0
+
+        days = datetime.datetime.today().day
+        date = get_back_date(days)
+
+        uses_rewrd_point = RewardLog.objects.filter(reward_user=cart.buyer,
+            transaction_type__in=['order_debit', 'order_return_credit', 'order_cancel_credit'], modified_at__gte=date).\
+        aggregate(Sum('points'))
+        this_month_reward_point_used = abs(uses_rewrd_point['points__sum']) if uses_rewrd_point['points__sum'] else None
+        max_redeem_points = GlobalConfig.objects.filter(key='max_redeem_points').last()
+        max_month_limit = GlobalConfig.objects.filter(key='max_month_limit _redeem_point').last()
+
+        max_month_limit = max_month_limit.value if max_month_limit else 500
+        message = ""
+        if max_redeem_points and max_redeem_points.value:
+            if redeem_points > max_redeem_points.value:
+                redeem_points = max_redeem_points.value
+        if this_month_reward_point_used and this_month_reward_point_used + redeem_points > max_month_limit:
+            redeem_points = 0
+            message = "only {} Loyalty Point can be used in a month".format(max_month_limit)
         cart.redeem_points = redeem_points
         cart.redeem_factor = value_factor
         cart.save()
+        return message
 
     @classmethod
     def reward_detail_cart(cls, cart, points):
@@ -484,6 +515,10 @@ class RewardCls(object):
         data['available_points'], data['value_factor'] = RewardCls.get_user_redeemable_points(cart.buyer)
         data['max_applicable_points'] = min(data['available_points'],
                                             int(cart.order_amount_after_discount * data['value_factor']))
+        max_redeem_points = GlobalConfig.objects.filter(key='max_redeem_points').last()
+        if max_redeem_points and max_redeem_points.value:
+            if data['max_applicable_points'] > max_redeem_points.value:
+                data['max_applicable_points'] = max_redeem_points.value
         data['cart_redeem_points'] = points
         return data
 
@@ -718,6 +753,30 @@ def pos_check_permission_delivery_person(view_func):
     return _wrapped_view_func
 
 
+def pos_check_user_permission(view_func):
+    @wraps(view_func)
+    def _wrapped_view_func(self, request, *args, **kwargs):
+        if not PosShopUserMapping.objects.filter(shop=kwargs['shop'], user=self.request.user, status=True,
+                                                 user_type__in=['manager', 'store_manager']).exists():
+            return api_response("You are not authorised to make this change!")
+        return view_func(self, request, *args, **kwargs)
+
+    return _wrapped_view_func
+
+
+def check_logged_in_user_is_superuser(view_func):
+    """
+    Decorator to validate request from Superuser
+    """
+    @wraps(view_func)
+    def _wrapped_view_func(self, request, *args, **kwargs):
+        user = request.user
+        if user.is_superuser:
+            return view_func(self, request, *args, **kwargs)
+        return api_response("Logged In user does not have required permission to perform this action.")
+    return _wrapped_view_func
+
+
 class ProductChangeLogs(object):
 
     @classmethod
@@ -775,7 +834,7 @@ class PosAddToCart(object):
 
             # Quantity check
             qty = request.data.get('qty')
-            if qty is None or qty < 0 or (qty == 0 and not cart_id):
+            if qty is None or Decimal(qty) < 0 or (Decimal(qty) == 0 and not cart_id):
                 return api_response("Qty Invalid!")
 
             # Either existing product OR info for adding new product
@@ -891,7 +950,7 @@ class PosAddToCart(object):
                     discounted_stock = PosInventoryCls.get_available_inventory(product.id, PosInventoryState.AVAILABLE)
                     if product.status != 'active':
                         return api_response("The discounted product is de-activated!")
-                    elif discounted_stock < qty:
+                    elif discounted_stock < Decimal(qty):
                         return api_response("The discounted product has only {} quantity in stock!".format(discounted_stock))
 
                 product_pack_type = product.product_pack_type
@@ -944,6 +1003,14 @@ class PosAddToCart(object):
                 if available_inventory < qty:
                     return api_response("You cannot add any more quantities for this product!")
 
+            product_pack_type = product.product_pack_type
+            kwargs['conversion_unit_id'] = None
+            if product_pack_type == 'packet':
+                qty = int(qty)
+            else:
+                qty, kwargs['conversion_unit_id'] = get_default_qty(self.request.data.get('qty_unit'),
+                                                                    product, qty)
+
             # Return with objects
             kwargs['product'] = product
             kwargs['quantity'] = qty
@@ -966,7 +1033,7 @@ def get_default_qty(given_qty_unit, product, qty):
 
 def create_po_franchise(user, order_no, seller_shop, buyer_shop, products):
     bill_add = Address.objects.filter(shop_name=seller_shop, address_type='billing').last()
-    vendor, created = Vendor.objects.get_or_create(company_name=seller_shop.shop_name)
+    vendor, created = Vendor.objects.get_or_create(company_name=seller_shop.shop_name, retailer_shop=buyer_shop)
     if created:
         vendor.vendor_name, vendor.address, vendor.pincode = 'PepperTap', bill_add.address_line1, bill_add.pincode
         vendor.city, vendor.state = bill_add.city, bill_add.state
@@ -1003,4 +1070,35 @@ def generate_debit_note_number(returned_obj, billing_address_instance):
     return "DNPR" + str(returned_obj.pr_number) + str(billing_address_instance)
 
 
+def check_fofo_shop(view_func):
+    """
+        Decorator to validate pos request
+    """
 
+    @wraps(view_func)
+    def _wrapped_view_func(self, request, *args, **kwargs):
+        # data format
+        if request.method == 'POST':
+            msg = validate_data_format(request)
+            if msg:
+                return api_response(msg)
+        app_type = request.META.get('HTTP_APP_TYPE', None)
+        shop_id = request.META.get('HTTP_SHOP_ID', None)
+        if not shop_id:
+            return api_response("No Shop Selected!")
+
+        shop = Shop.objects.filter(id=shop_id).last()
+        if not shop:
+            return api_response("Shop not available!")
+
+        if not shop.online_inventory_enabled:
+            return api_response("Franchise Shop Is Not Online Enabled!")
+
+        if shop.shop_type.shop_sub_type.retailer_type_name !='fofo':
+            return api_response("Shop Type Not Franchise - fofo")
+
+        kwargs['shop'] = shop
+        kwargs['app_type'] = app_type
+        return view_func(self, request, *args, **kwargs)
+
+    return _wrapped_view_func

@@ -16,3 +16,10 @@ def grn_return_search(queryset, search_text):
                                | Q(grn_ordered_id__products__name__icontains=search_text)
                                )
     return queryset.distinct()
+
+
+# search using pos return pr number, debit note number
+def non_grn_return_search(queryset, search_text):
+    queryset = queryset.filter(Q(pr_number__icontains=search_text) | Q(debit_note_number__icontains=search_text)
+                               | Q(vendor_id__vendor_name__icontains=search_text))
+    return queryset.distinct()

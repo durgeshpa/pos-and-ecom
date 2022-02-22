@@ -133,6 +133,7 @@ def create_qc_area_barcode(sender, instance=None, created=False, update_fields=N
                                                  sys.getsizeof(image), None)
         instance.save()
 
+
 @receiver(post_save, sender=Crate)
 def create_crate_barcode(sender, instance=None, created=False, update_fields=None, **kwargs):
     """ Generates barcode_txt and bar_code image for QCArea"""

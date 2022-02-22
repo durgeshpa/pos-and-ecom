@@ -64,7 +64,6 @@ class CategorySerializers(serializers.ModelSerializer):
 
     class Meta:
         model = Category
-
         fields = ('id', 'category_name',)
 
 
@@ -176,6 +175,7 @@ class ChildProductVendorSerializers(serializers.ModelSerializer):
 class UserSerializers(serializers.ModelSerializer):
     class Meta:
         model = User
+        ref_name = "UserSerializers v1"
         fields = ('id', 'first_name', 'last_name', 'phone_number',)
 
 
@@ -654,6 +654,7 @@ class ChildProductSerializers(serializers.ModelSerializer):
 
     class Meta:
         model = Product
+        ref_name = "ChildProduct v1"
         fields = ('id', 'product_sku', 'product_name', 'product_ean_code', 'status', 'product_mrp', 'weight_value',
                   'weight_unit', 'reason_for_child_sku', 'use_parent_image', 'product_special_cess', 'product_type',
                   'is_manual_price_update', 'repackaging_type', 'product_pro_image', 'parent_product',
@@ -1240,12 +1241,14 @@ class ProductVendorMappingExportAsCSVSerializers(serializers.ModelSerializer):
 class CitySerializer(serializers.ModelSerializer):
     class Meta:
         model = City
+        ref_name = 'Shop City v1'
         fields = ('id', 'city_name',)
 
 
 class PinCodeSerializer(serializers.ModelSerializer):
     class Meta:
         model = Pincode
+        ref_name = 'Pin Code Serializer v1'
         fields = ('id', 'pincode',)
 
 

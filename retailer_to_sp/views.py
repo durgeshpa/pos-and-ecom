@@ -1,10 +1,8 @@
-
 import requests
 import jsonpickle
 import logging
 from dal import autocomplete
 from wkhtmltopdf.views import PDFTemplateResponse
-
 
 from products.models import *
 from num2words import num2words
@@ -31,6 +29,8 @@ from sp_to_gram.models import (
     OrderedProduct as SPOrderedProduct)
 from retailer_to_sp.models import (CartProductMapping, Order, OrderedProduct, OrderedProductMapping, Note, Trip,
                                    Dispatch, ShipmentRescheduling, PickerDashboard, update_full_part_order_status,
+                                   Shipment, populate_data_on_qc_pass, add_to_putaway_on_return,
+                                   check_franchise_inventory_update, ShipmentNotAttempt, BASIC, ECOM,
                                    Shipment, populate_data_on_qc_pass, OrderedProductBatch, ShipmentPackaging,
                                    ShipmentNotAttempt, LastMileTripShipmentMapping, LastMileTripShipmentPackages)
 from products.models import Product
@@ -91,6 +91,8 @@ class ShipmentMergedBarcode(APIView):
             if not packaging.crate and packaging.packaging_details.exists():
                 quantity = str(packaging.packaging_details.last().quantity)
                 product_name = str(packaging.packaging_details.last().ordered_product.product.product_name)
+                if product_name and len(product_name) > 32:
+                    product_name = product_name[:32] + "..."
                 data = {shipment_count: pck_type_r_id,
                         shipment.order.order_no: customer_city_pincode,
                         product_name: quantity,
@@ -144,7 +146,7 @@ class DownloadCreditNote(APIView):
         cin_number = getShopCINNumber(shop_name)
         # PAN
         pan_number = getShopPANNumber(shop_name)
-
+        gstinn3 = ''
         for gs in credit_note.shipment.order.seller_shop.shop_name_documents.all():
             gstinn3 = gs.shop_document_number if gs.shop_document_type == 'gstin' else getGSTINNumber(shop_name)
 
@@ -153,6 +155,7 @@ class DownloadCreditNote(APIView):
             for gs in credit_note.shipment.order.billing_address.shop_name.shop_name_documents.all():
                 gstinn2 = gs.shop_document_number if gs.shop_document_type == 'gstin' else 'Unregistered'
 
+        gstinn1 = ''
         for gs in credit_note.shipment.order.shipping_address.shop_name.shop_name_documents.all():
             gstinn1 = gs.shop_document_number if gs.shop_document_type == 'gstin' else 'Unregistered'
 
@@ -1617,6 +1620,7 @@ def not_attempt_update_shipment(shipment, shipment_proudcts_formset, shipment_no
             instance.returned_damage_qty = 0
             instance.save()
 
+
 class RetailerCart(APIView):
     permission_classes = (AllowAny,)
 
@@ -1990,19 +1994,46 @@ def create_order_shipment(order_instance):
                                                                        picked_pieces=p.pickup_quantity)
 
         for i in p.bin_inventory.all():
-            shipment_product_batch = OrderedProductBatch.objects.create(
-                batch_id=i.batch_id,
-                bin_ids=i.bin.bin.bin_id,
-                pickup_inventory=i,
-                ordered_product_mapping=ordered_product_mapping,
-                pickup=i.pickup,
-                bin=i.bin,  # redundant
-                quantity=i.pickup_quantity,
-                pickup_quantity=i.pickup_quantity,
-                expiry_date=get_expiry_date(i.batch_id),
-                delivered_qty=ordered_product_mapping.delivered_qty,
-                ordered_pieces=i.quantity
-            )
+            # shipment_product_batch = OrderedProductBatch.objects.create(
+            #     batch_id=i.batch_id,
+            #     bin_ids=i.bin.bin.bin_id,
+            #     pickup_inventory=i,
+            #     ordered_product_mapping=ordered_product_mapping,
+            #     pickup=i.pickup,
+            #     bin=i.bin,  # redundant
+            #     quantity=i.pickup_quantity,
+            #     pickup_quantity=i.pickup_quantity,
+            #     expiry_date=get_expiry_date(i.batch_id),
+            #     delivered_qty=ordered_product_mapping.delivered_qty,
+            #     ordered_pieces=i.quantity
+            # )
+            # i.shipment_batch = shipment_product_batch
+            # i.save()
+            i_pickup_quantity = 0 if i.pickup_quantity is None else i.pickup_quantity
+            if OrderedProductBatch.objects.filter(batch_id=i.batch_id,
+                                                  ordered_product_mapping=ordered_product_mapping).exists():
+                shipment_product_batch = OrderedProductBatch.objects.filter(batch_id=i.batch_id,
+                                                                            ordered_product_mapping=ordered_product_mapping).last()
+                quantity = shipment_product_batch.quantity + i_pickup_quantity
+                ordered_pieces = int(shipment_product_batch.ordered_pieces) + i.quantity
+                shipment_product_batch.quantity = quantity
+                shipment_product_batch.pickup_quantity = quantity
+                shipment_product_batch.ordered_pieces = ordered_pieces
+                shipment_product_batch.save()
+            else:
+                shipment_product_batch = OrderedProductBatch.objects.create(
+                    batch_id=i.batch_id,
+                    bin_ids=i.bin.bin.bin_id,
+                    pickup_inventory=i,
+                    ordered_product_mapping=ordered_product_mapping,
+                    pickup=i.pickup,
+                    bin=i.bin,  # redundant
+                    quantity=i_pickup_quantity,
+                    pickup_quantity=i_pickup_quantity,
+                    expiry_date=get_expiry_date(i.batch_id),
+                    delivered_qty=ordered_product_mapping.delivered_qty,
+                    ordered_pieces=i.quantity
+                )
             i.shipment_batch = shipment_product_batch
             i.save()
     info_logger.info(f"create_order_shipment|shipment created|order no{order_instance.order_no}")

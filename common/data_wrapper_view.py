@@ -6,7 +6,7 @@ import sys
 import traceback
 
 from rest_framework.permissions import IsAuthenticated
-from rest_framework import generics, viewsets, status
+from rest_framework import generics, viewsets, status, mixins
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from django_filters import rest_framework as filters
@@ -28,12 +28,35 @@ class DataWrapperViewSet(viewsets.ModelViewSet):
         data = format_data(result)
         return data
 
+class DataWrapperListRetrieveViewSet(mixins.ListModelMixin, 
+                                     mixins.RetrieveModelMixin, 
+                                     viewsets.GenericViewSet):
+    def dispatch(self, *args, **kwargs):
+        result =  super(DataWrapperListRetrieveViewSet, self).dispatch(*args, **kwargs)
+        data = format_data(result)
+        return data
+
+class DataWrapperCreateUpdateViewSet(mixins.CreateModelMixin, 
+                                     mixins.UpdateModelMixin, 
+                                     viewsets.GenericViewSet):
+    def dispatch(self, *args, **kwargs):
+        result =  super(DataWrapperCreateUpdateViewSet, self).dispatch(*args, **kwargs)
+        data = format_data(result)
+        return data
+
 '''
 This class is to manipulate data for generic api views 
 Extend this class to use its functionalities
 '''
 class GenericDataWrapper(object):
 
+    def dispatch(self, *args, **kwargs):
+        result =  super(GenericDataWrapper, self).dispatch(*args, **kwargs)
+        data = format_data(result)      
+        return data
+
+
+class DataWrapperView(APIView):
     def dispatch(self, *args, **kwargs):
         result =  super(GenericDataWrapper, self).dispatch(*args, **kwargs)
         data = format_data(result)      

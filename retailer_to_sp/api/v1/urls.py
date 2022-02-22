@@ -9,7 +9,8 @@ from .views import (ProductsList, SearchProducts, CartCentral, CartCheckout, Ord
                     ReturnReason, ShipmentDeliveryUpdate, ShipmentDeliveryBulkUpdate, DownloadCreditNoteDiscounted,
                     AutoSuggest, RefreshEs, RefreshEsRetailer, CartUserView, UserView, PosUserShopsList,
                     PosShopUsersList, RetailerList, PaymentDataView, CartStockCheckView, OrderCommunication,
-                    ShipmentView, EcomPaymentView, EcomPaymentSuccessView, EcomPaymentFailureView, ShipmentProductView,
+                    OrderPaymentStatusChangeView, OrderStatusChoicesList, ShipmentView, EcomPaymentView,
+                    EcomPaymentSuccessView, EcomPaymentFailureView, ShipmentProductView,
                     ProcessShipmentView, ShipmentStatusList, ShipmentQCView, ShipmentCityFilterView,
                     ShipmentPincodeFilterView, ShipmentShopFilterView, ShipmentProductRejectionReasonList,
                     PackagingTypeList, DispatchItemsView, DispatchItemsUpdateView, DispatchDashboardView,
@@ -29,6 +30,7 @@ from .views import (ProductsList, SearchProducts, CartCentral, CartCheckout, Ord
                     VerifyNotAttemptShipmentPackagesView, VerifyBackwardTripItems, BackwardTripQCView
                     )
 
+from retailer_backend.cron import sync_es_products_api
 router = routers.DefaultRouter()
 router.register(r'picker-dashboard', PickerDashboardViewSet)
 router.register(r'ordered-product-mapping', OrderedProductMappingView)
@@ -67,6 +69,7 @@ urlpatterns = [
     # Products ES Refresh
     url('^refresh-es/$', RefreshEs.as_view()),
     url('^refresh-es-retailer/$', RefreshEsRetailer.as_view()),
+    url('^cron-es/$', sync_es_products_api),
     # Shipment
     url(r'^ecom-shipment/', ShipmentView.as_view(), name='ecom-shipment'),
     # Payment
@@ -156,6 +159,8 @@ urlpatterns = [
     url('shipment-package-products/', ShipmentPackageProductsView.as_view(), name='shipment_package_products'),
     url('bck-trip-verify-items/', VerifyBackwardTripItems.as_view()),
     url('bck-trip-qc-packages/', BackwardTripQCView.as_view()),
+    url('update-order-payment-status/', OrderPaymentStatusChangeView.as_view(), name='update_order_payment_status'),
+    url(r'^order-status-choice/$', OrderStatusChoicesList.as_view()),
 ]
 
 urlpatterns += router.urls

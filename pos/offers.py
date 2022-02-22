@@ -4,9 +4,9 @@ from elasticsearch import Elasticsearch
 
 from retailer_to_sp.models import Cart
 from pos.models import RetailerProduct
-from retailer_backend.settings import ELASTICSEARCH_PREFIX as es_prefix
+from retailer_backend.settings import ELASTICSEARCH_PREFIX as es_prefix, es
 
-es = Elasticsearch(["https://search-gramsearch-7ks3w6z6mf2uc32p3qc4ihrpwu.ap-south-1.es.amazonaws.com"])
+
 
 
 class BasicCartOffers(object):

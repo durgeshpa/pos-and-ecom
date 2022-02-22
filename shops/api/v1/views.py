@@ -1,3 +1,4 @@
+import json
 import logging
 from dateutil.relativedelta import relativedelta
 from datetime import datetime, timedelta
@@ -12,31 +13,37 @@ from rest_framework.response import Response
 from rest_framework import generics, status, viewsets, permissions, authentication
 from rest_framework.parsers import FormParser, MultiPartParser
 
+from accounts.models import USER_DOCUMENTS_TYPE_CHOICES
 from addresses.models import Address
 from addresses.api.v1.serializers import AddressSerializer
 from common.data_wrapper_view import DataWrapperViewSet
-from pos.common_functions import check_pos_shop, pos_check_permission
+from pos.common_functions import check_pos_shop, pos_check_permission, api_response, check_logged_in_user_is_superuser, \
+    check_fofo_shop
 from retailer_backend.utils import SmallOffsetPagination
 from retailer_backend import messages
 from retailer_backend.messages import SUCCESS_MESSAGES, ERROR_MESSAGES
 from retailer_to_sp.models import OrderedProduct, Order
 from retailer_to_sp.api.v1.views import update_trip_status
 from retailer_to_sp.views import update_shipment_status_after_return
-from shops.common_functions import get_response, serializer_error
-from shops.services import shop_search
+from shops.common_functions import get_response, serializer_error, serializer_error_batch
+from shops.services import shop_search, shop_config_search, shop_category_search, shop_sub_category_search
 from shops.filters import FavouriteProductFilter
-
+from products.common_validators import validate_id
 from shops.models import (PosShopUserMapping, RetailerType, ShopType, Shop, ShopPhoto, ShopDocument, ShopUserMapping,
                           SalesAppVersion, ShopRequestBrand, ShopTiming, FavouriteProduct, BeatPlanning,
-                          DayBeatPlanning, ExecutiveFeedback, USER_TYPE_CHOICES)
+                          DayBeatPlanning, ExecutiveFeedback, USER_TYPE_CHOICES, FOFOConfigurations, FOFOConfigCategory,
+                          FOFOConfigSubCategory)
 from .serializers import (RetailerTypeSerializer, ShopTypeSerializer, ShopSerializer, ShopPhotoSerializer,
                           ShopDocumentSerializer, ShopTimingSerializer, ShopUserMappingSerializer, SellerShopSerializer,
                           AppVersionSerializer, ShopUserMappingUserSerializer, ShopRequestBrandSerializer,
                           FavouriteProductSerializer, AddFavouriteProductSerializer, ListFavouriteProductSerializer,
                           DayBeatPlanSerializer, FeedbackCreateSerializers, ExecutiveReportSerializer,
-                          PosShopUserMappingCreateSerializer, PosShopUserMappingUpdateSerializer, ShopBasicSerializer)
+                          PosShopUserMappingCreateSerializer, PosShopUserMappingUpdateSerializer, ShopBasicSerializer,
+                          FOFOConfigurationsCrudSerializer, FOFOCategoryConfigurationsCrudSerializer,
+                          FOFOSubCategoryConfigurationsCrudSerializer, FOFOConfigurationsGetSerializer,
+                          FOFOListSerializer)
 from ...common_validators import validate_id, get_logged_user_wise_query_set_to_filter_warehouse, \
-    get_logged_user_wise_query_set_for_seller_shop
+    get_logged_user_wise_query_set_for_seller_shop, validate_fofo_sub_category
 
 User = get_user_model()
 
@@ -235,19 +242,26 @@ class ShopDocumentView(generics.ListCreateAPIView):
     permission_classes = (permissions.IsAuthenticated,)
 
     def get_queryset(self):
-        user_shops = Shop.objects.filter(shop_owner=self.request.user)
-        queryset = ShopDocument.objects.filter(shop_name__in=user_shops)
+        user_shops = Shop.objects.filter(shop_owner=self.request.user).values_list('id', flat=True)
+        queryset = ShopDocument.objects.filter(shop_name__id__in=list(user_shops))
         shop_id = self.request.query_params.get('shop_id', None)
         if shop_id is not None:
             queryset = queryset.filter(shop_name=shop_id)
         return queryset
 
     def create(self, request, *args, **kwargs):
+        validated_data = self.check_validate_data(request.data)
+        if validated_data is None:
+            msg = {'is_success': True,
+                   'message': ["Documents uploaded successfully"],
+                   'response_data': None}
+            return Response(msg,
+                            status=status.HTTP_406_NOT_ACCEPTABLE)
         serializer = self.get_serializer(data=request.data)
         if serializer.is_valid():
             serializer.save()
             msg = {'is_success': True,
-                   'message': ["Images uploaded successfully"],
+                   'message': ["Documents uploaded successfully"],
                    'response_data': None}
             return Response(msg,
                             status=status.HTTP_200_OK)
@@ -274,6 +288,17 @@ class ShopDocumentView(generics.ListCreateAPIView):
                'response_data': serializer.data}
         return Response(msg,
                         status=status.HTTP_200_OK)
+
+    def check_validate_data(self, data):
+
+        if 'shop_document_type' in data and (data['shop_document_type'] == ShopDocument.UIDAI or \
+                data['shop_document_type'] == ShopDocument.PASSPORT or data['shop_document_type'] == ShopDocument.DL \
+                or data['shop_document_type'] == ShopDocument.EC):
+            if 'shop_document_number' not in data or not data['shop_document_number']:
+                data = None
+        elif 'shop_document_type' not in data:
+            data = None
+        return data
 
 
 class ShopView(generics.ListCreateAPIView):
@@ -309,7 +334,7 @@ class ShopView(generics.ListCreateAPIView):
                         status=status.HTTP_200_OK)
 
     def perform_create(self, serializer):
-        shop = serializer.save(shop_owner=self.request.user)
+        shop = serializer.save(shop_owner=self.request.user, created_by=self.request.user)
         return shop
 
 
@@ -615,8 +640,9 @@ class SellerShopOrder(generics.ListAPIView):
         else:
             from_date = datetime.now() - timedelta(days=days_diff)
 
-        shop_list = shop_user_obj.values(
-            'shop', 'shop__id', 'shop__shop_name', 'shop__shop_owner__phone_number').order_by('shop__shop_name')
+        shop_list = list(shop_user_obj.values(
+            'shop', 'shop__id', 'shop__shop_name', 'shop__shop_owner__phone_number').distinct('shop'))
+        shop_list = sorted(shop_list, key=lambda a: a['shop__shop_name'])
         shops_list = shop_user_obj.values('shop').distinct('shop')
         order_obj = self.get_order(shops_list, to_date, from_date)
         buyer_order_obj = self.get_shop_count(shops_list, to_date, from_date)
@@ -995,10 +1021,19 @@ class DayBeatPlan(viewsets.ModelViewSet):
         :param kwargs: keyword argument
         :return: Beat Plan for Sales executive otherwise error message
         """
+        if self.request.user.user_type == 7:
+            try:
+                if self.request.GET['executive_id']:
+                    executive = User.objects.filter(id = int(self.request.GET['executive_id'])).last()
+            except Exception as e:
+                return Response({"detail": messages.ERROR_MESSAGES["4020"],
+                                 'is_success': False}, status=status.HTTP_200_OK)
+        else:
+            executive = self.request.user
         try:
             if self.request.GET['next_plan_date'] == datetime.today().strftime("%Y-%m-%d"):
-                beat_user = self.queryset.filter(executive=self.request.user,
-                                                 executive__user_type=self.request.user.user_type,
+                beat_user = self.queryset.filter(executive=executive,
+                                                 executive__user_type=executive.user_type,
                                                  executive__is_active=True)
                 if beat_user.exists():
                     try:
@@ -1031,11 +1066,13 @@ class DayBeatPlan(viewsets.ModelViewSet):
                                     status=status.HTTP_200_OK)
             else:
                 try:
-                    queryset = BeatPlanning.objects.filter(status=True)
-                    beat_user = queryset.filter(executive=self.request.user,
-                                                executive__user_type=self.request.user.user_type,
+                    queryset = self.queryset
+                    if self.request.user.user_type == 6:
+                        queryset = BeatPlanning.objects.filter(status=True)
+                    beat_user = queryset.filter(executive=executive,
+                                                executive__user_type=executive.user_type,
                                                 executive__is_active=True)
-                    beat_user_obj = DayBeatPlanning.objects.filter(beat_plan=beat_user[0],
+                    beat_user_obj = DayBeatPlanning.objects.filter(beat_plan__in=beat_user,
                                                                    next_plan_date=self.request.GET[
                                                                        'next_plan_date'])
                 except Exception as error:
@@ -1129,7 +1166,7 @@ def set_shop_map_cron():
         for beat in beat_plan:
             next_plan_date = datetime.today()
             day_beat_plan = DayBeatPlanning.objects.filter(
-                beat_plan=beat, next_plan_date=next_plan_date)
+                beat_plan=beat, next_plan_date=next_plan_date,status=True)
             for day_beat in day_beat_plan:
                 ExecutiveFeedback.objects.get_or_create(day_beat_plan=day_beat)
     except Exception as error:
@@ -1383,3 +1420,216 @@ class RetailerShopFilterView(generics.GenericAPIView):
             self.queryset = self.queryset.filter(approval_status=approval_status)
 
         return self.queryset.distinct('id')
+
+
+class UserDocumentChoices(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+
+    def get(self, request):
+        '''
+        API to get list of Shop User Document list
+        '''
+        fields = ['id', 'value']
+        data = [dict(zip(fields, d)) for d in USER_DOCUMENTS_TYPE_CHOICES]
+        msg = [""]
+        return get_response(msg, data, True)
+
+
+class ShopDocumentChoices(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+
+    def get(self, request):
+        '''
+        API to get list of Shop Document list
+        '''
+        fields = ['id', 'value']
+        data = [dict(zip(fields, d)) for d in [(ShopDocument.FSSAI, "Fssai License No"),
+                                               (ShopDocument.DRUG_L, 'Drug License'),
+                                               (ShopDocument.ELE_BILL, "Shop Electricity Bill"),
+                                               (ShopDocument.UDYOG_AADHAR, 'Udyog Aadhar'),
+                                               # (ShopDocument.SLN, "Shop License No"),
+                                               (ShopDocument.WSVD, "Weighing Scale Verification Document")]]
+        msg = [""]
+        return get_response(msg, data, True)
+
+
+class FOFOConfigCategoryView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.AllowAny,)
+    queryset = FOFOConfigCategory.objects.order_by('-id')
+    serializer_class = FOFOCategoryConfigurationsCrudSerializer
+
+    @check_logged_in_user_is_superuser
+    def get(self, request):
+        """ GET Category List """
+        search_text = self.request.GET.get('search_text')
+        if search_text:
+            self.queryset = shop_category_search(self.queryset, search_text)
+        category = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        serializer = self.serializer_class(category, many=True)
+        msg = "" if category else "no category found"
+        return get_response(msg, serializer.data, True)
+
+    @check_logged_in_user_is_superuser
+    def post(self, request, *args, **kwargs):
+        serializer = self.serializer_class(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return get_response('category created Successfully!', None, True, status.HTTP_200_OK)
+        return get_response(serializer_error(serializer), False)
+
+    @check_logged_in_user_is_superuser
+    def put(self, request):
+        """ PUT API for Category Updation """
+
+        if 'id' not in request.data:
+            return get_response('please provide id to update category', False)
+
+        # validations for input id
+        id_instance = validate_id(self.queryset, int(request.data['id']))
+        if 'error' in id_instance:
+            return get_response(id_instance['error'])
+
+        cat_instance = id_instance['data'].last()
+        serializer = self.serializer_class(instance=cat_instance, data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return get_response('category updated Successfully!', serializer.data)
+        return get_response(serializer_error(serializer), False)
+
+
+class FOFOConfigSubCategoryView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.AllowAny,)
+    queryset = FOFOConfigSubCategory.objects.order_by('-id')
+    serializer_class = FOFOSubCategoryConfigurationsCrudSerializer
+
+    @check_logged_in_user_is_superuser
+    def get(self, request):
+        """ GET Sub-Category List """
+        search_text = self.request.GET.get('search_text')
+        if search_text:
+            self.queryset = shop_sub_category_search(self.queryset, search_text)
+        sub_category = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        serializer = self.serializer_class(sub_category, many=True)
+        msg = "" if sub_category else "no sub category found"
+        return get_response(msg, serializer.data, True)
+
+    @check_logged_in_user_is_superuser
+    def post(self, request, *args, **kwargs):
+        serializer = self.serializer_class(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return get_response('sub category created Successfully!', None, True, status.HTTP_200_OK)
+        return get_response(serializer_error(serializer), False)
+
+    @check_logged_in_user_is_superuser
+    def put(self, request):
+        """ PUT API for Sub Category Updation """
+
+        if 'id' not in request.data:
+            return get_response('please provide id to update sub category', False)
+
+        # validations for input id
+        id_instance = validate_id(self.queryset, int(request.data['id']))
+        if 'error' in id_instance:
+            return get_response(id_instance['error'])
+
+        cat_instance = id_instance['data'].last()
+        serializer = self.serializer_class(instance=cat_instance, data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return get_response('sub category updated Successfully!', serializer.data)
+        return get_response(serializer_error(serializer), False)
+
+
+class FOFOListView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.AllowAny,)
+    queryset = FOFOConfigCategory.objects.order_by('-id')
+    serializer_class = FOFOListSerializer
+
+    @check_logged_in_user_is_superuser
+    def get(self, request, *args, **kwargs):
+        """ GET Cat Sub-Cat Configurations List """
+        search_text = self.request.GET.get('search_text')
+        if search_text:
+            self.queryset = shop_category_search(self.queryset, search_text)
+        category = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        serializer = FOFOListSerializer(category, many=True)
+        msg = "" if category else "no data found"
+        return get_response(msg, serializer.data, True)
+
+
+class FOFOConfigurationsView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.AllowAny,)
+    queryset = FOFOConfigurations.objects.order_by('-id')
+    serializer_class = FOFOConfigurationsCrudSerializer
+
+    @check_logged_in_user_is_superuser
+    @check_fofo_shop
+    def get(self, request, *args, **kwargs):
+        """ GET FOFO  List """
+        shop = kwargs['shop']
+        search_text = self.request.GET.get('search_text')
+        queryset = self.queryset.filter(shop=shop)
+        if request.GET.get('id'):
+            """ Get FOFO Configurations for specific ID """
+            id_validation = validate_id(queryset, int(request.GET.get('id')))
+            if 'error' in id_validation:
+                return get_response(id_validation['error'])
+            queryset = id_validation['data']
+        serializer = FOFOConfigurationsGetSerializer(queryset, context={'shop': shop,
+                                                                        'search_text': search_text,
+                                                                        'id': request.GET.get('id')})
+        msg = "" if queryset else "no configurations found"
+        return get_response(msg, serializer.data, True)
+
+    @check_logged_in_user_is_superuser
+    @check_fofo_shop
+    def post(self, request, *args, **kwargs):
+        shop = kwargs['shop']
+        modified_data = self.validate_request_data()
+        if 'error' in modified_data:
+            return api_response(modified_data['error'])
+        validated_data = validate_fofo_sub_category(modified_data['data'], shop)
+        if 'error' in validated_data:
+            return api_response(validated_data['error'])
+        serializer = self.serializer_class(data=validated_data['data'], many=True)
+        if serializer.is_valid():
+            serializer.save()
+            return get_response('Configurations has been done Successfully!', None, True, status.HTTP_200_OK)
+        return get_response(serializer_error_batch(serializer), False)
+
+    @check_logged_in_user_is_superuser
+    @check_fofo_shop
+    def put(self, request, *args, **kwargs):
+        shop = kwargs['shop']
+        modified_data = self.validate_request_data()
+        if 'error' in modified_data:
+            return api_response(modified_data['error'])
+        validated_data = validate_fofo_sub_category(modified_data['data'], shop)
+        if 'error' in validated_data:
+            return api_response(validated_data['error'])
+
+        resp_data = self.create_or_update_configurations(validated_data['data'])
+        if 'error' in resp_data:
+            return api_response(validated_data['error'])
+        return get_response('Configurations has been done Successfully!', None, True, status.HTTP_200_OK)
+
+    def create_or_update_configurations(self, data_list):
+        for data in data_list:
+            instance, created = FOFOConfigurations.objects.update_or_create(
+                shop_id=data['shop'], key_id=data['key'], defaults={'value': data['value']})
+        return {'data': 'Configurations has been done Successfully!'}
+
+    def validate_request_data(self):
+        # Validate product data
+        try:
+            data = self.request.data["data"]
+            if not isinstance(data, list):
+                return {'error': 'Format of data is expected to be a list.'}
+        except:
+            return {'error': "Invalid Data Format"}
+        return {'data': data}

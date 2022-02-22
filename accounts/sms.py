@@ -5,9 +5,10 @@ from django.core.exceptions import ValidationError
 
 class SendSms(object):
     """Configure to change SMS backend"""
-    def __init__(self, phone):
+    def __init__(self, phone,mask='GRMFAC'):
         super(SendSms, self).__init__()
         self.phone = phone
+        self.mask = mask
 
     def validate_mobile(self):
         rule = re.compile(r'^[6-9]\d{9}$')
@@ -28,6 +29,7 @@ class SendSms(object):
                 'authkey': config('SMS_AUTH_KEY'),
                 'country': '91',
                 'message':message,
+                'mask' : self.mask
                 }
             req = requests.get('http://api.msg91.com/api/sendhttp.php', params=query)
             return req.status_code

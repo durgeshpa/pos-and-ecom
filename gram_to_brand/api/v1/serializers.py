@@ -9,6 +9,7 @@ from wms.models import Zone
 class WarehouseSerializer(serializers.ModelSerializer):
     class Meta:
         model = Shop
+        ref_name = "WarehouseSerializer v1"
         fields = ('id', 'shop_name')
 
 

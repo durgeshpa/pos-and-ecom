@@ -96,6 +96,19 @@
                    <tr>
                         <th scope="row"><a href="/admin/pos/retailerorderedproduct/retailer-order-report-form/">POS Order Report</a></th>
                    </tr>
+                   {% endif %}
+                   {% if model.name == "Measurement categorys" %}
+                   <tr>
+                        <th scope="row"><a href="/admin/pos/retailerorderedproduct/retailer-return-report-form/">POS Return Report</a></th>
+                   </tr>
+                    {% endif %}
+                {% endif %}
+
+                {% if app.name == "Point Of Sale" %}
+                   {% if model.name == "Inventory States" %}
+                   <tr>
+                        <th scope="row"><a href="/admin/pos/retailerproduct/retailer-purchase-value-form/">Purchase Value Report</a></th>
+                   </tr>
                     {% endif %}
                 {% endif %}
 

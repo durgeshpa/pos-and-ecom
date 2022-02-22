@@ -12,7 +12,7 @@ from rest_framework.views import APIView
 from rest_framework import status
 from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.permissions import AllowAny
-from accounts.models import UserDocument, AppVersion
+from accounts.models import UserDocument, AppVersion, USER_DOCUMENTS_TYPE_CHOICES
 from retailer_backend.utils import SmallOffsetPagination
 from products.common_function import get_response, serializer_error
 from accounts.services import group_search
@@ -73,6 +73,12 @@ class UserDocumentView(generics.ListCreateAPIView):
         return queryset
 
     def create(self, request, *args, **kwargs):
+        validated_data = self.check_validate_data(request.data)
+        if validated_data is None:
+            msg = {'is_success': True,
+                   'message': ["Documents uploaded successfully"],
+                   'response_data': None}
+            return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
         serializer = self.get_serializer(data=request.data)
         if serializer.is_valid():
             serializer.save(user=self.request.user)
@@ -104,6 +110,14 @@ class UserDocumentView(generics.ListCreateAPIView):
                 'response_data': serializer.data}
         return Response(msg,
                         status=status.HTTP_200_OK)
+
+    def check_validate_data(self, data):
+        if 'user_document_type' in data and (any(data['user_document_type'] in i for i in USER_DOCUMENTS_TYPE_CHOICES)):
+            if 'user_document_number' not in data or not data['user_document_number']:
+                data = None
+        elif 'user_document_type' not in data:
+            data = None
+        return data
 
 
 class CheckAppVersion(APIView):

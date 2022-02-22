@@ -344,8 +344,14 @@ def validate_pickup_request(request):
     if created_at:
         try:
             created_at = datetime.strptime(created_at, "%Y-%m-%d")
+            if created_at.date() > datetime.today().date():
+                return {"error": "Invalid date | Picking date can not be greater than today."}
+
         except Exception as e:
             return {"error": "Invalid format | 'created_at' format should be YYYY-MM-DD."}
+    else:
+        return {"error": "Date | This is required."}
+
 
     if pickuptype and int(pickuptype) not in [1, 2]:
         return {"error": "'type' | This is invalid."}

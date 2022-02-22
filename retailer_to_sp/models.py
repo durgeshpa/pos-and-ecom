@@ -43,7 +43,7 @@ from shops.models import Shop
 from accounts.models import UserWithName, User
 from coupon.models import Coupon, CusotmerCouponUsage
 from retailer_backend import common_function
-from global_config.views import get_config
+from global_config.views import get_config, get_config_fofo_shop
 
 today = datetime.datetime.today()
 
@@ -183,7 +183,8 @@ class Cart(models.Model):
 
     class Meta:
         verbose_name = 'Order Items Detail'
-
+        permissions = [("can_approve_bulk_type", "Can approve Bulk type orders")]
+    
     def __str__(self):
         return "{}".format(self.id)
 
@@ -464,24 +465,24 @@ class Cart(models.Model):
                                  'discount_value': float(discount_value_cart), 'coupon_type': 'cart'})
                         elif cart_coupon.rule.discount.is_percentage == True and (
                                 cart_coupon.rule.discount.max_discount == 0):
-                            discount_value_cart = round((Decimal(cart_coupon.rule.discount.discount_value) / 100) * Decimal(cart_value),
-                                                        2)
+                            discount_value_cart = round((Decimal(cart_coupon.rule.discount.discount_value) / 100) *
+                                                        Decimal(cart_value), 2)
                             offers_list.append(
                                 {'type': 'discount', 'sub_type': 'discount_on_cart', 'coupon_id': cart_coupon.id,
                                  'coupon': cart_coupon.coupon_name, 'coupon_code': cart_coupon.coupon_code,
                                  'discount_value': float(discount_value_cart), 'coupon_type': 'cart'})
                         elif cart_coupon.rule.discount.is_percentage == True and (
                                 round(Decimal(cart_coupon.rule.discount.max_discount)) >= (
-                                Decimal(cart_coupon.rule.discount.discount_value / 100) * cart_value)):
-                            discount_value_cart = round(Decimal(cart_coupon.rule.discount.discount_value / 100) * Decimal(cart_value),
-                                                        2)
+                                Decimal(cart_coupon.rule.discount.discount_value / 100) * Decimal(cart_value))):
+                            discount_value_cart = round(Decimal(cart_coupon.rule.discount.discount_value / 100) *
+                                                        Decimal(cart_value), 2)
                             offers_list.append(
                                 {'type': 'discount', 'sub_type': 'discount_on_cart', 'coupon_id': cart_coupon.id,
                                  'coupon': cart_coupon.coupon_name, 'coupon_code': cart_coupon.coupon_code,
                                  'discount_value': float(discount_value_cart), 'coupon_type': 'cart'})
                         elif cart_coupon.rule.discount.is_percentage == True and (
                                 cart_coupon.rule.discount.max_discount < (
-                                Decimal(cart_coupon.rule.discount.discount_value / 100) * cart_value)):
+                                Decimal(cart_coupon.rule.discount.discount_value / 100) * Decimal(cart_value))):
                             discount_value_cart = cart_coupon.rule.discount.max_discount
                             offers_list.append(
                                 {'type': 'discount', 'sub_type': 'discount_on_cart', 'coupon_id': cart_coupon.id,
@@ -870,6 +871,10 @@ class Order(models.Model):
     PENDING = 'pending'
     DELETED = 'deleted'
     ORDERED = 'ordered'
+    PAYMENT_PENDING = 'PAYMENT_PENDING'
+    PAYMENT_FAILED = 'PAYMENT_FAILED'
+    PAYMENT_APPROVED = 'PAYMENT_APPROVED'
+    PAYMENT_COD = 'PAYMENT_COD'
     PAYMENT_DONE_APPROVAL_PENDING = 'payment_done_approval_pending'
     OPDP = 'opdp'
     DISPATCHED = 'dispatched'
@@ -904,6 +909,10 @@ class Order(models.Model):
         (PENDING, "Pending"),
         (DELETED, "Deleted"),
         (DISPATCHED, "Dispatched"),
+        (PAYMENT_PENDING, "Payment Pending"),
+        (PAYMENT_FAILED, "Payment Failed"),
+        (PAYMENT_APPROVED, "Payment Approved"),
+        (PAYMENT_COD, "Payment COD"),
         (PARTIAL_DELIVERED, "Partially Delivered"),
         (DELIVERED, "Delivered"),
         (CLOSED, "Closed"),
@@ -971,9 +980,28 @@ class Order(models.Model):
         (CUSTOMER_CANCEL, 'Cancelled by customer'),
         (CUSTOMER_UNAVAILABLE, 'Customer not available'),
         (MANUFACTURING_DEFECT, 'Manufacturing Defect'),
-        (SHORT, 'Item short')
+        (SHORT, 'Item short'),
+        ('1','Customer not responding'),
+        ('2','Stock NA'),
+        ('3','Out of Range'),
+        ('4','Retailer Order'),
+        ('5','Others')
+    )
+    POS_WALKIN = 'pos_walkin'
+    POS_ECOMM = 'pos_ecomm'
+
+    ORDER_APP_TYPE = (
+        (POS_WALKIN, 'Pos Walkin'),  # 1
+        (POS_ECOMM, 'Pos Ecomm'),  # 2
     )
 
+    POS_WALKIN = 'pos_walkin'
+    POS_ECOMM = 'pos_ecomm'
+
+    ORDER_APP_TYPE = (
+        (POS_WALKIN, 'Pos Walkin'),  # 1
+        (POS_ECOMM, 'Pos Ecomm'),  # 2
+    )
     # Todo Remove
     seller_shop = models.ForeignKey(
         Shop, related_name='rt_seller_shop_order',
@@ -1008,6 +1036,7 @@ class Order(models.Model):
         null=True, blank=True, verbose_name='Reason for Cancellation',
     )
     order_closed = models.BooleanField(default=False, null=True, blank=True)
+    order_app_type = models.CharField(max_length=50, choices=ORDER_APP_TYPE, null=True, blank=True)
     ordered_by = models.ForeignKey(
         get_user_model(), related_name='rt_ordered_by_user',
         null=True, blank=True, on_delete=models.DO_NOTHING
@@ -1225,7 +1254,8 @@ class Order(models.Model):
         if self.ordered_cart.cart_type == 'ECOM' and self.order_status in [Order.ORDERED, Order.PICKUP_CREATED,
                                                                            Order.OUT_FOR_DELIVERY]:
             order_placed_at = self.created_at
-            delivery_span = get_config("pos_order_delivery_time_hours", None)
+            # delivery_span = get_config("pos_order_delivery_time_hours", None)
+            delivery_span = get_config_fofo_shop('Maximum Delivery time', self.ordered_cart.seller_shop.id)
             return (order_placed_at.replace(minute=0, second=0) + datetime.timedelta(
                 hours=int(delivery_span))).strftime("%b %d, %Y %-I:%M %p") if delivery_span else None
         return None
@@ -2300,7 +2330,7 @@ class OrderedProductMapping(models.Model):
     def basic_rate(self):
         get_tax_val = self.get_product_tax_json() / 100
         basic_rate = (float(self.effective_price) - float(self.product_cess_amount)) / (float(get_tax_val) + 1)
-        return round(basic_rate, 2)
+        return basic_rate
 
     @property
     def return_rate(self):
@@ -2323,12 +2353,15 @@ class OrderedProductMapping(models.Model):
 
     @property
     def base_price(self):
-        return float(self.basic_rate) * float(self.shipped_qty)
+        # return float(self.basic_rate) * float(self.shipped_qty)
+        get_tax_val = self.get_product_tax_json() / 100
+        return (float(self.effective_price) * float(self.shipped_qty)) / (float(get_tax_val) + 1)
 
     @property
     def product_tax_amount(self):
         get_tax_val = self.get_product_tax_json() / 100
-        return round((float(self.basic_rate) * float(self.shipped_qty)) * float(get_tax_val), 2)
+        return round((self.base_price * float(get_tax_val)), 2)
+        # return round((float(self.basic_rate) * float(self.shipped_qty)) * float(get_tax_val), 2)
 
     @property
     def total_product_cess_amount(self):
@@ -2562,6 +2595,7 @@ class ShipmentRescheduling(models.Model):
         blank=False, verbose_name='Reason for Rescheduling',
     )
     rescheduling_date = models.DateField(blank=False)
+    rescheduled_count = models.IntegerField(default=0)
     created_by = models.ForeignKey(
         get_user_model(),
         related_name='rescheduled_by',
@@ -2579,6 +2613,8 @@ class ShipmentRescheduling(models.Model):
 
     def save(self, *args, **kwargs):
         self.created_by = get_current_user()
+        # if self._state.adding is False:
+        #     self.rescheduled_count += 1
         super().save(*args, **kwargs)
 
 

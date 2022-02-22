@@ -6,9 +6,9 @@ from django.utils.translation import gettext_lazy as _
 from django.http import HttpResponse
 
 from rest_framework import serializers
-from categories.models import Category, CategoryPosation, CategoryData
+from categories.models import (Category, CategoryPosation, 
+                               CategoryData, B2cCategory, B2cCategoryData)
 from brand.models import Brand
-from categories.models import Category
 from products.api.v1.serializers import UserSerializers, LogSerializers
 from categories.common_function import CategoryCls
 from categories.common_validators import get_validate_category, validate_category_name, validate_category_sku_part, \
@@ -27,6 +27,24 @@ class CategorySerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Category
+        ref_name = "Category v1"
+        fields = ('id', 'category_name', 'category_desc', 'category_slug', 'category_sku_part', 'category_image',
+                  'status', 'category_product_log')
+
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        if representation['category_image']:
+            representation['category_image_png'] = representation['category_image']
+        return representation
+
+
+class B2cCategorySerializer(serializers.ModelSerializer):
+    category_product_log = LogSerializers(many=True, 
+                                          read_only=True)
+    
+    class Meta:
+        model = B2cCategory
+        ref_name = "B2c Category v1"
         fields = ('id', 'category_name', 'category_desc', 'category_slug', 'category_sku_part', 'category_image',
                   'status', 'category_product_log')
 
@@ -50,6 +68,15 @@ class CategoryDataSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = CategoryData
+        fields = ('id', 'category_pos', 'category_data', 'category_data_order')
+
+
+class B2cCategoryDataSerializer(serializers.ModelSerializer):
+    category_pos = CategoryPosSerializer()
+    category_data = B2cCategorySerializer()
+
+    class Meta:
+        model = B2cCategoryData
         fields = ('id', 'category_pos', 'category_data', 'category_data_order')
 
 
@@ -87,9 +114,48 @@ class SubCategorySerializer(serializers.ModelSerializer):
         return representation
 
 
+class B2cSubCategorySerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = B2cCategory
+        fields = ('id', 'category_name', 'category_desc', 'status', 'category_image')
+
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        if representation['category_image']:
+            representation['category_image_png'] = representation['category_image']
+        return representation
+
+
+class AllB2cCategorySerializer(serializers.ModelSerializer):
+    b2c_cat_parent = B2cSubCategorySerializer(many=True, read_only=True)
+
+    class Meta:
+        model = B2cCategory
+        fields = ('id', 'category_name', 'b2c_cat_parent', 'category_image', 'category_desc')
+
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        if representation['category_image']:
+            representation['category_image_png'] = representation['category_image']
+        return representation
+
+
 class ParentCategorySerializers(serializers.ModelSerializer):
     class Meta:
         model = Category
+
+        fields = ('id', 'category_name', 'category_image')
+
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        if representation['category_image']:
+            representation['category_image_png'] = representation['category_image']
+        return representation
+
+class B2cParentCategorySerializers(serializers.ModelSerializer):
+    class Meta:
+        model = B2cCategory
 
         fields = ('id', 'category_name', 'category_image')
 
@@ -114,6 +180,93 @@ class SubCategorySerializers(serializers.ModelSerializer):
             representation['category_name'] = representation['category_name'].title()
         if representation['category_image']:
             representation['category_image_png'] = representation['category_image']
+        return representation
+
+
+class B2cSubCategorySerializers(serializers.ModelSerializer):
+
+    class Meta:
+        model = B2cCategory
+
+        fields = ('id', 'category_name', 'category_name', 'category_desc', 'category_slug',
+                  'category_sku_part', 'category_image', 'status',)
+
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        if representation['category_name']:
+            representation['category_name'] = representation['category_name'].title()
+        if representation['category_image']:
+            representation['category_image_png'] = representation['category_image']
+        return representation
+
+
+class B2cCategoryCrudSerializers(serializers.ModelSerializer):
+    cat_parent = B2cSubCategorySerializers(many=True, read_only=True)
+    category_parent = B2cParentCategorySerializers(read_only=True)
+    category_slug = serializers.SlugField(required=False, allow_null=True, allow_blank=True)
+    updated_by = UserSerializers(write_only=True, required=False)
+    category_log = LogSerializers(many=True, read_only=True)
+
+    class Meta:
+        model = B2cCategory
+        fields = ('id', 'category_name', 'category_desc', 'category_slug', 'category_sku_part', 'category_image',
+                  'updated_by', 'status', 'category_parent', 'category_log', 'cat_parent')
+
+    def validate(self, data):
+        """ category_slug validation."""
+        if not 'category_slug' in self.initial_data or not self.initial_data['category_slug']:
+            data['category_slug'] = slugify(data.get('category_name'))
+
+        if 'category_parent' in self.initial_data and self.initial_data['category_parent'] is not None:
+            cat_val = get_validate_category(self.initial_data['category_parent'], b2c=True)
+            if 'error' in cat_val:
+                raise serializers.ValidationError(cat_val['error'])
+            data['category_parent'] = cat_val['category']
+
+        cat_id = self.instance.id if self.instance else None
+        if 'category_name' in self.initial_data and self.initial_data['category_name'] is not None:
+            cat_obj = validate_category_name(self.initial_data['category_name'], cat_id, b2c=True)
+            if cat_obj is not None and 'error' in cat_obj:
+                raise serializers.ValidationError(cat_obj['error'])
+
+        if 'category_sku_part' in self.initial_data and self.initial_data['category_sku_part'] is not None:
+            cat_obj = validate_category_sku_part(self.initial_data['category_sku_part'], cat_id, b2c=True)
+            if cat_obj is not None and 'error' in cat_obj:
+                raise serializers.ValidationError(cat_obj['error'])
+
+        if 'category_slug' in self.initial_data and self.initial_data['category_slug'] is not None:
+            cat_obj = validate_category_slug(self.initial_data['category_slug'], cat_id, b2c=True)
+            if cat_obj is not None and 'error' in cat_obj:
+                raise serializers.ValidationError(cat_obj['error'])
+
+        return data
+
+    @transaction.atomic
+    def create(self, validated_data):
+        try:
+            category = B2cCategory.objects.create(**validated_data)
+            CategoryCls.create_category_log(category, "created", b2c=True)
+        except Exception as e:
+            error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
+            raise serializers.ValidationError(error)
+
+        return category
+
+    @transaction.atomic
+    def update(self, instance, validated_data):
+        try:
+            category = super().update(instance, validated_data)
+            CategoryCls.create_category_log(category, "updated", b2c=True)
+        except Exception as e:
+            error = {'message': e.args[0] if len(e.args) > 0 else 'Unknown Error'}
+            raise serializers.ValidationError(error)
+
+        return category
+
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        if representation['category_name']:
+            representation['category_name'] = representation['category_name'].title()
         return representation
 
 
@@ -224,3 +377,40 @@ class CategoryExportAsCSVSerializers(serializers.ModelSerializer):
             writer.writerow([getattr(obj, field) for field in field_names])
         return response
 
+
+class B2cCategoryExportAsCSVSerializers(serializers.ModelSerializer):
+    category_id_list = serializers.ListField(
+        child=serializers.IntegerField(required=True)
+    )
+
+    class Meta:
+        model = B2cCategory
+        fields = ('category_id_list',)
+    
+    def validate(self, data):
+
+        if len(data.get('category_id_list')) == 0:
+            raise serializers.ValidationError(_('Atleast one category id must be selected '))
+
+        for c_id in data.get('category_id_list'):
+            try:
+                B2cCategory.objects.get(id=c_id)
+            except ObjectDoesNotExist:
+                raise serializers.ValidationError(f'category not found for id {c_id}')
+
+        return data
+    
+    def create(self, validated_data):
+        meta = B2cCategory._meta
+        exclude_fields = ['created_at', 'updated_at', 'created_by', 'updated_by']
+        field_names = [field.name for field in meta.fields if field.name not in exclude_fields]
+
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename={}.csv'.format(meta)
+
+        writer = csv.writer(response)
+        writer.writerow(field_names)
+        queryset = B2cCategory.objects.filter(id__in=validated_data['category_id_list'])
+        for obj in queryset:
+            writer.writerow([getattr(obj, field) for field in field_names])
+        return response

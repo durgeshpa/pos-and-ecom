@@ -7,8 +7,9 @@ from django.core.exceptions import ValidationError
 
 from django.contrib.auth import get_user_model
 
-from shops.models import DayBeatPlanning, ParentRetailerMapping, Product, Shop, ShopDocument, ShopInvoicePattern, ShopPhoto, \
-    ShopType, ShopUserMapping, RetailerType
+from shops.models import DayBeatPlanning, ParentRetailerMapping, Product, Shop, ShopDocument, ShopInvoicePattern, \
+    ShopPhoto, \
+    ShopType, ShopUserMapping, RetailerType, FOFOConfigSubCategory, FOFOConfigurations, FOFOConfigCategory
 from addresses.models import City, Pincode, State
 from addresses.models import address_type_choices
 from django.contrib.auth.models import Group
@@ -93,8 +94,8 @@ def get_validate_shop_documents(shop_documents):
     for shop_doc in shop_documents:
         shop_doc_obj = shop_doc
         try:
-            if 'shop_document_photo' not in shop_doc or not shop_doc['shop_document_photo'] :
-                return {'error': "'shop_document_photo' | This field is required."}
+            # if 'shop_document_photo' not in shop_doc or not shop_doc['shop_document_photo'] :
+            #     return {'error': "'shop_document_photo' | This field is required."}
 
             if 'shop_document_type' not in shop_doc or not shop_doc['shop_document_type'] :
                 return {'error': "'shop_document_type' | This field is required."}
@@ -102,7 +103,7 @@ def get_validate_shop_documents(shop_documents):
             if 'shop_document_number' not in shop_doc or not shop_doc['shop_document_number'] :
                 return {'error': "'shop_document_number' | This field is required."}
 
-            if 'id' not in shop_doc:
+            if 'id' not in shop_doc and 'shop_document_photo' in shop_doc and shop_doc['shop_document_photo']:
                 try:
                     shop_doc_photo = to_file(shop_doc['shop_document_photo'])
                     shop_doc_obj['shop_document_photo'] = shop_doc_photo
@@ -114,6 +115,11 @@ def get_validate_shop_documents(shop_documents):
             if 'error' in shop_doc_type:
                 return shop_doc_type
             shop_doc_obj['shop_document_type'] = shop_doc_type['shop_type']
+            if not shop_doc_obj['shop_document_type'] == ShopDocument.UIDAI or \
+                not shop_doc_obj['shop_document_type'] == ShopDocument.PASSPORT or not shop_doc_obj['shop_document_type'] == ShopDocument.DL \
+                or not shop_doc_obj['shop_document_type'] == ShopDocument.EC:
+                if 'shop_document_photo' not in shop_doc or not shop_doc['shop_document_photo'] :
+                    return {'error': "'shop_document_photo' | This field is required."}
 
             if shop_doc['shop_document_type'] == ShopDocument.GSTIN:
                 shop_doc_num = validate_gstin_number(
@@ -927,3 +933,62 @@ def get_logged_user_wise_query_set_for_seller_shop(user, queryset):
     else:
         queryset = queryset.none()
     return queryset
+
+
+def validate_fofo_sub_category(sub_cat_ids, shop):
+    """ validate FOFO sub category id """
+    sub_cat_list = []
+    sub_cat_obj = []
+    for sub_cat_id in sub_cat_ids:
+        data_obj = {}
+        # Validate mandatory fields
+        if 'key' not in sub_cat_id or not sub_cat_id['key']:
+            return {'error': "'key': This is mandatory."}
+        if 'name' not in sub_cat_id or not sub_cat_id['name']:
+            return {'error': "'key name': This is mandatory."}
+        if 'value' not in sub_cat_id:
+            return {'error': "'value': This is mandatory."}
+
+        # Validate key for FOFO Configurations
+        try:
+            fofo_sub_cat_obj = FOFOConfigSubCategory.objects.get(id=sub_cat_id['key'])
+        except Exception as e:
+            logger.error(e)
+            return {'error': 'option {} not found'.format(sub_cat_id['key'])}
+        if str(fofo_sub_cat_obj.name).lower() != str(sub_cat_id['name']).lower():
+            return {'error': 'name {} not found'.format(sub_cat_id['name'])}
+        if sub_cat_id['value'] and fofo_sub_cat_obj.type != (sub_cat_id['value']).__class__.__name__:
+            if fofo_sub_cat_obj.type == 'float':
+                try:
+                    float(sub_cat_id['value'])
+                    sub_cat_id['value'] = float(sub_cat_id['value'])
+                except ValueError:
+                    return {'error': 'value {} can only be {} type'.format(sub_cat_id['value'],
+                                                                           fofo_sub_cat_obj.get_type_display())}
+            else:
+                return {'error': 'value {} can only be {} type'.format(sub_cat_id['value'],
+                                                                       fofo_sub_cat_obj.get_type_display())}
+        # check for update / create validation for existing data
+        if 'id' in sub_cat_id and sub_cat_id['id']:
+            if not FOFOConfigurations.objects.filter(id=sub_cat_id['id'], shop=shop, key=fofo_sub_cat_obj).exists():
+                return {'error': f"No configuration {fofo_sub_cat_obj} found for the store."}
+            data_obj['id'] = sub_cat_id['id']
+        elif FOFOConfigurations.objects.filter(shop=shop, key=fofo_sub_cat_obj).exists():
+            return {'error': f" {fofo_sub_cat_obj} already exist for the store."}
+
+        data_obj["key"] = fofo_sub_cat_obj.pk
+        data_obj["value"] = sub_cat_id['value']
+        data_obj['shop'] = shop.pk
+        sub_cat_obj.append(data_obj)
+        if fofo_sub_cat_obj in sub_cat_list:
+            return {'error': '{} do not repeat same key for one shop'.format(fofo_sub_cat_obj)}
+        sub_cat_list.append(fofo_sub_cat_obj)
+    return {'data': sub_cat_obj}
+
+
+def get_validate_category(category_id):
+    try:
+        category = FOFOConfigCategory.objects.get(id=category_id)
+    except Exception as e:
+        return {'error': '{} selected option not found'.format(category_id)}
+    return {'data': category}

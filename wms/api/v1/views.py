@@ -2,6 +2,8 @@ import logging
 
 from django.utils import timezone
 
+from global_config.models import GlobalConfig
+from global_config.views import get_config
 from retailer_backend.messages import ERROR_MESSAGES
 from retailer_backend.utils import SmallOffsetPagination
 from wms.models import Bin, Putaway, PutawayBinInventory, BinInventory, InventoryType, Pickup, InventoryState, \
@@ -447,11 +449,11 @@ class PickupList(APIView):
                                     output_field=models.CharField(),
                                 )).\
             order_by('order__created_at', 'repackaging__created_at')
+        validate_request = validate_pickup_request(request)
         self.queryset = get_logged_user_wise_query_set_for_pickup_list(self.request.user, 1, self.queryset)
 
-        validate_request = validate_pickup_request(request)
         if "error" in validate_request:
-            return Response({'is_success': True, 'message': validate_request['error'], 'data': None},
+            return Response({'is_success': False, 'message': validate_request['error'], 'data': None},
                             status=status.HTTP_200_OK)
 
         self.queryset = self.filter_pickup_list_data()
@@ -507,16 +509,16 @@ class PickupList(APIView):
             self.queryset = self.queryset.filter(picking_status__iexact=picking_status)
 
         if selected_date:
-            if data_days:
-                end_date = datetime.datetime.strptime(selected_date, "%Y-%m-%d")
-                start_date = end_date - datetime.timedelta(days=int(data_days))
-                end_date = end_date + datetime.timedelta(days=1)
-                self.queryset = self.queryset.filter(
-                    created_at__gte=start_date.date(), created_at__lt=end_date.date())
-            else:
-                selected_date = datetime.datetime.strptime(selected_date, "%Y-%m-%d")
-                self.queryset = self.queryset.filter(created_at__date=selected_date)
+            selected_date = datetime.datetime.strptime(selected_date, "%Y-%m-%d")
+            end_date = selected_date.replace(hour=23, minute=59, second=59)
+            if selected_date.date() == datetime.datetime.today().date():
+                end_date = selected_date.replace(hour=get_config('PICKING_END_HOUR', 17),
+                                                 minute=get_config('PICKING_END_MINUTE', 0), second=0)
 
+            start_date = end_date.replace(hour=0, minute=0, second=0)
+            if data_days:
+                start_date = end_date.replace(hour=0, minute=0, second=0) - datetime.timedelta(days=int(data_days))
+            self.queryset = self.queryset.filter(created_at__gte=start_date, created_at__lte=end_date)
         return self.queryset
 
 
@@ -565,7 +567,7 @@ class BinIDList(APIView):
         pickup_assigned_date = pd_qs.last().picker_assigned_date
         zones = pd_qs.values_list('zone', flat=True)
         pickup_bin_obj = PickupBinInventory.objects.filter(pickup__pickup_type_id=order_no,
-                                                           pickup__zone__in=zones, quantity__gt=0) \
+                                                           pickup__zone__in=zones) \
                                                    .exclude(pickup__status='picking_cancelled')\
                                                    .prefetch_related('bin__bin')\
                                                    .order_by('bin__bin__bin_id')
@@ -614,6 +616,7 @@ class PickupDetail(APIView):
     @check_picker
     def get(self, request):
         info_logger.info("Pick up detail GET API called.")
+        info_logger.info(f"PickupDetail | GET | request user {request.user}, param {request.GET}" )
         order_no = request.GET.get('order_no')
         if not order_no:
             msg = {'is_success': True, 'message': 'Order number field is empty.', 'data': None}
@@ -633,23 +636,18 @@ class PickupDetail(APIView):
             msg = {'is_success': True, 'message': 'Bin id is not empty.', 'data': None}
             return Response(msg, status=status.HTTP_200_OK)
 
-        bin_obj = Bin.objects.filter(bin_id=bin_id, is_active=True)
+        bin_obj = Bin.objects.filter(bin_id=bin_id, is_active=True, warehouse=warehouse).last()
         if not bin_obj:
-            msg = {'is_success': False, 'message': "Bin id is not activated", 'data': None}
+            msg = {'is_success': False, 'message': "Invalid bin.", 'data': None}
             return Response(msg, status=status.HTTP_200_OK)
 
-        bin_ware_obj = Bin.objects.filter(bin_id=bin_id, is_active=True,
-                                          warehouse=warehouse)
-        if not bin_ware_obj:
-            msg = {'is_success': False, 'message': "Bin id is not associated with the user's warehouse.", 'data': None}
-            return Response(msg, status=status.HTTP_200_OK)
-
-        picking_details = PickupBinInventory.objects.filter(pickup__pickup_type_id=order_no, bin__bin__bin_id=bin_id,
-                                                            pickup__zone__picker_users=request.user, quantity__gt=0)\
+        picking_details = PickupBinInventory.objects.filter(pickup__pickup_type_id=order_no, bin__bin=bin_obj,
+                                                            pickup__zone__picker_users=request.user)\
                                                     .exclude(pickup__status='picking_cancelled')
 
         if not picking_details.exists():
             msg = {'is_success': False, 'message': ERROR_MESSAGES['PICK_BIN_DETAILS_NOT_FOUND'], 'data': None}
+            info_logger.info(f"PickupDetail | GET | response {msg}" )
             return Response(msg, status=status.HTTP_200_OK)
         order = Order.objects.filter(order_no=order_no).last()
         pd_qs = PickerDashboard.objects.filter(order=order, zone__picker_users=request.user)
@@ -661,11 +659,13 @@ class PickupDetail(APIView):
         msg = {'is_success': True, 'message': 'OK',
                'data': {'picking_details': serializer.data, 'pickup_created_at': pickup_assigned_date,
                         'current_time': datetime.datetime.now()}}
+        info_logger.info(f"PickupDetail | GET | response {msg}" )
         return Response(msg, status=status.HTTP_200_OK)
 
     @check_picker
     def post(self, request):
         info_logger.info("Pick up detail POST API called.")
+        info_logger.info(f"PickupDetail | POST | request user {request.user}, data{request.data}" )
         msg = {'is_success': False, 'message': 'Missing Required field.', 'data': None}
         try:
             warehouse = request.user.shop_employee.all().last().shop_id
@@ -759,8 +759,7 @@ class PickupDetail(APIView):
             for j, i in diction.items():
                 picking_details = PickupBinInventory.objects.filter(pickup__pickup_type_id=order_no,
                                                                     pickup__zone__picker_users=request.user,
-                                                                    bin__bin__bin_id=bin_id, pickup__sku__id=j,
-                                                                    quantity__gt=0)\
+                                                                    bin__bin__bin_id=bin_id, pickup__sku__id=j)\
                                                             .exclude(pickup__status='picking_cancelled')
                 if picking_details.count() == 0:
                     return Response({'is_success': False,
@@ -772,7 +771,7 @@ class PickupDetail(APIView):
                     total_to_be_picked = i['total_to_be_picked_qty']
                     info_logger.info("PickupDetail|POST|Pickup Started for SKU-{}, Qty-{}, Bin-{}"
                                      .format(j, pickup_quantity, bin_id))
-                    if total_to_be_picked != picking_details.last().quantity :
+                    if total_to_be_picked != picking_details.last().quantity:
                         return Response({'is_success': False,
                                          'message': "To be Picked qty has changed, please revise your input for "
                                                     "Picked qty",
@@ -938,10 +937,12 @@ class PickupComplete(APIView):
                                                                                              tr_type,
                                                                                              pickup.pk,
                                                                                              reverse_quantity)
-                                # Entry in warehouse table
-                                CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
-                                    pickup_bin.warehouse, pickup_bin.pickup.sku, inventory_type, state_to_be_picked,
-                                    -1*reverse_quantity, tr_type, pickup.pk)
+                        # Entry in warehouse table
+                        reverse_pickup_qty = pickup.quantity - pickup.pickup_quantity
+                        if reverse_pickup_qty > 0:
+                            CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
+                                pickup.warehouse, pickup.sku, inventory_type, state_to_be_picked,
+                                -1*reverse_pickup_qty, tr_type, pickup.pk)
 
                         info_logger.info("PickupComplete : Pickup completed for order - {}, sku - {}"
                                          .format(pickup.pickup_type_id, pickup.sku))

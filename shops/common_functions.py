@@ -129,6 +129,9 @@ class ShopCls(object):
         beat_planning_objs = BeatPlanning.objects.filter(executive=executive_user)
         if beat_planning_objs:
             beat_planning_objs.update(status=False)
+            day_beat_plan = DayBeatPlanning.objects.filter(beat_plan__in=beat_planning_objs, next_plan_date__gt=datetime.date.today())
+            day_beat_plan.update(status=False)
+
 
     @classmethod
     def update_shop(cls, validated_data):
@@ -342,6 +345,22 @@ def serializer_error(serializer):
                 result = ''.join('{} : {}'.format(field, error))
             errors.append(result)
     return errors[0]
+
+
+def serializer_error_batch(serializer):
+    """
+        Serializer Error Method
+    """
+    errors = []
+    for error_s in serializer.errors:
+        for field in error_s:
+            for error in error_s[field]:
+                if 'non_field_errors' in field:
+                    result = error
+                else:
+                    result = ''.join('{} : {}'.format(field, error))
+                errors.append(result)
+    return errors
 
 
 def get_excel_file_data(excel_file):

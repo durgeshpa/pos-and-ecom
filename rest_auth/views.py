@@ -276,7 +276,7 @@ class EcomAccessView(APIView):
             else:
                 send_otp = 1
             if send_otp:
-                msg, status_code = RequestOTPCls.process_otp_request(data['phone_number'], "1")
+                msg, status_code = RequestOTPCls.process_otp_request(data['phone_number'], "1",'3')
             msg['response_data'] = {'user_exists': user_exists, 'is_ecom': is_ecom, 'is_mlm': is_mlm}
             return Response(msg, status_code)
         else:

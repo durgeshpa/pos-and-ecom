@@ -14,7 +14,7 @@ from retailer_backend.validators import PinCodeValidator
 
 from shops.models import (BeatPlanning, RetailerType, ShopType, Shop, ShopPhoto,
                           ShopDocument, ShopInvoicePattern, ShopUserMapping, SHOP_TYPE_CHOICES, ParentRetailerMapping,
-                          DayBeatPlanning)
+                          DayBeatPlanning, ShopStatusLog)
 from addresses.models import Address, City, Pincode, State, address_type_choices, DispatchCenterPincodeMapping, \
     DispatchCenterCityMapping
 
@@ -255,6 +255,7 @@ class StateAddressSerializer(serializers.ModelSerializer):
 class PincodeSerializer(serializers.ModelSerializer):
     class Meta:
         model = Pincode
+        ref_name = 'Pin Code Serializer v2'
         fields = '__all__'
 
 
@@ -309,6 +310,7 @@ class AddressSerializer(serializers.ModelSerializer):
 class UserSerializers(serializers.ModelSerializer):
     class Meta:
         model = User
+        ref_name = 'User Serializer v2'
         fields = ('id', 'first_name', 'last_name', 'phone_number',)
 
 
@@ -317,6 +319,7 @@ class ShopBasicSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Shop
+        ref_name = 'Shop Basic Serializer v2'
         fields = ('id', 'shop_name', 'shop_owner')
 
     def get_shop_repr(self, obj):
@@ -376,6 +379,7 @@ class PincodeDataSerializers(serializers.ModelSerializer):
 
 class ShopDocumentDataSerializers(serializers.ModelSerializer):
     shop_document_type = ChoiceField(choices=ShopDocument.SHOP_DOCUMENTS_TYPE_CHOICES)
+
     class Meta:
         model = ShopDocument
         fields = ('id', 'shop_document_type', 'shop_document_number', 'shop_document_photo')
@@ -524,8 +528,8 @@ class ShopCrudSerializers(serializers.ModelSerializer):
             if 'error' in shop_documents:
                 raise serializers.ValidationError((shop_documents["error"]))
             data['shop_name_documents'] = shop_documents['data']
-        else:
-            raise serializers.ValidationError("atleast one shop document is required")
+        # else:
+        #     raise serializers.ValidationError("atleast one shop document is required")
 
         if 'shop_name_address_mapping' in self.initial_data and self.initial_data['shop_name_address_mapping']:
             addresses = get_validate_shop_address(self.initial_data['shop_name_address_mapping'])
@@ -576,7 +580,9 @@ class ShopCrudSerializers(serializers.ModelSerializer):
         validated_data.pop('shop_name_documents', None)
         validated_data.pop('shop_name_photos', None)
         validated_data.pop('retiler_mapping', None)
-
+        new_approval_status = validated_data.get('approval_status', None)
+        old_approval_status = getattr(instance, 'approval_status')
+        request = self.context.get('request', None)
         try:
             # call super to save modified instance along with the validated data
             shop_instance = super().update(instance, validated_data)
@@ -586,6 +592,15 @@ class ShopCrudSerializers(serializers.ModelSerializer):
 
         self.cr_up_addrs_imgs_docs_parentshop_relateduser(shop_instance, "updated")
         ShopCls.create_shop_log(shop_instance, "updated")
+
+        if old_approval_status != new_approval_status:
+            if new_approval_status == 0:
+                reason = 'Disapproved'
+            elif new_approval_status == 1:
+                reason = 'Awaiting Approval'
+            else:
+                reason = 'Approved'
+            ShopStatusLog.objects.create(reason=reason, user=request.user, shop=instance)
         return shop_instance
 
     def cr_up_addrs_imgs_docs_parentshop_relateduser(self, shop, action):
@@ -912,10 +927,13 @@ class DisapproveSelectedShopSerializers(serializers.ModelSerializer):
     def update(self, instance, validated_data):
 
         try:
+            request = self.context.get('request', None)
             parent_products = Shop.objects.filter(
                 id__in=validated_data['shop_id_list'])
             parent_products.update(approval_status=int(validated_data['approval_status']),
                                    updated_by=validated_data['updated_by'], updated_at=timezone.now())
+            for shop in parent_products:
+                ShopStatusLog.objects.create(reason='Disapproved', user=request.user, shop=shop)
         except Exception as e:
             error = {'message': ",".join(e.args) if len(
                 e.args) > 0 else 'Unknown Error'}
@@ -931,6 +949,7 @@ class StateSerializer(serializers.ModelSerializer):
 
 
 class CitySerializer(serializers.ModelSerializer):
+    ref_name = 'Shop City v2'
     state = StateSerializer()
 
     class Meta:
@@ -1237,3 +1256,44 @@ class BeatPlanningSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(error)
 
         return validated_data
+
+
+class DownloadShopStatusCSVSerializer(serializers.ModelSerializer):
+    shop_id_list = serializers.ListField(
+        child=serializers.IntegerField(required=True)
+    )
+
+    class Meta:
+        model = Shop
+        fields = ('shop_id_list',)
+
+    def validate(self, data):
+
+        if len(data.get('shop_id_list')) == 0:
+            raise serializers.ValidationError(_('Atleast one shop id must be selected '))
+
+        for s_id in data.get('shop_id_list'):
+            try:
+                Shop.objects.get(id=s_id)
+            except ObjectDoesNotExist:
+                raise serializers.ValidationError(
+                    f'shop not found for id {s_id}')
+
+        return data
+
+    def create(self, validated_data):
+        meta = Shop._meta
+        field_names = ['shop_id', 'shop_name', 'reason', 'changed at', 'user_id', 'user_name']
+
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename={}.csv'.format(meta)
+
+        writer = csv.writer(response)
+        writer.writerow(field_names)
+        for s_id in validated_data['shop_id_list']:
+            data = ShopStatusLog.objects.values_list(
+                'shop__id', 'shop__shop_name', 'reason', 'changed_at', 'user__id', 'user__first_name') \
+                .filter(shop__id=s_id)
+            for obj in data:
+                writer.writerow(list(obj))
+        return response

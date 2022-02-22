@@ -116,7 +116,10 @@ class UploadMasterDataSerializers(serializers.ModelSerializer):
     def create(self, validated_data):
         try:
             with transaction.atomic():
-                create_update_master_data(validated_data)
+                category = None
+                if self.initial_data['category_id']:
+                    category = self.initial_data['category_id'].id
+                create_update_master_data(validated_data, category)
         except Exception as e:
             error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
             raise serializers.ValidationError(error)
@@ -179,6 +182,7 @@ class ParentProductImageSerializers(serializers.ModelSerializer):
 
     class Meta:
         model = ParentProductImage
+        ref_name = 'Parent Product Image v2'
         fields = ('image',)
 
     def create(self, validated_data):

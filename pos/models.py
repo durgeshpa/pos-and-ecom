@@ -1,27 +1,41 @@
+import datetime
+import logging
 from decimal import Decimal
 
-from django.utils.safestring import mark_safe
-from django.db import models
-
-from django.utils.translation import gettext_lazy as _
+from django.contrib.auth import get_user_model
+from django.core.exceptions import ValidationError
 from django.core.validators import MinValueValidator
+from django.db import models
+from django.urls import reverse
+from django.utils.safestring import mark_safe
+from django.utils.translation import gettext_lazy as _
 from model_utils import Choices
 
-from addresses.models import City, State, Pincode
-from shops.models import Shop, PosShopUserMapping
-from products.models import Product
-from retailer_backend.validators import ProductNameValidator, NameValidator, AddressNameValidator, PinCodeValidator
 from accounts.models import User
-from wms.models import PosInventory, PosInventoryState, PosInventoryChange
+from addresses.models import City, State, Pincode
+from coupon.models import Coupon, CouponRuleSet, RuleSetProductMapping
+from pos.bulk_product_creation import bulk_create_update_validated_products
+from pos.common_bulk_validators import bulk_product_validation
+from products.models import Product
+from products.models import ProductTaxMapping
+from retailer_backend.validators import ProductNameValidator, NameValidator, AddressNameValidator, PinCodeValidator
 from retailer_to_sp.models import (OrderReturn, OrderedProduct, ReturnItems, Cart, CartProductMapping,
                                    OrderedProductMapping, Order)
-from coupon.models import Coupon, CouponRuleSet, RuleSetProductMapping
+from shops.models import Shop
+from wms.models import PosInventory, PosInventoryState, PosInventoryChange
 
 PAYMENT_MODE_POS = (
     ('cash', 'Cash Payment'),
     ('online', 'Online Payment'),
     ('credit', 'Credit Payment')
 )
+
+logger = logging.getLogger(__name__)
+
+# Logger
+info_logger = logging.getLogger('file-info')
+error_logger = logging.getLogger('file-error')
+debug_logger = logging.getLogger('file-debug')
 
 
 class MeasurementCategory(models.Model):
@@ -72,6 +86,7 @@ class RetailerProduct(models.Model):
                                          default='packet')
     measurement_category = models.ForeignKey(MeasurementCategory, on_delete=models.DO_NOTHING, null=True)
     purchase_pack_size = models.PositiveIntegerField(default=1)
+    initial_purchase_value = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
     online_enabled = models.BooleanField(default=True)
@@ -100,6 +115,10 @@ class RetailerProduct(models.Model):
     @property
     def product_price(self):
         return self.selling_price
+
+    @property
+    def product_tax(self):
+        return ProductTaxMapping.objects.filter(product=self.id).first().tax if ProductTaxMapping.objects.filter(product=self.id).first() else 0
 
     def save(self, *args, **kwargs):
         # Discounted
@@ -151,7 +170,25 @@ class ShopCustomerMap(models.Model):
 
 
 class PaymentType(models.Model):
-    type = models.CharField(max_length=20, unique=True)
+    POS_PAYMENT_TYPE_CHOICES = (
+        ('cash', 'Cash'),
+        ('online', 'Online'),
+        ('credit', 'Credit')
+    )
+    ECOM_PAYMENT_TYPE_CHOICES = (
+        ('cod', 'Cash on Delivery'),
+        ('cod_upi', 'UPI on Cash on Delivery'),
+        ('online', 'Online'),
+        ('credit', 'Credit')
+    )
+    TYPE_CHOICES = (
+            ('cash', 'Cash'),
+            ('online', 'Online'),
+            ('credit', 'Credit'),
+            ('cod', 'Cash on Delivery'),
+            ('cod_upi', 'UPI on Cash on Delivery')
+    )
+    type = models.CharField(max_length=50, choices=TYPE_CHOICES)
     enabled = models.BooleanField(default=True)
     app = models.CharField(choices=(('pos', 'POS'), ('ecom', 'ECOM'), ('both', 'Both')), default='pos', max_length=20)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -160,16 +197,42 @@ class PaymentType(models.Model):
     class Meta:
         verbose_name = 'Payment Mode'
         verbose_name_plural = _("Payment Modes")
+        unique_together = ('app', 'type',)
 
     def __str__(self) -> str:
         return self.type
 
 
 class Payment(models.Model):
+    PAYMENT_PENDING = "payment_pending"
+    PAYMENT_APPROVED = "payment_approved"
+    PAYMENT_FAILED = "payment_failed"
+    PAYMENT_STATUS = (
+        (PAYMENT_PENDING, "Payment Pending"),
+        (PAYMENT_APPROVED, "Payment Approved"),
+        (PAYMENT_FAILED, "Payment Failed"),
+        ('to_be_reconsile', 'TO_BE_RECONSILE'),
+        ('payment_conflict', 'RECONSILE_CONFLICT'),
+        ('double_payment', 'DOUBLE_PAYMENT'),
+        ('payment_not_required', 'PAYMENT_NOT_REQUIRED'),
+
+    )
+    MODE_CHOICES = (
+        ('CREDIT_CARD', 'Credit Card'),
+        ('DEBIT_CARD', 'Debit Card'),
+        ('UPI', 'UPI'),
+        ('NET_BANKING', 'Net Banking'),
+        ('WALLET', 'Wallet'),
+    )
     order = models.ForeignKey('retailer_to_sp.Order', related_name='rt_payment_retailer_order',
                               on_delete=models.DO_NOTHING)
-    payment_type = models.ForeignKey(PaymentType, default=None, null=True, related_name='payment_type_payment', on_delete=models.DO_NOTHING)
-    transaction_id = models.CharField(max_length=70, default=None, null=True, blank=True, help_text="Transaction ID for Non Cash Payments.")
+    payment_type = models.ForeignKey(PaymentType, default=None, null=True, related_name='payment_type_payment',
+                                     on_delete=models.DO_NOTHING)
+    payment_status = models.CharField(max_length=50, null=True, blank=True, choices=PAYMENT_STATUS, )
+    payment_mode = models.CharField(max_length=50, null=True, blank=True, choices=MODE_CHOICES, )
+    transaction_id = models.CharField(max_length=70, default=None, null=True, blank=True,
+                                      help_text="Transaction ID for Non Cash Payments.")
+    payment_id = models.CharField(max_length=50, blank=True, null=True, default=None)
     paid_by = models.ForeignKey(User, related_name='rt_payment_retailer_buyer', null=True, blank=True,
                                 on_delete=models.DO_NOTHING)
     processed_by = models.ForeignKey(User, related_name='rt_payment_retailer', null=True, blank=True,
@@ -177,10 +240,55 @@ class Payment(models.Model):
     amount = models.DecimalField(max_digits=10, decimal_places=2, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
+    is_refund = models.BooleanField(default=False, blank=True , null=True)
+    request_id = models.CharField(max_length=18, blank=True, null=True)
+    refund_amount = models.DecimalField(max_digits=10, decimal_places=2, null=True)
+    refund_status = models.CharField(max_length=18, blank=True, null=True)
+
 
     class Meta:
         verbose_name = 'Buyer - Payment'
 
+# class PaymentRefund(models.Model):
+#     """Refund ammount models ..............."""
+#     = models.ForeignKey(Payment, default=None, null=True, related_name='payment_type_payment',
+#                                      on_delete=models.DO_NOTHING)
+#     request_id = models.CharField(max_length=18, blank=True, null=True)
+#     refund_amount = models.DecimalField(max_digits=10, decimal_places=2, null=True)
+#     status = models.CharField(max_length=18, blank=True, null=True)
+#     class Meta:
+#         verbose_name = 'Payment Refund'
+
+
+
+class PaymentReconsile(models.Model):
+    """payment reconsilation models ....."""
+    PAYMENT_RECONSILE = 'to_be_reconsile'
+    PAYMENT_STATUS = (('to_be_reconsile', 'TO_BE_RECONSILE'),
+        ('payment_not_found', 'PAYMENT_NOT_FOUND'),
+        ('payment_failed', 'PAYMENT_FAILED'),
+        ('payment_success', 'PAYMENT_SUCCESS'),
+        ('payment_conflict', 'RECONSILE_CONFLICT'),
+        ('double_payment', 'DOUBLE_PAYMENT'),
+        ('payment_not_required', 'PAYMENT_NOT_REQUIRED'),
+        )
+    MODE_CHOICES = (
+        ('CREDIT_CARD', 'Credit Card'),
+        ('DEBIT_CARD', 'Debit Card'),
+        ('UPI', 'UPI'),
+        ('NET_BANKING', 'Net Banking'),
+        ('WALLET', 'Wallet'),
+    )
+    tranjection_id = models.CharField(max_length=50,)
+    reconcile_status = models.CharField(max_length=50, default=PAYMENT_RECONSILE, choices=PAYMENT_STATUS)
+    payment_id = models.CharField(max_length=50, blank=True, null=True, default=None)
+    amount = models.DecimalField(max_digits=10, decimal_places=2, null=True)
+    payment_mode = models.CharField(max_length=50, default=None, blank=True , null=True)
+    count = models.IntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
+    class Meta:
+        verbose_name = 'Payment-Reconsile'
 
 class DiscountedRetailerProduct(RetailerProduct):
     class Meta:
@@ -383,7 +491,10 @@ class PosGRNOrderProductMapping(models.Model):
             po_product = PosCartProductMapping.objects.filter(
                 cart=self.grn_order.order.ordered_cart, product=self.product).last()
             default_unit = MeasurementUnit.objects.get(category=self.product.measurement_category, default=True)
-            return round(Decimal(qty) * default_unit.conversion / po_product.qty_conversion_unit.conversion, 3)
+            if po_product.qty_conversion_unit:
+                return round(Decimal(qty) * default_unit.conversion / po_product.qty_conversion_unit.conversion, 3)
+            else:
+                return round(Decimal(qty) * default_unit.conversion / default_unit.conversion, 3)
         elif self.product.product_pack_type == 'packet' and qty:
             return int(qty)
         return qty
@@ -391,8 +502,12 @@ class PosGRNOrderProductMapping(models.Model):
     @property
     def given_qty_unit(self):
         if self.product.product_pack_type == 'loose':
-            return PosCartProductMapping.objects.filter(cart=self.grn_order.order.ordered_cart,
-                                                        product=self.product).last().qty_conversion_unit.unit
+            if PosCartProductMapping.objects.filter(cart=self.grn_order.order.ordered_cart,
+                                                    product=self.product).last().qty_conversion_unit:
+                return PosCartProductMapping.objects.filter(cart=self.grn_order.order.ordered_cart,
+                                                            product=self.product).last().qty_conversion_unit.unit
+            else:
+                return MeasurementUnit.objects.get(category=self.product.measurement_category, default=True).unit
         return None
 
 
@@ -481,6 +596,15 @@ class RetailerOrderReturn(OrderReturn):
         return self.order.order_no
 
 
+class RetailerOrderCancel(Cart):
+    """Cancel order ........."""
+    class Meta:
+        proxy = True
+        verbose_name = 'Cancel Order'
+
+
+
+
 class RetailerReturnItems(ReturnItems):
     class Meta:
         proxy = True
@@ -513,8 +637,10 @@ class PosReturnGRNOrder(models.Model):
     RETURN_STATUS = Choices((RETURNED, 'Returned'), (CANCELLED, 'Cancelled'))
     pr_number = models.CharField(max_length=255, null=True, blank=True)
     status = models.CharField(max_length=10, choices=RETURN_STATUS, default=RETURN_STATUS.RETURNED)
-    grn_ordered_id = models.ForeignKey(PosGRNOrder, related_name='grn_order_return', null=False,
+    grn_ordered_id = models.ForeignKey(PosGRNOrder, related_name='grn_order_return', null=True, blank=True,
                                        on_delete=models.DO_NOTHING)
+    vendor_id = models.ForeignKey(Vendor, related_name='vendor_return', null=True, blank=True,
+                                  on_delete=models.DO_NOTHING)
     last_modified_by = models.ForeignKey(User, related_name='grn_return_last_modified_user', null=True, blank=True,
                                          on_delete=models.CASCADE)
     debit_note_number = models.CharField(max_length=255, null=True, blank=True)
@@ -527,7 +653,10 @@ class PosReturnGRNOrder(models.Model):
 
     @property
     def po_no(self):
-        return self.grn_ordered_id.order.ordered_cart.po_no
+        try:
+            return self.grn_ordered_id.order.ordered_cart.po_no
+        except Exception:
+            return None
 
 
 class PosReturnItems(models.Model):
@@ -547,27 +676,46 @@ class PosReturnItems(models.Model):
     @property
     def qty_given(self):
         qty = self.return_qty
-        if self.product.product_pack_type == 'loose' and qty:
+        if self.product.product_pack_type == 'loose' and qty and self.grn_return_id.grn_ordered_id:
             po_product = PosCartProductMapping.objects.filter(
                 cart=self.grn_return_id.grn_ordered_id.order.ordered_cart, product=self.product).last()
             default_unit = MeasurementUnit.objects.get(category=self.product.measurement_category, default=True)
-            return round(Decimal(qty) * default_unit.conversion / po_product.qty_conversion_unit.conversion, 3)
+            if po_product.qty_conversion_unit:
+                return round(Decimal(qty) * default_unit.conversion / po_product.qty_conversion_unit.conversion, 3)
+            return round(Decimal(qty) * default_unit.conversion / default_unit.conversion, 3)
+
+        elif self.product.product_pack_type == 'loose' and qty and not self.grn_return_id.grn_ordered_id:
+            default_unit = MeasurementUnit.objects.get(category=self.product.measurement_category, default=True)
+            return round(Decimal(qty) * default_unit.conversion / default_unit.conversion, 3)
+
         elif self.product.product_pack_type == 'packet' and qty:
             return int(qty)
         return qty
 
     @property
     def given_qty_unit(self):
-        if self.product.product_pack_type == 'loose':
-            return PosCartProductMapping.objects.filter(cart=self.grn_return_id.grn_ordered_id.order.ordered_cart,
-                                                        product=self.product).last().qty_conversion_unit.unit
+        if self.product.product_pack_type == 'loose' and self.grn_return_id.grn_ordered_id:
+            if PosCartProductMapping.objects.filter(cart=self.grn_return_id.grn_ordered_id.order.ordered_cart,
+                                                    product=self.product).last().qty_conversion_unit:
+                return PosCartProductMapping.objects.filter(cart=self.grn_return_id.grn_ordered_id.order.ordered_cart,
+                                                            product=self.product).last().qty_conversion_unit.unit
+            else:
+                return MeasurementUnit.objects.get(category=self.product.measurement_category, default=True).unit
+        elif self.product.product_pack_type == 'loose' and not self.grn_return_id.grn_ordered_id:
+            return MeasurementUnit.objects.get(category=self.product.measurement_category, default=True).unit
         return None
 
+    @property
+    def grn_received_qty(self):
+        return self.grn_return_id.grn_ordered_id.po_grn_products.filter(product=self.product).first().received_qty
+
     def save(self, *args, **kwargs):
-        if not self.id:
+        if not self.id and self.grn_return_id.grn_ordered_id:
             po_product = PosCartProductMapping.objects.filter(
                 cart=self.grn_return_id.grn_ordered_id.order.ordered_cart, product=self.product).last()
             self.selling_price = po_product.price if po_product else 0
+        # elif not self.id:
+        #     self.selling_price = self.return_price
         super(PosReturnItems, self).save(*args, **kwargs)
 
 
@@ -575,3 +723,121 @@ class RetailerOrderedReport(Order):
     class Meta:
         proxy = True
         verbose_name = 'Order - Report'
+
+
+class PosTrip(models.Model):
+    ORDER_TRIP_TYPE = (
+        ('ECOM', 'Ecom'),
+    )
+    shipment = models.ForeignKey(OrderedProduct,
+                                 related_name='pos_trips',
+                                 on_delete=models.CASCADE)
+    trip_type = models.CharField(choices=ORDER_TRIP_TYPE,
+                                 max_length=10)
+    trip_start_at = models.DateTimeField(null=True,
+                                         blank=True)
+    trip_end_at = models.DateTimeField(null=True,
+                                       blank=True)
+
+    def __str__(self):
+        return str(self.id) + ' | ' + self.trip_type
+
+
+class BulkRetailerProduct(models.Model):
+    products_csv = models.FileField(
+        upload_to='pos/products_csv',
+        null=True, blank=False
+    )
+    seller_shop = models.ForeignKey(
+        Shop, related_name='pos_bulk_seller_shop',
+        null=True, blank=True, on_delete=models.DO_NOTHING
+    )
+    uploaded_by = models.ForeignKey(
+        get_user_model(), null=True, related_name='product_uploaded_by',
+        on_delete=models.DO_NOTHING
+    )
+    bulk_no = models.CharField(unique=True, max_length=20)
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
+
+    def uploaded_product_list_status(self, error_dict):
+        product_upload_status_info = []
+        info_logger.info(f"[pos:models.py:BulkRetailerProduct]-uploaded_product_list_status function called")
+        error_dict[str('bulk_no')] = str(self.bulk_no)
+        product_upload_status_info.extend([error_dict])
+
+        status = "Bulk Product Creation"
+        url = f"""<h2 style="color:blue;"><a href="%s" target="_blank">
+        Download {status} List Status</a></h2>""" % \
+              (
+                  reverse(
+                      'admin:products-list-status',
+                      args=(product_upload_status_info)
+                  )
+              )
+        return url
+
+    def clean(self, *args, **kwargs):
+        if self.products_csv:
+            self.save()
+            error_dict, validated_rows = bulk_product_validation(self.products_csv, self.seller_shop.pk)
+            bulk_create_update_validated_products(self.uploaded_by, self.seller_shop.pk, validated_rows)
+            if len(error_dict) > 0:
+                error_logger.info(f"Product can't create/update for some rows: {error_dict}")
+                raise ValidationError(mark_safe(f"Product can't create/update for some rows, Please click the "
+                                                f"below Link for seeing the status"
+                                                f"{self.uploaded_product_list_status(error_dict)}"))
+        else:
+            super(BulkRetailerProduct, self).clean(*args, **kwargs)
+
+    def save(self, *args, **kwargs):
+        if self.pk is None:
+            current_date = datetime.datetime.now().strftime("%d%m%Y")
+            starts_with = "BP" + str(current_date) + str(self.seller_shop.pk).zfill(6)
+            last_number = 0
+            instance_with_current_pattern = BulkRetailerProduct.objects.filter(bulk_no__icontains=starts_with)
+            if instance_with_current_pattern.exists():
+                last_instance_no = BulkRetailerProduct.objects.filter(bulk_no__icontains=starts_with).latest('bulk_no')
+                last_number = int(getattr(last_instance_no, 'bulk_no')[-3:])
+            last_number += 1
+            self.bulk_no = starts_with + str(last_number).zfill(3)
+            self.uploaded_by = self.uploaded_by
+            super().save(*args, **kwargs)
+
+class PaymentStatusUpdateByCron(models.Model):
+    """payment update by cron log model ..."""
+    PAYMENT_PENDING = "payment_pending"
+    PAYMENT_APPROVED = "payment_approved"
+    PAYMENT_FAILED = "payment_failed"
+    PAYMENT_STATUS = (
+        (PAYMENT_PENDING, "Payment Pending"),
+        (PAYMENT_APPROVED, "Payment Approved"),
+        (PAYMENT_FAILED, "Payment Failed"),
+        ('to_be_reconsile', 'TO_BE_RECONSILE'),
+        ('payment_conflict', 'RECONSILE_CONFLICT'),
+        ('double_payment', 'DOUBLE_PAYMENT'),
+        ('payment_not_required', 'PAYMENT_NOT_REQUIRED'),
+
+    )
+    MODE_CHOICES = (
+        ('CREDIT_CARD', 'Credit Card'),
+        ('DEBIT_CARD', 'Debit Card'),
+        ('UPI', 'UPI'),
+        ('NET_BANKING', 'Net Banking'),
+        ('WALLET', 'Wallet'),
+    )
+    order = models.ForeignKey('retailer_to_sp.Order',
+                              on_delete=models.DO_NOTHING)
+    payment_type = models.ForeignKey(PaymentType, default=None, null=True,
+                                     on_delete=models.DO_NOTHING)
+    payment_status = models.CharField(max_length=50, null=True, blank=True, choices=PAYMENT_STATUS, )
+    payment_mode = models.CharField(max_length=50, null=True, blank=True, choices=MODE_CHOICES, )
+    transaction_id = models.CharField(max_length=70, default=None, null=True, blank=True,
+                                      help_text="Transaction ID for Non Cash Payments.")
+    payment_id = models.CharField(max_length=50, blank=True, null=True, default=None)
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'cron log order status'
+

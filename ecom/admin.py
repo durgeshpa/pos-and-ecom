@@ -1,8 +1,10 @@
+from os import read
 from django.contrib import admin
 from django.db.models import Q
 from django.utils.translation import ugettext_lazy as _
 from django.utils.html import format_html
 from django.urls import reverse
+
 
 from marketing.filters import PosBuyerFilter
 from retailer_to_sp.admin import OrderIDFilter, SellerShopFilter
@@ -12,6 +14,10 @@ from .models import Address, Tag, TagProductMapping, EcomCart, EcomCartProductMa
 from ecom.utils import generate_ecom_order_csv_report
 from .forms import TagProductForm
 from ecom.views import DownloadEcomOrderInvoiceView
+from ecom.models import EcomTrip
+from django.contrib.admin import SimpleListFilter
+from rangefilter.filter import DateRangeFilter
+from django_admin_listfilter_dropdown.filters import RelatedOnlyDropdownFilter
 
 
 class EcomCartProductMappingAdmin(admin.TabularInline):
@@ -76,11 +82,26 @@ class OrderedProductMappingInline(admin.TabularInline):
         pass
 
 
+class Seller_SHOP(SimpleListFilter):
+    """custom Filter ....."""
+    title = 'SellerShop'
+    parameter_name = 'seller_shop'
+    template = 'django_admin_listfilter_dropdown/dropdown_filter.html'
+
+    def lookups(self, request, model_admin):
+        seller_shop = set([s.seller_shop for s in Order.objects.filter(ordered_cart__cart_type='ECOM')])
+        return [(s.id, s.shop_name) for s in seller_shop]
+
+    def queryset(self, request, queryset):
+        if self.value():
+            return queryset.filter(seller_shop=self.value())
+        else:
+            return queryset
+
 class EcomOrderProductAdmin(admin.ModelAdmin):
-    inlines = (OrderedProductMappingInline,)
-    search_fields = ('invoice__invoice_no', 'order__order_no')
+    search_fields = ('order_no', 'rt_order_order_product__invoice__invoice_no')
     list_per_page = 10
-    list_display = ('order', 'buyer_address', 'invoice_no', 'download_invoice', 'created_at')
+    list_display = ('order_no', 'order_status', 'buyer_address', 'invoice_no', 'download_invoice', 'created_at')
 
     actions = ['download_order_reports']
 
@@ -89,44 +110,51 @@ class EcomOrderProductAdmin(admin.ModelAdmin):
             'fields': ('seller_shop',)}),
 
         (_('Order Details'), {
-            'fields': ('order', 'order_no', 'invoice_no', 'order_status', 'buyer', 'buyer_address')}),
+            'fields': ('id', 'order_no', 'invoice_no', 'order_status','order_cancellation_reason', 'buyer', 'buyer_address')}),
 
         (_('Amount Details'), {
             'fields': ('sub_total', 'offer_discount', 'reward_discount', 'order_amount')}),
     )
+    list_filter = [Seller_SHOP, ('created_at', DateRangeFilter)]
 
     def seller_shop(self, obj):
-        return obj.order.seller_shop
+        return obj.seller_shop
 
     def buyer(self, obj):
-        return obj.order.buyer
+        return obj.buyer
 
     def buyer_address(self, obj):
-        return str(obj.order.ecom_address_order.address) + ' ' + str(obj.order.ecom_address_order.city) + ' ' + str(
-            obj.order.ecom_address_order.state)
+        return str(obj.ecom_address_order.address) + ' ' + str(obj.ecom_address_order.city) + ' ' + str(
+            obj.ecom_address_order.state)
 
     def sub_total(self, obj):
-        return obj.order.ordered_cart.subtotal
+        return obj.ordered_cart.subtotal
 
     def offer_discount(self, obj):
-        return obj.order.ordered_cart.offer_discount
+        return obj.ordered_cart.offer_discount
 
     def reward_discount(self, obj):
-        return obj.order.ordered_cart.redeem_points_value
+        return obj.ordered_cart.redeem_points_value
 
     def order_amount(self, obj):
-        return obj.order.order_amount
+        return obj.order_amount
 
     def order_status(self, obj):
-        return obj.order.order_status
+        return str(obj.order_status).capitalize()
+
+    def order_cancellation_reason(self,obj):
+        return obj.get_cancellation_reason_display()
 
     def order_no(self, obj):
-        return obj.order.order_no
+        return obj.order_no
 
     def download_invoice(self, obj):
-        if obj.invoice.invoice_pdf:
-            return format_html("<a href='%s'>Download Invoice</a>" % (reverse('admin:ecom_download_order_invoice', args=[obj.pk])))
-        else:
+        try:
+            if obj.rt_order_order_product.last().invoice.invoice_pdf:
+                return format_html("<a href='%s'>Download Invoice</a>" % (reverse('admin:ecom_download_order_invoice', args=[obj.rt_order_order_product.last().pk])))
+            else:
+                return '-'
+        except:
             return '-'
 
     def get_urls(self):
@@ -142,14 +170,19 @@ class EcomOrderProductAdmin(admin.ModelAdmin):
         return urls
 
     def get_queryset(self, request):
-        qs = super(EcomOrderProductAdmin, self).get_queryset(request)
-        qs = qs.filter(order__ordered_cart__cart_type='ECOM')
+        # qs = super(EcomOrderProductAdmin, self).get_queryset(request)
+        # qs = qs.filter(order__ordered_cart__cart_type='ECOM')
+        # print('='*50)
+        # print(len(qs))
+        qs = Order.objects.filter(ordered_cart__cart_type='ECOM')
+        # print(len(qs))
+        # print('=' * 50)
         if request.user.is_superuser:
             return qs
         return qs.filter(
-            Q(order__seller_shop__related_users=request.user) |
-            Q(order__seller_shop__shop_owner=request.user)
-        )
+            Q(seller_shop__pos_shop__user=request.user) |
+            Q(seller_shop__pos_shop__user_type__in=['manager', 'cashier', 'store_manager',])
+        ).distinct()
 
     def has_change_permission(self, request, obj=None):
         return False
@@ -174,7 +207,7 @@ class EcomAddressAdmin(admin.ModelAdmin):
               'default', 'created_at', 'modified_at', 'deleted_at')
     list_display = fields
     search_fields = ('user__phone_number', 'user__first_name', 'contact_number', 'contact_name', 'pincode',
-                     'city')
+                     'city__city_name')
 
     def has_change_permission(self, request, obj=None):
         return False
@@ -233,6 +266,26 @@ class TagAdmin(admin.ModelAdmin):
         return True
 
 
+@admin.register(EcomTrip)
+class EcommerceTripAdmin(admin.ModelAdmin):
+    list_display = ('order_no', 'delivery_person','trip_start_at', 'trip_end_at')
+
+    def order_no(self, obj):
+        return obj.shipment.order.order_no
+
+    def delivery_person(self, obj):
+        return "%s | %s" %  (obj.shipment.order.delivery_person.first_name,
+                             obj.shipment.order.delivery_person.phone_number)
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+
 admin.site.register(EcomOrderedProduct, EcomOrderProductAdmin)
 admin.site.register(EcomCart, EcomCartAdmin)
-

@@ -3,11 +3,15 @@ from django.conf.urls import url
 from .views import (PosProductView, CouponOfferCreation, InventoryReport, SalesReport, CustomerReport, VendorView,
                     POView, POProductInfoView, POListView, GrnOrderView, GrnOrderListView, VendorListView,
                     PaymentTypeDetailView, IncentiveView, ShopSpecificationView, GrnReturnOrderView,
-                    GetGrnOrderListView, ReturnStatusListView, MeasurementCategoryView, StockUpdateReasonListView)
+                    GetGrnOrderListView, ReturnStatusListView, MeasurementCategoryView, StockUpdateReasonListView,
+                    PRNwithoutGRNView, CreateBulkProductView, UpdateInventoryStockView, Contect_Us, PaymentStatusList,
+                    EcomPaymentTypeDetailView, PaymentModeChoicesList, RefundPayment
+                    )
 
 urlpatterns = [
     url(r'^catalogue-product/', PosProductView.as_view(), name='catalogue-product'),
     url(r'^product/measurement-category/', MeasurementCategoryView.as_view(), name='pos-measurement-category'),
+    url(r'contct_us_details/', Contect_Us.as_view(), name='contect_us'),
 
     url(r'^offers/', CouponOfferCreation.as_view(), name='offers'),
 
@@ -30,14 +34,22 @@ urlpatterns = [
 
     url(r'^get-grn-order-list/$', GetGrnOrderListView.as_view()),
     url(r'^return-grn-order/$', GrnReturnOrderView.as_view()),
+    url(r'^return-order-without-grn/$', PRNwithoutGRNView.as_view()),
 
     url(r'^payment-type/$', PaymentTypeDetailView.as_view()),
+    url(r'^ecom-payment-type/$', EcomPaymentTypeDetailView.as_view()),
 
     url(r'^incentive/$', IncentiveView.as_view()),
 
     url(r'^return-status-choice/$', ReturnStatusListView.as_view()),
 
     url(r'^shop-specification/$', ShopSpecificationView.as_view()),
-    url(r'^stock-update-reason-list/$', StockUpdateReasonListView.as_view())
+    url(r'^stock-update-reason-list/$', StockUpdateReasonListView.as_view()),
 
+    url(r'^upload/catalogue-bulk-product/', CreateBulkProductView.as_view(), name='catalogue-bulk-product'),
+    url(r'^upload/update-inventory/', UpdateInventoryStockView.as_view(), name='update-inventory'),
+
+    url(r'^payment-status-choice/$', PaymentStatusList.as_view()),
+    url(r'^payment-mode-choice/$', PaymentModeChoicesList.as_view()),
+    url(r'^payment-refund/$', RefundPayment.as_view(), name='payment-refund')
 ]

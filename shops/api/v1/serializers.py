@@ -5,14 +5,17 @@ from datetime import datetime, timedelta
 
 from django.core.validators import RegexValidator
 
+from products.common_validators import get_validate_parent_product_image_ids
 from shops.models import (PosShopUserMapping, RetailerType, ShopType, Shop, ShopPhoto,
-    ShopRequestBrand, ShopDocument, ShopUserMapping, SalesAppVersion, ShopTiming,
-    FavouriteProduct, DayBeatPlanning, ExecutiveFeedback, USER_TYPE_CHOICES
-)
+                          ShopRequestBrand, ShopDocument, ShopUserMapping, SalesAppVersion, ShopTiming,
+                          FavouriteProduct, DayBeatPlanning, ExecutiveFeedback, USER_TYPE_CHOICES, FOFOConfigurations,
+                          FOFOConfigCategory, FOFOConfigSubCategory
+                          )
 from django.contrib.auth import get_user_model
 from django.db import transaction
 from django.db.models import Sum
-from shops.common_validators import get_psu_mapping, get_validate_shop, get_validate_user, get_validate_user_type
+from shops.common_validators import get_psu_mapping, get_validate_shop, get_validate_user, get_validate_user_type, \
+    validate_fofo_sub_category, get_validate_category
 from accounts.api.v1.serializers import UserSerializer,GroupSerializer
 from retailer_backend.validators import MobileNumberValidator
 from retailer_to_sp.models import Order, Payment
@@ -105,6 +108,7 @@ class FavouriteProductSerializer(serializers.ModelSerializer):
 class RetailerTypeSerializer(serializers.ModelSerializer):
     class Meta:
         model = RetailerType
+        ref_name = 'Retailer Type v1'
         fields = '__all__'
 
 class ShopTypeSerializer(serializers.ModelSerializer):
@@ -115,6 +119,7 @@ class ShopTypeSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ShopType
+        ref_name = 'Shop Type Serializer v1'
         fields = '__all__'
         #extra_kwargs = {
         #    'shop_sub_type': {'required': True},
@@ -134,15 +139,16 @@ class ShopSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Shop
+        ref_name = "shop"
         fields = ('id','shop_name','shop_type','imei_no','shop_id', 'latitude', 'longitude')
 
-    def validate(self, data):
-        """Latitude and Longitude for retailer type shops"""
-        shop_type = data.get('shop_type')
-        if shop_type.shop_type == 'r':
-            if not data.get('latitude') or not data.get('longitude'):
-                raise serializers.ValidationError({'message':'Provide Latitude and Longitude'})
-        return data
+    # def validate(self, data):
+    #     """Latitude and Longitude for retailer type shops"""
+    #     shop_type = data.get('shop_type')
+    #     if shop_type.shop_type == 'r':
+    #         if not data.get('latitude') or not data.get('longitude'):
+    #             raise serializers.ValidationError({'message':'Provide Latitude and Longitude'})
+    #     return data
 
 
 
@@ -186,10 +192,12 @@ class ShopDocumentSerializer(serializers.ModelSerializer):
         response['shop_name'] = ShopSerializer(instance.shop_name).data
         return response
 
+
 class ShopRequestBrandSerializer(serializers.ModelSerializer):
     class Meta:
         model = ShopRequestBrand
         fields = '__all__'
+
 
 class ShopUserMappingSerializer(serializers.ModelSerializer):
     shop = ShopSerializer()
@@ -300,12 +308,20 @@ class FeedBackSerializer(serializers.ModelSerializer):
             executive_feedback = "Stock Not Available"
         if obj.executive_feedback == '5':
             executive_feedback = "Could Not Visit"
+        if obj.executive_feedback == '6':
+            executive_feedback = "Shop Closed"
+        if obj.executive_feedback == '7':
+            executive_feedback = "Owner Not available"
+        if obj.executive_feedback == '8':
+            executive_feedback = "BDA on Leave"
+        if obj.executive_feedback == '9':
+            executive_feedback = "Already ordered today"
         return executive_feedback
 
     class Meta:
         """ Meta class """
         model = ExecutiveFeedback
-        fields = ('id', 'day_beat_plan', 'executive_feedback', 'executive_feedback_value', 'feedback_date',)
+        fields = ('id', 'day_beat_plan', 'executive_feedback', 'executive_feedback_value', 'feedback_date', 'feedback_time')
 
 
 class DayBeatPlanSerializer(serializers.ModelSerializer):
@@ -353,6 +369,7 @@ class ExecutiveReportSerializer(serializers.ModelSerializer):
     This is Serializer to ger Report for Sales Executive
     """
     executive_name = serializers.SerializerMethodField()
+    executive_id = serializers.SerializerMethodField()
     executive_contact_number = serializers.SerializerMethodField()
     shop_mapped = serializers.SerializerMethodField()
     shop_visited = serializers.SerializerMethodField()
@@ -369,6 +386,9 @@ class ExecutiveReportSerializer(serializers.ModelSerializer):
         """
         return obj.employee.first_name
 
+    def get_executive_id(self, obj):
+        return obj.employee.id
+
     def get_executive_contact_number(self, obj):
         """
 
@@ -383,11 +403,18 @@ class ExecutiveReportSerializer(serializers.ModelSerializer):
         :param obj: object of shop user mapping
         :return: count of shop map
         """
-        # condition to check past day
+
         previous_day_date = datetime.today() - timedelta(days=1)
         # previous_day_date = datetime.today()
         base_query = DayBeatPlanning.objects.filter(beat_plan__executive=obj.employee, is_active=True)
-        if self._context['report'] is '1':
+
+        # condition to check today
+        if self._context['report'] is '0':
+            date_beat_planning = base_query.filter(next_plan_date=datetime.today().date())
+            shop_map_count = ExecutiveFeedback.objects.filter(day_beat_plan__in=date_beat_planning).count()
+
+        # condition to check past day
+        elif self._context['report'] is '1':
             date_beat_planning = base_query.filter(next_plan_date=previous_day_date.date())
             shop_map_count = ExecutiveFeedback.objects.filter(day_beat_plan__in=date_beat_planning).count()
 
@@ -411,12 +438,20 @@ class ExecutiveReportSerializer(serializers.ModelSerializer):
         :param obj: object of shop user mapping
         :return: count of shop visit
         """
-        # condition to check past day
         previous_day_date = datetime.today() - timedelta(days=1)
         # previous_day_date = datetime.today()
         base_query = DayBeatPlanning.objects.filter(beat_plan__executive=obj.employee, is_active=True)
         child_query = ExecutiveFeedback.objects.exclude(executive_feedback=5)
-        if self._context['report'] is '1':
+
+        #condition for today
+        if self._context['report'] is '0':
+            date_beat_planning = base_query.filter(next_plan_date=datetime.today().date())
+            shop_visit_count = child_query.filter(day_beat_plan__in=date_beat_planning,
+                                                      feedback_date=datetime.today()
+                                                      ).count()
+
+        # condition to check past day
+        elif self._context['report'] is '1':
             date_beat_planning = base_query.filter(next_plan_date=previous_day_date.date())
             shop_visit_count = child_query.filter(day_beat_plan__in=date_beat_planning,
                                                             feedback_date=previous_day_date
@@ -446,12 +481,25 @@ class ExecutiveReportSerializer(serializers.ModelSerializer):
         :param obj: object of shop user mapping
         :return: productivity of sales executive
         """
-        # condition to check past day
         previous_day_date = datetime.today() - timedelta(days=1)
         #previous_day_date = datetime.today()
         base_query = DayBeatPlanning.objects.filter(beat_plan__executive=obj.employee, is_active=True)
         child_query = ExecutiveFeedback.objects.exclude(executive_feedback=5)
-        if self._context['report'] is '1':
+
+        # condition to check today
+        if self._context['report'] is '0':
+            date_beat_planning = base_query.filter(next_plan_date=datetime.today().date())
+            feedback_query = ExecutiveFeedback.objects.filter(day_beat_plan__in=date_beat_planning).count()
+            shop_visit_count = child_query.filter(day_beat_plan__in=date_beat_planning,
+                                                  feedback_date=datetime.today()
+                                                  ).count()
+            if shop_visit_count != 0:
+                productivity = "{:.2f}%".format(float(shop_visit_count / feedback_query) * 100)
+            else:
+                productivity = str(00.00) + '%'
+
+        # condition to check past day
+        elif self._context['report'] is '1':
             date_beat_planning = base_query.filter(next_plan_date=previous_day_date.date())
             feedback_query = ExecutiveFeedback.objects.filter(day_beat_plan__in=date_beat_planning).count()
             shop_visit_count = child_query.filter(day_beat_plan__in=date_beat_planning,
@@ -496,8 +544,12 @@ class ExecutiveReportSerializer(serializers.ModelSerializer):
         :param obj: object of shop user mapping
         :return: count of orders
         """
+        # condition to check today
+        if self._context['report'] is '0':
+            order_count = Order.objects.filter(ordered_by=obj.employee, created_at__date=datetime.today()).count()
+
         # condition to check past day
-        if self._context['report'] is '1':
+        elif self._context['report'] is '1':
             previous_day_date = datetime.today() - timedelta(days=1)
             # previous_day_date = datetime.today()
             order_count = Order.objects.filter(ordered_by=obj.employee, created_at__date=previous_day_date).count()
@@ -523,8 +575,21 @@ class ExecutiveReportSerializer(serializers.ModelSerializer):
         :param obj: object of shop user mapping
         :return: total amount of order
         """
+        # condition for today
+        if self._context['report'] is '0':
+            order_object = Order.objects.filter(ordered_by=obj.employee, created_at__date=datetime.today())
+            # for order in order_object:
+            try:
+                payment_object = Payment.objects.filter(order_id__in=order_object)
+                if payment_object.exists():
+                    total_amount = round(payment_object.aggregate(Sum('paid_amount'))['paid_amount__sum'])
+                else:
+                    total_amount = 0
+            except:
+                total_amount = 0
+
         # condition to check past day
-        if self._context['report'] is '1':
+        elif self._context['report'] is '1':
             previous_day_date = datetime.today() - timedelta(days=1)
             # previous_day_date = datetime.today()
             order_object = Order.objects.filter(ordered_by=obj.employee, created_at__date=previous_day_date)
@@ -577,11 +642,17 @@ class ExecutiveReportSerializer(serializers.ModelSerializer):
         :param obj: object of shop user mapping
         :return: count of inactive shop map
         """
-        # condition to check past day
         previous_day_date = datetime.today() - timedelta(days=1)
         # previous_day_date = datetime.today()
         base_query = DayBeatPlanning.objects.filter(beat_plan__executive=obj.employee, is_active=False)
-        if self._context['report'] is '1':
+
+        # condition to check today
+        if self._context['report'] is '0':
+            date_beat_planning = base_query.filter(next_plan_date=datetime.today().date())
+            inactive_shop_map_count = ExecutiveFeedback.objects.filter(day_beat_plan__in=date_beat_planning).count()
+
+        # condition to check past day
+        elif self._context['report'] is '1':
             date_beat_planning = base_query.filter(next_plan_date=previous_day_date.date())
             inactive_shop_map_count = ExecutiveFeedback.objects.filter(day_beat_plan__in=date_beat_planning).count()
 
@@ -602,7 +673,7 @@ class ExecutiveReportSerializer(serializers.ModelSerializer):
     class Meta:
         """ Meta class """
         model = ShopUserMapping
-        fields = ('id', 'executive_name', 'executive_contact_number', 'shop_mapped', 'shop_visited', 'productivity', 'num_of_order', 'order_amount', 'inactive_shop_mapped')
+        fields = ('id', 'executive_name', 'executive_id', 'executive_contact_number', 'shop_mapped', 'shop_visited', 'productivity', 'num_of_order', 'order_amount', 'inactive_shop_mapped')
 
 class FeedbackCreateSerializers(serializers.ModelSerializer):
     """
@@ -619,7 +690,7 @@ class FeedbackCreateSerializers(serializers.ModelSerializer):
         Applied executive feedback create meta class
         """
         model = ExecutiveFeedback
-        fields = ('id', 'day_beat_plan', 'executive_feedback', 'feedback_date', 'created_at', 'modified_at', 'latitude', 'longitude')
+        fields = ('id', 'day_beat_plan', 'executive_feedback', 'feedback_date', 'feedback_time', 'created_at', 'modified_at', 'latitude', 'longitude')
 
     def create(self, validated_data):
         """
@@ -634,61 +705,65 @@ class FeedbackCreateSerializers(serializers.ModelSerializer):
             # create instance of Executive Feedback
             executive_feedback.update(executive_feedback=validated_data['executive_feedback'],
                                       feedback_date=validated_data['feedback_date'],
+                                      feedback_time=datetime.now().time(),
                                       latitude=validated_data.get('latitude', None),
                                       longitude=validated_data.get('longitude', None))
 
             # condition to check if executive apply "Could Not Visit" for less than equal to 5 within the same date
             # then assign next visit date and beat plan date accordingly
-            day_beat_plan = DayBeatPlanning.objects.filter(id=validated_data['day_beat_plan'].id)
-            if (ExecutiveFeedback.objects.filter(executive_feedback=5, feedback_date=validated_data['feedback_date']
-                                                 ).count() <= 5) and executive_feedback[0].executive_feedback == '5':
-                if day_beat_plan[0].shop_category == "P1":
-                    next_visit_date = validated_data['feedback_date'] + timedelta(days=1)
-                    beat_plan_date = day_beat_plan[0].beat_plan_date + timedelta(days=7)
-                    temp_status = True
-                elif day_beat_plan[0].shop_category == "P2":
-                    next_visit_date = validated_data['feedback_date'] + timedelta(days=2)
-                    beat_plan_date = day_beat_plan[0].beat_plan_date + timedelta(days=14)
-                    temp_status = True
-                else:
-                    next_visit_date = validated_data['feedback_date'] + timedelta(days=3)
-                    beat_plan_date = day_beat_plan[0].beat_plan_date + timedelta(days=28)
-                    temp_status = True
-
-            # condition to check if executive apply feedback which is not related to "Could Not Visit" and also
-            # check next visit date condition for rest of the feedback
-            else:
-                if day_beat_plan[0].shop_category == "P1" and day_beat_plan[0].temp_status is False:
-                    next_visit_date = day_beat_plan[0].beat_plan_date + timedelta(days=7)
-                    beat_plan_date = next_visit_date
-                    temp_status = False
-
-                elif day_beat_plan[0].shop_category == "P2" and day_beat_plan[0].temp_status is False:
-                    next_visit_date = day_beat_plan[0].beat_plan_date + timedelta(days=14)
-                    beat_plan_date = next_visit_date
-                    temp_status = False
-
-                elif day_beat_plan[0].shop_category == "P3" and day_beat_plan[0].temp_status is False:
-                    next_visit_date = day_beat_plan[0].beat_plan_date + timedelta(days=28)
-                    beat_plan_date = next_visit_date
-                    temp_status = False
-                else:
-                    next_visit_date = day_beat_plan[0].beat_plan_date
-                    beat_plan_date = next_visit_date
-                    temp_status = False
+            # day_beat_plan = DayBeatPlanning.objects.filter(id=validated_data['day_beat_plan'].id)
+            # if (ExecutiveFeedback.objects.filter(executive_feedback=5, feedback_date=validated_data['feedback_date']
+            #                                      ).count() <= 5) and executive_feedback[0].executive_feedback == '5':
+            #     if day_beat_plan[0].shop_category == "P1":
+            #         next_visit_date = validated_data['feedback_date'] + timedelta(days=1)
+            #         beat_plan_date = day_beat_plan[0].beat_plan_date + timedelta(days=7)
+            #         temp_status = True
+            #     elif day_beat_plan[0].shop_category == "P2":
+            #         next_visit_date = validated_data['feedback_date'] + timedelta(days=2)
+            #         beat_plan_date = day_beat_plan[0].beat_plan_date + timedelta(days=14)
+            #         temp_status = True
+            #     else:
+            #         next_visit_date = validated_data['feedback_date'] + timedelta(days=3)
+            #         beat_plan_date = day_beat_plan[0].beat_plan_date + timedelta(days=28)
+            #         temp_status = True
+            #
+            # # condition to check if executive apply feedback which is not related to "Could Not Visit" and also
+            # # check next visit date condition for rest of the feedback
+            # else:
+            #     if day_beat_plan[0].shop_category == "P1" and day_beat_plan[0].temp_status is False:
+            #         next_visit_date = day_beat_plan[0].beat_plan_date + timedelta(days=7)
+            #         beat_plan_date = next_visit_date
+            #         temp_status = False
+            #
+            #     elif day_beat_plan[0].shop_category == "P2" and day_beat_plan[0].temp_status is False:
+            #         next_visit_date = day_beat_plan[0].beat_plan_date + timedelta(days=14)
+            #         beat_plan_date = next_visit_date
+            #         temp_status = False
+            #
+            #     elif day_beat_plan[0].shop_category == "P3" and day_beat_plan[0].temp_status is False:
+            #         next_visit_date = day_beat_plan[0].beat_plan_date + timedelta(days=28)
+            #         beat_plan_date = next_visit_date
+            #         temp_status = False
+            #     else:
+            #         next_visit_date = day_beat_plan[0].beat_plan_date
+            #         beat_plan_date = next_visit_date
+            #         temp_status = False
 
             # Create Data for next visit in Day Beat Planning
-            DayBeatPlanning.objects.get_or_create(shop_category=day_beat_plan[0].shop_category,
-                                                  next_plan_date=next_visit_date,
-                                                  beat_plan_date=beat_plan_date,
-                                                  shop=day_beat_plan[0].shop,
-                                                  beat_plan=day_beat_plan[0].beat_plan,
-                                                  temp_status=temp_status)
+            # DayBeatPlanning.objects.get_or_create(shop_category=day_beat_plan[0].shop_category,
+            #                                       next_plan_date=next_visit_date,
+            #                                       beat_plan_date=beat_plan_date,
+            #                                       shop=day_beat_plan[0].shop,
+            #                                       beat_plan=day_beat_plan[0].beat_plan,
+            #                                       temp_status=temp_status)
 
             # return executive feedback instance
             return executive_feedback[0]
+        else:
+            validated_data['feedback_time'] = datetime.now().time()
+            return ExecutiveFeedback.objects.create(**validated_data)
+            
         # return False
-        return False
 
 class ChoiceField(serializers.ChoiceField):
 
@@ -709,6 +784,7 @@ class ShopBasicSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Shop
+        ref_name = 'Shop Basic Serializer v1'
         fields = ('id', 'shop')
 
 
@@ -763,3 +839,146 @@ class PosShopUserMappingUpdateSerializer(serializers.ModelSerializer):
         mapping.is_delivery_person = validated_data['is_delivery_person'] if 'is_delivery_person' in validated_data else mapping.is_delivery_person
         mapping.save()
 
+
+class FOFOCategoryConfigurationsCrudSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = FOFOConfigCategory
+        fields = ('id', 'name',)
+
+
+class FOFOSubCategoryConfigurationsCrudSerializer(serializers.ModelSerializer):
+    category = FOFOCategoryConfigurationsCrudSerializer(read_only=True)
+
+    class Meta:
+        model = FOFOConfigSubCategory
+        fields = ('id', 'category', 'name', 'type')
+
+    def validate(self, data):
+        """
+            is_ptr_applicable validation.
+        """
+        if not 'category' in self.initial_data or not self.initial_data['category']:
+            raise serializers.ValidationError("please select category")
+
+        category_val = get_validate_category(self.initial_data['category'])
+        if 'error' in category_val:
+            raise serializers.ValidationError(category_val["error"])
+        data['category'] = category_val['data']
+
+        if 'category_name' in self.initial_data and self.initial_data['category_name']:
+            if not str(data['category'].name).lower() == str(self.initial_data['category_name']).lower():
+                raise serializers.ValidationError("please provide valid option")
+
+        return data
+
+
+class ShopNameSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = Shop
+        fields = ('id', '__str__')
+
+    def to_representation(self, instance):
+        response = super().to_representation(instance)
+        response['name'] = response['__str__']
+        response.pop('__str__')
+        return response
+
+
+class FOFOSubCategoryConfigurationsGetSerializer(serializers.ModelSerializer):
+    id = serializers.SerializerMethodField()
+    key = serializers.SerializerMethodField()
+    name = serializers.SerializerMethodField()
+    value = serializers.SerializerMethodField()
+    type = serializers.SerializerMethodField()
+
+    class Meta:
+        model = FOFOConfigSubCategory
+        fields = ('id', 'key', 'name', 'value', 'type')
+
+    def get_key(self, obj):
+        return obj.id
+
+    def get_name(self, obj):
+        return obj.name
+
+    def get_value(self, obj):
+        instance = FOFOConfigurations.objects.filter(shop=self.context.get('shop'), key=obj).last()
+        return instance.value if instance else None
+
+    def get_id(self, obj):
+        instance = FOFOConfigurations.objects.filter(shop=self.context.get('shop'), key=obj).last()
+        return instance.id if instance else None
+
+    def get_type(self, obj):
+        return obj.type
+
+
+class FOFOCategoryConfigurationsGetSerializer(serializers.ModelSerializer):
+    sub_category = serializers.SerializerMethodField()
+
+    class Meta:
+        model = FOFOConfigCategory
+        fields = ('id', 'name', 'sub_category',)
+
+    def get_sub_category(self, obj):
+        if self.context.get('id'):
+            return FOFOSubCategoryConfigurationsGetSerializer(FOFOConfigSubCategory.objects.filter(
+                fofo_category__shop=self.context.get('shop'),
+                fofo_category__id=self.context.get('id'), category=obj), many=True,
+                context={'shop': self.context.get('shop')}).data
+        return FOFOSubCategoryConfigurationsGetSerializer(FOFOConfigSubCategory.objects.filter(
+            fofo_category__shop=self.context.get('shop'), category=obj), many=True,
+            context={'shop': self.context.get('shop')}).data
+
+
+class FOFOConfigurationsGetSerializer(serializers.Serializer):
+    shop = serializers.SerializerMethodField()
+    category = serializers.SerializerMethodField()
+
+    def get_shop(self, obj):
+        return ShopNameSerializer(self.context.get('shop'), read_only=True).data
+
+    def get_category(self, obj):
+        if self.context.get('id'):
+            return FOFOCategoryConfigurationsGetSerializer(FOFOConfigCategory.objects.filter(
+                fofo_category_details__fofo_category__shop=self.context.get('shop'),
+                fofo_category_details__fofo_category__id=self.context.get('id')).distinct(), many=True,
+                                                           context={'shop': self.context.get('shop'),
+                                                                    'id': self.context.get('id')}).data
+        elif self.context.get('search_text'):
+            return FOFOCategoryConfigurationsGetSerializer(FOFOConfigCategory.objects.filter(
+                fofo_category_details__fofo_category__shop=self.context.get('shop'),
+                name__icontains=self.context.get('search_text')).distinct(), many=True,
+                                                           context={'shop': self.context.get('shop')}).data
+
+        return FOFOCategoryConfigurationsGetSerializer(FOFOConfigCategory.objects.filter(
+            fofo_category_details__fofo_category__shop=self.context.get('shop')).distinct(), many=True,
+            context={'shop': self.context.get('shop')}).data
+
+
+class FOFOConfigurationsCrudSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = FOFOConfigurations
+        fields = ('id', 'shop', 'key', 'value')
+
+
+class FOFOSubCategoryConfigurationsGetListSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = FOFOConfigSubCategory
+        fields = ('id', 'name', 'type')
+
+
+class FOFOListSerializer(serializers.ModelSerializer):
+    sub_category = serializers.SerializerMethodField()
+
+    class Meta:
+        model = FOFOConfigCategory
+        fields = ('id', 'name', 'sub_category',)
+
+    def get_sub_category(self, obj):
+        return FOFOSubCategoryConfigurationsGetListSerializer(FOFOConfigSubCategory.objects.filter(category=obj),
+                                                              many=True).data

@@ -973,7 +973,7 @@ class OrderedProductReschedule(forms.ModelForm):
 
     def clean(self):
         data = self.cleaned_data
-        if not self.instance.trip:
+        if not self.instance.trip and not data['shipment_status'] == 'RESCHEDULED':
             raise forms.ValidationError(
                 _('Please add the shipment in a'
                   ' trip first'),
@@ -991,7 +991,7 @@ class ShipmentReschedulingForm(forms.ModelForm):
 
     class Meta:
         model = ShipmentRescheduling
-        fields = ('shipment', 'rescheduling_reason', 'rescheduling_date')
+        fields = ('shipment', 'rescheduling_reason', 'rescheduling_date', 'rescheduled_count')
 
     class Media:
         js = (
@@ -1011,9 +1011,15 @@ class ShipmentReschedulingForm(forms.ModelForm):
             raise forms.ValidationError("The date must be within 3 days!")
         return date
 
+    def clean_rescheduled_count(self):
+        count = self.cleaned_data['rescheduled_count']
+        return count + 1
+
     def __init__(self, *args, **kwargs):
         super(ShipmentReschedulingForm, self).__init__(*args, **kwargs)
         instance = getattr(self, 'instance', None)
+        self.fields['rescheduled_count'].widget.attrs['readonly'] = True
+
         # if instance.shipment:
         #     if not (self.instance.shipment.shipment_status == 'PARTIALLY_DELIVERED_AND_COMPLETED' or \
         #             self.instance.shipment.shipment_status == 'FULLY_RETURNED_AND_COMPLETED'):

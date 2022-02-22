@@ -425,6 +425,7 @@ class ParentProductForm(forms.ModelForm):
     """
     Parent Product Form
     """
+
     product_hsn = forms.ModelChoiceField(queryset=hsn_choices,
                                          widget=autocomplete.ModelSelect2(url='admin:hsn-autocomplete', ))
 
@@ -433,7 +434,7 @@ class ParentProductForm(forms.ModelForm):
         fields = ('parent_brand', 'name', 'product_hsn',
                   'brand_case_size', 'inner_case_size',
                   'product_type', 'is_ptr_applicable', 'ptr_percent', 'ptr_type', 'is_ars_applicable', 'max_inventory',
-                  'is_lead_time_applicable', 'discounted_life_percent')
+                  'is_lead_time_applicable', 'discounted_life_percent','product_discription')
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

@@ -11,9 +11,9 @@ https://docs.djangoproject.com/en/2.1/ref/settings/
 """
 
 import os
-import logging.config
 import sentry_sdk
 from sentry_sdk.integrations.django import DjangoIntegration
+from elasticsearch import Elasticsearch
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # Decouple used to get values from .env file
@@ -146,6 +146,8 @@ INSTALLED_APPS = [
     'ecom',
     'cms',
     'drf_yasg',
+    'report',
+    'tinymce',
 ]
 
 # if ENVIRONMENT.lower() in ["production","qa"]:
@@ -387,6 +389,10 @@ WKHTMLTOPDF_CMD_OPTIONS = {
 TEMPUS_DOMINUS_INCLUDE_ASSETS = False
 
 CRONJOBS = [
+    ('*/1 * * * *', 'pos.cron.payment_reconsilation_'),
+    ('*/3 * * * *', 'pos.cron.payment_refund_status_update'),
+    ('*/10 * * * *', 'pos.cron.payment_reconsilation_per_ten_minutes'),
+    ('0 0 12 * * ?', 'pos.cron.payment_reconsilation_per_24_hours'),
     ('* * * * *', 'retailer_backend.cron.discounted_order_cancellation', '>> /tmp/discounted_cancellation.log'),
     ('* * * * *', 'retailer_backend.cron.delete_ordered_reserved_products'),
     ('2 0 * * *', 'analytics.api.v1.views.getStock'),
@@ -395,6 +401,7 @@ CRONJOBS = [
     ('*/1 * * * *', 'wms.views.release_blocking_with_cron', '>>/tmp/release.log'),
     ('0 8 * * *', 'wms.views.assign_picker_user_to_pickup_created_orders', '>>/tmp/picking'),
     ('*/10 * * * *', 'wms.views.pickup_entry_creation_with_cron', '>>/tmp/picking'),
+    ('0 10 * * *', 'wms.views.mail_products_list_not_mapped_yet_to_any_zone', '>>/tmp/picking'),
     ('30 2 * * *', 'retailer_backend.cron.sync_es_products'),
     ('0 2 * * *', 'wms.views.archive_inventory_cron'),
     ('0 3 * * *', 'wms.views.move_expired_inventory_cron'),
@@ -424,6 +431,8 @@ CRONJOBS = [
     ('*/5 * * * *', 'wms.cron.assign_putaway_users_to_new_putways'),
     ('0 6 * * *', 'shops.cron.get_feedback_valid'),
     ('30 21 * * *', 'shops.tasks.cancel_beat_plan'),
+    ('0 1 * * *', 'wms.scripts.populate_to_be_picked_qty.populate_to_be_picked_quantity_by_cron'),
+    ('0 */6 * * *', 'wms.scripts.release_stucked_qc_areas.release_stucked_qc_areas_by_cron'),
 ]
 
 INTERNAL_IPS = ['127.0.0.1', 'localhost']
@@ -591,7 +600,15 @@ LOGGING = {
     },
 }
 SWAGGER_SETTINGS = {
-   'USE_SESSION_AUTH': False,
+   'USE_SESSION_AUTH': True,
+    # 'SECURITY_DEFINITIONS': {
+    #         'api_key': {
+    #             'type': 'apiKey',
+    #             'in': 'header',
+    #             'name': 'Authorization'
+    #         }
+    #     },
+
 }
 # Email Configuration
 EMAIL_BACKEND = config('EMAIL_BACKEND')
@@ -609,8 +626,16 @@ WHATSAPP_API_PASSWORD = config('WHATSAPP_API_PASSWORD')
 # AWS MEDIA URL
 AWS_MEDIA_URL = config('AWS_MEDIA_URL')
 
-# WKHTMLTOPDF_CMD = '/usr/bin/wkhtmltopdf'
+LOGIN_URL = 'rest_framework:login'
+LOGOUT_URL = 'rest_framework:logout'
 
-# WKHTMLTOPDF_CMD_OPTIONS = {
-#     'quiet': True,
-# }
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
+environment = config('ENVIRONMENT')
+if environment.lower() == 'production':
+    es = Elasticsearch([config('ES_INDEX')])
+else:
+    es = Elasticsearch(
+        hosts=[config('ES_INDEX')],
+        http_auth=(config('ES_USER_NAME'), config('ES_PASSWORD')),
+    )

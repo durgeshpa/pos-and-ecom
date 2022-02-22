@@ -1,3 +1,4 @@
+import logging
 import uuid
 
 from django.db.models.signals import post_save, pre_save
@@ -5,10 +6,16 @@ from django.dispatch import receiver
 
 from retailer_backend.common_function import po_pattern, grn_pattern, purchase_return_number_pattern
 from wms.models import PosInventory
-
-from .tasks import update_shop_retailer_product_es
-from .models import RetailerProduct, PosCart, PosOrder, PosGRNOrder, PosGRNOrderProductMapping, PosReturnGRNOrder
 from wms.models import PosInventoryState
+from .models import RetailerProduct, PosCart, PosOrder, PosGRNOrder, PosCartProductMapping, PosGRNOrderProductMapping, PosReturnGRNOrder
+from .tasks import update_shop_retailer_product_es
+
+logger = logging.getLogger(__name__)
+
+# Logger
+info_logger = logging.getLogger('file-info')
+error_logger = logging.getLogger('file-error')
+debug_logger = logging.getLogger('file-debug')
 
 
 def sku_generator(shop_id):
@@ -88,7 +95,10 @@ def create_grn_id(sender, instance=None, created=False, **kwargs):
 @receiver(post_save, sender=PosReturnGRNOrder)
 def create_pr_number(sender, instance=None, created=False, **kwargs):
     if created:
-        instance.pr_number = purchase_return_number_pattern(instance.pk, instance.grn_ordered_id.grn_id)
+        if instance.grn_ordered_id:
+            instance.pr_number = purchase_return_number_pattern(instance.pk, instance.grn_ordered_id.grn_id)
+        else:
+            instance.pr_number = purchase_return_number_pattern(instance.pk, instance.vendor_id.pincode)
         instance.save()
 
 
@@ -96,6 +106,10 @@ def create_pr_number(sender, instance=None, created=False, **kwargs):
 def mark_po_item_as_closed(sender, instance=None, created=False, **kwargs):
     product = instance.grn_order.order.ordered_cart.po_products.filter(product=instance.product)
     product.update(is_grn_done=True)
+    po_grn_initial_value = PosCartProductMapping.objects.filter(
+        product__id=instance.product.id, is_grn_done=True).last()
+    instance.product.initial_purchase_value = po_grn_initial_value.price * po_grn_initial_value.pack_size
+    instance.product.save()
 
 
 @receiver(pre_save, sender=RetailerProduct)

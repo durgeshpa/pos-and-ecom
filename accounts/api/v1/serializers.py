@@ -31,6 +31,7 @@ class UserDocumentSerializer(serializers.ModelSerializer):
         fields = ('user_document_type', 'user_document_photo', 'user_document_number')
         extra_kwargs = {
             'user_document_type': {'required': True},
+            'user_document_photo': {'required': False},
         }
 
     def __init__(self, *args, **kwargs):
@@ -38,7 +39,7 @@ class UserDocumentSerializer(serializers.ModelSerializer):
         self.fields['user_document_type'].error_messages['required'] = "Please select user document type"
         self.fields['user_document_number'].error_messages['required'] = "Please enter user document no."
         self.fields['user_document_number'].error_messages['blank'] = "Please enter user document no."
-        self.fields['user_document_photo'].error_messages['required'] = "Please upload document photo"
+        # self.fields['user_document_photo'].error_messages['required'] = "Please upload document photo"
 
     def validate_user_document_number(self, data):
         if UserDocument.objects.filter(~Q(user_id=self.context.get('request').user.id),
