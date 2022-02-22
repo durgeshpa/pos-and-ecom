@@ -16,7 +16,7 @@ from shops.models import (BeatPlanning, RetailerType, ShopType, Shop, ShopPhoto,
                           ShopDocument, ShopInvoicePattern, ShopUserMapping, SHOP_TYPE_CHOICES, ParentRetailerMapping,
                           DayBeatPlanning, ShopStatusLog)
 from addresses.models import Address, City, Pincode, State, address_type_choices, DispatchCenterPincodeMapping, \
-    DispatchCenterCityMapping
+    DispatchCenterCityMapping, ShopRoute, Route
 
 from shops.common_validators import get_validate_approval_status, get_validate_existing_shop_photos, \
     get_validate_favourite_products, get_validate_related_users, get_validate_shop_address, get_validate_shop_documents, \
@@ -1297,3 +1297,74 @@ class DownloadShopStatusCSVSerializer(serializers.ModelSerializer):
             for obj in data:
                 writer.writerow(list(obj))
         return response
+
+
+class RouteSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Route
+        fields = ('id', 'name')
+
+
+class ShopRouteCrudSerializers(serializers.ModelSerializer):
+    shop = ShopBasicSerializer(read_only=True)
+    route = RouteSerializer(read_only=True)
+
+    class Meta:
+        model = ShopRoute
+        fields = ('id', 'shop', 'route',)
+
+    def validate(self, data):
+
+        shop_route_id = self.instance.id if self.instance else None
+
+        if 'shop' in self.initial_data and self.initial_data['shop']:
+            validated_shop = validate_shop(self.initial_data['shop'])
+            if 'error' in validated_shop:
+                raise serializers.ValidationError(validated_shop["error"])
+            shop_instance = validated_shop['data']
+            data['shop'] = shop_instance
+        else:
+            raise serializers.ValidationError(f"'shop' | This is mandatory.")
+
+        if 'route' in self.initial_data and self.initial_data['route']:
+            try:
+                route_instance = Route.objects.get(id=int(self.initial_data['route']))
+            except:
+                raise serializers.ValidationError(f"{self.initial_data['route']} | Route not found.")
+            data['route'] = route_instance
+        else:
+            raise serializers.ValidationError(f"'route' | This is mandatory.")
+
+        if 'id' in self.initial_data and self.initial_data['id']:
+            shop_route = ShopRoute.objects.filter(id=self.initial_data['id']).last()
+            if not shop_route:
+                raise serializers.ValidationError(f"'id' | {self.initial_data['id']} Invalid Shop Route.")
+            if shop_route.shop != shop_instance:
+                raise serializers.ValidationError(f"Shop updation is not allowed.")
+        else:
+            if ShopRoute.objects.filter(shop=shop_instance).exists():
+                raise serializers.ValidationError(f"Shop route already exist for {shop_instance}")
+
+        return data
+
+    @transaction.atomic
+    def create(self, validated_data):
+        """create a new Shop Route"""
+        try:
+            shop_route_instance = ShopRoute.objects.create(**validated_data)
+        except Exception as e:
+            error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
+            raise serializers.ValidationError(error)
+        return shop_route_instance
+
+    @transaction.atomic
+    def update(self, instance, validated_data):
+        """ This method is used to update an instance of the Shop Route's attribute. """
+        try:
+            # call super to save modified instance along with the validated data
+            shop_route_instance = super().update(instance, validated_data)
+        except Exception as e:
+            error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
+            raise serializers.ValidationError(error)
+
+        return shop_route_instance

@@ -20,7 +20,7 @@ from rest_framework.generics import GenericAPIView, UpdateAPIView, CreateAPIView
 from retailer_backend.utils import SmallOffsetPagination
 
 from retailer_to_sp.models import Order, OrderedProductMapping
-from addresses.models import Address, Pincode, State, City, address_type_choices
+from addresses.models import Address, Pincode, State, City, address_type_choices, ShopRoute
 from shops.models import (BeatPlanning, ParentRetailerMapping, ShopType, Shop, ShopUserMapping, RetailerType,
                           SHOP_TYPE_CHOICES)
 
@@ -33,16 +33,16 @@ from .serializers import (
     ShopBasicSerializer, BulkUpdateShopSerializer, ShopEmployeeSerializers, ShopManagerListSerializers,
     RetailerTypeSerializer, DisapproveSelectedShopSerializers, PinCodeSerializer, CitySerializer, StateSerializer,
     BulkUpdateShopSampleCSVSerializer, BulkCreateShopUserMappingSerializer, ShopManagerListDistSerializers,
-    DownloadShopStatusCSVSerializer
+    DownloadShopStatusCSVSerializer, ShopRouteCrudSerializers
 )
 from shops.common_functions import *
 from shops.services import (related_user_search, search_beat_planning_data, shop_search, get_distinct_pin_codes,
                             get_distinct_cities, get_distinct_states, search_pincode, search_city, shop_owner_search,
                             shop_user_mapping_search, shop_manager_search, shop_employee_search, retailer_type_search,
-                            shop_type_search, search_state, parent_shop_search, shop_list_search)
+                            shop_type_search, search_state, parent_shop_search, shop_list_search, shop_route_search)
 from shops.common_validators import (
     validate_data_format, validate_id, validate_shop_id, validate_shop_owner_id, validate_state_id, validate_city_id,
-    validate_pin_code
+    validate_pin_code, validate_data_format_without_json
 )
 
 User = get_user_model()
@@ -1229,3 +1229,110 @@ class DownloadShopStatusCSV(GenericAPIView):
             response = serializer.save()
             return HttpResponse(response, content_type='text/csv')
         return get_response(serializer_error(serializer), False)
+
+
+class ShopRouteCrudView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    queryset = ShopRoute.objects.order_by('-id')
+    serializer_class = ShopRouteCrudSerializers
+
+    def get(self, request):
+        """ GET API for Shop Route """
+        info_logger.info("Shop Route GET api called.")
+        shop_route_total_count = self.queryset.count()
+        if request.GET.get('id'):
+            """ Get Shop Route for specific ID """
+            id_validation = validate_id(
+                self.queryset, int(request.GET.get('id')))
+            if 'error' in id_validation:
+                return get_response(id_validation['error'])
+            shops_data = id_validation['data']
+        else:
+            """ GET Shop Route List """
+            self.queryset = self.search_filter_shops_data()
+            shop_route_total_count = self.queryset.count()
+            shops_data = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+
+        serializer = self.serializer_class(shops_data, many=True)
+        msg = f"total count {shop_route_total_count}" if shops_data else "no shop route found"
+        return get_response(msg, serializer.data, True)
+
+    def post(self, request):
+        """ POST API for Shop Route Creation with Image """
+
+        info_logger.info("Shop Route POST api called.")
+        modified_data = validate_data_format_without_json(self.request)
+        if 'error' in modified_data:
+            return get_response(modified_data['error'])
+
+        serializer = self.serializer_class(data=modified_data)
+        if serializer.is_valid():
+            serializer.save(created_by=request.user)
+            info_logger.info("Shop Route Created Successfully.")
+            return get_response('shop route created successfully!', serializer.data)
+        return get_response(serializer_error(serializer), False)
+
+    def put(self, request):
+        """ PUT API for Shop Route Updation with Image """
+
+        info_logger.info("Shop Route PUT api called.")
+        modified_data = validate_data_format_without_json(self.request)
+        if 'error' in modified_data:
+            return get_response(modified_data['error'])
+
+        if 'id' not in modified_data:
+            return get_response('please provide id to update shop', False)
+
+        # validations for input id
+        id_validation = validate_id(self.queryset, int(modified_data['id']))
+        if 'error' in id_validation:
+            return get_response(id_validation['error'])
+        shop_route_instance = id_validation['data'].last()
+
+        serializer = self.serializer_class(instance=shop_route_instance, data=modified_data, context={'request':request})
+        if serializer.is_valid():
+            serializer.save(updated_by=request.user)
+            info_logger.info("Shop Route Updated Successfully.")
+            return get_response('shop route updated!', serializer.data)
+        return get_response(serializer_error(serializer), False)
+
+    def delete(self, request):
+        """ Delete Shop Route with image """
+
+        info_logger.info("Shop Route DELETE api called.")
+        if not request.data.get('shop_route_id'):
+            return get_response('please provide shop_route_id', False)
+        try:
+            for s_id in request.data.get('shop_route_id'):
+                shop_route_id = self.queryset.get(id=int(s_id))
+                try:
+                    shop_route_id.delete()
+                except:
+                    return get_response(f'can not delete shop route | {shop_route_id.shop_route_name} | getting used', False)
+        except ObjectDoesNotExist as e:
+            error_logger.error(e)
+            return get_response(f'please provide a valid shop route id {s_id}', False)
+        return get_response('shop were deleted successfully!', True)
+
+    def search_filter_shops_data(self):
+        search_text = self.request.GET.get('search_text')
+        shop_id = self.request.GET.get('shop_id')
+        route_id = self.request.GET.get('route_id')
+        city = self.request.GET.get('city')
+
+        '''search using shop_name, route city name & route name based on criteria that matches'''
+        if search_text:
+            self.queryset = shop_route_search(self.queryset, search_text)
+
+        '''Filters using shop_id, route_id, city'''
+        if shop_id:
+            self.queryset = self.queryset.filter(shop_id=shop_id)
+
+        if route_id:
+            self.queryset = self.queryset.filter(route_id=route_id)
+
+        if city:
+            self.queryset = self.queryset.filter(route__city__id=city)
+
+        return self.queryset.distinct('id')
