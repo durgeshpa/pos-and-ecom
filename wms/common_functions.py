@@ -1211,7 +1211,7 @@ def cancel_order_with_pick(instance):
                 if shipment and shipment.shipment_status in ['QC_STARTED','READY_TO_SHIP','MOVED_TO_DISPATCH',
                                                              'READY_TO_DISPATCH']:
                     for batch_instance in shipment.rt_order_product_order_product_mapping.filter(product=pickup.sku)\
-                                                                                .last().rt_ordered_product_mapping:
+                                                                            .last().rt_ordered_product_mapping.all():
                         put_away_object = Putaway.objects.filter(warehouse=pickup.warehouse,
                                                                  putaway_type='CANCELLED',
                                                                  putaway_type_id=instance.order_no,
