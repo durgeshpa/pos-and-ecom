@@ -418,7 +418,7 @@ class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
 
     def download_shop_routes(self, request, queryset):
 
-        field_names = ['shop_id', 'shop_name', 'city_id', 'city_name', 'route']
+        field_names = ['shop_id', 'shop_name', 'city_id', 'city_name', 'route_id', 'route']
         meta = self.model._meta
         response = HttpResponse(content_type='text/csv')
         response['Content-Disposition'] = 'attachment; filename={}.csv'.format(meta)
@@ -427,7 +427,7 @@ class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
         writer.writerow(field_names)
         for s_id in queryset:
             data = ShopRoute.objects.values_list(
-                'shop__id', 'shop__shop_name', 'route__city_id', 'route__city__city_name', 'route__name') \
+                'shop__id', 'shop__shop_name', 'route__city_id', 'route__city__city_name', 'route_id', 'route__name') \
                 .filter(shop=s_id)
             for obj in data:
                 writer.writerow(list(obj))
