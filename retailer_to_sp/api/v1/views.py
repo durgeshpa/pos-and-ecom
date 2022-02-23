@@ -1457,11 +1457,12 @@ class CartCentral(GenericAPIView):
 
     def pos_cart_product_create(self, shop_id, product_info, cart_id):
 
-        if product_info['ean'] and (not product_info['linked_pid'] or product_info['linked_pid']==''):
+        if product_info['ean'] and (not product_info['linked_pid'] or product_info['linked_pid'] == ''):
             try:
-                pid = Product.objects.filter(product_ean_code=product_info['ean']).values('id').last()
+                pid = Product.objects.filter(product_ean_code__startswith=product_info['ean']).last()
                 if pid:
-                    product_info['linked_pid'] = pid.get('id')
+                    product_info['linked_pid'] = getattr(pid,'id')
+                    product_info['type'] = 2
             except:
                  pass
 
