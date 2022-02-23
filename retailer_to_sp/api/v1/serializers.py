@@ -4397,7 +4397,7 @@ class MarkShipmentPackageVerifiedSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = DispatchTripShipmentPackages
-        fields = ('id', 'shipment_packaging', 'package_status', 'is_return_verified')
+        fields = ('id', 'shipment_packaging', 'package_status')
 
     def validate(self, data):
         # Validate request data
@@ -4437,7 +4437,6 @@ class MarkShipmentPackageVerifiedSerializer(serializers.ModelSerializer):
             data['package_status'] = DispatchTripShipmentPackages.PARTIALLY_VERIFIED
         else:
             data['package_status'] = DispatchTripShipmentPackages.VERIFIED
-            data['is_return_verified'] = True
         return data
 
     @transaction.atomic

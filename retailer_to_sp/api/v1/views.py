@@ -9192,6 +9192,9 @@ class PackagesUnderTripView(generics.GenericAPIView):
         '''
         API to get all the packages for a trip
         '''
+        validated_request = self.validate_request()
+        if 'error' in validated_request:
+            return get_response(validated_request['error'])
         if not request.GET.get('trip_id'):
             return get_response("'trip_id' | This is mandatory")
         validated_trip = validate_trip(request.GET.get('trip_id'), request.GET.get('trip_type'))
@@ -9202,6 +9205,15 @@ class PackagesUnderTripView(generics.GenericAPIView):
         serializer = self.serializer_class(dispatch_items, many=True)
         msg = "" if dispatch_items else "no packaging found"
         return get_response(msg, serializer.data, True)
+
+    def validate_request(self):
+        try:
+            if self.request.GET.get('is_return_verified') and \
+                    int(self.request.GET.get('is_return_verified')) not in [0,1]:
+                raise
+        except:
+            return {'error' : "'is_return_verified' | Invalid value. Only 0 or 1 is allowed."}
+        return {'request' : self.request}
 
     def filter_packaging_items(self, trip_instance):
         shipment_id = self.request.GET.get('shipment_id')
@@ -9243,7 +9255,12 @@ class PackagesUnderTripView(generics.GenericAPIView):
             self.queryset = self.queryset.filter(shipment_id=shipment_id)
 
         if is_return_verified:
-            self.queryset = self.queryset.filter(trip_packaging_details__is_return_verified=is_return_verified)
+            is_return_verified = int(is_return_verified)
+            if is_return_verified == 1:
+                self.queryset = self.queryset.filter(trip_packaging_details__package_status=DispatchTripShipmentPackages.VERIFIED)
+            else:
+                self.queryset = self.queryset.filter(trip_packaging_details__package_status__in=[
+                    DispatchTripShipmentPackages.PARTIALLY_VERIFIED, DispatchTripShipmentPackages.UNLOADED])
 
         return self.queryset.distinct('id', 'packaging_type')
 
