@@ -4,8 +4,8 @@ from rest_framework import status
 from rest_framework.response import Response
 from products.models import Product, Tax, ParentProductTaxMapping, ParentProduct, ParentProductCategory, \
     ParentProductImage, ProductHSN, ProductCapping, ProductVendorMapping, ChildProductImage, ProductImage, \
-    ProductSourceMapping, DestinationRepackagingCostMapping, ProductPackingMapping, CentralLog
-from categories.models import Category
+    ProductSourceMapping, DestinationRepackagingCostMapping, ProductPackingMapping, CentralLog, ParentProductB2cCategory
+from categories.models import Category, B2cCategory
 from wms.models import Out, WarehouseInventory, BinInventory
 
 from products.common_validators import get_validate_parent_brand, get_validate_product_hsn, get_validate_product, \
@@ -50,6 +50,20 @@ class ParentProductCls(object):
         for product_category in parent_product_pro_category:
             category = Category.objects.get(id=product_category['category'])
             ParentProductCategory.objects.create(parent_product=parent_product, category=category)
+    
+    @classmethod
+    def create_parent_product_b2c_category(cls, parent_product, parent_product_pro_b2c_category):
+        """
+             Delete Existing Category of specific ParentProduct if any
+             Create Parent Product B2c Categories
+        """
+        parent_cat = ParentProductB2cCategory.objects.filter(parent_product=parent_product)
+        if parent_cat.exists():
+            parent_cat.delete()
+
+        for product_category in parent_product_pro_b2c_category:
+            category = B2cCategory.objects.get(id=product_category['category'])
+            ParentProductB2cCategory.objects.create(parent_product=parent_product, category=category)
 
     @classmethod
     def create_parent_product_tax(cls, parent_product, parent_product_pro_tax):

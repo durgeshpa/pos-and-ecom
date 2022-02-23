@@ -6,7 +6,7 @@ from django.db.models import Sum
 
 from accounts.models import User
 from addresses.models import Pincode
-from categories.models import Category
+from categories.models import Category, B2cCategory
 from marketing.models import ReferralCode, RewardPoint, RewardLog
 from shops.models import Shop
 from retailer_to_sp.models import Order, OrderedProductMapping, CartProductMapping
@@ -128,9 +128,22 @@ class CategorySerializer(serializers.ModelSerializer):
         fields = ('id', 'category_name', 'category_image')
 
 
+class B2cCategorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = B2cCategory
+        fields = ('id', 'category_name', 'category_image')
+
+
 class SubCategorySerializer(serializers.ModelSerializer):
     class Meta:
         model = Category
+        fields = ('id', 'category_name', 'category_image')
+
+
+
+class B2cSubCategorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = B2cCategory
         fields = ('id', 'category_name', 'category_image')
 
 
