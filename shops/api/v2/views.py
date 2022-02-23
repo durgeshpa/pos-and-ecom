@@ -33,7 +33,7 @@ from .serializers import (
     ShopBasicSerializer, BulkUpdateShopSerializer, ShopEmployeeSerializers, ShopManagerListSerializers,
     RetailerTypeSerializer, DisapproveSelectedShopSerializers, PinCodeSerializer, CitySerializer, StateSerializer,
     BulkUpdateShopSampleCSVSerializer, BulkCreateShopUserMappingSerializer, ShopManagerListDistSerializers,
-    DownloadShopStatusCSVSerializer, ShopRouteCrudSerializers
+    DownloadShopStatusCSVSerializer, ShopRouteCrudSerializers, ShopRouteUploadSerializer
 )
 from shops.common_functions import *
 from shops.services import (related_user_search, search_beat_planning_data, shop_search, get_distinct_pin_codes,
@@ -1336,3 +1336,35 @@ class ShopRouteCrudView(generics.GenericAPIView):
             self.queryset = self.queryset.filter(route__city__id=city)
 
         return self.queryset.distinct('id')
+
+
+class ShopRouteSampleFile(generics.GenericAPIView):
+
+    def get(self, request, *args, **kwargs):
+        """
+        This function will return an Sample File in csv format which can be used for Downloading RetailerCatalogue Sample File
+        (It is used when user wants to create new retailer products)
+        """
+        filename = "shop_route_sample_file.csv"
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
+        writer = csv.writer(response)
+        writer.writerow(["shop_id", "shop_name", "city_id", "city_name", "route_id", "route"])
+        writer.writerow([45887, "Shiv Store", 33, "Gwalior", 1, "abc"])
+        writer.writerow([45886, "Bajrang fram fresh", 33, "Gwalior", 1, "abc"])
+        return response
+
+
+class ShopRouteUploadView(generics.GenericAPIView):
+    """
+    This class is used to upload csv file for Shop Route to map the route with shop
+    """
+    authentication_classes = (authentication.TokenAuthentication,)
+    serializer_class = ShopRouteUploadSerializer
+
+    def post(self, request):
+        serializer = self.get_serializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save(created_by=request.user)
+            return get_response('data uploaded successfully!', serializer.data, True)
+        return get_response(serializer_error(serializer), False)

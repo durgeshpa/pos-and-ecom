@@ -10,6 +10,8 @@ from django.http import HttpResponse
 
 from rest_framework import serializers
 
+from addresses.common_functions import ShopRouteCommonFunction
+from addresses.common_validators import read_shop_route_file
 from retailer_backend.validators import PinCodeValidator
 
 from shops.models import (BeatPlanning, RetailerType, ShopType, Shop, ShopPhoto,
@@ -1368,3 +1370,40 @@ class ShopRouteCrudSerializers(serializers.ModelSerializer):
             raise serializers.ValidationError(error)
 
         return shop_route_instance
+
+
+class ShopRouteUploadSerializer(serializers.ModelSerializer):
+    file = serializers.FileField(
+        label='Upload Shop Route', required=True, write_only=True)
+
+    def __init__(self, *args, **kwargs):
+        super(ShopRouteUploadSerializer, self).__init__(*args, **kwargs)  # call the super()
+
+    class Meta:
+        model = ShopRoute
+        fields = ('file',)
+
+    def validate(self, data):
+        if not data['file'].name[-4:] in '.csv':
+            raise serializers.ValidationError(
+                _('Sorry! Only csv file accepted.'))
+        csv_file_data = csv.reader(codecs.iterdecode(data['file'], 'utf-8', errors='ignore'))
+        # Checking, whether csv file is empty or not!
+        if csv_file_data:
+            read_shop_route_file(csv_file_data)
+        else:
+            raise serializers.ValidationError(
+                "CSV File cannot be empty.Please add some data to upload it!")
+
+        return data
+
+    @transaction.atomic
+    def create(self, validated_data):
+        try:
+            ShopRouteCommonFunction.create_shop_route(validated_data)
+        except Exception as e:
+            error = {'message': ",".join(e.args) if len(
+                e.args) > 0 else 'Unknown Error'}
+            raise serializers.ValidationError(error)
+
+        return validated_data
