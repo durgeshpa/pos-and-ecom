@@ -16,8 +16,14 @@ from shops.models import Shop, ShopUserMapping
 from django.http import Http404
 from rest_framework import serializers
 from pos.common_functions import api_response
-from ...common_functions import serializer_error_batch
-from ...common_validators import get_validate_routes, validate_data_dict_format
+from ...common_functions import serializer_error_batch, serializer_error
+from ...common_validators import get_validate_routes, validate_data_dict_format, validate_id
+import logging
+
+
+info_logger = logging.getLogger('file-info')
+error_logger = logging.getLogger('file-error')
+debug_logger = logging.getLogger('file-debug')
 
 
 class CountryView(generics.ListAPIView):
@@ -415,5 +421,93 @@ class RouteView(generics.GenericAPIView):
 
         if state_id:
             self.queryset = self.queryset.filter(city__state_id=state_id)
+
+        return self.queryset
+
+
+class CitiesView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    queryset = City.objects.order_by('-id')
+    serializer_class = CityBasicSerializer
+
+    def get(self, request):
+        """ GET API for City """
+        info_logger.info("City GET api called.")
+        city_total_count = self.queryset.count()
+        if request.GET.get('id'):
+            """ Get City for specific ID """
+            id_validation = validate_id(self.queryset, int(request.GET.get('id')))
+            if 'error' in id_validation:
+                return api_response(id_validation['error'])
+            cities_data = id_validation['data']
+        else:
+            """ GET City List """
+            self.queryset = self.search_filter_city_data()
+            city_total_count = self.queryset.count()
+            cities_data = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+
+        serializer = self.serializer_class(cities_data, many=True)
+        msg = f"total count {city_total_count}" if cities_data else "no city found"
+        return api_response(msg, serializer.data, status.HTTP_200_OK, True)
+
+    def post(self, request):
+        """ POST API for City Creation with Image """
+
+        info_logger.info("City POST api called.")
+        modified_data = validate_data_dict_format(self.request)
+        if 'error' in modified_data:
+            return api_response(modified_data['error'])
+
+        serializer = self.serializer_class(data=modified_data, context={"user": self.request.user})
+        if serializer.is_valid():
+            serializer.save()
+            info_logger.info("City Created Successfully.")
+            return api_response('city created successfully!', serializer.data, status.HTTP_200_OK, True)
+        return api_response(serializer_error(serializer), False)
+
+    def put(self, request):
+        """ PUT API for City Updation """
+
+        info_logger.info("City PUT api called.")
+        modified_data = validate_data_dict_format(self.request)
+        if 'error' in modified_data:
+            return api_response(modified_data['error'])
+
+        if 'id' not in modified_data:
+            return api_response('please provide id to update city', False)
+
+        # validations for input id
+        id_validation = validate_id(self.queryset, int(modified_data['id']))
+        if 'error' in id_validation:
+            return api_response(id_validation['error'])
+        city_instance = id_validation['data'].last()
+
+        serializer = self.serializer_class(instance=city_instance, data=modified_data,
+                                           context={"user": self.request.user})
+        if serializer.is_valid():
+            serializer.save()
+            info_logger.info("City Updated Successfully.")
+            return api_response('city updated!', serializer.data)
+        return api_response(serializer_error(serializer), False)
+
+    def search_filter_city_data(self):
+        search_text = self.request.GET.get('search_text')
+        route_name = self.request.GET.get('route_name')
+        route_id = self.request.GET.get('route_id')
+        state_id = self.request.GET.get('state_id')
+
+        if search_text:
+            self.queryset = self.queryset.filter(Q(city_routes__name__icontains=search_text) |
+                                                 Q(city_name__icontains=search_text)).distinct()
+
+        if route_name:
+            self.queryset = self.queryset.filter(city_routes__name=route_name)
+
+        if route_id:
+            self.queryset = self.queryset.filter(city_routes__id=route_id)
+
+        if state_id:
+            self.queryset = self.queryset.filter(state_id=state_id)
 
         return self.queryset

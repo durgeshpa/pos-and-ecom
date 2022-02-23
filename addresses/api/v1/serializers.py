@@ -1,4 +1,8 @@
+from django.db import transaction
+from django.db.models import Q
 from rest_framework import serializers
+
+from addresses.common_validators import get_validate_city_routes, get_validate_routes_mandatory_fields
 from addresses.models import (Country, State, City, Area, Address, Pincode, Route)
 from retailer_backend.validators import PinCodeValidator
 
@@ -79,6 +83,12 @@ class PinCityStateSerializer(serializers.ModelSerializer):
         fields = ('pincode', 'city', 'state')
 
 
+class RouteSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Route
+        fields = ('id', 'name')
+
+
 class StateBasicSerializer(serializers.ModelSerializer):
     class Meta:
         model = State
@@ -87,16 +97,99 @@ class StateBasicSerializer(serializers.ModelSerializer):
 
 class CityBasicSerializer(serializers.ModelSerializer):
     state = StateBasicSerializer(read_only=True)
+    city_routes = RouteSerializer(many=True, read_only=True)
 
     class Meta:
         model = City
-        fields = ('id', 'city_name', 'state')
+        fields = ('id', 'city_name', 'state', 'city_routes')
 
+    def validate(self, data):
 
-class RouteSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Route
-        fields = ('id', 'name')
+        if 'state' in self.initial_data and self.initial_data['state']:
+            try:
+                state_instance = State.objects.get(id=self.initial_data['state'])
+                data['state'] = state_instance
+            except:
+                raise serializers.ValidationError("Invalid state")
+        else:
+            raise serializers.ValidationError("'state' | This is mandatory")
+
+        if 'city_name' in self.initial_data and self.initial_data['city_name']:
+            data['city_name'] = self.initial_data['city_name']
+        else:
+            raise serializers.ValidationError("'city_name' | This is mandatory")
+
+        if 'id' in self.initial_data and self.initial_data['id']:
+            city_instance = City.objects.filter(id=self.initial_data['id'], state=state_instance).last()
+            if not city_instance:
+                raise serializers.ValidationError("'id' | Invalid city.")
+        else:
+            city_instance = None
+            if City.objects.filter(city_name=self.initial_data['city_name'], state=state_instance).exists():
+                raise serializers.ValidationError(f"City already exists with this name in state {state_instance}.")
+
+        if 'city_routes' in self.initial_data and self.initial_data['city_routes']:
+            if city_instance:
+                city_routes = get_validate_city_routes(self.initial_data['city_routes'], city_instance)
+            else:
+                city_routes = get_validate_routes_mandatory_fields(self.initial_data['city_routes'])
+            if 'error' in city_routes:
+                raise serializers.ValidationError(city_routes['error'])
+            data['routes'] = city_routes['data']['routes']
+            data['route_update_ids'] = city_routes['data'].get('route_update_ids', [])
+
+        return data
+
+    @transaction.atomic
+    def create(self, validated_data):
+        """create a new City"""
+        routes = validated_data.pop("routes", None)
+        route_update_ids = validated_data.pop("route_update_ids", None)
+        try:
+            city_instance = City.objects.create(**validated_data)
+        except Exception as e:
+            error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
+            raise serializers.ValidationError(error)
+
+        self.post_city_save(routes, route_update_ids, city_instance)
+
+        return city_instance
+
+    @transaction.atomic
+    def update(self, instance, validated_data):
+        """Update City"""
+        routes = validated_data.pop("routes", None)
+        route_update_ids = validated_data.pop("route_update_ids", None)
+        try:
+            city_instance = super().update(instance, validated_data)
+        except Exception as e:
+            error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
+            raise serializers.ValidationError(error)
+
+        self.post_city_save(routes, route_update_ids, city_instance)
+
+        return city_instance
+
+    def post_city_save(self, routes, route_update_ids, city_instance):
+        if route_update_ids:
+            self.remove_non_exist_city_routes(route_update_ids, city_instance)
+        if routes:
+            self.create_update_city_routes(routes, city_instance)
+
+    def remove_non_exist_city_routes(self, route_ids, city_instance):
+        routes_to_be_deleted = Route.objects.filter(~Q(id__in=route_ids), city=city_instance)
+        for route in routes_to_be_deleted:
+            if route.route_shops.exists():
+                route.route_shops.delete()
+        routes_to_be_deleted.delete()
+
+    def create_update_city_routes(self, data_list, city_instance):
+        for data in data_list:
+            if 'id' in data and data['id']:
+                Route.objects.filter(id=data['id'], city=city_instance).\
+                    update(name=data['name'], updated_by=self.context['user'])
+            else:
+                Route.objects.create(city=city_instance, name=data['name'], created_by=self.context['user'])
 
 
 class CityRouteSerializer(serializers.Serializer):
@@ -110,3 +203,4 @@ class CityRouteSerializer(serializers.Serializer):
     @staticmethod
     def get_routes(obj):
         return RouteSerializer(Route.objects.filter(city=obj['city_id']), read_only=True, many=True).data
+
