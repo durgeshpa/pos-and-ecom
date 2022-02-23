@@ -5,9 +5,11 @@ from celery.task import task
 from products.tasks import load_b2c_parent_category_data
 
 @task
-def copy_category_tree_data(model=Category):
+def copy_category_tree_data():
     cat_map = {}
-    categories = model.objects.filter(b2c_status=True)
+    categories = Category.objects.filter(b2c_status=True)
+    non_b2c_parent_cat = categories.filter(category_parent__b2c_status=False).values_list('category_parent_id', flat=True)
+    categories |= Category.objects.filter(id__in=non_b2c_parent_cat)
     for category in categories:
         b2c_parent_cat = B2cCategory.objects.create(category_name=category.category_name, 
                                                     category_slug=category.category_slug,

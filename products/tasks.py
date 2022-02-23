@@ -33,6 +33,7 @@ def load_b2c_parent_category_data(cat_map=None):
         for p_category in p_categories:
             cat_id = p_category.category.id
             parent_id = p_category.category.category_parent.id if p_category.category.category_parent else None
-            ParentProductB2cCategory.objects.create(parent_product=product, 
-                                                    category=cat_map.get((cat_id, parent_id)))
+            if cat_map.get((cat_id, parent_id)):
+                ParentProductB2cCategory.objects.create(parent_product=product, 
+                                                        category=cat_map.get((cat_id, parent_id)))
         
