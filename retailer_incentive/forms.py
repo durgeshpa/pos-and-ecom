@@ -10,7 +10,7 @@ from django.forms import formset_factory, BaseInlineFormSet
 from django.utils.translation import gettext_lazy as _
 from django.contrib.admin.widgets import AdminDateWidget
 
-from retailer_incentive.models import Scheme, SchemeSlab, SchemeShopMapping
+from retailer_incentive.models import Scheme, SchemeSlab, SchemeShopMapping, BulkIncentive
 from retailer_incentive.utils import get_active_mappings
 from shops.models import Shop
 from .common_function import save_scheme_shop_mapping_data
@@ -254,3 +254,42 @@ class UploadSchemeShopMappingForm(forms.Form):
 
             unique_data += [unique_key]
         return self.cleaned_data['file']
+
+
+class BulkIncentiveForm(forms.ModelForm):
+    """
+    Upload Bulk Incentive
+    """
+    uploaded_file = forms.FileField(label='Upload BulkIncentive XLSX')
+
+    class Meta:
+        model = BulkIncentive
+        fields = ('uploaded_file',)
+
+
+class BulkIncentiveXLSXUploadForm(forms.ModelForm):
+    """
+        Select shop for create or update Products
+    """
+    uploaded_file = forms.FileField(label='Upload BulkIncentive XLSX')
+
+    class Meta:
+        model = BulkIncentive
+        fields = ('uploaded_file', 'uploaded_by',)
+
+    def __init__(self, *args, **kwargs):
+
+        try:
+            self.uploaded_by = kwargs.pop('user')
+        except:
+            self.uploaded_by = ''
+        super().__init__(*args, **kwargs)
+        self.fields['uploaded_by'].required = False
+        self.fields['uploaded_by'].widget = forms.HiddenInput()
+
+    def clean(self):
+        if 'uploaded_file' in self.cleaned_data:
+            if self.cleaned_data['uploaded_file']:
+                if not self.cleaned_data['uploaded_file'].name[-5:] in ('.xlsx'):
+                    raise forms.ValidationError("Sorry! Only xlsx file accepted")
+        self.cleaned_data['uploaded_by'] = self.uploaded_by
