@@ -1211,13 +1211,18 @@ class Order(models.Model):
         trips = []
         curr_trip = ''
         for s in self.shipments():
-            if s.trip:
-                curr_trip = '<b>' + s.trip.dispatch_no + '</b><br>'
-            rescheduling = s.rescheduling_shipment.select_related('trip').all()
-            if rescheduling.exists():
-                for reschedule in rescheduling:
-                    if reschedule.trip:
-                        trips += [reschedule.trip.dispatch_no]
+            curr_dispatch_no = ''
+            if s.last_trip:
+                curr_dispatch_no = s.last_trip.dispatch_no
+                curr_trip = '<b>' + s.last_trip.dispatch_no + '</b><br>'
+            trips += LastMileTripShipmentMapping.objects.filter(shipment=s). \
+                values_list('trip__dispatch_no', flat=True).distinct()
+            trips += DispatchTripShipmentMapping.objects.filter(shipment=s). \
+                values_list('trip__dispatch_no', flat=True).distinct()
+            trips += s.rescheduling_shipment.values_list('trip__dispatch_no', flat=True).distinct()
+            trips += s.not_attempt_shipment.values_list('trip__dispatch_no', flat=True).distinct()
+            while curr_dispatch_no in trips:
+                trips.remove(curr_dispatch_no)
         return format_html("<b>{}</b>".format(curr_trip)) + format_html_join("", "{}<br>", ((t,) for t in trips))
 
     @property
