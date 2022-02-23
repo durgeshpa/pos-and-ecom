@@ -744,8 +744,11 @@ class FOFOConfigSubCategory(models.Model):
         ("bool", "Boolean"),
     )
     category = models.ForeignKey(FOFOConfigCategory, related_name='fofo_category_details', on_delete=models.CASCADE)
-    name = CaseInsensitiveCharField(max_length=125, unique=True)
+    name = CaseInsensitiveCharField(max_length=125)
     type = models.CharField(max_length=20, choices=FIELD_TYPE_CHOICES, default='int')
+
+    class Meta:
+        unique_together = ('category', 'name',)
 
     def __str__(self):
         return str(self.category) + " - " + str(self.name)
@@ -772,3 +775,8 @@ class FOFOConfigurations(models.Model):
 
     def __str__(self):
         return str(self.key)
+
+    class Meta:
+        permissions = (
+            ("has_fofo_config_operations", "Has update FOFO config operations"),
+        )
