@@ -98,6 +98,12 @@ def get_categories_with_products(shop):
     return query_set.values_list(
         'product__linked_product__parent_product__parent_product_pro_category__category', flat=True).distinct()
 
+def get_b2c_categories_with_products(shop):
+    query_set = PosInventory.objects.filter(product__shop=shop, product__status='active', quantity__gt=0,
+                                            inventory_state=PosInventoryState.objects.filter(
+                                                inventory_state='available').last())
+    return query_set.values_list(
+        'product__linked_product__parent_product__parent_product_pro_b2c_category__category', flat=True).distinct()
 
 def get_ecom_tax_details(product):
     gst_amount = 0
@@ -133,8 +139,8 @@ def generate_ecom_order_csv_report(queryset):
                           'rt_order_product_order_product_mapping__retailer_product',
                           'rt_order_product_order_product_mapping__retailer_product__linked_product',
                           'rt_order_product_order_product_mapping__retailer_product__linked_product__parent_product',
-                          'rt_order_product_order_product_mapping__retailer_product__linked_product__parent_product__parent_product_pro_category__category__category_parent',
-                          'rt_order_product_order_product_mapping__retailer_product__linked_product__parent_product__parent_product_pro_category__category',
+                          'rt_order_product_order_product_mapping__retailer_product__linked_product__parent_product__parent_product_pro_b2c_category__category__category_parent',
+                          'rt_order_product_order_product_mapping__retailer_product__linked_product__parent_product__parent_product_pro_b2c_category__category',
                           'rt_order_product_order_product_mapping__retailer_product__linked_product__parent_product__parent_brand__brand_parent',
                           'rt_order_product_order_product_mapping__retailer_product__linked_product__parent_product__parent_brand',
                           'rt_payment_retailer_order__payment_type', 'ordered_cart', 'ordered_cart__rt_cart_list'
@@ -142,7 +148,7 @@ def generate_ecom_order_csv_report(queryset):
         .annotate(
             purchased_subtotal=RoundAmount(Sum(F('ordered_cart__rt_cart_list__qty') * F('ordered_cart__rt_cart_list__selling_price'),output_field=FloatField())),
             ) \
-        .values('id', 'order_no', 'rt_order_order_product__invoice__invoice_no', 'order_status', 'created_at','ordered_cart__seller_shop__id', 'ordered_cart__seller_shop__shop_name',
+        .values('id', 'order_no', 'rt_order_order_product__invoice__invoice_no', 'order_status', 'created_at', 'ordered_cart__seller_shop__id', 'ordered_cart__seller_shop__shop_name',
                 'ordered_cart__seller_shop__shop_owner__id', 'ordered_cart__seller_shop__shop_owner__first_name',
                 'ordered_cart__seller_shop__shop_owner__phone_number',
                 'ordered_cart__seller_shop__shop_type__shop_sub_type__retailer_type_name',
@@ -159,8 +165,8 @@ def generate_ecom_order_csv_report(queryset):
                 'rt_order_order_product__rt_order_product_order_product_mapping__retailer_product__product_ean_code',
                 'rt_order_order_product__rt_order_product_order_product_mapping__retailer_product__linked_product__parent_product__parent_id',
                 'rt_order_order_product__rt_order_product_order_product_mapping__retailer_product__linked_product__parent_product__name',
-                'rt_order_order_product__rt_order_product_order_product_mapping__retailer_product__linked_product__parent_product__parent_product_pro_category__category__category_parent__category_name',
-                'rt_order_order_product__rt_order_product_order_product_mapping__retailer_product__linked_product__parent_product__parent_product_pro_category__category__category_name',
+                'rt_order_order_product__rt_order_product_order_product_mapping__retailer_product__linked_product__parent_product__parent_product_pro_b2c_category__category__category_parent__category_name',
+                'rt_order_order_product__rt_order_product_order_product_mapping__retailer_product__linked_product__parent_product__parent_product_pro_b2c_category__category__category_name',
                 'rt_order_order_product__rt_order_product_order_product_mapping__retailer_product__linked_product__parent_product__parent_brand__brand_parent__brand_name',
                 'rt_order_order_product__rt_order_product_order_product_mapping__retailer_product__linked_product__parent_product__parent_brand__brand_name',
                 'purchased_subtotal', 'order_amount', 'rt_payment_retailer_order__payment_type__type',
@@ -183,9 +189,9 @@ def generate_ecom_order_csv_report(queryset):
         discounts = { item.get('item_id'): item.get('cart_or_brand_level_discount') \
             for item in list(filter(lambda d: d['type'] in 'none', cart_offers))}
         category = order[
-            'rt_order_order_product__rt_order_product_order_product_mapping__retailer_product__linked_product__parent_product__parent_product_pro_category__category__category_parent__category_name']
+            'rt_order_order_product__rt_order_product_order_product_mapping__retailer_product__linked_product__parent_product__parent_product_pro_b2c_category__category__category_parent__category_name']
         sub_category = order[
-            'rt_order_order_product__rt_order_product_order_product_mapping__retailer_product__linked_product__parent_product__parent_product_pro_category__category__category_name']
+            'rt_order_order_product__rt_order_product_order_product_mapping__retailer_product__linked_product__parent_product__parent_product_pro_b2c_category__category__category_name']
         if not category:
             category = sub_category
             sub_category = None

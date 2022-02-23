@@ -2,6 +2,7 @@
 from categories.models import (Category, B2cCategory, 
                                B2cCategoryData, CategoryData)
 from celery.task import task
+from products.tasks import load_b2c_parent_category_data
 
 @task
 def copy_category_tree_data(model=Category):
@@ -32,3 +33,4 @@ def copy_category_tree_data(model=Category):
         B2cCategoryData.objects.create(category_pos=positiondata.category_pos, 
                                        category_data=b2c_category,
                                        category_data_order=positiondata.category_data_order)
+    load_b2c_parent_category_data.delay(cat_map)
