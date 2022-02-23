@@ -268,7 +268,7 @@ class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
     form = ShopForm
     fields = ['shop_name', 'shop_owner', 'shop_type', 'status', 'pos_enabled', 'online_inventory_enabled',
               'latitude', 'longitude', 'approval_status', 'cutoff_time']
-    actions = ["export_as_csv", "disable_shop", "download_status_report"]
+    actions = ["export_as_csv", "disable_shop", "download_status_report", "download_shop_routes"]
     inlines = [
         ShopPhotosAdmin, ShopDocumentsAdmin, AddressAdmin, DispatchCenterCityAdmin, DispatchCenterPincodeAdmin,
         ShopRouteInlineAdmin, ShopInvoicePatternAdmin, ShopParentRetailerMapping, ShopStatusAdmin
@@ -411,6 +411,23 @@ class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
         for s_id in queryset:
             data = ShopStatusLog.objects.values_list(
                 'shop__id', 'shop__shop_name', 'reason', 'changed_at', 'user__id', 'user__first_name') \
+                .filter(shop=s_id)
+            for obj in data:
+                writer.writerow(list(obj))
+        return response
+
+    def download_shop_routes(self, request, queryset):
+
+        field_names = ['shop_id', 'shop_name', 'city_id', 'city_name', 'route']
+        meta = self.model._meta
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename={}.csv'.format(meta)
+
+        writer = csv.writer(response)
+        writer.writerow(field_names)
+        for s_id in queryset:
+            data = ShopRoute.objects.values_list(
+                'shop__id', 'shop__shop_name', 'route__city_id', 'route__city__city_name', 'route__name') \
                 .filter(shop=s_id)
             for obj in data:
                 writer.writerow(list(obj))
