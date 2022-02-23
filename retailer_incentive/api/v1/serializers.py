@@ -12,6 +12,7 @@ from rest_framework import serializers
 
 from retailer_incentive.common_validators import bulk_incentive_data_validation
 from retailer_incentive.models import SchemeShopMapping, SchemeSlab, Scheme, Incentive, BulkIncentive
+from retailer_incentive.utils import pos_save_file
 from shops.models import ShopUserMapping, Shop
 from accounts.models import User
 
@@ -117,51 +118,8 @@ class IncentiveSerializer(serializers.ModelSerializer):
         except Exception as e:
             error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
             raise serializers.ValidationError(error)
-        data = self.pos_save_file(bulk_incentive_obj)
+        data = pos_save_file(bulk_incentive_obj)
         return data if data else bulk_incentive_obj
-
-    def pos_save_file(self, bulk_incentive_obj):
-        response_file = None
-        if bulk_incentive_obj:
-            if bulk_incentive_obj.uploaded_file:
-                error_list, validated_rows = bulk_incentive_data_validation(bulk_incentive_obj.uploaded_file)
-                if validated_rows:
-                    self.bulk_create_incentives(validated_rows, bulk_incentive_obj.uploaded_by)
-                if len(error_list) > 1:
-                    response_file = self.error_incentives_xlsx(error_list, bulk_incentive_obj)
-        return response_file
-
-    def bulk_create_incentives(self, data, uploaded_by):
-        with transaction.atomic():
-            for row in data:
-                try:
-                    Incentive.objects.create(
-                        shop_id=row[0], capping_applicable=row[2],capping_value=row[3], date_of_calculation=row[4],
-                        total_ex_tax_delivered_value=row[5], incentive=row[6], created_by=uploaded_by,
-                        updated_by=uploaded_by)
-                except Exception as e:
-                    info_logger.info("BulkCreateIncentiveView | can't create Incentive", e.args)
-
-    def error_incentives_xlsx(self, list_data, bulk_incentive_obj):
-        filename = f'incentive_error_sheet_{bulk_incentive_obj.pk}.xlsx'
-        info_logger.info("creating xlsx for wrong data.")
-        output = io.BytesIO()
-        workbook = xlsxwriter.Workbook(output)
-        worksheet = workbook.add_worksheet()
-        bold = workbook.add_format({'bold': True})
-
-        # Write error msg in xlsx sheet.
-        for row_num, columns in enumerate(list_data):
-            for col_num, cell_data in enumerate(columns):
-                worksheet.write(row_num, col_num, cell_data, bold if row_num == 0 else None)
-        workbook.close()
-        output.seek(0)
-        response = HttpResponse(
-            output,
-            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-        )
-        response['Content-Disposition'] = 'attachment; filename=%s' % filename
-        return response
 
 
 class GetListIncentiveSerializer(serializers.ModelSerializer):
