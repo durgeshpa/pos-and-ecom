@@ -4460,6 +4460,8 @@ class OrderedItemCentralDashBoard(APIView):
 
         # ECOM Ordered Count
         ecom_total_ordered_final_amount = ecom_orders.aggregate(Sum('order_amount')).get('order_amount__sum')
+        if not ecom_total_ordered_final_amount:
+           ecom_total_ordered_final_amount = 0 
         ecom_total_refund_amount = ecom_returns.aggregate(Sum('refund_amount')).get('refund_amount__sum')
         if ecom_total_refund_amount:
             ecom_total_ordered_final_amount -= float(ecom_total_refund_amount)
