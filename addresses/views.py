@@ -1,9 +1,6 @@
 from dal import autocomplete
 from django.shortcuts import render
 
-<<<<<<< HEAD
-# Create your views here.
-=======
 # Create your views here.
 from addresses.models import Route
 
@@ -20,4 +17,3 @@ class RouteAutocomplete(autocomplete.Select2QuerySetView):
         if city:
             qs = qs.filter(city_id=city)
         return qs
->>>>>>> e77ae8b98... Shop Route Admin Inlines.
