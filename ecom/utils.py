@@ -121,11 +121,11 @@ def generate_ecom_order_csv_report(queryset):
         'Seller Shop Name', 'Seller Shop Owner Id', 'Seller Shop Owner Name', 'Mobile No.(Seller Shop)', 'Seller Shop Type', 
         'Buyer Id', 'Buyer Name','Mobile No(Buyer)',
         'Purchased Product Id', 'Purchased Product SKU', 'Purchased Product Name', 'Purchased Product Ean Code','Product Category',
-        'Product SubCategory', 'Quantity',
-        'Product Type', 'MRP', 'Selling Price' , 'Offer Applied' ,'Offer Discount',
-        'Subtotal', 'Order Amount', 'Invoice Amount', 'Payment Mode',
-        'Parent Id', 'Parent Name', 'Child Name', 'Brand', 
-        'Tax Slab(GST)', 'Discount' ,'Delivered Quantity', 'Delivered Value', 'Delivery Start Time', 'Delivery End Time', 'PickUp Time' ,'Redeemed Points'
+        'Product SubCategory', 'Quantity', 'Product Type', 'MRP', 'Selling Price', 'Offer Price', 'Offer Start Date',
+        'Offer End Date', 'Item wise Amount', 'Offer Applied', 'Offer Discount', 'Subtotal', 'Order Amount',
+        'Invoice Amount', 'Payment Mode', 'Parent Id', 'Parent Name', 'Child Name', 'Brand', 'Tax Slab(GST)', 'Discount',
+        'Delivered Quantity', 'Delivered Value', 'Delivery Start Time', 'Delivery End Time', 'PickUp Time' ,
+        'Redeemed Points'
     ])
     orders = queryset \
         .prefetch_related('order', 'invoice','pos_trips', 'order__ordered_cart__seller_shop', 'order__ordered_cart__seller_shop__shop_owner',
@@ -155,7 +155,11 @@ def generate_ecom_order_csv_report(queryset):
                 'rt_order_order_product__rt_order_product_order_product_mapping__retailer_product__sku',
                 'rt_order_order_product__rt_order_product_order_product_mapping__retailer_product__name',
                 'rt_order_order_product__rt_order_product_order_product_mapping__retailer_product__mrp',
+                'rt_order_order_product__rt_order_product_order_product_mapping__retailer_product__offer_price',
+                'rt_order_order_product__rt_order_product_order_product_mapping__retailer_product__offer_start_date',
+                'rt_order_order_product__rt_order_product_order_product_mapping__retailer_product__offer_end_date',
                 'rt_order_order_product__rt_order_product_order_product_mapping__retailer_product__selling_price',
+                'rt_order_order_product__rt_order_product_order_product_mapping__retailer_product__online_price',
                 'rt_order_order_product__rt_order_product_order_product_mapping__retailer_product__product_ean_code',
                 'rt_order_order_product__rt_order_product_order_product_mapping__retailer_product__linked_product__parent_product__parent_id',
                 'rt_order_order_product__rt_order_product_order_product_mapping__retailer_product__linked_product__parent_product__name',
@@ -169,12 +173,27 @@ def generate_ecom_order_csv_report(queryset):
                 ).iterator()
     for order in orders:
         inv_amt = None
-        if Order.objects.get(id=order.get('id')).rt_order_order_product.last():
-            inv_amt = Order.objects.get(id=order.get('id')).rt_order_order_product.last().invoice_amount
+        product_inv_price = None
+        product_offer_price = None
+        product_offer_start_date = None
+        product_offer_end_date = None
+        shipment = Order.objects.get(id=order.get('id')).rt_order_order_product.last()
+        if shipment:
+            inv_amt = shipment.invoice_amount_final
+            order_product_mapping = shipment.rt_order_product_order_product_mapping.filter(
+                retailer_product_id=order.get('rt_order_order_product__rt_order_product_order_product_mapping__retailer_product__id')). \
+                last()
+            product_inv_price = order_product_mapping.product_sub_total
+
         retailer_product_id = order.get('rt_order_order_product__rt_order_product_order_product_mapping__retailer_product__id')
         retailer_product = RetailerProduct.objects.filter(id=retailer_product_id)
         if retailer_product:
             tax_detail = get_ecom_tax_details(retailer_product.last())
+            if retailer_product.last().online_enabled and not retailer_product.last().online_price:
+                if retailer_product.last().offer_price:
+                    product_offer_price = retailer_product.last().offer_price
+                    product_offer_start_date = retailer_product.last().offer_start_date
+                    product_offer_end_date = retailer_product.last().offer_end_date
         else:
             tax_detail = None
         product_type = order.get('rt_order_order_product__rt_order_product_order_product_mapping__product_type')
@@ -240,6 +259,11 @@ def generate_ecom_order_csv_report(queryset):
             retailer_product_type.get(product_type, product_type),
             order.get('rt_order_order_product__rt_order_product_order_product_mapping__retailer_product__mrp'),
             order.get('rt_order_order_product__rt_order_product_order_product_mapping__selling_price'),
+            product_offer_price,
+            product_offer_start_date,
+            product_offer_end_date,
+            product_inv_price,
+
             offers[0].get('coupon_description', None) if len(offers) else None,
             offers[0].get('discount_value', None) if len(offers) else None
             if len(offers) else None,
