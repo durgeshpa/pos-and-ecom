@@ -6,6 +6,7 @@ from django.db.models import Sum, F, FloatField
 from django.http import HttpResponse
 
 from retailer_to_sp.models import ReturnItems, RoundAmount, Invoice, Order
+from retailer_to_sp.utils import round_half_down
 from .models import PAYMENT_MODE_POS, RetailerProduct
 from .views import get_product_details, get_tax_details
 
@@ -19,15 +20,14 @@ def create_order_data_excel(queryset, request=None):
     response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
     writer = csv.writer(response)
     writer.writerow([
-
         'Order No', 'Invoice No', 'Order Status', 'Order Created At', 'Invoice Date ', 'Seller Shop ID',
         'Seller Shop Name', 'Seller Shop Owner Id', 'Seller Shop Owner Name', 'Mobile No.(Seller Shop)',
         'Seller Shop Type', 'Buyer Id', 'Buyer Name', 'Mobile No(Buyer)', 'Purchased Product Id',
-        'Purchased Product SKU', 'Linked Sku', 'Purchased Product Name', 'Purchased Product Ean Code', 'Product Category',
-        'Product SubCategory', 'Quantity', 'Invoice Quantity', 'Product Type', 'MRP', 'Selling Price',
-        'Offer Applied', 'Offer Discount', 'Spot Discount', 'Order Amount', 'Invoice Amount',
-        'Parent Id', 'Parent Name', 'Child Name', 'Brand', 'Tax Slab(GST)', 'Tax Slab(Cess)',
-        'Tax Slab(Surcharge)', 'Tax Slab(TCS)'])
+        'Purchased Product SKU', 'Linked Sku', 'Purchased Product Name', 'Purchased Product Ean Code',
+        'Product Category', 'Product SubCategory', 'Quantity', 'Invoice Quantity', 'Product Type', 'MRP',
+        'Selling Price', 'Offer Price', 'Offer Start Date', 'Offer End Date', 'Item wise Amount', 'Offer Applied',
+        'Offer Discount', 'Spot Discount', 'Order Amount', 'Invoice Amount', 'Parent Id', 'Parent Name', 'Child Name',
+        'Brand', 'Tax Slab(GST)', 'Tax Slab(Cess)', 'Tax Slab(Surcharge)', 'Tax Slab(TCS)'])
 
     orders = queryset \
         .prefetch_related('order', 'invoice', 'order__seller_shop', 'order__seller_shop__shop_owner',
@@ -46,7 +46,9 @@ def create_order_data_excel(queryset, request=None):
         .annotate(
             purchased_subtotal=RoundAmount(Sum(F('order__ordered_cart__rt_cart_list__qty') * F('order__ordered_cart__rt_cart_list__selling_price'),output_field=FloatField())),
             ) \
-        .values('id', 'rt_order_product_order_product_mapping__retailer_product__linked_product','rt_order_product_order_product_mapping__retailer_product__linked_product__product_sku','order__order_no', 'invoice', 'invoice__invoice_no', 'order__order_status', 'order__created_at',
+        .values('id', 'rt_order_product_order_product_mapping__retailer_product__linked_product',
+                'rt_order_product_order_product_mapping__retailer_product__linked_product__product_sku',
+                'order__order_no', 'invoice', 'invoice__invoice_no', 'order__order_status', 'order__created_at',
                 'invoice__created_at', 'order__seller_shop__id', 'order__seller_shop__shop_name',
                 'order__seller_shop__shop_owner__id', 'order__seller_shop__shop_owner__first_name',
                 'order__seller_shop__shop_owner__phone_number',
@@ -60,6 +62,9 @@ def create_order_data_excel(queryset, request=None):
                 'rt_order_product_order_product_mapping__retailer_product__name',
                 'rt_order_product_order_product_mapping__retailer_product__mrp',
                 'rt_order_product_order_product_mapping__retailer_product__selling_price',
+                'rt_order_product_order_product_mapping__retailer_product__offer_price',
+                'rt_order_product_order_product_mapping__retailer_product__offer_start_date',
+                'rt_order_product_order_product_mapping__retailer_product__offer_end_date',
                 'rt_order_product_order_product_mapping__retailer_product__product_ean_code',
                 'rt_order_product_order_product_mapping__retailer_product__linked_product__parent_product__parent_id',
                 'rt_order_product_order_product_mapping__retailer_product__linked_product__parent_product__name',
@@ -72,19 +77,16 @@ def create_order_data_excel(queryset, request=None):
 
     for order in orders.iterator():
         shipment = Invoice.objects.filter(id=order.get('invoice')).last().shipment
-        # try:
-        #     inv_amount = shipment.rt_order_product_order_product_mapping.annotate(
-        #         item_amount=F('effective_price') * F('shipped_qty')).aggregate(invoice_amount=Sum('item_amount')).get(
-        #         'invoice_amount')
-        # except:
-        #     inv_amount = shipment.invoice_amount
+        try:
+            inv_amount = round_half_down(shipment.invoice_amount_final)
+        except:
+            inv_amount = shipment.invoice_amount
 
-        # inv_amount = shipment.rt_order_product_order_product_mapping. \
-        #     filter(retailer_product_id=order.get('rt_order_product_order_product_mapping__retailer_product__id')).\
-        #     annotate(item_amount=F('effective_price') * F('shipped_qty')).last().item_amount
-
-        inv_qty = shipment.rt_order_product_order_product_mapping.\
-            filter(retailer_product_id=order.get('rt_order_product_order_product_mapping__retailer_product__id')).last().shipped_qty
+        order_product_mapping = shipment.rt_order_product_order_product_mapping.\
+            filter(retailer_product_id=order.get('rt_order_product_order_product_mapping__retailer_product__id')).\
+            last()
+        inv_qty = order_product_mapping.shipped_qty
+        product_inv_price = order_product_mapping.product_sub_total
 
         retailer_product_id = order.get('rt_order_product_order_product_mapping__retailer_product__id')
         retailer_product = RetailerProduct.objects.get(id=retailer_product_id)
@@ -133,14 +135,17 @@ def create_order_data_excel(queryset, request=None):
             inv_qty,
             retailer_product_type.get(product_type, product_type),
             order.get('rt_order_product_order_product_mapping__retailer_product__mrp'),
-            order.get('rt_order_product_order_product_mapping__selling_price'),
+            order.get('rt_order_product_order_product_mapping__retailer_product__selling_price'),
+            order.get('rt_order_product_order_product_mapping__retailer_product__offer_price'),
+            order.get('rt_order_product_order_product_mapping__retailer_product__offer_start_date'),
+            order.get('rt_order_product_order_product_mapping__retailer_product__offer_end_date'),
+            product_inv_price,
             offers[0].get('coupon_description', None) if len(offers) else None,
             offers[0].get('discount_value', None) if len(offers) else None,
             offers[0].get('spot_discount', None)
             if len(offers) else None,
             order.get('order__order_amount'),
-            order.get('purchased_subtotal'),
-            # inv_amount,
+            inv_amount,
             order.get('rt_order_product_order_product_mapping__retailer_product__linked_product__parent_product__parent_id'),
             order.get('rt_order_product_order_product_mapping__retailer_product__linked_product__parent_product__name'),
             brand,
@@ -410,7 +415,8 @@ def generate_csv_payment_report(payments):
     for payment in payments:
         inv_amt = None
         if Order.objects.get(id=payment.order.id).rt_order_order_product.last():
-            inv_amt = Order.objects.get(id=payment.order.id).rt_order_order_product.last().invoice_amount
+            inv_amt = round_half_down(Order.objects.get(id=payment.order.id).rt_order_order_product.last()
+                                      .invoice_amount_final)
         row = []
         row.append(payment.order.order_no)
         row.append(getattr(payment.order.shipments()[0],'invoice','')  if payment.order.shipments() else '')

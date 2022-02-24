@@ -987,13 +987,6 @@ class Order(models.Model):
         ('4','Retailer Order'),
         ('5','Others')
     )
-    POS_WALKIN = 'pos_walkin'
-    POS_ECOMM = 'pos_ecomm'
-
-    ORDER_APP_TYPE = (
-        (POS_WALKIN, 'Pos Walkin'),  # 1
-        (POS_ECOMM, 'Pos Ecomm'),  # 2
-    )
 
     POS_WALKIN = 'pos_walkin'
     POS_ECOMM = 'pos_ecomm'
