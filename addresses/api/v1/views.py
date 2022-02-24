@@ -464,7 +464,7 @@ class CitiesView(generics.GenericAPIView):
             serializer.save()
             info_logger.info("City Created Successfully.")
             return api_response('city created successfully!', serializer.data, status.HTTP_200_OK, True)
-        return api_response(serializer_error(serializer), False)
+        return api_response(serializer_error(serializer))
 
     def put(self, request):
         """ PUT API for City Updation """
@@ -488,8 +488,8 @@ class CitiesView(generics.GenericAPIView):
         if serializer.is_valid():
             serializer.save()
             info_logger.info("City Updated Successfully.")
-            return api_response('city updated!', serializer.data)
-        return api_response(serializer_error(serializer), False)
+            return api_response('city updated!', serializer.data, status.HTTP_200_OK, True)
+        return api_response(serializer_error(serializer))
 
     def search_filter_city_data(self):
         search_text = self.request.GET.get('search_text')

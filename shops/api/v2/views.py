@@ -1270,8 +1270,8 @@ class ShopRouteCrudView(generics.GenericAPIView):
         if serializer.is_valid():
             serializer.save(created_by=request.user)
             info_logger.info("Shop Route Created Successfully.")
-            return get_response('shop route created successfully!', serializer.data)
-        return get_response(serializer_error(serializer), False)
+            return get_response('shop route created successfully!', serializer.data, True)
+        return get_response(serializer_error(serializer))
 
     def put(self, request):
         """ PUT API for Shop Route Updation with Image """
@@ -1282,7 +1282,7 @@ class ShopRouteCrudView(generics.GenericAPIView):
             return get_response(modified_data['error'])
 
         if 'id' not in modified_data:
-            return get_response('please provide id to update shop', False)
+            return get_response('please provide id to update shop')
 
         # validations for input id
         id_validation = validate_id(self.queryset, int(modified_data['id']))
@@ -1294,26 +1294,26 @@ class ShopRouteCrudView(generics.GenericAPIView):
         if serializer.is_valid():
             serializer.save(updated_by=request.user)
             info_logger.info("Shop Route Updated Successfully.")
-            return get_response('shop route updated!', serializer.data)
-        return get_response(serializer_error(serializer), False)
+            return get_response('shop route updated!', serializer.data, True)
+        return get_response(serializer_error(serializer))
 
     def delete(self, request):
         """ Delete Shop Route with image """
 
         info_logger.info("Shop Route DELETE api called.")
         if not request.data.get('shop_route_id'):
-            return get_response('please provide shop_route_id', False)
+            return get_response('please provide shop_route_id')
         try:
             for s_id in request.data.get('shop_route_id'):
                 shop_route_id = self.queryset.get(id=int(s_id))
                 try:
                     shop_route_id.delete()
                 except:
-                    return get_response(f'can not delete shop route | {shop_route_id.shop_route_name} | getting used', False)
+                    return get_response(f'can not delete shop route | {shop_route_id.shop_route_name} | getting used')
         except ObjectDoesNotExist as e:
             error_logger.error(e)
-            return get_response(f'please provide a valid shop route id {s_id}', False)
-        return get_response('shop were deleted successfully!', True)
+            return get_response(f'please provide a valid shop route id.')
+        return get_response('shop were deleted successfully!', None, True)
 
     def search_filter_shops_data(self):
         search_text = self.request.GET.get('search_text')
