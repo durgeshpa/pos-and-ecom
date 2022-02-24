@@ -210,14 +210,16 @@ class ParentProductCategory(BaseTimeModel):
 
 
 class ParentProductB2cCategory(BaseTimeModel):
-    parent_product = models.ForeignKey(ParentProduct, related_name='parent_product_pro_b2c_category',
+    parent_product = models.ForeignKey(ParentProduct, 
+                                       related_name='parent_product_pro_b2c_category',
                                        on_delete=models.CASCADE)
     category = models.ForeignKey(B2cCategory, related_name='parent_category_pro_b2c_category', on_delete=models.CASCADE)
     status = models.BooleanField(default=True)
 
     class Meta:
-        verbose_name = _("Parent Product Category")
-        verbose_name_plural = _("Parent Product Categories")
+        verbose_name = _("Parent Product B2c Category")
+        verbose_name_plural = _("Parent Product B2c Categories")
+
 
 class ParentProductImage(BaseTimeModel):
     parent_product = models.ForeignKey(ParentProduct, related_name='parent_product_pro_image', on_delete=models.CASCADE)
@@ -237,6 +239,24 @@ class ParentProductImage(BaseTimeModel):
 
 
 @receiver(pre_save, sender=ParentProductCategory)
+def create_parent_product_id(sender, instance=None, created=False, **kwargs):
+    parent_product = ParentProduct.objects.get(pk=instance.parent_product.id)
+    if parent_product.parent_id:
+        return
+    cat_sku_code = instance.category.category_sku_part
+    brand_sku_code = parent_product.parent_brand.brand_code
+    last_sku = ParentProductSKUGenerator.objects.filter(cat_sku_code=cat_sku_code, brand_sku_code=brand_sku_code).last()
+    if last_sku:
+        last_sku_increment = str(int(last_sku.last_auto_increment) + 1).zfill(len(last_sku.last_auto_increment))
+    else:
+        last_sku_increment = '0001'
+    ParentProductSKUGenerator.objects.create(cat_sku_code=cat_sku_code, brand_sku_code=brand_sku_code,
+                                             last_auto_increment=last_sku_increment)
+    parent_product.parent_id = "P%s%s%s" % (cat_sku_code, brand_sku_code, last_sku_increment)
+    parent_product.save()
+
+
+@receiver(pre_save, sender=ParentProductB2cCategory)
 def create_parent_product_id(sender, instance=None, created=False, **kwargs):
     parent_product = ParentProduct.objects.get(pk=instance.parent_product.id)
     if parent_product.parent_id:
@@ -772,9 +792,29 @@ class ProductCategory(models.Model):
         verbose_name_plural = _("Product Categories")
 
 
+class ProductB2cCategory(models.Model):
+    product = models.ForeignKey(Product, related_name='product_pro_b2c_category', on_delete=models.CASCADE)
+    category = models.ForeignKey(B2cCategory, related_name='b2c_category_pro_b2c_category', on_delete=models.CASCADE)
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
+    status = models.BooleanField(default=True)
+
+    class Meta:
+        verbose_name = _("Product B2c Category")
+        verbose_name_plural = _("Product B2c Categories")
+
+
 class ProductCategoryHistory(models.Model):
     product = models.ForeignKey(Product, related_name='product_pro_cat_history', on_delete=models.CASCADE)
     category = models.ForeignKey(Category, related_name='category_pro_cat_history', on_delete=models.CASCADE)
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
+    status = models.BooleanField(default=True)
+
+
+class ProductB2cCategoryHistory(models.Model):
+    product = models.ForeignKey(Product, related_name='product_pro_b2c_cat_history', on_delete=models.CASCADE)
+    category = models.ForeignKey(B2cCategory, related_name='b2c_category_pro_b2c_cat_history', on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
     status = models.BooleanField(default=True)

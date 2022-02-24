@@ -7,7 +7,7 @@ from .views import ParentProductView, ParentProductExportAsCSVView, HSNListView,
     ProductStatusListView, ProductVendorMappingExportAsCSVView, ActiveChildProductListView, SellerShopListView, \
     BuyerShopListView, CityListView, PinCodeListView, SlabProductPriceView, ProductPriceStatusListView, \
     DisapproveSelectedProductPriceView, ProductSlabPriceExportAsCSVView, ProductListView, DiscountProductView, \
-    DiscountProductListForManualPriceView
+    DiscountProductListForManualPriceView, B2cCategoryListView
 
 urlpatterns = [
     url(r'^parent-product/', ParentProductView.as_view(), name='parent-product'),
@@ -24,6 +24,7 @@ urlpatterns = [
     url(r'^product-tax/', TaxView.as_view(), name='product-tax'),
     url(r'^brand/', BrandListView.as_view(), name='brand'),
     url(r'^category/', CategoryListView.as_view(), name='category'),
+    url(r'^b2c-category/', B2cCategoryListView.as_view(), name='b2c-category'),
     url(r'^product-package-mapping/', ProductPackingMappingView.as_view(), name='product-package-mapping'),
     url(r'^source-product-mapping/', SourceProductMappingView.as_view(), name='source-product-mapping'),
     url(r'^child-product-active-deactive/', ActiveDeactiveSelectedChildProductView.as_view(),

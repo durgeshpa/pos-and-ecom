@@ -2,7 +2,7 @@ from decimal import Decimal
 
 from products.models import Product, ProductPrice, ProductCategory, \
     ProductTaxMapping, ProductImage, ParentProductTaxMapping, ParentProduct, Repackaging, SlabProductPrice, PriceSlab,\
-    ProductPackingMapping, DestinationRepackagingCostMapping, ProductSourceMapping
+    ProductPackingMapping, DestinationRepackagingCostMapping, ProductSourceMapping, ProductB2cCategory
 from django.db.models.signals import post_save, post_delete
 from django.dispatch import receiver
 from sp_to_gram.tasks import update_shop_product_es, update_product_es, update_shop_product_es_cat, update_shop_product_es_brand
@@ -17,7 +17,7 @@ from datetime import datetime
 from shops.models import Shop
 from retailer_backend import common_function
 from brand.models import Brand
-from categories.models import Category
+from categories.models import Category, B2cCategory
 from global_config.models import GlobalConfig
 
 logger = logging.getLogger(__name__)
@@ -90,6 +90,10 @@ def update_category_elasticsearch(sender, instance=None, created=False, **kwargs
     for prod_price in instance.product.product_pro_price.filter(status=True).values('seller_shop', 'product'):
         update_shop_product_es.delay(prod_price['seller_shop'], prod_price['product'])
 
+#@receiver(post_save, sender=ProductB2cCategory)
+def update_b2c_category_elasticsearch(sender, instance=None, created=False, **kwargs):
+    for prod_price in instance.product.product_pro_price.filter(status=True).values('seller_shop', 'product'):
+        update_shop_product_es.delay(prod_price['seller_shop'], prod_price['product'])
 
 @receiver(post_save, sender=ProductImage)
 def update_product_image_elasticsearch(sender, instance=None, created=False, **kwargs):
@@ -485,8 +489,22 @@ def update_parent_category_elasticsearch(sender, instance=None, created=False, *
         child_category.save()
 
 
-def update_product_on_category_update(instance, shops):
-    parent_pro_categories = instance.parent_category_pro_category.all()
+#@receiver(post_save, sender=B2cCategory)
+def update_parent_category_elasticsearch(sender, instance=None, created=False, **kwargs):
+    shops_str = GlobalConfig.objects.get(key='category_brand_es_shop_ids').value
+    shops = str(shops_str).split(',') if shops_str else None
+    update_product_on_category_update(instance, shops, b2c=True)
+
+    child_categories = instance.b2c_cat_parent.all()
+    for child_category in child_categories:
+        child_category.save()
+
+
+def update_product_on_category_update(instance, shops, b2c=False):
+    if b2c:
+        parent_pro_categories = instance.parent_category_pro_b2c_category.all()
+    else: 
+        parent_pro_categories = instance.parent_category_pro_category.all()
     for category in parent_pro_categories:
         parent_product = category.parent_product
         child_products = parent_product.product_parent_product.filter(status='active')

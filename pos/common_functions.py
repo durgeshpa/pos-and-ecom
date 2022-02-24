@@ -405,7 +405,8 @@ class PosCartCls(object):
             if product.offer_price and product.offer_start_date and product.offer_end_date and \
                     product.offer_start_date <= datetime.date.today() <= product.offer_end_date:
                 cart_product.selling_price = cart_product.retailer_product.offer_price
-            elif cart_product.cart.cart_type == 'ECOM' and cart_product.retailer_product.online_enabled and cart_product.retailer_product.online_price:
+            elif cart_product.cart.cart_type == 'ECOM' and cart_product.retailer_product.online_enabled \
+                    and cart_product.retailer_product.online_price:
                 cart_product.selling_price = cart_product.retailer_product.online_price
             else:
                 cart_product.selling_price = cart_product.retailer_product.selling_price
@@ -772,6 +773,19 @@ def check_logged_in_user_is_superuser(view_func):
     def _wrapped_view_func(self, request, *args, **kwargs):
         user = request.user
         if user.is_superuser:
+            return view_func(self, request, *args, **kwargs)
+        return api_response("Logged In user does not have required permission to perform this action.")
+    return _wrapped_view_func
+
+
+def check_logged_in_user_has_fofo_config_perm(view_func):
+    """
+    Decorator to validate request from Has Fofo Config Perm
+    """
+    @wraps(view_func)
+    def _wrapped_view_func(self, request, *args, **kwargs):
+        user = request.user
+        if user.has_perm('shops.has_fofo_config_operations'):
             return view_func(self, request, *args, **kwargs)
         return api_response("Logged In user does not have required permission to perform this action.")
     return _wrapped_view_func

@@ -453,7 +453,18 @@ class ProductTaxMappingAdmin(admin.TabularInline):
 class ParentProductCategoryAdmin(TabularInline):
     model = ParentProductCategory
     autocomplete_fields = ['category', ]
-    formset = RequiredInlineFormSet  # or AtLeastOneFormSet
+    #formset = RequiredInlineFormSet  # or AtLeastOneFormSet
+
+
+class ParentProductB2cCategoryAdminInline(TabularInline):
+    model = ParentProductB2cCategory
+    autocomplete_fields = ['category', ]
+
+
+@admin.register(ParentProductB2cCategory)
+class ParentProductB2cCategoryAdmin(admin.ModelAdmin):
+    list_display = ('id', 'parent_product', 'category', 'status')
+    
 
 
 def deactivate_selected_products(modeladmin, request, queryset):
@@ -573,7 +584,8 @@ class ParentProductAdmin(admin.ModelAdmin):
         'parent_id', 'name'
     ]
     inlines = [
-        ParentProductCategoryAdmin, ParentProductImageAdmin, ParentProductTaxMappingAdmin
+        ParentProductCategoryAdmin, ParentProductB2cCategoryAdminInline, 
+        ParentProductImageAdmin, ParentProductTaxMappingAdmin
     ]
     list_filter = [ParentCategorySearch, ParentBrandFilter, ParentIDFilter, 'status']
     list_per_page = 50

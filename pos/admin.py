@@ -19,6 +19,7 @@ from accounts.middlewares import get_current_user
 from marketing.filters import UserFilter, PosBuyerFilter
 from coupon.admin import CouponCodeFilter, CouponNameFilter, RuleNameFilter
 from retailer_to_sp.admin import OrderIDFilter, SellerShopFilter
+from retailer_to_sp.utils import round_half_down
 from wms.models import PosInventory, PosInventoryChange, PosInventoryState
 from .common_functions import RetailerProductCls, PosInventoryCls
 
@@ -199,8 +200,9 @@ class RetailerProductAdmin(admin.ModelAdmin):
 
 class PaymentAdmin(admin.ModelAdmin):
 
-    list_display = ( 'order', 'cart_type', 'payment_status', 'order_status', 'seller_shop', 'payment_type',
-                     'transaction_id', 'amount', 'paid_by', 'processed_by', 'created_at')
+    list_display = ('order', 'payment_status', 'order_status', 'seller_shop', 'payment_type',
+                    'transaction_id', 'order_amount', 'invoice_amount', 'paid_by', 'processed_by', 'created_at')
+
     list_per_page = 10
     search_fields = ('order__order_no', 'paid_by__phone_number', 'order__seller_shop__shop_name')
     list_filter = [('order__seller_shop', RelatedOnlyDropdownFilter),
@@ -219,7 +221,7 @@ class PaymentAdmin(admin.ModelAdmin):
 
     def invoice_amount(self, obj):
         if obj and obj.order.rt_order_order_product.last():
-            return obj.order.rt_order_order_product.last().invoice_amount
+            return round_half_down(obj.order.rt_order_order_product.last().invoice_amount_final)
         return None
 
     def get_queryset(self, request):
@@ -434,7 +436,8 @@ class RetailerOrderProductAdmin(admin.ModelAdmin):
     inlines = (OrderedProductMappingInline,)
     search_fields = ('invoice__invoice_no', 'order__order_no', 'order__buyer__phone_number')
     list_per_page = 50
-    list_display = ('order', 'invoice_no', 'download_invoice', 'order_amount', 'payment_type', 'transaction_id', 'created_at')
+    list_display = ('order', 'invoice_no', 'download_invoice', 'order_amount', 'payment_type', 'transaction_id',
+                    'created_at')
     actions = ["order_data_excel_action"]
     list_filter = [('order__seller_shop__shop_type', RelatedOnlyDropdownFilter),
                    ('created_at', DateTimeRangeFilter)]
