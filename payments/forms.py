@@ -13,7 +13,7 @@ from django.utils.translation import ugettext_lazy as _
 from django.utils.safestring import mark_safe
 from django.urls import reverse
 from django.conf import settings
-from django.forms import widgets
+from django.forms import widgets, BaseInlineFormSet
 from django.utils.html import format_html
 
 from accounts.middlewares import get_current_user
@@ -147,10 +147,13 @@ class OrderPaymentForm(forms.ModelForm):
                 if self.instance.pk:
                     existing_payment = self.instance.parent_payment
                     total_payments = total_payments.exclude(id=existing_payment.pk)
-                total_paid_amount = total_payments.aggregate(paid_amount=Sum('paid_amount')).get('paid_amount')
-                total_paid_amount = total_paid_amount if total_paid_amount else 0
-                if (float(total_paid_amount) + float(paid_amount)) > float(cash_to_be_collected):
-                    raise ValidationError(_(f"Max amount to be paid is {cash_to_be_collected-total_paid_amount}"))
+
+                if float(paid_amount) > float(cash_to_be_collected):
+                    raise ValidationError(_(f"Max amount to be paid is {cash_to_be_collected}"))
+                # total_paid_amount = total_payments.aggregate(paid_amount=Sum('paid_amount')).get('paid_amount')
+                # total_paid_amount = total_paid_amount if total_paid_amount else 0
+                # if (float(total_paid_amount) + float(paid_amount)) > float(cash_to_be_collected):
+                #     raise ValidationError(_(f"Max amount to be paid is {cash_to_be_collected-total_paid_amount}"))
 
             if paid_by and paid_amount and order and payment_mode_name:
                 if existing_payment:
@@ -172,49 +175,32 @@ class OrderPaymentForm(forms.ModelForm):
         return cleaned_data
 
 
+class ShipmentPaymentFormSet(BaseInlineFormSet):
+    def clean(self):
+        super(ShipmentPaymentFormSet, self).clean()
+        non_empty_forms = 0
+        for form in self:
+            if form.cleaned_data:
+                non_empty_forms += 1
+        if non_empty_forms - len(self.deleted_forms) < 1:
+            raise ValidationError("Please fill at least one form.")
+        total_paid_amount = sum(f.cleaned_data['paid_amount'] for f in self.forms)
+
+        if total_paid_amount != self.instance.invoice_amount:
+            raise forms.ValidationError(f"Total paid_amount must be {self.instance.invoice_amount}")
+
+
 class ShipmentPaymentInlineForm(forms.ModelForm):
 
     class Meta:
         model = ShipmentPayment
-        fields = "__all__"
+        fields = ('paid_amount', 'description', 'shipment', 'parent_order_payment',)
 
     def __init__(self, *args, **kwargs):
         # show only the payments for the relevant order
         super(ShipmentPaymentInlineForm, self).__init__(*args, **kwargs)
         self.fields.get('parent_order_payment').required = True
         # shipment_payment = getattr(self, 'instance', None)
-
-        # self.fields['parent_payment'].queryset = Payment.objects.filter(order=shipment_payment.shipment.order)
-
-
-def ShipmentPaymentInlineFormFactory(object_id):
-    class ShipmentPaymentInlineForm(forms.ModelForm):
-        paid_amount = forms.DecimalField(widget=forms.TextInput(attrs={'hidden': 'hidden'}), required=False)
-
-        class Meta:
-            model = ShipmentPayment
-            fields = ('paid_amount', 'description', 'shipment', 'parent_order_payment', 'paid_amount',)
-
-        def __init__(self, *args, **kwargs):
-            # show only the payments for the relevant order
-            super(ShipmentPaymentInlineForm, self).__init__(*args, **kwargs)
-            self.fields.get('parent_order_payment').required = True
-            # shipment_payment = getattr(self, 'instance', None)
-
-            # self.fields['parent_payment'].queryset = Payment.objects.filter(order=shipment_payment.shipment.order)
-            self.fields.get('parent_order_payment').queryset = OrderPayment.objects.filter(
-                order__rt_order_order_product__id=object_id)
-            # self.fields.get('parent_order_payment').widget = RelatedFieldWidgetCanAdd(
-            #         OrderPayment, None, {"user_id": user_id, "object_id": object_id})
-
-        def clean(self):
-            cleaned_data = super(ShipmentPaymentInlineForm, self).clean()
-            parent_order_payment = cleaned_data.get('parent_order_payment')
-            if parent_order_payment:
-                self.instance.paid_amount = float(parent_order_payment.paid_amount)
-            return cleaned_data
-
-    return ShipmentPaymentInlineForm
 
 
 class PaymentApprovalForm(forms.ModelForm):

@@ -6,7 +6,7 @@ from retailer_backend.admin import InputFilter
 
 from .models import *
 from .forms import ShipmentPaymentForm, ShipmentPaymentInlineForm, \
-    PaymentForm, OrderPaymentForm, PaymentApprovalForm, ShipmentPaymentInlineFormFactory
+    PaymentForm, OrderPaymentForm, PaymentApprovalForm, ShipmentPaymentFormSet
 from .views import UserWithNameAutocomplete
 
 #from .forms import ShipmentPaymentApprovalForm
@@ -310,10 +310,15 @@ class AtLeastOneFormSet(BaseInlineFormSet):
 class ShipmentPaymentInlineAdmin(admin.TabularInline, PermissionMixin):
     model = ShipmentPayment
     form = ShipmentPaymentInlineForm
-    formset = AtLeastOneFormSet
-    fields = ("paid_amount", "parent_order_payment", "payment_mode_name", "reference_no", "description",
+    formset = ShipmentPaymentFormSet
+    #autocomplete_fields = ("parent_order_payment",)
+    fields = ("parent_order_payment", "description", "paid_amount", "payment_mode_name", "reference_no",
               "payment_approval_status")
-    readonly_fields = ("paid_amount", "payment_mode_name", "reference_no", "payment_approval_status")
+    # fieldsets = (
+    #     (None, {'fields': ("paid_amount", "parent_order_payment", "payment_mode_name", "reference_no",
+    #                        "description", "payment_approval_status")}),
+    # )
+    readonly_fields = ("payment_mode_name", "reference_no", "payment_approval_status")
     extra = 0
 
     def formfield_for_foreignkey(self, db_field, request, **kwargs):
@@ -331,117 +336,44 @@ class ShipmentPaymentInlineAdmin(admin.TabularInline, PermissionMixin):
         try:
             parent_obj_id = request.resolver_match.kwargs['object_id']
             parent_obj = OrderedProduct.objects.get(pk=parent_obj_id)
-            if parent_obj.trip.trip_status in [Trip.RETURN_VERIFIED, Trip.PAYMENT_VERIFIED]:
+            if parent_obj.trip.trip_status == Trip.PAYMENT_VERIFIED:
                 return False
-            else: 
+            else:
                 return True
-        except: 
+        except:
             return True
 
     def has_change_permission(self, request, obj=None):
         try:
             parent_obj_id = request.resolver_match.kwargs['object_id']
             parent_obj = OrderedProduct.objects.get(pk=parent_obj_id)
-            if parent_obj.trip.trip_status in [Trip.RETURN_VERIFIED, Trip.PAYMENT_VERIFIED]:
+            if parent_obj.trip.trip_status == Trip.PAYMENT_VERIFIED:
                 return False
-            else: 
+            else:
                 return True
-        except: 
+        except:
             return True
 
-    def payment_approval_status(self,obj):
+    def payment_approval_status(self, obj):
         return obj.parent_order_payment.parent_payment.payment_approval_status
     payment_approval_status.short_description = 'Payment Approval Status'
 
-    def payment_mode_name(self,obj):
+    def payment_mode_name(self, obj):
         return obj.parent_order_payment.parent_payment.payment_mode_name
     payment_mode_name.short_description = 'Payment Mode'
 
-    def reference_no(self,obj):
-        return obj.parent_order_payment.parent_payment.reference_no
+    def reference_no(self, obj):
+        if obj.parent_order_payment.parent_payment.reference_no is not None:
+            return obj.parent_order_payment.parent_payment.reference_no
+        return ""
     reference_no.short_description = 'Reference No'
 
-    def description(self,obj):
+    def description(self, obj):
         return obj.description
     description.short_description = 'Description'
 
     def has_delete_permission(self, request, obj=None):
         return False
-
-
-def ShipmentPaymentInlineAdminFactory(object_id=None):
-    class ShipmentPaymentInlineAdmin(admin.TabularInline, PermissionMixin):
-        model = ShipmentPayment
-        form = ShipmentPaymentInlineFormFactory(object_id)
-        formset = AtLeastOneFormSet
-        #autocomplete_fields = ("parent_order_payment",)
-        fields = ("parent_order_payment", "description", "paid_amt", "payment_mode_name", "reference_no",
-                  "payment_approval_status")
-        # fieldsets = (
-        #     (None, {'fields': ("paid_amount", "parent_order_payment", "payment_mode_name", "reference_no",
-        #                        "description", "payment_approval_status")}),
-        # )
-        readonly_fields = ("paid_amt", "payment_mode_name", "reference_no", "payment_approval_status")
-        extra = 0
-
-        def formfield_for_foreignkey(self, db_field, request, **kwargs):
-            if db_field.name == "parent_order_payment":
-                try:
-                    parent_obj_id = request.resolver_match.kwargs['object_id']
-                    parent_obj = OrderedProduct.objects.get(pk=parent_obj_id)
-                    kwargs["queryset"] = OrderPayment.objects.filter(order=parent_obj.order)
-                except IndexError:
-                    pass
-            return super(
-                ShipmentPaymentInlineAdmin, self).formfield_for_foreignkey(db_field, request, **kwargs)
-
-        def has_add_permission(self, request, obj=None):
-            try:
-                parent_obj_id = request.resolver_match.kwargs['object_id']
-                parent_obj = OrderedProduct.objects.get(pk=parent_obj_id)
-                if parent_obj.trip.trip_status == Trip.PAYMENT_VERIFIED:
-                    return False
-                else:
-                    return True
-            except:
-                return True
-
-        def has_change_permission(self, request, obj=None):
-            try:
-                parent_obj_id = request.resolver_match.kwargs['object_id']
-                parent_obj = OrderedProduct.objects.get(pk=parent_obj_id)
-                if parent_obj.trip.trip_status == Trip.PAYMENT_VERIFIED:
-                    return False
-                else:
-                    return True
-            except:
-                return True
-
-        def payment_approval_status(self,obj):
-            return obj.parent_order_payment.parent_payment.payment_approval_status
-        payment_approval_status.short_description = 'Payment Approval Status'
-
-        def payment_mode_name(self,obj):
-            return obj.parent_order_payment.parent_payment.payment_mode_name
-        payment_mode_name.short_description = 'Payment Mode'
-
-        def paid_amt(self,obj):
-            return obj.paid_amount
-        paid_amt.short_description = 'Paid Amount'
-
-        def reference_no(self,obj):
-            if obj.parent_order_payment.parent_payment.reference_no is not None:
-                return obj.parent_order_payment.parent_payment.reference_no
-            return ""
-        reference_no.short_description = 'Reference No'
-
-        def description(self,obj):
-            return obj.description
-        description.short_description = 'Description'
-
-        def has_delete_permission(self, request, obj=None):
-            return False
-    return ShipmentPaymentInlineAdmin
 
 
 class ShipmentPaymentDataAdmin(admin.ModelAdmin, PermissionMixin):
@@ -457,12 +389,7 @@ class ShipmentPaymentDataAdmin(admin.ModelAdmin, PermissionMixin):
                        'shipment_address', 'invoice_city', 'shipment_status', 'no_of_crates', 'no_of_packets',
                        'no_of_sacks']
 
-    # we define inlines with factory to create Inline class with request inside
-    def change_view(self, request, object_id, form_url='', extra_context=None):
-        self.inlines = (ShipmentPaymentInlineAdminFactory(object_id),)
-        return super(ShipmentPaymentDataAdmin, self).change_view(request, object_id)
-
-    def total_paid_amount(self,obj):
+    def total_paid_amount(self, obj):
         return obj.total_paid_amount
     total_paid_amount.short_description = 'Total Paid Amount'
 
@@ -475,7 +402,7 @@ class ShipmentPaymentDataAdmin(admin.ModelAdmin, PermissionMixin):
     def has_add_permission(self, request, obj=None):
         return False
 
-    def trip_status(self,obj):
+    def trip_status(self, obj):
         return obj.trip.trip_status
     trip_status.short_description = 'Trip Status'
 
