@@ -851,17 +851,18 @@ class LoadDispatches(APIView):
         # Exclude Not Attempted shipments
         not_attempt_dispatches = ShipmentNotAttempt.objects.values_list(
             'shipment', flat=True
-        ).filter(created_at__date=datetime.date.today(),
-                 shipment__shipment_status=OrderedProduct.NOT_ATTEMPT
+        ).filter(shipment__shipment_status=OrderedProduct.NOT_ATTEMPT).filter(
+            Q(created_at__date=datetime.date.today()) |
+            Q(shipment__last_mile_trip_shipment__trip__trip_status__in=[Trip.READY, Trip.STARTED, Trip.COMPLETED])
         )
         dispatches = dispatches.exclude(id__in=not_attempt_dispatches)
 
         # Exclude Rescheduled shipments
         reschedule_dispatches = ShipmentRescheduling.objects.values_list(
             'shipment', flat=True
-        ).filter(
-            ~Q(rescheduling_date__lte=datetime.date.today()),
-            shipment__shipment_status=OrderedProduct.RESCHEDULED
+        ).filter(shipment__shipment_status=OrderedProduct.RESCHEDULED).filter(
+            ~Q(rescheduling_date__lte=datetime.date.today()) |
+            Q(shipment__last_mile_trip_shipment__trip__trip_status__in=[Trip.READY, Trip.STARTED, Trip.COMPLETED])
         )
         dispatches = dispatches.exclude(id__in=reschedule_dispatches)
         if source_shop and source_shop != seller_shop:
