@@ -186,8 +186,8 @@ class ShipmentPaymentFormSet(BaseInlineFormSet):
             raise ValidationError("Please fill at least one form.")
         total_paid_amount = sum(f.cleaned_data['paid_amount'] for f in self.forms)
 
-        if total_paid_amount != self.instance.invoice_amount:
-            raise forms.ValidationError(f"Total paid_amount must be {self.instance.invoice_amount}")
+        if total_paid_amount > self.instance.invoice_amount:
+            raise forms.ValidationError(f"Max total paid_amount must be {self.instance.invoice_amount}")
 
 
 class ShipmentPaymentInlineForm(forms.ModelForm):
