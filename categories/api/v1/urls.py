@@ -20,5 +20,5 @@ urlpatterns = [
     url(r'^get-b2c-category-list-by-slot/(?P<slot_name>[\w\-]+)/$', GetB2cCategoryListBySlot.as_view(), name='get_b2c_category_by_slot'),
     url(r'^get-all-b2c-categories/$', GetAllB2cCategoryListView.as_view(), name='get_all_b2c_category_subcategory'),
     url(r'^b2c-category/$', B2cCategoryView.as_view(), name='b2c_category'),
-    url(r'^export-csv-b2c-category/$', CategoryExportAsCSVView.as_view(), name='export_csv_b2c_category')
+    url(r'^export-csv-b2c-category/$', B2cCategoryExportAsCSVView.as_view(), name='export_csv_b2c_category')
 ]
