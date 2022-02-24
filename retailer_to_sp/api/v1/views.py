@@ -7749,8 +7749,9 @@ class ShipmentCratesPackagingView(generics.GenericAPIView):
         if not shipment:
             return {'error': 'Invalid shipment.'}
         trip_package = self.queryset.filter(
-                trip_shipment__trip=shipment.last_trip, shipment_packaging__shipment=shipment,
-                shipment_packaging__crate__crate_id=crate_id).last()
+            ~Q(trip_shipment__shipment_status=LastMileTripShipmentMapping.CANCELLED),
+            trip_shipment__trip=shipment.last_trip, shipment_packaging__shipment=shipment,
+            shipment_packaging__crate__crate_id=crate_id).last()
         if not trip_package:
             return {'error': 'Invalid Crate for selected shipment.'}
         return {'data': trip_package}
