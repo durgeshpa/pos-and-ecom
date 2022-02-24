@@ -2485,7 +2485,7 @@ class DispatchTripStatusChangeSerializers(serializers.ModelSerializer):
             if trip_status == DispatchTrip.VERIFIED:
                 if DispatchTripShipmentPackages.objects.filter(
                         trip_shipment__trip=dispatch_trip, package_status=DispatchTripShipmentPackages.UNLOADED,
-                        is_return_verified=False).exists():
+                        package_status__in=[DispatchTripShipmentPackages.UNLOADED, DispatchTripShipmentPackages.PARTIALLY_VERIFIED]).exists():
                     return serializers.ValidationError(
                         "The trip can not verify until and unless all unloaded packages get verified.")
 
@@ -4423,7 +4423,7 @@ class MarkShipmentPackageVerifiedSerializer(serializers.ModelSerializer):
         if DispatchTripShipmentPackages.objects.filter(trip_shipment__trip=trip, shipment_packaging=package).exists():
             trip_shipment_map = DispatchTripShipmentPackages.objects.filter(
                 trip_shipment__trip=trip, shipment_packaging=package).last()
-            if trip_shipment_map.is_return_verified:
+            if trip_shipment_map.package_status == DispatchTripShipmentPackages.VERIFIED:
                 raise serializers.ValidationError("This package is already verified.")
             if trip_shipment_map.package_status not in [DispatchTripShipmentPackages.UNLOADED,
                                                         DispatchTripShipmentPackages.PARTIALLY_VERIFIED]:
