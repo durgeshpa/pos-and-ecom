@@ -1653,7 +1653,7 @@ class RefundPayment(GenericAPIView):
             return api_response('transaction does not found .....', '', status.HTTP_200_OK, False)
 
         if payment_datails.is_refund and (payment_datails.refund_status != 'failure'):
-            return api_response(f'refund allready exists and refund status  {payment_datails.refund_status}', '', status.HTTP_200_OK, False)
+            return api_response(f'Refund Already Created.', '', status.HTTP_200_OK, False)
 
         refund_amount = None
         if data.get('amount', None):

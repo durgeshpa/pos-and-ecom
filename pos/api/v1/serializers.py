@@ -695,10 +695,20 @@ class PaymentTypeSerializer(serializers.ModelSerializer):
 
 class PaymentSerializer(serializers.ModelSerializer):
     payment_type = PaymentTypeSerializer()
+    payment_refund = serializers.SerializerMethodField()
+
+    def get_payment_refund(self, obj):
+        if obj.is_refund:
+            status = {'queued': 'refund_created', 'success': 'refund_success', 'failure': 'refund_failed'}
+            if status[obj.refund_status]:
+                refund_status = status[obj.refund_status]
+            else:
+                refund_status = obj.refund_status
+            return {"refund_amount": obj.refund_amount, 'refund_status': refund_status}
 
     class Meta:
         model = Payment
-        fields = ('id', 'payment_status', 'payment_type', 'transaction_id', 'amount')
+        fields = ('id', 'payment_status', 'payment_type', 'transaction_id', 'amount', 'payment_refund')
 
 
 class OrderReturnSerializerID(serializers.ModelSerializer):
@@ -3387,6 +3397,9 @@ class PosEcomOrderDetailSerializer(serializers.ModelSerializer):
         return_summary['return_value'], return_summary['discount_adjusted'], return_summary[
             'points_adjusted'], return_summary[
             'amount_returned'] = return_value, discount_adjusted, points_value, refund_amount
+        # if obj.is_refund and obj.refund_status == 'success':
+        #     return_summary['amount_returned'] = obj.refund_amount
+
         return return_summary
 
     def get_items(self, obj):
