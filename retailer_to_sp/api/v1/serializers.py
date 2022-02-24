@@ -4818,9 +4818,10 @@ class LastMileLoadVerifyPackageSerializer(serializers.ModelSerializer):
             packages_counts = ShipmentPackaging.objects.filter(
                 shipment=trip_shipment.shipment, movement_type__in=[
                     ShipmentPackaging.DISPATCH, ShipmentPackaging.RESCHEDULED, ShipmentPackaging.NOT_ATTEMPT]).count()
-            trip_packages_count = LastMileTripShipmentPackages.objects.filter(package_status__in=[
-                LastMileTripShipmentPackages.LOADED, LastMileTripShipmentPackages.MISSING_AT_LOADING,
-                LastMileTripShipmentPackages.DAMAGED_AT_LOADING], trip_shipment__trip=trip_shipment.trip).count()
+            trip_packages_count = LastMileTripShipmentPackages.objects.filter(
+                trip_shipment=trip_shipment, package_status__in=[
+                    LastMileTripShipmentPackages.LOADED, LastMileTripShipmentPackages.MISSING_AT_LOADING,
+                    LastMileTripShipmentPackages.DAMAGED_AT_LOADING], trip_shipment__trip=trip_shipment.trip).count()
             if packages_counts == trip_packages_count:
                 trip_shipment.shipment_status = LastMileTripShipmentMapping.LOADED_FOR_DC
                 trip_shipment.save()
