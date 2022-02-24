@@ -422,9 +422,11 @@ class AddressDataSerializers(serializers.ModelSerializer):
 
 
 class RouteSerializer(serializers.ModelSerializer):
+    city = CityDataSerializers(read_only=True)
+
     class Meta:
         model = Route
-        fields = ('id', 'name')
+        fields = ('id', 'name', 'city')
 
 
 class ShopRouteBasicSerializers(serializers.ModelSerializer):
