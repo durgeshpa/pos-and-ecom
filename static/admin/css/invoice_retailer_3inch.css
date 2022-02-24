@@ -11,8 +11,7 @@
          margin-left: -2px;
          margin-right: 0px;
          padding: 0;
-         zoom: 193%; 
-       
+
          /* change the margins as you want them to be. */
          /*margin-right: 70mm;
 */    }
@@ -20,6 +19,7 @@
 		.table > thead > tr > th, .table > tbody > tr > th, .table > tfoot > tr > th, .table > thead > tr > td, .table > tbody > tr > td, .table > tfoot > tr > td
 		{
 		padding: 2px; !important;
+		line-height:1.2 !importand
 		}
 
 		#Header, #Footer { display: none !important; }
@@ -27,34 +27,13 @@
 
 body{
 
-			font-size:16px;
+			font-size:14px;
 			font-family:Perfect DOS VGA\ 437 Win,Menlo,Consolas,monospace;
 		}
 
 
 h4.invoice{
 	float: left;
-}
-
-.invoice-title
-{
-float: left;
-border-bottom: #d5d4d4 solid 1px;
-display: block;
-margin-bottom: 24px;
-width: 100%;
-
-}
-
-.invoice-title.order_id{
-
-}
-
-
-
-
-	.invoice-title h2, .invoice-title h3 {
-    display: inline-block;
 }
 
 .table > tbody > tr > .no-line {

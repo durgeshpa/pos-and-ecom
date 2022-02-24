@@ -131,9 +131,11 @@ class ShopMappedProduct(ExportMixin, SingleTableView, FilterView):
         return None
 
     def get_purchase_value_by_product(self, product_id):
+
         if GRNOrderProductMapping.objects.filter(product_id=product_id, product_invoice_price__gt=0).exists():
             return GRNOrderProductMapping.objects.filter(product_id=product_id,
                                                          product_invoice_price__gt=0).last().product_invoice_price
+
         return 0.0
 
     def get_table_data(self, **kwargs):

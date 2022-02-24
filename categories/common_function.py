@@ -10,13 +10,16 @@ error_logger = logging.getLogger('file-error')
 class CategoryCls(object):
 
     @classmethod
-    def create_category_log(cls, log_obj, action):
+    def create_category_log(cls, log_obj, action, b2c=False):
         """
             Create Category Log
         """
         action, create_updated_by = created_updated_by(log_obj, action)
         try:
-            category_log = CentralLog.objects.create(category=log_obj, updated_by=create_updated_by, action=action)
+            if b2c:
+                category_log = CentralLog.objects.create(b2c_category=log_obj, updated_by=create_updated_by, action=action)
+            else:
+                category_log = CentralLog.objects.create(category=log_obj, updated_by=create_updated_by, action=action)
         except Exception as e:
             error_logger.info("category update info ", e)
 

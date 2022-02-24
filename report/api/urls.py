@@ -4,18 +4,19 @@ from django.conf.urls import url
 
 from rest_framework.routers import DefaultRouter
 
-from report.api.views import (AsyncReportCreateUpdateView, 
-                              AsyncReportFileView, 
-                              AsyncReportListRetrieveView)
+from report.api.views import (ReportChoiceListView, ReportCreateUpdateView, 
+                              DownloadPrivateFileAws, 
+                              ReportListRetrieveView)
 
 
 router = DefaultRouter()
 
-router.register('reports', AsyncReportListRetrieveView, base_name='reports')
-router.register('create-update-reports', AsyncReportCreateUpdateView, base_name='create-update-reports')
+router.register('report-choices', ReportChoiceListView, base_name='report-choices')
+router.register('reports', ReportListRetrieveView, base_name='reports')
+router.register('create-update-reports', ReportCreateUpdateView, base_name='create-update-reports')
 
 urlpatterns = [
-    url(r'^report-file/(?P<id>\d+)/$', AsyncReportFileView.as_view())
+    url(r'^get-file-aws/$', DownloadPrivateFileAws.as_view(), name='get-file-aws')
 ]
 
 urlpatterns += router.urls
