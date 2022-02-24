@@ -426,7 +426,7 @@ class PageDetailSerializer(serializers.ModelSerializer):
             page = PageVersion.objects.select_related('page')
             page_versions = page.filter(page_id = instance.id)
             data['version'] = PageVersionSerializer(page_versions, many = True).data
-        apps = ApplicationPage.objects.get(page__id = instance.id).app
+        apps = ApplicationPage.objects.filter(page__id = instance.id).last().app
         data['applications'] = PageApplicationSerializer(apps).data
         return data
     

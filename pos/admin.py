@@ -202,6 +202,7 @@ class PaymentAdmin(admin.ModelAdmin):
 
     list_display = ('order', 'payment_status', 'order_status', 'seller_shop', 'payment_type',
                     'transaction_id', 'order_amount', 'invoice_amount', 'paid_by', 'processed_by', 'created_at')
+
     list_per_page = 10
     search_fields = ('order__order_no', 'paid_by__phone_number', 'order__seller_shop__shop_name')
     list_filter = [('order__seller_shop', RelatedOnlyDropdownFilter),
@@ -209,6 +210,9 @@ class PaymentAdmin(admin.ModelAdmin):
                    ('created_at', DateRangeFilter),
                    ]
     actions = ['download_payment_report']
+
+    def cart_type(self, obj):
+        return obj.order.ordered_cart.cart_type
 
     def order_amount(self, obj):
         if obj:
@@ -1218,6 +1222,10 @@ class PaymentStatusUpdateBYCronAdmin(admin.ModelAdmin):
     def seller_shop(self, obj):
         return obj.order.seller_shop
 
+    def get_queryset(self, request):
+        qs = super(PaymentStatusUpdateBYCronAdmin, self).get_queryset(request)
+        qs = qs.filter(order__ordered_cart__cart_type='ECOM')
+        return qs
 
     class Media:
         pass

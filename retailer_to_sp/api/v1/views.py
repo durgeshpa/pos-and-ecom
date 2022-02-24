@@ -357,6 +357,7 @@ class SearchProducts(APIView):
         keyword = self.request.GET.get('keyword')
         output_type = self.request.GET.get('output_type', '1')
         category_ids = self.request.GET.get('category_ids')
+        sub_category_ids = self.request.GET.get('sub_category_ids')
         filter_list = [{"term": {"is_deleted": False}}]
 
         if app_type == '3':
@@ -401,6 +402,11 @@ class SearchProducts(APIView):
             category = category_ids.split(',')
             category_filter = str(categorymodel.Category.objects.filter(id__in=category, status=True).last())
             filter_list.append({"match": {"category": {"query": category_filter, "operator": "and"}}})
+
+        if sub_category_ids:
+            #sub_category = sub_category_ids.split(',')
+            #sub_category_filter = str(categorymodel.Category.objects.filter(id__in=sub_category, status=True).last())
+            filter_list.append({"term": {"sub_category": sub_category_ids}})
 
         if filter_list and query_string:
             body['query'] = {"bool": {"must": {"query_string": query_string}, "filter": filter_list}}
@@ -1452,6 +1458,16 @@ class CartCentral(GenericAPIView):
             return api_response('Added To Cart', self.post_serialize_process_basic(cart), status.HTTP_200_OK, True)
 
     def pos_cart_product_create(self, shop_id, product_info, cart_id):
+
+        if product_info['ean'] and (not product_info['linked_pid'] or product_info['linked_pid'] == ''):
+            try:
+                pid = Product.objects.filter(product_ean_code__startswith=product_info['ean']).last()
+                if pid:
+                    product_info['linked_pid'] = getattr(pid,'id')
+                    product_info['type'] = 2
+            except:
+                 pass
+
         product = RetailerProductCls.create_retailer_product(shop_id, product_info['name'], product_info['mrp'],
                                                              product_info['sp'], product_info['linked_pid'],
                                                              product_info['type'], product_info['name'],
@@ -2804,23 +2820,24 @@ class OrderCentral(APIView):
                 order.order_status = order_status
                 order.last_modified_by = self.request.user
                 order.save()
-                # try:
-                #     trxn_id = order.ordered_cart
-                #     payment_datails = PosPayment.objects.filter(order=order.id, transaction_id=trxn_id).first()
-                #     if payment_datails:
-                #         refund_amount = payment_datails.amount
-                #         payment_id = payment_datails.payment_id
-                #         response = send_request_refund(payment_id, refund_amount)
-                #         request_id = response.get('request_id')
-                #         if response.get('status'):
-                #             request_id = response.get('request_id')
-                #             payment_datails.is_refund = True
-                #             payment_datails.refund_status = 'queued'
-                #             payment_datails.request_id= request_id
-                #             payment_datails.refund_amount = refund_amount
-                #             payment_datails.save()
-                # except  Exception as e:
-                #     pass
+                try:
+                    trxn_id = order.ordered_cart
+                    payment_datails = PosPayment.objects.filter(order=order.id, transaction_id=trxn_id, payment_type__type='online',
+                                                                order__ordered_cart__cart_type='ECOM' ).first()
+                    if payment_datails:
+                        refund_amount = payment_datails.amount
+                        payment_id = payment_datails.payment_id
+                        response = send_request_refund(payment_id, refund_amount)
+                        request_id = response.get('request_id')
+                        if response.get('status'):
+                            request_id = response.get('request_id')
+                            payment_datails.is_refund = True
+                            payment_datails.refund_status = 'queued'
+                            payment_datails.request_id= request_id
+                            payment_datails.refund_amount = refund_amount
+                            payment_datails.save()
+                except  Exception as e:
+                    pass
                 # Refund redeemed loyalty points
                 # Deduct loyalty points awarded on order
                 points_credit, points_debit, net_points = RewardCls.adjust_points_on_return_cancel(
@@ -2937,23 +2954,24 @@ class OrderCentral(APIView):
             whatsapp_order_cancel.delay(order_number, shop_name, phone_number, points_credit, points_debit,
                                         net_points)
             response = None
-            # try:
-            #     trxn_id = order.ordered_cart
-            #     payment_datails = PosPayment.objects.filter(order=order.id, transaction_id=trxn_id).first()
-            #     if payment_datails:
-            #         refund_amount = payment_datails.amount
-            #         payment_id = payment_datails.payment_id
-            #         response = send_request_refund(payment_id, refund_amount)
-            #         request_id = response.get('request_id')
-            #         if response.get('status'):
-            #             request_id = response.get('request_id')
-            #             payment_datails.is_refund = True
-            #             payment_datails.refund_status = 'queued'
-            #             payment_datails.request_id= request_id
-            #             payment_datails.refund_amount = refund_amount
-            #             payment_datails.save()
-            # except Exception as e:
-            #     pass
+            try:
+                trxn_id = order.ordered_cart
+                payment_datails = PosPayment.objects.filter(order=order.id, transaction_id=trxn_id, payment_type__type='online',
+                order__ordered_cart__cart_type='ECOM' ).first()
+                if payment_datails:
+                    refund_amount = payment_datails.amount
+                    payment_id = payment_datails.payment_id
+                    response = send_request_refund(payment_id, refund_amount)
+                    request_id = response.get('request_id')
+                    if response.get('status'):
+                        request_id = response.get('request_id')
+                        payment_datails.is_refund = True
+                        payment_datails.refund_status = 'queued'
+                        payment_datails.request_id= request_id
+                        payment_datails.refund_amount = refund_amount
+                        payment_datails.save()
+            except Exception as e:
+                pass
         return api_response("Order cancelled successfully!", response, status.HTTP_200_OK, True)
 
     def put_retail_order(self, pk):
@@ -4442,6 +4460,8 @@ class OrderedItemCentralDashBoard(APIView):
 
         # ECOM Ordered Count
         ecom_total_ordered_final_amount = ecom_orders.aggregate(Sum('order_amount')).get('order_amount__sum')
+        if not ecom_total_ordered_final_amount:
+           ecom_total_ordered_final_amount = 0 
         ecom_total_refund_amount = ecom_returns.aggregate(Sum('refund_amount')).get('refund_amount__sum')
         if ecom_total_refund_amount:
             ecom_total_ordered_final_amount -= float(ecom_total_refund_amount)

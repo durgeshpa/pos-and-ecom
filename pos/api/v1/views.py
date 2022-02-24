@@ -1645,12 +1645,16 @@ class RefundPayment(GenericAPIView):
         data = request.data
         trxn_id = data.get('trxn_id')
         if not trxn_id:
-            return api_response('transaction id must be', '', status.HTTP_200_OK, True)
+            return api_response('transaction id must be', '', status.HTTP_200_OK, False)
         payment_datails = Payment.objects.filter(transaction_id=trxn_id,
                                                           payment_status__in=["payment_approved", 'double_payment']).first()
 
         if not payment_datails:
-            return api_response('transaction does not found .....', '', status.HTTP_200_OK, True)
+            return api_response('transaction does not found .....', '', status.HTTP_200_OK, False)
+
+        if payment_datails.is_refund and (payment_datails.refund_status != 'failure'):
+            return api_response(f'refund allready exists and refund status  {payment_datails.refund_status}', '', status.HTTP_200_OK, False)
+
         refund_amount = None
         if data.get('amount', None):
             if data.get('amount') > payment_datails.amount:
@@ -1664,7 +1668,7 @@ class RefundPayment(GenericAPIView):
         response = send_request_refund(payment_id, refund_amount)
 
         if not response.get('status'):
-            return api_response('refund request failed', response, status.HTTP_200_OK, True)
+            return api_response('refund request failed', response, status.HTTP_200_OK, False)
 
         request_id = response.get('request_id')
         payment_datails.is_refund = True
