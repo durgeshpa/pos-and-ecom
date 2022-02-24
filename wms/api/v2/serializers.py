@@ -19,6 +19,7 @@ from rest_framework import serializers
 from barCodeGenerator import merged_barcode_gen
 from gram_to_brand.models import GRNOrder
 from products.models import Product, ParentProduct, ProductImage, ParentProductImage, Repackaging
+from retailer_backend.messages import ERROR_MESSAGES
 from retailer_to_sp.models import PickerDashboard, Order, OrderedProduct
 from shops.models import Shop, ShopUserMapping
 
@@ -1558,6 +1559,9 @@ class AllocateQCAreaSerializer(serializers.ModelSerializer):
             if picker_dashboard_instance.repackaging:
                 raise serializers.ValidationError('This picking is of repackaging type, '
                                                   'this cannot be moved to QC Area.')
+
+            if picker_dashboard_instance.picking_status == 'picking_cancelled':
+                raise serializers.ValidationError(ERROR_MESSAGES['ORDER_CANCELLED'].format(picker_dashboard_instance.order))
 
             if picker_dashboard_instance.picking_status not in ['picking_complete', 'moved_to_qc']:
                 raise serializers.ValidationError('This picking is not yet completed')
