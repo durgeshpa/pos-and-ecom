@@ -372,9 +372,6 @@ class ShipmentPaymentInlineAdmin(admin.TabularInline, PermissionMixin):
         return obj.description
     description.short_description = 'Description'
 
-    def has_delete_permission(self, request, obj=None):
-        return False
-
 
 class ShipmentPaymentDataAdmin(admin.ModelAdmin, PermissionMixin):
     inlines = [ShipmentPaymentInlineAdmin]
