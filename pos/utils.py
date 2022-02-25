@@ -25,9 +25,9 @@ def create_order_data_excel(queryset, request=None):
         'Seller Shop Type', 'Buyer Id', 'Buyer Name', 'Mobile No(Buyer)', 'Purchased Product Id',
         'Purchased Product SKU', 'Linked Sku', 'Purchased Product Name', 'Purchased Product Ean Code',
         'Product Category', 'Product SubCategory', 'Quantity', 'Invoice Quantity', 'Product Type', 'MRP',
-        'Selling Price', 'Offer Price', 'Offer Start Date', 'Offer End Date', 'Item wise Amount', 'Offer Applied',
-        'Offer Discount', 'Spot Discount', 'Order Amount', 'Invoice Amount', 'Parent Id', 'Parent Name', 'Child Name',
-        'Brand', 'Tax Slab(GST)', 'Tax Slab(Cess)', 'Tax Slab(Surcharge)', 'Tax Slab(TCS)'])
+        'Selling Price', 'Item wise Amount', 'Offer Applied', 'Offer Discount', 'Spot Discount', 'Order Amount',
+        'Invoice Amount', 'Parent Id', 'Parent Name', 'Child Name', 'Brand', 'Tax Slab(GST)', 'Tax Slab(Cess)',
+        'Tax Slab(Surcharge)', 'Tax Slab(TCS)', 'Redeemed Points', 'Redeemed Points Value'])
 
     orders = queryset \
         .prefetch_related('order', 'invoice', 'order__seller_shop', 'order__seller_shop__shop_owner',
@@ -62,9 +62,6 @@ def create_order_data_excel(queryset, request=None):
                 'rt_order_product_order_product_mapping__retailer_product__name',
                 'rt_order_product_order_product_mapping__retailer_product__mrp',
                 'rt_order_product_order_product_mapping__retailer_product__selling_price',
-                'rt_order_product_order_product_mapping__retailer_product__offer_price',
-                'rt_order_product_order_product_mapping__retailer_product__offer_start_date',
-                'rt_order_product_order_product_mapping__retailer_product__offer_end_date',
                 'rt_order_product_order_product_mapping__retailer_product__product_ean_code',
                 'rt_order_product_order_product_mapping__retailer_product__linked_product__parent_product__parent_id',
                 'rt_order_product_order_product_mapping__retailer_product__linked_product__parent_product__name',
@@ -73,10 +70,14 @@ def create_order_data_excel(queryset, request=None):
                 'rt_order_product_order_product_mapping__retailer_product__linked_product__parent_product__parent_brand__brand_parent__brand_name',
                 'rt_order_product_order_product_mapping__retailer_product__linked_product__parent_product__parent_brand__brand_name',
                 'purchased_subtotal', 'order__order_amount', 'invoice__shipment',
-                'order__rt_payment_retailer_order__payment_type__type', 'order__ordered_cart__offers')
+                'order__rt_payment_retailer_order__payment_type__type', 'order__ordered_cart__offers',
+                'order__ordered_cart__redeem_points')
 
     for order in orders.iterator():
+        redeem_points_value = None
         shipment = Invoice.objects.filter(id=order.get('invoice')).last().shipment
+        if shipment:
+            redeem_points_value = shipment.order.ordered_cart.redeem_points_value
         try:
             inv_amount = round_half_down(shipment.invoice_amount_final)
         except:
@@ -135,10 +136,7 @@ def create_order_data_excel(queryset, request=None):
             inv_qty,
             retailer_product_type.get(product_type, product_type),
             order.get('rt_order_product_order_product_mapping__retailer_product__mrp'),
-            order.get('rt_order_product_order_product_mapping__retailer_product__selling_price'),
-            order.get('rt_order_product_order_product_mapping__retailer_product__offer_price'),
-            order.get('rt_order_product_order_product_mapping__retailer_product__offer_start_date'),
-            order.get('rt_order_product_order_product_mapping__retailer_product__offer_end_date'),
+            order.get('rt_order_product_order_product_mapping__selling_price'),
             product_inv_price,
             offers[0].get('coupon_description', None) if len(offers) else None,
             offers[0].get('discount_value', None) if len(offers) else None,
@@ -153,7 +151,9 @@ def create_order_data_excel(queryset, request=None):
             tax_details[0],
             tax_details[1],
             tax_details[2],
-            tax_details[3]
+            tax_details[3],
+            order.get('order__ordered_cart__redeem_points'),
+            redeem_points_value
         ])
 
     return response
@@ -416,7 +416,7 @@ def generate_csv_payment_report(payments):
         inv_amt = None
         order = Order.objects.get(id=payment.order.id).rt_order_order_product.last()
         if order:
-            if order.order_app_type == Order.POS_WALKIN:
+            if order.order.order_app_type == Order.POS_WALKIN:
                 inv_amt = round_half_down(order.invoice_amount_final)
             else:
                 inv_amt = order.invoice_amount_final
