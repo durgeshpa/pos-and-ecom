@@ -603,4 +603,4 @@ def create_es_index(index):
     """
         Return elastic search index specific to environment
     """
-    return "{}-{}".format(es_prefix, index)
+    return "{}-{}".format(es, index)
