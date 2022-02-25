@@ -262,19 +262,24 @@ class ParentProductSerializers(serializers.ModelSerializer):
             raise serializers.ValidationError(_('product_hsn is required'))
 
         if self.initial_data.get('product_type') == 'b2c':
-            if not 'parent_product_pro_b2c_category' in self.initial_data or not \
-                self.initial_data['parent_product_pro_b2c_category']:
-                raise serializers.ValidationError(_('parent_product_b2c_category is required'))
+            # if not 'parent_product_pro_b2c_category' in self.initial_data or not \
+            #     self.initial_data['parent_product_pro_b2c_category']:
+            #     raise serializers.ValidationError(_('parent_product_b2c_category is required'))
+            if not 'parent_product_pro_category' in self.initial_data or not \
+                self.initial_data['parent_product_pro_category']:
+                raise serializers.ValidationError(_('parent_product_category is required'))
         elif self.initial_data.get('product_type') == 'b2b':
             if not 'parent_product_pro_category' in self.initial_data or not \
                 self.initial_data['parent_product_pro_category']:
                 raise serializers.ValidationError(_('parent_product_category is required'))
-        else:
+        elif self.initial_data.get('product_type') == 'both':
             if not 'parent_product_pro_b2c_category' in self.initial_data or not \
                 self.initial_data['parent_product_pro_b2c_category'] and not \
                     'parent_product_pro_category' in self.initial_data or not \
                 self.initial_data['parent_product_pro_category']:
                     raise serializers.ValidationError(_('parent_product category is required'))
+        else:
+            pass
         
 
         if not 'parent_product_pro_tax' in self.initial_data or not self.initial_data['parent_product_pro_tax']:

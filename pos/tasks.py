@@ -106,16 +106,16 @@ def update_es(products, shop_id):
         if product.linked_product and product.linked_product.parent_product:
             brand = str(product.linked_product.product_brand)
             brand_id = str(product.linked_product.product_brand.id)
-            if product.linked_product.parent_product.parent_product_pro_category:
+            if product.linked_product.parent_product.parent_product_pro_b2c_category:
                 category = [str(c.category) for c in
-                            product.linked_product.parent_product.parent_product_pro_category.filter(status=True)]
+                            product.linked_product.parent_product.parent_product_pro_b2c_category.filter(status=True)]
                 category_id = [str(c.category_id) for c in
-                            product.linked_product.parent_product.parent_product_pro_category.filter(status=True)]
+                            product.linked_product.parent_product.parent_product_pro_b2c_category.filter(status=True)]
 
                 sub_category = [str(c.category) for c in
-                            product.linked_product.parent_product.parent_product_pro_category.filter(status=True)]
+                            product.linked_product.parent_product.parent_product_pro_b2c_category.filter(status=True)]
                 sub_category_id = [str(c.category_id) for c in
-                               product.linked_product.parent_product.parent_product_pro_category.filter(status=True)]
+                               product.linked_product.parent_product.parent_product_pro_b2c_category.filter(status=True)]
 
         inv_available = PosInventoryState.objects.get(inventory_state=PosInventoryState.AVAILABLE)
         pos_inv = PosInventory.objects.filter(product=product, inventory_state=inv_available).last()

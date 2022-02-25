@@ -90,7 +90,7 @@ def update_category_elasticsearch(sender, instance=None, created=False, **kwargs
     for prod_price in instance.product.product_pro_price.filter(status=True).values('seller_shop', 'product'):
         update_shop_product_es.delay(prod_price['seller_shop'], prod_price['product'])
 
-#@receiver(post_save, sender=ProductB2cCategory)
+@receiver(post_save, sender=ProductB2cCategory)
 def update_b2c_category_elasticsearch(sender, instance=None, created=False, **kwargs):
     for prod_price in instance.product.product_pro_price.filter(status=True).values('seller_shop', 'product'):
         update_shop_product_es.delay(prod_price['seller_shop'], prod_price['product'])
@@ -124,7 +124,13 @@ def update_product_elasticsearch(sender, instance=None, created=False, **kwargs)
 def update_parent_product_elasticsearch(sender, instance=None, created=False, **kwargs):
     info_logger.info("Updating ES of child products of parent {}".format(instance))
     child_skus = Product.objects.filter(parent_product=instance)
-    child_categories = [str(c.category) for c in instance.parent_product_pro_category.filter(status=True)]
+    if instance.product_type == 'b2c':
+        child_categories = [str(c.category) for c in instance.parent_product_pro_b2c_category.filter(status=True)]
+    elif instance.product_type == 'b2b':
+        child_categories = [str(c.category) for c in instance.parent_product_pro_category.filter(status=True)]
+    elif instance.product_type == 'both':
+        child_categories = [str(c.category) for c in instance.parent_product_pro_b2c_category.filter(status=True)]
+        child_categories += [str(c.category) for c in instance.parent_product_pro_category.filter(status=True)]
     for child in child_skus:
         product_images = []
         if child.use_parent_image:
@@ -489,7 +495,7 @@ def update_parent_category_elasticsearch(sender, instance=None, created=False, *
         child_category.save()
 
 
-#@receiver(post_save, sender=B2cCategory)
+@receiver(post_save, sender=B2cCategory)
 def update_parent_category_elasticsearch(sender, instance=None, created=False, **kwargs):
     shops_str = GlobalConfig.objects.get(key='category_brand_es_shop_ids').value
     shops = str(shops_str).split(',') if shops_str else None

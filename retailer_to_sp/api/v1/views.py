@@ -397,11 +397,15 @@ class SearchProducts(APIView):
                     keyword += "*" + word + "* "
                 keyword = keyword.strip()
                 query_string = {"query": "*" + keyword + "*", "fields": ["name"], "minimum_should_match": 2}
-
         if category_ids:
             category = category_ids.split(',')
-            category_filter = str(categorymodel.Category.objects.filter(id__in=category, status=True).last())
-            filter_list.append({"match": {"category": {"query": category_filter, "operator": "and"}}})
+            #print(category)
+            if app_type == '3':
+                category_filter = str(categorymodel.B2cCategory.objects.filter(id__in=category, status=True).last())
+                #print(category_filter)
+            else:
+                category_filter = str(categorymodel.Category.objects.filter(id__in=category, status=True).last())
+                filter_list.append({"match": {"category": {"query": category_filter, "operator": "and"}}})
 
         if sub_category_ids:
             #sub_category = sub_category_ids.split(',')
@@ -6989,7 +6993,6 @@ class RefreshEsRetailer(APIView):
 
         if not shops.exists():
             return api_response("No shops found")
-
         for shop in shops:
             shop_id = shop.id
             info_logger.info('RefreshEsRetailer | shop {}, Started'.format(shop_id))
