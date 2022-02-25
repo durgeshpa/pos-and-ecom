@@ -363,7 +363,7 @@ class ProductSerializer(serializers.ModelSerializer):
     def get_category(self, obj):
         try:
             category = [str(c.category) for c in
-                        obj.linked_product.parent_product.parent_product_pro_category.filter(status=True)]
+                        obj.linked_product.parent_product.parent_product_pro_b2c_category.filter(status=True)]
             return category if category else ''
         except:
             return ''
@@ -371,7 +371,7 @@ class ProductSerializer(serializers.ModelSerializer):
     def get_category_id(self, obj):
         try:
             category_id = [str(c.category_id) for c in
-                           obj.linked_product.parent_product.parent_product_pro_category.filter(status=True)]
+                           obj.linked_product.parent_product.parent_product_pro_b2c_category.filter(status=True)]
             return category_id if category_id else ''
         except:
             return ''
@@ -379,7 +379,7 @@ class ProductSerializer(serializers.ModelSerializer):
     def get_sub_category(self, obj):
         try:
             category = [str(c.category) for c in
-                        obj.linked_product.parent_product.parent_product_pro_category.filter(status=True)]
+                        obj.linked_product.parent_product.parent_product_pro_b2c_category.filter(status=True)]
             return category if category else ''
         except:
             return ''
@@ -387,7 +387,7 @@ class ProductSerializer(serializers.ModelSerializer):
     def get_sub_category_id(self, obj):
         try:
             category_id = [str(c.category_id) for c in
-                           obj.linked_product.parent_product.parent_product_pro_category.filter(status=True)]
+                           obj.linked_product.parent_product.parent_product_pro_b2c_category.filter(status=True)]
             return category_id if category_id else ''
         except:
             return ''
