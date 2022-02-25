@@ -612,7 +612,8 @@ class BasicCartSerializer(serializers.ModelSerializer):
         return round(discount, 2)
 
     def get_amount_payable(self, obj):
-        sub_total = float(self.total_amount_dt(obj)) - self.get_total_discount(obj)
+        sub_total = float(self.total_amount_dt(obj)) - (
+                float(self.get_total_discount(obj)) + float(self.get_product_discount_from_mrp(obj)))
         return round(sub_total)
 
 
