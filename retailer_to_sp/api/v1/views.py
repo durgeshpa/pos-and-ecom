@@ -5423,7 +5423,6 @@ def pdf_generation(request, ordered_product):
         if ordered_product.invoice.invoice_pdf.url:
             pass
     except Exception as e:
-        logger.exception(e)
         barcode = barcodeGen(ordered_product.invoice_no)
 
         buyer_shop_id = ordered_product.order.buyer_shop_id
