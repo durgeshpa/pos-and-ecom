@@ -43,7 +43,7 @@ from shops.models import Shop
 from accounts.models import UserWithName, User
 from coupon.models import Coupon, CusotmerCouponUsage
 from retailer_backend import common_function
-from global_config.views import get_config
+from global_config.views import get_config, get_config_fofo_shop
 
 today = datetime.datetime.today()
 
@@ -1254,7 +1254,8 @@ class Order(models.Model):
         if self.ordered_cart.cart_type == 'ECOM' and self.order_status in [Order.ORDERED, Order.PICKUP_CREATED,
                                                                            Order.OUT_FOR_DELIVERY]:
             order_placed_at = self.created_at
-            delivery_span = get_config("pos_order_delivery_time_hours", None)
+            # delivery_span = get_config("pos_order_delivery_time_hours", None)
+            delivery_span = get_config_fofo_shop('Maximum Delivery time', self.ordered_cart.seller_shop.id)
             return (order_placed_at.replace(minute=0, second=0) + datetime.timedelta(
                 hours=int(delivery_span))).strftime("%b %d, %Y %-I:%M %p") if delivery_span else None
         return None
@@ -1686,6 +1687,10 @@ class OrderedProduct(models.Model):  # Shipment
     )
     created_at = models.DateTimeField(
         auto_now_add=True, verbose_name="Invoice Date")
+
+    qc_started_at = models.DateTimeField(null=True, blank=True)
+    qc_completed_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Invoice Date")
     modified_at = models.DateTimeField(auto_now=True)
 
     class Meta:

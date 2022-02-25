@@ -15,19 +15,19 @@ from django.http import HttpResponse
 from .models import (
     PosShopUserMapping, Shop, ShopType, RetailerType, ParentRetailerMapping,
     ShopPhoto, ShopDocument, ShopInvoicePattern, ShopUserMapping,
-    ShopRequestBrand, SalesAppVersion, ShopTiming, FavouriteProduct, BeatPlanning, DayBeatPlanning, ExecutiveFeedback, ShopStatusLog)
+    ShopRequestBrand, SalesAppVersion, ShopTiming, FavouriteProduct, BeatPlanning, DayBeatPlanning, ExecutiveFeedback,
+    ShopStatusLog, FOFOConfigCategory, FOFOConfigSubCategory, FOFOConfigurations)
 from addresses.models import Address, DispatchCenterCityMapping, DispatchCenterPincodeMapping
 from addresses.forms import AddressForm
 from .forms import (ParentRetailerMappingForm, PosShopUserMappingForm, ShopParentRetailerMappingForm,
                     ShopForm, RequiredInlineFormSet, BeatPlanningAdminForm,
                     AddressInlineFormSet, ShopUserMappingForm, ShopTimingForm, DispatchCenterCityMappingInlineFormSet,
                     DispatchCenterPincodeMappingInlineFormSet, DispatchCenterCityMappingForm,
-                    DispatchCenterPincodeMappingForm)
-
+                    DispatchCenterPincodeMappingForm, FOFOShopConfigForm)
 from .views import (StockAdjustmentView, bulk_shop_updation, ShopAutocomplete, UserAutocomplete, 
                     ShopUserMappingCsvView, ShopUserMappingCsvSample, ShopTimingAutocomplete
 )
-from pos.filters import NonPosShopAutocomplete, PosShopAutocomplete
+from pos.filters import NonPosShopAutocomplete, PosShopAutocomplete, FofoOnlineEnabledShopAutocomplete
 from retailer_backend.admin import InputFilter
 from services.views import SalesReportFormView, SalesReport
 from .utils import create_shops_excel
@@ -244,6 +244,12 @@ class ShopStatusAdmin(admin.TabularInline):
         return False
 
 
+class FOFOConfigurationsInline(admin.TabularInline):
+    model = FOFOConfigurations
+    extra = 1
+    fields = ('key', 'value')
+
+
 class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
     change_list_template = 'admin/shops/shop/change_list.html'
     change_form_template = 'admin/shops/shop/change_form.html'
@@ -269,6 +275,14 @@ class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
 
     class Media:
         css = {"all": ("admin/css/hide_admin_inline_object_name.css",)}
+        js = ("js/shop_fofo.js",)
+
+    def changeform_view(self, request, object_id, form_url='', extra_context=None):
+        self.inlines = [ShopPhotosAdmin, ShopDocumentsAdmin, AddressAdmin, ShopInvoicePatternAdmin,
+                        ShopParentRetailerMapping, ShopStatusAdmin, ]
+        if request.user.is_superuser or request.user.has_perm('shops.has_fofo_config_operations'):
+            self.inlines.append(FOFOConfigurationsInline)
+        return super(ShopAdmin, self).changeform_view(request, object_id, form_url, extra_context)
 
     def get_readonly_fields(self, request, obj=None):
         if obj and obj.shop_type.shop_type == 'f':
@@ -572,11 +586,15 @@ class PosShopUserMappingAdmin(admin.ModelAdmin):
                         self.admin_site.admin_view(NonPosShopAutocomplete.as_view()),
                         name="pos-shop-complete"
                     ),
+                   url(
+                       r'^pos-online_inventory_enabled-shop-complete/$',
+                       self.admin_site.admin_view(FofoOnlineEnabledShopAutocomplete.as_view()),
+                       name="pos-online_inventory_enabled-shop-complete"
+                   ),
 
                ] + urls
         return urls
 
-    
 
 class SalesAppVersionAdmin(admin.ModelAdmin):
     list_display = ('app_version', 'update_recommended', 'force_update_required', 'created_at', 'modified_at')
@@ -687,6 +705,69 @@ class ExecutiveFeedbackAdmin(admin.ModelAdmin):
         return obj.day_beat_plan.id
 
 
+class payment_type(admin.ModelAdmin):
+    fields = ('name', )
+
+
+class FOFOConfigCategoryAdmin(admin.ModelAdmin):
+    fields = ('name', )
+
+    def has_add_permission(self, request, obj=None):
+        if request.user.is_superuser or request.user.has_perm('shops.has_fofo_config_operations'):
+            return True
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        if request.user.is_superuser or request.user.has_perm('shops.has_fofo_config_operations'):
+            return True
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        if request.user.is_superuser:
+            return True
+        return False
+
+
+class FOFOConfigSubCategoryAdmin(admin.ModelAdmin):
+    fields = ('name', 'category', 'type')
+
+    def has_add_permission(self, request, obj=None):
+        if request.user.is_superuser or request.user.has_perm('shops.has_fofo_config_operations'):
+            return True
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        if request.user.is_superuser or request.user.has_perm('shops.has_fofo_config_operations'):
+            return True
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        if request.user.is_superuser:
+            return True
+        return False
+
+
+# class FOFOConfigurationsAdmin(admin.ModelAdmin):
+#     form = FOFOShopConfigForm
+#     list_display = ('shop', 'key', 'value')
+#     fields = ('shop', 'key', 'value')
+#
+#     def has_add_permission(self, request, obj=None):
+#         if request.user.is_superuser:
+#             return True
+#         return False
+#
+#     def has_change_permission(self, request, obj=None):
+#         if request.user.is_superuser:
+#             return True
+#         return False
+#
+#     def has_delete_permission(self, request, obj=None):
+#         if request.user.is_superuser:
+#             return True
+#         return False
+
+
 admin.site.register(ParentRetailerMapping, ParentRetailerMappingAdmin)
 admin.site.register(ShopType, ShopTypeAdmin)
 admin.site.register(RetailerType)
@@ -699,3 +780,6 @@ admin.site.register(ShopTiming, ShopTimingAdmin)
 admin.site.register(BeatPlanning, BeatPlanningAdmin)
 admin.site.register(PosShopUserMapping, PosShopUserMappingAdmin)
 admin.site.register(ExecutiveFeedback, ExecutiveFeedbackAdmin)
+admin.site.register(FOFOConfigCategory, FOFOConfigCategoryAdmin)
+admin.site.register(FOFOConfigSubCategory, FOFOConfigSubCategoryAdmin)
+# admin.site.register(FOFOConfigurations, FOFOConfigurationsAdmin)

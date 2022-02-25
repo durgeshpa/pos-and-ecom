@@ -1,15 +1,12 @@
-from django.utils import timezone
-from rest_framework.permissions import IsAuthenticated, AllowAny
-from rest_framework.parsers import JSONParser
+
+from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from django.utils import timezone
 
 import sp_to_gram
 from sp_to_gram.models import OrderedProductMapping, OrderedProductReserved
-from retailer_to_sp.api.v1.views import refresh_cron_es
-from gram_to_brand.models import OrderedProductReserved as GramOrderedProductReserved
-from django.db.models import Sum, Q, Case, CharField, Value, When, F
+from django.db.models import Sum, Q, Case, Value, When, F
 from shops.models import Shop, ShopType
 from gram_to_brand.models import Cart
 from services.models import ShopStock
@@ -17,7 +14,7 @@ from retailer_to_sp.models import Order
 from datetime import datetime, timedelta
 import logging
 import time
-from retailer_to_sp.api.v1.views import refresh_cron_es
+from sp_to_gram.tasks import upload_shop_stock
 
 
 logger = logging.getLogger(__name__)
@@ -159,3 +156,7 @@ def sync_es_products():
         cron_logger.info('sync_es_products ended for Shop {} '.format(shop))
         logger.info("sleep 10")
         time.sleep(10)
+
+
+def sync_es_products_api(request):
+    upload_shop_stock(600)

@@ -1539,11 +1539,12 @@ class ShipmentAdmin(NestedModelAdmin):
     list_display = (
         'start_qc', 'order', 'created_at', 'qc_area', 'trip', 'shipment_address',
         'seller_shop', 'invoice_city', 'invoice_amount', 'payment_mode',
-        'shipment_status', 'download_invoice', 'pincode',
+        'shipment_status', 'download_invoice', 'pincode', 'qc_started_at', 'qc_completed_at'
     )
     list_filter = [
         ('created_at', DateTimeRangeFilter), InvoiceSearch, ShipmentOrderIdSearch,
-        ShipmentSellerShopSearch, ('shipment_status', ChoiceDropdownFilter), PincodeSearch
+        ShipmentSellerShopSearch, ('shipment_status', ChoiceDropdownFilter), PincodeSearch,
+        ('qc_started_at', DateTimeRangeFilter), ('qc_completed_at', DateTimeRangeFilter),
     ]
     fields = ['order', 'invoice_no', 'invoice_amount', 'shipment_address', 'invoice_city',
               'shipment_status', 'no_of_crates', 'no_of_packets', 'no_of_sacks', 'close_order']
