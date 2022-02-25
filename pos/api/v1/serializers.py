@@ -700,7 +700,7 @@ class PaymentSerializer(serializers.ModelSerializer):
     def get_payment_refund(self, obj):
         if obj.is_refund:
             status = {'queued': 'refund_created', 'success': 'refund_success', 'failure': 'refund_failed'}
-            if status[obj.refund_status]:
+            if obj.refund_status in status:
                 refund_status = status[obj.refund_status]
             else:
                 refund_status = obj.refund_status
