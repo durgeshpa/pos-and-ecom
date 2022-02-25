@@ -399,13 +399,11 @@ class SearchProducts(APIView):
                 query_string = {"query": "*" + keyword + "*", "fields": ["name"], "minimum_should_match": 2}
         if category_ids:
             category = category_ids.split(',')
-            #print(category)
             if app_type == '3':
                 category_filter = str(categorymodel.B2cCategory.objects.filter(id__in=category, status=True).last())
-                #print(category_filter)
             else:
                 category_filter = str(categorymodel.Category.objects.filter(id__in=category, status=True).last())
-                filter_list.append({"match": {"category": {"query": category_filter, "operator": "and"}}})
+            filter_list.append({"match": {"category": {"query": category_filter, "operator": "and"}}})
 
         if sub_category_ids:
             #sub_category = sub_category_ids.split(',')
