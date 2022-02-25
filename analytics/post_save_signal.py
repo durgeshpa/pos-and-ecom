@@ -30,14 +30,14 @@ def get_grn_report(sender, instance=None, created=False, **kwargs):
     transaction.on_commit(lambda: grn_report.delay(instance.id))
 
 
-@receiver(post_save, sender=ProductPrice)
-def get_master_report(sender, instance=None, created=False, **kwargs):
-    transaction.on_commit(lambda: master_report.delay(instance.seller_shop_id))
+# @receiver(post_save, sender=ProductPrice)
+# def get_master_report(sender, instance=None, created=False, **kwargs):
+#     transaction.on_commit(lambda: master_report.delay(instance.seller_shop_id))
 
 
-@receiver(post_save, sender=Order)
-def get_order_report(sender, instance=None, created=False, **kwargs):
-    transaction.on_commit(lambda: order_report.delay(instance.id))
+# @receiver(post_save, sender=Order)
+# def get_order_report(sender, instance=None, created=False, **kwargs):
+#     transaction.on_commit(lambda: order_report.delay(instance.id))
 
 
 @receiver(post_save, sender=ParentRetailerMapping)
@@ -45,9 +45,9 @@ def get_retailer_report(sender, instance=None, created=False, **kwargs):
     transaction.on_commit(lambda: retailer_report.delay(instance.id))
 
 
-@receiver(post_save, sender=Shipment)
-def get_shipment_report(sender, instance=None, created=False, **kwargs):
-    transaction.on_commit(lambda: shipment_report.delay(instance.id))
+# @receiver(post_save, sender=Shipment)
+# def get_shipment_report(sender, instance=None, created=False, **kwargs):
+#     transaction.on_commit(lambda: shipment_report.delay(instance.id))
 
 
 @receiver(post_save, sender=Trip)
