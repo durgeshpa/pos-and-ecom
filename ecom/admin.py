@@ -98,6 +98,7 @@ class Seller_SHOP(SimpleListFilter):
         else:
             return queryset
 
+
 class EcomOrderProductAdmin(admin.ModelAdmin):
     search_fields = ('order_no', 'rt_order_order_product__invoice__invoice_no')
     list_per_page = 10
@@ -110,7 +111,8 @@ class EcomOrderProductAdmin(admin.ModelAdmin):
             'fields': ('seller_shop',)}),
 
         (_('Order Details'), {
-            'fields': ('id', 'order_no', 'invoice_no', 'order_status','order_cancellation_reason', 'buyer', 'buyer_address')}),
+            'fields': ('id', 'order_no', 'invoice_no', 'order_status', 'order_cancellation_reason', 'buyer',
+                       'buyer_address')}),
 
         (_('Amount Details'), {
             'fields': ('sub_total', 'offer_discount', 'reward_discount', 'order_amount')}),
