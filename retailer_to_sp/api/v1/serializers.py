@@ -2484,9 +2484,9 @@ class DispatchTripStatusChangeSerializers(serializers.ModelSerializer):
 
             if trip_status == DispatchTrip.VERIFIED:
                 if DispatchTripShipmentPackages.objects.filter(
-                        trip_shipment__trip=dispatch_trip, package_status=DispatchTripShipmentPackages.UNLOADED,
+                        trip_shipment__trip=dispatch_trip,
                         package_status__in=[DispatchTripShipmentPackages.UNLOADED, DispatchTripShipmentPackages.PARTIALLY_VERIFIED]).exists():
-                    return serializers.ValidationError(
+                    raise serializers.ValidationError(
                         "The trip can not verify until and unless all unloaded packages get verified.")
 
             data['trip_status'] = trip_status
