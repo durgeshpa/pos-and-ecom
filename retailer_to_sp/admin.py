@@ -1528,7 +1528,7 @@ class ShipmentAdmin(NestedModelAdmin):
         'order__shipping_address__city',
     )
     list_display = (
-        'start_qc', 'order', 'created_at', 'qc_area', 'trip', 'shipment_address',
+        'start_qc', 'order', 'created_at', 'qc_area', 'trip_id', 'shipment_address',
         'seller_shop', 'invoice_city', 'invoice_amount', 'payment_mode',
         'shipment_status', 'download_invoice', 'pincode',
     )
@@ -1660,6 +1660,10 @@ class ShipmentAdmin(NestedModelAdmin):
         # return obj.invoice_no if obj.invoice_no != '-' else format_html(
         #     "<a href='/admin/retailer_to_sp/shipment/%s/change/' class='button'>Start QC</a>" %(obj.id))
     start_qc.short_description = 'Invoice No'
+
+    def trip_id(self,obj):
+        return obj.last_trip
+    trip_id.short_description = 'Trip'
 
     def save_model(self, request, obj, form, change):
         if not hasattr(form.instance, 'invoice') and (form.cleaned_data.get('shipment_status', None) == form.instance.READY_TO_SHIP):
