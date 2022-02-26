@@ -1650,15 +1650,15 @@ class RefundPayment(GenericAPIView):
                                                           payment_status__in=["payment_approved", 'double_payment']).first()
 
         if not payment_datails:
-            return api_response('transaction does not found .....', '', status.HTTP_200_OK, False)
+            return api_response('Transaction not Found', '', status.HTTP_200_OK, False)
 
         if payment_datails.is_refund and (payment_datails.refund_status != 'failure'):
-            return api_response(f'refund allready exists and refund status  {payment_datails.refund_status}', '', status.HTTP_200_OK, False)
+            return api_response(f'Refund is already initiated for the selected order', '', status.HTTP_200_OK, False)
 
         refund_amount = None
         if data.get('amount', None):
             if data.get('amount') > payment_datails.amount:
-                return api_response('amount should less then or equal transaction amount.....', '', status.HTTP_200_OK,
+                return api_response('amount should be less then or equal to transaction amount', '', status.HTTP_200_OK,
                                     True)
             refund_amount = data.get('amount')
         else:
