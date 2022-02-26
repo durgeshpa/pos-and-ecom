@@ -473,47 +473,40 @@ class RewardCls(object):
 
     @classmethod
     def checkout_redeem_points(cls, cart, redeem_points, use_all=None):
-        if int(redeem_points) > 0:
-            value_factor = GlobalConfig.objects.get(key='used_reward_factor').value
-            cart.redeem_points = redeem_points
-            cart.redeem_factor = value_factor
-            cart.save()
-            message = ""
-        else:
-            value_factor = GlobalConfig.objects.get(key='used_reward_factor').value
-            if cart.buyer and ReferralCode.is_marketing_user(cart.buyer):
-                obj = RewardPoint.objects.filter(reward_user=cart.buyer).last()
-                if obj:
-                    points = max(obj.direct_earned + obj.indirect_earned - obj.points_used, 0)
-                    if use_all is not None:
-                        redeem_points = points if int(use_all) else 0
-                    redeem_points = min(redeem_points, points, int(cart.order_amount_after_discount * value_factor))
-                else:
-                    redeem_points = 0
+        value_factor = GlobalConfig.objects.get(key='used_reward_factor').value
+        if cart.buyer and ReferralCode.is_marketing_user(cart.buyer):
+            obj = RewardPoint.objects.filter(reward_user=cart.buyer).last()
+            if obj:
+                points = max(obj.direct_earned + obj.indirect_earned - obj.points_used, 0)
+                if use_all is not None:
+                    redeem_points = points if int(use_all) else 0
+                redeem_points = min(redeem_points, points, int(cart.order_amount_after_discount * value_factor))
             else:
                 redeem_points = 0
+        else:
+            redeem_points = 0
 
-            days = datetime.datetime.today().day
-            date = get_back_date(days)
+        days = datetime.datetime.today().day
+        date = get_back_date(days)
 
-            uses_rewrd_point = RewardLog.objects.filter(reward_user=cart.buyer,
-                transaction_type__in=['order_debit', 'order_return_credit', 'order_cancel_credit'], modified_at__gte=date).\
-            aggregate(Sum('points'))
-            this_month_reward_point_used = abs(uses_rewrd_point['points__sum']) if uses_rewrd_point['points__sum'] else None
-            max_redeem_points = GlobalConfig.objects.filter(key='max_redeem_points').last()
-            max_month_limit = GlobalConfig.objects.filter(key='max_month_limit _redeem_point').last()
+        uses_rewrd_point = RewardLog.objects.filter(reward_user=cart.buyer,
+            transaction_type__in=['order_debit', 'order_return_credit', 'order_cancel_credit'], modified_at__gte=date).\
+        aggregate(Sum('points'))
+        this_month_reward_point_used = abs(uses_rewrd_point['points__sum']) if uses_rewrd_point['points__sum'] else None
+        max_redeem_points = GlobalConfig.objects.filter(key='max_redeem_points').last()
+        max_month_limit = GlobalConfig.objects.filter(key='max_month_limit _redeem_point').last()
 
-            max_month_limit = max_month_limit.value if max_month_limit else 500
-            message = ""
-            if max_redeem_points and max_redeem_points.value:
-                if redeem_points > max_redeem_points.value:
-                    redeem_points = max_redeem_points.value
-            if this_month_reward_point_used and this_month_reward_point_used + redeem_points > max_month_limit:
-                redeem_points = 0
-                message = "only {} Loyalty Point can be used in a month".format(max_month_limit)
-            cart.redeem_points = redeem_points
-            cart.redeem_factor = value_factor
-            cart.save()
+        max_month_limit = max_month_limit.value if max_month_limit else 500
+        message = ""
+        if max_redeem_points and max_redeem_points.value:
+            if redeem_points > max_redeem_points.value:
+                redeem_points = max_redeem_points.value
+        if this_month_reward_point_used and this_month_reward_point_used + redeem_points > max_month_limit:
+            redeem_points = 0
+            message = "only {} Loyalty Point can be used in a month".format(max_month_limit)
+        cart.redeem_points = redeem_points
+        cart.redeem_factor = value_factor
+        cart.save()
         return message
 
     @classmethod
