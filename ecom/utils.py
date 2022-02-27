@@ -184,7 +184,7 @@ def generate_ecom_order_csv_report(queryset):
             order_product_mapping = shipment.rt_order_product_order_product_mapping.filter(
                 retailer_product_id=order.get('rt_order_order_product__rt_order_product_order_product_mapping__retailer_product__id')). \
                 last()
-            product_inv_price = order_product_mapping.product_sub_total
+            product_inv_price = order_product_mapping.product_total_price
 
         retailer_product_id = order.get('rt_order_order_product__rt_order_product_order_product_mapping__retailer_product__id')
         retailer_product = RetailerProduct.objects.filter(id=retailer_product_id)
