@@ -87,7 +87,7 @@ def create_order_data_excel(queryset, request=None):
             filter(retailer_product_id=order.get('rt_order_product_order_product_mapping__retailer_product__id')).\
             last()
         inv_qty = order_product_mapping.shipped_qty
-        product_inv_price = order_product_mapping.product_sub_total
+        product_inv_price = order_product_mapping.product_total_price
 
         retailer_product_id = order.get('rt_order_product_order_product_mapping__retailer_product__id')
         retailer_product = RetailerProduct.objects.get(id=retailer_product_id)
@@ -139,9 +139,8 @@ def create_order_data_excel(queryset, request=None):
             order.get('rt_order_product_order_product_mapping__selling_price'),
             product_inv_price,
             offers[0].get('coupon_description', None) if len(offers) else None,
-            offers[0].get('discount_value', None) if len(offers) else None,
-            offers[0].get('spot_discount', None)
-            if len(offers) else None,
+            offers[0].get('discount_value', None) if offers and offers[0].get('sub_type') != "spot_discount" else None,
+            offers[0].get('discount_value', None) if offers and offers[0].get('sub_type') == "spot_discount" else None,
             order.get('order__order_amount'),
             inv_amount,
             order.get('rt_order_product_order_product_mapping__retailer_product__linked_product__parent_product__parent_id'),
