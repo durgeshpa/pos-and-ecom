@@ -137,10 +137,25 @@ class RetailerProductAdmin(admin.ModelAdmin):
 
     @staticmethod
     def image(obj):
-        image = obj.retailer_product_image.last()
+        image = None
+        try:
+            retailer_object = obj.retailer_product_image.all()
+            images = None
+            if not retailer_object.exists():
+                images = obj.linked_product.product_pro_image.all() if obj.linked_product and \
+                                                                       obj.linked_product.product_pro_image.all().first() else None
+                images = obj.linked_product.parent_product.parent_product_pro_image.all() \
+                    if not images and obj.linked_product and obj.linked_product.parent_product \
+                       and obj.linked_product.parent_product.parent_product_pro_image.all().first() else images
+
+            else:
+                images = retailer_object
+            image = images.first()
+        except:
+            pass
         if image:
             return format_html('<a href="{}"><img alt="{}" src="{}" height="50px" width="50px"/></a>'.format(
-                image.image.url, (image.image_alt_text or image.image_name), image.image.url))
+                image.image.url, (image or image.image_name), image.image.url))
 
     def has_add_permission(self, request, obj=None):
         return False
