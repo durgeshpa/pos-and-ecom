@@ -8,7 +8,7 @@ from django.db.models import Q
 from brand.models import Brand, Vendor
 from products.models import Product, Tax, ParentProductTaxMapping, ParentProduct, ParentProductCategory, \
     ParentProductImage, ProductHSN, ProductCapping, ProductImage
-from categories.models import Category
+from categories.models import B2cCategory, Category
 from shops.models import Shop
 from brand.common_validators import validate_brand_name, validate_brand_code, validate_brand_slug
 from categories.common_validators import validate_category_name, validate_category_sku_part, validate_category_slug
@@ -75,14 +75,17 @@ def get_validate_product_hsn(product_hsn):
     return {'product_hsn': product_hsn_obj}
 
 
-def get_validate_categories(parent_product_pro_category):
+def get_validate_categories(parent_product_pro_category, b2c=False):
     """ validate ids that belong to a Category model also
     checking category shouldn't repeat else through error """
     cat_list = []
     cat_obj = []
     for cat_data in parent_product_pro_category:
         try:
-            category = Category.objects.get(id=cat_data['category'])
+            if b2c:
+                category = B2cCategory.objects.get(id=cat_data['category'])
+            else:
+                category = Category.objects.get(id=cat_data['category'])
         except Exception as e:
             logger.error(e)
             return {'error': '{} category not found'.format(cat_data['category'])}

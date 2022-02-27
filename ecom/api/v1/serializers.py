@@ -6,7 +6,7 @@ from django.db.models import Sum
 
 from accounts.models import User
 from addresses.models import Pincode
-from categories.models import Category
+from categories.models import Category, B2cCategory
 from marketing.models import ReferralCode, RewardPoint, RewardLog
 from shops.models import Shop
 from retailer_to_sp.models import Order, OrderedProductMapping, CartProductMapping
@@ -128,9 +128,22 @@ class CategorySerializer(serializers.ModelSerializer):
         fields = ('id', 'category_name', 'category_image')
 
 
+class B2cCategorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = B2cCategory
+        fields = ('id', 'category_name', 'category_image')
+
+
 class SubCategorySerializer(serializers.ModelSerializer):
     class Meta:
         model = Category
+        fields = ('id', 'category_name', 'category_image')
+
+
+
+class B2cSubCategorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = B2cCategory
         fields = ('id', 'category_name', 'category_image')
 
 
@@ -327,6 +340,8 @@ class ProductSerializer(serializers.ModelSerializer):
     online_price = serializers.SerializerMethodField()
     category_id = serializers.SerializerMethodField()
     category = serializers.SerializerMethodField()
+    sub_category_id = serializers.SerializerMethodField()
+    sub_category = serializers.SerializerMethodField()
     brand_id = serializers.SerializerMethodField()
     brand = serializers.SerializerMethodField()
 
@@ -348,7 +363,7 @@ class ProductSerializer(serializers.ModelSerializer):
     def get_category(self, obj):
         try:
             category = [str(c.category) for c in
-                        obj.linked_product.parent_product.parent_product_pro_category.filter(status=True)]
+                        obj.linked_product.parent_product.parent_product_pro_b2c_category.filter(status=True)]
             return category if category else ''
         except:
             return ''
@@ -356,7 +371,23 @@ class ProductSerializer(serializers.ModelSerializer):
     def get_category_id(self, obj):
         try:
             category_id = [str(c.category_id) for c in
-                           obj.linked_product.parent_product.parent_product_pro_category.filter(status=True)]
+                           obj.linked_product.parent_product.parent_product_pro_b2c_category.filter(status=True)]
+            return category_id if category_id else ''
+        except:
+            return ''
+
+    def get_sub_category(self, obj):
+        try:
+            category = [str(c.category) for c in
+                        obj.linked_product.parent_product.parent_product_pro_b2c_category.filter(status=True)]
+            return category if category else ''
+        except:
+            return ''
+
+    def get_sub_category_id(self, obj):
+        try:
+            category_id = [str(c.category_id) for c in
+                           obj.linked_product.parent_product.parent_product_pro_b2c_category.filter(status=True)]
             return category_id if category_id else ''
         except:
             return ''
@@ -388,7 +419,8 @@ class ProductSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = RetailerProduct
-        fields = ('id', 'name', 'mrp', 'online_price', 'image', 'category', 'category_id', 'brand', 'brand_id',)
+        fields = ('id', 'name', 'mrp', 'online_price', 'image', 'category', 'category_id', 'brand', 'brand_id',
+                  'sub_category', 'sub_category_id',)
 
 
 class TagProductSerializer(serializers.ModelSerializer):
