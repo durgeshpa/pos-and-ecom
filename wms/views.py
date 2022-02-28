@@ -1005,8 +1005,8 @@ def mail_warehouse_team_for_product_mappings(order_no, product_ids):
 
 def pickup_entry_creation_with_cron():
     cron_name = CronRunLog.CRON_CHOICE.PICKUP_CREATION_CRON
-    current_time = datetime.now() - timedelta(minutes=1)
-    start_time = datetime.now() - timedelta(days=1)
+    current_time = datetime.now()
+    start_time = datetime.now() - timedelta(days=3)
     order_obj = Order.objects.filter(order_status='ordered',
                                      order_closed=False,
                                      created_at__lt=current_time,
