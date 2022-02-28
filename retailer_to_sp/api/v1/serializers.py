@@ -1864,6 +1864,8 @@ class ShipmentQCSerializer(serializers.ModelSerializer):
     """ Serializer for Shipment QC"""
     order = OrderSerializerForShipment(read_only=True)
     created_date = serializers.SerializerMethodField()
+    qc_start_time = serializers.SerializerMethodField()
+    qc_end_time = serializers.SerializerMethodField()
     qc_area = QCAreaSerializer(read_only=True)
     qc_desk = serializers.SerializerMethodField(read_only=True)
     status = serializers.SerializerMethodField()
@@ -1875,13 +1877,19 @@ class ShipmentQCSerializer(serializers.ModelSerializer):
     def get_created_date(self, obj):
         return obj.created_at.strftime("%d/%b/%y %H:%M")
 
+    def get_qc_start_time(self, obj):
+        return obj.qc_started_at.strftime("%d/%b/%y %H:%M") if obj.qc_started_at else '-'
+
+    def get_qc_end_time(self, obj):
+        return obj.qc_completed_at.strftime("%d/%b/%y %H:%M") if obj.qc_completed_at else '-'
+
     def get_status(self, obj):
         return obj.get_shipment_status_display()
 
     class Meta:
         model = OrderedProduct
         fields = ('id', 'order', 'status', 'shipment_status', 'invoice_no', 'invoice_amount', 'payment_mode', 'qc_area',
-                  'qc_desk', 'created_date')
+                  'qc_desk', 'created_date', 'qc_start_time', 'qc_end_time')
 
     def validate(self, data):
         """Validates the Shipment update requests"""
@@ -1925,7 +1933,10 @@ class ShipmentQCSerializer(serializers.ModelSerializer):
                         not shipment.rt_order_product_order_product_mapping.filter(shipped_qty__gt=0).exists():
                     status = OrderedProduct.QC_REJECTED
                 data['shipment_status'] = status
-
+                if status == OrderedProduct.QC_STARTED:
+                    data['qc_started_at'] = datetime.datetime.now()
+                elif status ==OrderedProduct.READY_TO_SHIP:
+                    data['qc_completed_at'] = datetime.datetime.now()
             else:
                 raise serializers.ValidationError("Only status update is allowed")
         else:
