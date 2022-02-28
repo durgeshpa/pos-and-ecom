@@ -121,11 +121,7 @@ class BasicCartOffers(object):
         if source:
             body["_source"] = {"includes": source}
         c_list = []
-        try:
-            coupons_list = es.search(index=create_es_index("rc-{}".format(shop_id)), body=body)
-        except:
-            es_create = es.index(index=create_es_index('rc-{}'.format(shop_id)), body=body)
-            coupons_list = es.search(index=create_es_index("rc-{}".format(shop_id)), body=body)
+        coupons_list = es.search(index=create_es_index("rc-{}".format(shop_id)), body=body)
         for c in coupons_list['hits']['hits']:
             c_list.append(c["_source"])
         return c_list
@@ -266,11 +262,7 @@ class BasicCartOffers(object):
                       }
         }
         c_list = []
-        try:
-            coupons_list = es.search(index=create_es_index("rc-{}".format(shop_id)), body=body)
-        except:
-            es_create = es.index(index=create_es_index('rc-{}'.format(shop_id)), body=body)
-            coupons_list = es.search(index=create_es_index("rc-{}".format(shop_id)), body=body)
+        coupons_list = es.search(index=create_es_index("rc-{}".format(shop_id)), body=body)
         for c in coupons_list['hits']['hits']:
             c_list.append(c["_source"])
         return c_list
@@ -296,11 +288,7 @@ class BasicCartOffers(object):
             ]
         }
         c_list = []
-        try:
-            coupons_list = es.search(index=create_es_index("rc-{}".format(shop_id)), body=body)
-        except:
-            es_create = es.index(index=create_es_index('rc-{}'.format(shop_id)), body=body)
-            coupons_list = es.search(index=create_es_index("rc-{}".format(shop_id)), body=body)
+        coupons_list = es.search(index=create_es_index("rc-{}".format(shop_id)), body=body)
         for c in coupons_list['hits']['hits']:
             c_list.append(c["_source"])
         return c_list
@@ -574,11 +562,7 @@ class BasicCartOffers(object):
             ]
         }
         c_list = []
-        try:
-            coupons_list = es.search(index=create_es_index("rc-{}".format(shop_id)), body=body)
-        except:
-            es_create = es.index(index=create_es_index('rc-{}'.format(shop_id)), body=body)
-            coupons_list = es.search(index=create_es_index("rc-{}".format(shop_id)), body=body)
+        coupons_list = es.search(index=create_es_index("rc-{}".format(shop_id)), body=body)
         for c in coupons_list['hits']['hits']:
             c_list.append(c["_source"])
         return c_list
