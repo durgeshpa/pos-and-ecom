@@ -118,6 +118,9 @@ class OrderPaymentForm(forms.ModelForm):
         users = Shop.objects.filter(shop_type__shop_type="r").values('shop_owner__id')
         self.fields.get('paid_by').queryset = UserWithName.objects.filter(pk__in=users)
         instance = getattr(self, 'instance', None)
+        if request:
+            self.fields['paid_by'].initial = request.user.id
+
         if instance.pk:
             self.fields['paid_by'].initial = instance.parent_payment.paid_by
             self.fields['reference_no'].initial = instance.parent_payment.reference_no
@@ -126,8 +129,6 @@ class OrderPaymentForm(forms.ModelForm):
                 object_id = kwargs.get('initial').get('object_id')
                 shipment_data_instance = ShipmentData.objects.filter(id=object_id).last()
                 self.fields['order'].initial = shipment_data_instance.order.id
-        if request:
-            self.fields['paid_by'].initial = request.user.id
 
     def clean(self):
         cleaned_data = super(OrderPaymentForm, self).clean()
