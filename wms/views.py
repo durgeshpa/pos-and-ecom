@@ -1010,6 +1010,7 @@ def mail_warehouse_team_for_product_mappings(order_no, product_ids):
             sender = get_config("sender")
             recipient_list = get_config("MAIL_DEV")
             if config('OS_ENV') and config('OS_ENV') in ['Production']:
+                bcc_list = recipient_list
                 recipient_list = get_config("MAIL_WAREHOUSE_TEAM_RECEIVER")
             subject = 'Products non-mapped with zone for order no {}'.format(order_no)
             body = "PFA the list of products which are not mapped with any zone for order no " + str(order_no) + "." \
@@ -1022,7 +1023,7 @@ def mail_warehouse_team_for_product_mappings(order_no, product_ids):
             for item in products:
                 writer.writerow([item.parent_id, item.name])
             attachment = {'name': filename, 'type': 'text/csv', 'value': f.getvalue()}
-            send_mail(sender, recipient_list, subject, body, [attachment])
+            send_mail(sender, recipient_list, subject, body, [attachment], bcc=bcc_list)
     except Exception as e:
         info_logger.error("Exception|mail_warehouse_team_for_product_mappings|{}".format(e))
 
