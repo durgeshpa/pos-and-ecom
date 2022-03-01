@@ -27,7 +27,7 @@ from admin_auto_filters.views import AutocompleteJsonView
 from retailer_to_sp.models import BulkOrder, Order
 from shops.models import Shop, ShopType
 from addresses.models import City, Address, Pincode
-from categories.models import Category
+from categories.models import Category, B2cCategory
 from brand.models import Brand, Vendor
 
 from wms.models import InventoryType, WarehouseInventory, InventoryState, BinInventory, Bin, \
@@ -53,7 +53,7 @@ from products.models import (
     ProductSourceMapping,
     ParentProductTaxMapping, Tax, ParentProductImage,
     DestinationRepackagingCostMapping, BulkUploadForProductAttributes, Repackaging, SlabProductPrice, PriceSlab,
-    ProductPackingMapping, DiscountedProductPrice
+    ProductPackingMapping, DiscountedProductPrice, ParentProductB2cCategory
 )
 from products.utils import hsn_queryset
 from global_config.models import GlobalConfig
@@ -948,10 +948,10 @@ def ParentProductsDownloadSampleCSV(request):
     response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
     writer = csv.writer(response)
     writer.writerow(
-        ["Name", "Brand", "Category", "HSN", "GST", "CESS", "Surcharge", "Brand Case Size", "Inner Case Size",
+        ["Name", "Brand", "B2b Category", "B2c Category", "HSN", "GST", "CESS", "Surcharge", "Brand Case Size", "Inner Case Size",
          "Product Type","parent_product_discription"])
     writer.writerow(
-        ["testparent2", "Nestle", "Health Care, Beverages, Grocery & Staples", "123456", "18", "12", "100", "10", "10",
+        ["testparent2", "Nestle", "" ,"Health Care, Beverages, Grocery & Staples", "123456", "18", "12", "100", "10", "10",
          "b2c",'product discription'])
     return response
 
@@ -992,29 +992,29 @@ def parent_product_upload(request):
                             continue
                         if '' in row:
                             if (row[0] == '' and row[1] == '' and row[2] == '' and row[3] == '' and row[4] == '' and
-                                    row[5] == '' and row[6] == '' and row[7] == '' and row[8] == '' and row[9] == ''):
+                                    row[5] == '' and row[6] == '' and row[7] == '' and row[8] == '' and row[9] == '' and row[10] == ''):
                                 continue
                         parent_product = ParentProduct.objects.create(
                             name=row[0].strip(),
                             parent_brand=Brand.objects.filter(brand_name=row[1].strip()).last(),
-                            product_hsn=ProductHSN.objects.filter(product_hsn_code=row[3].replace("'", '')).last(),
-                            brand_case_size=int(row[7]),
-                            inner_case_size=int(row[8]),
-                            product_type=row[9],
-                            product_discription=row[10]
+                            product_hsn=ProductHSN.objects.filter(product_hsn_code=row[4].replace("'", '')).last(),
+                            brand_case_size=int(row[8]),
+                            inner_case_size=int(row[9]),
+                            product_type=row[10],
+                            product_discription=row[11]
                         )
                         parent_product.save()
-                        parent_gst = gst_mapper(row[4])
+                        parent_gst = gst_mapper(row[5])
                         ParentProductTaxMapping.objects.create(
                             parent_product=parent_product,
                             tax=Tax.objects.filter(tax_type='gst', tax_percentage=parent_gst).last()
                         ).save()
-                        parent_cess = cess_mapper(row[5]) if row[5] else 0
+                        parent_cess = cess_mapper(row[6]) if row[6] else 0
                         ParentProductTaxMapping.objects.create(
                             parent_product=parent_product,
                             tax=Tax.objects.filter(tax_type='cess', tax_percentage=parent_cess).last()
                         ).save()
-                        parent_surcharge = float(row[6]) if row[6] else 0
+                        parent_surcharge = float(row[7]) if row[7] else 0
                         if Tax.objects.filter(
                                 tax_type='surcharge',
                                 tax_percentage=parent_surcharge
@@ -1035,21 +1035,39 @@ def parent_product_upload(request):
                                 parent_product=parent_product,
                                 tax=new_surcharge_tax
                             ).save()
-                        if Category.objects.filter(category_name=row[2].strip()).exists():
-                            parent_product_category = ParentProductCategory.objects.create(
-                                parent_product=parent_product,
-                                category=Category.objects.filter(category_name=row[2].strip()).last()
-                            )
-                            parent_product_category.save()
-                        else:
-                            categories = row[2].split(',')
-                            for cat in categories:
-                                cat = cat.strip().replace("'", '')
+                        if parent_product.product_type == 'b2b' or parent_product.product_type == 'both':
+                            if Category.objects.filter(category_name=row[2].strip()).exists():
                                 parent_product_category = ParentProductCategory.objects.create(
                                     parent_product=parent_product,
-                                    category=Category.objects.filter(category_name=cat).last()
+                                    category=Category.objects.filter(category_name=row[2].strip()).last()
                                 )
                                 parent_product_category.save()
+                            else:
+                                categories = row[2].split(',')
+                                for cat in categories:
+                                    cat = cat.strip().replace("'", '')
+                                    parent_product_category = ParentProductCategory.objects.create(
+                                        parent_product=parent_product,
+                                        category=Category.objects.filter(category_name=cat).last()
+                                    )
+                                    parent_product_category.save()
+                        if parent_product.product_type == 'b2c' or parent_product.product_type == 'both':
+                            if B2cCategory.objects.filter(category_name=row[3].strip()).exists():
+                                parent_product_category = ParentProductB2cCategory.objects.create(
+                                    parent_product=parent_product,
+                                    category=B2cCategory.objects.filter(category_name=row[2].strip()).last()
+                                )
+                                parent_product_category.save()
+                            else:
+                                categories = row[3].split(',')
+                                for cat in categories:
+                                    cat = cat.strip().replace("'", '')
+                                    parent_product_category = ParentProductB2cCategory.objects.create(
+                                        parent_product=parent_product,
+                                        category=B2cCategory.objects.filter(category_name=cat).last()
+                                    )
+                                    parent_product_category.save()
+                        
             except Exception as e:
                 return render(request, 'admin/products/parent-product-upload.html', {
                     'form': form,
