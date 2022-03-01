@@ -343,6 +343,11 @@ class ShipmentPayment(AbstractDateTime):
     class Meta:
         unique_together = (("parent_order_payment", "shipment"),)
 
+    def save(self, *args, **kwargs):
+        if self.parent_order_payment and self.parent_order_payment.paid_amount:
+            self.paid_amount = self.parent_order_payment.paid_amount
+        super().save(*args, **kwargs)
+
 
 class OrderPaymentStatus(AbstractDateTime):
     # This class stores the payment information for the shipment
