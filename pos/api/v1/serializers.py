@@ -755,6 +755,7 @@ class BasicOrderListSerializer(serializers.ModelSerializer):
     seller_shop = PosEcomShopSerializer(read_only=True)
     gstn_no = serializers.SerializerMethodField()
     invoice_no = serializers.SerializerMethodField()
+    delivery_option = serializers.SerializerMethodField()
 
     @staticmethod
     def get_invoice_no(obj):
@@ -783,6 +784,11 @@ class BasicOrderListSerializer(serializers.ModelSerializer):
         ordered_product = obj.rt_order_order_product.last()
         return round((ordered_product.invoice_amount_final), 2) if ordered_product else(obj.order_amount)
 
+    def get_delivery_option(self, obj):
+        if obj.delivery_option:
+            return obj.get_delivery_option_display()
+
+
     def get_ordered_product(self, obj):
         """
             Get ordered product id
@@ -809,7 +815,7 @@ class BasicOrderListSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Order
-        fields = ('id', 'order_status', 'order_cancel_reson', 'order_amount', 'order_no', 'buyer', 'created_at',
+        fields = ('id', 'order_status', 'delivery_option', 'order_cancel_reson', 'order_amount', 'order_no', 'buyer', 'created_at',
                   'payment', 'invoice_amount', 'delivery_persons', 'ordered_product', 'rt_return_order', 'ordered_cart',
                   'seller_shop', 'gstn_no', 'invoice_no')
 
@@ -1016,6 +1022,7 @@ class BasicOrderSerializer(serializers.ModelSerializer):
     gstn_no = serializers.SerializerMethodField()
     invoice_no = serializers.SerializerMethodField()
     discount = serializers.SerializerMethodField()
+    delivery_option = serializers.SerializerMethodField()
 
     def get_discount(self, obj):
         discount = 0
@@ -1023,6 +1030,10 @@ class BasicOrderSerializer(serializers.ModelSerializer):
         for offer in offers:
             discount += float(offer['discount_value'])
         return round(discount, 2)
+
+    def get_delivery_option(self, obj):
+        if obj.delivery_option:
+            return obj.get_delivery_option_display()
 
     @staticmethod
     def get_cart_offers(obj):
@@ -1163,7 +1174,7 @@ class BasicOrderSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Order
-        fields = ('id', 'order_no', 'ordered_cart', 'products', 'ongoing_return', 'seller_shop',
+        fields = ('id', 'order_no', 'ordered_cart', 'products', 'delivery_option', 'ongoing_return', 'seller_shop',
                   'gstn_no', 'invoice_no', 'discount')
 
 
@@ -3316,6 +3327,7 @@ class PosEcomOrderDetailSerializer(serializers.ModelSerializer):
     payment = serializers.SerializerMethodField('payment_data')
     order_cancel_reson = serializers.SerializerMethodField()
     ordered_product = serializers.SerializerMethodField()
+    delivery_option = serializers.SerializerMethodField()
 
     def __init__(self, *args, **kwargs):
         super(PosEcomOrderDetailSerializer,self).__init__( *args, **kwargs)
@@ -3329,6 +3341,10 @@ class PosEcomOrderDetailSerializer(serializers.ModelSerializer):
         elif obj.order_status == Order.OUT_FOR_DELIVERY:
             return {Order.DELIVERED: 'Mark Delivered'}
         return ret
+
+    def get_delivery_option(self, obj):
+        if obj.delivery_option:
+            return obj.get_delivery_option_display()
 
     def get_order_cancel_reson(self,obj):
         if obj.order_status == "CANCELLED":
@@ -3531,7 +3547,7 @@ class PosEcomOrderDetailSerializer(serializers.ModelSerializer):
         model = Order
         fields = ('id', 'order_no', 'creation_date', 'order_status', 'items', 'order_summary', 'return_summary',
                   'invoice_summary', 'ordered_product', 'invoice_amount', 'address', 'order_update',
-                  'ecom_estimated_delivery_time', 'delivery_person', 'order_status_display', 'order_cancel_reson',
+                  'ecom_estimated_delivery_time', 'delivery_person', 'delivery_option', 'order_status_display', 'order_cancel_reson',
                   'payment', 'ordered_cart')
 
 
