@@ -2486,9 +2486,9 @@ class DispatchTripStatusChangeSerializers(serializers.ModelSerializer):
 
             if trip_status == DispatchTrip.VERIFIED:
                 if DispatchTripShipmentPackages.objects.filter(
-                        trip_shipment__trip=dispatch_trip, package_status=DispatchTripShipmentPackages.UNLOADED,
-                        is_return_verified=False).exists():
-                    return serializers.ValidationError(
+                        trip_shipment__trip=dispatch_trip,
+                        package_status__in=[DispatchTripShipmentPackages.UNLOADED, DispatchTripShipmentPackages.PARTIALLY_VERIFIED]).exists():
+                    raise serializers.ValidationError(
                         "The trip can not verify until and unless all unloaded packages get verified.")
 
             data['trip_status'] = trip_status
@@ -4402,7 +4402,7 @@ class MarkShipmentPackageVerifiedSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = DispatchTripShipmentPackages
-        fields = ('id', 'shipment_packaging', 'package_status', 'is_return_verified')
+        fields = ('id', 'shipment_packaging', 'package_status')
 
     def validate(self, data):
         # Validate request data
@@ -4428,20 +4428,23 @@ class MarkShipmentPackageVerifiedSerializer(serializers.ModelSerializer):
         if DispatchTripShipmentPackages.objects.filter(trip_shipment__trip=trip, shipment_packaging=package).exists():
             trip_shipment_map = DispatchTripShipmentPackages.objects.filter(
                 trip_shipment__trip=trip, shipment_packaging=package).last()
-            if trip_shipment_map.is_return_verified:
+            if trip_shipment_map.package_status == DispatchTripShipmentPackages.VERIFIED:
                 raise serializers.ValidationError("This package is already verified.")
-            if trip_shipment_map.package_status != DispatchTripShipmentPackages.UNLOADED:
+            if trip_shipment_map.package_status not in [DispatchTripShipmentPackages.UNLOADED,
+                                                        DispatchTripShipmentPackages.PARTIALLY_VERIFIED]:
                 raise serializers.ValidationError(f"Package is in {trip_shipment_map.package_status} state, "
                                                    f"cannot verify at the moment")
         else:
             raise serializers.ValidationError("Invalid package to the Trip")
 
-        # if 'force_verify' not in self.initial_data or self.initial_data['force_verify'] is False:
-        if ShipmentPackagingMapping.objects.filter(shipment_packaging=package, is_verified=False).exists():
-            raise serializers.ValidationError("This shipment has unverified products.")
-
-        data['is_return_verified'] = True
-
+        if 'force_verify' not in self.initial_data:
+            if ShipmentPackagingMapping.objects.filter(shipment_packaging=package, is_verified=False).exists():
+                raise serializers.ValidationError("Not all products are verified of this package")
+            data['package_status'] = DispatchTripShipmentPackages.PARTIALLY_VERIFIED
+        elif self.initial_data['force_verify'] is False:
+            data['package_status'] = DispatchTripShipmentPackages.PARTIALLY_VERIFIED
+        elif self.initial_data['force_verify'] is True:
+            data['package_status'] = DispatchTripShipmentPackages.VERIFIED
         return data
 
     @transaction.atomic
@@ -4859,7 +4862,8 @@ class VerifyBackwardTripItemsSerializer(serializers.ModelSerializer):
         trip_package = DispatchTripShipmentPackages.objects.filter(
                 shipment_packaging=self.instance.shipment_packaging,
                 trip_shipment__trip_id=self.initial_data['trip_id']).last()
-        if trip_package.package_status != DispatchTripShipmentPackages.UNLOADED:
+        if trip_package.package_status not in [DispatchTripShipmentPackages.UNLOADED,
+                                               DispatchTripShipmentPackages.PARTIALLY_VERIFIED]:
             raise serializers.ValidationError(f'Invalid package state {trip_package.get_package_status_display()}')
 
         item_damaged_qty = 0
@@ -4918,4 +4922,15 @@ class VerifyBackwardTripItemsSerializer(serializers.ModelSerializer):
             error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
             raise serializers.ValidationError(error)
         return shipment_package_mapping
+
+
+class BackwardTripQCSerializer(serializers.Serializer):
+    package_count = serializers.SerializerMethodField()
+    packages = serializers.SerializerMethodField()
+
+    def get_packages(self, obj):
+        return DispatchTripShipmentPackagesSerializers(obj, many=True).data
+
+    def get_package_count(self, obj):
+        return obj.count()
 

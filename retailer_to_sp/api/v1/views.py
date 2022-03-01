@@ -124,7 +124,7 @@ from .serializers import (ProductsSearchSerializer, CartSerializer, OrderSeriali
                           LastMileLoadVerifyPackageSerializer, RemoveLastMileInvoiceFromTripSerializer,
                           VerifyNotAttemptShipmentPackageSerializer, VerifyShipmentPackageSerializer,
                           DetailedShipmentPackageInfoSerializer, DetailedShipmentPackagingMappingInfoSerializer,
-                          VerifyBackwardTripItemsSerializer
+                          VerifyBackwardTripItemsSerializer, BackwardTripQCSerializer
                           )
 from ...common_validators import validate_shipment_dispatch_item, validate_trip_user, \
     get_shipment_by_crate_id, get_shipment_by_shipment_label, validate_shipment_id, validate_trip_shipment, \
@@ -9213,6 +9213,9 @@ class PackagesUnderTripView(generics.GenericAPIView):
         '''
         API to get all the packages for a trip
         '''
+        validated_request = self.validate_request()
+        if 'error' in validated_request:
+            return get_response(validated_request['error'])
         if not request.GET.get('trip_id'):
             return get_response("'trip_id' | This is mandatory")
         validated_trip = validate_trip(request.GET.get('trip_id'), request.GET.get('trip_type'))
@@ -9224,6 +9227,15 @@ class PackagesUnderTripView(generics.GenericAPIView):
         msg = "" if dispatch_items else "no packaging found"
         return get_response(msg, serializer.data, True)
 
+    def validate_request(self):
+        try:
+            if self.request.GET.get('is_return_verified') and \
+                    int(self.request.GET.get('is_return_verified')) not in [0,1]:
+                raise
+        except:
+            return {'error' : "'is_return_verified' | Invalid value. Only 0 or 1 is allowed."}
+        return {'request' : self.request}
+
     def filter_packaging_items(self, trip_instance):
         shipment_id = self.request.GET.get('shipment_id')
         package_status = self.request.GET.get('package_status')
@@ -9233,7 +9245,9 @@ class PackagesUnderTripView(generics.GenericAPIView):
 
             package_ids = DispatchTripShipmentPackages.objects.filter(
                     package_status__in=[DispatchTripShipmentPackages.LOADED,
-                                        DispatchTripShipmentPackages.UNLOADED],
+                                        DispatchTripShipmentPackages.UNLOADED,
+                                        DispatchTripShipmentPackages.VERIFIED,
+                                        DispatchTripShipmentPackages.PARTIALLY_VERIFIED],
                     trip_shipment__trip=trip_instance).values_list('shipment_packaging_id', flat=True)
             self.queryset = self.queryset.filter(id__in=package_ids,
                 shipment__trip_shipment__shipment_status__in=[
@@ -9262,7 +9276,12 @@ class PackagesUnderTripView(generics.GenericAPIView):
             self.queryset = self.queryset.filter(shipment_id=shipment_id)
 
         if is_return_verified:
-            self.queryset = self.queryset.filter(trip_packaging_details__is_return_verified=is_return_verified)
+            is_return_verified = int(is_return_verified)
+            if is_return_verified == 1:
+                self.queryset = self.queryset.filter(trip_packaging_details__package_status=DispatchTripShipmentPackages.VERIFIED)
+            else:
+                self.queryset = self.queryset.filter(trip_packaging_details__package_status__in=[
+                    DispatchTripShipmentPackages.PARTIALLY_VERIFIED, DispatchTripShipmentPackages.UNLOADED])
 
         return self.queryset.distinct('id', 'packaging_type')
 
@@ -9720,3 +9739,27 @@ class VerifyBackwardTripItems(generics.GenericAPIView):
             self.queryset = self.queryset.filter(ordered_product__product__product_ean_code__icontains=ean)
 
         return self.queryset.distinct('id')
+
+
+class BackwardTripQCView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    queryset = DispatchTripShipmentPackages.objects.all()
+    serializer_class = BackwardTripQCSerializer
+
+    def get(self, request):
+        if not request.GET.get('trip_id'):
+            return get_response("'trip_id' | This is mandatory")
+        validated_trip = validate_trip(request.GET.get('trip_id'), TRIP_TYPE_CHOICE.DISPATCH_BACKWARD)
+        if 'error' in validated_trip:
+            return get_response(validated_trip['error'])
+        self.queryset = self.filter_packaging_items(validated_trip['data'])
+        serializer = self.serializer_class(self.queryset)
+        msg = "" if self.queryset.exists() else "no package pending for QC."
+        return get_response(msg, serializer.data, True)
+
+    def filter_packaging_items(self, trip_instance):
+        self.queryset = self.queryset.filter(package_status=DispatchTripShipmentPackages.UNLOADED,
+                                             trip_shipment__trip=trip_instance,
+                                             trip_shipment__shipment_status=DispatchTripShipmentMapping.UNLOADED_AT_DC)
+        return self.queryset

@@ -1638,10 +1638,11 @@ class OrderCancellation(object):
         self.order_status = instance.order_status
         self.order_shipments_count = instance.rt_order_order_product.count()
         if self.order_shipments_count:
+            self.last_shipment_instance = instance.rt_order_order_product.last()
             self.last_shipment = list(self.get_shipment_queryset())[-1]
             self.shipments_id_list = [i['id'] for i in self.get_shipment_queryset()]
             self.last_shipment_status = self.last_shipment.get('shipment_status')
-            self.trip_status = self.last_shipment.get('trip__trip_status')
+            self.trip_status = self.last_shipment.get('last_mile_trip_shipment__trip__trip_status')
             self.last_shipment_id = self.last_shipment.get('id')
             self.seller_shop_id = self.last_shipment.get('order__seller_shop__id')
             self.cart = self.last_shipment.get('order__ordered_cart_id')
@@ -1650,9 +1651,13 @@ class OrderCancellation(object):
 
     def get_shipment_queryset(self):
         q = self.order.rt_order_order_product.values(
-            'id', 'shipment_status', 'trip__trip_status',
+            'id', 'shipment_status', 'trip__trip_status', 'last_mile_trip_shipment__trip__trip_status',
             'order__seller_shop__id', 'order__ordered_cart_id')
         return q
+
+    def cancel_shipment(self):
+        self.last_shipment_instance.shipment_status = 'CANCELLED'
+        self.last_shipment_instance.save()
 
     def get_shipment_products(self, shipment_id_list):
         shipment_products = OrderedProductMapping.objects \
@@ -1730,7 +1735,8 @@ class OrderCancellation(object):
             if (self.last_shipment_status in ['SHIPMENT_CREATED', 'QC_STARTED', 'READY_TO_SHIP'] and
                     not self.trip_status):
                 self.update_sp_qty_from_cart_or_shipment()
-                self.get_shipment_queryset().update(shipment_status='CANCELLED')
+                # self.get_shipment_queryset().update(shipment_status='CANCELLED')
+                self.cancel_shipment()
 
             # if invoice created but shipment is not added to trip
             # cancel order and generate credit note
@@ -1739,15 +1745,16 @@ class OrderCancellation(object):
                   not self.trip_status):
                 self.generate_credit_note(order_closed=self.order.order_closed)
                 # updating shipment status
-                self.get_shipment_queryset().update(shipment_status='CANCELLED')
+                # self.get_shipment_queryset().update(shipment_status='CANCELLED')
+                self.cancel_shipment()
 
             elif self.trip_status and self.trip_status == Trip.READY:
                 # cancel order and generate credit note and
                 # remove shipment from trip
                 self.generate_credit_note(order_closed=self.order.order_closed)
                 # updating shipment status and remove trip
-                self.get_shipment_queryset().update(
-                    shipment_status='CANCELLED', trip=None)
+                self.get_shipment_queryset().update(shipment_status='CANCELLED', trip=None)
+                self.cancel_shipment()
             else:
                 # can't cancel the order
                 pass

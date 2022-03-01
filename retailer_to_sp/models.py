@@ -3626,6 +3626,7 @@ class DispatchTripShipmentPackages(BaseTimestampUserModel):
     DAMAGED_AT_LOADING, DAMAGED_AT_UNLOADING = 'DAMAGED_AT_LOADING', 'DAMAGED_AT_UNLOADING'
     MISSING_AT_LOADING, MISSING_AT_UNLOADING = 'MISSING_AT_LOADING', 'MISSING_AT_UNLOADING'
     CANCELLED = 'CANCELLED'
+    PARTIALLY_VERIFIED, VERIFIED = 'PARTIALLY_VERIFIED', 'VERIFIED'
     PACKAGE_STATUS = (
         (LOADED, 'Loaded'),
         (UNLOADED, 'Unloaded'),
@@ -3634,13 +3635,14 @@ class DispatchTripShipmentPackages(BaseTimestampUserModel):
         (MISSING_AT_LOADING, 'Missing At Loading'),
         (MISSING_AT_UNLOADING, 'Missing At Unloading'),
         (CANCELLED, 'Cancelled'),
+        (PARTIALLY_VERIFIED, 'Partially Verified'),
+        (VERIFIED, 'Verified')
     )
     trip_shipment = models.ForeignKey(DispatchTripShipmentMapping, related_name='trip_shipment_mapped_packages',
                                       on_delete=models.DO_NOTHING)
     shipment_packaging = models.ForeignKey(ShipmentPackaging, related_name='trip_packaging_details',
                                            on_delete=models.DO_NOTHING)
     package_status = models.CharField(max_length=100, choices=PACKAGE_STATUS)
-    is_return_verified = models.BooleanField(default=False)
 
 
 INVOICE_AVAILABILITY_CHOICES = Choices((1, 'ALL', 'All'), (2, 'ADDED', 'Added'), (3, 'NOT_ADDED', 'Not Added'))
