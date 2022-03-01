@@ -622,13 +622,32 @@ class ParentProductAdmin(admin.ModelAdmin):
     product_surcharge.short_description = 'Product Surcharge'
 
     def product_category(self, obj):
-        try:
-            if obj.parent_product_pro_category.exists():
-                cats = [str(c.category) for c in obj.parent_product_pro_category.filter(status=True)]
-                return "\n".join(cats)
-            return ''
-        except:
-            return ''
+        if obj.product_type == 'b2b':
+            try:
+                if obj.parent_product_pro_category.exists():
+                    cats = [str(c.category) for c in obj.parent_product_pro_category.filter(status=True)]
+                    return "\n".join(cats)
+                return ''
+            except:
+                return ''
+        elif obj.product_type == 'b2c':
+            try:
+                if obj.parent_product_pro_b2c_category.exists():
+                    cats = [str(c.category) for c in obj.parent_product_pro_b2c_category.filter(status=True)]
+                    return "\n".join(cats)
+                return ''
+            except:
+                return ''
+        else:
+            try:
+                cats = []
+                if obj.parent_product_pro_b2c_category.exists():
+                    cats += [str(c.category) for c in obj.parent_product_pro_b2c_category.filter(status=True)]
+                if obj.parent_product_pro_category.exists():
+                    cats += [str(c.category) for c in obj.parent_product_pro_category.filter(status=True)]
+                return "\n".join(cats) if cats else ''
+            except:
+                return ''
 
     product_category.short_description = 'Product Category'
 

@@ -7,6 +7,7 @@ import collections, decimal
 from django.db.models.query import InstanceCheckMeta
 
 from django.forms import BaseInlineFormSet
+from django.db import transaction
 
 from dal import autocomplete, forward
 from django import forms
@@ -450,6 +451,10 @@ class ParentProductForm(forms.ModelForm):
                 raise ValidationError(_('Invalid PTR Percentage'))
 
         return cleaned_data
+
+    @transaction.atomic
+    def save(self, *args, **kwargs):
+        return super().save(*args, **kwargs)
 
 
 class UploadParentProductAdminForm(forms.Form):
