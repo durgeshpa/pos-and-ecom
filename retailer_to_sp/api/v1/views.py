@@ -8249,6 +8249,7 @@ class DispatchCenterShipmentView(generics.GenericAPIView):
         buyer_shop = self.request.GET.get('buyer_shop')
         dispatch_center = self.request.GET.get('dispatch_center')
         trip_id = self.request.GET.get('trip_id')
+        invoice_package_status = self.request.GET.get('invoice_package_status')
         availability = int(self.request.GET.get('availability'))
 
         '''search using warehouse name, product's name'''
@@ -8280,6 +8281,25 @@ class DispatchCenterShipmentView(generics.GenericAPIView):
 
         if dispatch_center:
             self.queryset = self.queryset.filter(order__dispatch_center_id=dispatch_center)
+
+        if invoice_package_status in PACKAGE_VERIFY_CHOICES._db_values:
+            if invoice_package_status == PACKAGE_VERIFY_CHOICES.OK:
+                self.queryset = self.queryset.filter(
+                    ~Q(trip_shipment__shipment_status=DispatchTripShipmentMapping.CANCELLED),
+                    trip_shipment__trip_shipment_mapped_packages__package_status__in=[
+                        DispatchTripShipmentPackages.LOADED, DispatchTripShipmentPackages.UNLOADED])
+            elif invoice_package_status == PACKAGE_VERIFY_CHOICES.DAMAGED:
+                self.queryset = self.queryset.filter(
+                    ~Q(trip_shipment__shipment_status=DispatchTripShipmentMapping.CANCELLED),
+                    trip_shipment__trip_shipment_mapped_packages__package_status__in=[
+                        DispatchTripShipmentPackages.DAMAGED_AT_LOADING,
+                        DispatchTripShipmentPackages.DAMAGED_AT_UNLOADING])
+            elif invoice_package_status == PACKAGE_VERIFY_CHOICES.MISSING:
+                self.queryset = self.queryset.filter(
+                    ~Q(trip_shipment__shipment_status=DispatchTripShipmentMapping.CANCELLED),
+                    trip_shipment__trip_shipment_mapped_packages__package_status__in=[
+                        DispatchTripShipmentPackages.MISSING_AT_LOADING,
+                        DispatchTripShipmentPackages.MISSING_AT_UNLOADING])
 
         if availability:
             if availability == INVOICE_AVAILABILITY_CHOICES.ADDED:
