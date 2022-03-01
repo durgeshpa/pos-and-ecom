@@ -317,6 +317,7 @@ class ShopCrudView(generics.GenericAPIView):
         city = self.request.GET.get('city')
         status = self.request.GET.get('status')
         approval_status = self.request.GET.get('approval_status')
+        route = self.request.GET.get('route')
 
         '''search using shop_name and parent_shop based on criteria that matches'''
         if search_text:
@@ -340,6 +341,9 @@ class ShopCrudView(generics.GenericAPIView):
 
         if approval_status:
             self.queryset = self.queryset.filter(approval_status=approval_status)
+
+        if route:
+            self.queryset = self.queryset.filter(shop_routes__route_id=route)
 
         return self.queryset.distinct('id')
 
