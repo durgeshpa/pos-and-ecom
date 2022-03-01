@@ -238,42 +238,6 @@ class ParentProductImage(BaseTimeModel):
         return self.image.name
 
 
-@receiver(pre_save, sender=ParentProductCategory)
-def create_parent_product_id(sender, instance=None, created=False, **kwargs):
-    parent_product = ParentProduct.objects.get(pk=instance.parent_product.id)
-    if parent_product.parent_id:
-        return
-    cat_sku_code = instance.category.category_sku_part
-    brand_sku_code = parent_product.parent_brand.brand_code
-    last_sku = ParentProductSKUGenerator.objects.filter(cat_sku_code=cat_sku_code, brand_sku_code=brand_sku_code).last()
-    if last_sku:
-        last_sku_increment = str(int(last_sku.last_auto_increment) + 1).zfill(len(last_sku.last_auto_increment))
-    else:
-        last_sku_increment = '0001'
-    ParentProductSKUGenerator.objects.create(cat_sku_code=cat_sku_code, brand_sku_code=brand_sku_code,
-                                             last_auto_increment=last_sku_increment)
-    parent_product.parent_id = "P%s%s%s" % (cat_sku_code, brand_sku_code, last_sku_increment)
-    parent_product.save()
-
-
-@receiver(pre_save, sender=ParentProductB2cCategory)
-def create_parent_product_id(sender, instance=None, created=False, **kwargs):
-    parent_product = ParentProduct.objects.get(pk=instance.parent_product.id)
-    if parent_product.parent_id:
-        return
-    cat_sku_code = instance.category.category_sku_part
-    brand_sku_code = parent_product.parent_brand.brand_code
-    last_sku = ParentProductSKUGenerator.objects.filter(cat_sku_code=cat_sku_code, brand_sku_code=brand_sku_code).last()
-    if last_sku:
-        last_sku_increment = str(int(last_sku.last_auto_increment) + 1).zfill(len(last_sku.last_auto_increment))
-    else:
-        last_sku_increment = '0001'
-    ParentProductSKUGenerator.objects.create(cat_sku_code=cat_sku_code, brand_sku_code=brand_sku_code,
-                                             last_auto_increment=last_sku_increment)
-    parent_product.parent_id = "P%s%s%s" % (cat_sku_code, brand_sku_code, last_sku_increment)
-    parent_product.save()
-
-
 class Product(BaseTimestampUserStatusModel):
     PRODUCT_TYPE_CHOICE = Choices((0, 'NORMAL', 'normal'), (1, 'DISCOUNTED', 'discounted'))
     product_name = models.CharField(max_length=255, validators=[ProductNameValidator])
