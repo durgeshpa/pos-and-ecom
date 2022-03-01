@@ -955,7 +955,6 @@ def ParentProductsDownloadSampleCSV(request):
          "b2c",'product discription'])
     return response
 
-
 def parent_product_upload(request):
     if request.method == 'POST':
         form = UploadParentProductAdminForm(request.POST, request.FILES)
@@ -987,69 +986,70 @@ def parent_product_upload(request):
                     return 12
 
             try:
-                for row in reader:
-                    if len(row) == 0:
-                        continue
-                    if '' in row:
-                        if (row[0] == '' and row[1] == '' and row[2] == '' and row[3] == '' and row[4] == '' and
-                                row[5] == '' and row[6] == '' and row[7] == '' and row[8] == '' and row[9] == ''):
+                with transaction.atomic():
+                    for row in reader:
+                        if len(row) == 0:
                             continue
-                    parent_product = ParentProduct.objects.create(
-                        name=row[0].strip(),
-                        parent_brand=Brand.objects.filter(brand_name=row[1].strip()).last(),
-                        product_hsn=ProductHSN.objects.filter(product_hsn_code=row[3].replace("'", '')).last(),
-                        brand_case_size=int(row[7]),
-                        inner_case_size=int(row[8]),
-                        product_type=row[9],
-                        product_discription=row[10]
-                    )
-                    parent_product.save()
-                    parent_gst = gst_mapper(row[4])
-                    ParentProductTaxMapping.objects.create(
-                        parent_product=parent_product,
-                        tax=Tax.objects.filter(tax_type='gst', tax_percentage=parent_gst).last()
-                    ).save()
-                    parent_cess = cess_mapper(row[5]) if row[5] else 0
-                    ParentProductTaxMapping.objects.create(
-                        parent_product=parent_product,
-                        tax=Tax.objects.filter(tax_type='cess', tax_percentage=parent_cess).last()
-                    ).save()
-                    parent_surcharge = float(row[6]) if row[6] else 0
-                    if Tax.objects.filter(
-                            tax_type='surcharge',
-                            tax_percentage=parent_surcharge
-                    ).exists():
+                        if '' in row:
+                            if (row[0] == '' and row[1] == '' and row[2] == '' and row[3] == '' and row[4] == '' and
+                                    row[5] == '' and row[6] == '' and row[7] == '' and row[8] == '' and row[9] == ''):
+                                continue
+                        parent_product = ParentProduct.objects.create(
+                            name=row[0].strip(),
+                            parent_brand=Brand.objects.filter(brand_name=row[1].strip()).last(),
+                            product_hsn=ProductHSN.objects.filter(product_hsn_code=row[3].replace("'", '')).last(),
+                            brand_case_size=int(row[7]),
+                            inner_case_size=int(row[8]),
+                            product_type=row[9],
+                            product_discription=row[10]
+                        )
+                        parent_product.save()
+                        parent_gst = gst_mapper(row[4])
                         ParentProductTaxMapping.objects.create(
                             parent_product=parent_product,
-                            tax=Tax.objects.filter(tax_type='surcharge', tax_percentage=parent_surcharge).last()
+                            tax=Tax.objects.filter(tax_type='gst', tax_percentage=parent_gst).last()
                         ).save()
-                    else:
-                        new_surcharge_tax = Tax.objects.create(
-                            tax_name='Surcharge - {}'.format(parent_surcharge),
-                            tax_type='surcharge',
-                            tax_percentage=parent_surcharge,
-                            tax_start_at=datetime.datetime.now()
-                        )
-                        new_surcharge_tax.save()
+                        parent_cess = cess_mapper(row[5]) if row[5] else 0
                         ParentProductTaxMapping.objects.create(
                             parent_product=parent_product,
-                            tax=new_surcharge_tax
+                            tax=Tax.objects.filter(tax_type='cess', tax_percentage=parent_cess).last()
                         ).save()
-                    if Category.objects.filter(category_name=row[2].strip()).exists():
-                        parent_product_category = ParentProductCategory.objects.create(
-                            parent_product=parent_product,
-                            category=Category.objects.filter(category_name=row[2].strip()).last()
-                        )
-                        parent_product_category.save()
-                    else:
-                        categories = row[2].split(',')
-                        for cat in categories:
-                            cat = cat.strip().replace("'", '')
+                        parent_surcharge = float(row[6]) if row[6] else 0
+                        if Tax.objects.filter(
+                                tax_type='surcharge',
+                                tax_percentage=parent_surcharge
+                        ).exists():
+                            ParentProductTaxMapping.objects.create(
+                                parent_product=parent_product,
+                                tax=Tax.objects.filter(tax_type='surcharge', tax_percentage=parent_surcharge).last()
+                            ).save()
+                        else:
+                            new_surcharge_tax = Tax.objects.create(
+                                tax_name='Surcharge - {}'.format(parent_surcharge),
+                                tax_type='surcharge',
+                                tax_percentage=parent_surcharge,
+                                tax_start_at=datetime.datetime.now()
+                            )
+                            new_surcharge_tax.save()
+                            ParentProductTaxMapping.objects.create(
+                                parent_product=parent_product,
+                                tax=new_surcharge_tax
+                            ).save()
+                        if Category.objects.filter(category_name=row[2].strip()).exists():
                             parent_product_category = ParentProductCategory.objects.create(
                                 parent_product=parent_product,
-                                category=Category.objects.filter(category_name=cat).last()
+                                category=Category.objects.filter(category_name=row[2].strip()).last()
                             )
                             parent_product_category.save()
+                        else:
+                            categories = row[2].split(',')
+                            for cat in categories:
+                                cat = cat.strip().replace("'", '')
+                                parent_product_category = ParentProductCategory.objects.create(
+                                    parent_product=parent_product,
+                                    category=Category.objects.filter(category_name=cat).last()
+                                )
+                                parent_product_category.save()
             except Exception as e:
                 return render(request, 'admin/products/parent-product-upload.html', {
                     'form': form,
