@@ -450,15 +450,39 @@ class ProductTaxMappingAdmin(admin.TabularInline):
         pass
 
 
+class ProductB2bCategoryFormSet(BaseInlineFormSet):
+    def clean(self):
+        super(ProductB2bCategoryFormSet, self).clean()
+        if self.instance.product_type == 'b2b' or self.instance.product_type == 'both':
+            non_empty_forms = 0
+            for form in self:
+                if form.cleaned_data:
+                    non_empty_forms += 1
+            if non_empty_forms - len(self.deleted_forms) < 1:
+                raise ValidationError("Please fill at least one form.")
+
+class ProductB2cCategoryFormSet(BaseInlineFormSet):
+    def clean(self):
+        super(ProductB2cCategoryFormSet, self).clean()
+        if self.instance.product_type == 'b2c' or self.instance.product_type == 'both':
+            non_empty_forms = 0
+            for form in self:
+                if form.cleaned_data:
+                    non_empty_forms += 1
+            if non_empty_forms - len(self.deleted_forms) < 1:
+                raise ValidationError("Please fill at least one form.")
+
 class ParentProductCategoryAdmin(TabularInline):
     model = ParentProductCategory
     autocomplete_fields = ['category', ]
     #formset = RequiredInlineFormSet  # or AtLeastOneFormSet
+    formset = ProductB2bCategoryFormSet
 
 
 class ParentProductB2cCategoryAdminInline(TabularInline):
     model = ParentProductB2cCategory
     autocomplete_fields = ['category', ]
+    formset = ProductB2cCategoryFormSet
 
 
 @admin.register(ParentProductB2cCategory)
