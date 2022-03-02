@@ -143,8 +143,8 @@ class CityBasicSerializer(serializers.ModelSerializer):
     @transaction.atomic
     def create(self, validated_data):
         """create a new City"""
-        routes = validated_data.pop("routes", None)
-        route_update_ids = validated_data.pop("route_update_ids", None)
+        routes = validated_data.pop("routes", [])
+        route_update_ids = validated_data.pop("route_update_ids", [])
         try:
             city_instance = City.objects.create(**validated_data)
         except Exception as e:
@@ -158,8 +158,8 @@ class CityBasicSerializer(serializers.ModelSerializer):
     @transaction.atomic
     def update(self, instance, validated_data):
         """Update City"""
-        routes = validated_data.pop("routes", None)
-        route_update_ids = validated_data.pop("route_update_ids", None)
+        routes = validated_data.pop("routes", [])
+        route_update_ids = validated_data.pop("route_update_ids", [])
         try:
             city_instance = super().update(instance, validated_data)
         except Exception as e:
@@ -171,8 +171,7 @@ class CityBasicSerializer(serializers.ModelSerializer):
         return city_instance
 
     def post_city_save(self, routes, route_update_ids, city_instance):
-        if route_update_ids:
-            self.remove_non_exist_city_routes(route_update_ids, city_instance)
+        self.remove_non_exist_city_routes(route_update_ids, city_instance)
         if routes:
             self.create_update_city_routes(routes, city_instance)
 
