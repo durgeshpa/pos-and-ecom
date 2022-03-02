@@ -7461,6 +7461,7 @@ class DispatchTripsCrudView(generics.GenericAPIView):
         destination_shop = self.request.GET.get('destination_shop')
         delivery_boy = self.request.GET.get('delivery_boy')
         dispatch_no = self.request.GET.get('dispatch_no')
+        dispatch_center = self.request.GET.get('dispatch_center')
         vehicle_no = self.request.GET.get('vehicle_no')
         trip_status = self.request.GET.get('trip_status')
         trip_type = self.request.GET.get('trip_type')
@@ -7488,6 +7489,10 @@ class DispatchTripsCrudView(generics.GenericAPIView):
 
         if dispatch_no:
             self.queryset = self.queryset.filter(dispatch_no=dispatch_no)
+
+        if dispatch_center:
+            self.queryset = self.queryset.filter(
+                Q(source_shop_id=dispatch_center) | Q(destination_shop_id=dispatch_center))
 
         if vehicle_no:
             self.queryset = self.queryset.filter(vehicle_no=vehicle_no)
