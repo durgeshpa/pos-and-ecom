@@ -1055,7 +1055,7 @@ def parent_product_upload(request):
                             if B2cCategory.objects.filter(category_name=row[3].strip()).exists():
                                 parent_product_category = ParentProductB2cCategory.objects.create(
                                     parent_product=parent_product,
-                                    category=B2cCategory.objects.filter(category_name=row[2].strip()).last()
+                                    category=B2cCategory.objects.filter(category_name=row[3].strip()).last()
                                 )
                                 parent_product_category.save()
                             else:
