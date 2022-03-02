@@ -2459,7 +2459,9 @@ class DispatchTripStatusChangeSerializers(serializers.ModelSerializer):
                     raise serializers.ValidationError("Load shipments/empty crates to the trip to start.")
 
                 if dispatch_trip.shipments_details.filter(
-                        shipment_status=DispatchTripShipmentMapping.LOADING_FOR_DC).exists():
+                        Q(shipment_status=DispatchTripShipmentMapping.LOADING_FOR_DC) |
+                        Q(trip_shipment_mapped_packages__package_status=DispatchTripShipmentPackages.MISSING_AT_LOADING)
+                ).exists():
                     raise serializers.ValidationError(
                         "The trip can not start until and unless all shipments get loaded.")
 
