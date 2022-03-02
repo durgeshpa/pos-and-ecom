@@ -488,15 +488,21 @@ class UploadParentProductAdminForm(forms.Form):
             elif not Brand.objects.filter(brand_name=row[1].strip()).exists():
                 raise ValidationError(_(f"Row {row_id + 2} | 'Brand' doesn't exist in the system."))
             if not row[2] and not row[3]:
-                raise ValidationError(_(f"Row {row_id + 2} | 'Category' can not be empty."))
+                raise ValidationError(_(f"Row {row_id + 2} | 'Categories' can not be empty."))
             else:
+                if not row[2] and (row[10] == 'b2b' or row[10] == 'both'):
+                    raise ValidationError(
+                                _(f"Row {row_id + 2} | 'B2b Category' is required."))
+                if not row[3] and (row[10] == 'b2c' or row[10] == 'both'):
+                    raise ValidationError(
+                                _(f"Row {row_id + 2} | 'B2c Category' is required."))
                 if row[2] and not Category.objects.filter(category_name=row[2].strip()).exists():
                     categories = row[2].split(',')
                     for cat in categories:
                         cat = cat.strip().replace("'", '')
                         if not Category.objects.filter(category_name=cat).exists():
                             raise ValidationError(
-                                _(f"Row {row_id + 2} | 'Category' {cat.strip()} doesn't exist in the system."))
+                                _(f"Row {row_id + 2} | 'B2b Category' {cat.strip()} doesn't exist in the system."))
                 if row[3] and not B2cCategory.objects.filter(category_name=row[3].strip()).exists():
                     categories = row[3].split(',')
                     for cat in categories:
