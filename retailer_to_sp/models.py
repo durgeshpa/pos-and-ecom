@@ -988,6 +988,10 @@ class Order(models.Model):
         ('5','Others')
     )
 
+    DELIVERY_CHOICE = ( ('1', 'Self Pick'),
+                        ('2', 'Home Delivery')
+                       )
+
     POS_WALKIN = 'pos_walkin'
     POS_ECOMM = 'pos_ecomm'
 
@@ -1045,6 +1049,7 @@ class Order(models.Model):
     pick_list_pdf = models.FileField(upload_to='shop_photos/shop_name/documents/', null=True, blank=True)
     points_added = models.IntegerField(default=0, null=True)
     delivery_person = models.ForeignKey(UserWithName, null=True, on_delete=models.DO_NOTHING, verbose_name='Delivery Boy')
+    delivery_option = models.CharField(max_length=50, choices=DELIVERY_CHOICE, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 

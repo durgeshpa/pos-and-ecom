@@ -3264,12 +3264,13 @@ class OrderCentral(APIView):
             return api_response("Few items in your cart are not available.", deleted_product, status.HTTP_200_OK,
                                 False, {'error_code': error_code.OUT_OF_STOCK_ITEMS})
 
+        delivery_option = request.data.get('delivery_option', None)
         with transaction.atomic():
             # Update Cart To Ordered
             self.update_cart_ecom(cart)
             # Refresh redeem reward
             RewardCls.checkout_redeem_points(cart, cart.redeem_points)
-            order = self.create_basic_order(cart, shop, address, payment_type_id)
+            order = self.create_basic_order(cart, shop, address, payment_type_id, delivery_option)
             payments = [
                 {
                     "payment_type": payment_type_id,
@@ -3568,7 +3569,7 @@ class OrderCentral(APIView):
         order.save()
         return order
 
-    def create_basic_order(self, cart, shop, address=None, payment_id=None):
+    def create_basic_order(self, cart, shop, address=None, payment_id=None, delivery_option=None):
         user = self.request.user
         order, _ = Order.objects.get_or_create(last_modified_by=user, ordered_by=user, ordered_cart=cart)
         order.buyer = cart.buyer
@@ -3583,6 +3584,7 @@ class OrderCentral(APIView):
                     order.order_status = Order.PAYMENT_PENDING
                 elif self.request.data.get('payment_status') == 'payment_failed':
                     order.order_status = Order.PAYMENT_FAILED
+                order.delivery_option = delivery_option
         order.save()
 
         if address:
