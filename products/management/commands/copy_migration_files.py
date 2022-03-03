@@ -84,13 +84,13 @@ def find_mismatch_mrp():
 
 def copy_migration_files():
     # PROD Server IP
-    server_ip = '13.127.58.205'
+    server_ip = '13.233.208.91'
     # Location of PEM file to access SCP
     key_location = 'products/management/commands/live_server_key.pem'
     app_list = [
         'addresses', 'audit', 'brand', 'categories', 'coupon', 'gram_to_brand',
         'offer', 'orders', 'products', 'retailer_to_gram', 'retailer_to_sp',
-        'services', 'shops', 'sp_to_gram', 'wms'
+        'services', 'shops', 'sp_to_gram', 'wms', 'pos', 'ecom', 'whc', 'accounts'
     ]
 
     for app in app_list:

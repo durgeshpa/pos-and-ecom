@@ -13,7 +13,8 @@ from django.db import transaction
 from wms.models import Out, In, InventoryType, Pickup, WarehouseInventory, InventoryState, BinInventory, PutawayBinInventory, Putaway
 from retailer_to_sp.models import generate_picklist_id, PickerDashboard
 from wms.common_functions import CommonPickupFunctions, CommonPickBinInvFunction, InternalInventoryChange, \
-    CommonWarehouseInventoryFunctions, update_visibility, get_visibility_changes, get_manufacturing_date
+    CommonWarehouseInventoryFunctions, update_visibility, get_visibility_changes, get_manufacturing_date, \
+    CommonBinInventoryFunctions
 from datetime import datetime
 from shops.models import Shop
 from retailer_backend import common_function
@@ -356,9 +357,10 @@ def create_repackaging_pickup(sender, instance=None, created=False, **kwargs):
                         if qty - already_picked <= qty_in_bin:
                             already_picked += qty
                             remaining_qty = qty_in_bin - already_picked
-                            bin_inv.quantity = remaining_qty
-                            bin_inv.to_be_picked_qty += already_picked
-                            bin_inv.save()
+                            # bin_inv.quantity = remaining_qty
+                            # bin_inv.to_be_picked_qty += already_picked
+                            # bin_inv.save()
+                            CommonBinInventoryFunctions.move_to_to_be_picked(already_picked, bin_inv)
                             qty = 0
                             Out.objects.create(warehouse=rep_obj.seller_shop,
                                                out_type='repackaging',
@@ -380,9 +382,10 @@ def create_repackaging_pickup(sender, instance=None, created=False, **kwargs):
                         else:
                             already_picked = qty_in_bin
                             remaining_qty = qty - already_picked
-                            bin_inv.quantity = qty_in_bin - already_picked
-                            bin_inv.to_be_picked_qty += already_picked
-                            bin_inv.save()
+                            # bin_inv.quantity = qty_in_bin - already_picked
+                            # bin_inv.to_be_picked_qty += already_picked
+                            # bin_inv.save()
+                            CommonBinInventoryFunctions.move_to_to_be_picked(already_picked, bin_inv)
                             qty = remaining_qty
                             Out.objects.create(warehouse=rep_obj.seller_shop,
                                                out_type='repackaging',
