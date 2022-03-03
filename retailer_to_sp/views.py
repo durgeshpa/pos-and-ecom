@@ -634,10 +634,14 @@ def create_update_last_mile_trip_shipment_mapping(trip_id, shipment_ids, request
         removed_shipments.update(shipment_status=LastMileTripShipmentMapping.CANCELLED, updated_by=request_user)
 
     for shipment_id in shipment_ids:
-        if LastMileTripShipmentMapping.objects.filter(trip_id=trip_id, shipment_id=shipment_id).exists():
-            trip_shipment = LastMileTripShipmentMapping.objects.filter(trip_id=trip_id, shipment_id=shipment_id).last()
-            LastMileTripShipmentMapping.objects.filter(trip_id=trip_id, shipment_id=shipment_id).update(
-                shipment_status=LastMileTripShipmentMapping.LOADED_FOR_DC, updated_by=request_user)
+        if LastMileTripShipmentMapping.objects.filter(~Q(shipment_status=LastMileTripShipmentMapping.CANCELLED),
+                                                      trip_id=trip_id, shipment_id=shipment_id).exists():
+            trip_shipment = LastMileTripShipmentMapping.objects.filter(
+                ~Q(shipment_status=LastMileTripShipmentMapping.CANCELLED),
+                trip_id=trip_id, shipment_id=shipment_id).last()
+            LastMileTripShipmentMapping.objects.filter(
+                ~Q(shipment_status=LastMileTripShipmentMapping.CANCELLED), trip_id=trip_id, shipment_id=shipment_id).\
+                update(shipment_status=LastMileTripShipmentMapping.LOADED_FOR_DC, updated_by=request_user)
         else:
             trip_shipment = LastMileTripShipmentMapping.objects.create(
                 trip_id=trip_id, shipment_id=shipment_id, shipment_status=LastMileTripShipmentMapping.LOADED_FOR_DC,
