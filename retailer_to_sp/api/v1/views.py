@@ -6910,6 +6910,7 @@ class ShipmentQCView(generics.GenericAPIView):
         dispatch_center = self.request.GET.get('dispatch_center')
         trip_id = self.request.GET.get('trip_id')
         availability = self.request.GET.get('availability')
+        return_packages = self.request.GET.get('return_packages')
 
         '''search using warehouse name, product's name'''
         if search_text:
@@ -6944,6 +6945,11 @@ class ShipmentQCView(generics.GenericAPIView):
 
         if buyer_shop:
             self.queryset = self.queryset.filter(order__buyer_shop_id=buyer_shop)
+
+        if return_packages and return_packages in ['0', '1', 0, 1]:
+            if int(return_packages):
+                self.queryset = self.queryset.filter(order__dispatch_delivery=True,
+                                                     shipment_packaging__movement_type=ShipmentPackaging.RETURNED)
 
         return self.queryset.distinct('id')
 
