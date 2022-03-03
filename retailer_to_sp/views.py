@@ -72,10 +72,14 @@ class ShipmentMergedBarcode(APIView):
     def get(self, request, *args, **kwargs):
         shipment_id_list = {}
         pk = self.kwargs.get('pk')
+        movement_type = self.request.GET.get('movement_type')
         shipment = OrderedProduct.objects.filter(pk=pk).last()
         if not shipment:
             return get_response("Shipment not found for pk: " + str(pk) + ".")
-        shipment_packagings = shipment.shipment_packaging.all()
+        if movement_type and movement_type == ShipmentPackaging.RETURNED:
+            shipment_packagings = shipment.shipment_packaging.filter(movement_type=ShipmentPackaging.RETURNED)
+        else:
+            shipment_packagings = shipment.shipment_packaging.filter(~Q(movement_type=ShipmentPackaging.RETURNED))
         pack_cnt = shipment_packagings.count()
         for cnt, packaging in enumerate(shipment_packagings):
             barcode_id = str("05" + str(packaging.id).zfill(10))
@@ -630,10 +634,14 @@ def create_update_last_mile_trip_shipment_mapping(trip_id, shipment_ids, request
         removed_shipments.update(shipment_status=LastMileTripShipmentMapping.CANCELLED, updated_by=request_user)
 
     for shipment_id in shipment_ids:
-        if LastMileTripShipmentMapping.objects.filter(trip_id=trip_id, shipment_id=shipment_id).exists():
-            trip_shipment = LastMileTripShipmentMapping.objects.filter(trip_id=trip_id, shipment_id=shipment_id).last()
-            LastMileTripShipmentMapping.objects.filter(trip_id=trip_id, shipment_id=shipment_id).update(
-                shipment_status=LastMileTripShipmentMapping.LOADED_FOR_DC, updated_by=request_user)
+        if LastMileTripShipmentMapping.objects.filter(~Q(shipment_status=LastMileTripShipmentMapping.CANCELLED),
+                                                      trip_id=trip_id, shipment_id=shipment_id).exists():
+            trip_shipment = LastMileTripShipmentMapping.objects.filter(
+                ~Q(shipment_status=LastMileTripShipmentMapping.CANCELLED),
+                trip_id=trip_id, shipment_id=shipment_id).last()
+            LastMileTripShipmentMapping.objects.filter(
+                ~Q(shipment_status=LastMileTripShipmentMapping.CANCELLED), trip_id=trip_id, shipment_id=shipment_id).\
+                update(shipment_status=LastMileTripShipmentMapping.LOADED_FOR_DC, updated_by=request_user)
         else:
             trip_shipment = LastMileTripShipmentMapping.objects.create(
                 trip_id=trip_id, shipment_id=shipment_id, shipment_status=LastMileTripShipmentMapping.LOADED_FOR_DC,

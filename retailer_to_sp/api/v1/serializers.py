@@ -37,7 +37,8 @@ from accounts.api.v1.serializers import UserSerializer
 from addresses.api.v1.serializers import AddressSerializer
 from coupon.serializers import CouponSerializer
 from wms.api.v2.serializers import QCDeskSerializer, QCAreaSerializer
-from wms.common_functions import release_picking_crates, send_update_to_qcdesk, create_in, create_putaway
+from wms.common_functions import release_picking_crates, send_update_to_qcdesk, get_expiry_date, create_in, \
+    create_putaway
 from wms.models import Crate, WarehouseAssortment, Zone, InventoryType
 
 User = get_user_model()
@@ -2053,14 +2054,22 @@ class ShipmentSerializerForDispatch(serializers.ModelSerializer):
 
 class DispatchItemDetailsSerializer(serializers.ModelSerializer):
     product = serializers.SerializerMethodField(read_only=True)
+    zone = serializers.SerializerMethodField(read_only=True)
     quantity = serializers.IntegerField(read_only=True)
 
     def get_product(self, obj):
         return ProductSerializer(obj.ordered_product.product).data
 
+    def get_zone(self, obj):
+        warehouse_assrt_ins = WarehouseAssortment.objects.filter(
+            product=obj.ordered_product.product.parent_product,
+            warehouse=obj.ordered_product.ordered_product.order.seller_shop).last()
+        return ShipmentPackageZoneSerializer(warehouse_assrt_ins.zone, read_only=True).data \
+            if warehouse_assrt_ins else None
+
     class Meta:
         model = ShipmentPackagingMapping
-        fields = ('id', 'product', 'quantity')
+        fields = ('id', 'product', 'quantity', 'zone', 'is_verified')
 
 
 class ShipmentCratesSerializer(serializers.ModelSerializer):
@@ -2459,7 +2468,9 @@ class DispatchTripStatusChangeSerializers(serializers.ModelSerializer):
                     raise serializers.ValidationError("Load shipments/empty crates to the trip to start.")
 
                 if dispatch_trip.shipments_details.filter(
-                        shipment_status=DispatchTripShipmentMapping.LOADING_FOR_DC).exists():
+                        Q(shipment_status=DispatchTripShipmentMapping.LOADING_FOR_DC) |
+                        Q(trip_shipment_mapped_packages__package_status=DispatchTripShipmentPackages.MISSING_AT_LOADING)
+                ).exists():
                     raise serializers.ValidationError(
                         "The trip can not start until and unless all shipments get loaded.")
 
@@ -4340,10 +4351,14 @@ class PackagesUnderTripSerializer(serializers.ModelSerializer):
 
 
 class ShipmentPackagingBatchInfoSerializer(serializers.ModelSerializer):
+    expiry_date = serializers.SerializerMethodField()
+
+    def get_expiry_date(self, obj):
+        return get_expiry_date(obj.batch_id) if obj.batch_id else None
 
     class Meta:
         model = ShipmentPackagingBatch
-        fields = ('batch_id', 'return_qty', 'damaged_qty')
+        fields = ('batch_id', 'return_qty', 'damaged_qty', 'expiry_date')
 
 
 class ProductDetailsForBckTripVerification(serializers.ModelSerializer):
@@ -4357,7 +4372,7 @@ class ProductDetailsForBckTripVerification(serializers.ModelSerializer):
         if self.context['shipment_packaging_mapping'].packaging_product_details.exists():
             return ShipmentPackagingBatchInfoSerializer(
                                             self.context['shipment_packaging_mapping'].packaging_product_details, many=True).data
-        return obj.rt_ordered_product_mapping.values('batch_id')
+        return obj.rt_ordered_product_mapping.values('batch_id', 'expiry_date')
 
     class Meta:
         model = OrderedProductMapping

@@ -6910,6 +6910,7 @@ class ShipmentQCView(generics.GenericAPIView):
         dispatch_center = self.request.GET.get('dispatch_center')
         trip_id = self.request.GET.get('trip_id')
         availability = self.request.GET.get('availability')
+        return_packages = self.request.GET.get('return_packages')
 
         '''search using warehouse name, product's name'''
         if search_text:
@@ -6944,6 +6945,11 @@ class ShipmentQCView(generics.GenericAPIView):
 
         if buyer_shop:
             self.queryset = self.queryset.filter(order__buyer_shop_id=buyer_shop)
+
+        if return_packages and return_packages in ['0', '1', 0, 1]:
+            if int(return_packages):
+                self.queryset = self.queryset.filter(order__dispatch_delivery=True,
+                                                     shipment_packaging__movement_type=ShipmentPackaging.RETURNED)
 
         return self.queryset.distinct('id')
 
@@ -7461,6 +7467,7 @@ class DispatchTripsCrudView(generics.GenericAPIView):
         destination_shop = self.request.GET.get('destination_shop')
         delivery_boy = self.request.GET.get('delivery_boy')
         dispatch_no = self.request.GET.get('dispatch_no')
+        dispatch_center = self.request.GET.get('dispatch_center')
         vehicle_no = self.request.GET.get('vehicle_no')
         trip_status = self.request.GET.get('trip_status')
         trip_type = self.request.GET.get('trip_type')
@@ -7488,6 +7495,10 @@ class DispatchTripsCrudView(generics.GenericAPIView):
 
         if dispatch_no:
             self.queryset = self.queryset.filter(dispatch_no=dispatch_no)
+
+        if dispatch_center:
+            self.queryset = self.queryset.filter(
+                Q(source_shop_id=dispatch_center) | Q(destination_shop_id=dispatch_center))
 
         if vehicle_no:
             self.queryset = self.queryset.filter(vehicle_no=vehicle_no)
@@ -8249,6 +8260,8 @@ class DispatchCenterShipmentView(generics.GenericAPIView):
         buyer_shop = self.request.GET.get('buyer_shop')
         dispatch_center = self.request.GET.get('dispatch_center')
         trip_id = self.request.GET.get('trip_id')
+        invoice_package_status = self.request.GET.get('invoice_package_status', None)
+        invoice_package_status = int(invoice_package_status) if invoice_package_status else None
         availability = int(self.request.GET.get('availability'))
 
         '''search using warehouse name, product's name'''
@@ -8280,6 +8293,28 @@ class DispatchCenterShipmentView(generics.GenericAPIView):
 
         if dispatch_center:
             self.queryset = self.queryset.filter(order__dispatch_center_id=dispatch_center)
+
+        if invoice_package_status in PACKAGE_VERIFY_CHOICES._db_values:
+            if invoice_package_status == PACKAGE_VERIFY_CHOICES.OK:
+                self.queryset = self.queryset.filter(
+                    ~Q(trip_shipment__shipment_status=DispatchTripShipmentMapping.CANCELLED),
+                    ~Q(trip_shipment__trip_shipment_mapped_packages__package_status__in=[
+                        DispatchTripShipmentPackages.DAMAGED_AT_LOADING,
+                        DispatchTripShipmentPackages.DAMAGED_AT_UNLOADING,
+                        DispatchTripShipmentPackages.MISSING_AT_LOADING,
+                        DispatchTripShipmentPackages.MISSING_AT_UNLOADING]))
+            elif invoice_package_status == PACKAGE_VERIFY_CHOICES.DAMAGED:
+                self.queryset = self.queryset.filter(
+                    ~Q(trip_shipment__shipment_status=DispatchTripShipmentMapping.CANCELLED),
+                    trip_shipment__trip_shipment_mapped_packages__package_status__in=[
+                        DispatchTripShipmentPackages.DAMAGED_AT_LOADING,
+                        DispatchTripShipmentPackages.DAMAGED_AT_UNLOADING])
+            elif invoice_package_status == PACKAGE_VERIFY_CHOICES.MISSING:
+                self.queryset = self.queryset.filter(
+                    ~Q(trip_shipment__shipment_status=DispatchTripShipmentMapping.CANCELLED),
+                    trip_shipment__trip_shipment_mapped_packages__package_status__in=[
+                        DispatchTripShipmentPackages.MISSING_AT_LOADING,
+                        DispatchTripShipmentPackages.MISSING_AT_UNLOADING])
 
         if availability:
             if availability == INVOICE_AVAILABILITY_CHOICES.ADDED:
