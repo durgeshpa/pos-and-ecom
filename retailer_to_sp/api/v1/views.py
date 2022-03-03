@@ -2897,22 +2897,27 @@ class OrderCentral(APIView):
                 pdf_generation_retailer(request, order.id)
             # Delivered/Closed
             else:
-                if order.order_status not in [Order.OUT_FOR_DELIVERY, Order.DELIVERED]:
+                if order.delivery_option == '1':
+                    pass
+                elif order.order_status not in [Order.OUT_FOR_DELIVERY, Order.DELIVERED]:
                     return api_response("Invalid Order update")
                 order.order_status = order_status
                 order.last_modified_by = self.request.user
                 order.save()
-                shipment = OrderedProduct.objects.filter(order=order).last()
-                shipment.shipment_status = order_status
-                shipment.save()
-                shipment.rt_order_product_order_product_mapping.update(delivered_qty=F('shipped_qty'))
-                if shipment.pos_trips.filter(trip_type='ECOM').exists():
-                    pos_trip = shipment.pos_trips.filter(trip_type='ECOM').last()
-                else:
-                    pos_trip = PosTrip.objects.create(trip_type='ECOM',
-                                                      shipment=shipment)
-                pos_trip.trip_end_at = datetime.now()
-                pos_trip.save()
+                try:
+                    shipment = OrderedProduct.objects.filter(order=order).last()
+                    shipment.shipment_status = order_status
+                    shipment.save()
+                    shipment.rt_order_product_order_product_mapping.update(delivered_qty=F('shipped_qty'))
+                    if shipment.pos_trips.filter(trip_type='ECOM').exists():
+                        pos_trip = shipment.pos_trips.filter(trip_type='ECOM').last()
+                    else:
+                        pos_trip = PosTrip.objects.create(trip_type='ECOM',
+                                                          shipment=shipment)
+                    pos_trip.trip_end_at = datetime.now()
+                    pos_trip.save()
+                except:
+                    pass
 
         return api_response("Order updated successfully!", response, status.HTTP_200_OK, True)
 
@@ -3584,7 +3589,7 @@ class OrderCentral(APIView):
                     order.order_status = Order.PAYMENT_PENDING
                 elif self.request.data.get('payment_status') == 'payment_failed':
                     order.order_status = Order.PAYMENT_FAILED
-                order.delivery_option = delivery_option
+            order.delivery_option = delivery_option
         order.save()
 
         if address:
