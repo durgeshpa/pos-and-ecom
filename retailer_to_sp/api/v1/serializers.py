@@ -37,8 +37,8 @@ from accounts.api.v1.serializers import UserSerializer
 from addresses.api.v1.serializers import AddressSerializer
 from coupon.serializers import CouponSerializer
 from wms.api.v2.serializers import QCDeskSerializer, QCAreaSerializer
-from wms.common_functions import release_picking_crates, send_update_to_qcdesk
-from wms.models import Crate, WarehouseAssortment, Zone
+from wms.common_functions import release_picking_crates, send_update_to_qcdesk, create_in, create_putaway
+from wms.models import Crate, WarehouseAssortment, Zone, InventoryType
 
 User = get_user_model()
 
@@ -4450,13 +4450,54 @@ class MarkShipmentPackageVerifiedSerializer(serializers.ModelSerializer):
         """update Dispatch Trip Shipment Package"""
         try:
             trip_shipment_package = super().update(instance, validated_data)
-            if trip_shipment_package.shipment_packaging.packaging_type == ShipmentPackaging.CRATE:
-                ShopCrateCommonFunctions.mark_crate_available(trip_shipment_package.trip_shipment.trip.destination_shop,
-                                                              trip_shipment_package.shipment_packaging.crate_id)
+            self.post_package_verify_update(trip_shipment_package)
         except Exception as e:
             error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
             raise serializers.ValidationError(error)
         return trip_shipment_package
+
+    def post_package_verify_update(self, trip_shipment_package):
+        info_logger.info(f"MarkShipmentPackageVerifiedSerializer|post_package_verify_update|"
+                         f"package_id {trip_shipment_package.shipment_packaging_id}")
+        if trip_shipment_package.package_status == DispatchTripShipmentPackages.VERIFIED:
+            # Release crates used in packaging
+            if trip_shipment_package.shipment_packaging.packaging_type == ShipmentPackaging.CRATE:
+                ShopCrateCommonFunctions.mark_crate_available(trip_shipment_package.trip_shipment.trip.destination_shop,
+                                                              trip_shipment_package.shipment_packaging.crate_id)
+                info_logger.info(f"MarkShipmentPackageVerifiedSerializer|post_package_verify_update|"
+                                 f"Crate released {trip_shipment_package.shipment_packaging.crate_id}")
+            # Create putaway
+            self.add_to_putaway(trip_shipment_package)
+            info_logger.info(f"MarkShipmentPackageVerifiedSerializer|post_package_verify_update|"
+                             f"Crate released {trip_shipment_package.shipment_packaging.crate_id}")
+
+    def add_to_putaway(self, trip_shipment_package):
+        with transaction.atomic():
+            type_normal = InventoryType.objects.get(inventory_type='normal')
+            type_damaged = InventoryType.objects.get(inventory_type='damaged')
+            warehouse = trip_shipment_package.trip_shipment.trip.seller_shop
+            package_product_mapping = trip_shipment_package.shipment_packaging.packaging_details.all()
+            for product_details in package_product_mapping:
+                return_details = product_details.packaging_product_details.all()
+                for batch_detail in return_details:
+                    putaway_qty = batch_detail.return_qty + batch_detail.damaged_qty
+                    if putaway_qty == 0:
+                        continue
+                    else:
+                        product = product_details.ordered_product.product
+                        batch_id = batch_detail.batch_id
+                        in_type_id = trip_shipment_package.shipment_packaging.shipment_id
+                        putaway_type_id = trip_shipment_package.shipment_packaging.shipment.invoice_no
+                        if batch_detail.return_qty > 0:
+                            create_in(warehouse, batch_id, product, 'RETURN', in_type_id, type_normal,
+                                      batch_detail.return_qty)
+                            create_putaway(warehouse, product, batch_id, None, type_normal, 'RETURNED', putaway_type_id,
+                                           None, batch_detail.return_qty)
+                        if batch_detail.damaged_qty > 0:
+                            create_in(warehouse, batch_id, product, 'RETURN', in_type_id, type_damaged,
+                                      batch_detail.damaged_qty )
+                            create_putaway(warehouse, product, batch_id, None, type_damaged, 'RETURNED', putaway_type_id,
+                                           None, batch_detail.damaged_qty)
 
 
 class ShipmentPackageZoneSerializer(serializers.ModelSerializer):
