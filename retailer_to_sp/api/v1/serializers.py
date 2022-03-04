@@ -4948,9 +4948,24 @@ class VerifyBackwardTripItemsSerializer(serializers.ModelSerializer):
             except:
                 raise serializers.ValidationError("'return_qty'/'damaged_qty' | Invalid quantity.")
 
+            batch_return_qty = self.instance.ordered_product.rt_ordered_product_mapping.filter(
+                                                        batch_id=product_batch['batch_id']).last().returned_qty
+            batch_damaged_qty = self.instance.ordered_product.rt_ordered_product_mapping.filter(
+                                                        batch_id=product_batch['batch_id']).last().returned_damage_qty
             if not self.instance.ordered_product.rt_ordered_product_mapping.filter(
                                                         batch_id=product_batch['batch_id']).exists():
                 raise serializers.ValidationError("'batch_id' | Invalid batch.")
+            elif (batch_return_qty+batch_damaged_qty) < return_qty+damaged_qty:
+                raise serializers.ValidationError("'Invalid Quantity' | Sum of returned quantity and damaged quantity "
+                                          f"for this batch cannot be greater than {batch_return_qty+batch_damaged_qty}")
+            elif (ShipmentPackagingBatch.objects.filter(
+                    shipment_product_packaging_id__in=
+                        self.instance.ordered_product.shipment_product_packaging.values_list('id', flat=True),
+                    batch_id=product_batch['batch_id'])\
+                    .aggregate(tota_returned_and_damaged=Sum(F('return_qty')+F('damaged_qty')))\
+                    .get('tota_returned_and_damaged') + return_qty + damaged_qty) > (batch_return_qty+batch_damaged_qty):
+                raise serializers.ValidationError("'Invalid Quantity' | Total returned quantity "
+                                          f"for this batch cannot be greater than {batch_return_qty+batch_damaged_qty}")
 
             item_return_qty += return_qty
             item_damaged_qty += damaged_qty
