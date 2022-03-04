@@ -50,7 +50,7 @@ class ShopPurchaseMatrix(APIView):
         current_year = today_date.year
         current_month = today_date.month
         input_month = int(request.GET.get('month', current_month))
-        if today.year <= 2022 and input_month < 4:
+        if today.year <= 2022 and input_month <= 2:
             is_previous = True
         response_data = list()
 
@@ -229,7 +229,7 @@ class IncentiveDashBoard(APIView):
             if user.user_type == 6:  # 'Sales Executive'
                 month = int(request.GET.get('month')) if request.GET.get(
                     'month') else today.month
-                if today.year <= 2022 and month < 4:
+                if today.year <= 2022 and month <= 2:
                     is_previous = True
 
                 mapped_shop_scheme_details = self.get_sales_executive_shop_scheme_details(user, month)
