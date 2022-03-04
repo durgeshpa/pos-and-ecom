@@ -2304,10 +2304,10 @@ class DispatchTripCrudSerializers(serializers.ModelSerializer):
                                                shop_employee__shop=seller_shop).last()
             if not delivery_boy:
                 raise serializers.ValidationError("Invalid delivery_boy | User not found for " + str(seller_shop))
-            if delivery_boy and delivery_boy.groups.filter(name='Delivery Boy').exists():
+            if delivery_boy and delivery_boy.groups.filter(name='Vehicle Driver').exists():
                 data['delivery_boy'] = delivery_boy
             else:
-                raise serializers.ValidationError("Delivery Boy does not have required permission.")
+                raise serializers.ValidationError("Vehicle Driver does not have required permission.")
         else:
             raise serializers.ValidationError("'delivery_boy' | This is mandatory")
 
@@ -2468,11 +2468,15 @@ class DispatchTripStatusChangeSerializers(serializers.ModelSerializer):
                     raise serializers.ValidationError("Load shipments/empty crates to the trip to start.")
 
                 if dispatch_trip.shipments_details.filter(
-                        Q(shipment_status=DispatchTripShipmentMapping.LOADING_FOR_DC) |
-                        Q(trip_shipment_mapped_packages__package_status=DispatchTripShipmentPackages.MISSING_AT_LOADING)
-                ).exists():
+                        shipment_status=DispatchTripShipmentMapping.LOADING_FOR_DC).exists():
                     raise serializers.ValidationError(
                         "The trip can not start until and unless all shipments get loaded.")
+
+                if dispatch_trip.shipments_details.filter(
+                        trip_shipment_mapped_packages__package_status=DispatchTripShipmentPackages.MISSING_AT_LOADING)\
+                        .exists():
+                    raise serializers.ValidationError(
+                        "The trip can not start as some packages are missing.")
 
             if trip_status == DispatchTrip.COMPLETED:
                 if 'closing_kms' in self.initial_data and self.initial_data['closing_kms']:

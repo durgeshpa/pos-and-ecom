@@ -7339,6 +7339,45 @@ class DeliverBoysList(generics.GenericAPIView):
         return get_response(msg, serializer.data, True)
 
 
+class VehicleDriverList(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    queryset = get_user_model().objects.values('id', 'phone_number', 'first_name', 'last_name').order_by('-id')
+    serializer_class = UserSerializers
+
+    def user_search(self, queryset, search_string):
+        """
+        This method is used to search using user name & phone number based on criteria that matches
+        @param queryset:
+        @param search_string:
+        @return: queryset
+        """
+        sts_list = search_string.split(' ')
+        for search_text in sts_list:
+            queryset = queryset.filter(Q(phone_number__icontains=search_text) | Q(first_name__icontains=search_text)
+                                       | Q(last_name__icontains=search_text))
+        return queryset
+
+    def get(self, request):
+        info_logger.info("Delivery Boys api called.")
+        """ GET Delivery Boys List """
+        group = Group.objects.get(name='Vehicle Driver')
+        self.queryset = self.queryset.filter(groups=group)
+        warehouse = self.request.GET.get('warehouse')
+        if warehouse:
+            self.queryset = self.queryset.filter(shop_employee__shop_id=warehouse)
+        id = self.request.GET.get('id')
+        if id:
+            self.queryset = self.queryset.filter(id=id)
+        search_text = self.request.GET.get('search_text')
+        if search_text:
+            self.queryset = self.user_search(self.queryset, search_text)
+        vehicle_drivers = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        serializer = self.serializer_class(vehicle_drivers, many=True)
+        msg = "" if vehicle_drivers else "no vehicle driver found"
+        return get_response(msg, serializer.data, True)
+
+
 class DispatchTripsCrudView(generics.GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)

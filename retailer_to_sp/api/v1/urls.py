@@ -26,7 +26,7 @@ from .views import (ProductsList, SearchProducts, CartCentral, CartCheckout, Ord
                     ShipmentPackageProductsView, RemoveInvoiceFromTripView, DispatchCenterCrateView,
                     DispatchCenterShipmentPackageView, LoadLastMileInvoiceView, LastMileTripSummaryView,
                     LastMileLoadVerifyPackageView, RemoveLastMileInvoiceFromTripView,
-                    VerifyNotAttemptShipmentPackagesView, VerifyBackwardTripItems, BackwardTripQCView
+                    VerifyNotAttemptShipmentPackagesView, VerifyBackwardTripItems, BackwardTripQCView, VehicleDriverList
                     )
 
 router = routers.DefaultRouter()
@@ -114,6 +114,7 @@ urlpatterns = [
     url('shipment-invoice/', DownloadShipmentInvoice.as_view()),
     url('package-reject-reason/', DispatchPackageRejectionReasonList.as_view()),
     url('delivery-boys-list/', DeliverBoysList.as_view(), name='delivery_boys_list'),
+    url('vehicle-drivers-list/', VehicleDriverList.as_view(), name='vehicle_drivers_list'),
     url('dispatch-trips/', DispatchTripsCrudView.as_view(), name='dispatch_trips'),
     url('update-dispatch-trip-status/', DispatchTripStatusChangeView.as_view(), name='update_dispatch_trip_status'),
     url('shipment-packaging/', ShipmentPackagingView.as_view(), name='shipment_packaging'),
