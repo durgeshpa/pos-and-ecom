@@ -10,6 +10,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from retailer_backend.messages import SUCCESS_MESSAGES, VALIDATION_ERROR_MESSAGES, ERROR_MESSAGES
+from retailer_backend.settings import INCENTIVE_DASHBOARD_MONTH
 from retailer_incentive.api.v1.serializers import SchemeShopMappingSerializer, SalesExecutiveListSerializer, \
     SchemeDetailSerializer, SchemeSlabSerializer, IncentiveSerializer, GetListIncentiveSerializer
 from retailer_incentive.models import SchemeSlab, IncentiveDashboardDetails, Incentive, BulkIncentive
@@ -40,15 +41,18 @@ class ShopPurchaseMatrix(APIView):
     permission_classes = (permissions.IsAuthenticated,)
 
     def get(self, request):
+        is_previous = False
         shop_id = request.GET.get('shop_id')
         shop = Shop.objects.filter(id=shop_id).last()
         if shop is None:
-            msg = {'is_success': False, 'message': ['No shop found'], 'data': None}
+            msg = {'is_success': False, 'message': ['No shop found'], 'is_previous': is_previous, 'data': None}
             return Response(msg, status=status.HTTP_200_OK)
         today_date = datetime.date.today()
         current_year = today_date.year
         current_month = today_date.month
         input_month = int(request.GET.get('month', current_month))
+        if today.year <= 2022 and input_month <= INCENTIVE_DASHBOARD_MONTH:
+            is_previous = True
         response_data = list()
 
         # Incentive
@@ -101,6 +105,7 @@ class ShopPurchaseMatrix(APIView):
         msg = {'is_success': True, 'message': ['OK'], 'incentive_data': incentive_data, 'data': response_data,}
         if not response_data:
             msg = {'is_success': False, 'message': ['No Scheme Found for this shop'], 'data':None}
+        msg['is_previous'] = is_previous
         return Response(msg, status=status.HTTP_200_OK)
 
     @staticmethod
@@ -211,10 +216,12 @@ class IncentiveDashBoard(APIView):
         return user
 
     def get(self, request):
+        is_previous = False
         user = self.get_user_id_or_error_message(request)
         if type(user) == str:
             msg = {'is_success': False,
                    'message': ['User is not Authorised'],
+                   'is_previous': is_previous,
                    'data': None}
             return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
 
@@ -223,6 +230,8 @@ class IncentiveDashBoard(APIView):
             if user.user_type == 6:  # 'Sales Executive'
                 month = int(request.GET.get('month')) if request.GET.get(
                     'month') else today.month
+                if today.year <= 2022 and month <= INCENTIVE_DASHBOARD_MONTH:
+                    is_previous = True
 
                 mapped_shop_scheme_details = self.get_sales_executive_shop_scheme_details(user, month)
                 messages = SUCCESS_MESSAGES["2001"]
@@ -231,16 +240,18 @@ class IncentiveDashBoard(APIView):
                     messages = "Scheme Mapping is not exist."
                 return Response({"message": [messages],
                                  "data": mapped_shop_scheme_details,
+                                 "is_previous": is_previous,
                                  'is_success': True}, status=status.HTTP_200_OK)
             else:
                 msg = {'is_success': False,
                        'message': ["User is not Authorised"],
+                       'is_previous': is_previous,
                        'data': None}
                 return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
 
         except Exception as error:
             logger.exception(error)
-            return Response({"message": ["Error while getting data for Sales Executive"],
+            return Response({"message": ["Error while getting data for Sales Executive"], "is_previous": is_previous,
                              'is_success': False, 'data': None}, status=status.HTTP_200_OK)
 
     def get_manager(self):
