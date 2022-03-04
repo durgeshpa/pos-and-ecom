@@ -1193,15 +1193,13 @@ class ProductAdmin(admin.ModelAdmin, ExportCsvMixin):
                     return "\n".join(cats)
                 return ''
             else:
-                try:
-                    if obj.parent_product.parent_product_pro_b2c_category.exists():
-                        cats = [str(c.category) for c in obj.parent_product.parent_product_pro_b2c_category.filter(status=True)]
-                        return "\n".join(cats)
-                except:
-                    if obj.parent_product.parent_product_pro_category.exists():
-                        cats = [str(c.category) for c in
-                                obj.parent_product.parent_product_pro_category.filter(status=True)]
-                        return "\n".join(cats)
+                if obj.parent_product.parent_product_pro_b2c_category.exists():
+                    cats = [str(c.category) for c in obj.parent_product.parent_product_pro_b2c_category.filter(status=True)]
+                    return "\n".join(cats)
+                elif obj.parent_product.parent_product_pro_category.exists():
+                    cats = [str(c.category) for c in
+                            obj.parent_product.parent_product_pro_category.filter(status=True)]
+                    return "\n".join(cats)
         except:
             return ''
 
