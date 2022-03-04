@@ -168,9 +168,13 @@ class ShopMappedProduct(ExportMixin, SingleTableView, FilterView):
                     tempcategory=None
                     if myproduct.sku.parent_product.product_type=='b2b':
                         category_list = myproduct.sku.parent_product.parent_product_pro_category.all()
-                    else:
+                    elif myproduct.sku.parent_product.product_type=='b2c':
                         category_list = myproduct.sku.parent_product.parent_product_pro_b2c_category.all()
-
+                    else:
+                        try:
+                            category_list = myproduct.sku.parent_product.parent_product_pro_category.all()
+                        except:
+                            category_list = myproduct.sku.parent_product.parent_product_pro_b2c_category.all()
                     for category1 in category_list:
                         if not tempcategory or category1.updated_at > tempcategory.updated_at:
                             tempcategory = category1
