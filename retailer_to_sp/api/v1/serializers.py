@@ -4960,8 +4960,9 @@ class VerifyBackwardTripItemsSerializer(serializers.ModelSerializer):
                                           f"for this batch cannot be greater than {batch_return_qty+batch_damaged_qty}")
             elif (ShipmentPackagingBatch.objects.filter(
                     shipment_product_packaging_id__in=
-                        self.instance.ordered_product.shipment_product_packaging.values_list('id', flat=True),
-                    batch_id=product_batch['batch_id'])\
+                        self.instance.ordered_product.shipment_product_packaging
+                                .exclude(id=self.instance.id).values_list('id', flat=True),
+                    batch_id=product_batch['batch_id']).exclude(id=self.instance.id)\
                     .aggregate(tota_returned_and_damaged=Sum(F('return_qty')+F('damaged_qty')))\
                     .get('tota_returned_and_damaged') + return_qty + damaged_qty) > (batch_return_qty+batch_damaged_qty):
                 raise serializers.ValidationError("'Invalid Quantity' | Total returned quantity "
