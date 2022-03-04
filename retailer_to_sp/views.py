@@ -631,6 +631,10 @@ def create_update_last_mile_trip_shipment_mapping(trip_id, shipment_ids, request
     removed_shipments = LastMileTripShipmentMapping.objects.filter(
         ~Q(shipment_id__in=shipment_ids), ~Q(shipment_status=LastMileTripShipmentMapping.CANCELLED), trip_id=trip_id)
     if removed_shipments:
+        for trip_shipment in removed_shipments:
+            if trip_shipment.shipment.shipment_status == OrderedProduct.READY_TO_DISPATCH:
+                trip_shipment.shipment.shipment_status = OrderedProduct.MOVED_TO_DISPATCH
+                trip_shipment.shipment.save()
         removed_shipments.update(shipment_status=LastMileTripShipmentMapping.CANCELLED, updated_by=request_user)
 
     for shipment_id in shipment_ids:
