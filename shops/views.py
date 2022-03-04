@@ -161,26 +161,33 @@ class ShopMappedProduct(ExportMixin, SingleTableView, FilterView):
         products = self.filter.qs
         for myproduct in products:
             if myproduct.sku.product_sku not in product_list:
-                parent_id = myproduct.sku.parent_product.parent_id
-                parent_name = myproduct.sku.parent_product.name
-                case_size = myproduct.sku.parent_product.inner_case_size
-                tempcategory=None
-                if myproduct.sku.parent_product.product_type=='b2b':
-                    category_list = myproduct.sku.parent_product.parent_product_pro_category.all()
-                elif myproduct.sku.parent_product.product_type=='b2c':
-                    category_list = myproduct.sku.parent_product.parent_product_pro_b2c_category.all()
-                else:
-                    try:
+                try:
+                    parent_id = myproduct.sku.parent_product.parent_id
+                    parent_name = myproduct.sku.parent_product.name
+                    case_size = myproduct.sku.parent_product.inner_case_size
+                    tempcategory=None
+                    if myproduct.sku.parent_product.product_type=='b2b':
                         category_list = myproduct.sku.parent_product.parent_product_pro_category.all()
-                    except:
+                    elif myproduct.sku.parent_product.product_type=='b2c':
                         category_list = myproduct.sku.parent_product.parent_product_pro_b2c_category.all()
-                for category1 in category_list:
-                    if not tempcategory or category1.updated_at > tempcategory.updated_at:
-                        tempcategory = category1
+                    else:
+                        if myproduct.sku.parent_product.parent_product_pro_category.all().exists():
+                            category_list = myproduct.sku.parent_product.parent_product_pro_category.all()
+                        elif myproduct.sku.parent_product.parent_product_pro_b2c_category.all().exists():
+                            category_list = myproduct.sku.parent_product.parent_product_pro_b2c_category.all()
+                    for category1 in category_list:
+                        if not tempcategory or category1.updated_at > tempcategory.updated_at:
+                            tempcategory = category1
 
-                category = tempcategory.category
+                    category = tempcategory.category
 
-                brand = myproduct.sku.parent_product.parent_brand
+                    brand = myproduct.sku.parent_product.parent_brand
+                except:
+                    parent_id = ''
+                    parent_name = ''
+                    case_size = ''
+                    category = ''
+                    brand = ''
 
                 binproducts = myproduct.sku.rt_product_sku.filter(inventory_type=inventory_type_normal, quantity__gt=0)
                 if not binproducts.exists():
