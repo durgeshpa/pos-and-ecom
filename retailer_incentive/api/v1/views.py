@@ -8,7 +8,7 @@ from django.http import HttpResponse
 from rest_framework import authentication, permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
-
+from decouple import config
 from retailer_backend.messages import SUCCESS_MESSAGES, VALIDATION_ERROR_MESSAGES, ERROR_MESSAGES
 from retailer_incentive.api.v1.serializers import SchemeShopMappingSerializer, SalesExecutiveListSerializer, \
     SchemeDetailSerializer, SchemeSlabSerializer, IncentiveSerializer, GetListIncentiveSerializer
@@ -50,7 +50,7 @@ class ShopPurchaseMatrix(APIView):
         current_year = today_date.year
         current_month = today_date.month
         input_month = int(request.GET.get('month', current_month))
-        if today.year <= 2022 and input_month <= 2:
+        if today.year <= 2022 and input_month <= int(config('INCENTIVE_DASHBOARD_MONTH')):
             is_previous = True
         response_data = list()
 
@@ -229,7 +229,7 @@ class IncentiveDashBoard(APIView):
             if user.user_type == 6:  # 'Sales Executive'
                 month = int(request.GET.get('month')) if request.GET.get(
                     'month') else today.month
-                if today.year <= 2022 and month <= 2:
+                if today.year <= 2022 and month <= int(config('INCENTIVE_DASHBOARD_MONTH')):
                     is_previous = True
 
                 mapped_shop_scheme_details = self.get_sales_executive_shop_scheme_details(user, month)
