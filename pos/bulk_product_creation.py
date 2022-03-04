@@ -199,6 +199,9 @@ def bulk_create_update_validated_products(uploaded_by, shop_id, uploaded_data_by
                             if parent_product:
                                 product.linked_pid = parent_product
                                 product.sku_type = 2
+                    else:
+                        product.linked_pid = None
+                        product.sku_type = 1
 
                     product.measurement_category_id = measure_cat_id
 
