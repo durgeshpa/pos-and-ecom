@@ -8,7 +8,7 @@ from django.http import HttpResponse
 from rest_framework import authentication, permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from decouple import config
+
 from retailer_backend.messages import SUCCESS_MESSAGES, VALIDATION_ERROR_MESSAGES, ERROR_MESSAGES
 from retailer_backend.settings import INCENTIVE_DASHBOARD_MONTH
 from retailer_incentive.api.v1.serializers import SchemeShopMappingSerializer, SalesExecutiveListSerializer, \
