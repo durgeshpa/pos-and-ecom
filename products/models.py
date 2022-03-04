@@ -973,8 +973,12 @@ def create_product_sku(sender, instance=None, created=False, **kwargs):
     if not instance.product_sku:
         if instance.product_type == Product.PRODUCT_TYPE_CHOICE.NORMAL:
             # cat_sku_code = instance.category.category_sku_part
-            parent_product_category = ParentProductCategory.objects.filter(
-                parent_product=instance.parent_product).first().category
+            if instance.parent_product.product_type=='b2c':
+                parent_product_category = ParentProductB2cCategory.objects.filter(
+                    parent_product=instance.parent_product).first().category
+            else:
+                parent_product_category = ParentProductCategory.objects.filter(
+                    parent_product=instance.parent_product).first().category
             cat_sku_code = parent_product_category.category_sku_part
             parent_cat_sku_code = parent_product_category.category_parent.category_sku_part if parent_product_category.category_parent else cat_sku_code
             brand_sku_code = instance.product_brand.brand_code
