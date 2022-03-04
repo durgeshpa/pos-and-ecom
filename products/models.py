@@ -15,12 +15,12 @@ from decimal import Decimal
 
 from addresses.models import Address, Area, City, Country, Pincode, State
 from brand.models import Brand, Vendor
-from categories.models import BaseTimeModel, BaseTimestampUserStatusModel, Category
+from categories.models import BaseTimeModel, BaseTimestampUserStatusModel, Category, B2cCategory
 from coupon.models import Coupon, Discount
 from global_config.views import get_config
 from retailer_backend.validators import *
 from shops.models import Shop, ShopUserMapping, ShopType
-
+from tinymce.models import HTMLField
 SIZE_UNIT_CHOICES = (
     ('mm', 'Millimeter'),
     ('cm', 'Centimeter'),
@@ -165,7 +165,7 @@ class ParentProduct(BaseTimestampUserStatusModel):
         related_name='parent_product_updated_by',
         on_delete=models.DO_NOTHING
     )
-
+    product_discription = HTMLField(blank=True)
     @property
     def ptr_type_text(self):
         if self.ptr_type is not None and self.ptr_type in self.PTR_TYPE_CHOICES:
@@ -209,6 +209,18 @@ class ParentProductCategory(BaseTimeModel):
         verbose_name_plural = _("Parent Product Categories")
 
 
+class ParentProductB2cCategory(BaseTimeModel):
+    parent_product = models.ForeignKey(ParentProduct, 
+                                       related_name='parent_product_pro_b2c_category',
+                                       on_delete=models.CASCADE)
+    category = models.ForeignKey(B2cCategory, related_name='parent_category_pro_b2c_category', on_delete=models.CASCADE)
+    status = models.BooleanField(default=True)
+
+    class Meta:
+        verbose_name = _("Parent Product B2c Category")
+        verbose_name_plural = _("Parent Product B2c Categories")
+
+
 class ParentProductImage(BaseTimeModel):
     parent_product = models.ForeignKey(ParentProduct, related_name='parent_product_pro_image', on_delete=models.CASCADE)
     image_name = models.CharField(max_length=255, validators=[ProductNameValidator])
@@ -224,24 +236,6 @@ class ParentProductImage(BaseTimeModel):
 
     def __str__(self):
         return self.image.name
-
-
-@receiver(pre_save, sender=ParentProductCategory)
-def create_parent_product_id(sender, instance=None, created=False, **kwargs):
-    parent_product = ParentProduct.objects.get(pk=instance.parent_product.id)
-    if parent_product.parent_id:
-        return
-    cat_sku_code = instance.category.category_sku_part
-    brand_sku_code = parent_product.parent_brand.brand_code
-    last_sku = ParentProductSKUGenerator.objects.filter(cat_sku_code=cat_sku_code, brand_sku_code=brand_sku_code).last()
-    if last_sku:
-        last_sku_increment = str(int(last_sku.last_auto_increment) + 1).zfill(len(last_sku.last_auto_increment))
-    else:
-        last_sku_increment = '0001'
-    ParentProductSKUGenerator.objects.create(cat_sku_code=cat_sku_code, brand_sku_code=brand_sku_code,
-                                             last_auto_increment=last_sku_increment)
-    parent_product.parent_id = "P%s%s%s" % (cat_sku_code, brand_sku_code, last_sku_increment)
-    parent_product.save()
 
 
 class Product(BaseTimestampUserStatusModel):
@@ -762,9 +756,29 @@ class ProductCategory(models.Model):
         verbose_name_plural = _("Product Categories")
 
 
+class ProductB2cCategory(models.Model):
+    product = models.ForeignKey(Product, related_name='product_pro_b2c_category', on_delete=models.CASCADE)
+    category = models.ForeignKey(B2cCategory, related_name='b2c_category_pro_b2c_category', on_delete=models.CASCADE)
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
+    status = models.BooleanField(default=True)
+
+    class Meta:
+        verbose_name = _("Product B2c Category")
+        verbose_name_plural = _("Product B2c Categories")
+
+
 class ProductCategoryHistory(models.Model):
     product = models.ForeignKey(Product, related_name='product_pro_cat_history', on_delete=models.CASCADE)
     category = models.ForeignKey(Category, related_name='category_pro_cat_history', on_delete=models.CASCADE)
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
+    status = models.BooleanField(default=True)
+
+
+class ProductB2cCategoryHistory(models.Model):
+    product = models.ForeignKey(Product, related_name='product_pro_b2c_cat_history', on_delete=models.CASCADE)
+    category = models.ForeignKey(B2cCategory, related_name='b2c_category_pro_b2c_cat_history', on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
     status = models.BooleanField(default=True)
@@ -959,8 +973,12 @@ def create_product_sku(sender, instance=None, created=False, **kwargs):
     if not instance.product_sku:
         if instance.product_type == Product.PRODUCT_TYPE_CHOICE.NORMAL:
             # cat_sku_code = instance.category.category_sku_part
-            parent_product_category = ParentProductCategory.objects.filter(
-                parent_product=instance.parent_product).first().category
+            if instance.parent_product.product_type=='b2c':
+                parent_product_category = ParentProductB2cCategory.objects.filter(
+                    parent_product=instance.parent_product).first().category
+            else:
+                parent_product_category = ParentProductCategory.objects.filter(
+                    parent_product=instance.parent_product).first().category
             cat_sku_code = parent_product_category.category_sku_part
             parent_cat_sku_code = parent_product_category.category_parent.category_sku_part if parent_product_category.category_parent else cat_sku_code
             brand_sku_code = instance.product_brand.brand_code
@@ -1122,6 +1140,7 @@ class CentralLog(models.Model):
     child_product = models.ForeignKey(Product, related_name='child_product_log', blank=True, null=True,
                                       on_delete=models.CASCADE)
     category = models.ForeignKey(Category, related_name='category_log', blank=True, null=True, on_delete=models.CASCADE)
+    b2c_category = models.ForeignKey(B2cCategory, related_name='b2c_category_log', blank=True, null=True, on_delete=models.CASCADE)
     brand = models.ForeignKey(Brand, related_name='brand_log', blank=True, null=True, on_delete=models.CASCADE)
     tax = models.ForeignKey(Tax, related_name='tax_log', blank=True, null=True, on_delete=models.CASCADE)
     weight = models.ForeignKey(Weight, related_name='weight_log', blank=True, null=True, on_delete=models.CASCADE)

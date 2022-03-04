@@ -325,6 +325,41 @@ class RetailerProductsSearchSerializer(serializers.ModelSerializer):
     product_pack_type = serializers.CharField(source='get_product_pack_type_display')
     image = serializers.SerializerMethodField()
     current_stock = serializers.SerializerMethodField()
+    category_id = serializers.SerializerMethodField()
+    category = serializers.SerializerMethodField()
+    brand_id = serializers.SerializerMethodField()
+    brand = serializers.SerializerMethodField()
+
+
+    def get_brand(self, obj):
+        try:
+            brand = str(obj.linked_product.product_brand)
+            return brand if brand else ''
+        except:
+            return ''
+
+    def get_brand_id(self, obj):
+        try:
+            brand_id = str(obj.linked_product.product_brand.id)
+            return brand_id if brand_id else ''
+        except:
+            return ''
+
+    def get_category(self, obj):
+        try:
+            category = [str(c.category) for c in
+                        obj.linked_product.parent_product.parent_product_pro_b2c_category.filter(status=True)]
+            return category if category else ''
+        except:
+            return ''
+
+    def get_category_id(self, obj):
+        try:
+            category_id = [str(c.category_id) for c in
+                           obj.linked_product.parent_product.parent_product_pro_b2c_category.filter(status=True)]
+            return category_id if category_id else ''
+        except:
+            return ''
 
     @staticmethod
     def get_default_measurement_unit(obj):
@@ -373,7 +408,7 @@ class RetailerProductsSearchSerializer(serializers.ModelSerializer):
         model = RetailerProduct
         fields = ('id', 'name', 'selling_price', 'online_price', 'mrp', 'is_discounted', 'image',
                   'product_pack_type', 'measurement_category', 'default_measurement_unit', 'current_stock',
-                  'product_ean_code')
+                  'product_ean_code', 'category', 'category_id', 'brand', 'brand_id',)
 
 
 class BasicCartProductMappingSerializer(serializers.ModelSerializer):
@@ -577,7 +612,12 @@ class BasicCartSerializer(serializers.ModelSerializer):
         return round(discount, 2)
 
     def get_amount_payable(self, obj):
-        sub_total = float(self.total_amount_dt(obj)) - self.get_total_discount(obj)
+        if obj.cart_type == 'ECOM':
+            sub_total = float(self.total_amount_dt(obj)) - (
+                    float(self.get_total_discount(obj)))
+        else:
+            sub_total = float(self.total_amount_dt(obj)) - (
+                    float(self.get_total_discount(obj)) + float(self.get_product_discount_from_mrp(obj)))
         return round(sub_total)
 
 
@@ -660,16 +700,45 @@ class PaymentTypeSerializer(serializers.ModelSerializer):
 
 class PaymentSerializer(serializers.ModelSerializer):
     payment_type = PaymentTypeSerializer()
+    payment_refund = serializers.SerializerMethodField()
+
+    def get_payment_refund(self, obj):
+        if obj.is_refund:
+            status = {'queued': 'refund_created', 'success': 'refund_success', 'failure': 'refund_failed'}
+            if obj.refund_status in status:
+                refund_status = status[obj.refund_status]
+            else:
+                refund_status = obj.refund_status
+            return {"refund_amount": obj.refund_amount, 'refund_status': refund_status}
 
     class Meta:
         model = Payment
-        fields = ('id', 'payment_type', 'transaction_id', 'amount')
+        fields = ('id', 'payment_status', 'payment_type', 'transaction_id', 'amount', 'payment_refund')
 
 
 class OrderReturnSerializerID(serializers.ModelSerializer):
     class Meta:
         model = OrderReturn
         fields = ('id', 'return_reason', 'refund_amount', 'refund_points', 'status')
+
+
+class PosEcomShopSerializer(serializers.ModelSerializer):
+    shop_owner = serializers.SerializerMethodField()
+    # shop_city = serializers.SerializerMethodField()
+
+    def get_shop_owner(self, obj):
+        if obj.shop_owner.first_name and obj.shop_owner.last_name:
+            return "%s %s - %s" % (obj.shop_owner.first_name, obj.shop_owner.last_name, str(obj.shop_owner.phone_number))
+        elif obj.shop_owner.first_name:
+            return "%s - %s" % (obj.shop_owner.first_name, str(obj.shop_owner.phone_number))
+
+    # def get_shop_city(self, obj):
+    #     if obj.shop_name_address_mapping.exists():
+    #         return obj.shop_name_address_mapping.filter(address_type='shipping').last().city.city_name
+
+    class Meta:
+        model = Shop
+        fields = ('id', 'shop_name', 'shop_owner', 'shipping_address', 'city_name', 'get_shop_pin_code')
 
 
 class BasicOrderListSerializer(serializers.ModelSerializer):
@@ -687,6 +756,25 @@ class BasicOrderListSerializer(serializers.ModelSerializer):
     order_cancel_reson = serializers.SerializerMethodField()
     ordered_product = serializers.SerializerMethodField()
     rt_return_order = OrderReturnSerializerID(many=True, read_only=True)
+    seller_shop = PosEcomShopSerializer(read_only=True)
+    gstn_no = serializers.SerializerMethodField()
+    invoice_no = serializers.SerializerMethodField()
+
+    @staticmethod
+    def get_invoice_no(obj):
+        if obj.rt_order_order_product.last():
+            return obj.rt_order_order_product.last().invoice_no
+        return None
+
+    @staticmethod
+    def get_gstn_no(obj):
+        # GSTIN
+        retailer_gstin_number = ""
+        if obj.seller_shop.shop_name_documents.filter(shop_document_type='gstin'):
+            retailer_gstin_number = obj.seller_shop.shop_name_documents.filter(
+                shop_document_type='gstin').last().shop_document_number
+
+        return retailer_gstin_number
 
     def get_created_at(self, obj):
         return obj.created_at.strftime("%b %d, %Y %-I:%M %p")
@@ -726,7 +814,8 @@ class BasicOrderListSerializer(serializers.ModelSerializer):
     class Meta:
         model = Order
         fields = ('id', 'order_status', 'order_cancel_reson', 'order_amount', 'order_no', 'buyer', 'created_at',
-                  'payment', 'invoice_amount', 'delivery_persons', 'ordered_product', 'rt_return_order', 'ordered_cart')
+                  'payment', 'invoice_amount', 'delivery_persons', 'ordered_product', 'rt_return_order', 'ordered_cart',
+                  'seller_shop', 'gstn_no', 'invoice_no')
 
 
 class BasicCartListSerializer(serializers.ModelSerializer):
@@ -777,13 +866,31 @@ class OrderedDashBoardSerializer(serializers.Serializer):
 
     shop_name = serializers.CharField()
     orders = serializers.IntegerField()
+    invoices = serializers.IntegerField()
     pos_order_count = serializers.IntegerField()
     ecom_order_count = serializers.IntegerField()
+    pos_invoice_count = serializers.IntegerField()
+    ecom_invoice_count = serializers.IntegerField()
     registered_users = serializers.IntegerField(required=False)
     products = serializers.IntegerField(required=False)
     revenue = serializers.DecimalField(max_digits=9, decimal_places=2, required=False)
+    invoice_revenue = serializers.DecimalField(max_digits=9, decimal_places=2, required=False)
     pos_revenue = serializers.DecimalField(max_digits=9, decimal_places=2, required=False)
     ecom_revenue = serializers.DecimalField(max_digits=9, decimal_places=2, required=False)
+    pos_invoice_revenue = serializers.DecimalField(max_digits=9, decimal_places=2, required=False)
+    ecom_invoice_revenue = serializers.DecimalField(max_digits=9, decimal_places=2, required=False)
+
+
+class RetailerOrderedDashBoardSerializer(serializers.Serializer):
+    """
+        Get Order, User, Product & total_final_amount count
+    """
+
+    shop_name = serializers.CharField()
+    orders = serializers.IntegerField()
+    registered_users = serializers.IntegerField(required=False)
+    products = serializers.IntegerField(required=False)
+    revenue = serializers.DecimalField(max_digits=9, decimal_places=2, required=False)
 
 
 class ReturnItemsSerializer(serializers.ModelSerializer):
@@ -909,6 +1016,42 @@ class BasicOrderSerializer(serializers.ModelSerializer):
     """
     products = serializers.SerializerMethodField()
     ongoing_return = serializers.SerializerMethodField('ongoing_return_dt')
+    seller_shop = PosEcomShopSerializer(read_only=True)
+    gstn_no = serializers.SerializerMethodField()
+    invoice_no = serializers.SerializerMethodField()
+    discount = serializers.SerializerMethodField()
+
+    def get_discount(self, obj):
+        discount = 0
+        offers = self.get_cart_offers(obj)
+        for offer in offers:
+            discount += float(offer['discount_value'])
+        return round(discount, 2)
+
+    @staticmethod
+    def get_cart_offers(obj):
+        offers = obj.ordered_cart.offers
+        cart_offers = []
+        for offer in offers:
+            if offer['coupon_type'] == 'cart' and offer['type'] == 'discount':
+                cart_offers.append(offer)
+        return cart_offers
+
+    @staticmethod
+    def get_invoice_no(obj):
+        if obj.rt_order_order_product.last():
+            return obj.rt_order_order_product.last().invoice_no
+        return None
+
+    @staticmethod
+    def get_gstn_no(obj):
+        # GSTIN
+        retailer_gstin_number = ""
+        if obj.seller_shop.shop_name_documents.filter(shop_document_type='gstin'):
+            retailer_gstin_number = obj.seller_shop.shop_name_documents.filter(
+                shop_document_type='gstin').last().shop_document_number
+
+        return retailer_gstin_number
 
     @staticmethod
     def ongoing_return_dt(obj):
@@ -1024,7 +1167,8 @@ class BasicOrderSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Order
-        fields = ('id', 'order_no', 'ordered_cart', 'products', 'ongoing_return')
+        fields = ('id', 'order_no', 'ordered_cart', 'products', 'ongoing_return', 'seller_shop',
+                  'gstn_no', 'invoice_no', 'discount')
 
 
 class OrderReturnCheckoutSerializer(serializers.ModelSerializer):
@@ -1432,6 +1576,7 @@ class CouponListSerializer(serializers.ModelSerializer):
 class PosShopSerializer(serializers.ModelSerializer):
     shop_id = serializers.SerializerMethodField()
     shop_name = serializers.SerializerMethodField()
+    shop_type = serializers.SerializerMethodField()
 
     @staticmethod
     def get_shop_id(obj):
@@ -1441,9 +1586,13 @@ class PosShopSerializer(serializers.ModelSerializer):
     def get_shop_name(obj):
         return obj.shop.shop_name
 
+    @staticmethod
+    def get_shop_type(obj):
+        return obj.shop.shop_type.__str__()
+
     class Meta:
         model = PosShopUserMapping
-        fields = ('shop_id', 'shop_name', 'user_type', 'is_delivery_person')
+        fields = ('shop_id', 'shop_name', 'shop_type', 'user_type', 'is_delivery_person')
 
 
 class BasicCartUserViewSerializer(serializers.Serializer):
@@ -1685,6 +1834,34 @@ class OrderReturnGetSerializer(serializers.ModelSerializer):
     return_items = serializers.SerializerMethodField()
     refund_points_value = serializers.SerializerMethodField()
     refund_amount = serializers.SerializerMethodField()
+    credit_note_no = serializers.SerializerMethodField()
+    credit_note_created_at = serializers.SerializerMethodField()
+    gstn_no = serializers.SerializerMethodField()
+    invoice_no = serializers.SerializerMethodField()
+
+    @staticmethod
+    def get_invoice_no(obj):
+        if obj.order.rt_order_order_product.last():
+            return obj.order.rt_order_order_product.last().invoice_no
+        return None
+
+    @staticmethod
+    def get_credit_note_no(obj):
+        return obj.credit_note_order_return_mapping.last().credit_note_id
+
+    @staticmethod
+    def get_gstn_no(obj):
+        # GSTIN
+        retailer_gstin_number = ""
+        if obj.order.seller_shop.shop_name_documents.filter(shop_document_type='gstin'):
+            retailer_gstin_number = obj.order.seller_shop.shop_name_documents.filter(
+                shop_document_type='gstin').last().shop_document_number
+
+        return retailer_gstin_number
+
+    @staticmethod
+    def get_credit_note_created_at(obj):
+        return obj.credit_note_order_return_mapping.last().created_at
 
     @staticmethod
     def get_refund_amount(obj):
@@ -1734,9 +1911,15 @@ class OrderReturnGetSerializer(serializers.ModelSerializer):
             refund_points_value = round(obj.refund_points / redeem_factor, 2)
         return refund_points_value
 
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        representation['credit_note_created_at'] = representation['credit_note_created_at'].strftime("%b %d %Y %I:%M%p")
+        return representation
+
     class Meta:
         model = OrderReturn
-        fields = ('id', 'return_value', 'discount_adjusted', 'refund_points_value', 'refund_amount', 'return_items')
+        fields = ('id', 'return_value', 'credit_note_no', 'credit_note_created_at', 'gstn_no', 'invoice_no',
+                  'discount_adjusted', 'refund_points_value', 'refund_amount', 'return_items')
 
 
 class BasicOrderDetailSerializer(serializers.ModelSerializer):
@@ -1751,6 +1934,25 @@ class BasicOrderDetailSerializer(serializers.ModelSerializer):
     order_status_display = serializers.CharField(source='get_order_status_display')
     payment = serializers.SerializerMethodField('payment_data')
     rt_return_order = OrderReturnSerializerID(many=True, read_only=True)
+    seller_shop = PosEcomShopSerializer(read_only=True)
+    gstn_no = serializers.SerializerMethodField()
+    invoice_no = serializers.SerializerMethodField()
+
+    @staticmethod
+    def get_invoice_no(obj):
+        if obj.rt_order_order_product.last():
+            return obj.rt_order_order_product.last().invoice_no
+        return None
+
+    @staticmethod
+    def get_gstn_no(obj):
+        # GSTIN
+        retailer_gstin_number = ""
+        if obj.seller_shop.shop_name_documents.filter(shop_document_type='gstin'):
+            retailer_gstin_number = obj.seller_shop.shop_name_documents.filter(
+                shop_document_type='gstin').last().shop_document_number
+
+        return retailer_gstin_number
 
     @staticmethod
     def get_creation_date(obj):
@@ -1878,7 +2080,8 @@ class BasicOrderDetailSerializer(serializers.ModelSerializer):
     class Meta:
         model = Order
         fields = ('id', 'order_no', 'creation_date', 'order_status', 'items', 'order_summary', 'return_summary',
-                  'delivery_person', 'buyer', 'order_status_display', 'payment', 'rt_return_order')
+                  'delivery_person', 'buyer', 'order_status_display', 'payment', 'rt_return_order', 'seller_shop',
+                  'gstn_no', 'invoice_no')
 
 
 class AddressCheckoutSerializer(serializers.ModelSerializer):
@@ -3199,6 +3402,9 @@ class PosEcomOrderDetailSerializer(serializers.ModelSerializer):
         return_summary['return_value'], return_summary['discount_adjusted'], return_summary[
             'points_adjusted'], return_summary[
             'amount_returned'] = return_value, discount_adjusted, points_value, refund_amount
+        # if obj.is_refund and obj.refund_status == 'success':
+        #     return_summary['amount_returned'] = obj.refund_amount
+
         return return_summary
 
     def get_items(self, obj):
@@ -3647,6 +3853,7 @@ class BulkProductUploadSerializers(serializers.ModelSerializer):
                   )
               )
         return url
+
 
 class ContectUs(serializers.Serializer):
     phone_number = serializers.CharField()

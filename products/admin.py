@@ -450,10 +450,45 @@ class ProductTaxMappingAdmin(admin.TabularInline):
         pass
 
 
+class ProductB2bCategoryFormSet(BaseInlineFormSet):
+    def clean(self):
+        super(ProductB2bCategoryFormSet, self).clean()
+        if self.instance.product_type == 'b2b' or self.instance.product_type == 'both':
+            non_empty_forms = 0
+            for form in self:
+                if form.cleaned_data:
+                    non_empty_forms += 1
+            if non_empty_forms - len(self.deleted_forms) < 1:
+                raise ValidationError("Please fill at least one form.")
+
+class ProductB2cCategoryFormSet(BaseInlineFormSet):
+    def clean(self):
+        super(ProductB2cCategoryFormSet, self).clean()
+        if self.instance.product_type == 'b2c' or self.instance.product_type == 'both':
+            non_empty_forms = 0
+            for form in self:
+                if form.cleaned_data:
+                    non_empty_forms += 1
+            if non_empty_forms - len(self.deleted_forms) < 1:
+                raise ValidationError("Please fill at least one form.")
+
 class ParentProductCategoryAdmin(TabularInline):
     model = ParentProductCategory
     autocomplete_fields = ['category', ]
-    formset = RequiredInlineFormSet  # or AtLeastOneFormSet
+    #formset = RequiredInlineFormSet  # or AtLeastOneFormSet
+    formset = ProductB2bCategoryFormSet
+
+
+class ParentProductB2cCategoryAdminInline(TabularInline):
+    model = ParentProductB2cCategory
+    autocomplete_fields = ['category', ]
+    formset = ProductB2cCategoryFormSet
+
+
+@admin.register(ParentProductB2cCategory)
+class ParentProductB2cCategoryAdmin(admin.ModelAdmin):
+    list_display = ('id', 'parent_product', 'category', 'status')
+    
 
 
 def deactivate_selected_products(modeladmin, request, queryset):
@@ -565,7 +600,7 @@ class ParentProductAdmin(admin.ModelAdmin):
     change_form_template = 'admin/products/parent_product_change_form.html'
     actions = [deactivate_selected_products, approve_selected_products, 'export_as_csv']
     list_display = [
-        'parent_id', 'name', 'parent_brand', 'product_category', 'product_hsn',
+        'parent_id', 'name', 'parent_product_discriptions', 'parent_brand', 'product_category', 'product_hsn',
         'product_gst', 'product_cess', 'product_surcharge', 'product_image', 'status',
         'product_type', 'is_ptr_applicable', 'ptrtype', 'ptrpercent', 'discounted_life_percent'
     ]
@@ -573,11 +608,18 @@ class ParentProductAdmin(admin.ModelAdmin):
         'parent_id', 'name'
     ]
     inlines = [
-        ParentProductCategoryAdmin, ParentProductImageAdmin, ParentProductTaxMappingAdmin
+        ParentProductCategoryAdmin, ParentProductB2cCategoryAdminInline, 
+        ParentProductImageAdmin, ParentProductTaxMappingAdmin
     ]
     list_filter = [ParentCategorySearch, ParentBrandFilter, ParentIDFilter, 'status']
     list_per_page = 50
     autocomplete_fields = ['product_hsn', 'parent_brand']
+
+    @staticmethod
+    def parent_product_discriptions(obj):
+        """convert text string to html formate for display on admin pannel..."""
+        return format_html('{}'.format(obj.product_discription[0:200:]))
+
 
     def product_gst(self, obj):
         if ParentProductTaxMapping.objects.filter(parent_product=obj, tax__tax_type='gst').exists():
@@ -604,13 +646,32 @@ class ParentProductAdmin(admin.ModelAdmin):
     product_surcharge.short_description = 'Product Surcharge'
 
     def product_category(self, obj):
-        try:
-            if obj.parent_product_pro_category.exists():
-                cats = [str(c.category) for c in obj.parent_product_pro_category.filter(status=True)]
-                return "\n".join(cats)
-            return ''
-        except:
-            return ''
+        if obj.product_type == 'b2b':
+            try:
+                if obj.parent_product_pro_category.exists():
+                    cats = [str(c.category) for c in obj.parent_product_pro_category.filter(status=True)]
+                    return "\n".join(cats)
+                return ''
+            except:
+                return ''
+        elif obj.product_type == 'b2c':
+            try:
+                if obj.parent_product_pro_b2c_category.exists():
+                    cats = [str(c.category) for c in obj.parent_product_pro_b2c_category.filter(status=True)]
+                    return "\n".join(cats)
+                return ''
+            except:
+                return ''
+        else:
+            try:
+                cats = []
+                if obj.parent_product_pro_b2c_category.exists():
+                    cats += [str(c.category) for c in obj.parent_product_pro_b2c_category.filter(status=True)]
+                if obj.parent_product_pro_category.exists():
+                    cats += [str(c.category) for c in obj.parent_product_pro_category.filter(status=True)]
+                return "\n".join(cats) if cats else ''
+            except:
+                return ''
 
     product_category.short_description = 'Product Category'
 
@@ -677,8 +738,9 @@ class ParentProductAdmin(admin.ModelAdmin):
             #         "<a href='/admin/wms/warehouseassortment/add/?warehouse=%s&product=%s'>Add Zone</a>"
             #         % (600, obj.pk))
             if not obj.product_zones.exists():
+                current_wh_active = int(get_config('current_wh_active', 50484))
                 return format_html(
-                    "<a href='/admin/wms/warehouseassortment/add/?warehouse=%s&product=%s'>Add Zone</a>" % (600, obj.pk))
+                    "<a href='/admin/wms/warehouseassortment/add/?warehouse=%s&product=%s'>Add Zone</a>" % (current_wh_active, obj.pk))
             else:
                 return '-'
 
@@ -1120,10 +1182,24 @@ class ProductAdmin(admin.ModelAdmin, ExportCsvMixin):
 
     def product_category(self, obj):
         try:
-            if obj.parent_product.parent_product_pro_category.exists():
-                cats = [str(c.category) for c in obj.parent_product.parent_product_pro_category.filter(status=True)]
-                return "\n".join(cats)
-            return ''
+            if obj.parent_product.product_type=='b2b':
+                if obj.parent_product.parent_product_pro_category.exists():
+                    cats = [str(c.category) for c in obj.parent_product.parent_product_pro_category.filter(status=True)]
+                    return "\n".join(cats)
+                return ''
+            elif obj.parent_product.product_type=='b2c':
+                if obj.parent_product.parent_product_pro_b2c_category.exists():
+                    cats = [str(c.category) for c in obj.parent_product.parent_product_pro_b2c_category.filter(status=True)]
+                    return "\n".join(cats)
+                return ''
+            else:
+                if obj.parent_product.parent_product_pro_b2c_category.exists():
+                    cats = [str(c.category) for c in obj.parent_product.parent_product_pro_b2c_category.filter(status=True)]
+                    return "\n".join(cats)
+                elif obj.parent_product.parent_product_pro_category.exists():
+                    cats = [str(c.category) for c in
+                            obj.parent_product.parent_product_pro_category.filter(status=True)]
+                    return "\n".join(cats)
         except:
             return ''
 

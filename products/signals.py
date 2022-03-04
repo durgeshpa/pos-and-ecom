@@ -2,8 +2,9 @@ from decimal import Decimal
 
 from products.models import Product, ProductPrice, ProductCategory, \
     ProductTaxMapping, ProductImage, ParentProductTaxMapping, ParentProduct, Repackaging, SlabProductPrice, PriceSlab,\
-    ProductPackingMapping, DestinationRepackagingCostMapping, ProductSourceMapping
-from django.db.models.signals import post_save, post_delete
+    ProductPackingMapping, DestinationRepackagingCostMapping, ProductSourceMapping, ProductB2cCategory, \
+        ParentProductB2cCategory, ParentProductCategory, ParentProductSKUGenerator
+from django.db.models.signals import post_save, post_delete, pre_save
 from django.dispatch import receiver
 from sp_to_gram.tasks import update_shop_product_es, update_product_es, update_shop_product_es_cat, update_shop_product_es_brand
 from analytics.post_save_signal import get_category_product_report
@@ -12,12 +13,13 @@ from django.db import transaction
 from wms.models import Out, In, InventoryType, Pickup, WarehouseInventory, InventoryState, BinInventory, PutawayBinInventory, Putaway
 from retailer_to_sp.models import generate_picklist_id, PickerDashboard
 from wms.common_functions import CommonPickupFunctions, CommonPickBinInvFunction, InternalInventoryChange, \
-    CommonWarehouseInventoryFunctions, update_visibility, get_visibility_changes, get_manufacturing_date
+    CommonWarehouseInventoryFunctions, update_visibility, get_visibility_changes, get_manufacturing_date, \
+    CommonBinInventoryFunctions
 from datetime import datetime
 from shops.models import Shop
 from retailer_backend import common_function
 from brand.models import Brand
-from categories.models import Category
+from categories.models import Category, B2cCategory
 from global_config.models import GlobalConfig
 
 logger = logging.getLogger(__name__)
@@ -90,6 +92,10 @@ def update_category_elasticsearch(sender, instance=None, created=False, **kwargs
     for prod_price in instance.product.product_pro_price.filter(status=True).values('seller_shop', 'product'):
         update_shop_product_es.delay(prod_price['seller_shop'], prod_price['product'])
 
+@receiver(post_save, sender=ProductB2cCategory)
+def update_b2c_category_elasticsearch(sender, instance=None, created=False, **kwargs):
+    for prod_price in instance.product.product_pro_price.filter(status=True).values('seller_shop', 'product'):
+        update_shop_product_es.delay(prod_price['seller_shop'], prod_price['product'])
 
 @receiver(post_save, sender=ProductImage)
 def update_product_image_elasticsearch(sender, instance=None, created=False, **kwargs):
@@ -120,7 +126,13 @@ def update_product_elasticsearch(sender, instance=None, created=False, **kwargs)
 def update_parent_product_elasticsearch(sender, instance=None, created=False, **kwargs):
     info_logger.info("Updating ES of child products of parent {}".format(instance))
     child_skus = Product.objects.filter(parent_product=instance)
-    child_categories = [str(c.category) for c in instance.parent_product_pro_category.filter(status=True)]
+    if instance.product_type == 'b2c':
+        child_categories = [str(c.category) for c in instance.parent_product_pro_b2c_category.filter(status=True)]
+    elif instance.product_type == 'b2b':
+        child_categories = [str(c.category) for c in instance.parent_product_pro_category.filter(status=True)]
+    elif instance.product_type == 'both':
+        child_categories = [str(c.category) for c in instance.parent_product_pro_b2c_category.filter(status=True)]
+        child_categories += [str(c.category) for c in instance.parent_product_pro_category.filter(status=True)]
     for child in child_skus:
         product_images = []
         if child.use_parent_image:
@@ -345,9 +357,10 @@ def create_repackaging_pickup(sender, instance=None, created=False, **kwargs):
                         if qty - already_picked <= qty_in_bin:
                             already_picked += qty
                             remaining_qty = qty_in_bin - already_picked
-                            bin_inv.quantity = remaining_qty
-                            bin_inv.to_be_picked_qty += already_picked
-                            bin_inv.save()
+                            # bin_inv.quantity = remaining_qty
+                            # bin_inv.to_be_picked_qty += already_picked
+                            # bin_inv.save()
+                            CommonBinInventoryFunctions.move_to_to_be_picked(already_picked, bin_inv)
                             qty = 0
                             Out.objects.create(warehouse=rep_obj.seller_shop,
                                                out_type='repackaging',
@@ -369,9 +382,10 @@ def create_repackaging_pickup(sender, instance=None, created=False, **kwargs):
                         else:
                             already_picked = qty_in_bin
                             remaining_qty = qty - already_picked
-                            bin_inv.quantity = qty_in_bin - already_picked
-                            bin_inv.to_be_picked_qty += already_picked
-                            bin_inv.save()
+                            # bin_inv.quantity = qty_in_bin - already_picked
+                            # bin_inv.to_be_picked_qty += already_picked
+                            # bin_inv.save()
+                            CommonBinInventoryFunctions.move_to_to_be_picked(already_picked, bin_inv)
                             qty = remaining_qty
                             Out.objects.create(warehouse=rep_obj.seller_shop,
                                                out_type='repackaging',
@@ -485,8 +499,22 @@ def update_parent_category_elasticsearch(sender, instance=None, created=False, *
         child_category.save()
 
 
-def update_product_on_category_update(instance, shops):
-    parent_pro_categories = instance.parent_category_pro_category.all()
+@receiver(post_save, sender=B2cCategory)
+def update_parent_category_elasticsearch(sender, instance=None, created=False, **kwargs):
+    shops_str = GlobalConfig.objects.get(key='category_brand_es_shop_ids').value
+    shops = str(shops_str).split(',') if shops_str else None
+    update_product_on_category_update(instance, shops, b2c=True)
+
+    child_categories = instance.b2c_cat_parent.all()
+    for child_category in child_categories:
+        child_category.save()
+
+
+def update_product_on_category_update(instance, shops, b2c=False):
+    if b2c:
+        parent_pro_categories = instance.parent_category_pro_b2c_category.all()
+    else: 
+        parent_pro_categories = instance.parent_category_pro_category.all()
     for category in parent_pro_categories:
         parent_product = category.parent_product
         child_products = parent_product.product_parent_product.filter(status='active')
@@ -517,3 +545,42 @@ def update_product_on_brand_update(instance, shops):
             qs = qs.filter(seller_shop__id__in=shops) if shops else qs
             for prod_price in qs.distinct('seller_shop').values('seller_shop', 'product'):
                 update_shop_product_es_brand.delay(prod_price['seller_shop'], prod_price['product'])
+
+
+@receiver(pre_save, sender=ParentProductCategory)
+def create_parent_product_id(sender, instance=None, created=False, **kwargs):
+    print('parent id generation started')
+    parent_product = ParentProduct.objects.get(pk=instance.parent_product.id)
+    if parent_product.parent_id:
+        return
+    cat_sku_code = instance.category.category_sku_part
+    brand_sku_code = parent_product.parent_brand.brand_code
+    last_sku = ParentProductSKUGenerator.objects.filter(cat_sku_code=cat_sku_code, brand_sku_code=brand_sku_code).last()
+    if last_sku:
+        last_sku_increment = str(int(last_sku.last_auto_increment) + 1).zfill(len(last_sku.last_auto_increment))
+    else:
+        last_sku_increment = '0001'
+    ParentProductSKUGenerator.objects.create(cat_sku_code=cat_sku_code, brand_sku_code=brand_sku_code,
+                                             last_auto_increment=last_sku_increment)
+    parent_product.parent_id = "P%s%s%s" % (cat_sku_code, brand_sku_code, last_sku_increment)
+    parent_product.save()
+    print(parent_product.parent_id)
+
+@receiver(pre_save, sender=ParentProductB2cCategory)
+def create_parent_product_id_b2c(sender, instance=None, created=False, **kwargs):
+    print('parent id generation started')
+    parent_product = ParentProduct.objects.get(pk=instance.parent_product.id)
+    if parent_product.parent_id:
+        return
+    cat_sku_code = instance.category.category_sku_part
+    brand_sku_code = parent_product.parent_brand.brand_code
+    last_sku = ParentProductSKUGenerator.objects.filter(cat_sku_code=cat_sku_code, brand_sku_code=brand_sku_code).last()
+    if last_sku:
+        last_sku_increment = str(int(last_sku.last_auto_increment) + 1).zfill(len(last_sku.last_auto_increment))
+    else:
+        last_sku_increment = '0001'
+    ParentProductSKUGenerator.objects.create(cat_sku_code=cat_sku_code, brand_sku_code=brand_sku_code,
+                                             last_auto_increment=last_sku_increment)
+    parent_product.parent_id = "P%s%s%s" % (cat_sku_code, brand_sku_code, last_sku_increment)
+    parent_product.save()
+    print(parent_product.parent_id)

@@ -1212,6 +1212,8 @@ class ShipmentReschedulingAdminNested(NestedTabularInline):
         return False
 
     def has_change_permission(self, request, obj=None):
+        if not request.user.has_perm('retailer_to_sp.change_shipmentrescheduling'):
+            return False
         if obj:
             instance = ShipmentRescheduling.objects.filter(shipment=obj).last()
             if instance and instance.rescheduled_count > 1:
@@ -1315,6 +1317,22 @@ class OrderedProductAdmin(NestedModelAdmin):
     form = OrderedProductReschedule
     ordering = ['-created_at']
     classes = ['table_inline', ]
+
+    def get_inline_instances(self, request, obj=None):
+        inline_instances = []
+        inlines = self.inlines
+
+        for inline_class in inlines:
+            inline = inline_class(self.model, self.admin_site)
+            if request:
+                if not (inline.has_add_permission(request, obj) or
+                        inline.has_change_permission(request, obj) or
+                        inline.has_delete_permission(request, obj)):
+                    continue
+                if not inline.has_add_permission(request, obj):
+                    inline.max_num = 0
+            inline_instances.append(inline)
+        return inline_instances
 
     def previous_trip(self, obj):
         if obj and obj.rescheduling_shipment.all().exists() and obj.not_attempt_shipment.all().exists():
@@ -1521,11 +1539,12 @@ class ShipmentAdmin(NestedModelAdmin):
     list_display = (
         'start_qc', 'order', 'created_at', 'trip', 'shipment_address',
         'seller_shop', 'invoice_city', 'invoice_amount', 'payment_mode',
-        'shipment_status', 'download_invoice', 'pincode',
+        'shipment_status', 'download_invoice', 'pincode', 'qc_started_at', 'qc_completed_at'
     )
     list_filter = [
         ('created_at', DateTimeRangeFilter), InvoiceSearch, ShipmentOrderIdSearch,
-        ShipmentSellerShopSearch, ('shipment_status', ChoiceDropdownFilter), PincodeSearch
+        ShipmentSellerShopSearch, ('shipment_status', ChoiceDropdownFilter), PincodeSearch,
+        ('qc_started_at', DateTimeRangeFilter), ('qc_completed_at', DateTimeRangeFilter),
     ]
     fields = ['order', 'invoice_no', 'invoice_amount', 'shipment_address', 'invoice_city',
               'shipment_status', 'no_of_crates', 'no_of_packets', 'no_of_sacks', 'close_order']

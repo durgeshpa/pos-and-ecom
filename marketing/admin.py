@@ -170,10 +170,16 @@ class RewardLogAdmin(admin.ModelAdmin):
         if obj.transaction_type in ['order_indirect_credit', 'order_credit', 'order_debit',
                                     'order_cancel_credit', 'order_cancel_debit']:
             order = OrderedProduct.objects.filter(order__order_no=obj.transaction_id).last()
-            return order.invoice_no
+            try:
+                return order.invoice.invoice_no
+            except:
+                return '-'
         if obj.transaction_type in ['order_return_credit', 'order_return_debit']:
             order = OrderedProduct.objects.filter(order__rt_return_order__id=obj.transaction_id).last()
-            return order.invoice_no
+            try:
+                return order.invoice.invoice_no
+            except:
+                return '-'
         return '-'
 
     def get_urls(self):

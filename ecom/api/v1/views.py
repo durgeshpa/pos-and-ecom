@@ -4,7 +4,7 @@ from rest_framework.authentication import TokenAuthentication
 from rest_framework.generics import ListAPIView
 from rest_framework import status
 
-from categories.models import Category
+from categories.models import Category, B2cCategory
 from marketing.models import RewardPoint
 from shops.models import Shop
 from pos.common_functions import serializer_error, api_response
@@ -15,10 +15,11 @@ from pos.models import ShopCustomerMap
 from global_config.views import get_config
 
 from ecom.utils import (check_ecom_user, nearby_shops, validate_address_id, check_ecom_user_shop,
-                        get_categories_with_products)
+                        get_categories_with_products, get_b2c_categories_with_products)
 from ecom.models import Address, Tag
 from .serializers import (AccountSerializer, RewardsSerializer, TagSerializer, UserLocationSerializer, ShopSerializer,
-                          AddressSerializer, CategorySerializer, SubCategorySerializer, TagProductSerializer,
+                          AddressSerializer, CategorySerializer, B2cCategorySerializer, SubCategorySerializer, 
+                          B2cSubCategorySerializer, TagProductSerializer, Parent_Product_Serilizer,
                           ShopInfoSerializer)
 
 from pos.api.v1.serializers import ContectUs
@@ -191,6 +192,49 @@ class SubCategoriesView(APIView):
         return api_response('', serializer.data, status.HTTP_200_OK, is_success)
 
 
+class B2cCategoriesView(APIView):
+    permission_classes = (IsAuthenticated,)
+    authentication_classes = (TokenAuthentication,)
+    serializer_class = B2cCategorySerializer
+
+    @check_ecom_user_shop
+    def get(self, *args, **kwargs):
+        categories_to_return = []
+        categories_with_products = get_b2c_categories_with_products(kwargs['shop'])
+        all_active_categories = B2cCategory.objects.filter(category_parent=None, status=True)
+        # print("==============================================================")
+        for c in all_active_categories:
+            if c.id in categories_with_products:
+                categories_to_return.append(c)
+            elif c.b2c_cat_parent.filter(status=True).count() > 0:
+                for sub_category in c.b2c_cat_parent.filter(status=True):
+                    # print(sub_category)
+                    if sub_category.id in categories_with_products:
+                        categories_to_return.append(c)
+                        break
+        serializer = self.serializer_class(categories_to_return, many=True)
+        is_success = True if categories_to_return else False
+        # print("==============================================================")
+        return api_response('', serializer.data, status.HTTP_200_OK, is_success)
+
+
+class B2cSubCategoriesView(APIView):
+    permission_classes = (IsAuthenticated,)
+    authentication_classes = (TokenAuthentication,)
+    serializer_class = B2cSubCategorySerializer
+
+    @check_ecom_user_shop
+    def get(self, *args, **kwargs):
+        categories_with_products = get_b2c_categories_with_products(kwargs['shop'])
+        category = B2cCategory.objects.get(pk=self.request.GET.get('category_id'))
+        # print(category.__dict__)
+        sub_categories = category.b2c_cat_parent.filter(status=True, 
+                                                        id__in=categories_with_products)
+        serializer = self.serializer_class(sub_categories, many=True)
+        is_success = True if sub_categories else False
+        return api_response('', serializer.data, status.HTTP_200_OK, is_success)
+
+
 class TagView(APIView):
     """
     Get list of all tags
@@ -253,6 +297,7 @@ class UserShopView(APIView):
             is_success, message = True, "Shop Found"
         return api_response(message, data, status.HTTP_200_OK, is_success)
 
+
 class Contect_Us(APIView):
     authentication_classes = (TokenAuthentication,)
     def get(self, request, format=None):
@@ -260,3 +305,19 @@ class Contect_Us(APIView):
         serializer = ContectUs(data=data)
         if serializer.is_valid():
             return api_response('contct us details',serializer.data,status.HTTP_200_OK, True)
+
+
+class ParentProductDetails(APIView):
+    """
+    retailer product details with parent product discriptions .....
+    """
+
+    authentication_classes = (TokenAuthentication,)
+    serializer_class = Parent_Product_Serilizer
+    @check_ecom_user_shop
+    def get(self, request, pk, *args, **kwargs):
+        '''get retailer product details ....'''
+        shop = kwargs['shop']
+        serializer = RetailerProduct.objects.filter(id=pk, shop=shop, is_deleted=False, online_enabled=True)
+        serializer = self.serializer_class(serializer, many=True)
+        return api_response('products information',serializer.data,status.HTTP_200_OK, True)

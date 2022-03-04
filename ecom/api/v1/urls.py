@@ -1,7 +1,8 @@
 from django.conf.urls import url
 
-from .views import AccountView, RewardsView, ShopView, AddressView, AddressListView, CategoriesView, SubCategoriesView, TagView, TagProductView, UserShopView \
-,Contect_Us
+from .views import AccountView, RewardsView, ShopView, AddressView, AddressListView, \
+    CategoriesView, SubCategoriesView, TagView, TagProductView, UserShopView \
+,Contect_Us, ParentProductDetails, B2cCategoriesView, B2cSubCategoriesView
 
 
 urlpatterns = [
@@ -13,8 +14,11 @@ urlpatterns = [
     url(r'^address-list/', AddressListView.as_view(), name='ecom-user-address-list'),
     url(r'^categories/', CategoriesView.as_view(), name='ecom-shop-categories'),
     url(r'^sub-categories/', SubCategoriesView.as_view(), name='ecom-shop-subcategories'),
+    url(r'^b2c-categories/', B2cCategoriesView.as_view(), name='ecom-shop-b2c-categories'),
+    url(r'^b2c-sub-categories/', B2cSubCategoriesView.as_view(), name='ecom-shop-b2c-subcategories'),
     url(r'^tags/', TagView.as_view(), name='ecom-tag'),
     url(r'^tag-product/(?P<pk>\d+)/$', TagProductView.as_view(), name='ecom-tag-product'),
     url(r'^shop-user-mapping/$', UserShopView.as_view(), name='shop-user-mapping'),
-    url(r'contect_us_details/', Contect_Us.as_view(), name='contect_us_ecom')
+    url(r'^contect_us_details/', Contect_Us.as_view(), name='contect_us_ecom'),
+    url(r'^parent_product/(?P<pk>\d+)/$', ParentProductDetails.as_view(),name='parent_product_discription'),
 ]

@@ -1,5 +1,6 @@
 import io
 import logging
+import math
 
 import xlsxwriter
 import csv
@@ -515,3 +516,8 @@ def send_sms_on_trip_start(trip_instance):
             except Exception as e:
                 info_logger.info("Exception|send_sms_on_trip_start| e {} ".format(e))
                 info_logger.error(e)
+
+
+def round_half_down(n, decimals=0):
+    multiplier = 10 ** decimals
+    return math.ceil(n*multiplier - 0.5) / multiplier

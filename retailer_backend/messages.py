@@ -96,6 +96,7 @@ ERROR_MESSAGES = {
     'PICKUP_NOT_FOUND': "No Pickup found for this order",
     'PICKER_DASHBOARD_ENTRY_MISSING': "No Pickup Dashboard entry found",
     'PICK_BIN_DETAILS_NOT_FOUND': "No Pickup Details found for given input",
+    'ORDER_CANCELLED': "Order no. {} is cancelled, kindly submit the picked item to QC head",
     "4001": "Selected records are exceeding system capacity, please keep max records at 50.",
     "4002": "Selected file status is QC pending, you can't download this file.",
     "4003": "Oops! Something went wrong, Please check the data of csv file.",

@@ -1569,6 +1569,7 @@ def not_attempt_update_shipment(shipment, shipment_proudcts_formset, shipment_no
             instance.returned_damage_qty = 0
             instance.save()
 
+
 class RetailerCart(APIView):
     permission_classes = (AllowAny,)
 
@@ -1678,7 +1679,7 @@ class OrderCancellation(object):
 
             # if shipment created but invoice is not generated
             # directly add items to inventory
-            if (self.last_shipment_status == 'SHIPMENT_CREATED' and
+            if (self.last_shipment_status in ['SHIPMENT_CREATED', 'QC_STARTED', 'READY_TO_SHIP'] and
                     not self.trip_status):
                 self.update_sp_qty_from_cart_or_shipment()
                 self.get_shipment_queryset().update(shipment_status='CANCELLED')

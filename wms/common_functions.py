@@ -251,6 +251,15 @@ class CommonBinInventoryFunctions(object):
         obj.to_be_picked_qty = obj.to_be_picked_qty + qty
         obj.save()
 
+
+    @classmethod
+    @transaction.atomic
+    def move_to_to_be_picked(cls, qty, bin_inv_obj):
+        obj = BinInventory.objects.select_for_update().get(pk=bin_inv_obj.id)
+        obj.to_be_picked_qty = obj.to_be_picked_qty + qty
+        obj.quantity = obj.quantity - qty
+        obj.save()
+
     @classmethod
     @transaction.atomic
     def product_shift_across_bins(cls, data):
@@ -1195,91 +1204,58 @@ def cancel_order_with_pick(instance):
                              .format(instance.order_no))
             return
         if pickup_qs.last().status in ['picking_complete', 'moved_to_qc']:
-            if instance.rt_order_order_product.last() and \
-                    instance.rt_order_order_product.last().shipment_status == 'QC_REJECTED':
+            shipment = instance.rt_order_order_product.last()
+            if shipment and shipment.shipment_status == 'QC_REJECTED':
                 return
-            pickup_id = pickup_qs.last().id
-            warehouse = pickup_qs.last().warehouse
-            sku = pickup_qs.last().sku
-
-            # get the queryset object from Pickup Bin Inventory Model
-            pickup_bin_object = PickupBinInventory.objects.filter(pickup__pickup_type_id=instance.order_no)\
-                                                          .exclude(pickup__status='picking_cancelled')
-            # iterate over the PickupBin Inventory object
-            for pickup_bin in pickup_bin_object:
-                quantity = 0
-                pick_up_bin_quantity = 0
-                if instance.rt_order_order_product.all():
-                    if (instance.rt_order_order_product.all()[0].shipment_status in ['READY_TO_SHIP',
-                                                                                     'MOVED_TO_DISPATCH',
-                                                                                     'READY_TO_DISPATCH']):
-                        pickup_order = pickup_bin.shipment_batch
-                        put_away_object = Putaway.objects.filter(warehouse=pickup_bin.warehouse,
+            for pickup in pickup_qs:
+                if shipment and shipment.shipment_status in ['QC_STARTED','READY_TO_SHIP','MOVED_TO_DISPATCH',
+                                                             'READY_TO_DISPATCH']:
+                    for batch_instance in shipment.rt_order_product_order_product_mapping.filter(product=pickup.sku)\
+                                                                            .last().rt_ordered_product_mapping.all():
+                        put_away_object = Putaway.objects.filter(warehouse=pickup.warehouse,
                                                                  putaway_type='CANCELLED',
                                                                  putaway_type_id=instance.order_no,
-                                                                 sku=pickup_bin.bin.sku,
-                                                                 batch_id=pickup_bin.batch_id,
+                                                                 sku=pickup.sku,
+                                                                 batch_id=batch_instance.batch_id,
                                                                  inventory_type=type_normal)
                         if put_away_object.exists():
-                            quantity = put_away_object[0].quantity + pickup_order.quantity
-                            pick_up_bin_quantity = pickup_order.quantity
+                            putaway_qty = put_away_object[0].quantity + batch_instance.quantity
                         else:
-                            quantity = pickup_order.quantity
-                            pick_up_bin_quantity = pickup_order.quantity
-                        if quantity == 0 and pick_up_bin_quantity == 0:
+                            putaway_qty = batch_instance.quantity
+                        if putaway_qty == 0:
                             continue
-                        quantity = quantity
-                        status = 'Shipment_Cancelled'
-                        pick_up_bin_quantity = pick_up_bin_quantity
-                    else:
-                        put_away_object = Putaway.objects.filter(warehouse=pickup_bin.warehouse,
-                                                                 putaway_type='CANCELLED',
-                                                                 putaway_type_id=instance.order_no,
-                                                                 sku=pickup_bin.bin.sku,
+                        Putaway.objects.update_or_create(warehouse=pickup.warehouse, putaway_type='CANCELLED',
+                                                         putaway_type_id=instance.order_no, sku=pickup.sku,
+                                                         batch_id=batch_instance.batch_id, inventory_type=type_normal,
+                                                         defaults={'quantity': putaway_qty,
+                                                                   'status': Putaway.PUTAWAY_STATUS_CHOICE.NEW,
+                                                                   'putaway_quantity': 0})
+                else:
+                    for pickup_bin in pickup.bin_inventory.all():
+                        put_away_object = Putaway.objects.filter(warehouse=pickup.warehouse, putaway_type='CANCELLED',
+                                                                 putaway_type_id=instance.order_no, sku=pickup.sku,
                                                                  batch_id=pickup_bin.batch_id,
                                                                  inventory_type=type_normal,
                                                                  )
                         if put_away_object.exists():
                             quantity = put_away_object[0].quantity + pickup_bin.pickup_quantity
-                            pick_up_bin_quantity = pickup_bin.pickup_quantity
-                            status = 'Shipment_Cancelled'
                         else:
                             quantity = pickup_bin.pickup_quantity
-                            pick_up_bin_quantity = pickup_bin.pickup_quantity
-                            status = 'Shipment_Cancelled'
-                else:
-                    put_away_object = Putaway.objects.filter(warehouse=pickup_bin.warehouse, putaway_type='CANCELLED',
-                                                             putaway_type_id=instance.order_no, sku=pickup_bin.bin.sku,
-                                                             batch_id=pickup_bin.batch_id,
-                                                             inventory_type=type_normal,
-                                                             )
-                    if put_away_object.exists():
-                        quantity = put_away_object[0].quantity + pickup_bin.pickup_quantity
-                        pick_up_bin_quantity = pickup_bin.pickup_quantity
-                        status = 'Pickup_Cancelled'
-                    else:
-                        quantity = pickup_bin.pickup_quantity
-                        pick_up_bin_quantity = pickup_bin.pickup_quantity
-                        status = 'Pickup_Cancelled'
 
-            # update or create put away model
-                pu, _ = Putaway.objects.update_or_create(warehouse=pickup_bin.warehouse, putaway_type='CANCELLED',
-                                                         putaway_type_id=instance.order_no, sku=pickup_bin.bin.sku,
-                                                         batch_id=pickup_bin.batch_id,
-                                                         inventory_type=type_normal,
-                                                         defaults={'quantity': quantity,
-                                                                   'status': Putaway.PUTAWAY_STATUS_CHOICE.NEW,
-                                                                   'putaway_quantity': 0})
-                # update or create put away bin inventory model
-                # PutawayBinInventory.objects.update_or_create(warehouse=pickup_bin.warehouse, sku=pickup_bin.bin.sku,
-                #                                              batch_id=pickup_bin.batch_id, putaway_type=status,
-                #                                              putaway=pu, bin=pickup_bin.bin, putaway_status=False,
-                #                                              defaults={'putaway_quantity': pick_up_bin_quantity})
+                        # update or create put away model
+                        pu, _ = Putaway.objects.update_or_create(warehouse=pickup.warehouse, putaway_type='CANCELLED',
+                                                                 putaway_type_id=instance.order_no, sku=pickup.sku,
+                                                                 batch_id=pickup_bin.batch_id,
+                                                                 inventory_type=type_normal,
+                                                                 defaults={'quantity': quantity,
+                                                                           'status': Putaway.PUTAWAY_STATUS_CHOICE.NEW,
+                                                                           'putaway_quantity': 0})
 
                 CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
-                    warehouse, pickup_bin.bin.sku, type_normal, state_picked, -1 * pick_up_bin_quantity,
+                    pickup.warehouse, pickup.sku, type_normal, state_picked, -1 * pickup.pickup_quantity,
                     "order_cancelled", instance.order_no)
         pickup_qs.update(status='picking_cancelled')
+        instance.picker_order.update(picking_status='picking_cancelled')
 
 
 class AuditInventory(object):
@@ -2625,15 +2601,16 @@ def get_logged_user_wise_query_set_for_shipment(user, queryset):
 def send_update_to_qcdesk(shipment_instance):
     '''Update the QCArea assignment mapping on shipment QC start'''
     info_logger.info(f"send_update_to_qcdesk|QC Started|Shipment ID {shipment_instance.id}")
-    if shipment_instance.qc_area.qc_area_assigned_desks.filter(token_id=shipment_instance.order.order_no).exists():
-        assigned_qc_area = shipment_instance.qc_area.qc_area_assigned_desks.filter(
-                                                token_id=shipment_instance.order.order_no).last()
-        assigned_qc_area.qc_done=True
+    order_no = shipment_instance.order.order_no
+    if shipment_instance.qc_area.qc_area_assigned_desks.filter(token_id=order_no).exists():
+        assigned_qc_area = shipment_instance.qc_area.qc_area_assigned_desks.filter(token_id=order_no).last()
+        assigned_qc_area.qc_done = True
         assigned_qc_area.save()
+        info_logger.info(f"send_update_to_qcdesk|QCDesk Mapping updated|Shipment ID {shipment_instance.id}, "
+                         f"Order no {order_no}")
     else:
-        raise Exception(f"QC Area Assignment mapping not found for this order {shipment_instance.order.order_no}")
-
-    info_logger.info(f"send_update_to_qcdesk|QCDesk Mapping updated|Shipment ID {shipment_instance.id}")
+        error_logger.error(f"send_update_to_qcdesk|QC Area Assignment mapping not found for this order {order_no}")
+        raise Exception(f"QC Area Assignment mapping not found for this order {order_no}")
 
 
 def release_picking_crates(order_instance):

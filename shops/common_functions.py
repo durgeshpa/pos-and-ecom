@@ -305,6 +305,22 @@ def serializer_error(serializer):
     return errors[0]
 
 
+def serializer_error_batch(serializer):
+    """
+        Serializer Error Method
+    """
+    errors = []
+    for error_s in serializer.errors:
+        for field in error_s:
+            for error in error_s[field]:
+                if 'non_field_errors' in field:
+                    result = error
+                else:
+                    result = ''.join('{} : {}'.format(field, error))
+                errors.append(result)
+    return errors
+
+
 def get_excel_file_data(excel_file):
     headers = excel_file.pop(0)  # headers of the uploaded excel file
     # Converting headers into lowercase

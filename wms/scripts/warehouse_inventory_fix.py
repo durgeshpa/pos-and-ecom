@@ -1,12 +1,14 @@
+import logging
+
 from django.db.models import Sum, Q
 
-from audit.models import AuditCancelledPicklist
+from global_config.views import get_config
 from retailer_to_sp.models import Order
-from shops.models import Shop
 from wms.models import InventoryState, InventoryType, Pickup, WarehouseInventory, BinInventory
 
-# warehouse_list = [Shop.objects.get(pk=32154), Shop.objects.get(pk=600),  Shop.objects.get(pk=1393)]
-warehouse_list = [Shop.objects.get(pk=600)]
+cron_logger = logging.getLogger('cron_log')
+warehouse_list = get_config('active_wh_list', [600, 50484])
+
 type_normal = InventoryType.objects.only('id').get(inventory_type='normal').id
 stage_available = InventoryState.objects.only('id').get(inventory_state='available').id
 stage_reserved = InventoryState.objects.only('id').get(inventory_state='reserved').id
@@ -31,7 +33,7 @@ def warehouse_inventory_fix_by_cron():
 
 
 def match_picked_inventory(warehouse):
-     picked_qty_dict = Pickup.objects.filter(warehouse=warehouse, status='picking_complete',
+     picked_qty_dict = Pickup.objects.filter(warehouse_id=warehouse, status='picking_complete',
                                              pickup_type_id__in=
                                              Order.objects.filter(order_status__in=['par_ship_created',
                                                                                     'full_ship_created',
@@ -40,7 +42,7 @@ def match_picked_inventory(warehouse):
                                                           .values_list('order_no', flat=True))\
                                      .values('sku_id').annotate(picked_qty=Sum('pickup_quantity'))
      for item in picked_qty_dict:
-        warehouse_inventory = WarehouseInventory.objects.filter(warehouse=warehouse, sku_id=item['sku_id'],
+        warehouse_inventory = WarehouseInventory.objects.filter(warehouse_id=warehouse, sku_id=item['sku_id'],
                                                                 inventory_type=type_normal,
                                                                 inventory_state=stage_picked).last()
         if warehouse_inventory is not None and warehouse_inventory.quantity != item['picked_qty']:
@@ -51,11 +53,11 @@ def match_picked_inventory(warehouse):
 
 
 def match_total_available_and_to_be_picked(warehouse):
-    bin_inventory = BinInventory.objects.filter(warehouse=warehouse, inventory_type=type_normal,) \
+    bin_inventory = BinInventory.objects.filter(warehouse_id=warehouse, inventory_type=type_normal,) \
                                         .values('sku_id') \
                                         .annotate(available=Sum('quantity'), to_be_picked=Sum('to_be_picked_qty'))
     for item in bin_inventory:
-        warehouse_inventory = WarehouseInventory.objects.filter(warehouse=warehouse, sku_id=item['sku_id'],
+        warehouse_inventory = WarehouseInventory.objects.filter(warehouse_id=warehouse, sku_id=item['sku_id'],
                                                                 inventory_type=type_normal,
                                                                 inventory_state__in=[stage_to_be_picked,
                                                                                      stage_total_available])
@@ -66,12 +68,16 @@ def match_total_available_and_to_be_picked(warehouse):
                 if w.quantity != total_available:
                     print("BinQuantity-{}, Warehouse Inventory --> SKU-{}, total available quantity-{}"
                           .format(total_available, w.sku_id, w.quantity))
+                    cron_logger.info("BinQuantity-{}, Warehouse Inventory --> SKU-{}, total available quantity-{}"
+                                     .format(total_available, w.sku_id, w.quantity))
                     w.quantity = total_available
                     w.save()
             elif w.inventory_state_id == stage_to_be_picked:
                 if w.quantity != item['to_be_picked']:
                     print("BinQuantity-{}, Warehouse Inventory --> SKU-{}, to be picked quantity-{}"
                           .format(item['to_be_picked'], w.sku_id, w.quantity))
+                    cron_logger.info("BinQuantity-{}, Warehouse Inventory --> SKU-{}, to be picked quantity-{}"
+                                     .format(item['to_be_picked'], w.sku_id, w.quantity))
                     w.quantity = item['to_be_picked']
                     w.save()
 
@@ -81,12 +87,12 @@ def fix_ordered_data(warehouse):
     start_time = '2020-08-29 01:01:06.067349'
     inventory_calculated = {}
     warehouse_inventory_dict = {}
-    warehouse_inventory = WarehouseInventory.objects.filter(warehouse=warehouse,
+    warehouse_inventory = WarehouseInventory.objects.filter(warehouse_id=warehouse,
                                                             inventory_type=type_normal,
                                                             inventory_state=stage_ordered)\
                                                     .values('warehouse_id', 'sku_id', 'quantity')
 
-    orders_placed = Order.objects.filter(seller_shop=warehouse,
+    orders_placed = Order.objects.filter(seller_shop_id=warehouse,
                                          order_status=Order.ORDERED,
                                          created_at__gte=start_time)
     for o in orders_placed:

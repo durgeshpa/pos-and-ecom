@@ -9,9 +9,10 @@ from django.http import HttpResponse
 from rest_framework.response import Response
 from rest_framework import status
 
+from global_config.views import get_config_fofo_shop
 from shops.models import Shop
 from wms.models import PosInventory, PosInventoryState
-from retailer_to_sp.models import RoundAmount, OrderedProduct
+from retailer_to_sp.models import RoundAmount, OrderedProduct, Order
 from .models import Address
 from pos.models import RetailerProduct
 
@@ -50,7 +51,7 @@ def check_ecom_user_shop(view_func):
     return _wrapped_view_func
 
 
-def nearby_shops(lat, lng, radius=10, limit=1):
+def nearby_shops(lat, lng, radius=10, limit=10):
     """
     Returns shop(s) within radius from lat,lng point
     lat: latitude
@@ -70,7 +71,13 @@ def nearby_shops(lat, lng, radius=10, limit=1):
                                                                               radius, limit)
 
     queryset = Shop.objects.raw(query)
-    return queryset[0] if queryset else None
+    for shop in queryset:
+        shop_radius = get_config_fofo_shop('Delivery radius', shop.id)
+        if not shop_radius:
+            shop_radius = get_config_fofo_shop('Delivery radius')
+        if shop_radius and float(shop.distance) < float(shop_radius):
+            return shop
+    return None
 
 
 def validate_address_id(func):
@@ -91,6 +98,12 @@ def get_categories_with_products(shop):
     return query_set.values_list(
         'product__linked_product__parent_product__parent_product_pro_category__category', flat=True).distinct()
 
+def get_b2c_categories_with_products(shop):
+    query_set = PosInventory.objects.filter(product__shop=shop, product__status='active', quantity__gt=0,
+                                            inventory_state=PosInventoryState.objects.filter(
+                                                inventory_state='available').last())
+    return query_set.values_list(
+        'product__linked_product__parent_product__parent_product_pro_b2c_category__category', flat=True).distinct()
 
 def get_ecom_tax_details(product):
     gst_amount = 0
@@ -114,11 +127,10 @@ def generate_ecom_order_csv_report(queryset):
         'Seller Shop Name', 'Seller Shop Owner Id', 'Seller Shop Owner Name', 'Mobile No.(Seller Shop)', 'Seller Shop Type', 
         'Buyer Id', 'Buyer Name','Mobile No(Buyer)',
         'Purchased Product Id', 'Purchased Product SKU', 'Purchased Product Name', 'Purchased Product Ean Code','Product Category',
-        'Product SubCategory', 'Quantity',
-        'Product Type', 'MRP', 'Selling Price' , 'Offer Applied' ,'Offer Discount',
-        'Subtotal', 'Order Amount', 'Payment Mode',
-        'Parent Id', 'Parent Name', 'Child Name', 'Brand', 
-        'Tax Slab(GST)', 'Discount' ,'Delivered Quantity', 'Delivered Value', 'Delivery Start Time', 'Delivery End Time', 'PickUp Time' ,'Redeemed Points'
+        'Product SubCategory', 'Quantity', 'Product Type', 'MRP', 'Selling Price', 'Item wise Amount', 'Offer Applied', 'Offer Discount', 'Subtotal', 'Order Amount',
+        'Invoice Amount', 'Payment Mode', 'Parent Id', 'Parent Name', 'Child Name', 'Brand', 'Tax Slab(GST)', 'Discount',
+        'Delivered Quantity', 'Delivered Value', 'Delivery Start Time', 'Delivery End Time', 'PickUp Time' ,
+        'Redeemed Points', 'Redeemed Points Value'
     ])
     orders = queryset \
         .prefetch_related('order', 'invoice','pos_trips', 'order__ordered_cart__seller_shop', 'order__ordered_cart__seller_shop__shop_owner',
@@ -126,8 +138,8 @@ def generate_ecom_order_csv_report(queryset):
                           'rt_order_product_order_product_mapping__retailer_product',
                           'rt_order_product_order_product_mapping__retailer_product__linked_product',
                           'rt_order_product_order_product_mapping__retailer_product__linked_product__parent_product',
-                          'rt_order_product_order_product_mapping__retailer_product__linked_product__parent_product__parent_product_pro_category__category__category_parent',
-                          'rt_order_product_order_product_mapping__retailer_product__linked_product__parent_product__parent_product_pro_category__category',
+                          'rt_order_product_order_product_mapping__retailer_product__linked_product__parent_product__parent_product_pro_b2c_category__category__category_parent',
+                          'rt_order_product_order_product_mapping__retailer_product__linked_product__parent_product__parent_product_pro_b2c_category__category',
                           'rt_order_product_order_product_mapping__retailer_product__linked_product__parent_product__parent_brand__brand_parent',
                           'rt_order_product_order_product_mapping__retailer_product__linked_product__parent_product__parent_brand',
                           'rt_payment_retailer_order__payment_type', 'ordered_cart', 'ordered_cart__rt_cart_list'
@@ -135,7 +147,7 @@ def generate_ecom_order_csv_report(queryset):
         .annotate(
             purchased_subtotal=RoundAmount(Sum(F('ordered_cart__rt_cart_list__qty') * F('ordered_cart__rt_cart_list__selling_price'),output_field=FloatField())),
             ) \
-        .values('id', 'order_no', 'rt_order_order_product__invoice__invoice_no', 'order_status', 'created_at','ordered_cart__seller_shop__id', 'ordered_cart__seller_shop__shop_name',
+        .values('id', 'order_no', 'rt_order_order_product__invoice__invoice_no', 'order_status', 'created_at', 'ordered_cart__seller_shop__id', 'ordered_cart__seller_shop__shop_name',
                 'ordered_cart__seller_shop__shop_owner__id', 'ordered_cart__seller_shop__shop_owner__first_name',
                 'ordered_cart__seller_shop__shop_owner__phone_number',
                 'ordered_cart__seller_shop__shop_type__shop_sub_type__retailer_type_name',
@@ -149,17 +161,31 @@ def generate_ecom_order_csv_report(queryset):
                 'rt_order_order_product__rt_order_product_order_product_mapping__retailer_product__name',
                 'rt_order_order_product__rt_order_product_order_product_mapping__retailer_product__mrp',
                 'rt_order_order_product__rt_order_product_order_product_mapping__retailer_product__selling_price',
+                'rt_order_order_product__rt_order_product_order_product_mapping__retailer_product__online_price',
                 'rt_order_order_product__rt_order_product_order_product_mapping__retailer_product__product_ean_code',
                 'rt_order_order_product__rt_order_product_order_product_mapping__retailer_product__linked_product__parent_product__parent_id',
                 'rt_order_order_product__rt_order_product_order_product_mapping__retailer_product__linked_product__parent_product__name',
-                'rt_order_order_product__rt_order_product_order_product_mapping__retailer_product__linked_product__parent_product__parent_product_pro_category__category__category_parent__category_name',
-                'rt_order_order_product__rt_order_product_order_product_mapping__retailer_product__linked_product__parent_product__parent_product_pro_category__category__category_name',
+                'rt_order_order_product__rt_order_product_order_product_mapping__retailer_product__linked_product__parent_product__parent_product_pro_b2c_category__category__category_parent__category_name',
+                'rt_order_order_product__rt_order_product_order_product_mapping__retailer_product__linked_product__parent_product__parent_product_pro_b2c_category__category__category_name',
                 'rt_order_order_product__rt_order_product_order_product_mapping__retailer_product__linked_product__parent_product__parent_brand__brand_parent__brand_name',
                 'rt_order_order_product__rt_order_product_order_product_mapping__retailer_product__linked_product__parent_product__parent_brand__brand_name',
                 'purchased_subtotal', 'order_amount', 'rt_payment_retailer_order__payment_type__type',
-                'ordered_cart__offers', 'rt_order_order_product__pos_trips__trip_start_at', 'rt_order_order_product__pos_trips__trip_end_at','ordered_cart__redeem_points', 'created_at'
+                'ordered_cart__offers', 'rt_order_order_product__pos_trips__trip_start_at', 'rt_order_order_product__pos_trips__trip_end_at',
+                'ordered_cart__redeem_points', 'created_at',
                 ).iterator()
     for order in orders:
+        inv_amt = None
+        product_inv_price = None
+        redeem_points_value = None
+        shipment = Order.objects.get(id=order.get('id')).rt_order_order_product.last()
+        if shipment:
+            redeem_points_value = shipment.order.ordered_cart.redeem_points_value
+            inv_amt = shipment.invoice_amount_final
+            order_product_mapping = shipment.rt_order_product_order_product_mapping.filter(
+                retailer_product_id=order.get('rt_order_order_product__rt_order_product_order_product_mapping__retailer_product__id')). \
+                last()
+            product_inv_price = order_product_mapping.product_total_price
+
         retailer_product_id = order.get('rt_order_order_product__rt_order_product_order_product_mapping__retailer_product__id')
         retailer_product = RetailerProduct.objects.filter(id=retailer_product_id)
         if retailer_product:
@@ -172,9 +198,9 @@ def generate_ecom_order_csv_report(queryset):
         discounts = { item.get('item_id'): item.get('cart_or_brand_level_discount') \
             for item in list(filter(lambda d: d['type'] in 'none', cart_offers))}
         category = order[
-            'rt_order_order_product__rt_order_product_order_product_mapping__retailer_product__linked_product__parent_product__parent_product_pro_category__category__category_parent__category_name']
+            'rt_order_order_product__rt_order_product_order_product_mapping__retailer_product__linked_product__parent_product__parent_product_pro_b2c_category__category__category_parent__category_name']
         sub_category = order[
-            'rt_order_order_product__rt_order_product_order_product_mapping__retailer_product__linked_product__parent_product__parent_product_pro_category__category__category_name']
+            'rt_order_order_product__rt_order_product_order_product_mapping__retailer_product__linked_product__parent_product__parent_product_pro_b2c_category__category__category_name']
         if not category:
             category = sub_category
             sub_category = None
@@ -229,12 +255,14 @@ def generate_ecom_order_csv_report(queryset):
             retailer_product_type.get(product_type, product_type),
             order.get('rt_order_order_product__rt_order_product_order_product_mapping__retailer_product__mrp'),
             order.get('rt_order_order_product__rt_order_product_order_product_mapping__selling_price'),
+            product_inv_price,
             offers[0].get('coupon_description', None) if len(offers) else None,
             offers[0].get('discount_value', None) if len(offers) else None
             if len(offers) else None,
             #order.get('purchased_subtotal'),
             sub_total[0] if sub_total else None,
             order.get('order_amount'),
+            inv_amt,
             order.get('rt_payment_retailer_order__payment_type__type'),
             order.get('rt_order_order_product__rt_order_product_order_product_mapping__retailer_product__linked_product__parent_product__parent_id'),
             order.get('rt_order_order_product__rt_order_product_order_product_mapping__retailer_product__linked_product__parent_product__name'),
@@ -250,6 +278,7 @@ def generate_ecom_order_csv_report(queryset):
                 if order.get('rt_order_order_product__pos_trips__trip_end_at') else '',
             order.get('created_at').strftime('%m/%d/%Y-%H-%M-%S'),
             order.get('ordered_cart__redeem_points'),
+            redeem_points_value
         ])
 
     return response

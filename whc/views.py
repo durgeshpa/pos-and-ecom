@@ -16,7 +16,7 @@ from retailer_backend.common_function import checkNotShopAndMapping, getShopMapp
 from retailer_to_sp.models import Order, Cart, CartProductMapping, PickerDashboard, generate_picklist_id, \
     OrderedProductMapping, OrderedProduct, OrderedProductBatch, Trip
 from retailer_to_sp.views import TRIP_ORDER_STATUS_MAP, TRIP_SHIPMENT_STATUS_MAP
-from shops.models import Shop
+from shops.models import Shop, ParentRetailerMapping
 from whc.models import AutoOrderProcessing, SourceDestinationMapping
 from wms.common_functions import get_stock, OrderManagement, InCommonFunctions, \
     CommonPickupFunctions, CommonPickBinInvFunction, InternalInventoryChange, CommonWarehouseInventoryFunctions, \
@@ -201,6 +201,8 @@ class AutoOrderProcessor:
         if shipments.exists():
             shipment = shipments.last()
             shipment.shipment_status = OrderedProduct.READY_TO_SHIP
+            shipment.save()
+            shipment.shipment_status = OrderedProduct.MOVED_TO_DISPATCH
             shipment.save()
             shipment.rt_order_product_order_product_mapping.all().update(is_qc_done=True)
             return
@@ -708,25 +710,25 @@ def process_auto_order():
     is_wh_consolidation_on = get_config('is_wh_consolidation_on', False)
     if not is_wh_consolidation_on:
         return
-    source_wh_id = get_config('wh_consolidation_source')
-    if source_wh_id is None:
-        info_logger.info("process_auto_order|wh_consolidation_source is not defined")
-        return
-    source_wh = Shop.objects.filter(pk=source_wh_id).last()
-    if source_wh is None:
-        info_logger.info("process_auto_order|no warehouse found with id -{}".format(source_wh_id))
-        return
+    source_wh_id_list = get_config('wh_consolidation_source') ## Addistro SP Shop
+    # if source_wh_id is None:
+    #     info_logger.info("process_auto_order|wh_consolidation_source is not defined")
+    #     return
+    # source_wh = Shop.objects.filter(pk=source_wh_id).last()
+    # if source_wh is None:
+    #     info_logger.info("process_auto_order|no warehouse found with id -{}".format(source_wh_id))
+    #     return
 
-    wh_consolidation_destination = get_config('wh_consolidation_destination')
-    if wh_consolidation_destination is None:
-        info_logger.info("process_auto_po_generation|wh_consolidation_destination is not defined ")
-        return
-    buyer_shop = Shop.objects.filter(pk=wh_consolidation_destination).last()
-
-    if buyer_shop is None:
-        info_logger.info("process_auto_order|no shop found with id -{}".format(buyer_shop))
-        return
-    shipp_bill_address = Address.objects.filter(shop_name=buyer_shop).last()
+    # wh_consolidation_destination = get_config('wh_consolidation_destination')
+    # if wh_consolidation_destination is None:
+    #     info_logger.info("process_auto_po_generation|wh_consolidation_destination is not defined ")
+    #     return
+    # buyer_shop = Shop.objects.filter(pk=wh_consolidation_destination).last()
+    #
+    # if buyer_shop is None:
+    #     info_logger.info("process_auto_order|no shop found with id -{}".format(buyer_shop))
+    #     return
+    # shipp_bill_address = Address.objects.filter(shop_name=buyer_shop).last()
 
     wh_consolidation_vendor = get_config('wh_consolidation_vendor')
     if wh_consolidation_vendor is None:
@@ -748,30 +750,49 @@ def process_auto_order():
         info_logger.info("process_auto_order|no User found with id -{}".format(user_id))
         return
 
-    wh_mapping = SourceDestinationMapping.objects.filter(source_wh=source_wh)
-    if not wh_mapping.exists():
-        info_logger.info("process_auto_order|no mapping found for this warehouse-{}".format(source_wh))
-        return
+    # wh_mapping = SourceDestinationMapping.objects.filter(source_wh=source_wh)
+    # if not wh_mapping.exists():
+    #     info_logger.info("process_auto_order|no mapping found for this warehouse-{}".format(source_wh))
+    #     return
     entries_to_process = AutoOrderProcessing.objects.filter(
-        ~Q(state=AutoOrderProcessing.ORDER_PROCESSING_STATUS.AUTO_GRN_DONE),
-        grn_warehouse=source_wh)
+        ~Q(state=AutoOrderProcessing.ORDER_PROCESSING_STATUS.AUTO_GRN_DONE))
     if entries_to_process.count() == 0:
         info_logger.info("process_auto_order| no entry to process")
         return
 
-    virtual_bin_ids = get_config('virtual_bins')
-    if not virtual_bin_ids:
-        return
-    bin_ids = eval(virtual_bin_ids)
-    bin_list = Bin.objects.filter(warehouse=source_wh, bin_id__in=bin_ids)
-    if not bin_list.exists():
-        info_logger.info("process_auto_order| no bin found")
-        return
+    # virtual_bin_ids = get_config('virtual_bins')
+    # if not virtual_bin_ids:
+    #     return
+    # bin_ids = eval(virtual_bin_ids)
+    # bin_list = Bin.objects.filter(warehouse=source_wh, bin_id__in=bin_ids)
+    # if not bin_list.exists():
+    #     info_logger.info("process_auto_order| no bin found")
+    #     return
     vehicle_no = get_config('wh_consolidation_vehicle_no', 'dummy')
-    retailer_shop = wh_mapping.last().retailer_shop
-    order_processor = AutoOrderProcessor(retailer_shop, system_user, supplier, shipp_bill_address, bin_list, vehicle_no)
+    # retailer_shop = wh_mapping.last().retailer_shop
     info_logger.info("process_auto_order|STARTED")
     for entry in entries_to_process:
+
+        wh_mapping = SourceDestinationMapping.objects.filter(source_wh=entry.grn_warehouse).last()
+
+        if not wh_mapping:
+            info_logger.info("process_auto_order|no mapping found for this warehouse-{}".format(entry.grn_warehouse))
+            continue
+
+        elif not ParentRetailerMapping.objects.filter(retailer=wh_mapping.dest_wh).exists():
+            info_logger.info("process_auto_order|no mapping found for this retailer-{}".format(wh_mapping.dest_wh))
+            continue
+
+        gfdn_sp_shop = ParentRetailerMapping.objects.filter(retailer=wh_mapping.dest_wh).last().parent
+        shipp_bill_address = Address.objects.filter(shop_name=gfdn_sp_shop).last()
+
+        if not Bin.objects.filter(warehouse=entry.grn_warehouse_id, bin_type='VB', is_active=True).exists():
+            info_logger.info("process_auto_order| no bin found for warehouse {}".format(entry.grn_warehouse))
+            return
+
+        bin_list = Bin.objects.filter(warehouse=entry.grn_warehouse_id, bin_type='VB', is_active=True)
+        order_processor = AutoOrderProcessor(wh_mapping.retailer_shop, system_user, supplier, shipp_bill_address,
+                                             bin_list, vehicle_no)
         try:
             while True:
                 current_state = entry.state

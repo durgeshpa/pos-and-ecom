@@ -1,8 +1,8 @@
 from django.contrib import admin
 from adminsortable.admin import NonSortableParentAdmin, SortableStackedInline
-from .models import Category, CategoryData, CategoryPosation
+from .models import Category, CategoryData, CategoryPosation, B2cCategory, B2cCategoryData
 from import_export.admin import ExportActionMixin
-from .resources import CategoryResource
+from .resources import CategoryResource, B2cCategoryResource
 from retailer_backend.admin import InputFilter
 from django.db.models import Q
 
@@ -52,18 +52,18 @@ class CategorySKUSearch(InputFilter):
 class CategoryDataInline(SortableStackedInline):
     model = CategoryData
 
+class B2cCategoryDataInline(SortableStackedInline):
+    model = B2cCategoryData
 
 class CategoryPosationAdmin(NonSortableParentAdmin):
-    inlines = [CategoryDataInline]
-
+    inlines = [CategoryDataInline, B2cCategoryDataInline]
 
 admin.site.register(CategoryPosation, CategoryPosationAdmin)
-
 
 class CategoryAdmin(ExportActionMixin, admin.ModelAdmin):
     resource_class = CategoryResource
     fields = ('category_name', 'category_slug', 'category_desc', 'category_sku_part',
-              'category_image', 'status','b2c_status')
+              'category_image', 'status', 'b2c_status')
     list_display = ['id', 'category_name', 'category_slug', 'category_sku_part','b2c_status']
     search_fields = ['category_name']
     prepopulated_fields = {'category_slug': ('category_name',)}
@@ -71,4 +71,16 @@ class CategoryAdmin(ExportActionMixin, admin.ModelAdmin):
     list_filter = [CategorySearch, CategoryParentSearch, CategorySKUSearch]
 
 
+class B2cCategoryAdmin(ExportActionMixin, admin.ModelAdmin):
+    resource_class = B2cCategoryResource
+    fields = ('category_name', 'category_slug', 'category_desc', 'category_sku_part',
+              'category_image', 'status')
+    list_display = ['id', 'category_name', 'category_slug', 'category_sku_part']
+    search_fields = ['category_name']
+    prepopulated_fields = {'category_slug': ('category_name',)}
+    search_fields = ('category_name',)
+    list_filter = [CategorySearch, CategoryParentSearch, CategorySKUSearch]
+
+
 admin.site.register(Category,CategoryAdmin)
+admin.site.register(B2cCategory, B2cCategoryAdmin)
