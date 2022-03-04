@@ -3,7 +3,7 @@ from django.db.models import Q
 from celery.task import task
 from celery.contrib import rdb
 
-from .models import ProductPrice
+from .models import ProductPrice, ParentProduct, Product, ProductB2cCategory, ProductCategory, ParentProductB2cCategory
 
 
 @task
@@ -21,3 +21,19 @@ def approve_product_price(product_price_id):
         approval_status=ProductPrice.APPROVED
     )
     product_prices.update(approval_status=ProductPrice.DEACTIVATED)
+
+
+@task
+def load_b2c_parent_category_data(cat_map=None):
+    if not cat_map:
+        return 0
+    b2c_products = ParentProduct.objects.filter(product_type__in=['b2c', 'both'])
+    for product in b2c_products:
+        p_categories = product.parent_product_pro_category.all()
+        for p_category in p_categories:
+            cat_id = p_category.category.id
+            parent_id = p_category.category.category_parent.id if p_category.category.category_parent else None
+            if cat_map.get((cat_id, parent_id)):
+                ParentProductB2cCategory.objects.create(parent_product=product, 
+                                                        category=cat_map.get((cat_id, parent_id)))
+        

@@ -987,13 +987,6 @@ class Order(models.Model):
         ('4','Retailer Order'),
         ('5','Others')
     )
-    POS_WALKIN = 'pos_walkin'
-    POS_ECOMM = 'pos_ecomm'
-
-    ORDER_APP_TYPE = (
-        (POS_WALKIN, 'Pos Walkin'),  # 1
-        (POS_ECOMM, 'Pos Ecomm'),  # 2
-    )
 
     POS_WALKIN = 'pos_walkin'
     POS_ECOMM = 'pos_ecomm'
@@ -2390,6 +2383,10 @@ class OrderedProductMapping(models.Model):
     @property
     def product_sub_total(self):
         return round(float(self.effective_price * self.shipped_qty), 2)
+
+    @property
+    def product_total_price(self):
+        return round(float(self.selling_price * self.shipped_qty), 2)
 
     def get_shop_specific_products_prices_sp(self):
         return self.product.product_pro_price.filter(
