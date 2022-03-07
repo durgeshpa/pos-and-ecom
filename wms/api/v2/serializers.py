@@ -1070,9 +1070,7 @@ class ZonewiseSummarySerializers(serializers.Serializer):
     zone = serializers.SerializerMethodField()
 
     def get_zone(self, obj):
-        if obj['zone']:
-            return ZoneSerializer(Zone.objects.get(id=obj['zone']), read_only=True).data
-        return None
+        return ZoneSerializer(obj['zone'], read_only=True).data
 
 
 class PutawayItemsCrudSerializer(serializers.ModelSerializer):

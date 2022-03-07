@@ -193,6 +193,20 @@ def bulk_create_update_validated_products(uploaded_by, shop_id, uploaded_data_by
                     if product_pack_type:
                         product.product_pack_type = product_pack_type.lower()
 
+                    if 'linked_product_sku' in row.keys() and not row.get('linked_product_sku') == '':
+                        if row.get('linked_product_sku') != '':
+                            parent_product = Product.objects.filter(product_sku=row.get('linked_product_sku')).last()
+                            if parent_product:
+                                product.linked_product = parent_product
+                                product.sku_type = 2
+                            else:
+                                product.linked_product= None
+                                product.sku_type = 1
+                                product.linked_product_sku = row.get('linked_product_sku')
+                    if 'linked_product_sku' in row.keys() and not row.get('linked_product_sku'):
+                        product.linked_product = None
+                        product.sku_type = 1
+
                     product.measurement_category_id = measure_cat_id
 
                     product.save()
