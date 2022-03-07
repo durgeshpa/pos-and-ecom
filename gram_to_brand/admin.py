@@ -208,10 +208,11 @@ class GRNOrderForm(forms.ModelForm):
         queryset=Order.objects.all(),
         widget=autocomplete.ModelSelect2(url='order-autocomplete', )
     )
+    deduction = forms.BooleanField()
 
     class Meta:
         model = GRNOrder
-        fields = ('order', 'invoice_no',)
+        fields = ('order', 'invoice_no', 'deduction',)
 
 
 class DocumentAdmin(admin.StackedInline):
@@ -297,7 +298,8 @@ class GRNOrderAdmin(admin.ModelAdmin):
                    POCreatedBySearch, ('created_at', DateRangeFilter),
                    ('grn_order_grn_order_product__expiry_date', DateRangeFilter)]
     form = GRNOrderForm
-    fields = ('order', 'invoice_no', 'invoice_date', 'invoice_amount', 'tcs_amount')
+    fields = ('order', 'invoice_no', 'invoice_date', 'invoice_amount', 'tcs_amount', 'total_freight_charges',
+              'deduction', 'discount_charges', 'insurance_charges', 'other_charges')
 
     class Media:
         js = ('admin/js/picker.js',)
