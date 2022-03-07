@@ -629,10 +629,10 @@ class PickupDetail(APIView):
             return Response(msg, status=status.HTTP_200_OK)
 
         order = Order.objects.filter(order_no=order_no).last()
-        if not order:
+        if not order and not Repackaging.objects.filter(repackaging_no=order_no).exists():
             msg = {'is_success': True, 'message': 'Invalid order no.', 'data': None}
             return Response(msg, status=status.HTTP_200_OK)
-        elif order.order_status == Order.CANCELLED:
+        elif order and order.order_status == Order.CANCELLED:
             msg = {'is_success': True, 'message': ERROR_MESSAGES['ORDER_CANCELLED'].format(order_no), 'data': None}
             return Response(msg, status=status.HTTP_200_OK)
         try:
@@ -684,7 +684,7 @@ class PickupDetail(APIView):
         if not order_no:
             return Response(msg, status=status.HTTP_200_OK)
         order = Order.objects.filter(order_no=order_no).last()
-        if order.order_status == Order.CANCELLED:
+        if order and order.order_status == Order.CANCELLED:
             msg = {'is_success': True, 'message': ERROR_MESSAGES['ORDER_CANCELLED'].format(order_no), 'data': None}
             return Response(msg, status=status.HTTP_200_OK)
 
