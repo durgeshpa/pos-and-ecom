@@ -245,7 +245,6 @@ class Payment(models.Model):
     refund_amount = models.DecimalField(max_digits=10, decimal_places=2, null=True)
     refund_status = models.CharField(max_length=18, blank=True, null=True)
 
-
     class Meta:
         verbose_name = 'Buyer - Payment'
 

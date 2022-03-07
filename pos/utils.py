@@ -412,13 +412,13 @@ def generate_csv_payment_report(payments):
     )
     rows = []
     for payment in payments:
-        inv_amt = None
-        order = Order.objects.get(id=payment.order.id).rt_order_order_product.last()
-        if order:
-            if order.order.order_app_type == Order.POS_WALKIN:
-                inv_amt = round_half_down(order.invoice_amount_final)
-            else:
-                inv_amt = order.invoice_amount_final
+        # order = Order.objects.get(id=payment.order.id).rt_order_order_product.last()
+        # if order:
+        #     if order.order.order_app_type == Order.POS_WALKIN:
+        #         inv_amt = round_half_down(order.invoice_amount_final)
+        #     else:
+        #         inv_amt = order.invoice_amount_final
+
         row = []
         row.append(payment.order.order_no)
         row.append(getattr(payment.order.shipments()[0],'invoice','')  if payment.order.shipments() else '')
@@ -456,7 +456,7 @@ def generate_csv_payment_report(payments):
         row.append(spot_discount)
         row.append(spot_discount_v)
         row.append(payment.amount)
-        row.append(inv_amt)
+        row.append(payment.amount)
         row.append(payment.paid_by)
         row.append(payment.processed_by)
         row.append(payment.created_at.strftime("%m/%d/%Y-%H:%M:%S"))
