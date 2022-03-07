@@ -983,7 +983,7 @@ def create_product_sku(sender, instance=None, created=False, **kwargs):
                 if ParentProductB2cCategory.objects.filter(parent_product=instance.parent_product).exists():
                     parent_product_category = ParentProductB2cCategory.objects.filter(
                         parent_product=instance.parent_product).first().category
-                elif ParentProductCategory.objects.filter(parent_product=instance.parent_product).first().exists():
+                elif ParentProductCategory.objects.filter(parent_product=instance.parent_product).exists():
                     parent_product_category = ParentProductCategory.objects.filter(
                         parent_product=instance.parent_product).first().category
             cat_sku_code = parent_product_category.category_sku_part
