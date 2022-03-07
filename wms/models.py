@@ -274,6 +274,7 @@ class In(models.Model):
             self.weight = 0
         super(In, self).save(*args, **kwargs)
 
+
 class Putaway(models.Model):
     NEW, ASSIGNED, INITIATED, COMPLETED, CANCELLED = 'NEW', 'ASSIGNED', 'INITIATED', 'COMPLETED', 'CANCELLED'
     PUTAWAY_STATUS_CHOICE = Choices((NEW, 'New'), (ASSIGNED, 'Assigned'), (INITIATED, 'Initiated'),
@@ -283,6 +284,8 @@ class Putaway(models.Model):
                                      on_delete=models.DO_NOTHING)
     putaway_type = models.CharField(max_length=20, null=True, blank=True)
     putaway_type_id = models.CharField(max_length=20, null=True, blank=True)
+    zone = models.ForeignKey(Zone, related_name="zone_putaway", on_delete=models.DO_NOTHING, null=True, blank=True)
+    reference_id = models.IntegerField(null=True, blank=True)
     sku = models.ForeignKey(Product, to_field='product_sku', on_delete=models.DO_NOTHING)
     batch_id = models.CharField(max_length=50, null=True, blank=True)
     inventory_type = models.ForeignKey(InventoryType, null=True, blank=True, on_delete=models.DO_NOTHING)

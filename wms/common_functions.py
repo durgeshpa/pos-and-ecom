@@ -89,7 +89,7 @@ class PutawayCommonFunctions(object):
 
     @classmethod
     def create_putaway(cls, warehouse, putaway_type, putaway_type_id, sku, batch_id, quantity, putaway_quantity,
-                       inventory_type):
+                       inventory_type, reference_id=None):
         if warehouse.shop_type.shop_type in ['sp', 'f']:
             if putaway_quantity == 0:
                 putaway_status = Putaway.PUTAWAY_STATUS_CHOICE.NEW
@@ -97,11 +97,13 @@ class PutawayCommonFunctions(object):
                 putaway_status = Putaway.PUTAWAY_STATUS_CHOICE.COMPLETED
             else:
                 putaway_status = None
+            zone = get_zone_by_warehouse_and_product(warehouse, sku.parent_product) \
+                if isinstance(sku, Product) else None
             putaway_obj = Putaway.objects.create(warehouse=warehouse, putaway_type=putaway_type,
                                                  putaway_type_id=putaway_type_id, sku=sku,
                                                  batch_id=batch_id, quantity=quantity,
                                                  putaway_quantity=putaway_quantity,
-                                                 inventory_type=inventory_type)
+                                                 inventory_type=inventory_type, reference_id=reference_id, zone=zone)
             if putaway_status is not None:
                 putaway_obj.status = putaway_status
                 putaway_obj.save()
@@ -144,7 +146,7 @@ class InCommonFunctions(object):
 
     @classmethod
     def create_in(cls, warehouse, in_type, in_type_id, sku, batch_id, quantity, putaway_quantity, inventory_type,
-                  weight=0, manufacturing_date=None):
+                  weight=0, manufacturing_date=None, reference_id=None):
         if warehouse.shop_type.shop_type in ['sp', 'f']:
             in_obj = In.objects.create(warehouse=warehouse, in_type=in_type, in_type_id=in_type_id, sku=sku,
                                        batch_id=batch_id, inventory_type=inventory_type,
@@ -152,7 +154,7 @@ class InCommonFunctions(object):
                                        manufacturing_date=manufacturing_date)
             PutawayCommonFunctions.create_putaway(in_obj.warehouse, in_obj.in_type, in_obj.id, in_obj.sku,
                                                   in_obj.batch_id, in_obj.quantity, putaway_quantity,
-                                                  in_obj.inventory_type)
+                                                  in_obj.inventory_type, reference_id)
             return in_obj
 
     @classmethod
@@ -2630,3 +2632,8 @@ def get_logged_user_wise_query_set_for_dispatch(user, queryset):
     else:
         queryset = queryset.none()
     return queryset
+
+
+def get_zone_by_warehouse_and_product(warehouse, product):
+    assortment = WarehouseAssortment.objects.filter(warehouse=warehouse, product=product).last()
+    return assortment.zone if assortment else None
