@@ -1182,10 +1182,24 @@ class ProductAdmin(admin.ModelAdmin, ExportCsvMixin):
 
     def product_category(self, obj):
         try:
-            if obj.parent_product.parent_product_pro_category.exists():
-                cats = [str(c.category) for c in obj.parent_product.parent_product_pro_category.filter(status=True)]
-                return "\n".join(cats)
-            return ''
+            if obj.parent_product.product_type=='b2b':
+                if obj.parent_product.parent_product_pro_category.exists():
+                    cats = [str(c.category) for c in obj.parent_product.parent_product_pro_category.filter(status=True)]
+                    return "\n".join(cats)
+                return ''
+            elif obj.parent_product.product_type=='b2c':
+                if obj.parent_product.parent_product_pro_b2c_category.exists():
+                    cats = [str(c.category) for c in obj.parent_product.parent_product_pro_b2c_category.filter(status=True)]
+                    return "\n".join(cats)
+                return ''
+            else:
+                if obj.parent_product.parent_product_pro_b2c_category.exists():
+                    cats = [str(c.category) for c in obj.parent_product.parent_product_pro_b2c_category.filter(status=True)]
+                    return "\n".join(cats)
+                elif obj.parent_product.parent_product_pro_category.exists():
+                    cats = [str(c.category) for c in
+                            obj.parent_product.parent_product_pro_category.filter(status=True)]
+                    return "\n".join(cats)
         except:
             return ''
 

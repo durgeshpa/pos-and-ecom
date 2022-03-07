@@ -282,6 +282,13 @@ class OrderPayment(AbstractDateTime):
             raise ValidationError(_(error_msg),)
         except:
             pass
+    
+    def save(self, *args, **kwargs):
+        shipment_payments = self.shipment_order_payment.all()
+        for ship_pay in shipment_payments:
+            ship_pay.paid_amount = ship_pay.parent_order_payment.paid_amount
+            ship_pay.save()
+        super().save(*args, **kwargs)
 
 # create payment mode table shipment payment mapping
 class ShipmentPayment(AbstractDateTime):
@@ -290,7 +297,7 @@ class ShipmentPayment(AbstractDateTime):
     shipment = models.ForeignKey(OrderedProduct, related_name='shipment_payment', on_delete=models.CASCADE) #shipment_id
     parent_order_payment = models.ForeignKey(OrderPayment, 
        related_name='shipment_order_payment', on_delete=models.CASCADE)
-    paid_amount = models.DecimalField(validators=[MinValueValidator(0)], max_digits=20, decimal_places=4, default='0.0000')
+    paid_amount = models.DecimalField(validators=[MinValueValidator(0)], max_digits=20, decimal_places=4, default=0.0000)
     created_by = models.ForeignKey(User, related_name='payment_created_by', null=True, blank=True, on_delete=models.SET_NULL)
     updated_by = models.ForeignKey(User, related_name='payment_updated_by', null=True, blank=True, on_delete=models.SET_NULL)
 

@@ -119,15 +119,18 @@ class OrderPaymentForm(forms.ModelForm):
         self.fields.get('paid_by').queryset = UserWithName.objects.filter(pk__in=users)
         instance = getattr(self, 'instance', None)
         if instance.pk:
-            self.fields['paid_by'].initial = instance.parent_payment.paid_by
+            self.fields['paid_by'].initial = instance.parent_payment.paid_by.id
             self.fields['reference_no'].initial = instance.parent_payment.reference_no
+            self.fields['payment_mode_name'].initial = instance.parent_payment.payment_mode_name
         elif kwargs is not None and kwargs.get('initial', None):
             if kwargs.get('initial').get('object_id', None) is not None:
                 object_id = kwargs.get('initial').get('object_id')
                 shipment_data_instance = ShipmentData.objects.filter(id=object_id).last()
                 self.fields['order'].initial = shipment_data_instance.order.id
-        if request:
-            self.fields['paid_by'].initial = request.user.id
+        # elif not instance.pk:
+        #     print(request.user.id)
+        #     if request:
+        #         self.fields['paid_by'].initial = request.user.id
 
     def clean(self):
         cleaned_data = super(OrderPaymentForm, self).clean()
@@ -153,13 +156,14 @@ class OrderPaymentForm(forms.ModelForm):
                     raise ValidationError(_(f"Max amount to be paid is {cash_to_be_collected-total_paid_amount}"))
 
             if paid_by and paid_amount and order and payment_mode_name:
-                if existing_payment:
-                    if existing_payment.order.filter(~Q(id=order.pk)).exists():
-                        existing_payment.order.remove(order)
-                    else:
-                        existing_payment.delete()
+                if not self.instance.pk:
+                    if existing_payment:
+                        if existing_payment.order.filter(~Q(id=order.pk)).exists():
+                            existing_payment.order.remove(order)
+                        else:
+                            existing_payment.delete()
                 if payment_mode_name == "online_payment" and not reference_no:
-                    raise ValidationError('Referece number is required.')
+                    raise ValidationError('Reference number is required.')
                 payment = Payment.objects.create(paid_by=paid_by,
                                                  paid_amount=paid_amount,
                                                  payment_mode_name=payment_mode_name,
