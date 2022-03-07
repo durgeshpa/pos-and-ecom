@@ -7,7 +7,7 @@ from django.http import HttpResponse
 
 from retailer_to_sp.models import ReturnItems, RoundAmount, Invoice, Order
 from retailer_to_sp.utils import round_half_down
-from .models import PAYMENT_MODE_POS, RetailerProduct
+from .models import PAYMENT_MODE_POS, RetailerProduct, Payment
 from .views import get_product_details, get_tax_details
 
 
@@ -412,12 +412,19 @@ def generate_csv_payment_report(payments):
     )
     rows = []
     for payment in payments:
-        # order = Order.objects.get(id=payment.order.id).rt_order_order_product.last()
-        # if order:
-        #     if order.order.order_app_type == Order.POS_WALKIN:
-        #         inv_amt = round_half_down(order.invoice_amount_final)
-        #     else:
-        #         inv_amt = order.invoice_amount_final
+        inv_amt = None
+        if payment and payment.payment_status not in [Payment.PAYMENT_PENDING, Payment.PAYMENT_FAILED,
+                                                      'payment_not_found']:
+            if payment.order.order_app_type == Order.POS_WALKIN:
+                inv_amt = payment.amount
+            elif payment.order.order_app_type == Order.POS_ECOMM and payment.payment_type.type == 'cod' \
+                    and payment.order.order_status in [Order.DELIVERED, Order.PARTIALLY_RETURNED, Order.FULLY_RETURNED]:
+                inv_amt = payment.amount
+            elif payment.order.order_app_type == Order.POS_ECOMM and payment.payment_type.type in ['cod_upi', 'credit',
+                                                                                                   'online'] \
+                    and payment.order.order_status in [Order.DELIVERED, Order.PARTIALLY_RETURNED, Order.FULLY_RETURNED,
+                                                       Order.OUT_FOR_DELIVERY]:
+                inv_amt = payment.amount
 
         row = []
         row.append(payment.order.order_no)
@@ -456,7 +463,7 @@ def generate_csv_payment_report(payments):
         row.append(spot_discount)
         row.append(spot_discount_v)
         row.append(payment.amount)
-        row.append(payment.amount)
+        row.append(inv_amt)
         row.append(payment.paid_by)
         row.append(payment.processed_by)
         row.append(payment.created_at.strftime("%m/%d/%Y-%H:%M:%S"))

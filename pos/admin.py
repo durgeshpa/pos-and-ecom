@@ -243,8 +243,16 @@ class PaymentAdmin(admin.ModelAdmin):
     #     return None
 
     def invoice_amount(self, obj):
-        if obj:
-            return obj.amount
+        if obj and obj.payment_status not in [Payment.PAYMENT_PENDING, Payment.PAYMENT_FAILED, 'payment_not_found']:
+            if obj.order.order_app_type == Order.POS_WALKIN:
+                return obj.amount
+            elif obj.order.order_app_type == Order.POS_ECOMM and obj.payment_type.type == 'cod' \
+                    and obj.order.order_status in [Order.DELIVERED, Order.PARTIALLY_RETURNED, Order.FULLY_RETURNED]:
+                return obj.amount
+            elif obj.order.order_app_type == Order.POS_ECOMM and obj.payment_type.type in ['cod_upi', 'credit', 'online']\
+                    and obj.order.order_status in [Order.DELIVERED, Order.PARTIALLY_RETURNED, Order.FULLY_RETURNED,
+                                                   Order.OUT_FOR_DELIVERY]:
+                return obj.amount
         return None
 
     def get_queryset(self, request):
