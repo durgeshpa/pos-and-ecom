@@ -1182,7 +1182,7 @@ class RetailerOrderedReportView(APIView):
                                                           [RetailerOrderedReport.ORDERED,
                                                            RetailerOrderedReport.PARTIALLY_RETURNED,
                                                            RetailerOrderedReport.FULLY_RETURNED]).\
-            aggregate(amt=Sum('order__order_amount'))
+            aggregate(amt=Sum('order__rt_payment_retailer_order__amount'))
 
         pos_online_order_qs = OrderedProduct.objects.filter(invoice__created_at__date__gte=start_date,
                                                             invoice__created_at__date__lte=end_date,
@@ -1195,7 +1195,7 @@ class RetailerOrderedReportView(APIView):
                                                                 RetailerOrderedReport.ORDERED,
                                                                 RetailerOrderedReport.PARTIALLY_RETURNED,
                                                                 RetailerOrderedReport.FULLY_RETURNED]). \
-            aggregate(amt=Sum('order__order_amount'))
+            aggregate(amt=Sum('order__rt_payment_retailer_order__amount'))
 
         ecom_total_order_qs = OrderedProduct.objects.filter(order__created_at__date__gte=start_date,
                                                             order__created_at__date__lte=end_date,
@@ -1204,7 +1204,7 @@ class RetailerOrderedReportView(APIView):
                                                             order__ordered_by__id=user,
                                                             order__order_status=
                                                             RetailerOrderedReport.PICKUP_CREATED). \
-            aggregate(amt=Sum('order__order_amount'))
+            aggregate(amt=Sum('order__rt_payment_retailer_order__amount'))
 
         ecom_cash_order_qs = OrderedProduct.objects.filter(invoice__created_at__date__gte=start_date,
                                                            invoice__created_at__date__lte=end_date,
