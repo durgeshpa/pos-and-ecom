@@ -994,14 +994,14 @@ def get_product_details(product):
         # cat = ParentProductCategory.objects.values('category__category_name',
         #                                            'category__category_parent__category_name').filter \
         #     (parent_product__id=product.linked_product.parent_product.id)
-        cat = parent_product_categories(product.linked_product.parent_product)
-        if cat:
-            cat = cat.values('category__category_name', 'category__category_parent__category_name')
-        if cat and cat[0]['category__category_parent__category_name']:
-            category = cat[0]['category__category_parent__category_name']
-            sub_category = cat[0]['category__category_name']
-        else:
-            category = cat[0]['category__category_name']
+        cat_obj = parent_product_categories(product.linked_product.parent_product)
+        if cat_obj:
+            cat = cat_obj.values('category__category_name', 'category__category_parent__category_name')
+            if cat[0]['category__category_parent__category_name']:
+                category = cat[0]['category__category_parent__category_name']
+                sub_category = cat[0]['category__category_name']
+            else:
+                category = cat[0]['category__category_name']
     return parent_id, category, sub_category, brand, sub_brand
 
 
