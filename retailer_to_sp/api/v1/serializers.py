@@ -4966,7 +4966,8 @@ class VerifyBackwardTripItemsSerializer(serializers.ModelSerializer):
                 (already_verified_mappings.aggregate(tota_returned_and_damaged=Sum(F('return_qty')+F('damaged_qty')))\
                 .get('tota_returned_and_damaged', 0) + return_qty + damaged_qty) > (batch_return_qty+batch_damaged_qty):
                 raise serializers.ValidationError("'Invalid Quantity' | Total returned quantity "
-                                          f"for this batch cannot be greater than {batch_return_qty+batch_damaged_qty}")
+                                          f"for this batch {product_batch['batch_id']} cannot be greater than "
+                                                  f"{batch_return_qty+batch_damaged_qty}")
 
             item_return_qty += return_qty
             item_damaged_qty += damaged_qty
