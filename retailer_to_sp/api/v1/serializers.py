@@ -4952,19 +4952,19 @@ class VerifyBackwardTripItemsSerializer(serializers.ModelSerializer):
                                                         batch_id=product_batch['batch_id']).last().returned_qty
             batch_damaged_qty = self.instance.ordered_product.rt_ordered_product_mapping.filter(
                                                         batch_id=product_batch['batch_id']).last().returned_damage_qty
+            already_verified_mappings = ShipmentPackagingBatch.objects.filter(
+                shipment_product_packaging_id__in=self.instance.ordered_product.shipment_product_packaging
+                    .exclude(id=self.instance.id).values_list('id', flat=True),
+                batch_id=product_batch['batch_id']).exclude(id=self.instance.id)
             if not self.instance.ordered_product.rt_ordered_product_mapping.filter(
                                                         batch_id=product_batch['batch_id']).exists():
                 raise serializers.ValidationError("'batch_id' | Invalid batch.")
             elif (batch_return_qty+batch_damaged_qty) < return_qty+damaged_qty:
                 raise serializers.ValidationError("'Invalid Quantity' | Sum of returned quantity and damaged quantity "
                                           f"for this batch cannot be greater than {batch_return_qty+batch_damaged_qty}")
-            elif (ShipmentPackagingBatch.objects.filter(
-                    shipment_product_packaging_id__in=
-                        self.instance.ordered_product.shipment_product_packaging
-                                .exclude(id=self.instance.id).values_list('id', flat=True),
-                    batch_id=product_batch['batch_id']).exclude(id=self.instance.id)\
-                    .aggregate(tota_returned_and_damaged=Sum(F('return_qty')+F('damaged_qty')))\
-                    .get('tota_returned_and_damaged') + return_qty + damaged_qty) > (batch_return_qty+batch_damaged_qty):
+            elif already_verified_mappings.exists() and \
+                (already_verified_mappings.aggregate(tota_returned_and_damaged=Sum(F('return_qty')+F('damaged_qty')))\
+                .get('tota_returned_and_damaged', 0) + return_qty + damaged_qty) > (batch_return_qty+batch_damaged_qty):
                 raise serializers.ValidationError("'Invalid Quantity' | Total returned quantity "
                                           f"for this batch cannot be greater than {batch_return_qty+batch_damaged_qty}")
 
