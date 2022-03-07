@@ -1233,13 +1233,18 @@ class Order(models.Model):
         trips = []
         curr_trip = ''
         for s in self.shipments():
-            if s.trip:
-                curr_trip = '<b>' + s.trip.dispatch_no + '</b><br>'
-            rescheduling = s.rescheduling_shipment.select_related('trip').all()
-            if rescheduling.exists():
-                for reschedule in rescheduling:
-                    if reschedule.trip:
-                        trips += [reschedule.trip.dispatch_no]
+            curr_dispatch_no = ''
+            if s.last_trip:
+                curr_dispatch_no = s.last_trip.dispatch_no
+                curr_trip = '<b>' + s.last_trip.dispatch_no + '</b><br>'
+            trips += LastMileTripShipmentMapping.objects.filter(shipment=s). \
+                values_list('trip__dispatch_no', flat=True).distinct()
+            trips += DispatchTripShipmentMapping.objects.filter(shipment=s). \
+                values_list('trip__dispatch_no', flat=True).distinct()
+            trips += s.rescheduling_shipment.values_list('trip__dispatch_no', flat=True).distinct()
+            trips += s.not_attempt_shipment.values_list('trip__dispatch_no', flat=True).distinct()
+            while curr_dispatch_no in trips:
+                trips.remove(curr_dispatch_no)
         return format_html("<b>{}</b>".format(curr_trip)) + format_html_join("", "{}<br>", ((t,) for t in trips))
 
     @property
@@ -1269,7 +1274,6 @@ class Trip(models.Model):
         (COMPLETED, 'Completed'),
         (RETURN_VERIFIED, 'Return Verified'),
         (PAYMENT_VERIFIED, 'Payment Verified'),
-        ('RETURN_V', 'Return Verified'),
     )
 
     seller_shop = models.ForeignKey(
@@ -1414,9 +1418,10 @@ class Trip(models.Model):
 
     @property
     def trip_amount(self):
-        return self.rt_invoice_trip.all() \
-            .annotate(invoice_amount=RoundAmount(Sum(F('rt_order_product_order_product_mapping__effective_price') * F(
-            'rt_order_product_order_product_mapping__shipped_qty')))) \
+        return self.last_mile_trip_shipments_details.filter(~Q(shipment_status='CANCELLED')) \
+            .annotate(invoice_amount=RoundAmount(Sum(F(
+                'shipment__rt_order_product_order_product_mapping__effective_price') * F(
+                'shipment__rt_order_product_order_product_mapping__shipped_qty')))) \
             .aggregate(trip_amount=Sum(F('invoice_amount'), output_field=FloatField())).get('trip_amount')
 
     @property
@@ -1509,7 +1514,9 @@ class Trip(models.Model):
 
     @property
     def no_of_shipments(self):
-        return self.rt_invoice_trip.all().count()
+        return self.last_mile_trip_shipments_details.exclude(
+            shipment_status__in=[DispatchTripShipmentMapping.LOADING_FOR_DC,
+                                 DispatchTripShipmentMapping.CANCELLED]).count()
 
     @property
     def trip_id(self):
@@ -1569,6 +1576,7 @@ class OrderedProduct(models.Model):  # Shipment
     PARTIALLY_DELIVERED_AND_VERIFIED = 'PARTIALLY_DELIVERED_AND_VERIFIED'
     FULLY_RETURNED_AND_COMPLETED = 'FULLY_RETURNED_AND_COMPLETED'
     FULLY_RETURNED_AND_VERIFIED = 'FULLY_RETURNED_AND_VERIFIED'
+    CANCELLED = 'CANCELLED'
     SHIPMENT_STATUS = (
         (SHIPMENT_CREATED, 'QC Pending'),
         (READY_TO_SHIP, 'QC Passed'),
@@ -1587,7 +1595,7 @@ class OrderedProduct(models.Model):  # Shipment
         ('FULLY_RETURNED_AND_CLOSED', 'Fully Returned and Closed'),
         ('PARTIALLY_DELIVERED_AND_CLOSED', 'Partially Delivered and Closed'),
         ('FULLY_DELIVERED_AND_CLOSED', 'Fully Delivered and Closed'),
-        ('CANCELLED', 'Cancelled'),
+        (CANCELLED, 'Cancelled'),
         (CLOSED, 'Closed'),
         (RESCHEDULED, 'Rescheduled'),
         (DELIVERED, 'Delivered'),
@@ -3239,6 +3247,49 @@ def update_order_status_from_shipment(sender, instance=None, created=False,
         update_full_part_order_status(instance)
 
 
+def update_last_mile_trip_package_count(trip_id):
+    trip = Trip.objects.filter(id=trip_id).last()
+    package_data = trip.get_package_data()
+    trip.no_of_crates = package_data['no_of_crates']
+    trip.no_of_packets = package_data['no_of_packs']
+    trip.no_of_sacks = package_data['no_of_sacks']
+    trip.save()
+
+
+def update_dispatch_trip_package_count(trip_id):
+    trip = DispatchTrip.objects.filter(id=trip_id).last()
+    package_data = trip.get_package_data()
+    trip.no_of_crates = package_data['no_of_crates']
+    trip.no_of_packets = package_data['no_of_packs']
+    trip.no_of_sacks = package_data['no_of_sacks']
+    trip.save()
+
+
+@receiver(post_save, sender=OrderedProduct)
+def mark_shipment_cancelled_in_trip_shipment_mapping(sender, instance=None, created=False, **kwargs):
+    """
+        Changing LastMileTripShipmentMapping & DispatchTripShipmentMapping status to CANCELLED
+        when shipment status is CANCELLED.
+    """
+    if instance.shipment_status == OrderedProduct.CANCELLED:
+        last_mile_shipments_mapping = LastMileTripShipmentMapping.objects.filter(
+                ~Q(trip__trip_status=Trip.CANCELLED), ~Q(shipment_status=LastMileTripShipmentMapping.CANCELLED),
+                shipment=instance)
+        if last_mile_shipments_mapping:
+            for mapping in last_mile_shipments_mapping:
+                mapping.shipment_status = LastMileTripShipmentMapping.CANCELLED
+                mapping.save()
+                update_last_mile_trip_package_count(mapping.trip.id)
+        dispatch_shipments_mapping = DispatchTripShipmentMapping.objects.filter(
+                ~Q(trip__trip_status=DispatchTrip.CANCELLED), ~Q(shipment_status=DispatchTripShipmentMapping.CANCELLED),
+                shipment=instance)
+        if dispatch_shipments_mapping:
+            for mapping in dispatch_shipments_mapping:
+                mapping.shipment_status = DispatchTripShipmentMapping.CANCELLED
+                mapping.save()
+                update_dispatch_trip_package_count(mapping.trip.id)
+
+
 def populate_data_on_qc_pass(order):
     pick_bin_inv = PickupBinInventory.objects.filter(pickup__pickup_type_id=order.order_no)
     for i in pick_bin_inv:
@@ -3462,6 +3513,7 @@ class DispatchTrip(BaseTimestampUserModel):
                                                     verbose_name="Total sacks collected")
     no_of_empty_crates_check = models.PositiveIntegerField(default=0, null=True, blank=True,
                                                     verbose_name="Total empty crates collected")
+    weight = models.FloatField(null=True, default=0, verbose_name="Trip weight")
 
     class Meta:
         permissions = (
@@ -3611,6 +3663,7 @@ class DispatchTripShipmentPackages(BaseTimestampUserModel):
     DAMAGED_AT_LOADING, DAMAGED_AT_UNLOADING = 'DAMAGED_AT_LOADING', 'DAMAGED_AT_UNLOADING'
     MISSING_AT_LOADING, MISSING_AT_UNLOADING = 'MISSING_AT_LOADING', 'MISSING_AT_UNLOADING'
     CANCELLED = 'CANCELLED'
+    PARTIALLY_VERIFIED, VERIFIED = 'PARTIALLY_VERIFIED', 'VERIFIED'
     PACKAGE_STATUS = (
         (LOADED, 'Loaded'),
         (UNLOADED, 'Unloaded'),
@@ -3619,13 +3672,14 @@ class DispatchTripShipmentPackages(BaseTimestampUserModel):
         (MISSING_AT_LOADING, 'Missing At Loading'),
         (MISSING_AT_UNLOADING, 'Missing At Unloading'),
         (CANCELLED, 'Cancelled'),
+        (PARTIALLY_VERIFIED, 'Partially Verified'),
+        (VERIFIED, 'Verified')
     )
     trip_shipment = models.ForeignKey(DispatchTripShipmentMapping, related_name='trip_shipment_mapped_packages',
                                       on_delete=models.DO_NOTHING)
     shipment_packaging = models.ForeignKey(ShipmentPackaging, related_name='trip_packaging_details',
                                            on_delete=models.DO_NOTHING)
     package_status = models.CharField(max_length=100, choices=PACKAGE_STATUS)
-    is_return_verified = models.BooleanField(default=False)
 
 
 INVOICE_AVAILABILITY_CHOICES = Choices((1, 'ALL', 'All'), (2, 'ADDED', 'Added'), (3, 'NOT_ADDED', 'Not Added'))
@@ -3682,7 +3736,7 @@ class LastMileTripShipmentPackages(BaseTimestampUserModel):
                                       on_delete=models.DO_NOTHING)
     shipment_packaging = models.ForeignKey(ShipmentPackaging, related_name='last_mile_trip_packaging_details',
                                            on_delete=models.DO_NOTHING)
-    package_status = models.CharField(max_length=100, choices=PACKAGE_STATUS)
+    package_status = models.CharField(max_length=100, choices=PACKAGE_STATUS, null=True)
     return_remark = models.CharField(max_length=100, choices=RETURN_REMARK_CHOICES, null=True)
 
 

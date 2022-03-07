@@ -75,7 +75,6 @@ from pos.tasks import update_es, order_loyalty_points_credit
 from products.models import ProductPrice, ProductOption, Product
 from retailer_backend.common_function import getShopMapping, checkNotShopAndMapping
 from retailer_backend.messages import ERROR_MESSAGES
-from retailer_backend.settings import AWS_MEDIA_URL, es
 from retailer_backend.utils import SmallOffsetPagination
 from retailer_to_gram.models import (Cart as GramMappedCart, CartProductMapping as GramMappedCartProductMapping,
                                      Order as GramMappedOrder)
@@ -101,6 +100,8 @@ from wms.common_functions import OrderManagement, get_stock, is_product_not_elig
     get_logged_user_wise_query_set_for_shipment, get_logged_user_wise_query_set_for_dispatch, \
     get_logged_user_wise_query_set_for_dispatch_trip, get_logged_user_wise_query_set_for_dispatch_crates, \
     get_logged_user_wise_query_set_for_shipment_packaging
+from wms.common_validators import validate_id, validate_data_format, validate_data_days_date_request, validate_shipment
+from retailer_backend.settings import AWS_MEDIA_URL
 from wms.models import OrderReserveRelease, InventoryType, PosInventoryState, PosInventoryChange, Crate
 
 from ...common_validators import validate_shipment_dispatch_item, validate_trip_user, \
@@ -136,10 +137,8 @@ from .serializers import (ProductsSearchSerializer, CartSerializer, OrderSeriali
                           LastMileLoadVerifyPackageSerializer, RemoveLastMileInvoiceFromTripSerializer,
                           VerifyNotAttemptShipmentPackageSerializer, VerifyShipmentPackageSerializer,
                           DetailedShipmentPackageInfoSerializer, DetailedShipmentPackagingMappingInfoSerializer,
-                          VerifyBackwardTripItemsSerializer
+                          VerifyBackwardTripItemsSerializer, BackwardTripQCSerializer
                           )
-
-from wms.common_validators import validate_id, validate_data_format, validate_shipment
 from wms.services import check_whc_manager_coordinator_supervisor_qc_executive, shipment_search, \
     check_whc_manager_dispatch_executive, check_qc_dispatch_executive, check_dispatch_executive
 from fcm.utils import get_device_model
@@ -7341,7 +7340,6 @@ class ShipmentQCView(generics.GenericAPIView):
         modified_data = validate_data_format(self.request)
         if 'error' in modified_data:
             return get_response(modified_data['error'])
-        # shipment_data = validate_shipment_qc_desk(self.queryset, int(modified_data['id']), request.user)
         shipment_data = validate_shipment(self.queryset, int(modified_data['id']))
         if 'error' in shipment_data:
             return get_response(shipment_data['error'])
@@ -7368,6 +7366,7 @@ class ShipmentQCView(generics.GenericAPIView):
         dispatch_center = self.request.GET.get('dispatch_center')
         trip_id = self.request.GET.get('trip_id')
         availability = self.request.GET.get('availability')
+        return_packages = self.request.GET.get('return_packages')
 
         '''search using warehouse name, product's name'''
         if search_text:
@@ -7402,6 +7401,11 @@ class ShipmentQCView(generics.GenericAPIView):
 
         if buyer_shop:
             self.queryset = self.queryset.filter(order__buyer_shop_id=buyer_shop)
+
+        if return_packages and return_packages in ['0', '1', 0, 1]:
+            if int(return_packages):
+                self.queryset = self.queryset.filter(order__dispatch_delivery=True,
+                                                     shipment_packaging__movement_type=ShipmentPackaging.RETURNED)
 
         return self.queryset.distinct('id')
 
@@ -7876,6 +7880,45 @@ class DeliverBoysList(generics.GenericAPIView):
         return get_response(msg, serializer.data, True)
 
 
+class VehicleDriverList(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    queryset = get_user_model().objects.values('id', 'phone_number', 'first_name', 'last_name').order_by('-id')
+    serializer_class = UserSerializers
+
+    def user_search(self, queryset, search_string):
+        """
+        This method is used to search using user name & phone number based on criteria that matches
+        @param queryset:
+        @param search_string:
+        @return: queryset
+        """
+        sts_list = search_string.split(' ')
+        for search_text in sts_list:
+            queryset = queryset.filter(Q(phone_number__icontains=search_text) | Q(first_name__icontains=search_text)
+                                       | Q(last_name__icontains=search_text))
+        return queryset
+
+    def get(self, request):
+        info_logger.info("Delivery Boys api called.")
+        """ GET Delivery Boys List """
+        group = Group.objects.get(name='Vehicle Driver')
+        self.queryset = self.queryset.filter(groups=group)
+        warehouse = self.request.GET.get('warehouse')
+        if warehouse:
+            self.queryset = self.queryset.filter(shop_employee__shop_id=warehouse)
+        id = self.request.GET.get('id')
+        if id:
+            self.queryset = self.queryset.filter(id=id)
+        search_text = self.request.GET.get('search_text')
+        if search_text:
+            self.queryset = self.user_search(self.queryset, search_text)
+        vehicle_drivers = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        serializer = self.serializer_class(vehicle_drivers, many=True)
+        msg = "" if vehicle_drivers else "no vehicle driver found"
+        return get_response(msg, serializer.data, True)
+
+
 class DispatchTripsCrudView(generics.GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
@@ -8004,6 +8047,7 @@ class DispatchTripsCrudView(generics.GenericAPIView):
         destination_shop = self.request.GET.get('destination_shop')
         delivery_boy = self.request.GET.get('delivery_boy')
         dispatch_no = self.request.GET.get('dispatch_no')
+        dispatch_center = self.request.GET.get('dispatch_center')
         vehicle_no = self.request.GET.get('vehicle_no')
         trip_status = self.request.GET.get('trip_status')
         trip_type = self.request.GET.get('trip_type')
@@ -8031,6 +8075,10 @@ class DispatchTripsCrudView(generics.GenericAPIView):
 
         if dispatch_no:
             self.queryset = self.queryset.filter(dispatch_no=dispatch_no)
+
+        if dispatch_center:
+            self.queryset = self.queryset.filter(
+                Q(source_shop_id=dispatch_center) | Q(destination_shop_id=dispatch_center))
 
         if vehicle_no:
             self.queryset = self.queryset.filter(vehicle_no=vehicle_no)
@@ -8288,11 +8336,16 @@ class ShipmentCratesPackagingView(generics.GenericAPIView):
         return get_response(serializer_error(serializer), False)
 
     def validate_package_by_crate_id(self, crate_id, shipment_id=None):
-        if self.queryset.filter(shipment_packaging__shipment_id=shipment_id,
-                                shipment_packaging__crate__crate_id=crate_id).exists():
-            return {'data': self.queryset.filter(shipment_packaging__shipment_id=shipment_id,
-                                shipment_packaging__crate__crate_id=crate_id).last()}
-        return {'error': 'Invalid Crate for selected shipment.' }
+        shipment = OrderedProduct.objects.filter(id=shipment_id).last()
+        if not shipment:
+            return {'error': 'Invalid shipment.'}
+        trip_package = self.queryset.filter(
+            ~Q(trip_shipment__shipment_status=LastMileTripShipmentMapping.CANCELLED),
+            trip_shipment__trip=shipment.last_trip, shipment_packaging__shipment=shipment,
+            shipment_packaging__crate__crate_id=crate_id).last()
+        if not trip_package:
+            return {'error': 'Invalid Crate for selected shipment.'}
+        return {'data': trip_package}
 
 
 class VerifyRescheduledShipmentPackagesView(generics.GenericAPIView):
@@ -8310,6 +8363,8 @@ class VerifyRescheduledShipmentPackagesView(generics.GenericAPIView):
                                                 trip_shipment__trip_id=trip_id).last()
         if not shipment_package:
             return {"error": "Package does not belong to this trip."}
+        if shipment_package.trip_shipment.shipment.shipment_status != OrderedProduct.RESCHEDULED:
+            return {"error": f"Invalid Shipment status."}
         return {"data": shipment_package}
 
     @check_whc_manager_dispatch_executive
@@ -8361,7 +8416,7 @@ class VerifyNotAttemptShipmentPackagesView(generics.GenericAPIView):
                                                 trip_shipment__trip_id=trip_id).last()
         if not shipment_package:
             return {"error": "Package does not belong to this trip."}
-        if shipment_package.shipment.shipment_status != OrderedProduct.NOT_ATTEMPT:
+        if shipment_package.trip_shipment.shipment.shipment_status != OrderedProduct.NOT_ATTEMPT:
             return {"error": f"Invalid Shipment status."}
 
         return {"data": shipment_package}
@@ -8785,6 +8840,8 @@ class DispatchCenterShipmentView(generics.GenericAPIView):
         buyer_shop = self.request.GET.get('buyer_shop')
         dispatch_center = self.request.GET.get('dispatch_center')
         trip_id = self.request.GET.get('trip_id')
+        invoice_package_status = self.request.GET.get('invoice_package_status', None)
+        invoice_package_status = int(invoice_package_status) if invoice_package_status else None
         availability = int(self.request.GET.get('availability'))
 
         '''search using warehouse name, product's name'''
@@ -8816,6 +8873,28 @@ class DispatchCenterShipmentView(generics.GenericAPIView):
 
         if dispatch_center:
             self.queryset = self.queryset.filter(order__dispatch_center_id=dispatch_center)
+
+        if invoice_package_status in PACKAGE_VERIFY_CHOICES._db_values:
+            if invoice_package_status == PACKAGE_VERIFY_CHOICES.OK:
+                self.queryset = self.queryset.filter(
+                    ~Q(trip_shipment__shipment_status=DispatchTripShipmentMapping.CANCELLED),
+                    ~Q(trip_shipment__trip_shipment_mapped_packages__package_status__in=[
+                        DispatchTripShipmentPackages.DAMAGED_AT_LOADING,
+                        DispatchTripShipmentPackages.DAMAGED_AT_UNLOADING,
+                        DispatchTripShipmentPackages.MISSING_AT_LOADING,
+                        DispatchTripShipmentPackages.MISSING_AT_UNLOADING]))
+            elif invoice_package_status == PACKAGE_VERIFY_CHOICES.DAMAGED:
+                self.queryset = self.queryset.filter(
+                    ~Q(trip_shipment__shipment_status=DispatchTripShipmentMapping.CANCELLED),
+                    trip_shipment__trip_shipment_mapped_packages__package_status__in=[
+                        DispatchTripShipmentPackages.DAMAGED_AT_LOADING,
+                        DispatchTripShipmentPackages.DAMAGED_AT_UNLOADING])
+            elif invoice_package_status == PACKAGE_VERIFY_CHOICES.MISSING:
+                self.queryset = self.queryset.filter(
+                    ~Q(trip_shipment__shipment_status=DispatchTripShipmentMapping.CANCELLED),
+                    trip_shipment__trip_shipment_mapped_packages__package_status__in=[
+                        DispatchTripShipmentPackages.MISSING_AT_LOADING,
+                        DispatchTripShipmentPackages.MISSING_AT_UNLOADING])
 
         if availability:
             if availability == INVOICE_AVAILABILITY_CHOICES.ADDED:
@@ -9477,7 +9556,13 @@ class LastMileTripShipmentsView(generics.GenericAPIView):
                                                                         LastMileTripShipmentMapping.LOADED_FOR_DC],
                           last_mile_trip_shipment__trip_id=trip_id) | Q(trip_id=trip_id))
                 elif availability == INVOICE_AVAILABILITY_CHOICES.NOT_ADDED:
-                    self.queryset = self.queryset.filter(shipment_status=OrderedProduct.MOVED_TO_DISPATCH).filter(
+                    current_date = datetime.now().date()
+                    self.queryset = self.queryset.filter(
+                        Q(shipment_status=OrderedProduct.MOVED_TO_DISPATCH) |
+                        Q(shipment_status=OrderedProduct.NOT_ATTEMPT,
+                          not_attempt_shipment__created_at__date__lt=current_date) |
+                        Q(shipment_status=OrderedProduct.RESCHEDULED,
+                          rescheduling_shipment__rescheduling_date__gte=current_date)).filter(
                         Q(last_mile_trip_shipment__isnull=True) |
                         Q(last_mile_trip_shipment__shipment_status=LastMileTripShipmentMapping.CANCELLED))
                 elif availability == INVOICE_AVAILABILITY_CHOICES.ALL:
@@ -9723,6 +9808,9 @@ class PackagesUnderTripView(generics.GenericAPIView):
         '''
         API to get all the packages for a trip
         '''
+        validated_request = self.validate_request()
+        if 'error' in validated_request:
+            return get_response(validated_request['error'])
         if not request.GET.get('trip_id'):
             return get_response("'trip_id' | This is mandatory")
         validated_trip = validate_trip(request.GET.get('trip_id'), request.GET.get('trip_type'))
@@ -9734,19 +9822,27 @@ class PackagesUnderTripView(generics.GenericAPIView):
         msg = "" if dispatch_items else "no packaging found"
         return get_response(msg, serializer.data, True)
 
+    def validate_request(self):
+        try:
+            if self.request.GET.get('is_return_verified') and \
+                    int(self.request.GET.get('is_return_verified')) not in [0,1]:
+                raise
+        except:
+            return {'error' : "'is_return_verified' | Invalid value. Only 0 or 1 is allowed."}
+        return {'request' : self.request}
+
     def filter_packaging_items(self, trip_instance):
-        trip_id = self.request.GET.get('trip_id')
         shipment_id = self.request.GET.get('shipment_id')
         package_status = self.request.GET.get('package_status')
         trip_type = self.request.GET.get('trip_type')
         is_return_verified = self.request.GET.get('is_return_verified')
-
-
         if isinstance(trip_instance, DispatchTrip):
 
             package_ids = DispatchTripShipmentPackages.objects.filter(
                     package_status__in=[DispatchTripShipmentPackages.LOADED,
-                                        DispatchTripShipmentPackages.UNLOADED],
+                                        DispatchTripShipmentPackages.UNLOADED,
+                                        DispatchTripShipmentPackages.VERIFIED,
+                                        DispatchTripShipmentPackages.PARTIALLY_VERIFIED],
                     trip_shipment__trip=trip_instance).values_list('shipment_packaging_id', flat=True)
             self.queryset = self.queryset.filter(id__in=package_ids,
                 shipment__trip_shipment__shipment_status__in=[
@@ -9775,7 +9871,12 @@ class PackagesUnderTripView(generics.GenericAPIView):
             self.queryset = self.queryset.filter(shipment_id=shipment_id)
 
         if is_return_verified:
-            self.queryset = self.queryset.filter(trip_packaging_details__is_return_verified=is_return_verified)
+            is_return_verified = int(is_return_verified)
+            if is_return_verified == 1:
+                self.queryset = self.queryset.filter(trip_packaging_details__package_status=DispatchTripShipmentPackages.VERIFIED)
+            else:
+                self.queryset = self.queryset.filter(trip_packaging_details__package_status__in=[
+                    DispatchTripShipmentPackages.PARTIALLY_VERIFIED, DispatchTripShipmentPackages.UNLOADED])
 
         return self.queryset.distinct('id', 'packaging_type')
 
@@ -10035,7 +10136,11 @@ class LastMileTripSummaryView(generics.GenericAPIView):
         """ GET API for trip summary """
         info_logger.info("Added shipmets to Trip Summary called.")
         # self.queryset = get_logged_user_wise_query_set_for_trip(self.request.user, self.queryset)
-        shipment_qs = OrderedProduct.objects.filter(shipment_status=OrderedProduct.MOVED_TO_DISPATCH).\
+        current_date = datetime.now().date()
+        shipment_qs = OrderedProduct.objects.filter(
+            Q(shipment_status=OrderedProduct.MOVED_TO_DISPATCH) |
+            Q(shipment_status=OrderedProduct.NOT_ATTEMPT, not_attempt_shipment__created_at__date__lt=current_date) |
+            Q(shipment_status=OrderedProduct.RESCHEDULED, rescheduling_shipment__rescheduling_date__gte=current_date)).\
             select_related('order', 'order__seller_shop'). \
             order_by('-id')
         shipment_qs = get_logged_user_wise_query_set_for_trip_invoices(request.user, shipment_qs)
@@ -10171,6 +10276,8 @@ class VerifyBackwardTripItems(generics.GenericAPIView):
             """ Get Item Data for specific trip and batch/ean """
             if not request.GET.get('trip_id'):
                 return get_response('trip_id is required', False)
+            elif not request.GET.get('package_id') :
+                return get_response('package_id is required', False)
             elif not (request.GET.get('batch_id') or request.GET.get('ean')):
                 return get_response('please batch_id id / ean  is required', False)
             item_data = self.filter_item_data()
@@ -10210,11 +10317,15 @@ class VerifyBackwardTripItems(generics.GenericAPIView):
     def filter_item_data(self):
         """ Filters the Shipment data based on request"""
         trip_id = self.request.GET.get('trip_id')
+        package_id = self.request.GET.get('package_id')
         batch_id = self.request.GET.get('batch_id')
         ean = self.request.GET.get('ean')
 
         if trip_id:
             self.queryset = self.queryset.filter(shipment_packaging__trip_packaging_details__trip_shipment__trip_id=trip_id)
+
+        if package_id:
+            self.queryset = self.queryset.filter(shipment_packaging_id=package_id)
 
         if batch_id:
             self.queryset = self.queryset.filter(ordered_product__rt_ordered_product_mapping__batch_id=batch_id)
@@ -10223,3 +10334,27 @@ class VerifyBackwardTripItems(generics.GenericAPIView):
             self.queryset = self.queryset.filter(ordered_product__product__product_ean_code__icontains=ean)
 
         return self.queryset.distinct('id')
+
+
+class BackwardTripQCView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    queryset = DispatchTripShipmentPackages.objects.all()
+    serializer_class = BackwardTripQCSerializer
+
+    def get(self, request):
+        if not request.GET.get('trip_id'):
+            return get_response("'trip_id' | This is mandatory")
+        validated_trip = validate_trip(request.GET.get('trip_id'), TRIP_TYPE_CHOICE.DISPATCH_BACKWARD)
+        if 'error' in validated_trip:
+            return get_response(validated_trip['error'])
+        self.queryset = self.filter_packaging_items(validated_trip['data'])
+        serializer = self.serializer_class(self.queryset)
+        msg = "" if self.queryset.exists() else "no package pending for QC."
+        return get_response(msg, serializer.data, True)
+
+    def filter_packaging_items(self, trip_instance):
+        self.queryset = self.queryset.filter(package_status=DispatchTripShipmentPackages.UNLOADED,
+                                             trip_shipment__trip=trip_instance,
+                                             trip_shipment__shipment_status=DispatchTripShipmentMapping.UNLOADED_AT_DC)
+        return self.queryset

@@ -27,7 +27,7 @@ from .views import (ProductsList, SearchProducts, CartCentral, CartCheckout, Ord
                     ShipmentPackageProductsView, RemoveInvoiceFromTripView, DispatchCenterCrateView,
                     DispatchCenterShipmentPackageView, LoadLastMileInvoiceView, LastMileTripSummaryView,
                     LastMileLoadVerifyPackageView, RemoveLastMileInvoiceFromTripView,
-                    VerifyNotAttemptShipmentPackagesView, VerifyBackwardTripItems
+                    VerifyNotAttemptShipmentPackagesView, VerifyBackwardTripItems, BackwardTripQCView, VehicleDriverList
                     )
 
 from retailer_backend.cron import sync_es_products_api
@@ -118,8 +118,8 @@ urlpatterns = [
     url('package-reject-reason/', DispatchPackageRejectionReasonList.as_view()),
     url('update-order-payment-status/', OrderPaymentStatusChangeView.as_view(), name='update_order_payment_status'),
     url(r'^order-status-choice/$', OrderStatusChoicesList.as_view()),
-
     url('delivery-boys-list/', DeliverBoysList.as_view(), name='delivery_boys_list'),
+    url('vehicle-drivers-list/', VehicleDriverList.as_view(), name='vehicle_drivers_list'),
     url('dispatch-trips/', DispatchTripsCrudView.as_view(), name='dispatch_trips'),
     url('update-dispatch-trip-status/', DispatchTripStatusChangeView.as_view(), name='update_dispatch_trip_status'),
     url('shipment-packaging/', ShipmentPackagingView.as_view(), name='shipment_packaging'),
@@ -161,6 +161,7 @@ urlpatterns = [
     url('mark-shipment-verified/', MarkShipmentPackageVerifiedView.as_view(), name='mark_shipment_verified'),
     url('shipment-package-products/', ShipmentPackageProductsView.as_view(), name='shipment_package_products'),
     url('bck-trip-verify-items/', VerifyBackwardTripItems.as_view()),
+    url('bck-trip-qc-packages/', BackwardTripQCView.as_view()),
 ]
 
 urlpatterns += router.urls

@@ -29,11 +29,8 @@ from sp_to_gram.models import (
     OrderedProduct as SPOrderedProduct)
 from retailer_to_sp.models import (CartProductMapping, Order, OrderedProduct, OrderedProductMapping, Note, Trip,
                                    Dispatch, ShipmentRescheduling, PickerDashboard, update_full_part_order_status,
-                                   Shipment, populate_data_on_qc_pass, add_to_putaway_on_return,
-                                   check_franchise_inventory_update, ShipmentNotAttempt, BASIC, ECOM,
                                    Shipment, populate_data_on_qc_pass, OrderedProductBatch, ShipmentPackaging,
-                                   add_to_putaway_on_return, check_franchise_inventory_update, ShipmentNotAttempt,
-                                   LastMileTripShipmentMapping, LastMileTripShipmentPackages)
+                                   ShipmentNotAttempt, LastMileTripShipmentMapping, LastMileTripShipmentPackages)
 from products.models import Product
 from retailer_to_sp.forms import (
     OrderedProductForm, OrderedProductMappingShipmentForm,
@@ -73,10 +70,14 @@ class ShipmentMergedBarcode(APIView):
     def get(self, request, *args, **kwargs):
         shipment_id_list = {}
         pk = self.kwargs.get('pk')
+        movement_type = self.request.GET.get('movement_type')
         shipment = OrderedProduct.objects.filter(pk=pk).last()
         if not shipment:
             return get_response("Shipment not found for pk: " + str(pk) + ".")
-        shipment_packagings = shipment.shipment_packaging.all()
+        if movement_type and movement_type == ShipmentPackaging.RETURNED:
+            shipment_packagings = shipment.shipment_packaging.filter(movement_type=ShipmentPackaging.RETURNED)
+        else:
+            shipment_packagings = shipment.shipment_packaging.filter(~Q(movement_type=ShipmentPackaging.RETURNED))
         pack_cnt = shipment_packagings.count()
         for cnt, packaging in enumerate(shipment_packagings):
             barcode_id = str("05" + str(packaging.id).zfill(10))
@@ -89,11 +90,19 @@ class ShipmentMergedBarcode(APIView):
             dispatch_center = str(shipment.order.dispatch_center.pk) if \
                 shipment.order.dispatch_center else str(shipment.order.seller_shop.pk)
             shipment_count = str(str(cnt + 1) + " / " + str(pack_cnt))
-            temp_data = {"qty": 1,
-                         "data": {shipment_count: pck_type_r_id,
-                                  shipment.order.order_no: customer_city_pincode,
-                                  dispatch_center: route}}
-            shipment_id_list[barcode_id] = temp_data
+            if not packaging.crate and packaging.packaging_details.exists():
+                quantity = str(packaging.packaging_details.last().quantity)
+                product_name = str(packaging.packaging_details.last().ordered_product.product.product_name)
+                data = {shipment_count: pck_type_r_id,
+                        shipment.order.order_no: customer_city_pincode,
+                        product_name: quantity,
+                        "route ": route}
+            else:
+                data = {shipment_count: pck_type_r_id,
+                        shipment.order.order_no: customer_city_pincode,
+                        "route ": route,
+                        "blank_row": ""}
+            shipment_id_list[barcode_id] = {"qty": 1, "data": data}
         return merged_barcode_gen(shipment_id_list, 'admin/retailer_to_sp/barcode.html')
 
 
@@ -608,17 +617,36 @@ TRIP_ORDER_STATUS_MAP = {
 }
 
 
+def update_trip_package_count(trip_id):
+    trip = Trip.objects.filter(id=trip_id).last()
+    package_data = trip.get_package_data()
+    trip.no_of_crates = package_data['no_of_crates']
+    trip.no_of_packets = package_data['no_of_packs']
+    trip.no_of_sacks = package_data['no_of_sacks']
+    trip.save()
+
+
 def create_update_last_mile_trip_shipment_mapping(trip_id, shipment_ids, request_user):
     removed_shipments = LastMileTripShipmentMapping.objects.filter(
         ~Q(shipment_id__in=shipment_ids), ~Q(shipment_status=LastMileTripShipmentMapping.CANCELLED), trip_id=trip_id)
     if removed_shipments:
+        for trip_shipment in removed_shipments:
+            if trip_shipment.shipment.shipment_status == OrderedProduct.READY_TO_DISPATCH:
+                trip_shipment.shipment.shipment_status = OrderedProduct.MOVED_TO_DISPATCH
+                trip_shipment.shipment.save()
+                trip_shipment.last_mile_trip_shipment_mapped_packages.all() \
+                    .update(package_status=LastMileTripShipmentPackages.CANCELLED, updated_by=request_user)
         removed_shipments.update(shipment_status=LastMileTripShipmentMapping.CANCELLED, updated_by=request_user)
 
     for shipment_id in shipment_ids:
-        if LastMileTripShipmentMapping.objects.filter(trip_id=trip_id, shipment_id=shipment_id).exists():
-            trip_shipment = LastMileTripShipmentMapping.objects.filter(trip_id=trip_id, shipment_id=shipment_id).last()
-            LastMileTripShipmentMapping.objects.filter(trip_id=trip_id, shipment_id=shipment_id).update(
-                shipment_status=LastMileTripShipmentMapping.LOADED_FOR_DC, updated_by=request_user)
+        if LastMileTripShipmentMapping.objects.filter(~Q(shipment_status=LastMileTripShipmentMapping.CANCELLED),
+                                                      trip_id=trip_id, shipment_id=shipment_id).exists():
+            trip_shipment = LastMileTripShipmentMapping.objects.filter(
+                ~Q(shipment_status=LastMileTripShipmentMapping.CANCELLED),
+                trip_id=trip_id, shipment_id=shipment_id).last()
+            LastMileTripShipmentMapping.objects.filter(
+                ~Q(shipment_status=LastMileTripShipmentMapping.CANCELLED), trip_id=trip_id, shipment_id=shipment_id).\
+                update(shipment_status=LastMileTripShipmentMapping.LOADED_FOR_DC, updated_by=request_user)
         else:
             trip_shipment = LastMileTripShipmentMapping.objects.create(
                 trip_id=trip_id, shipment_id=shipment_id, shipment_status=LastMileTripShipmentMapping.LOADED_FOR_DC,
@@ -628,6 +656,7 @@ def create_update_last_mile_trip_shipment_mapping(trip_id, shipment_ids, request
                 shipment_id=shipment_id, status=ShipmentPackaging.DISPATCH_STATUS_CHOICES.READY_TO_DISPATCH):
             LastMileTripShipmentPackages.objects.create(trip_shipment=trip_shipment, shipment_packaging=package,
                                                         package_status=LastMileTripShipmentPackages.LOADED)
+    update_trip_package_count(trip_id)
 
 
 def trip_planning_change(request, pk):
@@ -835,17 +864,18 @@ class LoadDispatches(APIView):
         # Exclude Not Attempted shipments
         not_attempt_dispatches = ShipmentNotAttempt.objects.values_list(
             'shipment', flat=True
-        ).filter(created_at__date=datetime.date.today(),
-                 shipment__shipment_status=OrderedProduct.NOT_ATTEMPT
+        ).filter(shipment__shipment_status=OrderedProduct.NOT_ATTEMPT).filter(
+            Q(created_at__date=datetime.date.today()) |
+            Q(shipment__last_mile_trip_shipment__trip__trip_status__in=[Trip.READY, Trip.STARTED, Trip.COMPLETED])
         )
         dispatches = dispatches.exclude(id__in=not_attempt_dispatches)
 
         # Exclude Rescheduled shipments
         reschedule_dispatches = ShipmentRescheduling.objects.values_list(
             'shipment', flat=True
-        ).filter(
-            ~Q(rescheduling_date__lte=datetime.date.today()),
-            shipment__shipment_status=OrderedProduct.RESCHEDULED
+        ).filter(shipment__shipment_status=OrderedProduct.RESCHEDULED).filter(
+            ~Q(rescheduling_date__lte=datetime.date.today()) |
+            Q(shipment__last_mile_trip_shipment__trip__trip_status__in=[Trip.READY, Trip.STARTED, Trip.COMPLETED])
         )
         dispatches = dispatches.exclude(id__in=reschedule_dispatches)
         if source_shop and source_shop != seller_shop:
@@ -1622,10 +1652,11 @@ class OrderCancellation(object):
         self.order_status = instance.order_status
         self.order_shipments_count = instance.rt_order_order_product.count()
         if self.order_shipments_count:
+            self.last_shipment_instance = instance.rt_order_order_product.last()
             self.last_shipment = list(self.get_shipment_queryset())[-1]
             self.shipments_id_list = [i['id'] for i in self.get_shipment_queryset()]
             self.last_shipment_status = self.last_shipment.get('shipment_status')
-            self.trip_status = self.last_shipment.get('trip__trip_status')
+            self.trip_status = self.last_shipment.get('last_mile_trip_shipment__trip__trip_status')
             self.last_shipment_id = self.last_shipment.get('id')
             self.seller_shop_id = self.last_shipment.get('order__seller_shop__id')
             self.cart = self.last_shipment.get('order__ordered_cart_id')
@@ -1634,9 +1665,13 @@ class OrderCancellation(object):
 
     def get_shipment_queryset(self):
         q = self.order.rt_order_order_product.values(
-            'id', 'shipment_status', 'trip__trip_status',
+            'id', 'shipment_status', 'trip__trip_status', 'last_mile_trip_shipment__trip__trip_status',
             'order__seller_shop__id', 'order__ordered_cart_id')
         return q
+
+    def cancel_shipment(self):
+        self.last_shipment_instance.shipment_status = 'CANCELLED'
+        self.last_shipment_instance.save()
 
     def get_shipment_products(self, shipment_id_list):
         shipment_products = OrderedProductMapping.objects \
@@ -1714,7 +1749,8 @@ class OrderCancellation(object):
             if (self.last_shipment_status in ['SHIPMENT_CREATED', 'QC_STARTED', 'READY_TO_SHIP'] and
                     not self.trip_status):
                 self.update_sp_qty_from_cart_or_shipment()
-                self.get_shipment_queryset().update(shipment_status='CANCELLED')
+                # self.get_shipment_queryset().update(shipment_status='CANCELLED')
+                self.cancel_shipment()
 
             # if invoice created but shipment is not added to trip
             # cancel order and generate credit note
@@ -1723,15 +1759,16 @@ class OrderCancellation(object):
                   not self.trip_status):
                 self.generate_credit_note(order_closed=self.order.order_closed)
                 # updating shipment status
-                self.get_shipment_queryset().update(shipment_status='CANCELLED')
+                # self.get_shipment_queryset().update(shipment_status='CANCELLED')
+                self.cancel_shipment()
 
             elif self.trip_status and self.trip_status == Trip.READY:
                 # cancel order and generate credit note and
                 # remove shipment from trip
                 self.generate_credit_note(order_closed=self.order.order_closed)
                 # updating shipment status and remove trip
-                self.get_shipment_queryset().update(
-                    shipment_status='CANCELLED', trip=None)
+                self.get_shipment_queryset().update(shipment_status='CANCELLED', trip=None)
+                self.cancel_shipment()
             else:
                 # can't cancel the order
                 pass

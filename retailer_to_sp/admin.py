@@ -1224,7 +1224,7 @@ class ShipmentReschedulingAdminNested(NestedTabularInline):
 @admin.register(ShipmentNotAttempt)
 class ShipmentNotAttemptAdmin(admin.ModelAdmin):
     model = ShipmentNotAttempt
-    list_display = ('shipment', 'order', 'trip', 'not_attempt_reason', 'created_by')
+    list_display = ('shipment', 'order', 'trip', 'not_attempt_reason', 'created_at', 'created_by')
     list_per_page = 20
     search_fields = ('shipment__order__order_no', 'not_attempt_reason', 'shipment__invoice__invoice_no',
                      'trip__dispatch_no')
@@ -1419,6 +1419,21 @@ class OrderedProductAdmin(NestedModelAdmin):
 
         return super(OrderedProductAdmin, self).change_view(request, object_id, form_url, extra_context)
 
+    def has_add_permission(cls, request):
+        ''' remove add and save and add another button '''
+        return False
+
+    def changeform_view(self, request, object_id=None, form_url='', extra_context=None):
+        extra_context = extra_context or {}
+        if object_id:
+            shipment = OrderedProduct.objects.filter(id=object_id).last()
+            if shipment.last_trip and isinstance(shipment.last_trip, Trip) and \
+                    shipment.last_trip.source_shop.shop_type.shop_type == 'dc':
+                extra_context['show_save_and_continue'] = False
+                extra_context['show_save'] = False
+                extra_context['show_delete_link'] = False
+        return super(OrderedProductAdmin, self).changeform_view(request, object_id, extra_context=extra_context)
+
     class Media:
         css = {"all": ("admin/css/hide_admin_inline_object_name.css",)}
         js = ('admin/js/shipment.js','https://ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js')
@@ -1537,7 +1552,7 @@ class ShipmentAdmin(NestedModelAdmin):
         'order__shipping_address__city',
     )
     list_display = (
-        'start_qc', 'order', 'created_at', 'qc_area', 'trip', 'shipment_address',
+        'start_qc', 'order', 'created_at', 'qc_area', 'trip_id', 'shipment_address',
         'seller_shop', 'invoice_city', 'invoice_amount', 'payment_mode',
         'shipment_status', 'download_invoice', 'pincode', 'qc_started_at', 'qc_completed_at'
     )
@@ -1670,6 +1685,10 @@ class ShipmentAdmin(NestedModelAdmin):
         # return obj.invoice_no if obj.invoice_no != '-' else format_html(
         #     "<a href='/admin/retailer_to_sp/shipment/%s/change/' class='button'>Start QC</a>" %(obj.id))
     start_qc.short_description = 'Invoice No'
+
+    def trip_id(self,obj):
+        return obj.last_trip
+    trip_id.short_description = 'Trip'
 
     def save_model(self, request, obj, form, change):
         if not hasattr(form.instance, 'invoice') and (form.cleaned_data.get('shipment_status', None) == form.instance.READY_TO_SHIP):
