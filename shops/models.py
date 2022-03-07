@@ -1,6 +1,8 @@
 import logging
 from datetime import date
 import traceback
+from typing import Tuple
+
 from django.db import models
 from django.contrib.auth import get_user_model
 # from django.conf import settings
@@ -18,6 +20,7 @@ from django.contrib.auth.models import Group
 from django.contrib.postgres.fields import JSONField
 from categories.models import BaseTimeModel, BaseTimestampUserStatusModel
 from .fields import CaseInsensitiveCharField
+from django.core.validators import MinValueValidator
 # from analytics.post_save_signal import get_retailer_report
 
 Product = 'products.product'
@@ -776,6 +779,39 @@ class FOFOConfigurations(models.Model):
     def __str__(self):
         return str(self.key)
 
+    class Meta:
+        permissions = (
+            ("has_fofo_config_operations", "Has update FOFO config operations"),
+        )
+
+class FOFOConfig(models.Model):
+    SUN = 'SUN'
+    MON = 'MON'
+    TUE = 'TUE'
+    WED = 'WED'
+    THU = 'THU'
+    FRI = 'FRI'
+    SAT = 'SAT'
+
+    working_day_choices = (
+        (SUN, 'SUN'),
+        (MON, 'MON'),
+        (TUE, 'TUE'),
+        (WED, 'WED'),
+        (THU, 'THU'),
+        (FRI, 'FRI'),
+        (SAT, 'FRI'),
+    )
+    shop = models.OneToOneField(Shop, related_name='foco_shop_config', null=True, blank=True, unique=True, on_delete=models.CASCADE,)
+    shop_opening_timing = models.TimeField(null=True, blank=True)
+    shop_closing_timing = models.TimeField(null=True, blank=True)
+    # break_start_time = models.TimeField(null=True, blank=True)
+    # break_end_time = models.TimeField(null=True, blank=True)
+    working_days = ArrayField(models.CharField(max_length=25, choices=working_day_choices, null=True, blank=True), null=True,
+                         blank=True)
+    # redius = models.DecimalField(max_digits=8, decimal_places=1, blank=True, null=True, help_text="Insert value in meters")
+    #min_order_value = models.DecimalField(max_digits=10, decimal_places=2, default=199,validators=[MinValueValidator(199)], blank=True, null=True)
+    #delivery_time = models.IntegerField(blank=True, null=True, help_text="Insert value in minutes")
     class Meta:
         permissions = (
             ("has_fofo_config_operations", "Has update FOFO config operations"),

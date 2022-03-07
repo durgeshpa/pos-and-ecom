@@ -140,6 +140,26 @@ logger = logging.getLogger('django')
 info_logger = logging.getLogger('file-info')
 error_logger = logging.getLogger('file-error')
 
+def distance(shop_location, order_location):
+    """
+    Calculate distance between order location and shop location
+    """
+    lat1, lon1 = shop_location
+    lat2, lon2 = order_location
+    radius = 6371 # km
+
+    dlat = math.radians(lat2-lat1)
+    dlon = math.radians(lon2-lon1)
+    a = math.sin(dlat/2) * math.sin(dlat/2) + math.cos(math.radians(lat1)) \
+        * math.cos(math.radians(lat2)) * math.sin(dlon/2) * math.sin(dlon/2)
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
+    d = radius * c
+    return d
+def get_order_location(shop):
+    """
+    Get shop location ...
+    """
+    return float(shop.latitude),float(shop.longitude)
 
 class PickerDashboardViewSet(DataWrapperViewSet):
     '''
@@ -5181,6 +5201,17 @@ class CartStockCheckView(APIView):
         if address.pincode != shop.shop_name_address_mapping.filter(
                 address_type='shipping').last().pincode_link.pincode:
             return api_response("This Shop is not serviceable at your delivery address")
+
+        lattitude,longitude = float(self.request.GET.get('latitude')),float(self.request.GET.get('longitude'))
+        shop_lattitude,shop_longitude = get_order_location(shop)
+        order_distance = 0
+        if lattitude and longitude:
+            order_distance = distance((shop_lattitude, shop_longitude), (lattitude, longitude))
+        delivery_redius = get_config_fofo_shop('Delivery Radius', shop.id)
+        if order_distance != 0 and delivery_redius and order_distance * 1000 > get_config_fofo_shop('Delivery Radius', shop.id):
+            return api_response("This Shop is not serviceable at your delivery address")
+
+
 
         # Check for changes in cart - price / offers / available inventory
         cart_products = cart.rt_cart_list.all()
