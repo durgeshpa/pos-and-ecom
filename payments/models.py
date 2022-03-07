@@ -282,6 +282,13 @@ class OrderPayment(AbstractDateTime):
             raise ValidationError(_(error_msg),)
         except:
             pass
+    
+    def save(self, *args, **kwargs):
+        shipment_payments = self.shipment_order_payment.all()
+        for ship_pay in shipment_payments:
+            ship_pay.paid_amount = ship_pay.parent_order_payment.paid_amount
+            ship_pay.save()
+        super().save(*args, **kwargs)
 
 # create payment mode table shipment payment mapping
 class ShipmentPayment(AbstractDateTime):

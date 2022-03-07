@@ -1918,6 +1918,12 @@ class OrderedProduct(models.Model):  # Shipment
             self.no_of_packets = 0
         if self.no_of_sacks == None:
             self.no_of_sacks = 0
+        
+        shipment_payments = self.shipment_payment.all()
+        for ship_pay in shipment_payments:
+            if ship_pay.parent_order_payment and ship_pay.parent_order_payment.paid_amount:
+                ship_pay.paid_amount = ship_pay.parent_order_payment.paid_amount
+                ship_pay.save()
 
         super().save(*args, **kwargs)
 
