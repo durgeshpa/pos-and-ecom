@@ -34,10 +34,10 @@ def get_product_price(shop_id, products):
 	if shop_id:
 		products_price = ProductPrice.objects.filter(
 			product__id__in=products, seller_shop_id=shop_id, status=True, approval_status=ProductPrice.APPROVED,
-			price_slabs__isnull=False).select_related('product').order_by('product_id', '-created_at')
+			).select_related('product').order_by('product_id', '-created_at')
 	else:
 		products_price = ProductPrice.objects.filter(
-			product__id__in=products, status=True, approval_status=ProductPrice.APPROVED, price_slabs__isnull=False)\
+			product__id__in=products, status=True, approval_status=ProductPrice.APPROVED,)\
 			.select_related('product').order_by('product_id', '-created_at')
 	info_logger.info("Inside get_product_price, products_price count: " + str(
 		products_price.count()) + ", products_price: " + str(products_price))
