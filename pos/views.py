@@ -46,6 +46,7 @@ from pos.forms import RetailerProductsCSVDownloadForm, RetailerProductsCSVUpload
     RetailerPurchaseReportForm
 from pos.tasks import generate_pdf_data, update_es
 from products.models import Product, ParentProductCategory
+from products.utils import parent_product_categories
 from shops.models import Shop, PosShopUserMapping
 from retailer_to_sp.models import OrderReturn, OrderedProduct, CreditNote, OrderedProductMapping, RoundAmount, Order
 from wms.models import PosInventory, PosInventoryState, PosInventoryChange
@@ -990,10 +991,13 @@ def get_product_details(product):
         else:
             brand = brand_details[0]['parent_product__parent_brand__brand_name']
 
-        cat = ParentProductCategory.objects.values('category__category_name',
-                                                   'category__category_parent__category_name').filter \
-            (parent_product__id=product.linked_product.parent_product.id)
-        if cat[0]['category__category_parent__category_name']:
+        # cat = ParentProductCategory.objects.values('category__category_name',
+        #                                            'category__category_parent__category_name').filter \
+        #     (parent_product__id=product.linked_product.parent_product.id)
+        cat = parent_product_categories(product.linked_product.parent_product)
+        if cat:
+            cat = cat.values('category__category_name', 'category__category_parent__category_name')
+        if cat and cat[0]['category__category_parent__category_name']:
             category = cat[0]['category__category_parent__category_name']
             sub_category = cat[0]['category__category_name']
         else:
