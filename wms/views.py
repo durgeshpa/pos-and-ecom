@@ -2417,9 +2417,7 @@ def assign_putaway_users_to_new_putways():
                     When(putaway_type__in=['RETURNED', 'CANCELLED', 'PAR_SHIPMENT', 'REPACKAGING'],
                          then=Cast('putaway_type_id', models.CharField())),
                     output_field=models.CharField(),
-                ),
-                zone=Subquery(WarehouseAssortment.objects.filter(
-                    warehouse=OuterRef('warehouse'), product=OuterRef('sku__parent_product')).values('zone')[:1])
+                )
                 ). \
         exclude(zone__isnull=True)
     cron_logger.info(objs.count())
@@ -2437,9 +2435,7 @@ def assign_putaway_users_to_new_putways():
                         When(putaway_type__in=['RETURNED', 'CANCELLED', 'PAR_SHIPMENT', 'REPACKAGING'],
                              then=Cast('putaway_type_id', models.CharField())),
                         output_field=models.CharField(),
-                    ),
-                    zone=Subquery(WarehouseAssortment.objects.filter(
-                        warehouse=OuterRef('warehouse'), product=OuterRef('sku__parent_product')).values('zone')[:1])
+                    )
                     ). \
             filter(token_id=x['token_id'], zone=x['zone'])
         if putaway_obj:
@@ -2454,6 +2450,8 @@ def assign_putaway_users_to_new_putways():
                 putaway_user = zone_putaway_assigned_user.user
                 zone_putaway_assigned_user.last_assigned_at = datetime.now()
                 zone_putaway_assigned_user.save()
+            else:
+                putaway_user = None
         if putaway_user:
             reflected_putaways = objs.filter(token_id=x['token_id'], zone=x['zone'])
             reflected_list = list(reflected_putaways.values_list('id', flat=True))
