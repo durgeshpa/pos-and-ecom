@@ -43,12 +43,15 @@ def bulk_incentive_data_validation(file):
         else:
             row[2] = True if str(row[2]).lower() == "yes" else False
 
-        if not row[3]:
+        if row[2] and str(row[2]).lower() == 'yes' and not row[3]:
             error_msg.append(f"{first_row[4]} cant be blank")
-        elif not re.match("^\d+[.]?[\d]{0,2}$", str(row[3])):
+        elif row[3] and not re.match("^\d+[.]?[\d]{0,2}$", str(row[3])):
             error_msg.append(f"{first_row[3]} {row[3]} can only be a numeric value")
         else:
-            row[3] = str(round(row[3], 2))
+            if row[3] is not None:
+                row[3] = str(round(row[3], 2))
+            else:
+                row[3] = 0.0
 
         if not row[4]:
             error_msg.append(f"{first_row[4]} cant be blank")
