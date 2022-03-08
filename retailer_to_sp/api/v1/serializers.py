@@ -3178,7 +3178,7 @@ class LoadVerifyCrateSerializer(serializers.ModelSerializer):
         # Update total no of empty crates
         trip = trip_crate_mapping.trip
         if trip_crate_mapping.crate_status == DispatchTripCrateMapping.LOADED:
-            trip.no_of_empty_crates = trip.no_of_empty_crates + 1
+            trip.no_of_empty_crates = (trip.no_of_empty_crates if trip.no_of_empty_crates else 0) + 1
             trip.save()
 
         # Make crate used at source
@@ -3266,7 +3266,7 @@ class UnloadVerifyCrateSerializer(serializers.ModelSerializer):
         # Update total no of empty crates
         trip = trip_crate_mapping.trip
         if trip_crate_mapping.crate_status == DispatchTripCrateMapping.UNLOADED:
-            trip.no_of_empty_crates_check = trip.no_of_empty_crates_check + 1
+            trip.no_of_empty_crates_check = (trip.no_of_empty_crates_check if trip.no_of_empty_crates_check else 0) + 1
             trip.save()
         # Make crate available at destination
         shop = trip_crate_mapping.trip.destination_shop
@@ -3420,11 +3420,11 @@ class LoadVerifyPackageSerializer(serializers.ModelSerializer):
         trip = trip_shipment.trip
         if trip_package_mapping.package_status == DispatchTripShipmentPackages.LOADED:
             if trip_package_mapping.shipment_packaging.packaging_type == ShipmentPackaging.CRATE:
-                trip.no_of_crates = trip.no_of_crates + 1
+                trip.no_of_crates = (trip.no_of_crates if trip.no_of_crates else 0) + 1
             elif trip_package_mapping.shipment_packaging.packaging_type == ShipmentPackaging.BOX:
-                trip.no_of_packets = trip.no_of_packets + 1
+                trip.no_of_packets = (trip.no_of_packets if trip.no_of_packets else 0) + 1
             elif trip_package_mapping.shipment_packaging.packaging_type == ShipmentPackaging.SACK:
-                trip.no_of_sacks = trip.no_of_sacks + 1
+                trip.no_of_sacks = (trip.no_of_sacks if trip.no_of_sacks else 0) + 1
             package_weight = trip_package_mapping.shipment_packaging.packaging_details.all()\
                 .aggregate(total_weight=Sum(F('ordered_product__product__weight_value') * F('quantity'),
                                             output_field=FloatField())).get('total_weight')
@@ -3557,11 +3557,11 @@ class UnloadVerifyPackageSerializer(serializers.ModelSerializer):
         trip = trip_shipment.trip
         if trip_package_mapping.package_status == DispatchTripShipmentPackages.UNLOADED:
             if trip_package_mapping.shipment_packaging.packaging_type == ShipmentPackaging.CRATE:
-                trip.no_of_crates_check = trip.no_of_crates_check + 1
+                trip.no_of_crates_check = (trip.no_of_crates_check if trip.no_of_crates_check else 0) + 1
             elif trip_package_mapping.shipment_packaging.packaging_type == ShipmentPackaging.BOX:
-                trip.no_of_packets_check = trip.no_of_packets_check + 1
+                trip.no_of_packets_check = (trip.no_of_packets_check if trip.no_of_packets_check else 0) + 1
             elif trip_package_mapping.shipment_packaging.packaging_type == ShipmentPackaging.SACK:
-                trip.no_of_sacks_check = trip.no_of_sacks_check + 1
+                trip.no_of_sacks_check = (trip.no_of_sacks_check if trip.no_of_sacks_check else 0) + 1
             trip.save()
         if not trip_shipment.trip_shipment_mapped_packages.filter(
                 package_status=DispatchTripShipmentPackages.LOADED).exists():
@@ -4867,11 +4867,11 @@ class LastMileLoadVerifyPackageSerializer(serializers.ModelSerializer):
         trip = trip_shipment.trip
         if trip_package_mapping.package_status == LastMileTripShipmentPackages.LOADED:
             if trip_package_mapping.shipment_packaging.packaging_type == ShipmentPackaging.CRATE:
-                trip.no_of_crates = trip.no_of_crates + 1
+                trip.no_of_crates = (trip.no_of_crates if trip.no_of_crates else 0) + 1
             elif trip_package_mapping.shipment_packaging.packaging_type == ShipmentPackaging.BOX:
-                trip.no_of_packets = trip.no_of_packets + 1
+                trip.no_of_packets = (trip.no_of_packets if trip.no_of_packets else 0) + 1
             elif trip_package_mapping.shipment_packaging.packaging_type == ShipmentPackaging.SACK:
-                trip.no_of_sacks = trip.no_of_sacks + 1
+                trip.no_of_sacks = (trip.no_of_sacks if trip.no_of_sacks else 0) + 1
             package_weight = trip_package_mapping.shipment_packaging.packaging_details.all()\
                 .aggregate(total_weight=Sum(F('ordered_product__product__weight_value') * F('quantity'),
                                             output_field=FloatField())).get('total_weight')
