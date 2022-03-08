@@ -2489,6 +2489,93 @@ class CartCheckout(APIView):
 #             return Response(msg, status=status.HTTP_200_OK)
 
 
+def order_pickup_genrate_invioce(request,order):
+    if order.ordered_cart.cart_type != 'ECOM':
+        return api_response("Invalid action")
+    # if order.order_status != Order.PICKUP_CREATED:
+    #     return api_response("This order is not picked yet or is already out for delivery")
+    try:
+        delivery_person = User.objects.get(id=request.user.id)
+    except:
+        return api_response("Please select a delivery person")
+    order.order_status = Order.OUT_FOR_DELIVERY
+    order.delivery_person = delivery_person
+                ###### trip me save created
+    order.save()
+    shipment = OrderedProduct.objects.filter(order=order).last()
+    shipment.shipment_status = OrderedProduct.MOVED_TO_DISPATCH
+    shipment.save()
+    shipment.shipment_status = 'OUT_FOR_DELIVERY'
+    shipment.save()
+    if shipment.pos_trips.filter(trip_type='ECOM').exists():
+        pos_trip = shipment.pos_trips.filter(trip_type='ECOM').last()
+    else:
+        pos_trip = PosTrip.objects.create(trip_type='ECOM',
+                                          shipment=shipment)
+    pos_trip.trip_start_at = datetime.now()
+    pos_trip.save()
+                # Inventory move from ordered to picked
+    ordered_products = ShipmentProducts.objects.filter(ordered_product=shipment)
+    for product_map in ordered_products:
+        product_id = product_map.retailer_product_id
+        if product_map.shipped_qty > 0:
+            PosInventoryCls.order_inventory(product_id, PosInventoryState.ORDERED,
+                                            PosInventoryState.SHIPPED,
+                                            product_map.shipped_qty,
+                                            request.user, order.order_no, PosInventoryChange.SHIPPED)
+        ordered_p = CartProductMapping.objects.get(cart=order.ordered_cart,
+                                                               retailer_product=product_map.retailer_product,
+                                                               product_type=product_map.product_type)
+        if ordered_p.qty - product_map.shipped_qty > 0:
+            PosInventoryCls.order_inventory(product_id, PosInventoryState.ORDERED,
+                                            PosInventoryState.AVAILABLE,
+                                            ordered_p.qty - product_map.shipped_qty,
+                                            request.user, order.order_no, PosInventoryChange.SHIPPED)
+    pdf_generation_retailer(request, order.id)
+
+def order_shipment(request, data, *args, **kwargs):
+    shop = kwargs['shop']
+    serializer = EcomShipmentSerializer(data=data, context={'shop': shop})
+    if serializer.is_valid():
+        with transaction.atomic():
+                data = serializer.validated_data
+                products_info, order_id = data['products'], data['order_id']
+                order = Order.objects.filter(pk=order_id, seller_shop=shop,
+                                             order_status__in=['ordered', Order.PICKUP_CREATED],
+                                             ordered_cart__cart_type='ECOM').last()
+                    # Create shipment
+                shipment = OrderedProduct.objects.filter(order=order).last()
+                if not shipment:
+                    shipment = OrderedProduct(order=order)
+                    shipment.save()
+                for product_map in products_info:
+                    product_id, qty, product_type = product_map['product_id'], product_map['picked_qty'], product_map[
+                        'product_type']
+                    ordered_product_mapping, _ = ShipmentProducts.objects.get_or_create(ordered_product=shipment,
+                                                                                        retailer_product_id=product_id,
+                                                                                        product_type=product_type)
+                    ordered_product_mapping.shipped_qty = qty
+                    ordered_product_mapping.picked_pieces = qty
+                    ordered_product_mapping.selling_price = product_map['selling_price']
+                    ordered_product_mapping.save()
+                    # Item Batch
+                    batch = OrderedProductBatch.objects.filter(ordered_product_mapping=ordered_product_mapping).last()
+                    if not batch:
+                        OrderedProductBatch.objects.create(ordered_product_mapping=ordered_product_mapping,
+                                                           pickup_quantity=qty, quantity=qty, delivered_qty=qty)
+                    else:
+                        batch.pickup_quantity = qty
+                        batch.quantity = qty
+                        batch.delivered_qty = qty
+                        batch.save()
+
+                order.order_status = Order.PICKUP_CREATED
+                order.ordered_by = request.user
+                order.save()
+                return True
+    else:
+        return False
+
 class ReservedOrder(generics.ListAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (permissions.IsAuthenticated,)
@@ -2898,7 +2985,14 @@ class OrderCentral(APIView):
             # Delivered/Closed
             else:
                 if order.delivery_option == '1':
-                    pass
+                    data = {'order_id': order.id,
+                            'products':[]}
+                    for i in CartProductMapping.objects.filter(cart=order.ordered_cart, product_type=1):
+
+                        data['products'].append({'product_id':i.retailer_product_id,
+                                                  'picked_qty': i.qty})
+                    order_shipment(request, data, *args, **kwargs)
+                    order_pickup_genrate_invioce(request, order)
                 elif order.order_status not in [Order.OUT_FOR_DELIVERY, Order.DELIVERED]:
                     return api_response("Invalid Order update")
                 order.order_status = order_status
