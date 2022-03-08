@@ -976,8 +976,7 @@ class PutawayItemsCrudView(generics.GenericAPIView):
             self.queryset = self.queryset.filter(putaway_user_id=putaway_user)
 
         if zone:
-            zone_product_ids = WarehouseAssortment.objects.filter(zone__id=zone).values_list('product_id', flat=True)
-            self.queryset = self.queryset.filter(sku__parent_product__id__in=zone_product_ids)
+            self.queryset = self.queryset.filter(zone__id=zone)
 
         elif is_zone_not_assigned:
             no_zone_product_ids = WarehouseAssortment.objects.filter(zone__isnull=True).values_list('product_id', flat=True)
@@ -988,11 +987,11 @@ class PutawayItemsCrudView(generics.GenericAPIView):
 
         if putaway_type_id:
             if putaway_type == 'GRN':
-                self.queryset = self.queryset.filter(putaway_type=putaway_type,
-                                                     putaway_type_id__in=In.objects.filter(in_type=putaway_type,
-                                                                                           in_type_id=putaway_type_id)
-                                                     .annotate(id_key=Cast('id', CharField()))
-                                                     .values_list('id_key', flat=True))
+                grn_order_instance = GRNOrder.objects.filter(grn_id=putaway_type_id).last()
+                if grn_order_instance:
+                    self.queryset = self.queryset.filter(putaway_type=putaway_type, reference_id=grn_order_instance.id)
+                else:
+                    self.queryset = self.queryset.none()
             if putaway_type == 'picking_cancelled':
                 self.queryset = self.queryset.filter(putaway_type=putaway_type,
                                                      putaway_type_id__in=Pickup.objects.filter(
@@ -1071,8 +1070,6 @@ class GroupedByGRNPutawaysView(generics.GenericAPIView):
                          then=Cast('putaway_type_id', models.CharField())),
                     output_field=models.CharField(),
                  ),
-                 zone=Subquery(WarehouseAssortment.objects.filter(
-                     warehouse=OuterRef('warehouse'), product=OuterRef('sku__parent_product')).values('zone')[:1]),
                  putaway_status=Case(
                      When(status__in=[Putaway.ASSIGNED, Putaway.INITIATED], then=Value(Putaway.ASSIGNED)),
                      default=F('status'),
@@ -1165,8 +1162,6 @@ class AssignPutawayUserByGRNAndZoneView(generics.GenericAPIView):
                          then=Cast('putaway_type_id', models.CharField())),
                     output_field=models.CharField(),
                 ),
-                    zone_id=Subquery(WarehouseAssortment.objects.filter(
-                        warehouse=OuterRef('warehouse'), product=OuterRef('sku__parent_product')).values('zone')[:1])
                 ). \
         exclude(zone_id__isnull=True). \
         exclude(token_id__isnull=True). \
@@ -1804,8 +1799,6 @@ class POSummaryView(generics.GenericAPIView):
                          then=Cast('putaway_type_id', models.CharField())),
                     output_field=models.CharField(),
                  ),
-                 zone=Subquery(WarehouseAssortment.objects.filter(
-                     warehouse=OuterRef('warehouse'), product=OuterRef('sku__parent_product')).values('zone')[:1])
                  ). \
         exclude(zone__isnull=True). \
         exclude(po_no__isnull=True). \
@@ -1844,9 +1837,6 @@ class PutawaySummaryView(generics.GenericAPIView):
     permission_classes = (AllowAny,)
     queryset = Putaway.objects.filter(
         putaway_type__in=['GRN', 'RETURNED', 'CANCELLED', 'PAR_SHIPMENT', 'REPACKAGING', 'picking_cancelled']). \
-        annotate(zone=Subquery(WarehouseAssortment.objects.filter(
-                     warehouse=OuterRef('warehouse'), product=OuterRef('sku__parent_product')).values('zone')[:1])
-                 ). \
         exclude(status__isnull=True)
     serializer_class = PutawaySummarySerializers
 
@@ -1977,9 +1967,6 @@ class ZoneWiseSummaryView(generics.GenericAPIView):
     permission_classes = (AllowAny,)
     queryset = Putaway.objects.filter(
         putaway_type__in=['GRN', 'RETURNED', 'CANCELLED', 'PAR_SHIPMENT', 'REPACKAGING', 'picking_cancelled']). \
-        annotate(zone=Subquery(WarehouseAssortment.objects.filter(
-                     warehouse=OuterRef('warehouse'), product=OuterRef('sku__parent_product')).values('zone')[:1])
-                 ). \
         exclude(status__isnull=True). \
         order_by('zone', 'status')
     serializer_class = ZonewiseSummarySerializers
