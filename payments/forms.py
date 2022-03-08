@@ -123,6 +123,7 @@ class OrderPaymentForm(forms.ModelForm):
             self.fields['reference_no'].initial = instance.parent_payment.reference_no
             self.fields['payment_mode_name'].initial = instance.parent_payment.payment_mode_name
             self.fields['online_payment_type'].initial = instance.parent_payment.online_payment_type
+            self.fields.get('order').disabled = True
         elif kwargs is not None and kwargs.get('initial', None):
             if kwargs.get('initial').get('object_id', None) is not None:
                 object_id = kwargs.get('initial').get('object_id')
@@ -177,6 +178,7 @@ class OrderPaymentForm(forms.ModelForm):
                                                     )
                 else:
                     payment = existing_payment
+                    payment.paid_by = paid_by
                     payment.paid_amount = paid_amount
                     payment.payment_mode_name = payment_mode_name
                 
