@@ -97,13 +97,11 @@ class PutawayCommonFunctions(object):
                 putaway_status = Putaway.PUTAWAY_STATUS_CHOICE.COMPLETED
             else:
                 putaway_status = None
-            zone = get_zone_by_warehouse_and_product(warehouse, sku.parent_product) \
-                if isinstance(sku, Product) else None
             putaway_obj = Putaway.objects.create(warehouse=warehouse, putaway_type=putaway_type,
                                                  putaway_type_id=putaway_type_id, sku=sku,
                                                  batch_id=batch_id, quantity=quantity,
                                                  putaway_quantity=putaway_quantity,
-                                                 inventory_type=inventory_type, reference_id=reference_id, zone=zone)
+                                                 inventory_type=inventory_type, reference_id=reference_id)
             if putaway_status is not None:
                 putaway_obj.status = putaway_status
                 putaway_obj.save()
