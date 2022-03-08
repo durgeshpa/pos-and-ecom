@@ -8350,7 +8350,6 @@ class DispatchCenterShipmentView(generics.GenericAPIView):
                         DispatchTripShipmentPackages.DAMAGED_AT_UNLOADING])
             elif invoice_package_status == PACKAGE_VERIFY_CHOICES.MISSING:
                 self.queryset = self.queryset.filter(
-                    ~Q(trip_shipment__shipment_status=DispatchTripShipmentMapping.CANCELLED),
                     trip_shipment__trip_shipment_mapped_packages__package_status__in=[
                         DispatchTripShipmentPackages.MISSING_AT_LOADING,
                         DispatchTripShipmentPackages.MISSING_AT_UNLOADING])
