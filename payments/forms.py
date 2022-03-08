@@ -188,6 +188,7 @@ class OrderPaymentForm(forms.ModelForm):
                     #if prev_mode != 'cash_payment' and 
                     if payment_mode_name == 'cash_payment':
                         payment.payment_approval_status = 'approved_and_verified'
+                        payment.reference_no = None
                     #elif prev_mode == 'cash_payment' and 
                     elif payment_mode_name != 'cash_payment':
                         payment.payment_approval_status = 'pending_approval'
