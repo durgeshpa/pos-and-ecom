@@ -12,7 +12,7 @@ def bulk_incentive_data_validation(file):
     wb_obj = openpyxl.load_workbook(file)
     sheet_obj = wb_obj.active
     first_row = next(sheet_obj.iter_rows(values_only=True))
-    error_file_list.append(list(first_row) + ["Status"])
+    error_file_list.append(list(first_row) + ["status"])
 
     shops = Shop.objects.filter(shop_type__shop_type__in=['r', 'f'])
     for row_id, row in enumerate(sheet_obj.iter_rows(
@@ -40,15 +40,18 @@ def bulk_incentive_data_validation(file):
             error_msg.append(f"{first_row[2]} cant be blank")
         elif str(row[2]).lower() not in ['yes', 'no']:
             error_msg.append(f"{first_row[2]} can only be 'Yes' or 'No' ")
-        else:
-            row[2] = True if str(row[2]).lower() == "yes" else False
+        # else:
+        #     row[2] = True if str(row[2]).lower() == "yes" else False
 
-        if not row[3]:
-            error_msg.append(f"{first_row[4]} cant be blank")
-        elif not re.match("^\d+[.]?[\d]{0,2}$", str(row[3])):
+        if row[2] and str(row[2]).lower() == 'yes' and not row[3]:
+            error_msg.append(f"{first_row[3]} cant be blank")
+        elif row[3] and not re.match("^\d+[.]?[\d]{0,2}$", str(row[3])):
             error_msg.append(f"{first_row[3]} {row[3]} can only be a numeric value")
         else:
-            row[3] = str(round(row[3], 2))
+            if row[3] is not None:
+                row[3] = str(round(row[3], 2))
+            else:
+                row[3] = 0.0
 
         if not row[4]:
             error_msg.append(f"{first_row[4]} cant be blank")

@@ -112,8 +112,10 @@ def bulk_create_incentives(data, uploaded_by):
     with transaction.atomic():
         for row in data:
             try:
+
                 Incentive.objects.create(
-                    shop_id=row[0], capping_applicable=row[2],capping_value=row[3], date_of_calculation=row[4],
+                    shop_id=row[0], capping_applicable=True if str(row[2]).lower() == "yes" else False,
+                    capping_value=row[3], date_of_calculation=row[4],
                     total_ex_tax_delivered_value=row[5], incentive=row[6], created_by=uploaded_by,
                     updated_by=uploaded_by)
             except Exception as e:
@@ -127,11 +129,15 @@ def error_incentives_xlsx(list_data, bulk_incentive_obj):
     workbook = xlsxwriter.Workbook(output)
     worksheet = workbook.add_worksheet()
     bold = workbook.add_format({'bold': True})
+    date_format = workbook.add_format({'num_format': 'yyyy-mm-dd'})
 
     # Write error msg in xlsx sheet.
     for row_num, columns in enumerate(list_data):
         for col_num, cell_data in enumerate(columns):
-            worksheet.write(row_num, col_num, cell_data, bold if row_num == 0 else None)
+            if row_num == 0:
+                worksheet.write(row_num, col_num, cell_data, bold)
+            else:
+                worksheet.write(row_num, col_num, cell_data, date_format if col_num == 4 else None)
     workbook.close()
     output.seek(0)
     response = HttpResponse(
@@ -140,4 +146,3 @@ def error_incentives_xlsx(list_data, bulk_incentive_obj):
     )
     response['Content-Disposition'] = 'attachment; filename=%s' % filename
     return response
-
