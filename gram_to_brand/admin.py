@@ -4,6 +4,7 @@ import math
 
 from dal import autocomplete
 from django import forms
+from django.core.exceptions import ValidationError
 from django.db.models import Sum, F, Q
 from django.db import models
 from django.contrib import messages, admin
@@ -208,11 +209,28 @@ class GRNOrderForm(forms.ModelForm):
         queryset=Order.objects.all(),
         widget=autocomplete.ModelSelect2(url='order-autocomplete', )
     )
-    deduction = forms.BooleanField()
+    deduction = forms.BooleanField(required=False)
 
     class Meta:
         model = GRNOrder
-        fields = ('order', 'invoice_no', 'deduction',)
+        fields = ('order', 'invoice_no', 'deduction', 'total_freight_charges', 'discount_charges', 'insurance_charges',
+                  'other_charges',)
+
+    def clean(self):
+        cleaned_data = super().clean()
+        if (cleaned_data['deduction'] and cleaned_data['total_freight_charges'] > 0) or \
+                cleaned_data['total_freight_charges'] < 0:
+            cleaned_data['total_freight_charges'] *= -1
+        return cleaned_data
+
+    def __init__(self, *args, **kwargs):
+        super(GRNOrderForm, self).__init__(*args, **kwargs)
+        instance = getattr(self, 'instance', None)
+
+        if instance and instance.pk:
+            if instance.total_freight_charges < 0 and 'deduction' in self.fields:
+                self.initial['total_freight_charges'] = instance.total_freight_charges * -1
+                self.initial['deduction'] = True
 
 
 class DocumentAdmin(admin.StackedInline):
