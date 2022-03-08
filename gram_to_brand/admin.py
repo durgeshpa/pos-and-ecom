@@ -249,7 +249,8 @@ class GRNOrderProductMappingAdmin(admin.TabularInline):
     fields = ('product', 'product_mrp', 'po_product_quantity', 'po_product_price', 'already_grned_product',
               'already_returned_product', 'product_invoice_price', 'manufacture_date', 'expiry_date',
               'best_before_year', 'best_before_month', 'product_invoice_qty', 'delivered_qty', 'returned_qty',
-              'download_batch_id_barcode', 'show_batch_id', 'zone',)
+              'product_invoice_gst', 'cess_percentage', 'product_amount', 'download_batch_id_barcode',
+              'show_batch_id', 'zone',)
     exclude = ('last_modified_by', 'available_qty',)
     readonly_fields = ('download_batch_id_barcode', 'show_batch_id')
     extra = 0

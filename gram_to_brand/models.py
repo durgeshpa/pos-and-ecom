@@ -4,6 +4,7 @@ from datetime import timedelta
 from django.contrib.auth import get_user_model
 from django.conf import settings
 from django.core.exceptions import ValidationError
+from django.core.validators import MinValueValidator, MaxValueValidator
 from django.utils.translation import gettext_lazy as _
 from django.urls import reverse
 from django.utils import timezone
@@ -47,6 +48,14 @@ BEST_BEFORE_YEAR_CHOICE = (
     (3, '3 Year'),
     (4, '4 Year'),
     (5, '5 Year'),
+)
+
+GST_CHOICE = (
+    (0, 'GST-0'),
+    (5, 'GST-5'),
+    (12, 'GST-12'),
+    (18, 'GST-18'),
+    (28, 'GST-28'),
 )
 
 
@@ -415,6 +424,10 @@ class GRNOrderProductMapping(models.Model):
                                        on_delete=models.CASCADE)
     batch_id = models.CharField(max_length=50, null=True, blank=True)
     barcode_id = models.CharField(max_length=15, null=True, blank=True)
+    product_invoice_gst = models.IntegerField(default=0, null=True, choices=GST_CHOICE)
+    cess_percentage = models.FloatField(default=0, null=True,
+                                        validators=[MinValueValidator(0.0), MaxValueValidator(100.0)])
+    product_amount = models.FloatField(default=0, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
