@@ -122,6 +122,8 @@ class OrderPaymentForm(forms.ModelForm):
             self.fields['paid_by'].initial = instance.parent_payment.paid_by.id
             self.fields['reference_no'].initial = instance.parent_payment.reference_no
             self.fields['payment_mode_name'].initial = instance.parent_payment.payment_mode_name
+            self.fields['online_payment_type'].initial = instance.parent_payment.online_payment_type
+            self.fields.get('order').disabled = True
         elif kwargs is not None and kwargs.get('initial', None):
             if kwargs.get('initial').get('object_id', None) is not None:
                 object_id = kwargs.get('initial').get('object_id')
@@ -144,9 +146,12 @@ class OrderPaymentForm(forms.ModelForm):
         if order:
             cash_to_be_collected = 0
             shipment = order.rt_order_order_product.last()
+            if paid_amount <= 0:
+                raise ValidationError(_('Paid amount should be greater than 0'))
             if shipment:
                 cash_to_be_collected = shipment.cash_to_be_collected()
-                total_payments = Payment.objects.filter(order=order)
+                total_payments = Payment.objects.filter(order=order, 
+                                                        parent_payment_order__shipment_order_payment__isnull=False)
                 if self.instance.pk:
                     existing_payment = self.instance.parent_payment
                     total_payments = total_payments.exclude(id=existing_payment.pk)
@@ -163,14 +168,32 @@ class OrderPaymentForm(forms.ModelForm):
                         else:
                             existing_payment.delete()
                 if payment_mode_name == "online_payment" and not reference_no:
-                    raise ValidationError('Reference number is required.')
-                payment = Payment.objects.create(paid_by=paid_by,
-                                                 paid_amount=paid_amount,
-                                                 payment_mode_name=payment_mode_name,
-                                                 )
+                    raise ValidationError(_('Reference number is required.'))
+                if total_payments.filter(payment_mode_name='online_payment', reference_no=reference_no).exists():
+                    raise ValidationError(_('Reference number already present.'))
+                if not existing_payment:
+                    payment = Payment.objects.create(paid_by=paid_by,
+                                                    paid_amount=paid_amount,
+                                                    payment_mode_name=payment_mode_name,
+                                                    )
+                else:
+                    payment = existing_payment
+                    payment.paid_by = paid_by
+                    payment.paid_amount = paid_amount
+                    payment.payment_mode_name = payment_mode_name
+                
                 if payment_mode_name == "online_payment":
                     payment.reference_no = reference_no
                     payment.online_payment_type = online_payment_type
+                if self.instance.pk:
+                    #prev_mode = OrderPayment.objects.get(pk=self.instance.pk).parent_payment.payment_mode_name
+                    #if prev_mode != 'cash_payment' and 
+                    if payment_mode_name == 'cash_payment':
+                        payment.payment_approval_status = 'approved_and_verified'
+                        payment.reference_no = None
+                    #elif prev_mode == 'cash_payment' and 
+                    elif payment_mode_name != 'cash_payment':
+                        payment.payment_approval_status = 'pending_approval'
                 payment.save()
                 cleaned_data['parent_payment'] = payment
         return cleaned_data

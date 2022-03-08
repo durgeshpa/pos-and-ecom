@@ -277,7 +277,7 @@ class OrderPayment(AbstractDateTime):
         try:
             if float(self.payment_utilised_excluding_current) + float(self.paid_amount) > float(self.parent_payment.paid_amount):
                 error_msg = "Maximum amount to be utilised from parent payment is " + str(self.parent_payment.paid_amount - self.payment_utilised_excluding_current)
-                raise ValueTooLargeError #ValidationError(_(error_msg),)   
+                #raise ValueTooLargeError #ValidationError(_(error_msg),)   
         except ValueTooLargeError:
             raise ValidationError(_(error_msg),)
         except:
@@ -290,6 +290,7 @@ class OrderPayment(AbstractDateTime):
             ship_pay.save()
         super().save(*args, **kwargs)
 
+
 # create payment mode table shipment payment mapping
 class ShipmentPayment(AbstractDateTime):
     # This class stores the payment information for the shipment
@@ -297,7 +298,7 @@ class ShipmentPayment(AbstractDateTime):
     shipment = models.ForeignKey(OrderedProduct, related_name='shipment_payment', on_delete=models.CASCADE) #shipment_id
     parent_order_payment = models.ForeignKey(OrderPayment, 
        related_name='shipment_order_payment', on_delete=models.CASCADE)
-    paid_amount = models.DecimalField(validators=[MinValueValidator(0)], max_digits=20, decimal_places=4, default=0.0000)
+    paid_amount = models.DecimalField(validators=[MinValueValidator(0)], max_digits=20, decimal_places=4, default='0.0000')
     created_by = models.ForeignKey(User, related_name='payment_created_by', null=True, blank=True, on_delete=models.SET_NULL)
     updated_by = models.ForeignKey(User, related_name='payment_updated_by', null=True, blank=True, on_delete=models.SET_NULL)
 
@@ -332,7 +333,7 @@ class ShipmentPayment(AbstractDateTime):
         try:
             if float(self.payment_utilised_excluding_current) + float(self.paid_amount) > float(self.parent_order_payment.paid_amount):
                 error_msg = "Maximum amount to be utilised from parent order payment is " + str(self.parent_order_payment.paid_amount - self.payment_utilised_excluding_current)
-                raise ValueTooLargeError #ValidationError(_(error_msg),)   
+                #raise ValueTooLargeError #ValidationError(_(error_msg),)   
         except ValueTooLargeError:
             raise ValidationError(_(error_msg),)
         except:
