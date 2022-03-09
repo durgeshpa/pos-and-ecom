@@ -9,7 +9,7 @@ from products.common_validators import get_validate_parent_product_image_ids
 from shops.models import (PosShopUserMapping, RetailerType, ShopType, Shop, ShopPhoto,
                           ShopRequestBrand, ShopDocument, ShopUserMapping, SalesAppVersion, ShopTiming,
                           FavouriteProduct, DayBeatPlanning, ExecutiveFeedback, USER_TYPE_CHOICES, FOFOConfigurations,
-                          FOFOConfigCategory, FOFOConfigSubCategory
+                          FOFOConfigCategory, FOFOConfigSubCategory, FOFOConfig
                           )
 from django.contrib.auth import get_user_model
 from django.db import transaction
@@ -931,11 +931,17 @@ class FOFOCategoryConfigurationsGetSerializer(serializers.ModelSerializer):
         return FOFOSubCategoryConfigurationsGetSerializer(FOFOConfigSubCategory.objects.filter(
             fofo_category__shop=self.context.get('shop'), category=obj), many=True,
             context={'shop': self.context.get('shop')}).data
+class FofoConfigSerilizer(serializers.ModelSerializer):
+
+    class Meta:
+        model = FOFOConfig
+        fields = ('shop_opening_timing', 'shop_closing_timing', 'working_days')
 
 
 class FOFOConfigurationsGetSerializer(serializers.Serializer):
     shop = serializers.SerializerMethodField()
     category = serializers.SerializerMethodField()
+    shop_config = serializers.SerializerMethodField(read_only=True)
 
     def get_shop(self, obj):
         return ShopNameSerializer(self.context.get('shop'), read_only=True).data
@@ -956,6 +962,9 @@ class FOFOConfigurationsGetSerializer(serializers.Serializer):
         return FOFOCategoryConfigurationsGetSerializer(FOFOConfigCategory.objects.filter(
             fofo_category_details__fofo_category__shop=self.context.get('shop')).distinct(), many=True,
             context={'shop': self.context.get('shop')}).data
+    def get_shop_config(self,obj):
+        return FofoConfigSerilizer(FOFOConfig.objects.get(shop=self.context.get('shop'))).data
+
 
 
 class FOFOConfigurationsCrudSerializer(serializers.ModelSerializer):

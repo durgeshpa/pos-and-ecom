@@ -802,7 +802,7 @@ class FOFOConfig(models.Model):
         (FRI, 'FRI'),
         (SAT, 'FRI'),
     )
-    shop = models.OneToOneField(Shop, related_name='foco_shop_config', null=True, blank=True, unique=True, on_delete=models.CASCADE,)
+    shop = models.OneToOneField(Shop, related_name='fofo_shop_config', null=True, blank=True, unique=True, on_delete=models.CASCADE,)
     shop_opening_timing = models.TimeField(null=True, blank=True)
     shop_closing_timing = models.TimeField(null=True, blank=True)
     # break_start_time = models.TimeField(null=True, blank=True)

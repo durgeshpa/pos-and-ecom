@@ -8,7 +8,7 @@ from accounts.models import User
 from addresses.models import Pincode
 from categories.models import Category, B2cCategory
 from marketing.models import ReferralCode, RewardPoint, RewardLog
-from shops.models import Shop
+from shops.models import Shop, FOFOConfig
 from retailer_to_sp.models import Order, OrderedProductMapping, CartProductMapping
 from pos.models import RetailerProduct, Payment, PaymentType
 from global_config.views import get_config
@@ -69,17 +69,34 @@ class UserLocationSerializer(serializers.Serializer):
     latitude = serializers.DecimalField(max_digits=30, decimal_places=15)
     longitude = serializers.DecimalField(max_digits=30, decimal_places=15)
 
+class FoFOConfigSerializer(serializers.ModelSerializer):
+    class Meta:
+        FOFOConfig
+        fields = ('shop_opening_timing', 'shop_closing_timing ', 'working_days')
+        #read_only_fields = ['shop_opening_timing', 'shop_closing_timing ', 'working_days']
+
 
 class ShopSerializer(serializers.ModelSerializer):
     shipping_address = serializers.SerializerMethodField()
+    shop_config = serializers.SerializerMethodField()
 
     @staticmethod
     def get_shipping_address(obj):
         return obj.shipping_address
 
+    @staticmethod
+    def get_shop_config(obj):
+        if obj.fofo_shop_config:
+            return {'open_time': obj.fofo_shop_config.shop_opening_timing,
+                     'close_time': obj.fofo_shop_config.shop_closing_timing,
+                     'open_days': obj.fofo_shop_config.working_days
+                        }
+
+
+
     class Meta:
         model = Shop
-        fields = ('id', 'shop_name', 'online_inventory_enabled', 'shipping_address')
+        fields = ('id', 'shop_name', 'online_inventory_enabled', 'shipping_address','shop_config')
 
 
 class AddressSerializer(serializers.ModelSerializer):
