@@ -7,7 +7,7 @@ from django.db.models import Q
 
 from brand.models import Brand, Vendor
 from products.models import Product, Tax, ParentProductTaxMapping, ParentProduct, ParentProductCategory, \
-    ParentProductImage, ProductHSN, ProductCapping, ProductImage
+    ParentProductImage, ProductHSN, ProductCapping, ProductImage, ProductHsnGst, ProductHsnCess
 from categories.models import B2cCategory, Category
 from shops.models import Shop
 from brand.common_validators import validate_brand_name, validate_brand_code, validate_brand_slug
@@ -1301,3 +1301,139 @@ def get_validate_slab_price(price_slabs, product_type, slab_price_applicable, da
         last_slab_selling_price = price_slab['selling_price']
         if 'offer_price' in price_slab:
             last_slab_offer_price = price_slab['offer_price']
+
+
+def get_validate_hsn_gsts(hsn_gsts, product_hsn):
+    """
+    validate hsn gsts that belong to a ProductHsnGst model also
+    checking gst shouldn't repeat else through error
+    """
+    if not isinstance(hsn_gsts, list):
+        return {"error": "Key 'hsn_gst' can be of list type only."}
+
+    gst_update_ids = []
+
+    gst_names_list = []
+    gsts_obj = []
+    for gst in hsn_gsts:
+        if not isinstance(gst, dict):
+            return {"error": "Key 'hsn_gst' can be of list of object type only."}
+
+        if 'gst' not in gst:
+            return {'error': "'gst': This is mandatory for every hsn_gsts."}
+
+        if not any(int(gst['gst']) in i for i in ProductHsnGst.GST_CHOICE):
+            return {'error': f"'gst': {gst['gst']} Invalid GST selected."}
+
+        if 'id' in gst and gst['id']:
+            try:
+                gst_instance = ProductHsnGst.objects.get(id=int(gst['id']))
+                if gst_instance.product_hsn != product_hsn:
+                    return {'error': f"'id' | Invalid gst {gst_instance.gst} for {product_hsn}."}
+                gst_update_ids.append(gst_instance.id)
+            except:
+                return {'error': f"'id' | Invalid gst id {gst['id']}"}
+        else:
+            if ProductHsnGst.objects.filter(product_hsn=product_hsn, gst=gst['gst']).exists():
+                return {'error': f"'gst' | GST {gst['gst']} already mapped with {product_hsn}."}
+            gst['id'] = None
+
+        gsts_obj.append(gst)
+        if gst['gst'] in gst_names_list:
+            return {'error': f"{gst['gst']} do not repeat same gst for one HSN."}
+        gst_names_list.append(gst['gst'])
+    if not gsts_obj:
+        return {'error': "Atleast one gst must be mapped to HSN."}
+    return {'data': {"gsts": gsts_obj, "gst_update_ids": gst_update_ids}}
+
+
+def get_validate_gsts_mandatory_fields(gsts):
+    """
+    validate gsts that belong to a ProductHsnGst model also
+    checking gst shouldn't repeat else through error
+    """
+    if not isinstance(gsts, list):
+        return {"error": "Key 'hsn_gst' can be of list type only."}
+
+    gst_names_list = []
+    gsts_obj = []
+    for gst in gsts:
+        if not isinstance(gst, dict):
+            return {"error": "Key 'hsn_gst' can be of list of object type only."}
+
+        if 'gst' not in gst:
+            return {'error': "'gst': This is mandatory for every hsn_gsts."}
+
+        if not any(int(gst['gst']) in i for i in ProductHsnGst.GST_CHOICE):
+            return {'error': f"'gst': {gst['gst']} Invalid GST selected."}
+
+        gsts_obj.append(gst)
+        if gst['gst'] in gst_names_list:
+            return {'error': f"{gst['gst']} do not repeat same gst for one HSN."}
+        gst_names_list.append(gst['gst'])
+    if not gsts_obj:
+        return {'error': "Atleast one gst must be mapped to HSN."}
+    return {'data': {"gsts": gsts_obj}}
+
+
+def get_validate_hsn_cess(hsn_cess, product_hsn):
+    """
+    validate hsn cess that belong to a ProductHsnCess model also
+    checking cess shouldn't repeat else through error
+    """
+    if not isinstance(hsn_cess, list):
+        return {"error": "Key 'hsn_cess' can be of list type only."}
+
+    cess_update_ids = []
+
+    cess_names_list = []
+    cess_obj = []
+    for cess in hsn_cess:
+        if not isinstance(cess, dict):
+            return {"error": "Key 'hsn_cess' can be of list of object type only."}
+
+        if 'cess' not in cess or not cess['cess']:
+            return {'error': "'cess': This is mandatory for every hsn_cess."}
+
+        if 'id' in cess and cess['id']:
+            try:
+                cess_instance = ProductHsnCess.objects.get(id=int(cess['id']))
+                if cess_instance.product_hsn != product_hsn:
+                    return {'error': f"'id' | Invalid cess {cess_instance.cess} for {product_hsn}."}
+                cess_update_ids.append(cess_instance.id)
+            except:
+                return {'error': f"'id' | Invalid cess id {cess['id']}"}
+        else:
+            if ProductHsnCess.objects.filter(product_hsn=product_hsn, cess=cess['cess']).exists():
+                return {'error': f"'cess' | GST {cess['cess']} already mapped with {product_hsn}."}
+            cess['id'] = None
+
+        cess_obj.append(cess)
+        if cess['cess'] in cess_names_list:
+            return {'error': f"{cess['cess']} do not repeat same cess for one HSN."}
+        cess_names_list.append(cess['cess'])
+    return {'data': {"cess": cess_obj, "cess_update_ids": cess_update_ids}}
+
+
+def get_validate_cess_mandatory_fields(cess):
+    """
+    validate cess that belong to a ProductHsnCess model also
+    checking cess shouldn't repeat else through error
+    """
+    if not isinstance(cess, list):
+        return {"error": "Key 'hsn_cess' can be of list type only."}
+
+    cess_names_list = []
+    cess_obj = []
+    for cess in cess:
+        if not isinstance(cess, dict):
+            return {"error": "Key 'hsn_cess' can be of list of object type only."}
+
+        if 'cess' not in cess or not cess['cess']:
+            return {'error': "'cess': This is mandatory for every hsn_cess."}
+
+        cess_obj.append(cess)
+        if cess['cess'] in cess_names_list:
+            return {'error': f"{cess['cess']} do not repeat same cess for one HSN."}
+        cess_names_list.append(cess['cess'])
+    return {'data': {"cess": cess_obj}}

@@ -1,5 +1,7 @@
 import csv
 import logging
+
+from django.db.models import Q
 from django.utils.translation import gettext_lazy as _
 from django.http import HttpResponse
 from django.db import transaction
@@ -11,9 +13,9 @@ from rest_framework import serializers
 from products.models import Product, ParentProductTaxMapping, ParentProduct, ParentProductCategory, \
     ParentProductB2cCategory, ParentProductImage, \
     ProductTaxMapping, ProductCapping, ProductVendorMapping, \
-        ProductImage, ProductPrice, ProductHSN, Tax, \
+    ProductImage, ProductPrice, ProductHSN, Tax, \
     ProductSourceMapping, ProductPackingMapping, DestinationRepackagingCostMapping, \
-        Weight, CentralLog, PriceSlab
+    Weight, CentralLog, PriceSlab, ProductHsnCess, ProductHsnGst
 from categories.models import Category, B2cCategory
 from addresses.models import Pincode, City
 from brand.models import Brand, Vendor
@@ -25,7 +27,8 @@ from products.common_validators import get_validate_parent_brand, get_validate_p
     get_validate_seller_shop, check_active_capping, get_validate_packing_material, get_source_product, product_category, \
     product_gst, product_cess, product_surcharge, product_image, get_validate_vendor, get_validate_buyer_shop, \
     get_validate_parent_product_image_ids, get_validate_child_product_image_ids, validate_parent_product_name, \
-    validate_child_product_name, validate_tax_name, get_validate_slab_price
+    validate_child_product_name, validate_tax_name, get_validate_slab_price, get_validate_hsn_gsts, \
+    get_validate_gsts_mandatory_fields, get_validate_hsn_cess, get_validate_cess_mandatory_fields
 from products.common_function import ParentProductCls, ProductCls
 from shops.common_validators import get_validate_city_id, get_validate_pin_code
 
@@ -941,14 +944,30 @@ class ChildProductExportAsCSVSerializers(serializers.ModelSerializer):
         return response
 
 
+class ProductHSNGstSerializers(serializers.ModelSerializer):
+
+    class Meta:
+        model = ProductHsnGst
+        fields = ('id', 'gst')
+
+
+class ProductHSNCessSerializers(serializers.ModelSerializer):
+
+    class Meta:
+        model = ProductHsnCess
+        fields = ('id', 'cess')
+
+
 class ProductHSNCrudSerializers(serializers.ModelSerializer):
     """ Handles Get & creating """
     product_hsn_code = serializers.CharField(max_length=8, min_length=6, validators=[only_int])
+    hsn_gst = ProductHSNGstSerializers(many=True, read_only=True)
+    hsn_cess = ProductHSNCessSerializers(many=True, read_only=True)
     hsn_log = LogSerializers(many=True, read_only=True)
 
     class Meta:
         model = ProductHSN
-        fields = ('id', 'product_hsn_code', 'hsn_log')
+        fields = ('id', 'product_hsn_code', 'hsn_gst', 'hsn_cess', 'hsn_log')
 
     def validate(self, data):
         hsn_id = self.instance.id if self.instance else None
@@ -957,25 +976,95 @@ class ProductHSNCrudSerializers(serializers.ModelSerializer):
                     .exclude(id=hsn_id).exists():
                 raise serializers.ValidationError("hsn code already exists.")
 
+        if 'hsn_gst' in self.initial_data:
+            if self.instance:
+                hsn_gsts = get_validate_hsn_gsts(self.initial_data['hsn_gst'], self.instance)
+            else:
+                hsn_gsts = get_validate_gsts_mandatory_fields(self.initial_data['hsn_gst'])
+            if 'error' in hsn_gsts:
+                raise serializers.ValidationError(hsn_gsts['error'])
+            data['gsts'] = hsn_gsts['data']['gsts']
+            data['gst_update_ids'] = hsn_gsts['data'].get('gst_update_ids', [])
+
+        if 'hsn_cess' in self.initial_data and self.initial_data['hsn_cess']:
+            if self.instance:
+                hsn_cess = get_validate_hsn_cess(self.initial_data['hsn_cess'], self.instance)
+            else:
+                hsn_cess = get_validate_cess_mandatory_fields(self.initial_data['hsn_cess'])
+            if 'error' in hsn_cess:
+                raise serializers.ValidationError(hsn_cess['error'])
+            data['cess'] = hsn_cess['data']['cess']
+            data['cess_update_ids'] = hsn_cess['data'].get('cess_update_ids', [])
+
         return data
 
     @transaction.atomic
     def create(self, validated_data):
         """create a new HSN"""
+        gsts = validated_data.pop("gsts", [])
+        gst_update_ids = validated_data.pop("gst_update_ids", [])
+        cess = validated_data.pop("cess", [])
+        cess_update_ids = validated_data.pop("cess_update_ids", [])
         try:
             hsn = ProductHSN.objects.create(**validated_data)
             ProductCls.create_hsn_log(hsn, "created")
+            self.post_product_hsn_save(gsts, gst_update_ids, cess, cess_update_ids, hsn)
         except Exception as e:
             error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
             raise serializers.ValidationError(error)
 
         return hsn
 
+    @transaction.atomic
     def update(self, instance, validated_data):
         """update hsn"""
-        instance = super().update(instance, validated_data)
-        ProductCls.create_hsn_log(instance, "updated")
+        gsts = validated_data.pop("gsts", [])
+        gst_update_ids = validated_data.pop("gst_update_ids", [])
+        cess = validated_data.pop("cess", [])
+        cess_update_ids = validated_data.pop("cess_update_ids", [])
+        try:
+            instance = super().update(instance, validated_data)
+            ProductCls.create_hsn_log(instance, "updated")
+            self.post_product_hsn_save(gsts, gst_update_ids, cess, cess_update_ids, instance)
+        except Exception as e:
+            error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
+            raise serializers.ValidationError(error)
+
         return instance
+
+    def post_product_hsn_save(self, gsts, gst_update_ids, cess, cess_update_ids, product_hsn_instance):
+        self.remove_non_exist_product_hsn_gsts(gst_update_ids, product_hsn_instance)
+        if gsts:
+            self.create_update_product_hsn_gsts(gsts, product_hsn_instance)
+        self.remove_non_exist_product_hsn_cess(cess_update_ids, product_hsn_instance)
+        if cess:
+            self.create_update_product_hsn_cess(cess, product_hsn_instance)
+
+    def remove_non_exist_product_hsn_gsts(self, gst_ids, product_hsn_instance):
+        gsts_to_be_deleted = ProductHsnGst.objects.filter(
+            ~Q(id__in=gst_ids), product_hsn=product_hsn_instance)
+        gsts_to_be_deleted.delete()
+
+    def create_update_product_hsn_gsts(self, data_list, product_hsn_instance):
+        for data in data_list:
+            if 'id' in data and data['id']:
+                ProductHsnGst.objects.filter(id=data['id'], product_hsn=product_hsn_instance).update(gst=data['gst'])
+            else:
+                ProductHsnGst.objects.create(
+                    product_hsn=product_hsn_instance, gst=data['gst'], created_by=self.context['request'].user)
+
+    def remove_non_exist_product_hsn_cess(self, cess_ids, product_hsn_instance):
+        cess_to_be_deleted = ProductHsnCess.objects.filter(
+            ~Q(id__in=cess_ids), product_hsn=product_hsn_instance)
+        cess_to_be_deleted.delete()
+
+    def create_update_product_hsn_cess(self, data_list, product_hsn_instance):
+        for data in data_list:
+            if 'id' in data and data['id']:
+                ProductHsnCess.objects.filter(id=data['id'], product_hsn=product_hsn_instance).update(cess=data['cess'])
+            else:
+                ProductHsnCess.objects.create(
+                    product_hsn=product_hsn_instance, cess=data['cess'], created_by=self.context['request'].user)
 
 
 class TaxCrudSerializers(serializers.ModelSerializer):

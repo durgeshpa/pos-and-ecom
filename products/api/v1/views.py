@@ -700,8 +700,8 @@ class ProductCappingView(GenericAPIView):
 class ProductHSNView(GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
-    queryset = ProductHSN.objects.prefetch_related('hsn_log', 'hsn_log__updated_by').only('id', 'product_hsn_code'). \
-        order_by('-id')
+    queryset = ProductHSN.objects.prefetch_related('hsn_log', 'hsn_log__updated_by')\
+        .only('id', 'product_hsn_code').order_by('-id')
     serializer_class = ProductHSNCrudSerializers
 
     def get(self, request):
@@ -729,7 +729,8 @@ class ProductHSNView(GenericAPIView):
         """ POST API for ProductHSN Creation """
 
         info_logger.info("ProductHSN POST api called.")
-        serializer = self.get_serializer(data=request.data)
+        serializer = self.get_serializer(data=request.data,
+                                         context={"request": self.request, "user": self.request.user})
         if serializer.is_valid():
             serializer.save(created_by=request.user)
             info_logger.info("product HSN created successfully ")
@@ -749,7 +750,8 @@ class ProductHSNView(GenericAPIView):
             return get_response(id_instance['error'])
 
         hsn_instance = id_instance['data'].last()
-        serializer = self.serializer_class(instance=hsn_instance, data=request.data)
+        serializer = self.serializer_class(instance=hsn_instance, data=request.data,
+                                           context={"request": self.request, "user": self.request.user})
         if serializer.is_valid():
             serializer.save(updated_by=request.user)
             info_logger.info("HSN Updated Successfully.")
