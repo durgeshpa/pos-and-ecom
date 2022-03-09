@@ -22,12 +22,13 @@ from addresses.models import Pincode, City
 from .serializers import ParentProductSerializers, BrandSerializers, ParentProductExportAsCSVSerializers, \
     ActiveDeactiveSelectedParentProductSerializers, ProductHSNSerializers, WeightExportAsCSVSerializers, \
     ProductCappingSerializers, ProductVendorMappingSerializers, ChildProductSerializers, TaxSerializers, \
-    CategorySerializers, B2cCategorySerializers ,ProductSerializers, GetParentProductSerializers, ActiveDeactiveSelectedChildProductSerializers, \
+    CategorySerializers, B2cCategorySerializers, ProductSerializers, GetParentProductSerializers, \
+    ActiveDeactiveSelectedChildProductSerializers, \
     ChildProductExportAsCSVSerializers, TaxCrudSerializers, TaxExportAsCSVSerializers, WeightSerializers, \
     ProductHSNCrudSerializers, HSNExportAsCSVSerializers, ProductPriceSerializers, CitySerializer, \
     ProductVendorMappingExportAsCSVSerializers, PinCodeSerializer, ShopsSerializer, \
     DisapproveSelectedProductPriceSerializers, ProductSlabPriceExportAsCSVSerializers, ImageProductSerializers, \
-    DiscountChildProductSerializers
+    DiscountChildProductSerializers, HSNExportAsCSVUploadSerializer
 from brand.api.v1.serializers import VendorSerializers
 from products.common_function import get_response, serializer_error
 from products.common_validators import validate_id, validate_data_format
@@ -901,6 +902,21 @@ class HSNExportAsCSVView(CreateAPIView):
             response = serializer.save()
             info_logger.info("HSN CSVExported successfully ")
             return HttpResponse(response, content_type='text/csv')
+        return get_response(serializer_error(serializer), False)
+
+
+class HSNExportAsCSVUploadView(GenericAPIView):
+    """
+    This class is used to upload csv file for Shop Route to map the route with shop
+    """
+    authentication_classes = (authentication.TokenAuthentication,)
+    serializer_class = HSNExportAsCSVUploadSerializer
+
+    def post(self, request):
+        serializer = self.get_serializer(data=request.data, context={'user': self.request.user})
+        if serializer.is_valid():
+            serializer.save(created_by=request.user)
+            return get_response('data uploaded successfully!', serializer.data, True)
         return get_response(serializer_error(serializer), False)
 
 

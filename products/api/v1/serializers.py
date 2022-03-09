@@ -1,3 +1,4 @@
+import codecs
 import csv
 import logging
 
@@ -28,8 +29,8 @@ from products.common_validators import get_validate_parent_brand, get_validate_p
     product_gst, product_cess, product_surcharge, product_image, get_validate_vendor, get_validate_buyer_shop, \
     get_validate_parent_product_image_ids, get_validate_child_product_image_ids, validate_parent_product_name, \
     validate_child_product_name, validate_tax_name, get_validate_slab_price, get_validate_hsn_gsts, \
-    get_validate_gsts_mandatory_fields, get_validate_hsn_cess, get_validate_cess_mandatory_fields
-from products.common_function import ParentProductCls, ProductCls
+    get_validate_gsts_mandatory_fields, get_validate_hsn_cess, get_validate_cess_mandatory_fields, read_product_hsn_file
+from products.common_function import ParentProductCls, ProductCls, ProductHSNCommonFunction
 from shops.common_validators import get_validate_city_id, get_validate_pin_code
 
 info_logger = logging.getLogger('file-info')
@@ -1262,7 +1263,7 @@ class HSNExportAsCSVSerializers(serializers.ModelSerializer):
         meta = ProductHSN._meta
         exclude_fields = ['created_at', 'updated_at', 'created_by', 'updated_by', 'status']
         model_field_names = [field.name for field in meta.fields if field.name not in exclude_fields]
-        gst_cess_field_names = ["GST rate 1", "Gst rate 2", "Gst rate 3", "Cess rate 1", "Cess rate 2", "Cess rate 3"]
+        gst_cess_field_names = ["gst_rate_1", "gst_rate_2", "gst_rate_3", "cess_rate_1", "cess_rate_2", "cess_rate_3"]
         field_names = model_field_names + gst_cess_field_names
 
         response = HttpResponse(content_type='text/csv')
@@ -1278,6 +1279,43 @@ class HSNExportAsCSVSerializers(serializers.ModelSerializer):
                             list(hsn_gsts) + ([None] * (3 - len(hsn_gsts))) +
                             list(hsn_cess) + ([None] * (3 - len(hsn_cess))))
         return response
+
+
+class HSNExportAsCSVUploadSerializer(serializers.ModelSerializer):
+    file = serializers.FileField(
+        label='Upload Shop Route', required=True, write_only=True)
+
+    def __init__(self, *args, **kwargs):
+        super(HSNExportAsCSVUploadSerializer, self).__init__(*args, **kwargs)  # call the super()
+
+    class Meta:
+        model = ProductHSN
+        fields = ('file',)
+
+    def validate(self, data):
+        if not data['file'].name[-4:] in '.csv':
+            raise serializers.ValidationError(
+                _('Sorry! Only csv file accepted.'))
+        csv_file_data = csv.reader(codecs.iterdecode(data['file'], 'utf-8', errors='ignore'))
+        # Checking, whether csv file is empty or not!
+        if csv_file_data:
+            read_product_hsn_file(csv_file_data)
+        else:
+            raise serializers.ValidationError(
+                "CSV File cannot be empty.Please add some data to upload it!")
+
+        return data
+
+    @transaction.atomic
+    def create(self, validated_data):
+        try:
+            ProductHSNCommonFunction.create_product_hsn(validated_data, self.context['request'].user)
+        except Exception as e:
+            error = {'message': ",".join(e.args) if len(
+                e.args) > 0 else 'Unknown Error'}
+            raise serializers.ValidationError(error)
+
+        return validated_data
 
 
 class ChildProductSerializer(serializers.ModelSerializer):

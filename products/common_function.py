@@ -1,10 +1,13 @@
+import codecs
+import csv
 import logging
 
 from rest_framework import status
 from rest_framework.response import Response
 from products.models import Product, Tax, ParentProductTaxMapping, ParentProduct, ParentProductCategory, \
     ParentProductImage, ProductHSN, ProductCapping, ProductVendorMapping, ChildProductImage, ProductImage, \
-    ProductSourceMapping, DestinationRepackagingCostMapping, ProductPackingMapping, CentralLog, ParentProductB2cCategory
+    ProductSourceMapping, DestinationRepackagingCostMapping, ProductPackingMapping, CentralLog, \
+    ParentProductB2cCategory, ProductHsnGst, ProductHsnCess
 from categories.models import Category, B2cCategory
 from wms.models import Out, WarehouseInventory, BinInventory
 
@@ -283,6 +286,58 @@ class ProductCls(object):
         info_logger.info("product vendor mapping update info ", dict_data)
 
         return product_vendor_map_log
+
+
+class ProductHSNCommonFunction(object):
+
+    @classmethod
+    def create_product_hsn(cls, validated_data, user):
+        """
+           Create Product HSNs
+        """
+        csv_file = csv.reader(codecs.iterdecode(validated_data['file'], 'utf-8', errors='ignore'))
+        csv_file_header_list = next(csv_file)  # headers of the uploaded csv file
+        # Converting headers into lowercase
+        csv_file_headers = [str(ele).split(' ')[0].strip().lower() for ele in csv_file_header_list]
+        uploaded_data_by_user_list = get_csv_file_data(csv_file, csv_file_headers)
+        try:
+            info_logger.info('Method Start to create / update Product HSN')
+            for row in uploaded_data_by_user_list:
+                product_hsn_object, created = ProductHSN.objects.update_or_create(
+                    product_hsn_code=int(row['product_hsn_code']), defaults={'created_by': user})
+
+                # Delete existing and create new HSN GST
+                if product_hsn_object.hsn_gst.exists():
+                    product_hsn_object.hsn_gst.all().delete()
+                ProductHSNCommonFunction.create_product_hsn_gst(product_hsn_object, float(row['gst_rate_1']), user)
+                if 'gst_rate_2' in row and row['gst_rate_2']:
+                    ProductHSNCommonFunction.create_product_hsn_gst(product_hsn_object, float(row['gst_rate_2']), user)
+                if 'gst_rate_3' in row and row['gst_rate_3']:
+                    ProductHSNCommonFunction.create_product_hsn_gst(product_hsn_object, float(row['gst_rate_3']), user)
+
+                # Delete existing and create new HSN Cess
+                if product_hsn_object.hsn_cess.exists():
+                    product_hsn_object.hsn_cess.all().delete()
+                if 'cess_rate_1' in row and row['cess_rate_1']:
+                    ProductHSNCommonFunction.create_product_hsn_cess(product_hsn_object, float(row['cess_rate_1']), user)
+                if 'cess_rate_2' in row and row['cess_rate_2']:
+                    ProductHSNCommonFunction.create_product_hsn_cess(product_hsn_object, float(row['cess_rate_2']), user)
+                if 'cess_rate_3' in row and row['cess_rate_3']:
+                    ProductHSNCommonFunction.create_product_hsn_cess(product_hsn_object, float(row['cess_rate_3']), user)
+
+            info_logger.info("Method complete to create Product HSN from csv file")
+        except Exception as e:
+            import traceback;
+            traceback.print_exc()
+            error_logger.info(f"Something went wrong, while working with create Product HSN {str(e)}")
+
+    @classmethod
+    def create_product_hsn_gst(cls, product_hsn_instance, gst, user):
+        return ProductHsnGst.objects.create(product_hsn=product_hsn_instance, gst=gst, created_by=user)
+
+    @classmethod
+    def create_product_hsn_cess(cls, product_hsn_instance, cess, user):
+        return ProductHsnCess.objects.create(product_hsn=product_hsn_instance, cess=cess, created_by=user)
 
 
 def get_response(msg, data=None, success=False, status_code=status.HTTP_200_OK):

@@ -1437,3 +1437,70 @@ def get_validate_cess_mandatory_fields(cess):
             return {'error': f"{cess['cess']} do not repeat same cess for one HSN."}
         cess_names_list.append(cess['cess'])
     return {'data': {"cess": cess_obj}}
+
+
+def check_product_hsn_mandatory_columns(uploaded_data_list, header_list):
+    """
+        This method will check that Data uploaded by user is not empty for mandatory fields.
+    """
+    row_num = 1
+    mandatory_columns = ["product_hsn_code", "gst_rate_1"]
+    for ele in mandatory_columns:
+        if ele not in header_list:
+            raise ValidationError(
+                f"{mandatory_columns} are mandatory columns for 'Create Product HSN'")
+    for row in uploaded_data_list:
+        row_num += 1
+
+        if 'product_hsn_code' not in row.keys() or str(row['product_hsn_code']).strip() == '':
+            raise ValidationError(f"Row {row_num} | 'product_hsn_code' can't be empty")
+        if not re.match("^\d+$", str(row['product_hsn_code'])):
+            raise ValidationError(f"Row {row_num} | {row['product_hsn_code']} "
+                                  f"'Product HSN Code' can only be a numeric value.")
+        if len(str(row['product_hsn_code']).strip()) < 6:
+            raise ValidationError(f"Row {row_num} | {row['product_hsn_code']} | "
+                                  f"'Product HSN Code' must be of minimum 6 digits.")
+
+        if 'gst_rate_1' not in row.keys() or str(row['gst_rate_1']).strip() == '':
+            raise ValidationError(f"Row {row_num} | 'gst_rate_1' can't be empty")
+        if not any(int(str(row['gst_rate_1']).strip()) in i for i in ProductHsnGst.GST_CHOICE):
+            raise ValidationError(f"Row {row_num} | {row['gst_rate_1']} | GST does not exist.")
+
+        if 'gst_rate_2' in row.keys() and str(row['gst_rate_2']).strip() != '':
+            if not any(int(str(row['gst_rate_2']).strip()) in i for i in ProductHsnGst.GST_CHOICE):
+                raise ValidationError(f"Row {row_num} | {row['gst_rate_2']} | GST does not exist.")
+
+        if 'gst_rate_3' in row.keys() and str(row['gst_rate_3']).strip() != '':
+            if not any(int(str(row['gst_rate_3']).strip()) in i for i in ProductHsnGst.GST_CHOICE):
+                raise ValidationError(f"Row {row_num} | {row['gst_rate_3']} | GST does not exist.")
+
+        if 'cess_rate_1' in row.keys() and str(row['cess_rate_1']).strip() != '':
+            if float(str(row['cess_rate_1']).strip()) < 0 or float(str(row['cess_rate_1']).strip()) > 100:
+                raise ValidationError(f"Row {row_num} | {row['cess_rate_1']} | CESS does not exist.")
+
+        if 'cess_rate_2' in row.keys() and str(row['cess_rate_2']).strip() != '':
+            if float(str(row['cess_rate_2']).strip()) < 0 or float(str(row['cess_rate_2']).strip()) > 100:
+                raise ValidationError(f"Row {row_num} | {row['cess_rate_2']} | CESS does not exist.")
+
+        if 'cess_rate_3' in row.keys() and str(row['cess_rate_3']).strip() != '':
+            if float(str(row['cess_rate_3']).strip()) < 0 or float(str(row['cess_rate_3']).strip()) > 100:
+                raise ValidationError(f"Row {row_num} | {row['cess_rate_3']} | CESS does not exist.")
+
+
+def read_product_hsn_file(csv_file):
+    """
+        Template Validation (Checking, whether the csv file uploaded by user is correct or not!)
+    """
+    csv_file_header_list = next(csv_file)  # headers of the uploaded csv file
+    # Converting headers into lowercase
+    csv_file_headers = [str(ele).split(' ')[0].strip().lower() for ele in csv_file_header_list]
+    required_header_list = ["product_hsn_code", "gst_rate_1", "gst_rate_2", "gst_rate_3",
+                            "cess_rate_1", "cess_rate_2", "cess_rate_3"]
+
+    check_headers(csv_file_headers, required_header_list)
+    uploaded_data_by_user_list = get_csv_file_data(csv_file, csv_file_headers)
+    # Checking, whether the user uploaded the data below the headings or not!
+    if uploaded_data_by_user_list:
+        check_product_hsn_mandatory_columns(uploaded_data_by_user_list, csv_file_headers)
+    else:
+        raise ValidationError("Please add some data below the headers to upload it!")
