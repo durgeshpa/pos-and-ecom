@@ -1261,7 +1261,9 @@ class HSNExportAsCSVSerializers(serializers.ModelSerializer):
     def create(self, validated_data):
         meta = ProductHSN._meta
         exclude_fields = ['created_at', 'updated_at', 'created_by', 'updated_by', 'status']
-        field_names = [field.name for field in meta.fields if field.name not in exclude_fields]
+        model_field_names = [field.name for field in meta.fields if field.name not in exclude_fields]
+        gst_cess_field_names = ["GST rate 1", "Gst rate 2", "Gst rate 3", "Cess rate 1", "Cess rate 2", "Cess rate 3"]
+        field_names = model_field_names + gst_cess_field_names
 
         response = HttpResponse(content_type='text/csv')
         response['Content-Disposition'] = 'attachment; filename={}.csv'.format(meta)
@@ -1270,7 +1272,11 @@ class HSNExportAsCSVSerializers(serializers.ModelSerializer):
         writer.writerow(field_names)
         queryset = ProductHSN.objects.filter(id__in=validated_data['hsn_id_list'])
         for obj in queryset:
-            writer.writerow([getattr(obj, field) for field in field_names])
+            hsn_gsts = obj.hsn_gst.values_list('gst', flat=True)[:3]
+            hsn_cess = obj.hsn_cess.values_list('cess', flat=True)[:3]
+            writer.writerow([getattr(obj, field) for field in model_field_names] +
+                            list(hsn_gsts) + ([None] * (3 - len(hsn_gsts))) +
+                            list(hsn_cess) + ([None] * (3 - len(hsn_cess))))
         return response
 
 
