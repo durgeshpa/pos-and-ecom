@@ -33,7 +33,7 @@ from accounts.api.v1.serializers import PosUserSerializer, PosShopUserSerializer
 from addresses.models import Address, City, Pincode
 from audit.views import BlockUnblockProduct
 from barCodeGenerator import barcodeGen
-from global_config.views import get_config
+from global_config.views import get_config, get_config_fofo_shops
 from shops.api.v1.serializers import ShopBasicSerializer
 from wms.common_validators import validate_id, validate_data_format, validate_shipment
 from wms.services import check_whc_manager_coordinator_supervisor_qc_executive, shipment_search, \
@@ -1964,6 +1964,7 @@ class CartCheckout(APIView):
             offers = BasicCartOffers.refresh_offers_checkout(cart, False, self.request.data.get('coupon_id'))
             data = self.serialize(cart)
             data['redeem_points_message'] = use_rewrd_this_month
+            data['maximum_delivery_time'] = get_config_fofo_shop('Maximum Delivery time', kwargs['shop'].id)
             if 'error' in offers:
                 return api_response(offers['error'], None, offers['code'])
             if offers['applied']:
@@ -2030,6 +2031,7 @@ class CartCheckout(APIView):
             data = self.serialize(cart, offers)
             address = AddressCheckoutSerializer(cart.buyer.ecom_user_address.filter(default=True).last()).data
             data.update({'default_address': address})
+            data['maximum_delivery_time'] = get_config_fofo_shop('Maximum Delivery time', kwargs['shop'].id)
             data.update({'saving': round(data['total_mrp'] - data['amount_payable'], 2)})
             data.update({"redeem_points_message": use_rewrd_this_month})
             return api_response("Cart Checkout", data, status.HTTP_200_OK, True)
@@ -3188,7 +3190,9 @@ class OrderCentral(APIView):
         except ObjectDoesNotExist:
             return api_response("Order Not Found!")
         return api_response('Order', self.get_serialize_process_pos_ecom(order), status.HTTP_200_OK, True,
-                            extra_params={"key_p": str(config('PAYU_KEY'))})
+                            extra_params={"key_p": str(config('PAYU_KEY')),
+                            'maximum_delivery_time': get_config_fofo_shop('Maximum Delivery time', order.seller_shop_id)}
+                            )
 
     def post_retail_order(self):
         """
@@ -5295,18 +5299,29 @@ class CartStockCheckView(APIView):
         if address.pincode != shop.shop_name_address_mapping.filter(
                 address_type='shipping').last().pincode_link.pincode:
             return api_response("This Shop is not serviceable at your delivery address")
+        #
+        # lattitude,longitude = self.request.GET.get('latitude'),self.request.GET.get('longitude')
+        # if lattitude and longitude:
+        #     lattitude = float(lattitude)
+        #     longitude = float(longitude)
+        # shop_lattitude,shop_longitude = get_order_location(shop)
+        # order_distance = 0
+        # if lattitude and longitude:
+        #     order_distance = distance((shop_lattitude, shop_longitude), (lattitude, longitude))
+        # delivery_redius = get_config_fofo_shop('Delivery Radius', shop.id)
+        # if order_distance != 0 and delivery_redius and order_distance * 1000 > get_config_fofo_shop('Delivery Radius', shop.id):
+        #     return api_response("This Shop is not serviceable at your delivery address")
+        """"---------------------------------------------validation for fofo shop-----------------------------------------------"""
 
-        lattitude,longitude = float(self.request.GET.get('latitude')),float(self.request.GET.get('longitude'))
-        shop_lattitude,shop_longitude = get_order_location(shop)
-        order_distance = 0
-        if lattitude and longitude:
-            order_distance = distance((shop_lattitude, shop_longitude), (lattitude, longitude))
-        delivery_redius = get_config_fofo_shop('Delivery Radius', shop.id)
-        if order_distance != 0 and delivery_redius and order_distance * 1000 > get_config_fofo_shop('Delivery Radius', shop.id):
-            return api_response("This Shop is not serviceable at your delivery address")
+        time = datetime.now().strftime("%H:%M:%S")
+        time = datetime.strptime(time,"%H:%M:%S").time()
+        day = datetime.today().strftime('%A')[0:3:].upper()
 
-
-
+        fofo_config = get_config_fofo_shops(shop)
+        if fofo_config and not (fofo_config['open_time']<time and fofo_config['close_time']>time):
+            return api_response("order acceptable b/w {} to {}".format(fofo_config['open_time'], fofo_config['close_time']))
+        if day not in fofo_config['open_days']:
+            return api_response("This Shop is not serviceable on {}".format(datetime.today().strftime('%A')))
         # Check for changes in cart - price / offers / available inventory
         cart_products = cart.rt_cart_list.all()
         cart_products = PosCartCls.refresh_prices(cart_products)
@@ -5319,6 +5334,7 @@ class CartStockCheckView(APIView):
                 return api_response(
                     "A minimum total purchase amount of {} is required to checkout.".format(order_config),
                     None, status.HTTP_200_OK, False)
+        """"-----------------------------------------------------------------------------------------------------------------------"""
 
         if shop.online_inventory_enabled:
             out_of_stock_items = PosCartCls.out_of_stock_items(cart_products)

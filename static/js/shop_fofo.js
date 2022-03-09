@@ -37,10 +37,10 @@ function hide_show_fofo_config(){
     }
 
     if ($("#id_shop_type").val() == "6" && $("#id_online_inventory_enabled").prop('checked') == true){
-        django.jQuery("#foco_shop_config-group").show();
+        django.jQuery("#fofo_shop_config-group").show();
     }
     else {
-        django.jQuery("#foco_shop_config-group").hide();
+        django.jQuery("#fofo_shop_config-group").hide();
     }
 
 

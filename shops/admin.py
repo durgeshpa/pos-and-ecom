@@ -278,7 +278,7 @@ class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
             return self.readonly_fields + ('shop_code', 'warehouse_code')
         return self.readonly_fields
     def working_days(self,obj):
-        return obj.foco_shop_config.working_days
+        return obj.fofo_shop_config.working_days
 
 
     def get_urls(self):
