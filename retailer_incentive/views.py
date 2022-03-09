@@ -1,9 +1,11 @@
 import codecs
 import csv
 import datetime
+import io
 import logging
 from math import floor
 
+import xlsxwriter
 from dal import autocomplete
 from django.db.models import Q
 
@@ -14,14 +16,15 @@ from django.db import transaction
 
 from accounts.middlewares import get_current_user
 from retailer_incentive.common_function import get_total_sales
-from retailer_incentive.forms import UploadSchemeShopMappingForm
+from retailer_incentive.forms import UploadSchemeShopMappingForm, BulkIncentiveXLSXUploadForm
 from retailer_incentive.models import SchemeShopMapping, SchemeSlab, IncentiveDashboardDetails, Scheme
-from retailer_incentive.utils import get_active_mappings
+from retailer_incentive.utils import get_active_mappings, pos_save_file
 from shops.models import Shop, ParentRetailerMapping, ShopUserMapping
 from retailer_backend.utils import isDateValid
 
 info_logger = logging.getLogger('file-info')
 error_logger = logging.getLogger('file-error')
+
 
 class ShopAutocomplete(autocomplete.Select2QuerySetView):
     def get_queryset(self, *args, **kwargs):
@@ -43,6 +46,7 @@ def get_scheme_shop_mapping_sample_csv(request):
                      "Shop Mapping Start Date (YYYY-MM-DD)", "Shop Mapping End Date (YYYY-MM-DD)"])
     writer.writerow(["1", "March Munafa", "5", "Pal Shop", "P1", "2021-04-30", "2021-05-01"])
     return response
+
 
 def scheme_shop_mapping_csv_upload(request):
     """
@@ -174,3 +178,76 @@ def deactivate_scheme_mapping(scheme_shop_mapping):
                                              scheme_priority=scheme_shop_mapping.priority)
     scheme_shop_mapping.is_active = False
     scheme_shop_mapping.save()
+
+
+def IncentiveSampleFile(request, *args):
+    """
+    This function will return an Sample File in csv format which can be used for Downloading RetailerCatalogue Sample File
+    (It is used when user wants to create new retailer products)
+    """
+    filename = 'incentive_sheet.xlsx'
+    info_logger.info("Get API for Download sample XLSX to Create Incentive api called.")
+
+    output = io.BytesIO()
+    workbook = xlsxwriter.Workbook(output, {'default_date_format': 'yyyy-mm-dd'})
+    worksheet = workbook.add_worksheet()
+
+    bold = workbook.add_format({'bold': True})
+    worksheet.write('A1', 'shop_id', bold)
+    worksheet.write('B1', 'shop_name', bold)
+    worksheet.write('C1', 'capping_applicable', bold)
+    worksheet.write('D1', 'capping_value', bold)
+    worksheet.write('E1', 'date_of_calculation', bold)
+    worksheet.write('F1', 'total_ex_tax_delivered_value', bold)
+    worksheet.write('G1', 'incentive', bold)
+    row = 1
+    col = 0
+    date_time = datetime.datetime.now().date()
+
+    worksheet.write(row, col, 322)
+    worksheet.write(row, col + 1, 'GFDN')
+    worksheet.write(row, col + 2, 'YES')
+    worksheet.write(row, col + 3, 50000)
+    worksheet.write(row, col + 4, date_time)
+    worksheet.write(row, col + 5, 4550)
+    worksheet.write(row, col + 6, 1200)
+
+    workbook.close()
+    # Rewind the buffer.
+    output.seek(0)
+    response = HttpResponse(
+        output,
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    response['Content-Disposition'] = 'attachment; filename=%s' % filename
+
+    return response
+
+
+def upload_incentives_list(request):
+    """
+    Incentives Upload View
+    """
+    if request.method == 'POST':
+        form = BulkIncentiveXLSXUploadForm(request.POST, request.FILES, user=request.user)
+
+        if form.errors:
+            return render(request, 'admin/retailer_incentive/incentivexlsxupload.html', {'form': form})
+
+        if form.is_valid():
+            bulk_incentive_obj = form.save()
+            response = pos_save_file(bulk_incentive_obj)
+
+            if isinstance(response, HttpResponse):
+                return response
+
+            return render(request, 'admin/retailer_incentive/incentivexlsxupload.html',
+                          {'form': form,
+                           'success': 'Incentives Uploaded Successfully!', })
+    else:
+        form = BulkIncentiveXLSXUploadForm()
+        return render(
+            request,
+            'admin/retailer_incentive/incentivexlsxupload.html',
+            {'form': form}
+        )
