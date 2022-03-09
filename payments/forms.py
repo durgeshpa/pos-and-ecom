@@ -209,6 +209,14 @@ class ShipmentPaymentInlineForm(forms.ModelForm):
         # show only the payments for the relevant order
         super(ShipmentPaymentInlineForm, self).__init__(*args, **kwargs)
         self.fields.get('parent_order_payment').required = True
+        instance = getattr(self, 'instance', None)
+        if instance.pk:
+            payment_mode = instance.parent_order_payment.parent_payment.payment_mode_name
+            payment_status = instance.parent_order_payment.parent_payment.payment_approval_status
+            if payment_mode == 'online_payment' and payment_status == 'approved_and_verified':
+                widget = self.fields.get('parent_order_payment').widget
+                widget.can_add_related = False
+                widget.can_change_related = False
         # shipment_payment = getattr(self, 'instance', None)
 
         # self.fields['parent_payment'].queryset = Payment.objects.filter(order=shipment_payment.shipment.order)
@@ -231,6 +239,15 @@ def ShipmentPaymentInlineFormFactory(object_id):
             # self.fields['parent_payment'].queryset = Payment.objects.filter(order=shipment_payment.shipment.order)
             self.fields.get('parent_order_payment').queryset = OrderPayment.objects.filter(
                 order__rt_order_order_product__id=object_id)
+            instance = getattr(self, 'instance', None)
+            if instance.pk:
+                payment_mode = instance.parent_order_payment.parent_payment.payment_mode_name
+                payment_status = instance.parent_order_payment.parent_payment.payment_approval_status
+                if payment_mode == 'online_payment' and payment_status == 'approved_and_verified':
+                    self.fields.get('parent_order_payment').disabled = True
+                    widget = self.fields.get('parent_order_payment').widget
+                    widget.can_add_related = False
+                    widget.can_change_related = False
             # self.fields.get('parent_order_payment').widget = RelatedFieldWidgetCanAdd(
             #         OrderPayment, None, {"user_id": user_id, "object_id": object_id})
 
