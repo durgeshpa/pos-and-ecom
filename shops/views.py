@@ -11,6 +11,8 @@ from django.views import View
 from django.shortcuts import get_object_or_404, redirect
 from django.contrib import messages
 from django_filters.views import FilterView
+from rest_framework.permissions import AllowAny
+
 from shops.models import Shop, ShopType, BeatPlanning, DayBeatPlanning
 from products.models import Product
 from gram_to_brand.models import GRNOrderProductMapping
@@ -574,6 +576,27 @@ class UserAutocomplete(autocomplete.Select2QuerySetView):
             qs = qs.filter(phone_number__icontains=self.q)
         return qs
 
+
+class ApprovalStatusReasonAutocomplete(APIView):
+    permission_classes = (AllowAny,)
+
+    def get(self, request):
+        approval_status = request.GET.get('approval_status', None)
+        if approval_status:
+            if approval_status == 'Approved':
+                return HttpResponse((
+                    ('LOCATION_STARTED', 'Location Started'),
+                    ('SHOP_ONBOARDED', 'Shop Onboarded'),
+                ))
+            if approval_status == 'Disapproved':
+                return HttpResponse((
+                    ('BUSINESS_CLOSED', 'Business Closed'),
+                    ('BLOCKED_BY_GRAMFACTORY', 'Blocked by Gramfactory'),
+                    ('NOT_SERVING_SHOP_LOCATION', 'Not Serving Shop Location'),
+                    ('PERMANENTLY_CLOSED', 'Permanently Closed'),
+                    ('MISBEHAVIOUR', 'Misbehaviour'),
+                ))
+        return HttpResponse(())
 
 class ShopUserMappingCsvView(FormView):
     form_class = ShopUserMappingCsvViewForm

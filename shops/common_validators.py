@@ -73,6 +73,13 @@ def get_validate_approval_status(approval_status):
     return {'data': approval_status}
 
 
+def get_validate_approval_status_change_reason(approval_status_change_reason):
+    """validate shop status change reason"""
+    if not (any(approval_status_change_reason in i for i in Shop.APPROVAL_STATUS_REASON_CHOICES)):
+        return {'error': 'please provide a valid shop status change reason '}
+    return {'data': approval_status_change_reason}
+
+
 def validate_shop_doc_type(shop_type):
     """validate shop document type"""
     if not (any(shop_type in i for i in ShopDocument.SHOP_DOCUMENTS_TYPE_CHOICES)):

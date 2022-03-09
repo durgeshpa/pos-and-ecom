@@ -22,7 +22,8 @@ from shops.common_validators import get_validate_approval_status, get_validate_e
     get_validate_shop_invoice_pattern, get_validate_shop_type, get_validate_user, get_validated_parent_shop, \
     get_validated_shop, read_beat_planning_file, validate__existing_shop_with_name_owner, validate_shop_id, \
     validate_shop, validate_employee_group, validate_employee, validate_manager, \
-    validate_shop_sub_type, validate_shop_and_sub_shop_type, validate_shop_name, read_file
+    validate_shop_sub_type, validate_shop_and_sub_shop_type, validate_shop_name, read_file, \
+    get_validate_approval_status_change_reason
 from shops.common_functions import ShopCls
 
 from products.api.v1.serializers import LogSerializers
@@ -408,6 +409,7 @@ class ShopCrudSerializers(serializers.ModelSerializer):
     retiler_mapping = RetailerMappingDataSerializers(read_only=True, many=True)
     shop_owner = UserSerializers(read_only=True)
     approval_status = ChoiceField(choices=Shop.APPROVAL_STATUS_CHOICES, required=True)
+    # approval_status_reason = ChoiceField(choices=Shop.APPROVAL_STATUS_REASON_CHOICES, required=False)
     shop_name_address_mapping = AddressDataSerializers(read_only=True, many=True)
     shop_name_photos = ShopPhotoDataSerializers(read_only=True, many=True)
     shop_name_documents = ShopDocumentDataSerializers(read_only=True, many=True)
@@ -417,7 +419,7 @@ class ShopCrudSerializers(serializers.ModelSerializer):
         fields = ('id', 'shop_name', 'shop_code', 'shop_code_bulk', 'shop_code_discounted', 'warehouse_code',
                   'shop_owner', 'retiler_mapping', 'shop_name_address_mapping', 'approval_status', 'status',
                   'shop_type', 'related_users', 'shipping_address', 'created_at', 'imei_no', 'shop_name_photos',
-                  'shop_name_documents', 'shop_log', 'pos_enabled')
+                  'shop_name_documents', 'shop_log', 'pos_enabled',)
 
     def validate(self, data):
 
@@ -426,11 +428,21 @@ class ShopCrudSerializers(serializers.ModelSerializer):
             if not 'shop_images' in self.initial_data or not self.initial_data['shop_images']:
                 raise serializers.ValidationError(_('shop photo is required'))
 
-        if 'approval_status' in self.initial_data and self.initial_data['approval_status']:
+        if 'approval_status' in self.initial_data and self.initial_data['approval_status'] in [0, 1, 2]:
             approval_status = get_validate_approval_status(self.initial_data['approval_status'])
             if 'error' in approval_status:
                 raise serializers.ValidationError((approval_status["error"]))
             data['approval_status'] = approval_status['data']
+
+            # if data['approval_status'] in [0, 2] and ('approval_status_reason' not in self.initial_data or not \
+            #         self.initial_data['approval_status_reason']):
+            #     raise serializers.ValidationError("'approval_status_reason': This field is required.")
+
+        # if 'approval_status_reason' in self.initial_data and self.initial_data['approval_status_reason']:
+        #     approval_status_reason = get_validate_approval_status_change_reason(self.initial_data['approval_status_reason'])
+        #     if 'error' in approval_status_reason:
+        #         raise serializers.ValidationError((approval_status_reason["error"]))
+        #     data['approval_status_reason'] = approval_status_reason['data']
 
         if 'shop_owner' in self.initial_data and self.initial_data['shop_owner']:
             shop_owner = get_validate_user(self.initial_data['shop_owner'])

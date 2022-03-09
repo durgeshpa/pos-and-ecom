@@ -23,9 +23,10 @@ from .forms import (ParentRetailerMappingForm, PosShopUserMappingForm, ShopParen
                     ShopForm, RequiredInlineFormSet, BeatPlanningAdminForm,
                     AddressInlineFormSet, ShopUserMappingForm, ShopTimingForm, FOFOShopConfigForm)
 
-from .views import (StockAdjustmentView, bulk_shop_updation, ShopAutocomplete, UserAutocomplete, 
-                    ShopUserMappingCsvView, ShopUserMappingCsvSample, ShopTimingAutocomplete
-)
+from .views import (StockAdjustmentView, bulk_shop_updation, ShopAutocomplete, UserAutocomplete,
+                    ShopUserMappingCsvView, ShopUserMappingCsvSample, ShopTimingAutocomplete,
+                    ApprovalStatusReasonAutocomplete
+                    )
 from pos.filters import NonPosShopAutocomplete, PosShopAutocomplete, FofoOnlineEnabledShopAutocomplete
 from retailer_backend.admin import InputFilter
 from services.views import SalesReportFormView, SalesReport
@@ -213,9 +214,12 @@ class ShopCityFilter(InputFilter):
 
 class ShopStatusAdmin(admin.TabularInline):
     model = ShopStatusLog
-    fields = ('reason', 'user', 'created_at')
-    readonly_fields = ('reason', 'user', 'created_at')
+    fields = ('status', 'status_change_reason', 'user', 'created_at')
+    readonly_fields = ('status', 'status_change_reason', 'user', 'created_at')
     extra = 0
+
+    def status(self, obj):
+        return obj.reason
 
     def created_at(self, obj):
         return obj.changed_at
@@ -239,7 +243,8 @@ class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
     resource_class = ShopResource
     form = ShopForm
     fields = ['shop_name', 'shop_owner', 'shop_type', 'status', 'pos_enabled', 'online_inventory_enabled',
-              'approval_status', ]
+              'approval_status', 'approval_status_reason']
+
     actions = ["export_as_csv", "disable_shop", "download_status_report"]
     inlines = [ShopPhotosAdmin, ShopDocumentsAdmin, AddressAdmin, ShopInvoicePatternAdmin,
                ShopParentRetailerMapping, ShopStatusAdmin, ]
@@ -349,6 +354,11 @@ class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
                         r'^user-autocomplete/$',
                         self.admin_site.admin_view(UserAutocomplete.as_view()),
                         name="user-autocomplete"
+                    ),
+                    url(
+                        r'^approval-status-reason-autocomplete/$',
+                        self.admin_site.admin_view(ApprovalStatusReasonAutocomplete.as_view()),
+                        name="approval-status-reason-autocomplete"
                     ),
 
                ] + urls

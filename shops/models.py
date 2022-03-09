@@ -82,6 +82,24 @@ class Shop(models.Model):
         (APPROVED, 'Approved'),
         (DISAPPROVED, 'Disapproved'),
     )
+    LOCATION_STARTED = 'LOCATION_STARTED'
+    SHOP_ONBOARDED = 'SHOP_ONBOARDED'
+
+    BUSINESS_CLOSED = 'BUSINESS_CLOSED'
+    BLOCKED_BY_GRAMFACTORY = 'BLOCKED_BY_GRAMFACTORY'
+    NOT_SERVING_SHOP_LOCATION = 'NOT_SERVING_SHOP_LOCATION'
+    PERMANENTLY_CLOSED = 'PERMANENTLY_CLOSED'
+    MISBEHAVIOUR = 'MISBEHAVIOUR'
+
+    APPROVAL_STATUS_REASON_CHOICES = (
+        (LOCATION_STARTED, 'Location Started'),
+        (SHOP_ONBOARDED, 'Shop Onboarded'),
+        (BUSINESS_CLOSED, 'Business Closed'),
+        (BLOCKED_BY_GRAMFACTORY, 'Blocked by Gramfactory'),
+        (NOT_SERVING_SHOP_LOCATION, 'Not Serving Shop Location'),
+        (PERMANENTLY_CLOSED, 'Permanently Closed'),
+        (MISBEHAVIOUR, 'Misbehaviour'),
+    )
     shop_name = models.CharField(max_length=255)
     shop_owner = models.ForeignKey(get_user_model(), related_name='shop_owner_shop', on_delete=models.CASCADE)
     shop_type = models.ForeignKey(ShopType, related_name='shop_type_shop', on_delete=models.CASCADE)
@@ -97,6 +115,7 @@ class Shop(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     approval_status = models.IntegerField(choices=APPROVAL_STATUS_CHOICES, default=1)
+    approval_status_reason = models.CharField(choices=APPROVAL_STATUS_REASON_CHOICES, max_length=50, null=True, blank=True)
     status = models.BooleanField(default=False)
     updated_by = models.ForeignKey(
         get_user_model(), null=True, related_name='shop_uploaded_by',
@@ -325,7 +344,7 @@ def create_shop_status_log(sender, instance=None, created=False, **kwargs):
         user = instance.updated_by
     else:
         user = instance.created_by
-    if instance and instance.approval_status:
+    if instance and instance.approval_status in [0, 1, 2]:
         approval_status = instance.approval_status
         if approval_status == 0:
             reason = 'Disapproved'
@@ -335,7 +354,8 @@ def create_shop_status_log(sender, instance=None, created=False, **kwargs):
             reason = 'Approved'
         last_status = ShopStatusLog.objects.filter(shop=instance).last()
         if not last_status or last_status.reason != reason:
-            ShopStatusLog.objects.create(reason=reason, user=user, shop=instance)
+            ShopStatusLog.objects.create(reason=reason, status_change_reason=instance.approval_status_reason,
+                                         user=user, shop=instance)
 
 
 class FavouriteProduct(models.Model):
@@ -714,6 +734,7 @@ class ShopStatusLog(models.Model):
     Maintain Log of Shop enabled and disabled
     """
     reason = models.CharField(max_length=125, blank=True, null=True)
+    status_change_reason = models.CharField(max_length=125, blank=True, null=True)
     user = models.ForeignKey(get_user_model(), related_name='shop_status_changed_by', on_delete=models.CASCADE)
     shop = models.ForeignKey(Shop, related_name='shop_detail', on_delete=models.CASCADE)
     changed_at = models.DateTimeField(auto_now_add=True)

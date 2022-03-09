@@ -144,6 +144,11 @@ class ShopForm(forms.ModelForm):
         widget=autocomplete.ModelSelect2(url='admin:user-autocomplete', )
     )
 
+    # approval_status_reason = forms.ChoiceField(
+    #     choices=Shop.APPROVAL_STATUS_REASON_CHOICES,
+    #     widget=autocomplete.ModelSelect2(url='admin:approval-status-reason-autocomplete', forward=('approval_status',))
+    # )
+
     shop_location = forms.CharField(
         max_length=125, min_length=3, required=False,  widget=forms.TextInput(attrs={'size':50,'placeholder': 'Enter Location to Search'})
     )
@@ -151,7 +156,7 @@ class ShopForm(forms.ModelForm):
     class Meta:
         Model = Shop
         fields = (
-            'shop_name', 'shop_owner', 'shop_type', 'approval_status',
+            'shop_name', 'shop_owner', 'shop_type', 'approval_status', 'approval_status_reason',
             'shop_code', 'shop_code_bulk', 'shop_code_discounted', 'warehouse_code','created_by', 'status',
             'pos_enabled', 'online_inventory_enabled', 'shop_location', 'latitude', 'longitude')
 
