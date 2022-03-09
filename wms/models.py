@@ -304,6 +304,12 @@ class Putaway(models.Model):
         if self.putaway_quantity > self.quantity:
             raise ValidationError('Putaway_quantity must be less than or equal to Grned_quantity')
 
+    def save(self, *args, **kwargs):
+        assortment = WarehouseAssortment.objects.filter(
+            warehouse=self.warehouse, product=self.sku.parent_product).last()
+        self.zone = assortment.zone if assortment else None
+        super(Putaway, self).save(*args, **kwargs)
+
 
 class PutawayBinInventory(models.Model):
     REMARK_CHOICE = Choices((0, 'NOT_ENOUGH_SPACE', 'Not enough space'))
