@@ -389,7 +389,7 @@ class RouteView(generics.GenericAPIView):
         routes_to_be_deleted = Route.objects.filter(~Q(id__in=route_ids), city_id=city_id)
         for route in routes_to_be_deleted:
             if route.route_shops.exists():
-                route.route_shops.delete()
+                route.route_shops.all().delete()
         routes_to_be_deleted.delete()
 
     def create_update_city_routes(self, data_list):
