@@ -1395,8 +1395,21 @@ class ProductPriceAdmin(admin.ModelAdmin, ExportProductPrice):
         ).distinct()
 
 
+class ProductHsnGstInline(admin.TabularInline):
+    model = ProductHsnGst
+    extra = 1
+    fields = ('gst',)
+
+
+class ProductHsnCessInline(admin.TabularInline):
+    model = ProductHsnCess
+    extra = 1
+    fields = ('cess',)
+
+
 class ProductHSNAdmin(admin.ModelAdmin, ExportCsvMixin):
     form = ProductHSNForm
+    inlines = [ProductHsnGstInline, ProductHsnCessInline]
     fields = ['product_hsn_code']
     list_display = ['product_hsn_code']
     actions = ['export_as_csv']
