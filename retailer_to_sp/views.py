@@ -84,7 +84,8 @@ class ShipmentMergedBarcode(APIView):
             else:
                 pck_type_r_id = str(packaging.packaging_type)
             customer_city_pincode = str(shipment.order.city) + " / " + str(shipment.order.pincode)
-            route = "N/A"
+            route = str(shipment.order.buyer_shop.shop_routes.last().route.name) if \
+                shipment.order.buyer_shop and shipment.order.buyer_shop.shop_routes.exists() else "N/A"
             dispatch_center = str(shipment.order.dispatch_center.pk) if \
                 shipment.order.dispatch_center else str(shipment.order.seller_shop.pk)
             shipment_count = str(str(cnt + 1) + " / " + str(pack_cnt))
