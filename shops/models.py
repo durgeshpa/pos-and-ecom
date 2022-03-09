@@ -84,21 +84,43 @@ class Shop(models.Model):
     )
     LOCATION_STARTED = 'LOCATION_STARTED'
     SHOP_ONBOARDED = 'SHOP_ONBOARDED'
-
     BUSINESS_CLOSED = 'BUSINESS_CLOSED'
     BLOCKED_BY_GRAMFACTORY = 'BLOCKED_BY_GRAMFACTORY'
     NOT_SERVING_SHOP_LOCATION = 'NOT_SERVING_SHOP_LOCATION'
     PERMANENTLY_CLOSED = 'PERMANENTLY_CLOSED'
-    MISBEHAVIOUR = 'MISBEHAVIOUR'
+    MISBEHAVIOUR_OR_DISPUTE = 'MISBEHAVIOUR_OR_DISPUTE'
+    MULTIPLE_SHOP_IDS = 'MULTIPLE_SHOP_IDS'
+    FREQUENT_CANCELLATION_HOLD_AND_RETURN_OF_ORDERS = 'FREQUENT_CANCELLATION_HOLD_AND_RETURN_OF_ORDERS'
+    MOBILE_NUMBER_LOST_CLOSED_CHANGED = 'MOBILE_NUMBER_LOST_CLOSED_CHANGED'
+    REGION_NOT_SERVICED = 'REGION_NOT_SERVICED'
 
     APPROVAL_STATUS_REASON_CHOICES = (
         (LOCATION_STARTED, 'Location Started'),
         (SHOP_ONBOARDED, 'Shop Onboarded'),
         (BUSINESS_CLOSED, 'Business Closed'),
-        (BLOCKED_BY_GRAMFACTORY, 'Blocked by Gramfactory'),
+        (BLOCKED_BY_GRAMFACTORY, 'Blocked By Gramfactory'),
         (NOT_SERVING_SHOP_LOCATION, 'Not Serving Shop Location'),
         (PERMANENTLY_CLOSED, 'Permanently Closed'),
-        (MISBEHAVIOUR, 'Misbehaviour'),
+        (REGION_NOT_SERVICED, 'Region Not Serviced'),
+        (MISBEHAVIOUR_OR_DISPUTE, 'Misbehaviour or Dispute'),
+        (MULTIPLE_SHOP_IDS, 'Multiple Shop Ids'),
+        (FREQUENT_CANCELLATION_HOLD_AND_RETURN_OF_ORDERS, 'Frequent Cancellation, Return And Holds Of Orders'),
+        (MOBILE_NUMBER_LOST_CLOSED_CHANGED, 'Mobile Number Changed'),
+    )
+    APPROVED_STATUS_REASON_CHOICES = (
+        (LOCATION_STARTED, 'Location Started'),
+        (SHOP_ONBOARDED, 'Shop Onboarded'),
+    )
+    DISAPPROVED_STATUS_REASON_CHOICES = (
+        (BUSINESS_CLOSED, 'Business Closed'),
+        (BLOCKED_BY_GRAMFACTORY, 'Blocked By Gramfactory'),
+        (NOT_SERVING_SHOP_LOCATION, 'Not Serving Shop Location'),
+        (PERMANENTLY_CLOSED, 'Permanently Closed'),
+        (REGION_NOT_SERVICED, 'Region Not Serviced'),
+        (MISBEHAVIOUR_OR_DISPUTE, 'Misbehaviour or Dispute'),
+        (MULTIPLE_SHOP_IDS, 'Multiple Shop Ids'),
+        (FREQUENT_CANCELLATION_HOLD_AND_RETURN_OF_ORDERS, 'Frequent Cancellation, Return And Holds Of Orders'),
+        (MOBILE_NUMBER_LOST_CLOSED_CHANGED, 'Mobile Number Changed'),
     )
     shop_name = models.CharField(max_length=255)
     shop_owner = models.ForeignKey(get_user_model(), related_name='shop_owner_shop', on_delete=models.CASCADE)
@@ -115,7 +137,8 @@ class Shop(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     approval_status = models.IntegerField(choices=APPROVAL_STATUS_CHOICES, default=1)
-    approval_status_reason = models.CharField(choices=APPROVAL_STATUS_REASON_CHOICES, max_length=50, null=True, blank=True)
+    approval_status_reason = models.CharField(choices=APPROVAL_STATUS_REASON_CHOICES, max_length=50,
+                                              null=True, blank=True)
     status = models.BooleanField(default=False)
     updated_by = models.ForeignKey(
         get_user_model(), null=True, related_name='shop_uploaded_by',
@@ -354,7 +377,7 @@ def create_shop_status_log(sender, instance=None, created=False, **kwargs):
             reason = 'Approved'
         last_status = ShopStatusLog.objects.filter(shop=instance).last()
         if not last_status or last_status.reason != reason:
-            ShopStatusLog.objects.create(reason=reason, status_change_reason=instance.approval_status_reason,
+            ShopStatusLog.objects.create(reason=reason, status_change_reason=instance.get_approval_status_reason_display(),
                                          user=user, shop=instance)
 
 
@@ -734,7 +757,7 @@ class ShopStatusLog(models.Model):
     Maintain Log of Shop enabled and disabled
     """
     reason = models.CharField(max_length=125, blank=True, null=True)
-    status_change_reason = models.CharField(max_length=125, blank=True, null=True)
+    status_change_reason = models.CharField(max_length=255, blank=True, null=True)
     user = models.ForeignKey(get_user_model(), related_name='shop_status_changed_by', on_delete=models.CASCADE)
     shop = models.ForeignKey(Shop, related_name='shop_detail', on_delete=models.CASCADE)
     changed_at = models.DateTimeField(auto_now_add=True)

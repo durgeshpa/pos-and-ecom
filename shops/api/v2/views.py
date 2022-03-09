@@ -1109,3 +1109,31 @@ class DownloadShopStatusCSV(GenericAPIView):
             response = serializer.save()
             return HttpResponse(response, content_type='text/csv')
         return get_response(serializer_error(serializer), False)
+
+
+class ShopActivateChoiceView(GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+
+    def get(self, request):
+        """ GET ShopActivateChoice List for Shop Updation"""
+
+        info_logger.info("ShopActivateChoiceView GET api called.")
+        """ GET ShopActivateChoice List """
+        fields = ['key', 'value', ]
+        data = [dict(zip(fields, d)) for d in Shop.APPROVED_STATUS_REASON_CHOICES]
+        msg = ""
+        return get_response(msg, data, True)
+
+
+class ShopDeActivateChoiceView(GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+
+    def get(self, request):
+        """ GET ShopDeActivateChoice List for Shop Updation"""
+
+        info_logger.info("ShopDeActivateChoiceView GET api called.")
+        """ GET ShopDeActivateChoiceView List """
+        fields = ['key', 'value', ]
+        data = [dict(zip(fields, d)) for d in Shop.DISAPPROVED_STATUS_REASON_CHOICES]
+        msg = ""
+        return get_response(msg, data, True)

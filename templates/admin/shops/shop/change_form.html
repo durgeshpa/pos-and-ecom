@@ -63,7 +63,11 @@
                         $("#id_approval_status_reason").append($("<option></option>").val("BLOCKED_BY_GRAMFACTORY").html("Blocked by Gramfactory"));
                         $("#id_approval_status_reason").append($("<option></option>").val("NOT_SERVING_SHOP_LOCATION").html("Not Serving Shop Location"));
                         $("#id_approval_status_reason").append($("<option></option>").val("PERMANENTLY_CLOSED").html("Permanently Closed"));
-                        $("#id_approval_status_reason").append($("<option></option>").val("MISBEHAVIOUR").html("Misbehaviour"));
+                        $("#id_approval_status_reason").append($("<option></option>").val("MISBEHAVIOUR_OR_DISPUTE").html("Misbehaviour or Dispute"));
+                        $("#id_approval_status_reason").append($("<option></option>").val("REGION_NOT_SERVICED").html("Region Not Serviced"));
+                        $("#id_approval_status_reason").append($("<option></option>").val("MULTIPLE_SHOP_IDS").html("Multiple Shop Ids"));
+                        $("#id_approval_status_reason").append($("<option></option>").val("FREQUENT_CANCELLATION_HOLD_AND_RETURN_OF_ORDERS").html("Frequent Cancellation, Return And Holds Of Orders"));
+                        $("#id_approval_status_reason").append($("<option></option>").val("MOBILE_NUMBER_LOST_CLOSED_CHANGED").html("Mobile Number Changed"));
                     }
                     $("#id_approval_status_reason").val(approval_status_reason);
                 }
