@@ -134,6 +134,29 @@ class ProductHSN(BaseTimestampUserStatusModel):
         return self.product_hsn_code
 
 
+class ProductHsnGst(BaseTimestampUserStatusModel):
+    GST_CHOICE = (
+        (0, 'GST-0'),
+        (5, 'GST-5'),
+        (12, 'GST-12'),
+        (18, 'GST-18'),
+        (28, 'GST-28'),
+    )
+    gst = models.IntegerField(null=True, choices=GST_CHOICE)
+    product_hsn = models.ForeignKey(ProductHSN, related_name='hsn_gst', on_delete=models.DO_NOTHING)
+
+    def __str__(self):
+        return f"{self.product_hsn} -> {self.gst}"
+
+
+class ProductHsnCess(BaseTimestampUserStatusModel):
+    cess = models.FloatField(null=True, validators=[MinValueValidator(0.0), MaxValueValidator(100.0)])
+    product_hsn = models.ForeignKey(ProductHSN, related_name='hsn_cess', on_delete=models.DO_NOTHING)
+
+    def __str__(self):
+        return f"{self.product_hsn} -> {self.cess}"
+
+
 class ParentProduct(BaseTimestampUserStatusModel):
     parent_id = models.CharField(max_length=255, validators=[ParentIDValidator])
     name = models.CharField(max_length=255, validators=[ProductNameValidator])
