@@ -11,6 +11,8 @@ from django.views import View
 from django.shortcuts import get_object_or_404, redirect
 from django.contrib import messages
 from django_filters.views import FilterView
+from rest_framework.permissions import AllowAny
+
 from shops.models import Shop, ShopType, BeatPlanning, DayBeatPlanning
 from products.models import Product
 from gram_to_brand.models import GRNOrderProductMapping
@@ -21,7 +23,8 @@ from dal import autocomplete
 
 from wms.common_functions import get_stock, get_expiry_date
 
-from .forms import StockAdjustmentUploadForm, BulkShopUpdation, ShopUserMappingCsvViewForm, BeatUserMappingCsvViewForm
+from .forms import StockAdjustmentUploadForm, BulkShopUpdation, ShopUserMappingCsvViewForm, BeatUserMappingCsvViewForm, \
+    BulkShopStatusChange
 
 from wms.models import BinInventory, InventoryType, InventoryState, WarehouseInventory, PutawayBinInventory
 from .forms import StockAdjustmentUploadForm, BulkShopUpdation, ShopUserMappingCsvViewForm
@@ -47,7 +50,9 @@ from django_tables2.export.views import ExportMixin
 from audit.models import AUDIT_PRODUCT_STATUS, AuditProduct
 
 # Create your views here.
-
+info_logger = logging.getLogger('file-info')
+error_logger = logging.getLogger('file-error')
+debug_logger = logging.getLogger('file-debug')
 logger = logging.getLogger('shop')
 
 
@@ -559,6 +564,50 @@ def bulk_shop_updation(request):
     )
 
 
+def bulk_shop_status_change_sample_file(request):
+    filename = "shop_status_change.csv"
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
+    writer = csv.writer(response)
+    writer.writerow(['Shop ID', 'Shop Name', 'Approval Status', 'Disapproval Status Reason'])
+    writer.writerow(['45903', 'GFDN', 'Approved', ''])
+    writer.writerow(['45903', 'GFDN', 'Disapproved', 'Region Not Serviced'])
+    return response
+
+
+def bulk_shop_status_update(request):
+    if request.method == 'POST':
+        form = BulkShopStatusChange(request.POST, request.FILES)
+        if form.is_valid():
+            try:
+                info_logger.info("File format validation has been successfully done.")
+                upload_data = form.cleaned_data['file']
+                for row_id, data in enumerate(upload_data):
+                    with transaction.atomic():
+                        info_logger.info("csv data validation has been passed.")
+                        # shop_obj.update(approval_status=data[2], disapproval_status_reason=data[3])
+                        shop_obj = Shop.objects.get(id=int(data[0]))
+                        shop_obj.approval_status = data[2]
+                        shop_obj.disapproval_status_reason = data[3]
+                        shop_obj.updated_by = request.user
+                        shop_obj.save()
+                return render(request, 'admin/shop/bulk_shop_status_change.html',
+                              {'form': form,
+                               'success': 'Shop uploaded successfully', })
+
+            except Exception as e:
+                error_logger.error(e)
+
+    else:
+        form = BulkShopStatusChange
+
+    return render(
+        request,
+        'admin/shop/bulk_shop_status_change.html',
+        {'form': form}
+    )
+
+
 class ShopAutocomplete(autocomplete.Select2QuerySetView):
     def get_queryset(self, *args, **kwargs):
         qs = Shop.objects.none
@@ -573,6 +622,27 @@ class UserAutocomplete(autocomplete.Select2QuerySetView):
         if self.q:
             qs = qs.filter(phone_number__icontains=self.q)
         return qs
+
+
+class ApprovalStatusReasonAutocomplete(APIView):
+    permission_classes = (AllowAny,)
+
+    def get(self, request):
+        approval_status = request.GET.get('approval_status', None)
+        if approval_status and approval_status == 'Disapproved':
+            return HttpResponse((
+                ("BUSINESS_CLOSED", 'Business Closed'),
+                ("BLOCKED_BY_GRAMFACTORY", 'Blocked By Gramfactory'),
+                ("NOT_SERVING_SHOP_LOCATION", 'Not Serving Shop Location'),
+                ("PERMANENTLY_CLOSED", 'Permanently Closed'),
+                ("REGION_NOT_SERVICED", 'Region Not Serviced'),
+                ("MISBEHAVIOUR_OR_DISPUTE", 'Misbehaviour Or Dispute'),
+                ("MULTIPLE_SHOP_IDS", 'Multiple Shop Ids'),
+                ("FREQUENT_CANCELLATION_HOLD_AND_RETURN_OF_ORDERS",
+                 'Frequent Cancellation, Return And Holds Of Orders'),
+                ("MOBILE_NUMBER_LOST_CLOSED_CHANGED", 'Mobile Number Changed'),
+            ))
+        return HttpResponse(())
 
 
 class ShopUserMappingCsvView(FormView):
