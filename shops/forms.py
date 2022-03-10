@@ -287,9 +287,9 @@ class FOFOConfigInlineForm(forms.ModelForm):
         start_date = self.cleaned_data.get('working_off_start_date')
         end_date = self.cleaned_data.get('working_off_end_date')
         if start_date and start_date < datetime.today().date():
-            self._errors['working_off_start_date'] = self.error_class(["Date Can Not Less Than Current Date"])
+            self._errors['working_off_start_date'] = self.error_class(["Only Current Or Future Date Allowed"])
         if end_date and end_date < datetime.today().date():
-            self._errors['working_off_end_date'] = self.error_class(["Date Can Not Less Than Current Date"])
+            self._errors['working_off_end_date'] = self.error_class(["Only Current Or Future Date Allowed"])
         if start_date and not end_date:
             self._errors['working_off_end_date'] = self.error_class(["Date Required"])
         if end_date and not start_date:
