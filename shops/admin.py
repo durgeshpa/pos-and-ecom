@@ -25,7 +25,7 @@ from .forms import (ParentRetailerMappingForm, PosShopUserMappingForm, ShopParen
 
 from .views import (StockAdjustmentView, bulk_shop_updation, ShopAutocomplete, UserAutocomplete,
                     ShopUserMappingCsvView, ShopUserMappingCsvSample, ShopTimingAutocomplete,
-                    ApprovalStatusReasonAutocomplete, bulk_shop_status_update, bulk_shop_status_change_sample_file
+                    bulk_shop_status_update, bulk_shop_status_change_sample_file
                     )
 from pos.filters import NonPosShopAutocomplete, PosShopAutocomplete, FofoOnlineEnabledShopAutocomplete
 from retailer_backend.admin import InputFilter
@@ -365,12 +365,6 @@ class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
                         self.admin_site.admin_view(UserAutocomplete.as_view()),
                         name="user-autocomplete"
                     ),
-                    url(
-                        r'^approval-status-reason-autocomplete/$',
-                        self.admin_site.admin_view(ApprovalStatusReasonAutocomplete.as_view()),
-                        name="approval-status-reason-autocomplete"
-                    ),
-
                ] + urls
         return urls
 

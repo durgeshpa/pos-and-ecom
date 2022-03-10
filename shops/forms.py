@@ -327,7 +327,8 @@ class BulkShopStatusChange(forms.Form):
             if row[2] == 0 and row[3]:
                 disapproval_status_reason = get_validate_approval_status_change_reason(str(row[3]), row[2])
                 if 'error' in disapproval_status_reason:
-                    raise ValidationError(_(disapproval_status_reason["error"]))
+                    raise ValidationError(_("Issue in Row" + " " + str(row_id + 1) + ", " +
+                                            disapproval_status_reason["error"]))
                 row[3] = disapproval_status_reason['data']
             else:
                 row[3] = None

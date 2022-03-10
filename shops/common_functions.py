@@ -11,6 +11,7 @@ from django.db import transaction
 from products.common_validators import get_csv_file_data
 from addresses.models import Address, State, City, Pincode
 from products.models import CentralLog
+from shops.common_validators import get_validate_approval_status_change_reason
 from shops.models import BeatPlanning, DayBeatPlanning, ParentRetailerMapping, ShopDocument, ShopInvoicePattern, \
     ShopPhoto, ShopUserMapping, Shop
 from shops.base64_to_file import to_file
@@ -379,3 +380,35 @@ def get_file_extension(file_name, decoded_file):
     extension = "jpg" if extension == "jpeg" else extension
 
     return extension
+
+
+def bulk_update_shop_status(validated_data):
+    """
+        Update Shop Status
+    """
+    reader = csv.reader(codecs.iterdecode(validated_data['file'], 'utf-8', errors='ignore'))
+    next(reader)
+    try:
+        for row_id, row in enumerate(reader):
+            if str(row[2]).lower() == 'awaiting approval':
+                row[2] = 1
+            if str(row[2]).lower() == 'approved':
+                row[2] = 2
+            else:
+                row[2] = 0
+
+            if row[3]:
+                disapproval_status_reason = get_validate_approval_status_change_reason(str(row[3]), row[2])
+                row[3] = disapproval_status_reason['data']
+            else:
+                row[3] = None
+            shop_obj = Shop.objects.get(id=int(row[0]))
+            shop_obj.approval_status = row[2]
+            shop_obj.disapproval_status_reason = row[3]
+            shop_obj.updated_by = validated_data['updated_by']
+            shop_obj.save()
+
+    except Exception as e:
+        msg = "Unable to update shop status for row {}".format(row_id + 1)
+        error_logger.info(msg)
+        return msg
