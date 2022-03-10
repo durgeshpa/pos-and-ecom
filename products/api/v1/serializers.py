@@ -952,6 +952,7 @@ class ChildProductExportAsCSVSerializers(serializers.ModelSerializer):
 
 
 class ProductHSNGstSerializers(serializers.ModelSerializer):
+    gst = ChoiceField(choices=ProductHsnGst.GST_CHOICE, required=False)
 
     class Meta:
         model = ProductHsnGst
