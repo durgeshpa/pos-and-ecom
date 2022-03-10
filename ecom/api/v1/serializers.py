@@ -86,22 +86,26 @@ class ShopSerializer(serializers.ModelSerializer):
 
     @staticmethod
     def get_shop_config(obj):
-        if obj.fofo_shop_config:
-            day = datetime.datetime.today().date()
-            start_off_day = obj.fofo_shop_config.working_off_start_date
-            end_off_day = obj.fofo_shop_config.working_off_end_date
-            shop_is_open_today = True
-            if (start_off_day and end_off_day) and (start_off_day<= day and end_off_day >= day):
-                shop_is_open_today = False
+        try:
+            if obj.fofo_shop_config:
+                day = datetime.     datetime.today().date()
+                start_off_day = obj.fofo_shop_config.working_off_start_date
+                end_off_day = obj.fofo_shop_config.working_off_end_date
+                shop_is_open_today = True
+                if (start_off_day and end_off_day) and (start_off_day<= day and end_off_day >= day):
+                    shop_is_open_today = False
 
-            return {'open_time': obj.fofo_shop_config.shop_opening_timing,
-                     'working_off_start_date': obj.fofo_shop_config.working_off_start_date,
-                     'working_off_end_date': obj.fofo_shop_config.working_off_end_date,
-                     'delivery_redius': obj.fofo_shop_config.delivery_redius,
-                     'min_order_value': obj.fofo_shop_config.min_order_value,
-                     'delivery_time':obj.fofo_shop_config.delivery_time,
-                     'shop_is_open_today':shop_is_open_today
-                        }
+                return {'open_time': obj.fofo_shop_config.shop_opening_timing,
+                         'close_time': obj.fofo_shop_config.shop_closing_timing
+                         'working_off_start_date': obj.fofo_shop_config.working_off_start_date,
+                         'working_off_end_date': obj.fofo_shop_config.working_off_end_date,
+                         'delivery_redius': obj.fofo_shop_config.delivery_redius,
+                         'min_order_value': obj.fofo_shop_config.min_order_value,
+                         'delivery_time':obj.fofo_shop_config.delivery_time,
+                         'shop_is_open_today':shop_is_open_today
+                            }
+        except:
+            pass
 
 
 
