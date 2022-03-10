@@ -88,7 +88,6 @@ class ShopSerializer(serializers.ModelSerializer):
     def get_shop_config(obj):
         if obj.fofo_shop_config:
             return {'open_time': obj.fofo_shop_config.shop_opening_timing,
-                     'close_time': obj.fofo_shop_config.shop_closing_timing,
                      'working_off_start_date': obj.fofo_shop_config.working_off_start_date,
                      'working_off_end_date': obj.fofo_shop_config.working_off_end_date,
                      'delivery_redius': obj.fofo_shop_config.delivery_redius,
