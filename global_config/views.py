@@ -34,7 +34,7 @@ def get_config_fofo_shops(shop):
         if _:
            obj.save()
     return {'open_time': obj.shop_opening_timing,
-            'close_time': obj.fofo_shop_config.shop_closing_timing
+            'close_time': obj.fofo_shop_config.shop_closing_timing,
                      'working_off_start_date': obj.working_off_start_date,
                      'working_off_end_date': obj.working_off_end_date,
                      'delivery_redius': obj.delivery_redius,

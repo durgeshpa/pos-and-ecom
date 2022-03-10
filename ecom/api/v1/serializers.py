@@ -88,7 +88,7 @@ class ShopSerializer(serializers.ModelSerializer):
     def get_shop_config(obj):
         try:
             if obj.fofo_shop_config:
-                day = datetime.     datetime.today().date()
+                day = datetime.datetime.today().date()
                 start_off_day = obj.fofo_shop_config.working_off_start_date
                 end_off_day = obj.fofo_shop_config.working_off_end_date
                 shop_is_open_today = True
@@ -96,7 +96,7 @@ class ShopSerializer(serializers.ModelSerializer):
                     shop_is_open_today = False
 
                 return {'open_time': obj.fofo_shop_config.shop_opening_timing,
-                         'close_time': obj.fofo_shop_config.shop_closing_timing
+                         'close_time': obj.fofo_shop_config.shop_closing_timing,
                          'working_off_start_date': obj.fofo_shop_config.working_off_start_date,
                          'working_off_end_date': obj.fofo_shop_config.working_off_end_date,
                          'delivery_redius': obj.fofo_shop_config.delivery_redius,
