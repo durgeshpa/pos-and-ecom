@@ -785,33 +785,33 @@ class FOFOConfigurations(models.Model):
         )
 
 class FOFOConfig(models.Model):
-    SUN = 'SUN'
-    MON = 'MON'
-    TUE = 'TUE'
-    WED = 'WED'
-    THU = 'THU'
-    FRI = 'FRI'
-    SAT = 'SAT'
+    # SUN = 'SUN'
+    # MON = 'MON'
+    # TUE = 'TUE'
+    # WED = 'WED'
+    # THU = 'THU'
+    # FRI = 'FRI'
+    # SAT = 'SAT'
 
-    working_day_choices = (
-        (SUN, 'SUN'),
-        (MON, 'MON'),
-        (TUE, 'TUE'),
-        (WED, 'WED'),
-        (THU, 'THU'),
-        (FRI, 'FRI'),
-        (SAT, 'FRI'),
-    )
+    # working_day_choices = (
+    #     (SUN, 'SUN'),
+    #     (MON, 'MON'),
+    #     (TUE, 'TUE'),
+    #     (WED, 'WED'),
+    #     (THU, 'THU'),
+    #     (FRI, 'FRI'),
+    #     (SAT, 'FRI'),
+    # )
     shop = models.OneToOneField(Shop, related_name='fofo_shop_config', null=True, blank=True, unique=True, on_delete=models.CASCADE,)
     shop_opening_timing = models.TimeField(null=True, blank=True)
     shop_closing_timing = models.TimeField(null=True, blank=True)
-    # break_start_time = models.TimeField(null=True, blank=True)
-    # break_end_time = models.TimeField(null=True, blank=True)
-    working_days = ArrayField(models.CharField(max_length=25, choices=working_day_choices, null=True, blank=True), null=True,
-                         blank=True)
-    # redius = models.DecimalField(max_digits=8, decimal_places=1, blank=True, null=True, help_text="Insert value in meters")
-    #min_order_value = models.DecimalField(max_digits=10, decimal_places=2, default=199,validators=[MinValueValidator(199)], blank=True, null=True)
-    #delivery_time = models.IntegerField(blank=True, null=True, help_text="Insert value in minutes")
+
+    working_off_start_date = models.DateField(null=True, blank=True)
+    working_off_end_date = models.DateField(null=True, blank=True)
+    
+    delivery_redius = models.DecimalField(max_digits=8, decimal_places=1, blank=True, null=True, help_text="Insert value in meters")
+    min_order_value = models.DecimalField(max_digits=10, decimal_places=2, default=199,validators=[MinValueValidator(199)], blank=True, null=True)
+    delivery_time = models.IntegerField(blank=True, null=True, help_text="Insert value in minutes")
     class Meta:
         permissions = (
             ("has_fofo_config_operations", "Has update FOFO config operations"),

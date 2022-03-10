@@ -250,7 +250,7 @@ class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
                ShopParentRetailerMapping, ShopStatusAdmin,]
 
     list_display = (
-        'shop_name', 'get_shop_shipping_address', 'get_shop_pin_code', 'get_shop_parent',"working_days",
+        'shop_name', 'get_shop_shipping_address', 'get_shop_pin_code', 'get_shop_parent',"working_off_start_date", 'working_off_end_date',
         'shop_owner', 'shop_type', 'created_at', 'status', 'get_shop_city', 'approval_status',
         'shop_mapped_product', 'imei_no', 'warehouse_code'
     )
@@ -277,8 +277,11 @@ class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
         if obj and obj.shop_type.shop_type == 'f':
             return self.readonly_fields + ('shop_code', 'warehouse_code')
         return self.readonly_fields
-    def working_days(self,obj):
-        return obj.fofo_shop_config.working_days
+    def working_off_start_date(self,obj):
+        return obj.fofo_shop_config.working_off_start_date
+
+    def working_off_end_date(self,obj):
+        return obj.fofo_shop_config.working_off_end_date
 
 
     def get_urls(self):
