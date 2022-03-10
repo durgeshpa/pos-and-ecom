@@ -221,6 +221,9 @@ class ParentProduct(BaseTimestampUserStatusModel):
 
     class Meta:
         ordering = ['-created_at']
+        permissions = (
+            ("can_approve_product_tax", "Can Approve Product TAX."),
+        )
 
     def __str__(self):
         return "{}-{}".format(self.parent_id, self.name)

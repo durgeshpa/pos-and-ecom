@@ -1,6 +1,7 @@
 import codecs
 import csv
 import logging
+from functools import wraps
 
 from rest_framework import status
 from rest_framework.response import Response
@@ -429,3 +430,18 @@ def created_updated_by(log_obj, action):
         create_updated_by = log_obj.updated_by
 
     return action, create_updated_by
+
+
+def can_approve_product_tax(view_func):
+    """
+        Decorator to validate the user can approve Product TAX
+    """
+
+    @wraps(view_func)
+    def _wrapped_view_func(self, request, *args, **kwargs):
+        user = request.user
+        if not user.has_perm('product.can_approve_product_tax'):
+            return get_response("Logged In user does not have required permission to perform this action.")
+        return view_func(self, request, *args, **kwargs)
+
+    return _wrapped_view_func
