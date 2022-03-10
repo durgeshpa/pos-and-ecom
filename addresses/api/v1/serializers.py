@@ -116,7 +116,7 @@ class CityBasicSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("'state' | This is mandatory")
 
         if 'city_name' in self.initial_data and self.initial_data['city_name']:
-            data['city_name'] = self.initial_data['city_name']
+            data['city_name'] = str(self.initial_data['city_name']).strip()
         else:
             raise serializers.ValidationError("'city_name' | This is mandatory")
 
@@ -127,7 +127,7 @@ class CityBasicSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError("'id' | Invalid city.")
 
         if City.objects.filter(
-                city_name=str(self.initial_data['city_name']).strip().lower(), state=state_instance).\
+                city_name__iexact=str(self.initial_data['city_name']).strip().lower(), state=state_instance).\
                 exclude(id=city_id).exists():
             raise serializers.ValidationError(f"City already exists with this name in state {state_instance}.")
 
