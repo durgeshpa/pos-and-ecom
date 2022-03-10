@@ -397,7 +397,7 @@ def bulk_update_shop_status(validated_data):
             else:
                 row[2] = 0
 
-            if row[3]:
+            if row[3] and row[2] == 0:
                 disapproval_status_reason = get_validate_approval_status_change_reason(str(row[3]), row[2])
                 row[3] = disapproval_status_reason['data']
             else:
