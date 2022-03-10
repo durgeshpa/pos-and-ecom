@@ -932,11 +932,20 @@ class FOFOCategoryConfigurationsGetSerializer(serializers.ModelSerializer):
             fofo_category__shop=self.context.get('shop'), category=obj), many=True,
             context={'shop': self.context.get('shop')}).data
 class FofoConfigSerilizer(serializers.ModelSerializer):
+    shop_is_open_today = serializers.SerializerMethodField()
 
     class Meta:
         model = FOFOConfig
         fields = ('shop_opening_timing', 'shop_closing_timing', 'working_off_start_date',
-            'working_off_end_date', 'delivery_time', 'delivery_redius', 'min_order_value')
+            'working_off_end_date', 'delivery_time', 'delivery_redius', 'min_order_value','shop_is_open_today')
+    def get_shop_is_open_today(self, obj):
+        day = datetime.today().date()
+        start_off_day = obj.working_off_start_date
+        end_off_day = obj.working_off_end_date
+        if (start_off_day and end_off_day) and (start_off_day<= day and end_off_day >= day):
+            return False
+        return True
+
 
 
 class FOFOConfigurationsGetSerializer(serializers.Serializer):
