@@ -364,7 +364,8 @@ def create_shop_status_log(sender, instance=None, created=False, **kwargs):
         else:
             reason = 'Approved'
         last_status = ShopStatusLog.objects.filter(shop=instance).last()
-        if not last_status or last_status.reason != reason:
+        if not last_status or last_status.reason != reason or \
+                last_status.status_change_reason != instance.get_disapproval_status_reason_display():
             ShopStatusLog.objects.create(reason=reason, status_change_reason=
             instance.get_disapproval_status_reason_display(), user=user, shop=instance)
 
