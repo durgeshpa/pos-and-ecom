@@ -272,7 +272,7 @@ class ParentProductView(GenericAPIView):
         .only('id', 'parent_id', 'name', 'inner_case_size', 'product_type', 'is_ptr_applicable', 'updated_by',
               'ptr_percent', 'ptr_type', 'status', 'parent_brand__brand_name', 'parent_brand__brand_code',
               'updated_at', 'product_hsn__product_hsn_code', 'is_lead_time_applicable', 'is_ars_applicable',
-              'max_inventory', 'brand_case_size', 'discounted_life_percent').order_by('-id')
+              'max_inventory', 'brand_case_size', 'discounted_life_percent', 'tax_status', 'tax_remark').order_by('-id')
     serializer_class = ParentProductSerializers
 
     def get(self, request):
@@ -366,6 +366,7 @@ class ParentProductView(GenericAPIView):
         category = self.request.GET.get('category')
         brand = self.request.GET.get('brand')
         product_status = self.request.GET.get('status')
+        tax_status = self.request.GET.get('tax_status')
         search_text = self.request.GET.get('search_text')
 
         # search using parent_id, name & category_name based on criteria that matches
@@ -376,6 +377,8 @@ class ParentProductView(GenericAPIView):
             self.queryset = self.queryset.filter(parent_brand__id=brand)
         if product_status is not None:
             self.queryset = self.queryset.filter(status=product_status)
+        if tax_status is not None:
+            self.queryset = self.queryset.filter(tax_status=tax_status)
         if category is not None:
             self.queryset = self.queryset.filter(
                 parent_product_pro_category__category__id=category)

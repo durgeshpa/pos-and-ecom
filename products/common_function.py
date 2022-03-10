@@ -102,35 +102,33 @@ class ParentProductCls(object):
             Update Tax status and remark of specific ParentProduct on the basis of Parent Product Tax in HSN
         """
         parent_taxs = ParentProductTaxMapping.objects.filter(parent_product=parent_product)
-        product_hsn_gsts = parent_product.product_hsn.values_list('hsn_gst__gst', flat=True)
-        product_hsn_cess = parent_product.product_hsn.values_list('hsn_cess__cess', flat=True)
+        product_hsn_gsts = parent_product.product_hsn.hsn_gst.values_list('gst', flat=True)
+        product_hsn_cess = parent_product.product_hsn.hsn_cess.values_list('cess', flat=True)
         tax_status = None
         tax_remark = None
-        if product_hsn_gsts:
-            if parent_taxs.filter(tax__tax_type='gst').exists():
-                if parent_taxs.filter(tax__tax_type='gst').last().tax.tax_percentage in product_hsn_gsts:
-                    if len(product_hsn_gsts) == 1:
-                        tax_status = ParentProduct.APPROVED
-                    else:
-                        tax_status = ParentProduct.PENDING
-                        tax_remark = ParentProduct.GST_MULTIPLE_RATES
+        if parent_taxs.filter(tax__tax_type='gst').exists():
+            if parent_taxs.filter(tax__tax_type='gst').last().tax.tax_percentage in product_hsn_gsts:
+                if len(product_hsn_gsts) == 1:
+                    tax_status = ParentProduct.APPROVED
                 else:
                     tax_status = ParentProduct.PENDING
-                    tax_remark = ParentProduct.GST_RATE_MISMATCH
-        if product_hsn_cess:
-            if parent_taxs.filter(tax__tax_type='cess').exists():
-                if parent_taxs.filter(tax__tax_type='cess').last().tax.tax_percentage in product_hsn_cess:
-                    if len(product_hsn_cess) == 1:
-                        tax_status = ParentProduct.PENDING \
-                            if tax_status == ParentProduct.PENDING else ParentProduct.APPROVED
-                    else:
-                        tax_status = ParentProduct.PENDING
-                        tax_remark = ParentProduct.GST_AND_CESS_MULTIPLE_RATES \
-                            if tax_remark == ParentProduct.GST_MULTIPLE_RATES else ParentProduct.CESS_MULTIPLE_RATES
+                    tax_remark = ParentProduct.GST_MULTIPLE_RATES
+            else:
+                tax_status = ParentProduct.PENDING
+                tax_remark = ParentProduct.GST_RATE_MISMATCH
+        if parent_taxs.filter(tax__tax_type='cess').exists():
+            if parent_taxs.filter(tax__tax_type='cess').last().tax.tax_percentage in product_hsn_cess:
+                if len(product_hsn_cess) == 1:
+                    tax_status = ParentProduct.PENDING \
+                        if tax_status == ParentProduct.PENDING else ParentProduct.APPROVED
                 else:
                     tax_status = ParentProduct.PENDING
-                    tax_remark = ParentProduct.GST_AND_CESS_RATE_MISMATCH \
-                        if tax_remark == ParentProduct.GST_RATE_MISMATCH else ParentProduct.CESS_RATE_MISMATCH
+                    tax_remark = ParentProduct.GST_AND_CESS_MULTIPLE_RATES \
+                        if tax_remark == ParentProduct.GST_MULTIPLE_RATES else ParentProduct.CESS_MULTIPLE_RATES
+            else:
+                tax_status = ParentProduct.PENDING
+                tax_remark = ParentProduct.GST_AND_CESS_RATE_MISMATCH \
+                    if tax_remark == ParentProduct.GST_RATE_MISMATCH else ParentProduct.CESS_RATE_MISMATCH
         if tax_status or tax_remark:
             parent_product.tax_status = tax_status
             parent_product.tax_remark = tax_remark
@@ -144,11 +142,10 @@ class ParentProductCls(object):
         """
             Update Tax status and remark of specific ParentProduct in Logs
         """
-        tax_log = ParentProductTaxApprovalLog.objcets.filter(parent_product=parent_product).last()
-        if tax_log and tax_log.tax_status == tax_status:
-            pass
-        ParentProductTaxApprovalLog.objcets.create(
-            parent_product=parent_product, tax_status=tax_status, tax_remark=tax_remark, created_by=user)
+        tax_log = ParentProductTaxApprovalLog.objects.filter(parent_product=parent_product).last()
+        if not tax_log or tax_log.tax_status != tax_status or tax_log.tax_remark != tax_remark:
+            ParentProductTaxApprovalLog.objects.create(
+                parent_product=parent_product, tax_status=tax_status, tax_remark=tax_remark, created_by=user)
 
 
 class ProductCls(object):

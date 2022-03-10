@@ -232,10 +232,10 @@ class ParentProductSerializers(serializers.ModelSerializer):
     parent_product_log = LogSerializers(many=True, read_only=True)
     product_hsn = ProductHSNSerializers(read_only=True)
     parent_product_pro_image = ParentProductImageSerializers(many=True, read_only=True)
-    parent_product_pro_category = ParentProductCategorySerializers(many=True)
-    parent_product_pro_b2c_category = ParentProductB2cCategorySerializers(many=True)
-    parent_product_pro_tax = ParentProductTaxMappingSerializers(many=True)
-    product_parent_product = ChildProductVendorSerializers(many=True, required=False)
+    parent_product_pro_category = ParentProductCategorySerializers(many=True, read_only=True)
+    parent_product_pro_b2c_category = ParentProductB2cCategorySerializers(many=True, read_only=True)
+    parent_product_pro_tax = ParentProductTaxMappingSerializers(many=True, read_only=True)
+    product_parent_product = ChildProductVendorSerializers(many=True, required=False, read_only=True)
     parent_id = serializers.CharField(read_only=True)
     max_inventory = serializers.IntegerField(allow_null=True, max_value=999)
     product_images = serializers.ListField(required=False, default=None, child=serializers.ImageField(),
@@ -304,6 +304,8 @@ class ParentProductSerializers(serializers.ModelSerializer):
         if 'error' in product_hsn_val:
             raise serializers.ValidationError(_(f'{product_hsn_val["error"]}'))
         data['product_hsn'] = product_hsn_val['product_hsn']
+        b2b_category_val = None
+        b2c_category_val = None
         if self.initial_data.get('product_type') == 'b2b':
             b2b_category_val = get_validate_categories(self.initial_data['parent_product_pro_category'])
         elif self.initial_data.get('product_type') == 'b2c':
@@ -312,9 +314,9 @@ class ParentProductSerializers(serializers.ModelSerializer):
             b2b_category_val = get_validate_categories(self.initial_data['parent_product_pro_category'])
             b2c_category_val = get_validate_categories(self.initial_data['parent_product_pro_b2c_category'])
             
-        if 'error' in b2b_category_val:
+        if b2b_category_val and 'error' in b2b_category_val:
             raise serializers.ValidationError(_(b2b_category_val["error"]))
-        if 'error' in b2c_category_val:
+        if b2c_category_val and 'error' in b2c_category_val:
             raise serializers.ValidationError(_(b2c_category_val["error"]))
         # data['parent_product_pro_category'] = category_val['category']
 
@@ -337,7 +339,8 @@ class ParentProductSerializers(serializers.ModelSerializer):
                   'product_hsn', 'parent_brand', 'parent_product_pro_tax', 'parent_product_pro_category',
                   'is_ptr_applicable', 'ptr_percent', 'ptr_type', 'is_ars_applicable', 'max_inventory',
                   'is_lead_time_applicable', 'discounted_life_percent', 'product_images', 'parent_product_pro_image',
-                  'product_parent_product', 'parent_product_log', 'parent_product_pro_b2c_category')
+                  'product_parent_product', 'parent_product_log', 'parent_product_pro_b2c_category',
+                  'tax_status', 'tax_remark')
 
     def to_representation(self, instance):
         representation = super().to_representation(instance)
