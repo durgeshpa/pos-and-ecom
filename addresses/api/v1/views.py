@@ -1,3 +1,4 @@
+from django.core.exceptions import ObjectDoesNotExist
 from django.db.models import Q
 from django.shortcuts import render
 from rest_framework.views import APIView
@@ -490,6 +491,24 @@ class CitiesView(generics.GenericAPIView):
             info_logger.info("City Updated Successfully.")
             return api_response('city updated!', serializer.data, status.HTTP_200_OK, True)
         return api_response(serializer_error(serializer))
+
+    def delete(self, request):
+        """ Delete City """
+
+        info_logger.info("City DELETE api called.")
+        if not request.data.get('city_id'):
+            return api_response('please provide city_id')
+        try:
+            for city in request.data.get('city_id'):
+                city_id = self.queryset.get(id=int(city))
+                try:
+                    city_id.delete()
+                except:
+                    return api_response(f'can not delete city | {city_id.id} | getting used')
+        except ObjectDoesNotExist as e:
+            error_logger.error(e)
+            return api_response(f'please provide a valid city')
+        return api_response('city were deleted successfully!', None, status.HTTP_200_OK, True)
 
     def search_filter_city_data(self):
         search_text = self.request.GET.get('search_text')
