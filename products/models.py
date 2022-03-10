@@ -158,6 +158,11 @@ class ProductHsnCess(BaseTimestampUserStatusModel):
 
 
 class ParentProduct(BaseTimestampUserStatusModel):
+    GST_MULTIPLE_RATES, CESS_MULTIPLE_RATES = 'GST Multiple Rates', 'Cess Multiple Rates'
+    GST_AND_CESS_MULTIPLE_RATES = 'GST and Cess Multiple Rates'
+    GST_RATE_MISMATCH, CESS_RATE_MISMATCH = 'GST Rate mismatch', 'Cess Rate mismatch'
+    GST_AND_CESS_RATE_MISMATCH = 'GST and Cess Rate mismatch'
+
     parent_id = models.CharField(max_length=255, validators=[ParentIDValidator])
     name = models.CharField(max_length=255, validators=[ProductNameValidator])
     parent_slug = models.SlugField(max_length=255)
@@ -176,6 +181,14 @@ class ParentProduct(BaseTimestampUserStatusModel):
                                       validators=[PercentageValidator])
     PTR_TYPE_CHOICES = Choices((1, 'MARK_UP', 'Mark Up'), (2, 'MARK_DOWN', 'Mark Down'))
     ptr_type = models.SmallIntegerField(choices=PTR_TYPE_CHOICES, null=True, blank=True)
+    PENDING, APPROVED, DECLINED = 'PENDING', 'APPROVED', 'DECLINED'
+    TAX_STATUS_CHOICES = Choices(
+        (PENDING, 'Pending For Approval'),
+        (APPROVED, 'Approved'),
+        (DECLINED, 'Declined')
+    )
+    tax_status = models.CharField(max_length=10, choices=TAX_STATUS_CHOICES, null=True, blank=True)
+    tax_remark = models.CharField(max_length=100, null=True, blank=True)
     is_ars_applicable = models.BooleanField(verbose_name='Is ARS Applicable', default=False)
     max_inventory = models.PositiveSmallIntegerField(verbose_name='Max Inventory(In Days)',
                                                      validators=[MinValueValidator(1), MaxValueValidator(999)])
@@ -211,6 +224,13 @@ class ParentProduct(BaseTimestampUserStatusModel):
 
     def __str__(self):
         return "{}-{}".format(self.parent_id, self.name)
+
+
+class ParentProductTaxApprovalLog(BaseTimestampUserStatusModel):
+    parent_product = models.ForeignKey(ParentProduct, related_name='parent_product_tax_approval_log',
+                                       on_delete=models.DO_NOTHING)
+    tax_status = models.CharField(max_length=10, null=True, blank=True)
+    tax_remark = models.CharField(max_length=100, null=True, blank=True)
 
 
 class ParentProductSKUGenerator(models.Model):

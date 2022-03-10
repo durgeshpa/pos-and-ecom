@@ -365,6 +365,7 @@ class ParentProductSerializers(serializers.ModelSerializer):
 
         self.create_parent_tax_image_cat(parent_product)
         ParentProductCls.create_parent_product_log(parent_product, "created")
+        ParentProductCls.update_tax_status_and_remark(parent_product)
 
         return parent_product
 
@@ -387,6 +388,7 @@ class ParentProductSerializers(serializers.ModelSerializer):
 
         self.create_parent_tax_image_cat(parent_product)
         ParentProductCls.create_parent_product_log(parent_product, "updated")
+        ParentProductCls.update_tax_status_and_remark(parent_product)
 
         return parent_product
 

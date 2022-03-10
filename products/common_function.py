@@ -7,7 +7,7 @@ from rest_framework.response import Response
 from products.models import Product, Tax, ParentProductTaxMapping, ParentProduct, ParentProductCategory, \
     ParentProductImage, ProductHSN, ProductCapping, ProductVendorMapping, ChildProductImage, ProductImage, \
     ProductSourceMapping, DestinationRepackagingCostMapping, ProductPackingMapping, CentralLog, \
-    ParentProductB2cCategory, ProductHsnGst, ProductHsnCess
+    ParentProductB2cCategory, ProductHsnGst, ProductHsnCess, ParentProductTaxApprovalLog
 from categories.models import Category, B2cCategory
 from wms.models import Out, WarehouseInventory, BinInventory
 
@@ -95,6 +95,60 @@ class ParentProductCls(object):
         info_logger.info("parent product update info ", dict_data)
 
         return parent_product_log
+
+    @classmethod
+    def update_tax_status_and_remark(cls, parent_product):
+        """
+            Update Tax status and remark of specific ParentProduct on the basis of Parent Product Tax in HSN
+        """
+        parent_taxs = ParentProductTaxMapping.objects.filter(parent_product=parent_product)
+        product_hsn_gsts = parent_product.product_hsn.values_list('hsn_gst__gst', flat=True)
+        product_hsn_cess = parent_product.product_hsn.values_list('hsn_cess__cess', flat=True)
+        tax_status = None
+        tax_remark = None
+        if product_hsn_gsts:
+            if parent_taxs.filter(tax__tax_type='gst').exists():
+                if parent_taxs.filter(tax__tax_type='gst').last().tax.tax_percentage in product_hsn_gsts:
+                    if len(product_hsn_gsts) == 1:
+                        tax_status = ParentProduct.APPROVED
+                    else:
+                        tax_status = ParentProduct.PENDING
+                        tax_remark = ParentProduct.GST_MULTIPLE_RATES
+                else:
+                    tax_status = ParentProduct.PENDING
+                    tax_remark = ParentProduct.GST_RATE_MISMATCH
+        if product_hsn_cess:
+            if parent_taxs.filter(tax__tax_type='cess').exists():
+                if parent_taxs.filter(tax__tax_type='cess').last().tax.tax_percentage in product_hsn_cess:
+                    if len(product_hsn_cess) == 1:
+                        tax_status = ParentProduct.PENDING \
+                            if tax_status == ParentProduct.PENDING else ParentProduct.APPROVED
+                    else:
+                        tax_status = ParentProduct.PENDING
+                        tax_remark = ParentProduct.GST_AND_CESS_MULTIPLE_RATES \
+                            if tax_remark == ParentProduct.GST_MULTIPLE_RATES else ParentProduct.CESS_MULTIPLE_RATES
+                else:
+                    tax_status = ParentProduct.PENDING
+                    tax_remark = ParentProduct.GST_AND_CESS_RATE_MISMATCH \
+                        if tax_remark == ParentProduct.GST_RATE_MISMATCH else ParentProduct.CESS_RATE_MISMATCH
+        if tax_status or tax_remark:
+            parent_product.tax_status = tax_status
+            parent_product.tax_remark = tax_remark
+            parent_product.save()
+            ParentProductCls.update_tax_status_and_remark_in_log(
+                parent_product, tax_status, tax_remark,
+                parent_product.updated_by if parent_product.updated_by else parent_product.created_by)
+
+    @classmethod
+    def update_tax_status_and_remark_in_log(cls, parent_product, tax_status, tax_remark, user):
+        """
+            Update Tax status and remark of specific ParentProduct in Logs
+        """
+        tax_log = ParentProductTaxApprovalLog.objcets.filter(parent_product=parent_product).last()
+        if tax_log and tax_log.tax_status == tax_status:
+            pass
+        ParentProductTaxApprovalLog.objcets.create(
+            parent_product=parent_product, tax_status=tax_status, tax_remark=tax_remark, created_by=user)
 
 
 class ProductCls(object):
