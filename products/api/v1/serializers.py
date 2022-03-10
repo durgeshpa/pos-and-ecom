@@ -1,6 +1,7 @@
 import codecs
 import csv
 import logging
+import re
 
 from django.db.models import Q
 from django.utils.translation import gettext_lazy as _
@@ -976,6 +977,11 @@ class ProductHSNCrudSerializers(serializers.ModelSerializer):
             if ProductHSN.objects.filter(product_hsn_code__iexact=data['product_hsn_code'], status=True) \
                     .exclude(id=hsn_id).exists():
                 raise serializers.ValidationError("hsn code already exists.")
+            if not re.match("^\d+$", str(self.initial_data['product_hsn_code'])):
+                raise serializers.ValidationError(f"{self.initial_data['product_hsn_code']} "
+                                                  f"'Product HSN Code' can only be a numeric value.")
+            if len(self.initial_data['product_hsn_code']) < 6:
+                raise serializers.ValidationError(f"'Product HSN Code' must be of minimum 6 digits.")
 
         if 'hsn_gst' in self.initial_data:
             if self.instance:

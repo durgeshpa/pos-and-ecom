@@ -1397,13 +1397,16 @@ class ProductPriceAdmin(admin.ModelAdmin, ExportProductPrice):
 
 class ProductHsnGstInline(admin.TabularInline):
     model = ProductHsnGst
-    extra = 1
+    extra = 0
+    max_num = 3
     fields = ('gst',)
+    formset = AtLeastOneFormSet
 
 
 class ProductHsnCessInline(admin.TabularInline):
     model = ProductHsnCess
-    extra = 1
+    extra = 0
+    max_num = 3
     fields = ('cess',)
 
 

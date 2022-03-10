@@ -1463,26 +1463,38 @@ def check_product_hsn_mandatory_columns(uploaded_data_list, header_list):
 
         if 'gst_rate_1' not in row.keys() or str(row['gst_rate_1']).strip() == '':
             raise ValidationError(f"Row {row_num} | 'gst_rate_1' can't be empty")
+        if not re.match("^\d+$", str(row['gst_rate_1'])):
+            raise ValidationError(f"Row {row_num} | {row['gst_rate_1']} 'GST Rate 1' can only be a numeric value.")
         if not any(int(str(row['gst_rate_1']).strip()) in i for i in ProductHsnGst.GST_CHOICE):
             raise ValidationError(f"Row {row_num} | {row['gst_rate_1']} | GST does not exist.")
 
         if 'gst_rate_2' in row.keys() and str(row['gst_rate_2']).strip() != '':
+            if not re.match("^\d+$", str(row['gst_rate_2'])):
+                raise ValidationError(f"Row {row_num} | {row['gst_rate_2']} 'GST Rate 2' can only be a numeric value.")
             if not any(int(str(row['gst_rate_2']).strip()) in i for i in ProductHsnGst.GST_CHOICE):
                 raise ValidationError(f"Row {row_num} | {row['gst_rate_2']} | GST does not exist.")
 
         if 'gst_rate_3' in row.keys() and str(row['gst_rate_3']).strip() != '':
+            if not re.match("^\d+$", str(row['gst_rate_3'])):
+                raise ValidationError(f"Row {row_num} | {row['gst_rate_3']} 'GST Rate 3' can only be a numeric value.")
             if not any(int(str(row['gst_rate_3']).strip()) in i for i in ProductHsnGst.GST_CHOICE):
                 raise ValidationError(f"Row {row_num} | {row['gst_rate_3']} | GST does not exist.")
 
         if 'cess_rate_1' in row.keys() and str(row['cess_rate_1']).strip() != '':
+            if not re.match("^\d+[.]?[\d]{0,2}$", str(row['cess_rate_1'])):
+                raise ValidationError(f"Row {row_num} | {row['cess_rate_1']} 'Cess Rate 1' can only be a numeric value.")
             if float(str(row['cess_rate_1']).strip()) < 0 or float(str(row['cess_rate_1']).strip()) > 100:
                 raise ValidationError(f"Row {row_num} | {row['cess_rate_1']} | CESS does not exist.")
 
         if 'cess_rate_2' in row.keys() and str(row['cess_rate_2']).strip() != '':
+            if not re.match("^\d+[.]?[\d]{0,2}$", str(row['cess_rate_2'])):
+                raise ValidationError(f"Row {row_num} | {row['cess_rate_2']} 'Cess Rate 2' can only be a numeric value.")
             if float(str(row['cess_rate_2']).strip()) < 0 or float(str(row['cess_rate_2']).strip()) > 100:
                 raise ValidationError(f"Row {row_num} | {row['cess_rate_2']} | CESS does not exist.")
 
         if 'cess_rate_3' in row.keys() and str(row['cess_rate_3']).strip() != '':
+            if not re.match("^\d+[.]?[\d]{0,2}$", str(row['cess_rate_3'])):
+                raise ValidationError(f"Row {row_num} | {row['cess_rate_3']} 'Cess Rate 3' can only be a numeric value.")
             if float(str(row['cess_rate_3']).strip()) < 0 or float(str(row['cess_rate_3']).strip()) > 100:
                 raise ValidationError(f"Row {row_num} | {row['cess_rate_3']} | CESS does not exist.")
 
