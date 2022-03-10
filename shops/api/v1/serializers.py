@@ -935,7 +935,8 @@ class FofoConfigSerilizer(serializers.ModelSerializer):
 
     class Meta:
         model = FOFOConfig
-        fields = ('shop_opening_timing', 'shop_closing_timing', 'working_days')
+        fields = ('shop_opening_timing', 'shop_closing_timing', 'working_off_start_date',
+            'working_off_end_date', 'delivery_time', 'delivery_redius', 'min_order_value')
 
 
 class FOFOConfigurationsGetSerializer(serializers.Serializer):
@@ -963,7 +964,7 @@ class FOFOConfigurationsGetSerializer(serializers.Serializer):
             fofo_category_details__fofo_category__shop=self.context.get('shop')).distinct(), many=True,
             context={'shop': self.context.get('shop')}).data
     def get_shop_config(self,obj):
-        return FofoConfigSerilizer(FOFOConfig.objects.get(shop=self.context.get('shop'))).data
+            return FofoConfigSerilizer(FOFOConfig.objects.filter(shop=self.context.get('shop')).last()).data
 
 
 

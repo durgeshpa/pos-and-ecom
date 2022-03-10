@@ -226,32 +226,29 @@ class AddressInlineFormSet(BaseInlineFormSet):
                 raise forms.ValidationError('You cant delete all billing address')
             elif flag_bill == 0:
                 raise forms.ValidationError('Please add at least one billing address')
+from django.contrib.admin import widgets as wi
 class FOFOConfigInlineForm(forms.ModelForm):
-    SUN = 'SUN'
-    MON = 'MON'
-    TUE = 'TUE'
-    WED = 'WED'
-    THU = 'THU'
-    FRI = 'FRI'
-    SAT = 'SAT'
-
-    off_day_choices = (
-        (SUN, 'Sunday'),
-        (MON, 'Monday'),
-        (TUE, 'Tuesday'),
-        (WED, 'Wednesday'),
-        (THU, 'Thuresday'),
-        (FRI, 'Friday'),
-        (SAT, 'Saturday'),
-    )
-    working_days = forms.MultipleChoiceField(
-        required=False,
-        choices=off_day_choices,
-        widget=forms.SelectMultiple(),
-    )
+    # SUN = 'SUN'
+    # MON = 'MON'
+    # TUE = 'TUE'
+    # WED = 'WED'
+    # THU = 'THU'
+    # FRI = 'FRI'
+    # SAT = 'SAT'
+    #
+    # off_day_choices = (
+    #     (SUN, 'Sunday'),
+    #     (MON, 'Monday'),
+    #     (TUE, 'Tuesday'),
+    #     (WED, 'Wednesday'),
+    #     (THU, 'Thuresday'),
+    #     (FRI, 'Friday'),
+    #     (SAT, 'Saturday'),
+    # )
+    #days = forms.CharField(widget=forms.TextInput)
     class Meta:
         model = FOFOConfig
-        fields = '__all__'
+        fields = ('shop_opening_timing','shop_closing_timing','working_off_start_date','working_off_end_date','delivery_time', 'delivery_redius','min_order_value')
         help_texts = {
             'redius': 'Insert value in meters',
             'delivery_time':'Insert value in minutes',

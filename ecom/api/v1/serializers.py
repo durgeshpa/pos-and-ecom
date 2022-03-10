@@ -69,11 +69,11 @@ class UserLocationSerializer(serializers.Serializer):
     latitude = serializers.DecimalField(max_digits=30, decimal_places=15)
     longitude = serializers.DecimalField(max_digits=30, decimal_places=15)
 
-class FoFOConfigSerializer(serializers.ModelSerializer):
-    class Meta:
-        FOFOConfig
-        fields = ('shop_opening_timing', 'shop_closing_timing ', 'working_days')
-        #read_only_fields = ['shop_opening_timing', 'shop_closing_timing ', 'working_days']
+# class FoFOConfigSerializer(serializers.ModelSerializer):
+#     class Meta:
+#         FOFOConfig
+#         fields = ('shop_opening_timing', 'shop_closing_timing ', 'working_days')
+#         #read_only_fields = ['shop_opening_timing', 'shop_closing_timing ', 'working_days']
 
 
 class ShopSerializer(serializers.ModelSerializer):
@@ -89,7 +89,11 @@ class ShopSerializer(serializers.ModelSerializer):
         if obj.fofo_shop_config:
             return {'open_time': obj.fofo_shop_config.shop_opening_timing,
                      'close_time': obj.fofo_shop_config.shop_closing_timing,
-                     'open_days': obj.fofo_shop_config.working_days
+                     'working_off_start_date': obj.fofo_shop_config.working_off_start_date,
+                     'working_off_end_date': obj.fofo_shop_config.working_off_end_date,
+                     'delivery_redius': obj.fofo_shop_config.delivery_redius,
+                     'min_order_value': obj.fofo_shop_config.min_order_value,
+                     'delivery_time':obj.fofo_shop_config.delivery_time
                         }
 
 

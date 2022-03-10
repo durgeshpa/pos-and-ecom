@@ -1964,7 +1964,8 @@ class CartCheckout(APIView):
             offers = BasicCartOffers.refresh_offers_checkout(cart, False, self.request.data.get('coupon_id'))
             data = self.serialize(cart)
             data['redeem_points_message'] = use_rewrd_this_month
-            data['maximum_delivery_time'] = get_config_fofo_shop('Maximum Delivery time', kwargs['shop'].id)
+            delivery_time = get_config_fofo_shops(kwargs['shop'].id)
+            data['maximum_delivery_time'] = delivery_time.get('delivery_time',None)
             if 'error' in offers:
                 return api_response(offers['error'], None, offers['code'])
             if offers['applied']:
@@ -2031,7 +2032,8 @@ class CartCheckout(APIView):
             data = self.serialize(cart, offers)
             address = AddressCheckoutSerializer(cart.buyer.ecom_user_address.filter(default=True).last()).data
             data.update({'default_address': address})
-            data['maximum_delivery_time'] = get_config_fofo_shop('Maximum Delivery time', kwargs['shop'].id)
+            delivery_time = get_config_fofo_shops(kwargs['shop'])
+            data['maximum_delivery_time'] = delivery_time.get('delivery_time',None)
             data.update({'saving': round(data['total_mrp'] - data['amount_payable'], 2)})
             data.update({"redeem_points_message": use_rewrd_this_month})
             return api_response("Cart Checkout", data, status.HTTP_200_OK, True)
@@ -3189,9 +3191,11 @@ class OrderCentral(APIView):
                                       buyer=self.request.user, ordered_cart__cart_type='ECOM')
         except ObjectDoesNotExist:
             return api_response("Order Not Found!")
+
+        delivery_time = get_config_fofo_shops(order.seller_shop_id)
         return api_response('Order', self.get_serialize_process_pos_ecom(order), status.HTTP_200_OK, True,
                             extra_params={"key_p": str(config('PAYU_KEY')),
-                            'maximum_delivery_time': get_config_fofo_shop('Maximum Delivery time', order.seller_shop_id)}
+                            'maximum_delivery_time': delivery_time.get('delivery_time',None)}
                             )
 
     def post_retail_order(self):
@@ -5315,19 +5319,22 @@ class CartStockCheckView(APIView):
 
         time = datetime.now().strftime("%H:%M:%S")
         time = datetime.strptime(time,"%H:%M:%S").time()
-        day = datetime.today().strftime('%A')[0:3:].upper()
+        day = datetime.today().date()
 
         fofo_config = get_config_fofo_shops(shop)
-        if fofo_config and not (fofo_config['open_time']<time and fofo_config['close_time']>time):
+        if fofo_config.get('open_time',None) and fofo_config.get('close_time',None) and not (fofo_config['open_time']<time and fofo_config['close_time']>time):
             return api_response("order acceptable b/w {} to {}".format(fofo_config['open_time'], fofo_config['close_time']))
-        if day not in fofo_config['open_days']:
-            return api_response("This Shop is not serviceable on {}".format(datetime.today().strftime('%A')))
+
+        start_off_day = fofo_config.get('working_off_start_date', None)
+        end_off_day = fofo_config.get('working_off_end_date',start_off_day)
+        if (start_off_day and end_off_day) and (start_off_day<= day and end_off_day >= day):
+            return api_response("This Shop is not serviceable on {}".format(datetime.today().date()))
         # Check for changes in cart - price / offers / available inventory
         cart_products = cart.rt_cart_list.all()
         cart_products = PosCartCls.refresh_prices(cart_products)
         # Minimum Order Value
         # order_config = GlobalConfig.objects.filter(key='ecom_minimum_order_amount').last()
-        order_config = get_config_fofo_shop('Minimum order value', shop.id)
+        order_config = fofo_config.get('min_order_value', None)#get_config_fofo_shop('Minimum order value', shop.id)
         if order_config is not None:
             order_amount = cart.order_amount_after_discount
             if order_amount < order_config:
