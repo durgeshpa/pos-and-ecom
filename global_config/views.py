@@ -33,11 +33,12 @@ def get_config_fofo_shops(shop):
         #     config_object = FOFOConfigurations.objects.filter(shop__shop_name__iexact="default fofo shop").last()
         if _:
            obj.save()
-    return {'open_time': obj.shop_opening_timing,
-            'close_time': obj.fofo_shop_config.shop_closing_timing,
-                     'working_off_start_date': obj.working_off_start_date,
-                     'working_off_end_date': obj.working_off_end_date,
-                     'delivery_redius': obj.delivery_redius,
-                     'min_order_value': obj.min_order_value,
-                     'delivery_time':obj.delivery_time
-                        }
+        return {'open_time': obj.shop_opening_timing,
+                'close_time': obj.shop_closing_timing,
+                         'working_off_start_date': obj.working_off_start_date,
+                         'working_off_end_date': obj.working_off_end_date,
+                         'delivery_redius': obj.delivery_redius,
+                         'min_order_value': obj.min_order_value,
+                         'delivery_time':obj.delivery_time
+                            }
+    return {}

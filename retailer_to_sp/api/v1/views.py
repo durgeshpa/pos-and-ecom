@@ -5334,7 +5334,7 @@ class CartStockCheckView(APIView):
         cart_products = PosCartCls.refresh_prices(cart_products)
         # Minimum Order Value
         # order_config = GlobalConfig.objects.filter(key='ecom_minimum_order_amount').last()
-        order_config = fofo_config.get('min_order_value', None)#get_config_fofo_shop('Minimum order value', shop.id)
+        order_config = fofo_config.get('min_order_value', 199)#get_config_fofo_shop('Minimum order value', shop.id)
         if order_config is not None:
             order_amount = cart.order_amount_after_discount
             if order_amount < order_config:
