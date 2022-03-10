@@ -25,7 +25,7 @@ from .forms import (ParentRetailerMappingForm, PosShopUserMappingForm, ShopParen
 
 from .views import (StockAdjustmentView, bulk_shop_updation, ShopAutocomplete, UserAutocomplete,
                     ShopUserMappingCsvView, ShopUserMappingCsvSample, ShopTimingAutocomplete,
-                    ApprovalStatusReasonAutocomplete
+                    ApprovalStatusReasonAutocomplete, bulk_shop_status_update, bulk_shop_status_change_sample_file
                     )
 from pos.filters import NonPosShopAutocomplete, PosShopAutocomplete, FofoOnlineEnabledShopAutocomplete
 from retailer_backend.admin import InputFilter
@@ -243,9 +243,9 @@ class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
     resource_class = ShopResource
     form = ShopForm
     fields = ['shop_name', 'shop_owner', 'shop_type', 'status', 'pos_enabled', 'online_inventory_enabled',
-              'approval_status', 'approval_status_reason']
+              'approval_status', 'disapproval_status_reason']
 
-    actions = ["export_as_csv", "disable_shop", "download_status_report"]
+    actions = ["export_as_csv", "download_status_report"]
     inlines = [ShopPhotosAdmin, ShopDocumentsAdmin, AddressAdmin, ShopInvoicePatternAdmin,
                ShopParentRetailerMapping, ShopStatusAdmin, ]
 
@@ -309,6 +309,16 @@ class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
                        r'^bulk-shop-updation/$',
                        self.admin_site.admin_view(bulk_shop_updation),
                        name="bulk-shop-updation"
+                   ),
+                   url(
+                       r'^bulk_shop_status_change/$',
+                       self.admin_site.admin_view(bulk_shop_status_update),
+                       name="bulk_shop_status_change"
+                   ),
+                   url(
+                       r'^download/bulk_shop_status_change_sample_download/$',
+                       self.admin_site.admin_view(bulk_shop_status_change_sample_file),
+                       name="download/bulk_shop_status_change_sample_download"
                    ),
                    url(
                        r'^shop-autocomplete/$',
@@ -760,6 +770,26 @@ class FOFOConfigSubCategoryAdmin(admin.ModelAdmin):
 #         return False
 
 
+class ShopStatusLogAdmin(admin.ModelAdmin):
+    fields = ('shop', 'status', 'status_change_reason', 'user', 'created_at')
+    list_display = ('shop', 'status', 'status_change_reason', 'user', 'created_at')
+    readonly_fields = ('shop', 'status', 'status_change_reason', 'user', 'created_at')
+    search_fields = ('shop__shop_name',)
+    list_filter = [ShopFilter, UserFilter ]
+
+    def status(self, obj):
+        return obj.reason
+
+    def created_at(self, obj):
+        return obj.changed_at
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
 admin.site.register(ParentRetailerMapping, ParentRetailerMappingAdmin)
 admin.site.register(ShopType, ShopTypeAdmin)
 admin.site.register(RetailerType)
@@ -774,4 +804,5 @@ admin.site.register(PosShopUserMapping, PosShopUserMappingAdmin)
 admin.site.register(ExecutiveFeedback, ExecutiveFeedbackAdmin)
 admin.site.register(FOFOConfigCategory, FOFOConfigCategoryAdmin)
 admin.site.register(FOFOConfigSubCategory, FOFOConfigSubCategoryAdmin)
+admin.site.register(ShopStatusLog, ShopStatusLogAdmin)
 # admin.site.register(FOFOConfigurations, FOFOConfigurationsAdmin)

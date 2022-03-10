@@ -1,6 +1,8 @@
 import datetime
 from datetime import datetime, timedelta
 from django import forms
+
+from .common_validators import get_validate_approval_status_change_reason
 from .models import ParentRetailerMapping, PosShopUserMapping, Shop, ShopType, ShopUserMapping, ShopTiming, \
     BeatPlanning, ShopStatusLog, FOFOConfigurations
 from addresses.models import Address
@@ -156,9 +158,16 @@ class ShopForm(forms.ModelForm):
     class Meta:
         Model = Shop
         fields = (
-            'shop_name', 'shop_owner', 'shop_type', 'approval_status', 'approval_status_reason',
+            'shop_name', 'shop_owner', 'shop_type', 'approval_status', 'disapproval_status_reason',
             'shop_code', 'shop_code_bulk', 'shop_code_discounted', 'warehouse_code','created_by', 'status',
             'pos_enabled', 'online_inventory_enabled', 'shop_location', 'latitude', 'longitude')
+
+    def clean(self):
+        data = self.cleaned_data
+        if data.get('approval_status') == Shop.DISAPPROVED and data.get('disapproval_status_reason') is None:
+            raise ValidationError('Disapproval status reason is required.')
+
+        return data
 
     @classmethod
     def get_shop_type(cls, data):
@@ -196,7 +205,15 @@ class ShopForm(forms.ModelForm):
             raise ValidationError(_("This field is required"))
         return warehouse_code
 
+    def clean_disapproval_status_reason(self):
+        disapproval_status_reason = self.cleaned_data.get('disapproval_status_reason', None)
+        if int(self.data['approval_status']) != Shop.DISAPPROVED:
+            return None
+        return disapproval_status_reason
+
+
 from django.forms.models import BaseInlineFormSet
+
 
 class RequiredInlineFormSet(BaseInlineFormSet):
     def _construct_form(self, i, **kwargs):
@@ -264,6 +281,7 @@ class ShopTimingForm(forms.ModelForm):
         model = ShopTiming
         fields = ('shop','open_timing','closing_timing','break_start_time','break_end_time','off_day')
 
+
 class BulkShopUpdation(forms.Form):
     file = forms.FileField(label='Select a file')
 
@@ -272,6 +290,51 @@ class BulkShopUpdation(forms.Form):
         if not file.name[-5:] == '.xlsx':
             raise forms.ValidationError("Sorry! Only Excel file accepted")
         return file
+
+
+class BulkShopStatusChange(forms.Form):
+    file = forms.FileField(label='Select a file')
+
+    def clean_file(self):
+        file = self.cleaned_data['file']
+        if not file.name[-4:] == '.csv':
+            raise forms.ValidationError("Sorry! Only CSV file accepted")
+
+        reader = csv.reader(codecs.iterdecode(self.cleaned_data['file'], 'utf-8', errors='ignore'))
+        first_row = next(reader)
+        form_data_list = []
+        for row_id, row in enumerate(reader):
+            if not row[0]:
+                raise ValidationError(_("Issue in Row" + " " + str(row_id + 1) + ", " + "Shop Id must not be empty."))
+            if not Shop.objects.filter(pk=int(row[0])).exists():
+                raise ValidationError(_("Issue in Row" + " " + str(row_id + 1) + ", " +
+                                        "shop id does not exist in the system."))
+            if not row[2]:
+                raise ValidationError(_("Issue in Row" + " " + str(row_id + 1) + ", " +
+                                        "Shop Approval Status must not be empty."))
+            if not str(row[2]).lower() in ['awaiting approval', 'approved', 'disapproved']:
+                raise ValidationError(_("Issue in Row" + " " + str(row_id + 1) + ", " +
+                                        "Incorrect Shop Approval Status."))
+            if str(row[2]).lower() == 'awaiting approval':
+                row[2] = 1
+            if str(row[2]).lower() == 'approved':
+                row[2] = 2
+            else:
+                row[2] = 0
+            if row[2] == 0 and not row[3]:
+                raise ValidationError(_("Issue in Row" + " " + str(row_id + 1) + ", " +
+                                        "Disapproval Status Reason must not be empty."))
+            if row[2] == 0 and row[3]:
+                disapproval_status_reason = get_validate_approval_status_change_reason(str(row[3]), row[2])
+                if 'error' in disapproval_status_reason:
+                    raise ValidationError(_(disapproval_status_reason["error"]))
+                row[3] = disapproval_status_reason['data']
+            else:
+                row[3] = None
+
+        form_data_list.append(row)
+        return form_data_list
+
 
 class ShopUserMappingForm(forms.ModelForm):
     shop = forms.ModelChoiceField(

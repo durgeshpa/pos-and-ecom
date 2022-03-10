@@ -47,40 +47,21 @@
             document.getElementById('id_shop_type').onchange = function() {
                 enableForPosAction();
             };
-            function approvalReasonAction () {
+            function disapprovalReasonAction () {
                 approval_status = $("#id_approval_status").children("option:selected").text();
-                approval_status_reason = $("#id_approval_status_reason").children("option:selected").val();
-                if (approval_status == 'Approved' || approval_status == 'Disapproved'){
-                    $('.field-approval_status_reason').removeClass('hidden');
-                    if (approval_status == 'Approved') {
-                        $('#id_approval_status_reason').find('option').remove();
-                        $("#id_approval_status_reason").append($("<option></option>").val("LOCATION_STARTED").html("Location Started"));
-                        $("#id_approval_status_reason").append($("<option></option>").val("SHOP_ONBOARDED").html("Shop Onboarded"));
-                    }
-                    else {
-                        $('#id_approval_status_reason').find('option').remove();
-                        $("#id_approval_status_reason").append($("<option></option>").val("BUSINESS_CLOSED").html("Business Closed"));
-                        $("#id_approval_status_reason").append($("<option></option>").val("BLOCKED_BY_GRAMFACTORY").html("Blocked by Gramfactory"));
-                        $("#id_approval_status_reason").append($("<option></option>").val("NOT_SERVING_SHOP_LOCATION").html("Not Serving Shop Location"));
-                        $("#id_approval_status_reason").append($("<option></option>").val("PERMANENTLY_CLOSED").html("Permanently Closed"));
-                        $("#id_approval_status_reason").append($("<option></option>").val("MISBEHAVIOUR_OR_DISPUTE").html("Misbehaviour or Dispute"));
-                        $("#id_approval_status_reason").append($("<option></option>").val("REGION_NOT_SERVICED").html("Region Not Serviced"));
-                        $("#id_approval_status_reason").append($("<option></option>").val("MULTIPLE_SHOP_IDS").html("Multiple Shop Ids"));
-                        $("#id_approval_status_reason").append($("<option></option>").val("FREQUENT_CANCELLATION_HOLD_AND_RETURN_OF_ORDERS").html("Frequent Cancellation, Return And Holds Of Orders"));
-                        $("#id_approval_status_reason").append($("<option></option>").val("MOBILE_NUMBER_LOST_CLOSED_CHANGED").html("Mobile Number Changed"));
-                    }
-                    $("#id_approval_status_reason").val(approval_status_reason);
+                disapproval_status_reason = $("#id_disapproval_status_reason").children("option:selected").val();
+                if (approval_status == 'Disapproved'){
+                    $('.field-disapproval_status_reason').removeClass('hidden');
                 }
                 else {
-                    $('#id_approval_status_reason').find('option').remove();
-                    $('.field-approval_status_reason').addClass('hidden');
+                    $('.field-disapproval_status_reason').addClass('hidden');
                 }
             }
 
-            approvalReasonAction();
+            disapprovalReasonAction();
 
             document.getElementById('id_approval_status').onchange = function() {
-                approvalReasonAction();
+                disapprovalReasonAction();
             };
         });
 

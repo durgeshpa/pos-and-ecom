@@ -82,8 +82,8 @@ class Shop(models.Model):
         (APPROVED, 'Approved'),
         (DISAPPROVED, 'Disapproved'),
     )
-    LOCATION_STARTED = 'LOCATION_STARTED'
-    SHOP_ONBOARDED = 'SHOP_ONBOARDED'
+    # LOCATION_STARTED = 'LOCATION_STARTED'
+    # SHOP_ONBOARDED = 'SHOP_ONBOARDED'
     BUSINESS_CLOSED = 'BUSINESS_CLOSED'
     BLOCKED_BY_GRAMFACTORY = 'BLOCKED_BY_GRAMFACTORY'
     NOT_SERVING_SHOP_LOCATION = 'NOT_SERVING_SHOP_LOCATION'
@@ -94,30 +94,13 @@ class Shop(models.Model):
     MOBILE_NUMBER_LOST_CLOSED_CHANGED = 'MOBILE_NUMBER_LOST_CLOSED_CHANGED'
     REGION_NOT_SERVICED = 'REGION_NOT_SERVICED'
 
-    APPROVAL_STATUS_REASON_CHOICES = (
-        (LOCATION_STARTED, 'Location Started'),
-        (SHOP_ONBOARDED, 'Shop Onboarded'),
-        (BUSINESS_CLOSED, 'Business Closed'),
-        (BLOCKED_BY_GRAMFACTORY, 'Blocked By Gramfactory'),
-        (NOT_SERVING_SHOP_LOCATION, 'Not Serving Shop Location'),
-        (PERMANENTLY_CLOSED, 'Permanently Closed'),
-        (REGION_NOT_SERVICED, 'Region Not Serviced'),
-        (MISBEHAVIOUR_OR_DISPUTE, 'Misbehaviour or Dispute'),
-        (MULTIPLE_SHOP_IDS, 'Multiple Shop Ids'),
-        (FREQUENT_CANCELLATION_HOLD_AND_RETURN_OF_ORDERS, 'Frequent Cancellation, Return And Holds Of Orders'),
-        (MOBILE_NUMBER_LOST_CLOSED_CHANGED, 'Mobile Number Changed'),
-    )
-    APPROVED_STATUS_REASON_CHOICES = (
-        (LOCATION_STARTED, 'Location Started'),
-        (SHOP_ONBOARDED, 'Shop Onboarded'),
-    )
     DISAPPROVED_STATUS_REASON_CHOICES = (
         (BUSINESS_CLOSED, 'Business Closed'),
         (BLOCKED_BY_GRAMFACTORY, 'Blocked By Gramfactory'),
         (NOT_SERVING_SHOP_LOCATION, 'Not Serving Shop Location'),
         (PERMANENTLY_CLOSED, 'Permanently Closed'),
         (REGION_NOT_SERVICED, 'Region Not Serviced'),
-        (MISBEHAVIOUR_OR_DISPUTE, 'Misbehaviour or Dispute'),
+        (MISBEHAVIOUR_OR_DISPUTE, 'Misbehaviour Or Dispute'),
         (MULTIPLE_SHOP_IDS, 'Multiple Shop Ids'),
         (FREQUENT_CANCELLATION_HOLD_AND_RETURN_OF_ORDERS, 'Frequent Cancellation, Return And Holds Of Orders'),
         (MOBILE_NUMBER_LOST_CLOSED_CHANGED, 'Mobile Number Changed'),
@@ -137,7 +120,7 @@ class Shop(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     approval_status = models.IntegerField(choices=APPROVAL_STATUS_CHOICES, default=1)
-    approval_status_reason = models.CharField(choices=APPROVAL_STATUS_REASON_CHOICES, max_length=50,
+    disapproval_status_reason = models.CharField(choices=DISAPPROVED_STATUS_REASON_CHOICES, max_length=50,
                                               null=True, blank=True)
     status = models.BooleanField(default=False)
     updated_by = models.ForeignKey(
@@ -274,6 +257,10 @@ class Shop(models.Model):
     def get_orders(self):
         return self.rt_buyer_shop_order.all()
 
+    # def clean(self):
+    #     if self.approval_status == Shop.DISAPPROVED and self.disapproval_status_reason is None:
+    #         raise ValidationError('Disapproval status reason is required.')
+
     def save(self, force_insert=False, force_update=False, *args, **kwargs):
         if self.status != self.__original_status and self.status is True and ParentRetailerMapping.objects.filter(
                 retailer=self, status=True).exists():
@@ -295,6 +282,7 @@ class Shop(models.Model):
             #                        " Thanks," \
             #                        " Team GramFactory " % (username, shop_title))
             # message.send()
+
         super(Shop, self).save(force_insert, force_update, *args, **kwargs)
 
     # def available_product(self, product):
@@ -377,8 +365,8 @@ def create_shop_status_log(sender, instance=None, created=False, **kwargs):
             reason = 'Approved'
         last_status = ShopStatusLog.objects.filter(shop=instance).last()
         if not last_status or last_status.reason != reason:
-            ShopStatusLog.objects.create(reason=reason, status_change_reason=instance.get_approval_status_reason_display(),
-                                         user=user, shop=instance)
+            ShopStatusLog.objects.create(reason=reason, status_change_reason=
+            instance.get_disapproval_status_reason_display(), user=user, shop=instance)
 
 
 class FavouriteProduct(models.Model):

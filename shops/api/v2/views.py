@@ -1111,20 +1111,6 @@ class DownloadShopStatusCSV(GenericAPIView):
         return get_response(serializer_error(serializer), False)
 
 
-class ShopActivateChoiceView(GenericAPIView):
-    authentication_classes = (authentication.TokenAuthentication,)
-
-    def get(self, request):
-        """ GET ShopActivateChoice List for Shop Updation"""
-
-        info_logger.info("ShopActivateChoiceView GET api called.")
-        """ GET ShopActivateChoice List """
-        fields = ['key', 'value', ]
-        data = [dict(zip(fields, d)) for d in Shop.APPROVED_STATUS_REASON_CHOICES]
-        msg = ""
-        return get_response(msg, data, True)
-
-
 class ShopDeActivateChoiceView(GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
 
