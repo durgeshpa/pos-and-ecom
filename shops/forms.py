@@ -19,6 +19,7 @@ from django.contrib.auth.models import Group, Permission
 from retailer_backend.messages import VALIDATION_ERROR_MESSAGES
 from django.core.exceptions import ObjectDoesNotExist
 from accounts.middlewares import get_current_user
+from django.utils.translation import ugettext_lazy as __
 
 
 class ParentRetailerMappingForm(forms.ModelForm):
@@ -253,6 +254,37 @@ class FOFOConfigInlineForm(forms.ModelForm):
             'redius': 'Insert value in meters',
             'delivery_time':'Insert value in minutes',
         }
+        widgets = {'delivery_time':forms.TextInput(attrs={'placeholder': 'Enter Value In Minutes'}),
+                    'delivery_redius': forms.TextInput(attrs={'placeholder': 'Enter Value In Meter'})}
+        labels = {
+            'delivery_time': __('Delivery Time (Minutes)'),
+            'delivery_redius': __('Delivery Radius (Meter)')
+            }
+
+    def clean(self):
+        start_date = self.cleaned_data.get('working_off_start_date')
+        end_date = self.cleaned_data.get('working_off_end_date')
+        if start_date and start_date < datetime.today().date():
+            self._errors['working_off_start_date'] = self.error_class(["Date Can Not Less Than Current Date"])
+        if end_date and end_date < datetime.today().date():
+            self._errors['working_off_end_date'] = self.error_class(["Date Can Not Less Than Current Date"])
+        if start_date and not end_date:
+            self._errors['working_off_end_date'] = self.error_class(["Date Required"])
+        if end_date and not start_date:
+            self._errors['working_off_start_date'] = self.error_class(["Date Required"])
+        if (start_date and end_date ) and start_date > end_date:
+            self._errors['working_off_start_date'] = self.error_class(["Start Date Should Be Less Than Or Eqal To End Date"])
+            self._errors['working_off_end_date'] = self.error_class(["End Date Should Be Greater Than or Eqal to Start Date"])
+        time = self.cleaned_data.get('delivery_time')
+        if time and time<0:
+            self._errors['delivery_time'] = self.error_class(["Delivery Time Should Be Positive Number"])
+        delivery_redius = self.cleaned_data.get('delivery_redius')
+        if delivery_redius and delivery_redius<0:
+            self._errors['delivery_redius'] = self.error_class(["Delivery Radius Should Be Positive Number"])
+
+        return self.cleaned_data
+
+
 
 
 class ShopTimingForm(forms.ModelForm):
