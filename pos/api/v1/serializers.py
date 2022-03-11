@@ -1027,6 +1027,7 @@ class BasicOrderSerializer(serializers.ModelSerializer):
     invoice_no = serializers.SerializerMethodField()
     discount = serializers.SerializerMethodField()
     delivery_option = serializers.SerializerMethodField()
+    estimate_delivery_time = serializers.SerializerMethodField()
 
     def get_discount(self, obj):
         discount = 0
@@ -1176,10 +1177,14 @@ class BasicOrderSerializer(serializers.ModelSerializer):
                 discount += i['discount_value']
         return round(discount, 2)
 
+    def get_estimate_delivery_time(self, obj):
+        if obj.estimate_delivery_time:
+            return str(obj.estimate_delivery_time)
+
     class Meta:
         model = Order
         fields = ('id', 'order_no', 'ordered_cart', 'products', 'delivery_option', 'ongoing_return', 'seller_shop',
-                  'gstn_no', 'invoice_no', 'discount')
+                  'gstn_no', 'invoice_no', 'discount', "estimate_delivery_time")
 
 
 class OrderReturnCheckoutSerializer(serializers.ModelSerializer):
@@ -3551,7 +3556,7 @@ class PosEcomOrderDetailSerializer(serializers.ModelSerializer):
         model = Order
         fields = ('id', 'order_no', 'creation_date', 'order_status', 'items', 'order_summary', 'return_summary',
                   'invoice_summary', 'ordered_product', 'invoice_amount', 'address', 'order_update',
-                  'ecom_estimated_delivery_time', 'delivery_person', 'delivery_option', 'order_status_display', 'order_cancel_reson',
+                  'estimate_delivery_time', 'delivery_person', 'delivery_option', 'order_status_display', 'order_cancel_reson',
                   'payment', 'ordered_cart')
 
 

@@ -56,7 +56,7 @@ from retailer_to_sp.models import (Cart, CartProductMapping, CreditNote, Order, 
                                    Feedback, OrderedProductMapping as ShipmentProducts, Trip, PickerDashboard,
                                    ShipmentRescheduling, Note, OrderedProductBatch,
                                    OrderReturn, ReturnItems, OrderedProductMapping, ShipmentPackaging, RoundAmount)
-from shops.models import Shop, ParentRetailerMapping, ShopUserMapping, ShopMigrationMapp, PosShopUserMapping
+from shops.models import Shop, ParentRetailerMapping, ShopUserMapping, ShopMigrationMapp, PosShopUserMapping, FOFOConfig
 from brand.models import Brand
 from categories import models as categorymodel
 from common.common_utils import (create_file_name, single_pdf_file, create_merge_pdf_name, merge_pdf_files,
@@ -3192,10 +3192,8 @@ class OrderCentral(APIView):
         except ObjectDoesNotExist:
             return api_response("Order Not Found!")
 
-        delivery_time = get_config_fofo_shops(order.seller_shop_id)
         return api_response('Order', self.get_serialize_process_pos_ecom(order), status.HTTP_200_OK, True,
-                            extra_params={"key_p": str(config('PAYU_KEY')),
-                            'maximum_delivery_time': delivery_time.get('delivery_time',None)}
+                            extra_params={"key_p": str(config('PAYU_KEY')),}
                             )
 
     def post_retail_order(self):
@@ -3712,6 +3710,8 @@ class OrderCentral(APIView):
                 elif self.request.data.get('payment_status') == 'payment_failed':
                     order.order_status = Order.PAYMENT_FAILED
             order.delivery_option = delivery_option
+        obj = FOFOConfig.objects.filter(shop=order.seller_shop.id).last()
+        order.estimate_delivery_time = obj.delivery_time if obj else None
         order.save()
 
         if address:
@@ -5323,12 +5323,12 @@ class CartStockCheckView(APIView):
 
         fofo_config = get_config_fofo_shops(shop)
         if fofo_config.get('open_time',None) and fofo_config.get('close_time',None) and not (fofo_config['open_time']<time and fofo_config['close_time']>time):
-            return api_response("order acceptable b/w {} to {}".format(fofo_config['open_time'], fofo_config['close_time']))
+            return api_response("Sorry for the inconvenience, order acceptable b/w {} to {}".format(fofo_config['open_time'], fofo_config['close_time']))
 
         start_off_day = fofo_config.get('working_off_start_date', None)
         end_off_day = fofo_config.get('working_off_end_date',start_off_day)
         if (start_off_day and end_off_day) and (start_off_day<= day and end_off_day >= day):
-            return api_response("This Shop is not serviceable on {}".format(datetime.today().date()))
+            return api_response("Sorry for the inconvenience, Shop is non operational on {}".format(datetime.today().date()))
         # Check for changes in cart - price / offers / available inventory
         cart_products = cart.rt_cart_list.all()
         cart_products = PosCartCls.refresh_prices(cart_products)

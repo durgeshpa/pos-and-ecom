@@ -256,7 +256,7 @@ class EcomOrderListSerializer(serializers.ModelSerializer):
     class Meta:
         model = Order
         fields = ('id', 'order_status','order_cancel_reson', 'order_amount', 'total_items', 'order_no', 'created_at',
-                  'ecom_estimated_delivery_time', 'seller_shop', 'payment', 'delivery_persons', 'ordered_cart', 'delivery_option')
+                  'estimate_delivery_time', 'seller_shop', 'payment', 'delivery_persons', 'ordered_cart', 'delivery_option')
 
 
 class EcomOrderProductDetailSerializer(serializers.ModelSerializer):
