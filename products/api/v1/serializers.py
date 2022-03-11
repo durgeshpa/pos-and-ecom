@@ -367,8 +367,8 @@ class ParentProductSerializers(serializers.ModelSerializer):
             raise serializers.ValidationError(error)
 
         self.create_parent_tax_image_cat(parent_product)
-        ParentProductCls.create_parent_product_log(parent_product, "created")
         ParentProductCls.update_tax_status_and_remark(parent_product)
+        ParentProductCls.create_parent_product_log(parent_product, "created")
 
         return parent_product
 
@@ -390,8 +390,8 @@ class ParentProductSerializers(serializers.ModelSerializer):
             raise serializers.ValidationError(error)
 
         self.create_parent_tax_image_cat(parent_product)
-        ParentProductCls.create_parent_product_log(parent_product, "updated")
         ParentProductCls.update_tax_status_and_remark(parent_product)
+        ParentProductCls.create_parent_product_log(parent_product, "updated")
 
         return parent_product
 
@@ -1812,8 +1812,8 @@ class ParentProductApprovalSerializers(serializers.ModelSerializer):
             error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
             raise serializers.ValidationError(error)
 
-        ParentProductCls.create_parent_product_log(parent_product, "updated")
         ParentProductCls.update_tax_status_and_remark_in_log(
             parent_product, validated_data['tax_status'], validated_data['tax_remark'], validated_data['updated_by'])
+        ParentProductCls.create_parent_product_log(parent_product, "updated")
 
         return parent_product

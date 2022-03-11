@@ -213,6 +213,7 @@ class UploadMasterData(object):
                             queryset.filter(tax__tax_type='surcharge').update(tax_id=surcharge_tax)
                         else:
                             ParentProductTaxMapping.objects.create(parent_product=parent_pro_id, tax=surcharge_tax)
+                ParentProductCls.update_tax_status_and_remark(parent_pro_id)
 
             info_logger.info("Method complete to update the Parent Product with Tax from csv file")
         except Exception as e:
@@ -347,6 +348,7 @@ class UploadMasterData(object):
                         if col == 'discounted_life_percent':
                             parent_product.update(discounted_life_percent=row['discounted_life_percent'])
                         parent_product.update(updated_by=user)
+                        ParentProductCls.update_tax_status_and_remark(parent_product.last())
                         ParentProductCls.create_parent_product_log(parent_product.last(), "updated")
 
                 except Exception as e:
@@ -644,6 +646,7 @@ class UploadMasterData(object):
                         ParentProductCategory.objects.create(parent_product=parent_product,
                                                              category=Category.objects.filter(
                                                                  category_name=cat).last())
+                ParentProductCls.update_tax_status_and_remark(parent_product)
 
             info_logger.info("Method complete to create the Parent Product from csv file")
         except Exception as e:
