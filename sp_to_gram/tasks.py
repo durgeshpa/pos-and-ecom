@@ -1,7 +1,7 @@
 from celery.task import task
 import logging
 
-from gram_to_brand.models import GRNOrder
+from gram_to_brand.models import GRNOrder, GRNOrderProductMapping
 from shops.models import Shop
 from products.models import Product, ProductPrice
 from wms.common_functions import get_stock, CommonWarehouseInventoryFunctions as CWIF, get_earliest_expiry_date
@@ -345,10 +345,11 @@ def filtered_grn_order_items(**kwargs):
 def get_all_products(shop_id=None, product=None, inventory_type=None):
 	info_logger.info("Inside get_all_products, product: ")
 	product_dict = None
-	product_list = filtered_grn_order_items().values('sku__id').distinct()
+	product_list = filtered_grn_order_items(**{"grn_order_grn_order_product__product_invoice_price__gt": 0})\
+		.values_list('order__ordered_cart__products__id', flat=True).distinct()
 	products = Product.objects.filter(pk__in=product_list).order_by('product_name')
 	product_price_dict = get_product_price(shop_id, products)
-	info_logger.info("inside get_warehouse_stock, products: " + str(products) + ", product_price_dict: " + str(
+	info_logger.info("inside get_all_products, products: " + str(products) + ", product_price_dict: " + str(
 		product_price_dict))
 	for product in products:
 		user_selected_qty = None
@@ -429,19 +430,13 @@ def get_all_products(shop_id=None, product=None, inventory_type=None):
 
 		product_categories = [str(c.category) for c in
 							  product.parent_product.parent_product_pro_category.filter(status=True)]
-		visible=False
-		if product_dict:
-			warehouse_visible=WarehouseInventory.objects.filter(warehouse=shop, sku=product, inventory_state=InventoryState.objects.filter(
-                inventory_state='total_available').last(), inventory_type=type_normal).last()
-			if warehouse_visible:
-				visible = warehouse_visible.visible
-		else:
-			visible=True
+
+		visible=True
 		ean = product.product_ean_code
 		if ean and type(ean) == str:
 			ean = ean.split('_')[0]
 		is_discounted = True if product.product_type == Product.PRODUCT_TYPE_CHOICE.DISCOUNTED else False
-		expiry_date = get_earliest_expiry_date(product, shop, type_normal, is_discounted) if is_discounted else None
+		expiry_date = None
 		product_details = {
 			"sku": product.product_sku,
 			"parent_id": product.parent_product.parent_id,
