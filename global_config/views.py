@@ -33,6 +33,11 @@ def get_config_fofo_shops(shop):
         #     config_object = FOFOConfigurations.objects.filter(shop__shop_name__iexact="default fofo shop").last()
         if _:
            obj.save()
+
+        if not obj.min_order_value or obj.min_order_value < 199:
+            obj.min_order_value = 199.0
+            obj.save()
+
         return {'open_time': obj.shop_opening_timing,
                 'close_time': obj.shop_closing_timing,
                          'working_off_start_date': obj.working_off_start_date,
