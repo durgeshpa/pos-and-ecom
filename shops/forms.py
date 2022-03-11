@@ -1,6 +1,8 @@
 import datetime
 from datetime import datetime, timedelta
 from django import forms
+
+from .common_validators import get_validate_approval_status_change_reason
 from .models import ParentRetailerMapping, PosShopUserMapping, Shop, ShopType, ShopUserMapping, ShopTiming, \
     BeatPlanning, ShopStatusLog, FOFOConfigurations
 from addresses.models import Address
@@ -12,13 +14,14 @@ import csv
 import codecs
 from products.models import Product, ProductPrice
 import re
-from .models import Shop
+from .models import Shop, FOFOConfig
 from addresses.models import State
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group, Permission
 from retailer_backend.messages import VALIDATION_ERROR_MESSAGES
 from django.core.exceptions import ObjectDoesNotExist
 from accounts.middlewares import get_current_user
+from django.utils.translation import ugettext_lazy as __
 
 
 class ParentRetailerMappingForm(forms.ModelForm):
@@ -144,6 +147,11 @@ class ShopForm(forms.ModelForm):
         widget=autocomplete.ModelSelect2(url='admin:user-autocomplete', )
     )
 
+    # approval_status_reason = forms.ChoiceField(
+    #     choices=Shop.APPROVAL_STATUS_REASON_CHOICES,
+    #     widget=autocomplete.ModelSelect2(url='admin:approval-status-reason-autocomplete', forward=('approval_status',))
+    # )
+
     shop_location = forms.CharField(
         max_length=125, min_length=3, required=False,  widget=forms.TextInput(attrs={'size':50,'placeholder': 'Enter Location to Search'})
     )
@@ -151,9 +159,16 @@ class ShopForm(forms.ModelForm):
     class Meta:
         Model = Shop
         fields = (
-            'shop_name', 'shop_owner', 'shop_type', 'approval_status',
+            'shop_name', 'shop_owner', 'shop_type', 'approval_status', 'disapproval_status_reason',
             'shop_code', 'shop_code_bulk', 'shop_code_discounted', 'warehouse_code','created_by', 'status',
             'pos_enabled', 'online_inventory_enabled', 'shop_location', 'latitude', 'longitude')
+
+    def clean(self):
+        data = self.cleaned_data
+        if data.get('approval_status') == Shop.DISAPPROVED and data.get('disapproval_status_reason') is None:
+            raise ValidationError('Disapproval status reason is required.')
+
+        return data
 
     @classmethod
     def get_shop_type(cls, data):
@@ -191,7 +206,15 @@ class ShopForm(forms.ModelForm):
             raise ValidationError(_("This field is required"))
         return warehouse_code
 
+    def clean_disapproval_status_reason(self):
+        disapproval_status_reason = self.cleaned_data.get('disapproval_status_reason', None)
+        if int(self.data['approval_status']) != Shop.DISAPPROVED:
+            return None
+        return disapproval_status_reason
+
+
 from django.forms.models import BaseInlineFormSet
+
 
 class RequiredInlineFormSet(BaseInlineFormSet):
     def _construct_form(self, i, **kwargs):
@@ -226,6 +249,65 @@ class AddressInlineFormSet(BaseInlineFormSet):
                 raise forms.ValidationError('You cant delete all billing address')
             elif flag_bill == 0:
                 raise forms.ValidationError('Please add at least one billing address')
+from django.contrib.admin import widgets as wi
+class FOFOConfigInlineForm(forms.ModelForm):
+    # SUN = 'SUN'
+    # MON = 'MON'
+    # TUE = 'TUE'
+    # WED = 'WED'
+    # THU = 'THU'
+    # FRI = 'FRI'
+    # SAT = 'SAT'
+    #
+    # off_day_choices = (
+    #     (SUN, 'Sunday'),
+    #     (MON, 'Monday'),
+    #     (TUE, 'Tuesday'),
+    #     (WED, 'Wednesday'),
+    #     (THU, 'Thuresday'),
+    #     (FRI, 'Friday'),
+    #     (SAT, 'Saturday'),
+    # )
+    #days = forms.CharField(widget=forms.TextInput)
+    class Meta:
+        model = FOFOConfig
+        fields = ('shop_opening_timing','shop_closing_timing','working_off_start_date','working_off_end_date','delivery_time', 'delivery_redius','min_order_value')
+        help_texts = {
+            'redius': 'Insert value in meters',
+            'delivery_time':'Insert value in minutes',
+        }
+        widgets = {'delivery_time':forms.TextInput(attrs={'placeholder': 'Enter Value In Minutes'}),
+                    'delivery_redius': forms.TextInput(attrs={'placeholder': 'Enter Value In Meter'})}
+        labels = {
+            'delivery_time': __('Delivery Time (Minutes)'),
+            'delivery_redius': __('Delivery Radius (Meter)')
+            }
+
+    def clean(self):
+        start_date = self.cleaned_data.get('working_off_start_date')
+        end_date = self.cleaned_data.get('working_off_end_date')
+        if start_date and start_date < datetime.today().date():
+            self._errors['working_off_start_date'] = self.error_class(["Only Current Or Future Date Allowed"])
+        if end_date and end_date < datetime.today().date():
+            self._errors['working_off_end_date'] = self.error_class(["Only Current Or Future Date Allowed"])
+        if start_date and not end_date:
+            self._errors['working_off_end_date'] = self.error_class(["Date Required"])
+        if end_date and not start_date:
+            self._errors['working_off_start_date'] = self.error_class(["Date Required"])
+        if (start_date and end_date ) and start_date > end_date:
+            self._errors['working_off_start_date'] = self.error_class(["Start Date Should Be Less Than Or Eqal To End Date"])
+            self._errors['working_off_end_date'] = self.error_class(["End Date Should Be Greater Than or Eqal to Start Date"])
+        time = self.cleaned_data.get('delivery_time')
+        if time and time<0:
+            self._errors['delivery_time'] = self.error_class(["Delivery Time Should Be Positive Number"])
+        delivery_redius = self.cleaned_data.get('delivery_redius')
+        if delivery_redius and delivery_redius<0:
+            self._errors['delivery_redius'] = self.error_class(["Delivery Radius Should Be Positive Number"])
+
+        return self.cleaned_data
+
+
+
 
 class ShopTimingForm(forms.ModelForm):
     SUN = 'SUN'
@@ -259,6 +341,7 @@ class ShopTimingForm(forms.ModelForm):
         model = ShopTiming
         fields = ('shop','open_timing','closing_timing','break_start_time','break_end_time','off_day')
 
+
 class BulkShopUpdation(forms.Form):
     file = forms.FileField(label='Select a file')
 
@@ -267,6 +350,52 @@ class BulkShopUpdation(forms.Form):
         if not file.name[-5:] == '.xlsx':
             raise forms.ValidationError("Sorry! Only Excel file accepted")
         return file
+
+
+class BulkShopStatusChange(forms.Form):
+    file = forms.FileField(label='Select a file')
+
+    def clean_file(self):
+        file = self.cleaned_data['file']
+        if not file.name[-4:] == '.csv':
+            raise forms.ValidationError("Sorry! Only CSV file accepted")
+
+        reader = csv.reader(codecs.iterdecode(self.cleaned_data['file'], 'utf-8', errors='ignore'))
+        first_row = next(reader)
+        form_data_list = []
+        for row_id, row in enumerate(reader):
+            if not row[0]:
+                raise ValidationError(_("Issue in Row" + " " + str(row_id + 1) + ", " + "Shop Id must not be empty."))
+            if not Shop.objects.filter(pk=int(row[0])).exists():
+                raise ValidationError(_("Issue in Row" + " " + str(row_id + 1) + ", " +
+                                        "shop id does not exist in the system."))
+            if not row[2]:
+                raise ValidationError(_("Issue in Row" + " " + str(row_id + 1) + ", " +
+                                        "Shop Approval Status must not be empty."))
+            if not str(row[2]).lower() in ['awaiting approval', 'approved', 'disapproved']:
+                raise ValidationError(_("Issue in Row" + " " + str(row_id + 1) + ", " +
+                                        "Incorrect Shop Approval Status."))
+            if str(row[2]).lower() == 'awaiting approval':
+                row[2] = 1
+            if str(row[2]).lower() == 'approved':
+                row[2] = 2
+            else:
+                row[2] = 0
+            if row[2] == 0 and not row[3]:
+                raise ValidationError(_("Issue in Row" + " " + str(row_id + 1) + ", " +
+                                        "Disapproval Status Reason must not be empty."))
+            if row[2] == 0 and row[3]:
+                disapproval_status_reason = get_validate_approval_status_change_reason(str(row[3]), row[2])
+                if 'error' in disapproval_status_reason:
+                    raise ValidationError(_("Issue in Row" + " " + str(row_id + 1) + ", " +
+                                            disapproval_status_reason["error"]))
+                row[3] = disapproval_status_reason['data']
+            else:
+                row[3] = None
+
+            form_data_list.append(row)
+        return form_data_list
+
 
 class ShopUserMappingForm(forms.ModelForm):
     shop = forms.ModelChoiceField(

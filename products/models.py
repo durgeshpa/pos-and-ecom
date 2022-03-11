@@ -17,7 +17,7 @@ from addresses.models import Address, Area, City, Country, Pincode, State
 from brand.models import Brand, Vendor
 from categories.models import BaseTimeModel, BaseTimestampUserStatusModel, Category, B2cCategory
 from coupon.models import Coupon, Discount
-from global_config.views import get_config
+from global_config.views import get_config,get_config_fofo_shops
 from retailer_backend.validators import *
 from shops.models import Shop, ShopUserMapping, ShopType
 from tinymce.models import HTMLField
