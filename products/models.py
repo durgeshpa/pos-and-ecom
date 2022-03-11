@@ -190,7 +190,7 @@ class ParentProduct(BaseTimestampUserStatusModel):
         (DECLINED, 'Declined')
     )
     tax_status = models.CharField(max_length=10, choices=TAX_STATUS_CHOICES, null=True, blank=True)
-    tax_remark = models.CharField(max_length=50, null=True, blank=True)
+    tax_remark = models.CharField(max_length=60, null=True, blank=True)
     is_ars_applicable = models.BooleanField(verbose_name='Is ARS Applicable', default=False)
     max_inventory = models.PositiveSmallIntegerField(verbose_name='Max Inventory(In Days)',
                                                      validators=[MinValueValidator(1), MaxValueValidator(999)])
