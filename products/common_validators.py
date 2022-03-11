@@ -223,6 +223,16 @@ def validate_tax_type(parent_product, tax_type):
     return ''
 
 
+def validate_data_format_without_json(request):
+    """ Validate shop data  """
+    try:
+        data = request.data["data"]
+    except Exception as e:
+        return {'error': "Invalid Data Format", }
+
+    return data
+
+
 def validate_data_format(request):
     # Validate product data
     try:

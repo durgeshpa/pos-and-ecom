@@ -1721,3 +1721,99 @@ class DiscountChildProductSerializers(serializers.ModelSerializer):
             raise serializers.ValidationError(error)
 
         return child_product
+
+
+class ProductHSNApprovalSerializers(serializers.ModelSerializer):
+    hsn_gst = ProductHSNGstSerializers(many=True, read_only=True)
+    hsn_cess = ProductHSNCessSerializers(many=True, read_only=True)
+
+    class Meta:
+        model = ProductHSN
+        fields = ('id', 'product_hsn_code', 'hsn_gst', 'hsn_cess')
+
+
+class ParentProductApprovalSerializers(serializers.ModelSerializer):
+    """Handles creating, reading and updating parent product items."""
+    parent_brand = BrandSerializers(read_only=True)
+    product_hsn = ProductHSNApprovalSerializers(read_only=True)
+    parent_product_pro_category = ParentProductCategorySerializers(many=True, read_only=True)
+    parent_product_pro_tax = ParentProductTaxMappingSerializers(many=True, read_only=True)
+    parent_id = serializers.CharField(read_only=True)
+    name = serializers.CharField(required=False)
+    product_type = serializers.CharField(required=False)
+
+    def validate(self, data):
+        """
+            tax_status & tax_remark validation.
+        """
+        if not self.instance:
+            raise serializers.ValidationError("Only update allowed.")
+
+        if 'name' in self.initial_data and self.initial_data['name'] is not None:
+            pro_obj = validate_parent_product_name(self.initial_data['name'], self.instance.id)
+            if pro_obj is not None and 'error' in pro_obj:
+                raise serializers.ValidationError(pro_obj['error'])
+
+        if self.instance.tax_status == ParentProduct.APPROVED:
+            raise serializers.ValidationError("Product Tax is already approved.")
+
+        if 'tax_status' not in self.initial_data or not self.initial_data['tax_status']:
+            raise serializers.ValidationError(_('tax_status is required'))
+        if self.initial_data['tax_status'] not in [ParentProduct.APPROVED, ParentProduct.DECLINED]:
+            raise serializers.ValidationError(_('Invalid tax_status.'))
+
+        if self.instance.tax_status == self.initial_data['tax_status']:
+            raise serializers.ValidationError(f"Product Tax is already {self.instance.get_tax_status_display()}.")
+
+        tax_remark = None
+        if self.initial_data['tax_status'] == ParentProduct.DECLINED:
+            # Validate tax_remark if the tax_status is DECLINED
+            if 'tax_remark' not in self.initial_data or not self.initial_data['tax_remark']:
+                raise serializers.ValidationError(_('tax_remark is required'))
+            if len(str(self.initial_data['tax_remark']).strip()) > 50:
+                raise serializers.ValidationError(_("'tax_remark' | Max length exceeded, only 50 characters allowed."))
+            tax_remark = str(self.initial_data['tax_remark']).strip()
+        elif self.initial_data['tax_status'] == ParentProduct.APPROVED:
+            # Validate GST from HSN
+            product_gst_tax = self.instance.parent_product_pro_tax.filter(tax__tax_type='gst').last()
+            if product_gst_tax and product_gst_tax.tax.tax_percentage not in \
+                    self.instance.product_hsn.hsn_gst.values_list('gst', flat=True):
+                raise serializers.ValidationError("Please map GST in HSN to approve product.")
+            # Validate Cess from HSN
+            product_cess_tax = self.instance.parent_product_pro_tax.filter(tax__tax_type='cess').last()
+            if product_cess_tax and product_cess_tax.tax.tax_percentage not in \
+                    self.instance.product_hsn.hsn_cess.values_list('cess', flat=True):
+                raise serializers.ValidationError("Please map CESS in HSN to approve product.")
+
+        data['tax_status'] = self.initial_data['tax_status']
+        data['tax_remark'] = tax_remark
+
+        return data
+
+    class Meta:
+        model = ParentProduct
+        fields = ('id', 'parent_id', 'name', 'product_type', 'status', 'product_hsn', 'parent_brand',
+                  'parent_product_pro_tax', 'parent_product_pro_category', 'tax_status', 'tax_remark',
+                  'created_at', 'updated_at', 'created_by', 'updated_by')
+
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        if representation['name']:
+            representation['name'] = representation['name'].title()
+        return representation
+
+    @transaction.atomic
+    def update(self, instance, validated_data):
+        """ This method is used to update an instance of the Parent Product's attribute. """
+        try:
+            # call super to save modified instance along with the validated data
+            parent_product = super().update(instance, validated_data)
+        except Exception as e:
+            error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
+            raise serializers.ValidationError(error)
+
+        ParentProductCls.create_parent_product_log(parent_product, "updated")
+        ParentProductCls.update_tax_status_and_remark_in_log(
+            parent_product, validated_data['tax_status'], validated_data['tax_remark'], validated_data['updated_by'])
+
+        return parent_product
