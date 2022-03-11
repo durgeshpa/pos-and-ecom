@@ -18,6 +18,7 @@ from django.utils.html import format_html
 from barCodeGenerator import merged_barcode_gen
 from retailer_backend.admin import InputFilter
 from retailer_backend.filters import CityFilter, ProductCategoryFilter
+from .common_function import ParentProductCls
 
 from .forms import (ProductCappingForm, ProductForm, ProductPriceAddPerm,
                     ProductPriceChangePerm, ProductPriceNewForm, ProductHSNForm,
@@ -774,6 +775,18 @@ class ParentProductAdmin(admin.ModelAdmin):
            ),
         ] + urls
         return urls
+
+    def response_add(self, request, new_object):
+        obj = self.after_saving_model_and_related_inlines(new_object)
+        return super(ParentProductAdmin, self).response_add(request, obj)
+
+    def response_change(self, request, obj):
+        obj = self.after_saving_model_and_related_inlines(obj)
+        return super(ParentProductAdmin, self).response_change(request, obj)
+
+    def after_saving_model_and_related_inlines(self, obj):
+        ParentProductCls.update_tax_status_and_remark(obj)
+        return obj
 
 
 def deactivate_selected_child_products(modeladmin, request, queryset):
