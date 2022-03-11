@@ -125,11 +125,15 @@ class ParentProductCls(object):
                 else:
                     tax_status = ParentProduct.PENDING
                     tax_remark = ParentProduct.GST_AND_CESS_MULTIPLE_RATES \
-                        if tax_remark == ParentProduct.GST_MULTIPLE_RATES else ParentProduct.CESS_MULTIPLE_RATES
+                        if tax_remark == ParentProduct.GST_MULTIPLE_RATES else \
+                        ParentProduct.CESS_MULTIPLE_RATES_AND_GST_RATE_MISMATCH if \
+                            tax_remark == ParentProduct.GST_RATE_MISMATCH else ParentProduct.CESS_MULTIPLE_RATES
             else:
                 tax_status = ParentProduct.PENDING
                 tax_remark = ParentProduct.GST_AND_CESS_RATE_MISMATCH \
-                    if tax_remark == ParentProduct.GST_RATE_MISMATCH else ParentProduct.CESS_RATE_MISMATCH
+                    if tax_remark == ParentProduct.GST_RATE_MISMATCH else \
+                    ParentProduct.GST_MULTIPLE_RATES_AND_CESS_RATE_MISMATCH if \
+                        tax_remark == ParentProduct.GST_MULTIPLE_RATES else ParentProduct.CESS_RATE_MISMATCH
         if tax_status or tax_remark:
             parent_product.tax_status = tax_status
             parent_product.tax_remark = tax_remark

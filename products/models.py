@@ -162,6 +162,8 @@ class ParentProduct(BaseTimestampUserStatusModel):
     GST_AND_CESS_MULTIPLE_RATES = 'GST and Cess Multiple Rates'
     GST_RATE_MISMATCH, CESS_RATE_MISMATCH = 'GST Rate mismatch', 'Cess Rate mismatch'
     GST_AND_CESS_RATE_MISMATCH = 'GST and Cess Rate mismatch'
+    GST_MULTIPLE_RATES_AND_CESS_RATE_MISMATCH = 'GST Multiple Rates and Cess Rate mismatch'
+    CESS_MULTIPLE_RATES_AND_GST_RATE_MISMATCH = 'Cess Multiple Rates and GST Rate mismatch'
 
     parent_id = models.CharField(max_length=255, validators=[ParentIDValidator])
     name = models.CharField(max_length=255, validators=[ProductNameValidator])
