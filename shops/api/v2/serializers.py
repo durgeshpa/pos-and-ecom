@@ -24,7 +24,7 @@ from shops.common_validators import get_validate_approval_status, get_validate_e
     validate_shop, validate_employee_group, validate_employee, validate_manager, \
     validate_shop_sub_type, validate_shop_and_sub_shop_type, validate_shop_name, read_file, \
     get_validate_approval_status_change_reason
-from shops.common_functions import ShopCls
+from shops.common_functions import ShopCls, bulk_update_shop_status
 
 from products.api.v1.serializers import LogSerializers
 from accounts.api.v1.serializers import GroupSerializer
@@ -1252,3 +1252,53 @@ class DownloadShopStatusCSVSerializer(serializers.ModelSerializer):
             for obj in data:
                 writer.writerow(list(obj))
         return response
+
+
+class BulkUpdateShopStatusSerializer(serializers.ModelSerializer):
+    file = serializers.FileField(
+        label='Upload File', required=True, write_only=True)
+
+    class Meta:
+        model = Shop
+        fields = ('file',)
+
+    def validate(self, data):
+        if not data['file'].name[-4:] in '.csv':
+            raise serializers.ValidationError(_('Sorry! Only csv file accepted.'))
+
+        reader = csv.reader(codecs.iterdecode(data['file'], 'utf-8', errors='ignore'))
+        first_row = next(reader)
+        for row_id, row in enumerate(reader):
+            if not row[0]:
+                raise serializers.ValidationError(_("Issue in Row" + " " + str(row_id + 1) + ", " +
+                                                    "Shop Id must not be empty."))
+            if not Shop.objects.filter(pk=int(row[0])).exists():
+                raise serializers.ValidationError(_("Issue in Row" + " " + str(row_id + 1) + ", " +
+                                                    "shop id does not exist in the system."))
+            if not row[2]:
+                raise serializers.ValidationError(_("Issue in Row" + " " + str(row_id + 1) + ", " +
+                                                    "Shop Approval Status must not be empty."))
+            if not str(row[2]).lower() in ['awaiting approval', 'approved', 'disapproved']:
+                raise serializers.ValidationError(_("Issue in Row" + " " + str(row_id + 1) + ", " +
+                                                    "Incorrect Shop Approval Status."))
+            if str(row[2]).lower() == "disapproved" and not row[3]:
+                raise serializers.ValidationError(_("Issue in Row" + " " + str(row_id + 1) + ", " +
+                                                    "Disapproval Status Reason must not be empty."))
+            if str(row[2]).lower() == "disapproved" and row[3]:
+                disapproval_status_reason = get_validate_approval_status_change_reason(str(row[3]), row[2])
+                if 'error' in disapproval_status_reason:
+                    raise serializers.ValidationError(_("Issue in Row" + " " + str(row_id + 1) + ", " +
+                                                        disapproval_status_reason["error"]))
+
+        return data
+
+    @transaction.atomic
+    def create(self, validated_data):
+        try:
+            updated_shops = bulk_update_shop_status(validated_data)
+        except Exception as e:
+            error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
+            raise serializers.ValidationError(error)
+        if updated_shops:
+            raise serializers.ValidationError(_(updated_shops))
+        return validated_data

@@ -624,27 +624,6 @@ class UserAutocomplete(autocomplete.Select2QuerySetView):
         return qs
 
 
-class ApprovalStatusReasonAutocomplete(APIView):
-    permission_classes = (AllowAny,)
-
-    def get(self, request):
-        approval_status = request.GET.get('approval_status', None)
-        if approval_status and approval_status == 'Disapproved':
-            return HttpResponse((
-                ("BUSINESS_CLOSED", 'Business Closed'),
-                ("BLOCKED_BY_GRAMFACTORY", 'Blocked By Gramfactory'),
-                ("NOT_SERVING_SHOP_LOCATION", 'Not Serving Shop Location'),
-                ("PERMANENTLY_CLOSED", 'Permanently Closed'),
-                ("REGION_NOT_SERVICED", 'Region Not Serviced'),
-                ("MISBEHAVIOUR_OR_DISPUTE", 'Misbehaviour Or Dispute'),
-                ("MULTIPLE_SHOP_IDS", 'Multiple Shop Ids'),
-                ("FREQUENT_CANCELLATION_HOLD_AND_RETURN_OF_ORDERS",
-                 'Frequent Cancellation, Return And Holds Of Orders'),
-                ("MOBILE_NUMBER_LOST_CLOSED_CHANGED", 'Mobile Number Changed'),
-            ))
-        return HttpResponse(())
-
-
 class ShopUserMappingCsvView(FormView):
     form_class = ShopUserMappingCsvViewForm
     template_name = 'admin/shops/shopusermapping/shop_user_mapping.html'
