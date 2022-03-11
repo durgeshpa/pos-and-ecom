@@ -1,9 +1,7 @@
 import logging
 
-from audit.models import AuditDetail, AUDIT_RUN_TYPE_CHOICES, AUDIT_DETAIL_STATE_CHOICES, AuditCancelledPicklist, \
-    AuditProduct, AUDIT_PRODUCT_STATUS
-from audit.views import update_audit_status_by_audit, create_audit_tickets_by_audit, create_pick_list_by_audit, \
-    BlockUnblockProduct
+from audit.models import AUDIT_DETAIL_STATE_CHOICES, AuditProduct, AUDIT_PRODUCT_STATUS
+from audit.views import BlockUnblockProduct
 
 cron_logger = logging.getLogger('cron_log')
 
