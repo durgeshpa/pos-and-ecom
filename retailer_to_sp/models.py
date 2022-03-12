@@ -1510,9 +1510,10 @@ class Trip(models.Model):
             packages_loaded = shipment_mapping.last_mile_trip_shipment_mapped_packages.filter(
                                 ~Q(package_status__in=['CANCELLED', 'MISSING_AT_LOADING', 'DAMAGED_AT_LOADING']))
             for package_mapping in packages_loaded:
-                trip_weight += package_mapping.shipment_packaging.packaging_details.all()\
+                package_weight = package_mapping.shipment_packaging.packaging_details.all()\
                                 .aggregate(total_weight=Sum(F('ordered_product__product__weight_value') * F('quantity'),
                                            output_field=FloatField())).get('total_weight')
+                trip_weight += package_weight if package_weight else 0
         return trip_weight
 
     def get_package_data(self):
@@ -3568,9 +3569,10 @@ class DispatchTrip(BaseTimestampUserModel):
             packages_loaded = shipment_mapping.trip_shipment_mapped_packages.filter(
                                 ~Q(package_status__in=['CANCELLED', 'MISSING_AT_LOADING', 'DAMAGED_AT_LOADING']))
             for package_mapping in packages_loaded:
-                trip_weight += package_mapping.shipment_packaging.packaging_details.all()\
+                package_weight = package_mapping.shipment_packaging.packaging_details.all()\
                                 .aggregate(total_weight=Sum(F('ordered_product__product__weight_value') * F('quantity'),
                                            output_field=FloatField())).get('total_weight')
+                trip_weight += package_weight if package_weight else 0
         return trip_weight
 
     def get_package_data(self):
