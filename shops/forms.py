@@ -333,7 +333,7 @@ class BulkShopStatusChange(forms.Form):
             else:
                 row[3] = None
 
-        form_data_list.append(row)
+            form_data_list.append(row)
         return form_data_list
 
 
