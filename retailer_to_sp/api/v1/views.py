@@ -3352,7 +3352,10 @@ class OrderCentral(APIView):
 
         # Minimum Order Value
         # order_config = GlobalConfig.objects.filter(key='ecom_minimum_order_amount').last()
-        order_config = get_config_fofo_shop('Minimum order value', shop.id)
+        # order_config = get_config_fofo_shop('Minimum order value', shop.id)
+        fofo_config = get_config_fofo_shops(shop)
+        order_config = fofo_config.get('min_order_value',None)
+        order_config = order_config if order_config else GlobalConfig.objects.filter(key='ecom_minimum_order_amount').last().value
         if order_config is not None:
             order_amount = cart.order_amount_after_discount
             if order_amount < order_config:
