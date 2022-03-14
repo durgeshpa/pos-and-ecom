@@ -427,6 +427,7 @@ CRONJOBS = [
     ('30 1 * * *', 'wms.cron.create_update_discounted_products'),
     ('0 2 * * *', 'ecom.cron.bestseller_product'),
     ('0 * * * *', 'retailer_backend.cron.refresh_cron_es'),
+    ('*/10 * * * *', 'retailer_to_sp.cron.all_products_es_refresh'),
     ('*/5 * * * *', 'wms.cron.assign_putaway_users_to_new_putways'),
     ('0 6 * * *', 'shops.cron.get_feedback_valid'),
     ('30 21 * * *', 'shops.tasks.cancel_beat_plan'),
