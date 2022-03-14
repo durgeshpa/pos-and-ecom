@@ -225,22 +225,28 @@ class RetailerProductUpdateSerializer(serializers.Serializer):
             raise serializers.ValidationError("Product not found!")
 
         sp = attrs['selling_price'] if attrs['selling_price'] else product.selling_price
-        mrp = attrs['mrp'] if attrs['mrp'] else product.mrp
         ean = attrs['product_ean_code'] if attrs['product_ean_code'] else product.product_ean_code
 
-        if 'stock_qty' in self.initial_data and self.initial_data['stock_qty'] is not None:
-            available_state = PosInventoryState.objects.get(inventory_state=PosInventoryState.AVAILABLE)
-            pos_stock_qty = PosInventory.objects.filter(product=product.id, inventory_state=available_state)
-            if pos_stock_qty:
-                if pos_stock_qty.last().quantity == self.initial_data['stock_qty']:
+        if attrs['mrp'] and not product.mrp == attrs['mrp']:
+            if ean and RetailerProduct.objects.filter(sku_type=product.sku_type, shop=shop_id, product_ean_code=ean,
+                                                      mrp=attrs['mrp'], is_deleted=False).exclude(id=pid).exists():
+                raise serializers.ValidationError("Another product with same ean and mrp exists in catalog.")
 
-                    if ean and RetailerProduct.objects.filter(sku_type=product.sku_type, shop=shop_id, product_ean_code=ean,
-                                                              mrp=mrp, is_deleted=False).exclude(id=pid).exists():
-                        raise serializers.ValidationError("Another product with same ean and mrp exists in catalog.")
+        mrp = attrs['mrp'] if attrs['mrp'] else product.mrp
 
-        elif ean and RetailerProduct.objects.filter(sku_type=product.sku_type, shop=shop_id, product_ean_code=ean,
-                                                  mrp=mrp, is_deleted=False).exclude(id=pid).exists():
-            raise serializers.ValidationError("Another product with same ean and mrp exists in catalog.")
+        # if 'stock_qty' in self.initial_data and self.initial_data['stock_qty'] is not None:
+        #     available_state = PosInventoryState.objects.get(inventory_state=PosInventoryState.AVAILABLE)
+        #     pos_stock_qty = PosInventory.objects.filter(product=product.id, inventory_state=available_state)
+        #     if pos_stock_qty:
+        #         if pos_stock_qty.last().quantity == self.initial_data['stock_qty']:
+        #
+        #             if ean and RetailerProduct.objects.filter(sku_type=product.sku_type, shop=shop_id, product_ean_code=ean,
+        #                                                       mrp=mrp, is_deleted=False).exclude(id=pid).exists():
+        #                 raise serializers.ValidationError("Another product with same ean and mrp exists in catalog.")
+        #
+        # elif ean and RetailerProduct.objects.filter(sku_type=product.sku_type, shop=shop_id, product_ean_code=ean,
+        #                                             mrp=mrp, is_deleted=False).exclude(id=pid).exists():
+        #     raise serializers.ValidationError("Another product with same ean and mrp exists in catalog.")
 
         if (attrs['selling_price'] or attrs['mrp']) and sp > mrp:
             raise serializers.ValidationError("Selling Price should be equal to OR less than MRP")
