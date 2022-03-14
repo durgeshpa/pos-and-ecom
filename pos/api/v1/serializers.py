@@ -229,8 +229,8 @@ class RetailerProductUpdateSerializer(serializers.Serializer):
         ean = attrs['product_ean_code'] if attrs['product_ean_code'] else product.product_ean_code
 
         if 'stock_qty' in self.initial_data and self.initial_data['stock_qty'] is not None:
-            available_qty = PosInventoryState.objects.get(inventory_state=PosInventoryState.AVAILABLE)
-            pos_stock_qty = PosInventory.objects.filter(product=product.id, inventory_state=available_qty)
+            available_state = PosInventoryState.objects.get(inventory_state=PosInventoryState.AVAILABLE)
+            pos_stock_qty = PosInventory.objects.filter(product=product.id, inventory_state=available_state)
             if pos_stock_qty:
                 if pos_stock_qty.last().quantity == self.initial_data['stock_qty']:
 
