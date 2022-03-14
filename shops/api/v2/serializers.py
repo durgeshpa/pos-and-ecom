@@ -409,7 +409,7 @@ class ShopCrudSerializers(serializers.ModelSerializer):
     retiler_mapping = RetailerMappingDataSerializers(read_only=True, many=True)
     shop_owner = UserSerializers(read_only=True)
     approval_status = ChoiceField(choices=Shop.APPROVAL_STATUS_CHOICES, required=True)
-    # disapproval_status_reason = ChoiceField(choices=Shop.DISAPPROVED_STATUS_REASON_CHOICES, required=False, allow_null=True)
+    disapproval_status_reason = ChoiceField(choices=Shop.DISAPPROVED_STATUS_REASON_CHOICES, required=False, allow_null=True)
     shop_name_address_mapping = AddressDataSerializers(read_only=True, many=True)
     shop_name_photos = ShopPhotoDataSerializers(read_only=True, many=True)
     shop_name_documents = ShopDocumentDataSerializers(read_only=True, many=True)
@@ -419,7 +419,7 @@ class ShopCrudSerializers(serializers.ModelSerializer):
         fields = ('id', 'shop_name', 'shop_code', 'shop_code_bulk', 'shop_code_discounted', 'warehouse_code',
                   'shop_owner', 'retiler_mapping', 'shop_name_address_mapping', 'approval_status', 'status',
                   'shop_type', 'related_users', 'shipping_address', 'created_at', 'imei_no', 'shop_name_photos',
-                  'shop_name_documents', 'shop_log', 'pos_enabled',)
+                  'shop_name_documents', 'shop_log', 'pos_enabled', 'disapproval_status_reason')
 
     def validate(self, data):
 
@@ -434,16 +434,16 @@ class ShopCrudSerializers(serializers.ModelSerializer):
                 raise serializers.ValidationError((approval_status["error"]))
             data['approval_status'] = approval_status['data']
 
-        #     if data['approval_status'] == 0 and ('disapproval_status_reason' not in self.initial_data or not \
-        #             self.initial_data['disapproval_status_reason']):
-        #         raise serializers.ValidationError("'disapproval_status_reason': This field is required.")
-        #
-        # if 'disapproval_status_reason' in self.initial_data and self.initial_data['disapproval_status_reason']:
-        #     disapproval_status_reason = get_validate_approval_status_change_reason(
-        #         self.initial_data['disapproval_status_reason'], data['approval_status'])
-        #     if 'error' in disapproval_status_reason:
-        #         raise serializers.ValidationError((disapproval_status_reason["error"]))
-        #     data['disapproval_status_reason'] = disapproval_status_reason['data']
+            if data['approval_status'] == 0 and ('disapproval_status_reason' not in self.initial_data or not \
+                    self.initial_data['disapproval_status_reason']):
+                raise serializers.ValidationError("'disapproval_status_reason': This field is required.")
+
+        if 'disapproval_status_reason' in self.initial_data and self.initial_data['disapproval_status_reason']:
+            disapproval_status_reason = get_validate_approval_status_change_reason(
+                self.initial_data['disapproval_status_reason'], data['approval_status'])
+            if 'error' in disapproval_status_reason:
+                raise serializers.ValidationError((disapproval_status_reason["error"]))
+            data['disapproval_status_reason'] = disapproval_status_reason['data']
 
         if 'shop_owner' in self.initial_data and self.initial_data['shop_owner']:
             shop_owner = get_validate_user(self.initial_data['shop_owner'])
