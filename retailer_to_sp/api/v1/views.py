@@ -103,7 +103,7 @@ from retailer_to_sp.common_function import getShopLicenseNumber, getShopCINNumbe
 from retailer_to_sp.models import (ShipmentNotAttempt)
 from retailer_to_sp.tasks import send_invoice_pdf_email
 from sp_to_gram.models import OrderedProductReserved
-from sp_to_gram.tasks import es_search, upload_shop_stock
+from sp_to_gram.tasks import es_search, upload_shop_stock, upload_all_products_in_es
 
 from wms.common_functions import OrderManagement, get_stock, is_product_not_eligible, get_response, \
     get_logged_user_wise_query_set_for_shipment, get_logged_user_wise_query_set_for_dispatch
@@ -139,6 +139,7 @@ logger = logging.getLogger('django')
 
 info_logger = logging.getLogger('file-info')
 error_logger = logging.getLogger('file-error')
+
 
 def distance(shop_location, order_location):
     """

@@ -1,6 +1,7 @@
 from celery.task import task
 import logging
 
+from gram_to_brand.models import GRNOrder, GRNOrderProductMapping
 from shops.models import Shop
 from products.models import Product, ProductPrice
 from wms.common_functions import get_stock, CommonWarehouseInventoryFunctions as CWIF, get_earliest_expiry_date
@@ -317,3 +318,152 @@ def products_update_brand_es(shop, product):
 	except Exception as e:
 		info_logger.info("error in products_update_brand_es")
 		info_logger.info(e)
+
+
+def upload_all_products_in_es(shop=None, product=None):
+	info_logger.info("Inside upload_shop_stock, product: " + str(product) + ", shop: " + str(shop))
+	all_products = get_all_products(shop, product)
+	es_index = 'all_products'
+	# To delete shop index
+	# es.indices.delete(index=create_es_index(es_index), ignore=[400, 404])
+	for product in all_products:
+		info_logger.info(product)
+		try:
+			es.index(index=create_es_index(es_index), doc_type='product', id=product['id'], body=product)
+			info_logger.info(
+				"Inside upload_shop_stock, product id: " + str(product['id']) + ", product: " + str(product))
+		except Exception as e:
+			info_logger.info("error in upload_shop_stock index creation")
+			info_logger.info(e)
+
+
+def filtered_grn_order_items(**kwargs):
+	ordered_items = GRNOrder.objects.filter(**kwargs)
+	return ordered_items
+
+
+def get_all_products(shop_id=None, product=None, inventory_type=None):
+	info_logger.info("Inside get_all_products, product: ")
+	product_dict = None
+	product_list = filtered_grn_order_items(**{"grn_order_grn_order_product__product_invoice_price__gt": 0})\
+		.values_list('order__ordered_cart__products__id', flat=True).distinct()
+	products = Product.objects.filter(pk__in=product_list).order_by('product_name')
+	product_price_dict = get_product_price(shop_id, products)
+	info_logger.info("inside get_all_products, products: " + str(products) + ", product_price_dict: " + str(
+		product_price_dict))
+	for product in products:
+		user_selected_qty = None
+		no_of_pieces = None
+		sub_total = None
+		available_qty = 0 if shop_id else 1
+		status = True if (product.status in ['active', True]) else False
+		mrp = product.product_mrp
+		product_price = product_price_dict.get(product.id)
+		margin = 0
+		ptr = 0
+		pack_size = None
+		brand_case_size = None
+		try:
+			pack_size = product.product_inner_case_size if product.product_inner_case_size else None
+		except Exception as e:
+			info_logger.exception("pack size is not defined for {}".format(product.product_name))
+			continue
+
+		try:
+			brand_case_size = product.product_case_size if product.product_case_size else None
+		except Exception as e:
+			info_logger.exception("brand case size is not defined for {}".format(product.product_name))
+			continue
+
+		price_details = []
+		if product_price:
+			price_details = product_price
+		else:
+			status = False
+		product_opt = product.product_opt_product.all()
+		weight_value = None
+		weight_unit = None
+		if product_dict:
+			if int(pack_size) > int(product_dict[product.id]):
+				status = False
+			else:
+				available_qty = int(int(product_dict[product.id]) / int(pack_size))
+		try:
+			for p_o in product_opt:
+				weight_value = p_o.weight.weight_value if p_o.weight.weight_value else None
+				weight_unit = p_o.weight.weight_unit if p_o.weight.weight_unit else None
+		except:
+			weight_value = None
+			weight_unit = None
+		if weight_unit is None:
+			weight_unit = product.weight_unit
+		if weight_value is None:
+			weight_value = product.weight_value
+		product_img = product.product_pro_image.all()
+		product_images = [
+			{
+				"image_name": p_i.image_name,
+				# "image_alt": p_i.image_alt_text,
+				"image_url": p_i.image.url
+			}
+			for p_i in product_img
+		]
+		if not product_images:
+			if product.use_parent_image:
+				product_images = [
+					{
+						"image_name": p_i.image_name,
+						# "image_alt": p_i.image_alt_text,
+						"image_url": p_i.image.url
+					}
+					for p_i in product.parent_product.parent_product_pro_image.all()
+				]
+			else:
+				product_images = [
+					{
+						"image_name": p_i.image_name,
+						# "image_alt": p_i.image_alt_text,
+						"image_url": p_i.image.url
+					}
+					for p_i in product.child_product_pro_image.all()
+				]
+
+		product_categories = [str(c.category) for c in
+							  product.parent_product.parent_product_pro_category.filter(status=True)]
+
+		visible=True
+		ean = product.product_ean_code
+		if ean and type(ean) == str:
+			ean = ean.split('_')[0]
+		is_discounted = True if product.product_type == Product.PRODUCT_TYPE_CHOICE.DISCOUNTED else False
+		expiry_date = None
+		product_details = {
+			"sku": product.product_sku,
+			"parent_id": product.parent_product.parent_id,
+			"parent_name":product.parent_product.name,
+			"name": product.product_name,
+			"name_lower": product.product_name.lower(),
+			"brand": str(product.product_brand),
+			"brand_lower": str(product.product_brand).lower(),
+			"category": product_categories,
+			"mrp": mrp,
+			"status": status,
+			"id": product.id,
+			"weight_value": weight_value,
+			"weight_unit": weight_unit,
+			"product_images": product_images,
+			"user_selected_qty": user_selected_qty,
+			"pack_size": pack_size,
+			"brand_case_size": brand_case_size,
+			"margin": margin,
+			"no_of_pieces": no_of_pieces,
+			"sub_total": sub_total,
+			"available": available_qty,
+			"visible": visible,
+			"ean": ean,
+			"price_details": price_details,
+			"is_discounted": is_discounted,
+			"expiry_date": expiry_date
+		}
+		info_logger.info("inside get_warehouse_stock, product_details: " + str(product_details))
+		yield(product_details)
