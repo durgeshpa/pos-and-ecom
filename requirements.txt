@@ -158,3 +158,4 @@ django-tables2==2.3.4
 django-multiselectfield==0.1.12
 pyfcm==1.4.5
 django-extensions==2.1.5
+drf-api-logger==1.0.10
