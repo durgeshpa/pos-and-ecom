@@ -321,13 +321,14 @@ class SearchProducts(APIView):
             Search Retailer Shop Catalogue
         """
         shop_id = kwargs['shop'].id
+        app_type = kwargs['app_type']
         search_type = self.request.GET.get('search_type', '1')
         # Exact Search
         if search_type == '1':
             results = self.rp_exact_search(shop_id)
         # Normal Search
         elif search_type == '2':
-            results = self.rp_normal_search(shop_id)
+            results = self.rp_normal_search(shop_id, app_type)
         else:
             return api_response("Please Provide A Valid Search Type")
         if results:
