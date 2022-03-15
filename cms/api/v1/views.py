@@ -1,6 +1,6 @@
 import logging
 from rest_framework.exceptions import ValidationError, NotFound
-from rest_framework.generics import RetrieveAPIView
+from rest_framework.generics import RetrieveAPIView, GenericAPIView
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
@@ -13,7 +13,7 @@ from retailer_backend.utils import SmallOffsetPagination
 from .serializers import CardDataSerializer, CardSerializer, ApplicationSerializer, ApplicationDataSerializer, \
     PageSerializer, PageDetailSerializer, CardItemSerializer, PageLatestDetailSerializer, CategorySerializer, \
     SubCategorySerializer, BrandSerializer, SubBrandSerializer, LandingPageSerializer, PageFunctionSerializer
-from ...choices import CARD_TYPE_CHOICES
+from ...choices import CARD_TYPE_CHOICES, LANDING_PAGE_TYPE_CHOICE, LANDING_PAGE_SUBTYPE_CHOICE
 from ...models import Application, Card, CardVersion, Page, PageVersion, CardItem, ApplicationPage, LandingPage, \
     Functions
 from ...utils import api_response, get_response, serializer_error
@@ -823,3 +823,23 @@ class LandingPageView(generics.GenericAPIView):
 
     def validate_request(self):
         return self.request.data
+
+
+class LandingPageTypeList(GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+
+    def get(self, request):
+        fields = ['id', 'value']
+        data = [dict(zip(fields, d)) for d in LANDING_PAGE_TYPE_CHOICE]
+        return get_response('', data, True)
+
+
+class LandingPageSubTypeList(GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+
+    def get(self, request):
+        fields = ['id', 'value']
+        data = [dict(zip(fields, d)) for d in LANDING_PAGE_SUBTYPE_CHOICE]
+        return get_response('', data, True)

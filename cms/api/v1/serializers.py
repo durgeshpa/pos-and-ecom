@@ -545,16 +545,17 @@ class PageFunctionSerializer(serializers.ModelSerializer):
 
     def validate(self, data):
 
-        if 'name' not in self.initial_data or self.initial_data.get('name') is None:
+        if 'name' not in self.initial_data or isBlank(self.initial_data['name']):
             raise serializers.ValidationError("'name' | This is required")
         elif 'type' not in self.initial_data and self.initial_data.get('type'):
             raise serializers.ValidationError("'type' | This is required")
-        elif 'url'not in self.initial_data and self.initial_data.get('url'):
+        elif 'url'not in self.initial_data or isBlank(self.initial_data.get('url')):
             raise serializers.ValidationError("'url' | This is required")
-
-        data['name'] = self.initial_data['name']
+        elif Functions.objects.filter(type=self.initial_data['type'], name=self.initial_data['name'].strip()).exists():
+            raise serializers.ValidationError(f"Function already exists")
+        data['name'] = self.initial_data['name'].strip()
         data['type'] = self.initial_data['type']
-        data['url'] = self.initial_data['url']
+        data['url'] = self.initial_data['url'].strip()
         data['required_params'] = self.initial_data['required_params']
 
         return data

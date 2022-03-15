@@ -46,6 +46,7 @@ class Functions(BaseTimestampUserModel):
     url = models.CharField(max_length=200)
     required_params = models.CharField(max_length=200, null=True)
 
+
 class Card(BaseTimestampUserModel):
     """Card Model"""
     name = models.CharField(max_length=255)
