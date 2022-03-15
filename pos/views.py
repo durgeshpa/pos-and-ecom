@@ -46,6 +46,7 @@ from pos.forms import RetailerProductsCSVDownloadForm, RetailerProductsCSVUpload
     RetailerPurchaseReportForm
 from pos.tasks import generate_pdf_data, update_es
 from products.models import Product, ParentProductCategory
+from products.utils import parent_product_categories
 from shops.models import Shop, PosShopUserMapping
 from retailer_to_sp.models import OrderReturn, OrderedProduct, CreditNote, OrderedProductMapping, RoundAmount, Order
 from wms.models import PosInventory, PosInventoryState, PosInventoryChange
@@ -990,14 +991,17 @@ def get_product_details(product):
         else:
             brand = brand_details[0]['parent_product__parent_brand__brand_name']
 
-        cat = ParentProductCategory.objects.values('category__category_name',
-                                                   'category__category_parent__category_name').filter \
-            (parent_product__id=product.linked_product.parent_product.id)
-        if cat[0]['category__category_parent__category_name']:
-            category = cat[0]['category__category_parent__category_name']
-            sub_category = cat[0]['category__category_name']
-        else:
-            category = cat[0]['category__category_name']
+        # cat = ParentProductCategory.objects.values('category__category_name',
+        #                                            'category__category_parent__category_name').filter \
+        #     (parent_product__id=product.linked_product.parent_product.id)
+        cat_obj = parent_product_categories(product.linked_product.parent_product)
+        if cat_obj:
+            cat = cat_obj.values('category__category_name', 'category__category_parent__category_name')
+            if cat[0]['category__category_parent__category_name']:
+                category = cat[0]['category__category_parent__category_name']
+                sub_category = cat[0]['category__category_name']
+            else:
+                category = cat[0]['category__category_name']
     return parent_id, category, sub_category, brand, sub_brand
 
 
@@ -1178,7 +1182,7 @@ class RetailerOrderedReportView(APIView):
                                                           [RetailerOrderedReport.ORDERED,
                                                            RetailerOrderedReport.PARTIALLY_RETURNED,
                                                            RetailerOrderedReport.FULLY_RETURNED]).\
-            aggregate(amt=Sum('order__order_amount'))
+            aggregate(amt=Sum('order__rt_payment_retailer_order__amount'))
 
         pos_online_order_qs = OrderedProduct.objects.filter(invoice__created_at__date__gte=start_date,
                                                             invoice__created_at__date__lte=end_date,
@@ -1191,7 +1195,7 @@ class RetailerOrderedReportView(APIView):
                                                                 RetailerOrderedReport.ORDERED,
                                                                 RetailerOrderedReport.PARTIALLY_RETURNED,
                                                                 RetailerOrderedReport.FULLY_RETURNED]). \
-            aggregate(amt=Sum('order__order_amount'))
+            aggregate(amt=Sum('order__rt_payment_retailer_order__amount'))
 
         ecom_total_order_qs = OrderedProduct.objects.filter(order__created_at__date__gte=start_date,
                                                             order__created_at__date__lte=end_date,
@@ -1200,7 +1204,7 @@ class RetailerOrderedReportView(APIView):
                                                             order__ordered_by__id=user,
                                                             order__order_status=
                                                             RetailerOrderedReport.PICKUP_CREATED). \
-            aggregate(amt=Sum('order__order_amount'))
+            aggregate(amt=Sum('order__rt_payment_retailer_order__amount'))
 
         ecom_cash_order_qs = OrderedProduct.objects.filter(invoice__created_at__date__gte=start_date,
                                                            invoice__created_at__date__lte=end_date,
