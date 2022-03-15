@@ -21,7 +21,7 @@ from gram_to_brand.models import GRNOrder
 from products.models import Product
 
 from retailer_backend.utils import CustomOffsetPaginationDefault25, SmallOffsetPagination, OffsetPaginationDefault50
-from retailer_to_sp.models import PickerDashboard, OrderedProduct
+from retailer_to_sp.models import PickerDashboard, OrderedProduct, PickerUserAssignmentLog
 from shops.models import Shop
 from wms.common_functions import get_response, serializer_error, get_logged_user_wise_query_set, \
     picker_dashboard_search, get_logged_user_wise_query_set_for_picker, \
@@ -1641,9 +1641,11 @@ class PickerUserReAssignmentView(generics.GenericAPIView):
         if 'error' in id_validation:
             return get_response(id_validation['error'])
         picker_dashboard_instance = id_validation['data'].last()
+        last_picker = picker_dashboard_instance.picker_boy_id
         serializer = self.serializer_class(instance=picker_dashboard_instance, data=modified_data)
         if serializer.is_valid():
             serializer.save(updated_by=request.user)
+            PickerUserAssignmentLog.log_user_change(picker_dashboard_instance, request.user, last_picker)
             info_logger.info("PickerDashboard Updated Successfully.")
             return get_response('PickerDashboard updated!', serializer.data)
         return get_response(serializer_error(serializer), False)

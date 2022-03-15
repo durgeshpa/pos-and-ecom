@@ -2019,6 +2019,7 @@ class PickerDashboard(models.Model):
                 Pickup.objects.filter(pickup_type_id=self.repackaging.repackaging_no, zone=self.zone,
                                       status='pickup_creation').update(status='picking_assigned')
 
+
     def __str__(self):
         return self.picklist_id if self.picklist_id is not None else str(self.id)
 
@@ -3286,3 +3287,19 @@ class ShipmentPackagingMapping(BaseTimestampUserModel):
     ordered_product = models.ForeignKey(OrderedProductMapping, related_name='shipment_product_packaging',
                                         on_delete=models.DO_NOTHING)
     quantity = models.PositiveIntegerField(null=True)
+
+class PickerUserAssignmentLog(models.Model):
+    picker_dashboard = models.ForeignKey(PickerDashboard, on_delete=models.DO_NOTHING, related_name='+')
+    initial_user = models.ForeignKey(get_user_model(), on_delete=models.DO_NOTHING, related_name='+')
+    final_user = models.ForeignKey(get_user_model(), on_delete=models.DO_NOTHING, related_name='+')
+    created_at = models.DateTimeField(auto_now_add=True)
+    created_by = models.ForeignKey(get_user_model(), on_delete=models.DO_NOTHING)
+
+    @staticmethod
+    def log_user_change(instance, updated_by, last_user_id):
+        PickerUserAssignmentLog.objects.create(
+            picker_dashboard=instance,
+            initial_user_id=last_user_id,
+            final_user_id=instance.picker_boy_id,
+            created_by=updated_by
+        )
