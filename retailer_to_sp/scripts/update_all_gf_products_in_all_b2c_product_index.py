@@ -10,9 +10,11 @@ info_logger = logging.getLogger('file-info')
 
 def run():
     es_index = 'all_b2c_product'
-    products = Product.objects.filter(status='active')
+    products = Product.objects.filter(status='active', product_mrp__isnull=False)
     print("Total Products - {}".format(products.count()))
+    count = 0
     for product in products:
+        count +=1
         product = get_b2c_product_details(product)
         info_logger.info(product)
         try:
@@ -20,6 +22,8 @@ def run():
             info_logger.info(
                 "Inside update_product_b2c_elasticsearch, product id: " + str(product['id']) + ", product: " + str(
                     product))
+            print("Product - {}".format(product['id']))
+            print(count)
         except Exception as e:
             info_logger.info("error in upload_shop_stock index creation")
             info_logger.info(e)
