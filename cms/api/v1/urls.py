@@ -1,5 +1,6 @@
 from django.urls import path
 from . import views
+from .views import LandingPageView, PageFunctionView
 
 urlpatterns = [
     path('apps/', views.ApplicationView.as_view(), name = 'apps'),
@@ -13,5 +14,7 @@ urlpatterns = [
     path('category/', views.CategoryListView.as_view(), name = 'cms-category-list'),
     path('subcategory-banner/', views.SubCategoryListView.as_view(), name = 'cms-subcategory-list'),
     path('brand/', views.BrandListView.as_view(), name = 'cms-brand-list'),
-    path('subbrand-banner/', views.SubBrandListView.as_view(), name = 'cms-subbrand-list')
+    path('subbrand-banner/', views.SubBrandListView.as_view(), name = 'cms-subbrand-list'),
+    path("landing-pages/", LandingPageView.as_view(), name = 'landing-pages'),
+    path("functions/", PageFunctionView.as_view(), name = 'functions'),
 ]

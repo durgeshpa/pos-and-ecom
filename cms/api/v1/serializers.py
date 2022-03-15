@@ -1,13 +1,19 @@
 import logging
+import urllib
 from datetime import datetime
-from django.utils.six import indexbytes
+
+from django.db import transaction
 from rest_framework import serializers
-from django.shortcuts import get_object_or_404
 from django.contrib.auth import get_user_model
 from rest_framework.exceptions import NotFound, ValidationError
 
-from ...models import CardData, Card, CardVersion, CardItem, Application, Page, PageCard, PageVersion, ApplicationPage
-from cms.messages import VALIDATION_ERROR_MESSAGES, SUCCESS_MESSAGES, ERROR_MESSAGES
+from global_config.views import get_config
+from products.models import Product
+from retailer_backend.common_function import isBlank
+from ...choices import LANDING_PAGE_TYPE_CHOICE, LANDING_PAGE_SUBTYPE_CHOICE, LIST, FUNCTION, FUNTION_TYPE_CHOICE
+from ...models import CardData, Card, CardVersion, CardItem, Application, Page, PageCard, PageVersion, ApplicationPage, \
+    LandingPage, Functions, LandingPageProducts
+from cms.messages import VALIDATION_ERROR_MESSAGES, ERROR_MESSAGES
 from categories.models import Category
 from brand.models import Brand
 
@@ -70,6 +76,13 @@ class CardAppSerializer(serializers.ModelSerializer):
         model = Application
         fields = ("id", "name", "status",)
 
+
+class ChoicesSerializer(serializers.ChoiceField):
+
+    def to_representation(self, obj):
+        if obj == '' and self.allow_blank:
+            return obj
+        return {'id': obj, 'description': self._choices[obj]}
 
 class CardItemSerializer(serializers.ModelSerializer):
     """Serializer for CardItem"""
@@ -520,3 +533,182 @@ class SubBrandSerializer(serializers.ModelSerializer):
     class Meta:
         model = Brand
         fields = ('brand_name', 'id', 'banner_image')
+
+
+class PageFunctionSerializer(serializers.ModelSerializer):
+    type = ChoicesSerializer(choices=FUNTION_TYPE_CHOICE)
+
+    class Meta:
+        model = Functions
+        fields = ('id', 'type', 'name', 'url', 'required_params')
+
+
+    def validate(self, data):
+
+        if 'name' not in self.initial_data or self.initial_data.get('name') is None:
+            raise serializers.ValidationError("'name' | This is required")
+        elif 'type' not in self.initial_data and self.initial_data.get('type'):
+            raise serializers.ValidationError("'type' | This is required")
+        elif 'url'not in self.initial_data and self.initial_data.get('url'):
+            raise serializers.ValidationError("'url' | This is required")
+
+        data['name'] = self.initial_data['name']
+        data['type'] = self.initial_data['type']
+        data['url'] = self.initial_data['url']
+        data['required_params'] = self.initial_data['required_params']
+
+        return data
+
+    @transaction.atomic
+    def create(self, validated_data):
+        try:
+            function = Functions.objects.create(**validated_data)
+        except Exception as e:
+            error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
+            raise serializers.ValidationError(error)
+        return function
+
+    @transaction.atomic
+    def update(self, instance, validated_data):
+        try:
+            function = super().update(instance, validated_data)
+        except Exception as e:
+            error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
+            raise serializers.ValidationError(error)
+        return function
+
+
+class ProductSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Product
+        fields = ('id', 'product_sku', 'product_name', 'product_mrp',)
+
+
+class LandingPageProductSerializer(serializers.ModelSerializer):
+    product = ProductSerializer()
+    class Meta:
+        model = LandingPageProducts
+        fields = ('product',)
+
+class LandingPageSerializer(serializers.ModelSerializer):
+    app = ApplicationSerializer(read_only=True)
+    type = ChoicesSerializer(choices=LANDING_PAGE_TYPE_CHOICE, required=True)
+    sub_type = ChoicesSerializer(choices=LANDING_PAGE_SUBTYPE_CHOICE, required=True)
+    page_function = PageFunctionSerializer(read_only=True)
+    page_action_url = serializers.SerializerMethodField()
+    banner_image = Base64ImageField(max_length=None, use_url=True, required=False, allow_null=True)
+    landing_page_products = LandingPageProductSerializer(many=True, read_only=True)
+
+    def to_internal_value(self, data):
+        banner_image = data.get('banner_image', None)
+        if banner_image == '':
+            data.pop('banner_image')
+        return super(LandingPageSerializer, self).to_internal_value(data)
+
+    def get_page_action_url(self, obj):
+        if obj.page_function:
+            if not obj.params:
+                return obj.page_function.url
+            return obj.page_function.url+"?"+urllib.parse.urlencode(obj.params)
+
+    class Meta:
+        model = LandingPage
+        fields = ('id', 'banner_image', 'app', 'type', 'sub_type', 'page_function', 'params', 'page_action_url',
+                  'landing_page_products')
+
+    def validate(self, data):
+        if 'id' not in self.initial_data:
+            if 'app' not in self.initial_data or self.initial_data.get('app') is None:
+                raise serializers.ValidationError("'app' | This is required")
+            elif int(self.initial_data['app']) not in Application.objects.values_list('pk', flat=True):
+                raise serializers.ValidationError(f"Invalid app {self.initial_data['app']}")
+            elif 'type' not in self.initial_data or not self.initial_data.get('type'):
+                raise serializers.ValidationError("'type' | This is required")
+            elif int(self.initial_data['type']) not in get_config('CMS_LANDING_PAGE_TYPE', LANDING_PAGE_TYPE_CHOICE):
+                raise serializers.ValidationError(f"Invalid landing page type selected{self.initial_data['type']}")
+            elif 'sub_type' not in self.initial_data or not self.initial_data.get('sub_type'):
+                raise serializers.ValidationError("'type' | This is required")
+            elif int(self.initial_data['sub_type']) not in get_config('CMS_LANDING_PAGE_SUBTYPE', LANDING_PAGE_SUBTYPE_CHOICE):
+                raise serializers.ValidationError(f"Invalid landing page sub type selected{self.initial_data['sub_type']}")
+            elif int(self.initial_data['sub_type']) == LANDING_PAGE_SUBTYPE_CHOICE.LIST:
+                if not self.initial_data.get('products') or not isinstance(self.initial_data.get('products'), list) \
+                        or len(self.initial_data.get('products')) == 0:
+                    raise serializers.ValidationError("List of items is required for List type landing page")
+                products = []
+                for product_id in self.initial_data['products']:
+                    if not Product.objects.filter(pk=int(product_id)).exists():
+                        raise serializers.ValidationError(f"Product with id {product_id} does not exists")
+                    products.append(Product.objects.get(pk=product_id))
+                data['products'] = products
+            elif int(self.initial_data['sub_type']) == LANDING_PAGE_SUBTYPE_CHOICE.FUNCTION:
+                if self.initial_data.get('page_function') is None:
+                    raise serializers.ValidationError("'function' | This is required.")
+                elif int(self.initial_data['page_function']) not in \
+                    Functions.objects.filter(type=self.initial_data['type']).values_list('pk', flat=True):
+                    raise serializers.ValidationError("Invalid function selected.")
+                func = Functions.objects.filter(pk=self.initial_data['page_function']).last()
+                if not isBlank(func.required_params):
+                    required_params = func.required_params.split(",")
+                    for param in required_params:
+                        if not self.initial_data.get('params') or param not in self.initial_data.get('params') or \
+                                self.initial_data['params'][param] is None:
+                            raise serializers.ValidationError(f"{param} is missing in 'params'")
+                data['page_function'] = func
+                data['params'] = self.initial_data.get('params')
+
+            if LandingPage.objects.filter(type=int(self.initial_data['type']), sub_type=int(self.initial_data['sub_type']),
+                                          page_function=int(self.initial_data['page_function'])).exists():
+                raise serializers.ValidationError("Landing page already exists for this config.")
+        elif 'id' in self.initial_data and self.initial_data['id']:
+            if not self.initial_data.get('products') or not isinstance(self.initial_data.get('products'), list) \
+                    or len(self.initial_data.get('products')) == 0:
+                raise serializers.ValidationError("List of items is required for List type landing page")
+            products = []
+            for product_id in self.initial_data['products']:
+                if not Product.objects.filter(pk=int(product_id)).exists():
+                    raise serializers.ValidationError(f"Product with id {product_id} does not exists")
+                products.append(Product.objects.get(pk=product_id))
+            data['products'] = products
+
+        data['app_id'] = int(self.initial_data['app'])
+        data['type'] = int(self.initial_data['type'])
+        data['sub_type'] = int(self.initial_data['sub_type'])
+
+        return data
+
+    @transaction.atomic
+    def create(self, validated_data):
+        try:
+            product_list = None
+            if validated_data.get('products') is not None:
+                product_list = validated_data.pop('products')
+            landing_page = LandingPage.objects.create(**validated_data)
+            if product_list:
+                LandingPageProducts.objects.bulk_create([
+                    LandingPageProducts(landing_page=landing_page, product=p, created_by=validated_data['created_by'])
+                    for p in product_list],
+                    batch_size=None)
+        except Exception as e:
+            error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
+            raise serializers.ValidationError(error)
+        return landing_page
+
+
+    @transaction.atomic
+    def update(self, instance, validated_data):
+        try:
+            product_list = None
+            if validated_data.get('products') is not None:
+                product_list = validated_data.pop('products')
+            landing_page = LandingPage.objects.create(**validated_data)
+            if product_list:
+                landing_page.landing_page_products.all().delete()
+                LandingPageProducts.objects.bulk_create([LandingPageProducts(landing_page=landing_page, product=p,
+                                                                             created_by=validated_data['updated_by'],
+                                                                             updated_by=validated_data['updated_by']) for p in product_list],
+                    batch_size=None)
+        except Exception as e:
+            error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
+            raise serializers.ValidationError(error)
+        return landing_page
+
