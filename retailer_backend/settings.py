@@ -148,6 +148,7 @@ INSTALLED_APPS = [
     'drf_yasg',
     'report',
     'tinymce',
+    'drf_api_logger',
 ]
 
 # if ENVIRONMENT.lower() in ["production","qa"]:
@@ -188,6 +189,7 @@ MIDDLEWARE += [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'accounts.middlewares.RequestMiddleware',
+    'drf_api_logger.middleware.api_logger_middleware.APILoggerMiddleware',
 ]
 # if ENVIRONMENT.lower() in ["production", "qa"]:
 #     MIDDLEWARE += [
@@ -640,3 +642,9 @@ else:
         hosts=[config('ES_INDEX')],
         http_auth=(config('ES_USER_NAME'), config('ES_PASSWORD')),
     )
+
+# DRF API LOGGER
+DRF_API_LOGGER_DATABASE = config('DRF_API_LOGGER_DATABASE')
+DRF_API_LOGGER_EXCLUDE_KEYS = ['password', 'token', 'access', 'refresh']
+DRF_API_LOGGER_SLOW_API_ABOVE = 200
+DRF_API_LOGGER_TIMEDELTA = 330
