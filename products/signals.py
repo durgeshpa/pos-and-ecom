@@ -8,7 +8,7 @@ from products.models import Product, ProductPrice, ProductCategory, \
 from django.db.models.signals import post_save, post_delete, pre_save
 from django.dispatch import receiver
 from sp_to_gram.tasks import update_shop_product_es, update_product_es, update_shop_product_es_cat, \
-    update_shop_product_es_brand, get_product_price, create_es_index
+    update_shop_product_es_brand, create_es_index
 from analytics.post_save_signal import get_category_product_report
 import logging
 from django.db import transaction
@@ -23,7 +23,7 @@ from retailer_backend import common_function
 from brand.models import Brand
 from categories.models import Category, B2cCategory
 from global_config.models import GlobalConfig
-from retailer_backend.settings import ELASTICSEARCH_PREFIX as es_prefix, es
+from retailer_backend.settings import es
 
 logger = logging.getLogger(__name__)
 info_logger = logging.getLogger('file-info')
