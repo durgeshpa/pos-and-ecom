@@ -146,8 +146,8 @@ class OrderPaymentForm(forms.ModelForm):
         if order:
             cash_to_be_collected = 0
             shipment = order.rt_order_order_product.last()
-            if paid_amount <= 0:
-                raise ValidationError(_('Paid amount should be greater than 0'))
+            # if paid_amount <= 0:
+            #     raise ValidationError(_('Paid amount should be greater than 0'))
             if shipment:
                 cash_to_be_collected = shipment.cash_to_be_collected()
                 total_payments = Payment.objects.filter(order=order, 
