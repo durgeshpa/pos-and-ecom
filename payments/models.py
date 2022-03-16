@@ -277,11 +277,19 @@ class OrderPayment(AbstractDateTime):
         try:
             if float(self.payment_utilised_excluding_current) + float(self.paid_amount) > float(self.parent_payment.paid_amount):
                 error_msg = "Maximum amount to be utilised from parent payment is " + str(self.parent_payment.paid_amount - self.payment_utilised_excluding_current)
-                raise ValueTooLargeError #ValidationError(_(error_msg),)   
+                #raise ValueTooLargeError #ValidationError(_(error_msg),)   
         except ValueTooLargeError:
             raise ValidationError(_(error_msg),)
         except:
             pass
+    
+    def save(self, *args, **kwargs):
+        shipment_payments = self.shipment_order_payment.all()
+        for ship_pay in shipment_payments:
+            ship_pay.paid_amount = ship_pay.parent_order_payment.paid_amount
+            ship_pay.save()
+        super().save(*args, **kwargs)
+
 
 # create payment mode table shipment payment mapping
 class ShipmentPayment(AbstractDateTime):
@@ -325,7 +333,7 @@ class ShipmentPayment(AbstractDateTime):
         try:
             if float(self.payment_utilised_excluding_current) + float(self.paid_amount) > float(self.parent_order_payment.paid_amount):
                 error_msg = "Maximum amount to be utilised from parent order payment is " + str(self.parent_order_payment.paid_amount - self.payment_utilised_excluding_current)
-                raise ValueTooLargeError #ValidationError(_(error_msg),)   
+                #raise ValueTooLargeError #ValidationError(_(error_msg),)   
         except ValueTooLargeError:
             raise ValidationError(_(error_msg),)
         except:

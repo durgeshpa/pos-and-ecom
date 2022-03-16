@@ -348,7 +348,7 @@ class RetailerProductsSearchSerializer(serializers.ModelSerializer):
     def get_category(self, obj):
         try:
             category = [str(c.category) for c in
-                        obj.linked_product.parent_product.parent_product_pro_category.filter(status=True)]
+                        obj.linked_product.parent_product.parent_product_pro_b2c_category.filter(status=True)]
             return category if category else ''
         except:
             return ''
@@ -356,7 +356,7 @@ class RetailerProductsSearchSerializer(serializers.ModelSerializer):
     def get_category_id(self, obj):
         try:
             category_id = [str(c.category_id) for c in
-                           obj.linked_product.parent_product.parent_product_pro_category.filter(status=True)]
+                           obj.linked_product.parent_product.parent_product_pro_b2c_category.filter(status=True)]
             return category_id if category_id else ''
         except:
             return ''
@@ -612,7 +612,12 @@ class BasicCartSerializer(serializers.ModelSerializer):
         return round(discount, 2)
 
     def get_amount_payable(self, obj):
-        sub_total = float(self.total_amount_dt(obj)) - self.get_total_discount(obj)
+        if obj.cart_type == 'ECOM':
+            sub_total = float(self.total_amount_dt(obj)) - (
+                    float(self.get_total_discount(obj)))
+        else:
+            sub_total = float(self.total_amount_dt(obj)) - (
+                    float(self.get_total_discount(obj)) + float(self.get_product_discount_from_mrp(obj)))
         return round(sub_total)
 
 
@@ -695,10 +700,20 @@ class PaymentTypeSerializer(serializers.ModelSerializer):
 
 class PaymentSerializer(serializers.ModelSerializer):
     payment_type = PaymentTypeSerializer()
+    payment_refund = serializers.SerializerMethodField()
+
+    def get_payment_refund(self, obj):
+        if obj.is_refund:
+            status = {'queued': 'refund_created', 'success': 'refund_success', 'failure': 'refund_failed'}
+            if obj.refund_status in status:
+                refund_status = status[obj.refund_status]
+            else:
+                refund_status = obj.refund_status
+            return {"refund_amount": obj.refund_amount, 'refund_status': refund_status}
 
     class Meta:
         model = Payment
-        fields = ('id', 'payment_status', 'payment_type', 'transaction_id', 'amount')
+        fields = ('id', 'payment_status', 'payment_type', 'transaction_id', 'amount', 'payment_refund')
 
 
 class OrderReturnSerializerID(serializers.ModelSerializer):
@@ -3387,6 +3402,9 @@ class PosEcomOrderDetailSerializer(serializers.ModelSerializer):
         return_summary['return_value'], return_summary['discount_adjusted'], return_summary[
             'points_adjusted'], return_summary[
             'amount_returned'] = return_value, discount_adjusted, points_value, refund_amount
+        # if obj.is_refund and obj.refund_status == 'success':
+        #     return_summary['amount_returned'] = obj.refund_amount
+
         return return_summary
 
     def get_items(self, obj):

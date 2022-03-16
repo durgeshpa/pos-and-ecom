@@ -471,8 +471,8 @@ class PutAwayAdmin(admin.ModelAdmin):
     info_logger.info("Put Away Admin has been called.")
     form = PutAwayForm
     list_display = (
-        'putaway_user', 'warehouse', 'sku', 'batch_id', 'putaway_type', 'putaway_type_id', 'grn_id', 'trip_id',
-        'inventory_type', 'quantity', 'status', 'putaway_quantity', 'created_at', 'modified_at')
+        'putaway_user', 'warehouse', 'sku', 'batch_id', 'putaway_type', 'zone', 'putaway_type_id',
+        'grn_id', 'trip_id', 'inventory_type', 'quantity', 'status', 'putaway_quantity', 'created_at', 'modified_at')
     actions = ['download_bulk_put_away_csv']
     readonly_fields = ('warehouse', 'putaway_type', 'putaway_type_id', 'sku', 'batch_id', 'inventory_type',
                        'quantity', 'putaway_quantity',)

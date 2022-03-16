@@ -46,8 +46,9 @@ from pos.forms import RetailerProductsCSVDownloadForm, RetailerProductsCSVUpload
     RetailerPurchaseReportForm
 from pos.tasks import generate_pdf_data, update_es
 from products.models import Product, ParentProductCategory
+from products.utils import parent_product_categories
 from shops.models import Shop, PosShopUserMapping
-from retailer_to_sp.models import OrderReturn, OrderedProduct, CreditNote, OrderedProductMapping, RoundAmount
+from retailer_to_sp.models import OrderReturn, OrderedProduct, CreditNote, OrderedProductMapping, RoundAmount, Order
 from wms.models import PosInventory, PosInventoryState, PosInventoryChange
 
 info_logger = logging.getLogger('file-info')
@@ -990,14 +991,17 @@ def get_product_details(product):
         else:
             brand = brand_details[0]['parent_product__parent_brand__brand_name']
 
-        cat = ParentProductCategory.objects.values('category__category_name',
-                                                   'category__category_parent__category_name').filter \
-            (parent_product__id=product.linked_product.parent_product.id)
-        if cat[0]['category__category_parent__category_name']:
-            category = cat[0]['category__category_parent__category_name']
-            sub_category = cat[0]['category__category_name']
-        else:
-            category = cat[0]['category__category_name']
+        # cat = ParentProductCategory.objects.values('category__category_name',
+        #                                            'category__category_parent__category_name').filter \
+        #     (parent_product__id=product.linked_product.parent_product.id)
+        cat_obj = parent_product_categories(product.linked_product.parent_product)
+        if cat_obj:
+            cat = cat_obj.values('category__category_name', 'category__category_parent__category_name')
+            if cat[0]['category__category_parent__category_name']:
+                category = cat[0]['category__category_parent__category_name']
+                sub_category = cat[0]['category__category_name']
+            else:
+                category = cat[0]['category__category_name']
     return parent_id, category, sub_category, brand, sub_brand
 
 
@@ -1170,7 +1174,7 @@ class RetailerOrderedReportView(APIView):
     def total_order_calculation(self, user, start_date, end_date, shop):
         pos_cash_order_qs = OrderedProduct.objects.filter(invoice__created_at__date__gte=start_date,
                                                           invoice__created_at__date__lte=end_date,
-                                                          order__ordered_cart__cart_type='BASIC',
+                                                          order__order_app_type=Order.POS_WALKIN,
                                                           order__seller_shop__id=shop,
                                                           order__rt_payment_retailer_order__payment_type__type__iexact='cash',
                                                           order__ordered_by__id=user,
@@ -1182,7 +1186,7 @@ class RetailerOrderedReportView(APIView):
 
         pos_online_order_qs = OrderedProduct.objects.filter(invoice__created_at__date__gte=start_date,
                                                             invoice__created_at__date__lte=end_date,
-                                                            order__ordered_cart__cart_type='BASIC',
+                                                            order__order_app_type=Order.POS_WALKIN,
                                                             order__seller_shop__id=shop,
                                                             order__rt_payment_retailer_order__payment_type__type__in=
                                                             ['credit', 'online'],
@@ -1195,44 +1199,49 @@ class RetailerOrderedReportView(APIView):
 
         ecom_total_order_qs = OrderedProduct.objects.filter(order__created_at__date__gte=start_date,
                                                             order__created_at__date__lte=end_date,
-                                                            order__ordered_cart__cart_type='ECOM',
+                                                            order__order_app_type=Order.POS_ECOMM,
                                                             order__seller_shop__id=shop,
                                                             order__ordered_by__id=user,
                                                             order__order_status=
                                                             RetailerOrderedReport.PICKUP_CREATED). \
             aggregate(amt=Sum('order__rt_payment_retailer_order__amount'))
 
-        ecom_cash_order_qs = OrderedProductMapping.objects.filter(
-            ordered_product__invoice__created_at__date__gte=start_date,
-            ordered_product__invoice__created_at__date__lte=end_date,
-            ordered_product__order__ordered_cart__cart_type='ECOM',
-            ordered_product__order__seller_shop__id=shop,
-            ordered_product__order__rt_payment_retailer_order__payment_type__type__iexact='cod',
-            ordered_product__order__ordered_by__id=user,
-            ordered_product__order__order_status__in=[RetailerOrderedReport.DELIVERED,
-                                                      RetailerOrderedReport.PARTIALLY_RETURNED,
-                                                      RetailerOrderedReport.FULLY_RETURNED]).\
-            annotate(inv_amt=RoundAmount(Sum(F('effective_price') * F('shipped_qty')))).aggregate(amt=Sum('inv_amt'))
+        ecom_cash_order_qs = OrderedProduct.objects.filter(invoice__created_at__date__gte=start_date,
+                                                           invoice__created_at__date__lte=end_date,
+                                                           order__order_app_type=Order.POS_ECOMM,
+                                                           order__seller_shop__id=shop,
+                                                           order__rt_payment_retailer_order__payment_type__type__iexact='cod',
+                                                           order__ordered_by__id=user,
+                                                           order__order_status__in=[
+                                                               RetailerOrderedReport.DELIVERED,
+                                                               RetailerOrderedReport.PARTIALLY_RETURNED,
+                                                               RetailerOrderedReport.FULLY_RETURNED])\
+            .exclude(order__order_status=RetailerOrderedReport.CANCELLED)
 
-        ecom_online_order_qs = OrderedProductMapping.objects.filter(
-            ordered_product__invoice__created_at__date__gte=start_date,
-            ordered_product__invoice__created_at__date__lte=end_date,
-            ordered_product__order__ordered_cart__cart_type='ECOM',
-            ordered_product__order__seller_shop__id=shop,
-            ordered_product__order__rt_payment_retailer_order__payment_type__type__in=
-            ['cod_upi', 'credit', 'online'],
-            ordered_product__order__ordered_by__id=user,
-            ordered_product__order__order_status__in=[
-                RetailerOrderedReport.OUT_FOR_DELIVERY,
-                RetailerOrderedReport.PARTIALLY_RETURNED,
-                RetailerOrderedReport.DELIVERED,
-                RetailerOrderedReport.FULLY_RETURNED],).\
-            annotate(inv_amt=RoundAmount(Sum(F('effective_price') * F('shipped_qty')))).aggregate(amt=Sum('inv_amt'))
+        ecom_cash_order_amt = 0
+        for e_cash_invoice in ecom_cash_order_qs:
+            ecom_cash_order_amt += e_cash_invoice.invoice_amount_final
+
+        ecom_online_order_qs = OrderedProduct.objects.filter(invoice__created_at__date__gte=start_date,
+                                                             invoice__created_at__date__lte=end_date,
+                                                             order__order_app_type=Order.POS_ECOMM,
+                                                             order__seller_shop__id=shop,
+                                                             order__rt_payment_retailer_order__payment_type__type__in=
+                                                             ['cod_upi', 'credit', 'online'],
+                                                             order__ordered_by__id=user,
+                                                             order__order_status__in=[
+                                                                 RetailerOrderedReport.OUT_FOR_DELIVERY,
+                                                                 RetailerOrderedReport.PARTIALLY_RETURNED,
+                                                                 RetailerOrderedReport.DELIVERED,
+                                                                 RetailerOrderedReport.FULLY_RETURNED])\
+            .exclude(order__order_status=RetailerOrderedReport.CANCELLED)
+
+        ecom_online_order_amt = 0
+        for e_online_invoice in ecom_online_order_qs:
+            ecom_online_order_amt += e_online_invoice.invoice_amount_final
 
         pos_cash_order_amt = pos_cash_order_qs['amt'] if 'amt' in pos_cash_order_qs and pos_cash_order_qs['amt'] else 0
         pos_online_order_amt = pos_online_order_qs['amt'] if 'amt' in pos_online_order_qs and pos_online_order_qs['amt'] else 0
-        ecom_cash_order_amt = ecom_cash_order_qs['amt'] if 'amt' in ecom_cash_order_qs and ecom_cash_order_qs['amt'] else 0
-        ecom_online_order_amt = ecom_online_order_qs['amt'] if 'amt' in ecom_online_order_qs and ecom_online_order_qs['amt'] else 0
         ecom_total_order_amt = ecom_total_order_qs['amt'] if 'amt' in ecom_total_order_qs and ecom_total_order_qs['amt'] else 0
 
         pos_cash_return_order_qs = CreditNote.objects.filter(order_return__order__ordered_cart__cart_type='BASIC',
@@ -1288,10 +1297,10 @@ class RetailerOrderedReportView(APIView):
         #
         # can_order_amt = can_order_qs['amt'] if 'amt' in can_order_qs and can_order_qs['amt'] else 0
 
-        pos_cash_amt = float(pos_cash_order_amt) - float(pos_cash_return_amt)
-        pos_online_amt = float(pos_online_order_amt) - float(pos_online_return_amt)
-        ecomm_online_amt = float(ecom_online_order_amt) - float(ecom_online_return_amt)
-        ecomm_cash_amt = float(ecom_cash_order_amt) - float(ecom_cash_return_amt)
+        pos_cash_amt = Decimal(pos_cash_order_amt) - Decimal(pos_cash_return_amt)
+        pos_online_amt = Decimal(pos_online_order_amt) - Decimal(pos_online_return_amt)
+        ecomm_online_amt = Decimal(ecom_online_order_amt) - Decimal(ecom_online_return_amt)
+        ecomm_cash_amt = Decimal(ecom_cash_order_amt) - Decimal(ecom_cash_return_amt)
         return pos_cash_amt, pos_online_amt, ecom_total_order_amt, ecomm_cash_amt, ecomm_online_amt
 
     def get(self, *args, **kwargs):

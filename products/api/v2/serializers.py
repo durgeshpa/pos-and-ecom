@@ -11,7 +11,7 @@ from rest_framework import serializers
 
 from brand.models import Brand
 from categories.common_validators import get_validate_category
-from categories.models import Category
+from categories.models import Category, B2cCategory
 from products.api.v1.serializers import UserSerializers
 from products.bulk_common_function import download_sample_file_update_master_data, create_update_master_data
 from products.common_validators import read_file, get_validate_vendor
@@ -32,7 +32,12 @@ error_logger = logging.getLogger('file-error')
 class CategoryListSerializers(serializers.ModelSerializer):
     class Meta:
         model = Category
+        fields = ('id', 'category_name',)
 
+
+class B2cCategoryListSerializers(serializers.ModelSerializer):
+    class Meta:
+        model = B2cCategory
         fields = ('id', 'category_name',)
 
 
@@ -47,6 +52,7 @@ DATA_TYPE_CHOICES = (
         ('create_child_product', 'Create Child Product'),
         ('create_parent_product', 'Create Parent Product'),
         ('create_category', 'Create Category'),
+        ('create_b2c_category', 'Create B2c category'),
         ('create_brand', 'Create Brand'),
         ('create_product_vendor_mapping', 'Create Product Vendor Mapping')
     )
@@ -55,6 +61,7 @@ DATA_TYPE_CHOICES = (
         ('child_product_update', 'Update Child Product'),
         ('parent_product_update', 'Update Parent Product'),
         ('category_update', 'Update Category'),
+        ('b2c_category_update', 'Update b2c category'),
         ('brand_update', 'Update Brand'),
     )
      ),
@@ -62,6 +69,7 @@ DATA_TYPE_CHOICES = (
         ('child_product_image_update', 'Update Child Product Images'),
         ('parent_product_image_update', 'Update Parent Product Images'),
         ('category_image_update', 'Update Category Images'),
+        ('b2c_category_image_update', 'Update B2c category images'),
         ('brand_image_update', 'Update Brand Images'),
     )
      ),
@@ -367,6 +375,64 @@ class CategoryImageSerializers(serializers.ModelSerializer):
             cat_id = file_name.rsplit(".", 1)[0]
             try:
                 cat_obj = Category.objects.get(id=int(cat_id))
+            except:
+                val_data = {
+                    'is_valid': False,
+                    'error': True,
+                    'name': 'No Category found with Category ID {}'.format(cat_id),
+                    'url': '#'
+                }
+                aborted_count += 1
+            else:
+                # cat_obj.update(id=cat_obj.last().id, category_image=img, updated_by=validated_data['updated_by'])
+                cat_obj.category_image = img
+                cat_obj.updated_by = validated_data['updated_by']
+                cat_obj.save()
+
+                val_data = {
+                    'is_valid': True,
+                    'url': cat_obj.category_image.url,
+                    'category_id': cat_id,
+                    'category_name': cat_obj.category_name
+                }
+                upload_count += 1
+
+            total_count = upload_count + aborted_count
+            data.append(val_data)
+
+        data_value = {
+            'total_count': total_count,
+            'upload_count': upload_count,
+            'aborted_count': aborted_count,
+            'uploaded_data': data,
+        }
+        return data_value
+
+    def to_representation(self, instance):
+        return instance
+
+
+class B2cCategoryImageSerializers(serializers.ModelSerializer):
+    """Handles creating, reading and updating category images."""
+    image = serializers.ListField(
+        child=serializers.FileField(max_length=100000, allow_empty_file=False, use_url=True, ), write_only=True)
+
+    class Meta:
+        model = B2cCategory
+        fields = ('image',)
+
+    def create(self, validated_data):
+        images_data = validated_data['image']
+
+        data = []
+        aborted_count = 0
+        upload_count = 0
+
+        for img in images_data:
+            file_name = img.name
+            cat_id = file_name.rsplit(".", 1)[0]
+            try:
+                cat_obj = B2cCategory.objects.get(id=int(cat_id))
             except:
                 val_data = {
                     'is_valid': False,

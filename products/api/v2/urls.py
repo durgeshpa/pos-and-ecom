@@ -2,13 +2,16 @@ from django.conf.urls import url
 from .views import BulkCreateUpdateAttributesView, BulkDownloadProductAttributes, ParentProductMultiImageUploadView, \
     ChildProductMultiImageUploadView, BulkChoiceView, BrandMultiImageUploadView, CategoryMultiImageUploadView, \
     CategoryListView, CreateProductVendorMappingSampleView, CreateProductVendorMappingView, SlabProductPriceSampleCSV, \
-    CreateBulkSlabProductPriceView, DiscountedProductPriceSampleCSV, CreateBulkDiscountedProductPriceView
+    CreateBulkSlabProductPriceView, DiscountedProductPriceSampleCSV, CreateBulkDiscountedProductPriceView, \
+        B2cCategoryListView, B2cCategoryMultiImageUploadView
 
 urlpatterns = [
     url(r'^upload_type/bulk-choice/', BulkChoiceView.as_view(),
         name='upload_type/bulk-choice'),
     url(r'^upload_type/category-options/', CategoryListView.as_view(),
         name='upload_type/category-options'),
+    url(r'^upload_type/b2c-category-options/', B2cCategoryListView.as_view(),
+        name='upload_type/b2c-category-options'),
     url(r'^upload/bulk-upload-master-data/', BulkCreateUpdateAttributesView.as_view(),
         name='upload/bulk-upload-master-data'),
     url(r'^download/bulk-download-master-data/', BulkDownloadProductAttributes.as_view(),
@@ -21,6 +24,8 @@ urlpatterns = [
         name='upload/brand-multiple-image-upload'),
     url(r'^upload/category-multiple-image-upload/', CategoryMultiImageUploadView.as_view(),
         name='upload/category-multiple-image-upload'),
+    url(r'^upload/b2c-category-multiple-image-upload/', B2cCategoryMultiImageUploadView.as_view(),
+        name='upload/b2c-category-multiple-image-upload'),
     url(r'^download/product-vendor-mapping-sample/', CreateProductVendorMappingSampleView.as_view(),
         name='download/product-vendor-mapping-sample'),
     url(r'^upload/product-vendor-mapping/', CreateProductVendorMappingView.as_view(),
