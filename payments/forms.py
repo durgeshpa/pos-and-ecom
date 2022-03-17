@@ -160,7 +160,7 @@ class OrderPaymentForm(forms.ModelForm):
                 if (float(total_paid_amount) + float(paid_amount)) > float(cash_to_be_collected):
                     raise ValidationError(_(f"Max amount to be paid is {cash_to_be_collected-total_paid_amount}"))
 
-            if paid_by and paid_amount and order and payment_mode_name:
+            if paid_by and paid_amount >= 0 and order and payment_mode_name:
                 if not self.instance.pk:
                     if existing_payment:
                         if existing_payment.order.filter(~Q(id=order.pk)).exists():
@@ -181,7 +181,6 @@ class OrderPaymentForm(forms.ModelForm):
                     payment.paid_by = paid_by
                     payment.paid_amount = paid_amount
                     payment.payment_mode_name = payment_mode_name
-                
                 if payment_mode_name == "online_payment":
                     payment.reference_no = reference_no
                     payment.online_payment_type = online_payment_type
