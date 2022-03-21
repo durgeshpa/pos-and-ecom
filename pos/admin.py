@@ -113,14 +113,37 @@ class RetailerProductAdmin(admin.ModelAdmin):
     change_form_template = 'admin/pos/pos_change_form.html'
     form = RetailerProductsForm
     list_display = ('id', 'shop', 'sku', 'name', 'mrp', 'selling_price', 'product_ean_code', 'image',
-                    'linked_product', 'description', 'sku_type', 'status', 'product_pack_type', 'created_at',
-                    'modified_at')
+                    'linked_product', 'category', 'sub_category', 'description', 'sku_type', 'status',
+                    'product_pack_type', 'created_at', 'modified_at')
     fields = ('shop', 'linked_product', 'sku', 'name', 'mrp', 'selling_price', 'product_ean_code',
               'description', 'sku_type', 'status', 'is_deleted', 'purchase_pack_size', 'initial_purchase_value',
               'online_enabled', 'online_price', 'created_at', 'modified_at','product_pack_type','measurement_category')
     readonly_fields = ('shop', 'sku', 'product_ean_code',
                        'purchase_pack_size', 'online_enabled', 'online_price', 'name', 'created_at',
                        'sku_type', 'mrp', 'modified_at', 'description', 'initial_purchase_value')
+
+    def cat_sub_cat(self, obj):
+        if obj.linked_product and obj.linked_product.parent_product.product_type in ['b2c', 'both']:
+            if obj.linked_product.parent_product.parent_product_pro_b2c_category.exists():
+                if obj.linked_product.parent_product.parent_product_pro_b2c_category.last().category.category_parent:
+                    category = obj.linked_product.parent_product.parent_product_pro_b2c_category.last().\
+                        category.category_parent.category_name
+                    sub_category = obj.linked_product.parent_product.parent_product_pro_b2c_category.last().\
+                        category.category_name
+                else:
+                    category = obj.linked_product.parent_product.parent_product_pro_b2c_category.last(). \
+                        category.category_name
+                    sub_category = None
+                return category, sub_category
+        return None, None
+
+    def category(self, obj):
+        category, sub_category = self.cat_sub_cat(obj)
+        return category
+
+    def sub_category(self, obj):
+        category, sub_category = self.cat_sub_cat(obj)
+        return sub_category
 
     def get_queryset(self, request):
         qs = super(RetailerProductAdmin, self).get_queryset(request)
