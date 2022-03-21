@@ -10,7 +10,7 @@ from django.db import transaction
 from django.db.models import Prefetch
 
 # app imports
-from .models import PriceSlab, Product, ProductCapping, DiscountedProductPrice, ProductPrice
+from .models import PriceSlab, Product, ProductCapping, DiscountedProductPrice, ProductPrice, ParentProduct
 from wms.models import Bin, WarehouseInventory, BinInventory, InventoryType, InventoryState, In
 from wms.common_functions import CommonBinInventoryFunctions, CommonWarehouseInventoryFunctions
 from global_config.models import GlobalConfig
@@ -221,3 +221,65 @@ def move_inventory(warehouse, discounted_product, bin, batch_id, quantity,
                                                                                           state_total_available,
                                                                                           quantity, tr_type_expired,
                                                                                           tr_id)
+
+
+def pending_for_approval_products_csv_report():
+    """
+        Cron
+        Email a report for all the products which are Pending for Approval.
+    """
+    try:
+        cron_logger.info('cron pending for approval products csv report | started')
+
+        parent_products = ParentProduct.objects.filter(tax_status__in=[ParentProduct.PENDING, ParentProduct.DECLINED])\
+            .select_related('parent_brand', 'product_hsn', 'updated_by')\
+            .prefetch_related('parent_product_pro_tax', 'parent_product_log', 'parent_product_pro_tax__tax', ) \
+            .order_by('-id')
+
+        if not parent_products.exists():
+            cron_logger.info('cron pending for approval products csv report | none product pending for approval.')
+            return
+
+        if parent_products.exists():
+            f = StringIO()
+            writer = csv.writer(f)
+
+            headings = ["Product Id", "HSN code", "Name", "Category", "Brand", "Entered Product GST rate",
+                        "HSN code Gst rate", "Entered Product Ces rate", "HSN code Cess rate", "Status", "Reason",
+                        "Created by", "Created at"]
+
+            writer.writerow(headings)
+
+            for product in parent_products:
+                product_category = ", ".join(map(str, product.parent_product_pro_category.filter(status=True)
+                                                 .values_list('category__category_name', flat=True)))
+                hsn_gst = ", ".join(map(str, product.product_hsn.hsn_gst.values_list('gst', flat=True)))
+                hsn_cess = ", ".join(map(str, product.product_hsn.hsn_cess.values_list('cess', flat=True)))
+                entered_gst = product.parent_product_pro_tax.filter(tax__tax_type='gst').last()
+                entered_gst = entered_gst.tax.tax_percentage if entered_gst else None
+                entered_cess = product.parent_product_pro_tax.filter(tax__tax_type='cess').last()
+                entered_cess = entered_cess.tax.tax_percentage if entered_cess else None
+
+                writer.writerow([product.parent_id, product.product_hsn.product_hsn_code, product.name,
+                                 product_category, product.parent_brand.brand_name, entered_gst, hsn_gst, entered_cess,
+                                 hsn_cess, product.tax_status, product.tax_remark,
+                                 product.created_by, product.created_at])
+
+            curr_date = datetime.datetime.now()
+            curr_date = curr_date.strftime('%Y-%m-%d %H:%M:%S')
+
+            email = EmailMessage()
+            email.subject = 'Pending For Approval products'
+            email.body = 'PFA the list of products which are pending for approval. '
+            sender = GlobalConfig.objects.get(key='PENDING_FOR_APPROVAL_SENDER')
+            email.from_email = sender.value
+            receiver = GlobalConfig.objects.get(key='PENDING_FOR_APPROVAL_RECIPIENT')
+            email.to = receiver.value
+            email.attach('pending_for_approval_products_{}'.format(curr_date) + '.csv', f.getvalue(), 'text/csv')
+            email.send()
+            cron_logger.info('cron pending for approval products csv report | mailed')
+        else:
+            cron_logger.info('cron pending for approval products csv report | none below threshold')
+    except Exception as e:
+        cron_logger.error(e)
+        cron_logger.info('cron pending for approval products csv report | exception')
