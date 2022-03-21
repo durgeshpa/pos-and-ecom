@@ -586,6 +586,19 @@ class ParentProductTaxMappingAdmin(admin.TabularInline):
         pass
 
 
+class ParentProductTaxApprovalLogAdmin(admin.TabularInline):
+    model = ParentProductTaxApprovalLog
+    fields = ('parent_product', 'tax_status', 'tax_remark', 'created_at')
+    readonly_fields = ('parent_product', 'tax_status', 'tax_remark', 'created_at')
+    extra = 0
+
+    def has_add_permission(self, request, obj):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
 class ParentProductAdmin(admin.ModelAdmin):
     resource_class = ParentProductResource
     form = ParentProductForm
@@ -610,7 +623,7 @@ class ParentProductAdmin(admin.ModelAdmin):
     ]
     inlines = [
         ParentProductCategoryAdmin, ParentProductB2cCategoryAdminInline, 
-        ParentProductImageAdmin, ParentProductTaxMappingAdmin
+        ParentProductImageAdmin, ParentProductTaxMappingAdmin, ParentProductTaxApprovalLogAdmin
     ]
     list_filter = [ParentCategorySearch, ParentBrandFilter, ParentIDFilter, 'status']
     list_per_page = 50

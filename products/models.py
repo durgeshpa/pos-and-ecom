@@ -237,6 +237,9 @@ class ParentProductTaxApprovalLog(BaseTimestampUserStatusModel):
     tax_status = models.CharField(max_length=10, null=True, blank=True)
     tax_remark = models.CharField(max_length=100, null=True, blank=True)
 
+    def __str__(self):
+        return str(self.parent_product)
+
 
 class ParentProductSKUGenerator(models.Model):
     cat_sku_code = models.CharField(max_length=3, validators=[CapitalAlphabets],
