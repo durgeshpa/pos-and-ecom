@@ -9458,7 +9458,7 @@ class LastMileTripShipmentsView(generics.GenericAPIView):
         validation_response = self.validate_get_request()
         if "error" in validation_response:
             return get_response(validation_response["error"], False)
-        self.queryset = get_logged_user_wise_query_set_for_dispatch(request.user, self.queryset)
+        self.queryset = get_logged_user_wise_query_set_for_dispatch_trip(request.user, self.queryset)
         self.queryset = self.search_filter_invoice_data()
         shipment_data = SmallOffsetPagination().paginate_queryset(self.queryset, request)
         data_dict = {
