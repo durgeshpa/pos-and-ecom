@@ -2639,14 +2639,14 @@ def get_logged_user_wise_query_set_for_dispatch_trip(user, queryset):
     '''
         GET Logged-in user wise queryset for shipment based on criteria that matches
     '''
-    user_shop = user.shop_employee.last().shop_id
+    user_shop = user.shop_employee.last().shop
     if user.has_perm('wms.can_have_zone_warehouse_permission'):
-        queryset = queryset.filter(seller_shop_id=user_shop)
+        queryset = queryset.filter(seller_shop=user_shop)
     elif user.groups.filter(name='Dispatch Executive').exists():
-        if user_shop.shops_type.shop_type == 'dc':
-            queryset = queryset.filter(seller_shop_id=user_shop.retiler_mapping.last().parent_id)
+        if user_shop.shop_type.shop_type == 'dc':
+            queryset = queryset.filter(seller_shop=user_shop.retiler_mapping.last().parent)
         else:
-            queryset = queryset.filter(seller_shop_id=user_shop)
+            queryset = queryset.filter(seller_shop=user_shop)
     else:
         queryset = queryset.none()
     return queryset
