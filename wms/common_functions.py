@@ -2592,7 +2592,8 @@ def get_logged_user_wise_query_set_for_shipment(user, queryset):
             or user.has_perm('wms.can_have_zone_supervisor_permission') or \
             user.has_perm('wms.can_have_zone_coordinator_permission') or \
             user.groups.filter(name='Dispatch Executive'):
-        queryset = queryset.filter(order__seller_shop_id=user.shop_employee.last().shop_id)
+        queryset = queryset.filter(Q(order__seller_shop_id=user.shop_employee.last().shop_id)|
+                                   Q(order__dispatch_center_id=user.shop_employee.last().shop_id))
     elif user.has_perm('wms.can_have_qc_executive_permission'):
         queryset = queryset.filter(qc_area__qc_desk_areas__qc_executive=user)
     else:
