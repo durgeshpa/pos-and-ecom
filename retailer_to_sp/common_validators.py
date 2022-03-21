@@ -93,8 +93,11 @@ def get_shipment_by_crate_id(crate_id, crate_type=None):
 
 
 def validate_trip_user(trip_id, user):
-    if DispatchTrip.objects.filter(id=trip_id, seller_shop=user.shop_employee.last().shop).exists():
-        return {"data": DispatchTrip.objects.get(id=trip_id, seller_shop=user.shop_employee.last().shop)}
+    user_shop = user.shop_employee.last().shop
+    if DispatchTrip.objects.filter(Q(seller_shop=user_shop) |
+                                   Q(source_shop=user_shop), id=trip_id).exists():
+        return {"data": DispatchTrip.objects.get(Q(seller_shop=user_shop) |
+                                                 Q(source_shop=user_shop), id=trip_id)}
     return {"error": "Invalid trip"}
 
 

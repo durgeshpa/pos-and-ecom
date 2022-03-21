@@ -9085,6 +9085,7 @@ class LoadVerifyCrateView(generics.GenericAPIView):
     permission_classes = (AllowAny,)
     serializer_class = LoadVerifyCrateSerializer
 
+    @check_whc_manager_dispatch_executive
     def post(self, request):
         """ POST API for Empty Crate Load Verification """
         info_logger.info("Load Verify POST api called.")
