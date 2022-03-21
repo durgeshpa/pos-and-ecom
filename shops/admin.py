@@ -279,7 +279,7 @@ class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
 
     def changeform_view(self, request, object_id, form_url='', extra_context=None):
         self.inlines = [ShopPhotosAdmin, ShopDocumentsAdmin, AddressAdmin, ShopInvoicePatternAdmin,
-                        ShopParentRetailerMapping, ShopStatusAdmin, ]
+                        DispatchCenterCityAdmin, DispatchCenterPincodeAdmin, ShopParentRetailerMapping, ShopStatusAdmin]
         if request.user.is_superuser or request.user.has_perm('shops.has_fofo_config_operations'):
             self.inlines.append(FOFOConfigurationsInline)
         return super(ShopAdmin, self).changeform_view(request, object_id, form_url, extra_context)
