@@ -8462,7 +8462,7 @@ class VerifyReturnShipmentProductsView(generics.GenericAPIView):
     queryset = OrderedProductMapping.objects.all()
     serializer_class = VerifyReturnShipmentProductsSerializer
 
-    @check_whc_manager_coordinator_supervisor_qc_executive
+    @check_whc_manager_dispatch_executive
     def get(self, request):
         """ GET API for Process Shipment """
         info_logger.info("Process Shipment GET api called.")
@@ -8486,7 +8486,7 @@ class VerifyReturnShipmentProductsView(generics.GenericAPIView):
         msg = "" if process_shipments_data else "no shipment product found"
         return get_response(msg, serializer.data, True)
 
-    @check_whc_manager_coordinator_supervisor_qc_executive
+    @check_whc_manager_dispatch_executive
     def put(self, request):
         """ PUT API for Process Shipment Updation """
 
@@ -8579,7 +8579,7 @@ class ShipmentCompleteVerifyView(generics.GenericAPIView):
              'qc_area__area_id', 'qc_area__area_type', 'created_at').\
         order_by('-id')
 
-    @check_qc_dispatch_executive
+    @check_whc_manager_dispatch_executive
     def put(self, request):
         """ PUT API for shipment update """
 
