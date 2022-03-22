@@ -1992,7 +1992,7 @@ class CartCheckout(APIView):
             if offers['applied']:
                 return api_response('Applied Successfully', data, status.HTTP_200_OK, True)
             else:
-                return api_response('Not Applicable', self.serialize(cart), status.HTTP_200_OK)
+                return api_response('Not Applicable', data, status.HTTP_200_OK)
 
     def get(self, request, *args, **kwargs):
         """
