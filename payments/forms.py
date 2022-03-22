@@ -146,8 +146,8 @@ class OrderPaymentForm(forms.ModelForm):
         if order:
             cash_to_be_collected = 0
             shipment = order.rt_order_order_product.last()
-            if paid_amount <= 0:
-                raise ValidationError(_('Paid amount should be greater than 0'))
+            # if paid_amount <= 0:
+            #     raise ValidationError(_('Paid amount should be greater than 0'))
             if shipment:
                 cash_to_be_collected = shipment.cash_to_be_collected()
                 total_payments = Payment.objects.filter(order=order, 
@@ -160,7 +160,7 @@ class OrderPaymentForm(forms.ModelForm):
                 if (float(total_paid_amount) + float(paid_amount)) > float(cash_to_be_collected):
                     raise ValidationError(_(f"Max amount to be paid is {cash_to_be_collected-total_paid_amount}"))
 
-            if paid_by and paid_amount and order and payment_mode_name:
+            if paid_by and paid_amount >= 0 and order and payment_mode_name:
                 if not self.instance.pk:
                     if existing_payment:
                         if existing_payment.order.filter(~Q(id=order.pk)).exists():
@@ -181,7 +181,6 @@ class OrderPaymentForm(forms.ModelForm):
                     payment.paid_by = paid_by
                     payment.paid_amount = paid_amount
                     payment.payment_mode_name = payment_mode_name
-                
                 if payment_mode_name == "online_payment":
                     payment.reference_no = reference_no
                     payment.online_payment_type = online_payment_type

@@ -227,8 +227,8 @@ class ParentProductSerializers(serializers.ModelSerializer):
     parent_product_log = LogSerializers(many=True, read_only=True)
     product_hsn = ProductHSNSerializers(read_only=True)
     parent_product_pro_image = ParentProductImageSerializers(many=True, read_only=True)
-    parent_product_pro_category = ParentProductCategorySerializers(many=True)
-    parent_product_pro_b2c_category = ParentProductB2cCategorySerializers(many=True)
+    parent_product_pro_category = ParentProductCategorySerializers(many=True, read_only=True)
+    parent_product_pro_b2c_category = ParentProductB2cCategorySerializers(many=True, read_only=True)
     parent_product_pro_tax = ParentProductTaxMappingSerializers(many=True)
     product_parent_product = ChildProductVendorSerializers(many=True, required=False)
     parent_id = serializers.CharField(read_only=True)
@@ -261,26 +261,18 @@ class ParentProductSerializers(serializers.ModelSerializer):
         if not 'product_hsn' in self.initial_data or not self.initial_data['product_hsn']:
             raise serializers.ValidationError(_('product_hsn is required'))
 
-        if self.initial_data.get('product_type') == 'b2c':
-            # if not 'parent_product_pro_b2c_category' in self.initial_data or not \
-            #     self.initial_data['parent_product_pro_b2c_category']:
-            #     raise serializers.ValidationError(_('parent_product_b2c_category is required'))
-            if not 'parent_product_pro_category' in self.initial_data or not \
-                self.initial_data['parent_product_pro_category']:
-                raise serializers.ValidationError(_('parent_product_category is required'))
-        elif self.initial_data.get('product_type') == 'b2b':
-            if not 'parent_product_pro_category' in self.initial_data or not \
-                self.initial_data['parent_product_pro_category']:
-                raise serializers.ValidationError(_('parent_product_category is required'))
-        elif self.initial_data.get('product_type') == 'both':
-            if not 'parent_product_pro_b2c_category' in self.initial_data or not \
-                self.initial_data['parent_product_pro_b2c_category'] and not \
-                    'parent_product_pro_category' in self.initial_data or not \
-                self.initial_data['parent_product_pro_category']:
-                    raise serializers.ValidationError(_('parent_product category is required'))
-        else:
-            pass
-        
+        if self.initial_data.get('product_type') == 'b2c' and \
+                (not 'parent_product_pro_b2c_category' in self.initial_data or not \
+                self.initial_data['parent_product_pro_b2c_category']):
+            raise serializers.ValidationError(_('parent product b2c category is required'))
+        elif self.initial_data.get('product_type') == 'b2b' and \
+                (not 'parent_product_pro_category' in self.initial_data or not \
+                self.initial_data['parent_product_pro_category']):
+            raise serializers.ValidationError(_('parent product category is required'))
+        elif self.initial_data.get('product_type') == 'both' and \
+            not (('parent_product_pro_category' in self.initial_data and self.initial_data['parent_product_pro_category']) \
+                or ('parent_product_pro_b2c_category' in self.initial_data and self.initial_data['parent_product_pro_b2c_category'])):
+            raise serializers.ValidationError(_('parent product category or parent product b2c category is required'))
 
         if not 'parent_product_pro_tax' in self.initial_data or not self.initial_data['parent_product_pro_tax']:
             raise serializers.ValidationError(_('parent_product_pro_tax is required'))
@@ -301,22 +293,26 @@ class ParentProductSerializers(serializers.ModelSerializer):
         data['product_hsn'] = product_hsn_val['product_hsn']
         if self.initial_data.get('product_type') == 'b2b':
             b2b_category_val = get_validate_categories(self.initial_data['parent_product_pro_category'])
+            if 'error' in b2b_category_val:
+                raise serializers.ValidationError(_(b2b_category_val["error"]))
         elif self.initial_data.get('product_type') == 'b2c':
-            b2c_category_val = get_validate_categories(self.initial_data['parent_product_pro_b2c_category'])
+            b2c_category_val = get_validate_categories(self.initial_data['parent_product_pro_b2c_category'], True)
+            if 'error' in b2c_category_val:
+                raise serializers.ValidationError(_(b2c_category_val["error"]))
         else:
-            b2b_category_val = get_validate_categories(self.initial_data['parent_product_pro_category'])
-            b2c_category_val = get_validate_categories(self.initial_data['parent_product_pro_b2c_category'])
-            
-        if 'error' in b2b_category_val:
-            raise serializers.ValidationError(_(b2b_category_val["error"]))
-        if 'error' in b2c_category_val:
-            raise serializers.ValidationError(_(b2c_category_val["error"]))
-        # data['parent_product_pro_category'] = category_val['category']
+            if 'parent_product_pro_category' in self.initial_data and self.initial_data['parent_product_pro_category']:
+                b2b_category_val = get_validate_categories(self.initial_data['parent_product_pro_category'])
+                if 'error' in b2b_category_val:
+                    raise serializers.ValidationError(_(b2b_category_val["error"]))
+            if 'parent_product_pro_b2c_category' in self.initial_data and \
+                    self.initial_data['parent_product_pro_b2c_category']:
+                b2c_category_val = get_validate_categories(self.initial_data['parent_product_pro_b2c_category'], True)
+                if 'error' in b2c_category_val:
+                    raise serializers.ValidationError(_(b2c_category_val["error"]))
 
         tax_val = get_validate_tax(self.initial_data['parent_product_pro_tax'])
         if 'error' in tax_val:
             raise serializers.ValidationError(_(tax_val["error"]))
-        # data['parent_product_pro_tax'] = tax_val['tax']
 
         parent_pro_id = self.instance.id if self.instance else None
         if 'name' in self.initial_data and self.initial_data['name'] is not None:
@@ -330,9 +326,9 @@ class ParentProductSerializers(serializers.ModelSerializer):
         model = ParentProduct
         fields = ('id', 'parent_id', 'name', 'inner_case_size', 'brand_case_size', 'product_type', 'status',
                   'product_hsn', 'parent_brand', 'parent_product_pro_tax', 'parent_product_pro_category',
-                  'is_ptr_applicable', 'ptr_percent', 'ptr_type', 'is_ars_applicable', 'max_inventory',
-                  'is_lead_time_applicable', 'discounted_life_percent', 'product_images', 'parent_product_pro_image',
-                  'product_parent_product', 'parent_product_log', 'parent_product_pro_b2c_category')
+                  'parent_product_pro_b2c_category', 'is_ptr_applicable', 'ptr_percent', 'ptr_type',
+                  'is_ars_applicable', 'max_inventory', 'is_lead_time_applicable', 'discounted_life_percent',
+                  'product_images', 'parent_product_pro_image', 'product_parent_product', 'parent_product_log')
 
     def to_representation(self, instance):
         representation = super().to_representation(instance)
@@ -348,7 +344,7 @@ class ParentProductSerializers(serializers.ModelSerializer):
 
         validated_data.pop('product_images', None)
         validated_data.pop('parent_product_pro_category', None)
-        validated_data.pop('preant_product_pro_b2c_category', None)
+        validated_data.pop('parent_product_pro_b2c_category', None)
         validated_data.pop('parent_product_pro_tax', None)
         validated_data.pop('product_parent_product', None)
 
@@ -396,10 +392,13 @@ class ParentProductSerializers(serializers.ModelSerializer):
             product_images = self.initial_data['product_images']
 
         ParentProductCls.upload_parent_product_images(parent_product, parent_product_pro_image, product_images)
-        ParentProductCls.create_parent_product_category(parent_product,
-                                                        self.initial_data['parent_product_pro_category'])
-        ParentProductCls.create_parent_product_b2c_category(parent_product,
-                                                            self.initial_data['parent_product_pro_b2c_category'])
+        if 'parent_product_pro_category' in self.initial_data and self.initial_data['parent_product_pro_category']:
+            ParentProductCls.create_parent_product_category(parent_product,
+                                                            self.initial_data['parent_product_pro_category'])
+        if 'parent_product_pro_b2c_category' in self.initial_data and \
+                self.initial_data['parent_product_pro_b2c_category']:
+            ParentProductCls.create_parent_product_b2c_category(parent_product,
+                                                                self.initial_data['parent_product_pro_b2c_category'])
         ParentProductCls.create_parent_product_tax(parent_product, self.initial_data['parent_product_pro_tax'])
 
 
