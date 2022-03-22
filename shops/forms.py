@@ -170,6 +170,13 @@ class ShopForm(forms.ModelForm):
 
         return data
 
+    def clean(self):
+        data = self.cleaned_data
+        if data.get('approval_status') == Shop.DISAPPROVED and data.get('disapproval_status_reason') is None:
+            raise ValidationError('Disapproval status reason is required.')
+
+        return data
+
     @classmethod
     def get_shop_type(cls, data):
         shop_type = data.cleaned_data.get('shop_type')
@@ -317,9 +324,6 @@ class FOFOConfigInlineForm(forms.ModelForm):
             self._errors['delivery_redius'] = self.error_class(["Delivery Radius Should Be Positive Number"])
 
         return self.cleaned_data
-
-
-
 
 
 class ShopTimingForm(forms.ModelForm):
