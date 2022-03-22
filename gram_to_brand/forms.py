@@ -436,6 +436,8 @@ class GRNOrderProductFormset(forms.models.BaseInlineFormSet):
             product_invoice_qty = form.cleaned_data.get('product_invoice_qty')
             delivered_qty = form.cleaned_data.get('delivered_qty')
             returned_qty = form.cleaned_data.get('returned_qty')
+            product_invoice_gst = form.cleaned_data.get('product_invoice_gst')
+            cess_percentage = form.cleaned_data.get('cess_percentage')
             count = count + 1 if product_invoice_qty else count
             if delivered_qty is None or returned_qty is None:
                 raise ValidationError('This field is required')
@@ -451,6 +453,16 @@ class GRNOrderProductFormset(forms.models.BaseInlineFormSet):
                                  'product_invoice_qty': product_invoice_qty,
                                  'product_name': form.cleaned_data.get('product')}
                 products_dict[form.instance.product.id] = products_data
+
+            if product_invoice_qty and product_invoice_gst != self.instance.order.ordered_cart.cart_list.filter(
+                    cart_product=form.instance.product).last().gst:
+                raise ValidationError(f'Please provide Product Invoice GST for product {form.instance.product} '
+                                      f'as per invoice and must be matched with PO.')
+
+            if product_invoice_qty and cess_percentage != self.instance.order.ordered_cart.cart_list.filter(
+                    cart_product=form.instance.product).last().cess:
+                raise ValidationError(f'Please provide CESS Percentage for product {form.instance.product} '
+                                      f' as per invoice and must be matched with PO.')
 
         if count < 1:
             raise ValidationError("Please fill the product invoice quantity of at least one product.")
