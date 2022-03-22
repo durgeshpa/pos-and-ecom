@@ -620,7 +620,7 @@ class LandingPageSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = LandingPage
-        fields = ('id', 'banner_image', 'app', 'type', 'sub_type', 'page_function', 'params', 'page_action_url',
+        fields = ('id', 'name', 'banner_image', 'app', 'type', 'sub_type', 'page_function', 'params', 'page_action_url',
                   'landing_page_products', 'page_link')
 
     def validate(self, data):
@@ -629,6 +629,8 @@ class LandingPageSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError("'app' | This is required")
             elif int(self.initial_data['app']) not in Application.objects.values_list('pk', flat=True):
                 raise serializers.ValidationError(f"Invalid app {self.initial_data['app']}")
+            elif 'name' not in self.initial_data or isBlank(self.initial_data.get('name')):
+                raise serializers.ValidationError("'name' | This is required")
             elif 'type' not in self.initial_data or not self.initial_data.get('type'):
                 raise serializers.ValidationError("'type' | This is required")
             elif int(self.initial_data['type']) not in get_config('CMS_LANDING_PAGE_TYPE', LANDING_PAGE_TYPE_CHOICE):
@@ -663,9 +665,8 @@ class LandingPageSerializer(serializers.ModelSerializer):
                 data['page_function'] = func
                 data['params'] = self.initial_data.get('params')
 
-            if LandingPage.objects.filter(type=int(self.initial_data['type']), sub_type=int(self.initial_data['sub_type']),
-                                          page_function=int(self.initial_data['page_function'])).exists():
-                raise serializers.ValidationError("Landing page already exists for this config.")
+            if LandingPage.objects.filter(name=self.initial_data['name'].strip()).exists():
+                raise serializers.ValidationError("Landing page already exists for this name.")
         elif 'id' in self.initial_data and self.initial_data['id']:
             if not self.initial_data.get('products') or not isinstance(self.initial_data.get('products'), list) \
                     or len(self.initial_data.get('products')) == 0:
@@ -676,7 +677,7 @@ class LandingPageSerializer(serializers.ModelSerializer):
                     raise serializers.ValidationError(f"Product with id {product_id} does not exists")
                 products.append(Product.objects.get(pk=product_id))
             data['products'] = products
-
+        data['name'] = self.initial_data['name'].strip()
         data['app_id'] = int(self.initial_data['app'])
         data['type'] = int(self.initial_data['type'])
         data['sub_type'] = int(self.initial_data['sub_type'])

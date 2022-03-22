@@ -150,6 +150,7 @@ class ApplicationPage(BaseTimestampUserModel):
 
 class LandingPage(BaseTimestampUserModel):
     app = models.ForeignKey(Application, on_delete=models.CASCADE, related_name='app_landing_pages')
+    name = models.CharField(max_length=20)
     type = models.PositiveIntegerField(choices=LANDING_PAGE_TYPE_CHOICE)
     sub_type = models.PositiveIntegerField(choices=LISTING_SUBTYPE_CHOICE)
     banner_image = models.ImageField(upload_to="cards/items/images", null=True, blank=True)

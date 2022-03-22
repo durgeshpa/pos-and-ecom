@@ -822,6 +822,17 @@ class LandingPageView(generics.GenericAPIView):
         return self.request.data
 
 
+
+class CardTypeList(GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+
+    def get(self, request):
+        fields = ['id', 'value']
+        data = [dict(zip(fields, d)) for d in CARD_TYPE_CHOICES]
+        return get_response('', data, True)
+
+
 class LandingPageTypeList(GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
