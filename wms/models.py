@@ -141,10 +141,10 @@ class WarehouseAssortment(BaseTimestampUserModel):
     def __str__(self):
         return str(self.product) + " - " + str(self.zone) + " - " + str(self.pk)
 
-    def save(self, force_insert=False, force_update=False, using=None,
-             update_fields=None):
+    def save(self, *args, **kwargs):
         Putaway.objects.filter(warehouse=self.warehouse, sku__parent_product=self.product, zone__isnull=True) \
             .update(zone=self.zone)
+        super(WarehouseAssortment, self).save(*args, **kwargs)
 
 
 class BaseQuerySet(query.QuerySet):
