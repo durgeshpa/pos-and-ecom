@@ -98,11 +98,13 @@ class BulkCreateUpdateAttributesView(GenericAPIView):
             h)Create Parent Product
             i)Create Brand
             j)Create Category
+            k)Create B2c Category
 
             g)Update Child Product
             h)Update Parent Product
             i)Update Brand
             j)Update Category
+            k)Update B2c Category
 
             After following operations, an entry will be created in 'BulkUploadForProductAttributes' Table
         """

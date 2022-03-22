@@ -33,6 +33,8 @@ def create_update_master_data(validated_data, category):
         UploadMasterData.update_brand_data(uploaded_data_by_user_list, validated_data['updated_by'],)
     if validated_data['upload_type'] == "category_update":
         UploadMasterData.update_category_data(uploaded_data_by_user_list, validated_data['updated_by'])
+    if validated_data['upload_type'] == "b2c_category_update":
+        UploadMasterData.update_category_data(uploaded_data_by_user_list, validated_data['updated_by'], b2c=True)
 
     # create bulk
     if validated_data['upload_type'] == "create_child_product":
@@ -41,6 +43,8 @@ def create_update_master_data(validated_data, category):
         UploadMasterData.create_bulk_parent_product(uploaded_data_by_user_list, validated_data['updated_by'])
     if validated_data['upload_type'] == "create_category":
         UploadMasterData.create_bulk_category(uploaded_data_by_user_list, validated_data['updated_by'])
+    if validated_data['upload_type'] == "create_b2c_category":
+        UploadMasterData.create_bulk_category(uploaded_data_by_user_list, validated_data['updated_by'], b2c=True)
     if validated_data['upload_type'] == "create_brand":
         UploadMasterData.create_bulk_brand(uploaded_data_by_user_list, validated_data['updated_by'])
 
@@ -65,6 +69,8 @@ def download_sample_file_update_master_data(validated_data):
         response = DownloadMasterData.update_child_product_sample_file(validated_data)
     if validated_data['upload_type'] == "category_update":
         response = DownloadMasterData.update_category_sample_file(validated_data)
+    if validated_data['upload_type'] == "b2c_category_update":
+        response = DownloadMasterData.update_category_sample_file(validated_data, b2c=True)
     if validated_data['upload_type'] == "brand_update":
         response = DownloadMasterData.update_brand_sample_file(validated_data)
 
@@ -77,6 +83,8 @@ def download_sample_file_update_master_data(validated_data):
         response = DownloadMasterData.create_brand_sample_file(validated_data)
     if validated_data['upload_type'] == "create_category":
         response = DownloadMasterData.create_category_sample_file(validated_data)
+    if validated_data['upload_type'] == "create_b2c_category":
+        response = DownloadMasterData.create_category_sample_file(validated_data, b2c=True)
 
     return response
 
