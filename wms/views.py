@@ -22,6 +22,7 @@ from rest_framework import status
 from rest_framework.response import Response
 
 from accounts.models import User
+from addresses.models import DispatchCenterPincodeMapping
 from audit.models import AuditProduct, AUDIT_PRODUCT_STATUS
 from barCodeGenerator import barcodeGen
 # django imports
@@ -942,38 +943,60 @@ def pickup_entry_exists_for_order_zone(order_id, zone_id):
     return False
 
 
-# def mail_products_list_not_mapped_yet_to_any_zone():
-#     info_logger.info('mail_products_list_not_mapped_yet_to_any_zone | STARTED')
-#     type_normal = InventoryType.objects.only('id').get(inventory_type='normal').id
-#     stage_total_available = InventoryState.objects.only('id').get(inventory_state='total_available').id
-#     products = ParentProduct.objects.filter(
-#         status=True, product_parent_product__status='active',
-#         product_parent_product__related_sku__inventory_type=type_normal,
-#         product_parent_product__related_sku__inventory_state=stage_total_available,
-#         product_parent_product__related_sku__quantity__gt=0,
-#         product_parent_product__related_sku__warehouse__id=600, product_zones__isnull=True).distinct()
-#     info_logger.info("Non mapped products, Count: " + str(products.count()))
-#     if products.count() > 0:
-#         sender = get_config("sender")
-#         recipient_list = get_config("MAIL_DEV")
-#         if config('OS_ENV') and config('OS_ENV') in ['Production']:
-#             bcc_list = recipient_list
-#             recipient_list = get_config("MAIL_WAREHOUSE_TEAM_RECEIVER", recipient_list)
-#         subject = 'Products list non-mapped with any zone'
-#         body = "PFA the list of products which are not mapped with any zone. " \
-#                "Please note that order having any of these products can't be processed " \
-#                "until and unless these products get mapped with zone."
-#         f = StringIO()
-#         writer = csv.writer(f)
-#         filename = 'Products-without-zone-mapped.csv'
-#         columns = ['Parent Id', 'Name']
-#         writer.writerow(columns)
-#         for item in products:
-#             writer.writerow([item.parent_id, item.name])
-#         attachment = {'name': filename, 'type': 'text/csv', 'value': f.getvalue()}
-#         send_mail(sender, recipient_list, subject, body, [attachment], bcc=bcc_list)
-#         info_logger.info("Email sent to the warehouse team with the list of products non mapped with any zone.")
-#     info_logger.info('mail_products_list_not_mapped_yet_to_any_zone | COMPLETED')
+def assign_dispatch_center_to_order_by_pincode(order_id):
+    try:
+        order_ins = Order.objects.get(id=order_id)
+        if not order_ins.dispatch_delivery and order_ins.dispatch_center is None:
+            order_pincode = order_ins.shipping_address.pincode_link if order_ins.shipping_address else None
+            if order_pincode:
+                dispatch_center_map = DispatchCenterPincodeMapping.objects.filter(pincode=order_pincode).last()
+                if dispatch_center_map:
+                    order_ins.dispatch_center = dispatch_center_map.dispatch_center
+                    order_ins.dispatch_delivery = True
+                    order_ins.save()
+                    info_logger.info("Dispatch center assigned to order no " + str(order_ins.order_no))
+                else:
+                    info_logger.info("No Dispatch center found mapped with pincode " + str(order_pincode.pincode))
+            else:
+                info_logger.info("No pincode for order " + str(order_ins))
+        else:
+            info_logger.info("Dispatch center already assigned to order no " + str(order_ins.order_no))
+    except Exception as ex:
+        info_logger.error("Unable to assign_dispatch_center_to_order, No order found for order Id: " + str(order_id) +
+                          ", Error msg: " + str(ex))
+
+
+def mail_products_list_not_mapped_yet_to_any_zone():
+    info_logger.info('mail_products_list_not_mapped_yet_to_any_zone | STARTED')
+    type_normal = InventoryType.objects.only('id').get(inventory_type='normal').id
+    stage_total_available = InventoryState.objects.only('id').get(inventory_state='total_available').id
+    products = ParentProduct.objects.filter(
+        status=True, product_parent_product__status='active',
+        product_parent_product__related_sku__inventory_type=type_normal,
+        product_parent_product__related_sku__inventory_state=stage_total_available,
+        product_parent_product__related_sku__quantity__gt=0,
+        product_parent_product__related_sku__warehouse__id=600, product_zones__isnull=True).distinct()
+    info_logger.info("Non mapped products, Count: " + str(products.count()))
+    if products.count() > 0:
+        sender = get_config("sender")
+        recipient_list = get_config("MAIL_DEV")
+        if config('OS_ENV') and config('OS_ENV') in ['Production']:
+            recipient_list = get_config("MAIL_WAREHOUSE_TEAM_RECEIVER", recipient_list)
+        subject = 'Products list non-mapped with any zone'
+        body = "PFA the list of products which are not mapped with any zone. " \
+               "Please note that order having any of these products can't be processed " \
+               "until and unless these products get mapped with zone."
+        f = StringIO()
+        writer = csv.writer(f)
+        filename = 'Products-without-zone-mapped.csv'
+        columns = ['Parent Id', 'Name']
+        writer.writerow(columns)
+        for item in products:
+            writer.writerow([item.parent_id, item.name])
+        attachment = {'name': filename, 'type': 'text/csv', 'value': f.getvalue()}
+        send_mail(sender, recipient_list, subject, body, [attachment])
+        info_logger.info("Email sent to the warehouse team with the list of products non mapped with any zone.")
+    info_logger.info('mail_products_list_not_mapped_yet_to_any_zone | COMPLETED')
 
 
 def mail_warehouse_team_for_product_mappings(order_no, product_ids):
@@ -1164,21 +1187,25 @@ def pickup_entry_creation_with_cron():
                 for zone_id in zones_list:
                     if not pickup_entry_exists_for_order_zone(order.id, zone_id):
                         # Get user and update last_assigned_at of ZonePickerUserAssignmentMapping
-                        zone_picker_assigned_user = ZonePickerUserAssignmentMapping.objects.filter(
-                            user_enabled=True, zone_id=zone_id, last_assigned_at=None).last()
-                        if not zone_picker_assigned_user:
+                        picker_user_assigned = False
+                        if order.seller_shop.cutoff_time is None or \
+                                order.seller_shop.cutoff_time < datetime.now().time():
                             zone_picker_assigned_user = ZonePickerUserAssignmentMapping.objects.filter(
-                                user_enabled=True, zone_id=zone_id). \
-                                order_by('-last_assigned_at').last()
-                        if zone_picker_assigned_user:
-                            picker_user = zone_picker_assigned_user.user
-                            zone_picker_assigned_user.last_assigned_at = datetime.now()
-                            zone_picker_assigned_user.save()
-                            # Create Entry in PickerDashboard with PICKING_ASSIGNED status
-                            PickerDashboard.objects.create(
-                                order=order, picking_status=PickerDashboard.PICKING_ASSIGNED, zone_id=zone_id,
-                                picker_boy=picker_user, picklist_id=generate_picklist_id(pincode))
-                        else:
+                                user_enabled=True, zone_id=zone_id, last_assigned_at=None).last()
+                            if not zone_picker_assigned_user:
+                                zone_picker_assigned_user = ZonePickerUserAssignmentMapping.objects.filter(
+                                    user_enabled=True, zone_id=zone_id). \
+                                    order_by('-last_assigned_at').last()
+                            if zone_picker_assigned_user:
+                                picker_user = zone_picker_assigned_user.user
+                                zone_picker_assigned_user.last_assigned_at = datetime.now()
+                                zone_picker_assigned_user.save()
+                                # Create Entry in PickerDashboard with PICKING_ASSIGNED status
+                                PickerDashboard.objects.create(
+                                    order=order, picking_status=PickerDashboard.PICKING_ASSIGNED, zone_id=zone_id,
+                                    picker_boy=picker_user, picklist_id=generate_picklist_id(pincode))
+                                picker_user_assigned = True
+                        if not picker_user_assigned:
                             order.order_status = Order.PICKUP_CREATED
                             cron_logger.info('Picker user not found for zone {}'.format(zone_id))
                             # Create Entry in PickerDashboard with PICKING_PENDING status
@@ -1192,6 +1219,7 @@ def pickup_entry_creation_with_cron():
                 info_logger.info("pickup_entry_creation_with_cron | " + str(order.order_no) + " | " +
                                  str(order.order_status))
                 order.save()
+                assign_dispatch_center_to_order_by_pincode(order.pk)
                 cron_logger.info('pickup entry created for order {}'.format(order.order_no))
         except Exception as e:
             cron_logger.info('Exception while creating pickup for order {}'.format(order.order_no))
@@ -1201,6 +1229,38 @@ def pickup_entry_creation_with_cron():
     cron_log_entry.completed_at = timezone.now()
     cron_logger.info("{} completed, cron log entry-{}".format(cron_log_entry.cron_name, cron_log_entry.id))
     cron_log_entry.save()
+
+
+def assign_picker_user_to_pickup_created_orders():
+    cron_logger.info("Started assign_picker_user_to_pickup_created_orders.")
+    current_time = datetime.now() - timedelta(minutes=1)
+    start_time = datetime.now() - timedelta(days=3)
+    picker_dash_ins = PickerDashboard.objects.filter(
+        picking_status="picking_pending", order_closed=False,
+        created_at__lt=current_time, created_at__gt=start_time).order_by('created_at')
+    if picker_dash_ins.count() == 0:
+        cron_logger.info("No pickup pending to assign picker user.")
+        return
+    for picker_dash_obj in picker_dash_ins:
+        zone_picker_assigned_user = ZonePickerUserAssignmentMapping.objects.filter(
+            user_enabled=True, zone=picker_dash_obj.zone, last_assigned_at=None).last()
+        if not zone_picker_assigned_user:
+            zone_picker_assigned_user = ZonePickerUserAssignmentMapping.objects.filter(
+                user_enabled=True, zone=picker_dash_obj.zone). \
+                order_by('-last_assigned_at').last()
+        if zone_picker_assigned_user:
+            picker_user = zone_picker_assigned_user.user
+            zone_picker_assigned_user.last_assigned_at = datetime.now()
+            zone_picker_assigned_user.save()
+            # Create Entry in PickerDashboard with PICKING_ASSIGNED status
+            picker_dash_obj.picking_status = PickerDashboard.PICKING_ASSIGNED
+            picker_dash_obj.picker_boy = picker_user
+            picker_dash_obj.save()
+            cron_logger.info(f"Picker user {picker_user} assigned to pickup entry {picker_dash_obj} "
+                             f"for order no {picker_dash_obj.order}")
+        else:
+            cron_logger.info(f"No picker found for zone {picker_dash_obj.zone}")
+    cron_logger.info("Completed assign_picker_user_to_pickup_created_orders.")
 
 
 class DownloadBinCSV(View):

@@ -407,12 +407,11 @@ class GRNOrderProductFormset(forms.models.BaseInlineFormSet):
                 cart_product = item.cart_product_mapping.filter(cart=ordered_cart).last()
                 # Price and Mrp
                 price = cart_product.price
-                mrp = '-'
+                mrp = cart_product.cart_product.product_mrp if cart_product.cart_product else '-'
                 vendor_mapping = cart_product.vendor_product
                 if vendor_mapping:
                     piece_price, pack_price = vendor_mapping.product_price, vendor_mapping.product_price_pack
                     price = piece_price if piece_price else (pack_price if pack_price else price)
-                    mrp = vendor_mapping.product_mrp
                 # Quantity
                 po_product_quantity = cart_product.qty
                 initial.append({

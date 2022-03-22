@@ -25,10 +25,8 @@ from django.db import transaction, models
 from gram_to_brand.models import GRNOrderProductMapping
 import datetime
 from wms.common_functions import (CommonBinInventoryFunctions, PutawayCommonFunctions, CommonBinFunctions,
-                                  updating_tables_on_putaway,
-                                  CommonWarehouseInventoryFunctions, InternalInventoryChange,
+                                  updating_tables_on_putaway, CommonWarehouseInventoryFunctions, InternalInventoryChange,
                                   get_logged_user_wise_query_set_for_pickup_list)
-
 from ..v2.serializers import PicklistSerializer
 from ...common_validators import validate_pickup_crates_list, validate_pickup_request
 from ...services import check_whc_manager_coordinator_supervisor_picker, pickup_search, check_picker
@@ -520,7 +518,6 @@ class PickupList(APIView):
             start_date = end_date.replace(hour=0, minute=0, second=0)
             if data_days:
                 start_date = end_date.replace(hour=0, minute=0, second=0) - datetime.timedelta(days=int(data_days))
-
             self.queryset = self.queryset.filter(created_at__gte=start_date, created_at__lte=end_date)
         return self.queryset
 
