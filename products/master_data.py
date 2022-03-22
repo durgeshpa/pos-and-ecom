@@ -11,9 +11,9 @@ from django.db.models import Q
 from brand.common_function import BrandCls
 from brand.models import Brand
 from categories.common_function import CategoryCls
-from categories.models import Category
+from categories.models import B2cCategoryData, Category, B2cCategory
 from products.common_function import ParentProductCls, ProductCls
-from products.models import Product, ParentProduct, ParentProductTaxMapping, ProductHSN, ParentProductCategory, Tax, \
+from products.models import Product, ParentProduct, ParentProductTaxMapping, ProductHSN, ParentProductCategory, ParentProductB2cCategory, Tax, \
     DestinationRepackagingCostMapping, ProductSourceMapping, ProductPackingMapping, ProductVendorMapping, \
     SlabProductPrice, PriceSlab, DiscountedProductPrice, ProductPrice
 from products.utils import get_selling_price
@@ -236,7 +236,7 @@ class UploadMasterData(object):
 
                     fields = ['parent_name', 'product_type', 'hsn', 'tax_1(gst)', 'tax_2(cess)', 'status',
                               'tax_3(surcharge)', 'brand_case_size', 'inner_case_size', 'brand_id', 'sub_brand_id',
-                              'category_id', 'sub_category_id', 'is_ptr_applicable', 'ptr_type', 'brand_case_size',
+                              'category_id', 'sub_category_id', 'b2c_category_id', 'b2c_sub_category_id' , 'is_ptr_applicable', 'ptr_type', 'brand_case_size',
                               'ptr_percent', 'is_ars_applicable', 'max_inventory_in_days', 'is_lead_time_applicable',
                               'discounted_life_percent']
 
@@ -254,7 +254,7 @@ class UploadMasterData(object):
 
                         if col == 'sub_brand_id' and row['sub_brand_id']:
                             parent_product.update(parent_brand=Brand.objects.filter(id=row['sub_brand_id']).last())
-
+                        
                         if col == 'sub_category_id':
                             parent_product_id = parent_product.last().id
                             if parent_product_id not in parent_product_categorys:
@@ -482,13 +482,16 @@ class UploadMasterData(object):
             error_logger.info(f"Something went wrong, while working with 'Set Child Parent Functionality' + {str(e)}")
 
     @classmethod
-    def update_category_data(cls, csv_file_data_list, user):
+    def update_category_data(cls, csv_file_data_list, user, b2c=False):
         try:
             info_logger.info("Method Start to update category data from csv file")
             count = 0
             row_num = 1
             cat_data = []
-            categories = Category.objects.all()
+            if not b2c:
+                categories = Category.objects.all()
+            else:
+                categories = B2cCategory.objects.all()
             for row in csv_file_data_list:
                 row_num += 1
                 count += 1
@@ -515,10 +518,10 @@ class UploadMasterData(object):
                             category.update(status=True if str(row['status'].lower()) == 'active' else False)
                         if col == 'parent_category_id':
                             category.update(
-                                category_parent=Category.objects.filter(id=int(row['parent_category_id'])).last())
+                                category_parent=categories.filter(id=int(row['parent_category_id'])).last())
 
                         category.update(updated_by=user)
-                        CategoryCls.create_category_log(category.last(), "updated")
+                        CategoryCls.create_category_log(category.last(), "updated", b2c=b2c)
 
                 except Exception as e:
                     cat_data.append(str(row_num) + ' ' + str(e))
@@ -631,19 +634,32 @@ class UploadMasterData(object):
                                                            tax_start_at=datetime.datetime.now())
 
                     ParentProductTaxMapping.objects.create(parent_product=parent_product, tax=new_surcharge_tax)
+                if parent_product.product_type == 'b2b' or parent_product.product_type == 'both':
+                    if Category.objects.filter(category_name=row['category_name'].strip()).exists():
+                        ParentProductCategory.objects.create(
+                            parent_product=parent_product,
+                            category=Category.objects.filter(category_name=row['category_name'].strip()).last())
 
-                if Category.objects.filter(category_name=row['category_name'].strip()).exists():
-                    ParentProductCategory.objects.create(
-                        parent_product=parent_product,
-                        category=Category.objects.filter(category_name=row['category_name'].strip()).last())
+                    else:
+                        categories = row['category_name'].split(',')
+                        for cat in categories:
+                            cat = cat.strip().replace("'", '')
+                            ParentProductCategory.objects.create(parent_product=parent_product,
+                                                                category=Category.objects.filter(
+                                                                    category_name=cat).last())
+                if parent_product.product_type == 'b2c' or parent_product.product_type == 'both':
+                    if B2cCategory.objects.filter(category_name=row['b2c_category_name'].strip()).exists():
+                        ParentProductB2cCategory.objects.create(
+                            parent_product=parent_product,
+                            category=B2cCategory.objects.filter(category_name=row['b2c_category_name'].strip()).last())
 
-                else:
-                    categories = row['category_name'].split(',')
-                    for cat in categories:
-                        cat = cat.strip().replace("'", '')
-                        ParentProductCategory.objects.create(parent_product=parent_product,
-                                                             category=Category.objects.filter(
-                                                                 category_name=cat).last())
+                    else:
+                        categories = row['b2c_category_name'].split(',')
+                        for cat in categories:
+                            cat = cat.strip().replace("'", '')
+                            ParentProductB2cCategory.objects.create(parent_product=parent_product,
+                                                                    category=B2cCategory.objects.filter(
+                                                                    category_name=cat).last())
 
             info_logger.info("Method complete to create the Parent Product from csv file")
         except Exception as e:
@@ -705,23 +721,36 @@ class UploadMasterData(object):
                               f" + {str(e)}")
 
     @classmethod
-    def create_bulk_category(cls, csv_file_data_list, user):
+    def create_bulk_category(cls, csv_file_data_list, user, b2c=False):
         """
             Create Category
         """
         try:
             info_logger.info('Method Start to create Category')
-            for row in csv_file_data_list:
-                cat_obj = Category.objects.create(
-                    category_name=row['name'],
-                    category_slug=row['category_slug'],
-                    category_parent=Category.objects.filter(id=int(row['parent_category_id'])).last()
-                    if row['parent_category_id'] else None,
-                    category_desc=row['category_desc'],
-                    category_sku_part=row['category_sku_part'],
-                    status=True if str(row['status'].lower()) == 'active' else False,
-                    created_by=user)
-                CategoryCls.create_category_log(cat_obj, "created")
+            if not b2c:
+                for row in csv_file_data_list:
+                    cat_obj = Category.objects.create(
+                        category_name=row['name'],
+                        category_slug=row['category_slug'],
+                        category_parent=Category.objects.filter(id=int(row['parent_category_id'])).last()
+                        if row['parent_category_id'] else None,
+                        category_desc=row['category_desc'],
+                        category_sku_part=row['category_sku_part'],
+                        status=True if str(row['status'].lower()) == 'active' else False,
+                        created_by=user)
+                    CategoryCls.create_category_log(cat_obj, "created")
+            else:
+                for row in csv_file_data_list:
+                    cat_obj = B2cCategory.objects.create(
+                        category_name=row['name'],
+                        category_slug=row['category_slug'],
+                        category_parent=B2cCategory.objects.filter(id=int(row['parent_category_id'])).last()
+                        if row['parent_category_id'] else None,
+                        category_desc=row['category_desc'],
+                        category_sku_part=row['category_sku_part'],
+                        status=True if str(row['status'].lower()) == 'active' else False,
+                        created_by=user)
+                    CategoryCls.create_category_log(cat_obj, "created", b2c=True)
 
             info_logger.info("Method complete to create Category from csv file")
         except Exception as e:
@@ -891,15 +920,17 @@ class DownloadMasterData(object):
     def create_parent_product_sample_file(cls, validated_data):
         response, writer = DownloadMasterData.response_workbook("bulk_parent_product_create_sample")
 
-        columns = ["product_name", "brand_id", "brand_name", "category_name", "hsn", "gst", "cess", "surcharge",
+        columns = ["product_name", "brand_id", "brand_name", "category_name", "b2c_category_name", "hsn", "gst", "cess", "surcharge",
                    "inner_case_size", "brand_case_size", "product_type", "is_ptr_applicable", "ptr_type", "ptr_percent",
                    "is_ars_applicable", "discounted_life_percent", "max_inventory_in_days", "is_lead_time_applicable",
                    "status"]
         writer.writerow(columns)
-        data = [["parent1", "2", "Too Yumm", "Health Care, Beverages, Grocery & Staples", "123456", "18", "12", "100",
+        data = [["parent1", "2", "Too Yumm", "Health Care, Beverages, Grocery & Staples", "","123456", "18", "12", "100",
                  "10", "2", "b2b", "yes", "Mark Up", "12", "yes", "2", "2", "yes", "deactivated"],
-                ["parent2", "2", "Too Yumm", "Health Care, Beverages", "123456", "18", "12", "100",
-                 "10", "2", "b2b", "yes", "Mark Up", "12", "yes", "0.0", "2", "yes", "active"]]
+                ["parent2", "2", "Too Yumm", "","Health Care, Beverages", "123456", "18", "12", "100",
+                 "10", "2", "b2c", "yes", "Mark Up", "12", "yes", "0.0", "2", "yes", "active"], 
+                ["parent2", "2", "Too Yumm", "Health Care, Beverages, Grocery & Staples","Health Care, Beverages", 
+                 "123456", "18", "12", "100", "10", "2", "both", "yes", "Mark Up", "12", "yes", "0.0", "2", "yes", "active"]]
 
         for row in data:
             writer.writerow(row)
@@ -951,17 +982,21 @@ class DownloadMasterData(object):
         return response
 
     @classmethod
-    def create_category_sample_file(cls, validated_data):
+    def create_category_sample_file(cls, validated_data, b2c=False):
         response, writer = DownloadMasterData.response_workbook("bulk_category_create_sample")
         columns = ["name", "category_slug", "category_desc", "category_parent", "parent_category_id",
                    "category_sku_part", "status"]
         writer.writerow(columns)
-        data = [["Home Improvement", "home_improvement", "XYZ", "Processed Food", "2", "HMI", "active"],
-                ["Electronics", "electronics", "XYZ", "Processed Food", "2", "KGF", "deactivated"]]
+        if b2c:
+            data = [["Home Improvement", "home_improvement", "XYZ", "Processed Food", "579", "HMI", "active"],
+                    ["Electronics", "electronics", "XYZ", "Processed Food", "579", "KGF", "deactivated"]]
+        else:
+            data = [["Home Improvement", "home_improvement", "XYZ", "Processed Food", "2", "HMI", "active"],
+                    ["Electronics", "electronics", "XYZ", "Processed Food", "2", "KGF", "deactivated"]]
         for row in data:
             writer.writerow(row)
 
-        info_logger.info("Category Sample CSVExported successfully ")
+        info_logger.info("Category Sample CSV Exported successfully ")
         response.seek(0)
         return response
 
@@ -975,13 +1010,30 @@ class DownloadMasterData(object):
                    'secondary_pm_cost', "packing_sku_id", "packing_material_weight"]
 
         writer.writerow(columns)
-        sub_cat = Category.objects.filter(category_parent=validated_data['category_id'])
-        products = Product.objects.values('id', 'product_sku', 'product_name', 'product_ean_code', 'product_mrp',
-                                          'weight_unit', 'weight_value', 'status', 'repackaging_type',
-                                          'parent_product__parent_id', 'parent_product__name', 'product_special_cess',
-                                          'parent_product__parent_product_pro_category__category__category_name') \
-            .filter(Q(parent_product__parent_product_pro_category__category=validated_data['category_id']) |
-                    Q(parent_product__parent_product_pro_category__category__in=sub_cat)).distinct('id')
+        try:
+            sub_cat = Category.objects.filter(category_parent=validated_data['category_id'])
+        except Exception as er:
+            sub_cat = None
+        
+        try:
+            b2c_sub_cat = B2cCategory.objects.filter(category_parent=validated_data['category_id'])
+        except Exception as er:
+            b2c_sub_cat = None
+        products = []
+        if sub_cat:
+            products = Product.objects.values('id', 'product_sku', 'product_name', 'product_ean_code', 'product_mrp',
+                                            'weight_unit', 'weight_value', 'status', 'repackaging_type',
+                                            'parent_product__parent_id', 'parent_product__name', 'product_special_cess',
+                                            'parent_product__parent_product_pro_category__category__category_name') \
+                .filter(Q(parent_product__parent_product_pro_category__category=validated_data['category_id']) |
+                        Q(parent_product__parent_product_pro_category__category__in=sub_cat)).distinct('id')
+        elif b2c_sub_cat:
+            products = Product.objects.values('id', 'product_sku', 'product_name', 'product_ean_code', 'product_mrp',
+                                            'weight_unit', 'weight_value', 'status', 'repackaging_type',
+                                            'parent_product__parent_id', 'parent_product__name', 'product_special_cess',
+                                            'parent_product__parent_product_pro_b2c_category__category__category_name') \
+                .filter(Q(parent_product__parent_product_pro_b2c_category__category=validated_data['category_id']) |
+                        Q(parent_product__parent_product_pro_b2c_category__category__in=b2c_sub_cat)).distinct('id')
 
         for product in products:
             row = []
@@ -1002,8 +1054,10 @@ class DownloadMasterData(object):
             row.append(product['status'])
             row.append(product['product_special_cess'])
             row.append(product['repackaging_type'])
-            row.append(product['parent_product__parent_product_pro_category__category__category_name'])
-
+            if product.get('parent_product__parent_product_pro_category__category__category_name'):
+                row.append(product['parent_product__parent_product_pro_category__category__category_name'])
+            else:
+                row.append(product['parent_product__parent_product_pro_b2c_category__category__category_name'])
             source_sku_obj = ProductSourceMapping.objects.filter(destination_sku=product['id'])
             source_sku_ids = []
             for source_skus in source_sku_obj:
@@ -1049,34 +1103,65 @@ class DownloadMasterData(object):
         response, writer = DownloadMasterData.response_workbook("parent_data_sample")
         columns = ['parent_id', 'parent_name', 'product_type', 'hsn', 'tax_1(gst)', 'tax_2(cess)', 'tax_3(surcharge)',
                    'inner_case_size', 'brand_case_size', 'brand_id', 'brand_name', 'sub_brand_id', 'sub_brand_name',
-                   'category_id', 'category_name', 'sub_category_id', 'sub_category_name', 'status',
-                   'is_ptr_applicable', 'ptr_type', 'ptr_percent', 'is_ars_applicable', 'max_inventory_in_days',
+                   'category_id', 'category_name', 'sub_category_id', 'sub_category_name', 
+                   'b2c_category_id', 'b2c_category_name', 'b2c_sub_category_id', 'b2c_sub_category_name',
+                   'status', 'is_ptr_applicable', 'ptr_type', 'ptr_percent', 'is_ars_applicable', 'max_inventory_in_days',
                    'is_lead_time_applicable', 'discounted_life_percent']
         writer.writerow(columns)
-
-        sub_cat = Category.objects.filter(category_parent=validated_data['category_id'])
-
-        parent_products = ParentProductCategory.objects.values('parent_product__id', 'parent_product__parent_id',
-                                                               'parent_product__name', 'parent_product__product_type',
-                                                               'parent_product__product_hsn__product_hsn_code',
-                                                               'parent_product__inner_case_size',
-                                                               'parent_product__brand_case_size',
-                                                               'parent_product__parent_brand__id',
-                                                               'parent_product__parent_brand__brand_name',
-                                                               'parent_product__parent_brand__brand_parent_id',
-                                                               'parent_product__parent_brand__brand_parent__brand_name',
-                                                               'category__id', 'category__category_name',
-                                                               'category__category_parent_id',
-                                                               'category__category_parent__category_name',
-                                                               'parent_product__status',
-                                                               'parent_product__is_ptr_applicable',
-                                                               'parent_product__ptr_type',
-                                                               'parent_product__ptr_percent',
-                                                               'parent_product__is_ars_applicable',
-                                                               'parent_product__max_inventory',
-                                                               'parent_product__is_lead_time_applicable',
-                                                               'parent_product__discounted_life_percent',).filter(
-            Q(category__in=sub_cat) | Q(category=validated_data['category_id'])).distinct('id')
+        try:
+            sub_cat = Category.objects.filter(category_parent=validated_data['category_id'])
+        except Exception as er:
+            sub_cat = None
+        try:
+            b2c_sub_cat = B2cCategory.objects.filter(category_parent=validated_data['category_id'])
+        except Exception as er:
+            b2c_sub_cat = None
+        # print(sub_cat, b2c_sub_cat, validated_data['category_id'])
+        parent_products = []
+        if sub_cat:
+            parent_products = ParentProductCategory.objects.values('parent_product__id', 'parent_product__parent_id',
+                                                                'parent_product__name', 'parent_product__product_type',
+                                                                'parent_product__product_hsn__product_hsn_code',
+                                                                'parent_product__inner_case_size',
+                                                                'parent_product__brand_case_size',
+                                                                'parent_product__parent_brand__id',
+                                                                'parent_product__parent_brand__brand_name',
+                                                                'parent_product__parent_brand__brand_parent_id',
+                                                                'parent_product__parent_brand__brand_parent__brand_name',
+                                                                'category__id', 'category__category_name',
+                                                                'category__category_parent_id',
+                                                                'category__category_parent__category_name',
+                                                                'parent_product__status',
+                                                                'parent_product__is_ptr_applicable',
+                                                                'parent_product__ptr_type',
+                                                                'parent_product__ptr_percent',
+                                                                'parent_product__is_ars_applicable',
+                                                                'parent_product__max_inventory',
+                                                                'parent_product__is_lead_time_applicable',
+                                                                'parent_product__discounted_life_percent',).filter(
+                Q(category__in=sub_cat) | Q(category=validated_data['category_id'])).distinct('id')
+        elif b2c_sub_cat:
+            parent_products = ParentProductB2cCategory.objects.values('parent_product__id', 'parent_product__parent_id',
+                                                                'parent_product__name', 'parent_product__product_type',
+                                                                'parent_product__product_hsn__product_hsn_code',
+                                                                'parent_product__inner_case_size',
+                                                                'parent_product__brand_case_size',
+                                                                'parent_product__parent_brand__id',
+                                                                'parent_product__parent_brand__brand_name',
+                                                                'parent_product__parent_brand__brand_parent_id',
+                                                                'parent_product__parent_brand__brand_parent__brand_name',
+                                                                'category__id', 'category__category_name',
+                                                                'category__category_parent_id',
+                                                                'category__category_parent__category_name',
+                                                                'parent_product__status',
+                                                                'parent_product__is_ptr_applicable',
+                                                                'parent_product__ptr_type',
+                                                                'parent_product__ptr_percent',
+                                                                'parent_product__is_ars_applicable',
+                                                                'parent_product__max_inventory',
+                                                                'parent_product__is_lead_time_applicable',
+                                                                'parent_product__discounted_life_percent',).filter(
+                Q(category__in=b2c_sub_cat) | Q(category=validated_data['category_id'])).distinct('id')
         for product in parent_products:
             row = []
             tax_list = ['', '', '']
@@ -1111,17 +1196,30 @@ class DownloadMasterData(object):
                 row.append(product['parent_product__parent_brand__brand_parent_id'])
                 row.append(product['parent_product__parent_brand__brand_parent__brand_name'])
 
-            if product['category__category_parent_id']:
-                row.append(product['category__category_parent_id'])
-                row.append(product['category__category_parent__category_name'])
-                row.append(product['category__id'])
-                row.append(product['category__category_name'])
-            else:
-                row.append(product['category__id'])
-                row.append(product['category__category_name'])
-                row.append(product['category__category_parent_id'])
-                row.append(product['category__category_parent__category_name'])
-
+            if sub_cat:
+                if product['category__category_parent_id']:
+                    row.append(product['category__category_parent_id'])
+                    row.append(product['category__category_parent__category_name'])
+                    row.append(product['category__id'])
+                    row.append(product['category__category_name'])
+                else:
+                    row.append(product['category__id'])
+                    row.append(product['category__category_name'])
+                    row.append(product['category__category_parent_id'])
+                    row.append(product['category__category_parent__category_name'])
+                row.extend(['','','',''])
+            elif b2c_sub_cat:
+                row.extend(['','','',''])
+                if product['category__category_parent_id']:
+                    row.append(product['category__category_parent_id'])
+                    row.append(product['category__category_parent__category_name'])
+                    row.append(product['category__id'])
+                    row.append(product['category__category_name'])
+                else:
+                    row.append(product['category__id'])
+                    row.append(product['category__category_name'])
+                    row.append(product['category__category_parent_id'])
+                    row.append(product['category__category_parent__category_name'])
             if product['parent_product__status']:
                 row.append("active")
             else:
@@ -1140,13 +1238,17 @@ class DownloadMasterData(object):
         return response
 
     @classmethod
-    def update_category_sample_file(cls, validated_data):
+    def update_category_sample_file(cls, validated_data, b2c=False):
         response, writer = DownloadMasterData.response_workbook("bulk_category_update_sample")
         columns = ["category_id", "name", "category_slug", "category_desc", "category_sku_part",
                    "parent_category_id", "parent_category_name", "status"]
         writer.writerow(columns)
-        categories = Category.objects.values('id', 'category_name', 'category_slug', 'category_desc', 'status',
-                                             'category_sku_part', 'category_parent', 'category_parent__category_name')
+        if not b2c:
+            categories = Category.objects.values('id', 'category_name', 'category_slug', 'category_desc', 'status',
+                                                'category_sku_part', 'category_parent', 'category_parent__category_name')
+        else:
+            categories = B2cCategory.objects.values('id', 'category_name', 'category_slug', 'category_desc', 'status',
+                                                'category_sku_part', 'category_parent', 'category_parent__category_name')
 
         for category in categories:
             row = [category['id'], category['category_name'], category['category_slug'], category['category_desc'],
