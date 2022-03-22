@@ -10,7 +10,7 @@ from rest_framework.exceptions import NotFound, ValidationError
 from global_config.views import get_config
 from products.models import Product
 from retailer_backend.common_function import isBlank
-from ...choices import LANDING_PAGE_TYPE_CHOICE, LANDING_PAGE_SUBTYPE_CHOICE, FUNTION_TYPE_CHOICE
+from ...choices import LANDING_PAGE_TYPE_CHOICE, LISTING_SUBTYPE_CHOICE, FUNTION_TYPE_CHOICE
 from ...models import CardData, Card, CardVersion, CardItem, Application, Page, PageCard, PageVersion, ApplicationPage, \
     LandingPage, Functions, LandingPageProducts
 from cms.messages import VALIDATION_ERROR_MESSAGES, ERROR_MESSAGES
@@ -594,7 +594,7 @@ class LandingPageProductSerializer(serializers.ModelSerializer):
 class LandingPageSerializer(serializers.ModelSerializer):
     app = ApplicationSerializer(read_only=True)
     type = ChoicesSerializer(choices=LANDING_PAGE_TYPE_CHOICE, required=True)
-    sub_type = ChoicesSerializer(choices=LANDING_PAGE_SUBTYPE_CHOICE, required=True)
+    sub_type = ChoicesSerializer(choices=LISTING_SUBTYPE_CHOICE, required=True)
     page_function = PageFunctionSerializer(read_only=True)
     page_action_url = serializers.SerializerMethodField()
     page_link = serializers.SerializerMethodField()
@@ -635,9 +635,9 @@ class LandingPageSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError(f"Invalid landing page type selected{self.initial_data['type']}")
             elif 'sub_type' not in self.initial_data or not self.initial_data.get('sub_type'):
                 raise serializers.ValidationError("'type' | This is required")
-            elif int(self.initial_data['sub_type']) not in get_config('CMS_LANDING_PAGE_SUBTYPE', LANDING_PAGE_SUBTYPE_CHOICE):
+            elif int(self.initial_data['sub_type']) not in get_config('CMS_LANDING_PAGE_SUBTYPE', LISTING_SUBTYPE_CHOICE):
                 raise serializers.ValidationError(f"Invalid landing page sub type selected{self.initial_data['sub_type']}")
-            elif int(self.initial_data['sub_type']) == LANDING_PAGE_SUBTYPE_CHOICE.LIST:
+            elif int(self.initial_data['sub_type']) == LISTING_SUBTYPE_CHOICE.LIST:
                 if not self.initial_data.get('products') or not isinstance(self.initial_data.get('products'), list) \
                         or len(self.initial_data.get('products')) == 0:
                     raise serializers.ValidationError("List of items is required for List type landing page")
@@ -647,7 +647,7 @@ class LandingPageSerializer(serializers.ModelSerializer):
                         raise serializers.ValidationError(f"Product with id {product_id} does not exists")
                     products.append(Product.objects.get(pk=product_id))
                 data['products'] = products
-            elif int(self.initial_data['sub_type']) == LANDING_PAGE_SUBTYPE_CHOICE.FUNCTION:
+            elif int(self.initial_data['sub_type']) == LISTING_SUBTYPE_CHOICE.FUNCTION:
                 if self.initial_data.get('page_function') is None:
                     raise serializers.ValidationError("'function' | This is required.")
                 elif int(self.initial_data['page_function']) not in \

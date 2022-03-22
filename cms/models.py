@@ -3,7 +3,7 @@ from django.db import models
 from django.contrib.auth import get_user_model
 
 from cms.choices import CARD_TYPE_CHOICES, SCROLL_CHOICES, STATUS_CHOICES, PAGE_STATE_CHOICES, LANDING_PAGE_TYPE_CHOICE, \
-    LANDING_PAGE_SUBTYPE_CHOICE, FUNTION_TYPE_CHOICE
+    LISTING_SUBTYPE_CHOICE, FUNTION_TYPE_CHOICE
 from products.models import Product
 
 
@@ -51,9 +51,8 @@ class Card(BaseTimestampUserModel):
     """Card Model"""
     name = models.CharField(max_length=255)
     type = models.CharField(max_length=10, choices=CARD_TYPE_CHOICES)
+    sub_type = models.PositiveSmallIntegerField(choices=LISTING_SUBTYPE_CHOICE, default=LISTING_SUBTYPE_CHOICE.LIST)
     app = models.ForeignKey(Application, on_delete=models.CASCADE, related_name="cards")
-    # category_subtype = models.ForeignKey(Category, on_delete=models.CASCADE, related_name='cms_cartegory_subtype', null=True, blank=True)
-    # brand_subtype = models.ForeignKey(Brand, on_delete=models.CASCADE, related_name='cms_brand_subtype', null=True, blank=True)
 
     def __str__(self):
         return f"{self.name} - {self.type}"
@@ -152,7 +151,7 @@ class ApplicationPage(BaseTimestampUserModel):
 class LandingPage(BaseTimestampUserModel):
     app = models.ForeignKey(Application, on_delete=models.CASCADE, related_name='app_landing_pages')
     type = models.PositiveIntegerField(choices=LANDING_PAGE_TYPE_CHOICE)
-    sub_type = models.PositiveIntegerField(choices=LANDING_PAGE_SUBTYPE_CHOICE)
+    sub_type = models.PositiveIntegerField(choices=LISTING_SUBTYPE_CHOICE)
     banner_image = models.ImageField(upload_to="cards/items/images", null=True, blank=True)
     page_function = models.ForeignKey(Functions, on_delete=models.CASCADE, null=True, related_name='function_pages')
     params = JSONField(null=True)
