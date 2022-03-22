@@ -442,7 +442,7 @@ class SearchProducts(APIView):
                 body['query']['bool']['must_not'] = must_not
             else:
                 body['query'] = {"bool": {"must_not": must_not}}
-        return self.process_rp(output_type, body, shop_id)
+        return self.process_rp(app_type, output_type, body, shop_id)
 
     @check_pos_shop
     def rp_gf_search(self, request, *args, **kwargs):
@@ -450,12 +450,13 @@ class SearchProducts(APIView):
             Search Retailer Shop Catalogue - Followed by GramFactory Catalogue If Products not found
         """
         shop_id = kwargs['shop'].id
+        app_type = kwargs['app_type']
         search_type = self.request.GET.get('search_type', '1')
         # Exact Search
         if search_type == '1':
-            results = self.rp_gf_exact_search(shop_id)
+            results = self.rp_gf_exact_search(shop_id, app_type)
         elif search_type == '2':
-            results = self.rp_gf_normal_search(shop_id)
+            results = self.rp_gf_normal_search(shop_id, app_type)
         else:
             return api_response("Provide a valid search type")
         if results:
@@ -463,7 +464,7 @@ class SearchProducts(APIView):
         else:
             return api_response('No Products Found', None, status.HTTP_200_OK)
 
-    def rp_gf_exact_search(self, shop_id):
+    def rp_gf_exact_search(self, shop_id, app_type):
         """
             Exact Search Retailer Shop Catalogue - Followed by GramFactory Catalogue If Products not found
         """
@@ -475,13 +476,13 @@ class SearchProducts(APIView):
             response['products'] = rp_results
         # search GramFactory products if retailer products not found
         else:
-            gf_results = self.gf_exact_search()
+            gf_results = self.gf_exact_search(app_type)
             if gf_results:
                 response['product_type'] = 'gf_catalogue'
                 response['products'] = gf_results
         return response
 
-    def rp_gf_normal_search(self, shop_id):
+    def rp_gf_normal_search(self, shop_id, app_type):
         """
             Keyword Search Retailer Shop Catalogue - Followed by GramFactory Catalogue If Products not found
         """
@@ -493,7 +494,7 @@ class SearchProducts(APIView):
             response['products'] = rp_results
         # search GramFactory products if retailer products not found
         else:
-            gf_results = self.gf_pos_normal_search()
+            gf_results = self.gf_pos_normal_search(app_type)
             if gf_results:
                 response['product_type'] = 'gf_catalogue'
                 response['products'] = gf_results
@@ -584,7 +585,7 @@ class SearchProducts(APIView):
         if app_type != '2':
             # Normal Search
             if search_type == '2':
-                results, is_store_active = self.gf_normal_search()
+                results, is_store_active = self.gf_normal_search(app_type)
                 if results:
                     return api_response(['Products Found'], results, status.HTTP_200_OK, True, is_store_active)
                 else:
@@ -594,10 +595,10 @@ class SearchProducts(APIView):
         else:
             # Exact Search
             if search_type == '1':
-                results = self.gf_exact_search()
+                results = self.gf_exact_search(app_type)
             # Normal Search
             elif search_type == '2':
-                results = self.gf_pos_normal_search()
+                results = self.gf_pos_normal_search(app_type)
             else:
                 return api_response("Please Provide A Valid Search Type")
             if results:
@@ -606,7 +607,7 @@ class SearchProducts(APIView):
                 return api_response('Product not found in GramFactory catalog. Please add new Product.', None,
                                     status.HTTP_200_OK)
 
-    def gf_exact_search(self):
+    def gf_exact_search(self, app_type):
         """
             Search GramFactory Catalogue Exact Ean
         """
@@ -614,9 +615,9 @@ class SearchProducts(APIView):
         body = dict()
         if ean_code and ean_code != '':
             body["query"] = {"bool": {"filter": [{"term": {"ean": ean_code}}]}}
-        return self.process_gf(body)
+        return self.process_gf(app_type, body)
 
-    def gf_normal_search(self):
+    def gf_normal_search(self, app_type):
         """
             Search GramFactory Catalogue By Name, Brand, Category
             Full catalogue or for a particular parent shop
@@ -645,27 +646,31 @@ class SearchProducts(APIView):
         is_store_active = {'is_store_active': True if parent_shop else False}
         query = self.search_query()
         body = {'query': query, }
-        return self.process_gf(body, shop, parent_shop, cart_check, cart, cart_products), is_store_active
+        return self.process_gf(app_type, body, shop, parent_shop, cart_check, cart, cart_products), is_store_active
 
-    def gf_pos_normal_search(self):
+    def gf_pos_normal_search(self, app_type):
         """
             Search GramFactory Catalogue By Name
         """
         body = {'query': self.search_query(), }
-        return self.process_gf(body)
+        return self.process_gf(app_type, body)
 
-    def process_gf(self, body, shop=None, parent_shop=None, cart_check=False, cart=None, cart_products=None):
+    def process_gf(self, app_type, body, shop=None, parent_shop=None, cart_check=False, cart=None, cart_products=None):
         """
             Modify Es results for response based on shop
         """
         body["from"] = int(self.request.GET.get('offset', 0))
         body["size"] = int(self.request.GET.get('pro_count', 100))
         p_list = []
+        if app_type != '1':
+            es_index = 'all_b2c_product'
+        else:
+            es_index = 'all_products'
         # No Shop Id OR Store Inactive
         if not parent_shop:
             body["_source"] = {"includes": ["id", "name", "product_images", "pack_size", "brand_case_size",
                                             "weight_unit", "weight_value", "visible", "mrp", "ean"]}
-            products_list = es_search(index='all_products', body=body)
+            products_list = es_search(index=es_index, body=body)
             for p in products_list['hits']['hits']:
                 p["_source"]["description"] = p["_source"]["name"]
                 p_list.append(p["_source"])

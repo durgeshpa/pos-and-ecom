@@ -1,12 +1,14 @@
 from decimal import Decimal
 
+from products.common_function import get_b2c_product_details
 from products.models import Product, ProductPrice, ProductCategory, \
     ProductTaxMapping, ProductImage, ParentProductTaxMapping, ParentProduct, Repackaging, SlabProductPrice, PriceSlab,\
     ProductPackingMapping, DestinationRepackagingCostMapping, ProductSourceMapping, ProductB2cCategory, \
         ParentProductB2cCategory, ParentProductCategory, ParentProductSKUGenerator
 from django.db.models.signals import post_save, post_delete, pre_save
 from django.dispatch import receiver
-from sp_to_gram.tasks import update_shop_product_es, update_product_es, update_shop_product_es_cat, update_shop_product_es_brand
+from sp_to_gram.tasks import update_shop_product_es, update_product_es, update_shop_product_es_cat, \
+    update_shop_product_es_brand, create_es_index
 from analytics.post_save_signal import get_category_product_report
 import logging
 from django.db import transaction
@@ -21,6 +23,7 @@ from retailer_backend import common_function
 from brand.models import Brand
 from categories.models import Category, B2cCategory
 from global_config.models import GlobalConfig
+from retailer_backend.settings import es
 
 logger = logging.getLogger(__name__)
 info_logger = logging.getLogger('file-info')
@@ -584,3 +587,28 @@ def create_parent_product_id_b2c(sender, instance=None, created=False, **kwargs)
     parent_product.parent_id = "P%s%s%s" % (cat_sku_code, brand_sku_code, last_sku_increment)
     parent_product.save()
     print(parent_product.parent_id)
+
+
+@receiver(post_save, sender=Product)
+def update_product_b2c_elasticsearch(sender, instance=None, created=False, **kwargs):
+    info_logger.info("Updating product in all_b2c_product")
+    es_index = 'all_b2c_product'
+    if instance and instance.status == 'active':
+        product = get_b2c_product_details(instance)
+        info_logger.info(product)
+        try:
+            es.index(index=create_es_index(es_index), doc_type='product', id=product['id'], body=product)
+            info_logger.info(
+                "Inside update_product_b2c_elasticsearch, product id: " + str(product['id']) + ", product: " + str(product))
+        except Exception as e:
+            info_logger.info("error in upload_shop_stock index creation")
+            info_logger.info(e)
+
+    else:
+        try:
+            es.delete(index=create_es_index(es_index), doc_type='product', id=instance.id)
+            info_logger.info(
+                "Inside upload_shop_stock, deleting product from ES product id: " + str(instance) + ", product: " + str(instance),)
+        except Exception as e:
+            info_logger.info("error in update_product_b2c_elasticsearch index creation")
+            info_logger.info(e)
