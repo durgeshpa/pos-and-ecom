@@ -72,7 +72,7 @@ class CardData(BaseTimestampUserModel):
     rows = models.IntegerField(default=1)
     cols = models.IntegerField(default=1)
     card_function = models.ForeignKey(Functions, on_delete=models.CASCADE, related_name="function_cards", null=True)
-    params = models.TextField(null=True)
+    params = JSONField(null=True)
 
     def __str__(self):
         return f"{self.id} - {self.header[0:16]}..."

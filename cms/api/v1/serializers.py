@@ -10,7 +10,7 @@ from rest_framework.exceptions import NotFound, ValidationError
 from global_config.views import get_config
 from products.models import Product
 from retailer_backend.common_function import isBlank
-from ...choices import LANDING_PAGE_TYPE_CHOICE, LANDING_PAGE_SUBTYPE_CHOICE, LIST, FUNCTION, FUNTION_TYPE_CHOICE
+from ...choices import LANDING_PAGE_TYPE_CHOICE, LANDING_PAGE_SUBTYPE_CHOICE, FUNTION_TYPE_CHOICE
 from ...models import CardData, Card, CardVersion, CardItem, Application, Page, PageCard, PageVersion, ApplicationPage, \
     LandingPage, Functions, LandingPageProducts
 from cms.messages import VALIDATION_ERROR_MESSAGES, ERROR_MESSAGES
@@ -597,6 +597,7 @@ class LandingPageSerializer(serializers.ModelSerializer):
     sub_type = ChoicesSerializer(choices=LANDING_PAGE_SUBTYPE_CHOICE, required=True)
     page_function = PageFunctionSerializer(read_only=True)
     page_action_url = serializers.SerializerMethodField()
+    page_link = serializers.SerializerMethodField()
     banner_image = Base64ImageField(max_length=None, use_url=True, required=False, allow_null=True)
     landing_page_products = LandingPageProductSerializer(many=True, read_only=True)
 
@@ -612,10 +613,15 @@ class LandingPageSerializer(serializers.ModelSerializer):
                 return obj.page_function.url
             return obj.page_function.url+"?"+urllib.parse.urlencode(obj.params)
 
+    def get_page_link(self, obj):
+        request = self.context.get('request')
+        if request:
+            return request.build_absolute_uri('/cms/api/v1/?id='+str(obj.id))
+
     class Meta:
         model = LandingPage
         fields = ('id', 'banner_image', 'app', 'type', 'sub_type', 'page_function', 'params', 'page_action_url',
-                  'landing_page_products')
+                  'landing_page_products', 'page_link')
 
     def validate(self, data):
         if 'id' not in self.initial_data:

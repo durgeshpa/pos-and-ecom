@@ -721,8 +721,7 @@ class PageFunctionView(generics.GenericAPIView):
     serializer_class = PageFunctionSerializer
 
     def get(self, request):
-        if not request.GET.get('type'):
-            return get_response("'type' | This is mandatory.")
+
         if request.GET.get('id'):
             page_functions = Functions.objects.filter(type=request.GET.get('type'), id=request.GET.get('id'))
         else:
@@ -738,7 +737,7 @@ class PageFunctionView(generics.GenericAPIView):
         if 'error' in modified_data:
             return get_response(modified_data['error'])
 
-        serializer = self.serializer_class(data=modified_data)
+        serializer = self.serializer_class(data=modified_data, context={'request':request})
         if serializer.is_valid():
             serializer.save(created_by=request.user)
             return get_response('function created successfully!', serializer.data)
@@ -760,15 +759,13 @@ class LandingPageView(generics.GenericAPIView):
     serializer_class = LandingPageSerializer
 
     def get(self, request):
-        if not request.GET.get('app'):
-            return get_response("'app' | This is mandatory.")
         if request.GET.get('id'):
             landing_pages = LandingPage.objects.filter(app=request.GET.get('app'), id=request.GET.get('id'))
         else:
             self.queryset = self.filter_landing_pages()
             landing_pages = SmallOffsetPagination().paginate_queryset(self.queryset, request)
 
-        serializer = self.serializer_class(landing_pages, many=True)
+        serializer = self.serializer_class(landing_pages, many=True, context={'request':request})
         msg = "" if landing_pages else "no landing page found"
         return get_response(msg, serializer.data, True)
 
