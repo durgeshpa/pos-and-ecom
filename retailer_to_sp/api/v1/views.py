@@ -1946,7 +1946,7 @@ class CartCheckout(APIView):
         spot_discount = self.request.data.get('spot_discount')
         with transaction.atomic():
             # Refresh redeem reward
-            RewardCls.checkout_redeem_points(cart, cart.redeem_points)
+            redeem_points_message = RewardCls.checkout_redeem_points(cart, cart.redeem_points)
             if spot_discount:
                 offers = BasicCartOffers.apply_spot_discount(cart, spot_discount,
                                                              self.request.data.get('is_percentage'))
@@ -1992,7 +1992,7 @@ class CartCheckout(APIView):
             if offers['applied']:
                 return api_response('Applied Successfully', data, status.HTTP_200_OK, True)
             else:
-                return api_response('Not Applicable', self.serialize(cart), status.HTTP_200_OK)
+                return api_response('Not Applicable', data, status.HTTP_200_OK)
 
     def get(self, request, *args, **kwargs):
         """
@@ -2049,7 +2049,7 @@ class CartCheckout(APIView):
             # Get Offers Applicable, Verify applied offers, Apply highest discount on cart if auto apply
             offers = BasicCartOffers.refresh_offers_checkout(cart, False, None)
             # Refresh redeem reward
-            RewardCls.checkout_redeem_points(cart, 0, self.request.GET.get('use_rewards', 1))
+            use_rewrd_this_month = RewardCls.checkout_redeem_points(cart, 0, self.request.GET.get('use_rewards', 1))
             data = self.serialize(cart, offers)
             address = AddressCheckoutSerializer(cart.buyer.ecom_user_address.filter(default=True).last()).data
             data.update({'default_address': address})
@@ -3157,7 +3157,7 @@ class OrderCentral(APIView):
         if app_type == '1':
             return self.post_retail_order()
         elif app_type == '2':
-            return self.post_basic_order(request, *args, **kwargs)
+            return self.post_pos_order(request, *args, **kwargs)
         elif app_type == '3':
             return self.post_ecom_order(request, *args, **kwargs)
         else:
@@ -3194,9 +3194,12 @@ class OrderCentral(APIView):
         order = Order.objects.filter(pk=self.request.GET.get('order_id'), seller_shop=kwargs['shop']).last()
         if order:
             if order.ordered_cart.cart_type == 'BASIC':
-                return api_response('Order', self.get_serialize_process_basic(order), status.HTTP_200_OK, True)
+                return api_response('Order', self.get_serialize_process_basic(order), status.HTTP_200_OK, True,
+                                    extra_params={"key_p": str(config('PAYU_KEY'))})
             elif order.ordered_cart.cart_type == 'ECOM':
-                return api_response('Order', self.get_serialize_process_pos_ecom(order), status.HTTP_200_OK, True)
+                return api_response('Order', self.get_serialize_process_pos_ecom(order), status.HTTP_200_OK, True,
+                                    extra_params={"key_p": str(config('PAYU_KEY'))})
+
         return api_response("Order not found")
 
     @check_ecom_user
@@ -3292,7 +3295,7 @@ class OrderCentral(APIView):
 
     @check_pos_shop
     @pos_check_permission_delivery_person
-    def post_basic_order(self, request, *args, **kwargs):
+    def post_pos_order(self, request, *args, **kwargs):
         """
             Place Order
             For basic cart
@@ -3352,9 +3355,15 @@ class OrderCentral(APIView):
             return api_response("Please add items to proceed to order")
 
         try:
-            payment_id = PaymentType.objects.get(id=self.request.data.get('payment_type', 1)).id
+            payment_type_id = PaymentType.objects.get(id=self.request.data.get('payment_type', 4)).id
         except:
             return api_response("Invalid Payment Method")
+
+        if not payment_type_id == 4:
+            if not self.request.data.get('payment_status'):
+                return api_response("Please provide online payment status.")
+            if not any(self.request.data.get('payment_status') in i for i in PosPayment.PAYMENT_STATUS):
+                return api_response("Please provide valid online payment status")
 
         # Minimum Order Value
         # order_config = GlobalConfig.objects.filter(key='ecom_minimum_order_amount').last()
@@ -3407,9 +3416,11 @@ class OrderCentral(APIView):
             order = self.create_basic_order(cart, shop, address, payment_type_id, delivery_option)
             payments = [
                 {
-                    "payment_type": payment_id,
+                    "payment_type": payment_type_id,
                     "amount": round(order.order_amount),
-                    "transaction_id": ""
+                    "transaction_id": "",
+                    "payment_status": self.request.data.get('payment_status', None),
+                    "payment_mode": self.request.data.get('payment_mode', None)
                 }
             ]
             self.auto_process_order(order, payments, 'ecom')
@@ -3564,6 +3575,11 @@ class OrderCentral(APIView):
                 return {'error': "Invalid Payment Amount"}
             if "transaction_id" not in payment_method:
                 payment_method['transaction_id'] = ""
+            if "payment_status" not in payment_method:
+                payment_method['payment_status'] = None
+            if "payment_mode" not in payment_method:
+                payment_method['payment_mode'] = None
+
         if not cash_only:
             if round(amount) != round(cart.order_amount):
                 return {'error': "Total payment amount should be equal to order amount"}
@@ -3908,7 +3924,9 @@ class OrderCentral(APIView):
                 transaction_id=payment['transaction_id'],
                 paid_by=order.buyer,
                 processed_by=self.request.user,
-                amount=payment['amount']
+                amount=payment['amount'],
+                payment_status = payment['payment_status'],
+                payment_mode = payment['payment_mode']
             )
 
     def auto_process_pos_order(self, order):
@@ -4271,7 +4289,8 @@ class OrderListCentral(GenericAPIView):
             qs = qs.filter(Q(order_no__icontains=search_text) |
                            Q(buyer__first_name__icontains=search_text) |
                            Q(buyer__phone_number__icontains=search_text))
-        return api_response('Order', self.get_serialize_process_basic(qs), status.HTTP_200_OK, True)
+        return api_response('Order', self.get_serialize_process_basic(qs), status.HTTP_200_OK, True,
+                            extra_params={"key_p": str(config('PAYU_KEY'))})
 
     @check_ecom_user
     def get_ecom_order_list(self, request, *args, **kwargs):
@@ -7024,7 +7043,7 @@ class RescheduleReason(generics.ListCreateAPIView):
 
     def perform_create(self, serializer):
         shipment = OrderedProduct.objects.get(pk=self.request.data.get('shipment'))
-        return serializer.save(created_by=self.request.user, trip=shipment.trip)
+        return serializer.save(created_by=self.request.user, trip=shipment.trip, rescheduled_count=1)
 
     def update_shipment(self, id):
         shipment = OrderedProduct.objects.get(pk=id)
