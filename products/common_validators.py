@@ -7,7 +7,7 @@ from django.db.models import Q
 
 from brand.models import Brand, Vendor
 from products.models import Product, Tax, ParentProductTaxMapping, ParentProduct, ParentProductCategory, \
-    ParentProductImage, ProductHSN, ProductCapping, ProductImage, ParentProductB2cCategory
+    ParentProductImage, ProductHSN, ProductCapping, ProductImage
 from categories.models import B2cCategory, Category
 from shops.models import Shop
 from brand.common_validators import validate_brand_name, validate_brand_code, validate_brand_slug
@@ -298,6 +298,7 @@ def validate_bulk_data_format(request):
         data = json.loads(request.data["data"])
     except Exception as e:
         return {'error': "Invalid Data Format", }
+
     if request.FILES.getlist('file'):
         data['file'] = request.FILES['file']
 
@@ -345,8 +346,7 @@ def read_file(csv_file, upload_master_data, category):
         required_header_list = ['parent_id', 'parent_name', 'product_type', 'hsn', 'tax_1(gst)', 'tax_2(cess)',
                                 'tax_3(surcharge)', 'inner_case_size', 'brand_id', 'brand_name', 'sub_brand_id',
                                 'sub_brand_name', 'category_id', 'category_name', 'sub_category_id',
-                                'sub_category_name', 'b2c_category_id', 'b2c_category_name', 'b2c_sub_category_id',
-                                'b2c_sub_category_name',
+                                'sub_category_name',
                                 'status', 'is_ptr_applicable', 'ptr_type', 'ptr_percent', 'brand_case_size',
                                 'is_ars_applicable', 'max_inventory_in_days', 'is_lead_time_applicable', 'status',
                                 'discounted_life_percent']
@@ -365,7 +365,7 @@ def read_file(csv_file, upload_master_data, category):
 
     if upload_master_data == "create_parent_product":
         required_header_list = ['product_name', 'product_type', 'hsn', 'gst', 'cess', 'surcharge', 'inner_case_size',
-                                'brand_name', 'category_name', 'b2c_category_name', 'is_ptr_applicable', 'ptr_type', 'ptr_percent',
+                                'brand_name', 'category_name', 'is_ptr_applicable', 'ptr_type', 'ptr_percent',
                                 'is_ars_applicable', 'max_inventory_in_days', 'is_lead_time_applicable', 'status',
                                 'brand_case_size', 'brand_id', 'discounted_life_percent']
     if upload_master_data == "create_child_product":
@@ -377,7 +377,7 @@ def read_file(csv_file, upload_master_data, category):
     if upload_master_data == "create_brand":
         required_header_list = ['name', 'brand_slug', 'brand_parent', 'brand_parent_id', 'brand_description',
                                 'brand_code', 'status']
-    if upload_master_data == "create_category" or upload_master_data == "create_b2c_category":
+    if upload_master_data == "create_category":
         required_header_list = ['name', 'category_slug', 'category_desc', 'category_parent', 'category_sku_part',
                                 'status', 'parent_category_id']
 
@@ -510,42 +510,12 @@ def check_mandatory_columns(uploaded_data_list, header_list, upload_master_data,
             if 'parent_name' not in row.keys() or row['parent_name'] == '':
                 raise ValidationError(f"Row {row_num} | 'parent_name' is a mandatory, can't be empty")
 
-            if 'product_type' not in row.keys() or row['product_type'] == '':
-                raise ValidationError(f"Row {row_num} | 'product_type' is a mandatory, can't be empty")
-            
-            if row['product_type'] not in ['b2b', 'b2c', 'both']:
-                raise ValidationError(f"Row {row_num} | 'product_type' is Invalid, choices are b2b, b2c or both.")
-            
-            if row['product_type'] == 'b2b':
-                if 'sub_category_id' in row.keys() and row['sub_category_id'] != '':
-                    sub_cat = Category.objects.filter(id=int(row['sub_category_id'])).last()
-                    if not sub_cat:
-                        raise ValidationError(f"Row {row_num} | select a valid sub category")
-                    if sub_cat != category and sub_cat.category_parent != category:
-                        raise ValidationError(f"Row {row_num} | 'sub_category_id' not belongs to the selected category.")
-            
-            if row['product_type'] == 'b2c':
-                if 'b2c_sub_category_id' in row.keys() and row['b2c_sub_category_id'] != '':
-                    sub_cat = B2cCategory.objects.filter(id=int(row['b2c_sub_category_id'])).last()
-                    if not sub_cat:
-                        raise ValidationError(f"Row {row_num} | select a valid b2c sub category")
-                    if sub_cat != category and sub_cat.category_parent != category:
-                        raise ValidationError(f"Row {row_num} | 'b2c_sub_category_id' not belongs to the selected b2c category.")
-            
-            if row['product_type'] == 'both':
-                if 'sub_category_id' in row.keys() and row['sub_category_id'] != '':
-                    sub_cat = Category.objects.filter(id=int(row['sub_category_id'])).last()
-                    if not sub_cat:
-                        raise ValidationError(f"Row {row_num} | select a valid sub category")
-                    if sub_cat != category and sub_cat.category_parent != category:
-                        raise ValidationError(f"Row {row_num} | 'sub_category_id' not belongs to the selected category.")
-                
-                if 'b2c_sub_category_id' in row.keys() and row['b2c_sub_category_id'] != '':
-                    sub_cat = B2cCategory.objects.filter(id=int(row['b2c_sub_category_id'])).last()
-                    if not sub_cat:
-                        raise ValidationError(f"Row {row_num} | select a valid b2c sub category")
-                    if sub_cat != category and sub_cat.category_parent != category:
-                        raise ValidationError(f"Row {row_num} | 'b2c_sub_category_id' not belongs to the selected b2c category.")
+            if 'sub_category_id' in row.keys() and row['sub_category_id'] != '':
+                sub_cat = Category.objects.filter(id=int(row['sub_category_id'])).last()
+                if not sub_cat:
+                    raise ValidationError(f"Row {row_num} | select a valid sub category")
+                if sub_cat != category and sub_cat.category_parent != category:
+                    raise ValidationError(f"Row {row_num} | 'sub_category_id' not belongs to the selected category.")
             # if row['parent_id'].strip() in parent_id_list:
             #     raise ValidationError(f"Row {row_num} | {row['parent_id']} | "
             #                           f"'parent_id' getting repeated in csv file")
@@ -642,58 +612,6 @@ def check_mandatory_columns(uploaded_data_list, header_list, upload_master_data,
                                           f"'category_sku_part' getting repeated in csv file")
                 category_sku_part_list.append(row['category_sku_part'].strip().lower())
 
-    if upload_master_data == "b2c_category_update":
-        row_num = 1
-        mandatory_columns = ['category_id', 'name']
-        for ele in mandatory_columns:
-            if ele not in header_list:
-                raise ValidationError(f"{mandatory_columns} are mandatory columns"
-                                      f" for 'Update Category'")
-        category_slug_list = []
-        category_sku_part_list = []
-        category_name_list = []
-        category_id_list = []
-        for row in uploaded_data_list:
-            row_num += 1
-            if 'category_id' not in row.keys() or row['category_id'] == '':
-                raise ValidationError(f"Row {row_num} | 'category_id' is a mandatory can't be empty")
-
-            if 'name' not in row.keys() or row['name'] == '':
-                raise ValidationError(f"Row {row_num} | 'name' is a mandatory can't be empty")
-
-            if row['category_id'].strip().lower() in category_id_list:
-                raise ValidationError(f"Row {row_num} | {row['category_id']} | "
-                                      f"'category_id' getting repeated in csv file")
-            category_id_list.append(row['category_id'].strip().lower())
-
-            cat_obj = validate_category_name(row['name'].strip(), int(row['category_id']), b2c=True)
-            if cat_obj is not None and 'error' in cat_obj:
-                raise ValidationError(f"Row {row_num} | {row['name']} | {cat_obj['error']}")
-            elif row['name'].strip().lower() in category_name_list:
-                raise ValidationError(f"Row {row_num} | {row['name']} | "
-                                      f"'name' getting repeated in csv file")
-            category_name_list.append(row['name'].strip().lower())
-
-            if 'category_slug' in row.keys() and row['category_slug']:
-                cat_obj = validate_category_slug(row['category_slug'].strip(), int(row['category_id']), b2c=True)
-                if cat_obj is not None and 'error' in cat_obj:
-                    raise ValidationError(f"Row {row_num} | {row['category_slug']} | {cat_obj['error']} ")
-
-                elif row['category_slug'].strip().lower() in category_slug_list:
-                    raise ValidationError(f"Row {row_num} | {row['category_slug']} | "
-                                          f"'category_slug' getting repeated in csv file")
-                category_slug_list.append(row['category_slug'].strip().lower())
-
-            if 'category_sku_part' in row.keys() and row['category_sku_part']:
-                cat_obj = validate_category_sku_part(row['category_sku_part'].strip(), int(row['category_id']), b2c=True)
-                if cat_obj is not None and 'error' in cat_obj:
-                    raise ValidationError(f"Row {row_num} | {row['category_sku_part']} | {cat_obj['error']}")
-
-                elif row['category_sku_part'].strip().lower() in category_sku_part_list:
-                    raise ValidationError(f"Row {row_num} | {row['category_sku_part']} | "
-                                          f"'category_sku_part' getting repeated in csv file")
-                category_sku_part_list.append(row['category_sku_part'].strip().lower())
-
     if upload_master_data == "brand_update":
         row_num = 1
         mandatory_columns = ['brand_id', 'name']
@@ -746,7 +664,7 @@ def check_mandatory_columns(uploaded_data_list, header_list, upload_master_data,
     if upload_master_data == "create_parent_product":
         row_num = 1
         mandatory_columns = ['product_name', 'product_type', 'hsn', 'gst', 'cess', 'surcharge', 'inner_case_size',
-                             'brand_case_size', 'brand_name', 'category_name', 'b2c_category_name', 'is_ptr_applicable', 'ptr_type',
+                             'brand_case_size', 'brand_name', 'category_name', 'is_ptr_applicable', 'ptr_type',
                              'ptr_percent', 'is_ars_applicable', 'max_inventory_in_days', 'is_lead_time_applicable',
                              'status', 'discounted_life_percent']
         for ele in mandatory_columns:
@@ -769,9 +687,6 @@ def check_mandatory_columns(uploaded_data_list, header_list, upload_master_data,
 
             if 'product_type' not in row.keys() or row['product_type'] == '':
                 raise ValidationError(f"Row {row_num} | 'product_type' can't be empty")
-            
-            if row['product_type'] not in ['b2c', 'b2b', 'both']:
-                raise ValidationError(f"Row {row_num} | 'product_type' is Invalid, choices are b2b, b2c or both.")
 
             if 'hsn' not in row.keys() or row['hsn'] == '':
                 raise ValidationError(f"Row {row_num} | 'hsn' can't be empty")
@@ -798,18 +713,8 @@ def check_mandatory_columns(uploaded_data_list, header_list, upload_master_data,
             if 'brand_id' not in row.keys() or row['brand_id'] == '':
                 raise ValidationError(f"Row {row_num} | 'brand_id' can't be empty")
 
-            if row['product_type'] == 'b2b': 
-                if 'category_name' not in row.keys() or row['category_name'] == '':
-                    raise ValidationError(f"Row {row_num} | 'category_name' cannot be empty")
-            
-            if row['product_type'] == 'b2c': 
-                if 'b2c_category_name' not in row.keys() or row['b2c_category_name'] == '':
-                    raise ValidationError(f"Row {row_num} | 'b2c_category_name' cannot be empty")
-            
-            if row['product_type'] == 'both':
-                if 'category_name' not in row.keys() or row['category_name'] == '':
-                    if 'b2c_category_name' not in row.keys() or row['b2c_category_name'] == '':
-                        raise ValidationError(f"Row {row_num} | 'b2c_category_name and category_name' both cannot be empty")
+            if 'category_name' not in row.keys() or row['category_name'] == '':
+                raise ValidationError(f"Row {row_num} | 'category_name' can't be empty")
 
             if 'is_ptr_applicable' not in row.keys() or row['is_ptr_applicable'] == '':
                 raise ValidationError(f"Row {row_num} | 'is_ptr_applicable' can't be empty")
@@ -972,65 +877,16 @@ def check_mandatory_columns(uploaded_data_list, header_list, upload_master_data,
             if 'status' not in row.keys():
                 raise ValidationError(f"Row {row_num} | 'status' is a mandatory field")
 
-    if upload_master_data == "create_b2c_category":
-        row_num = 1
-        mandatory_columns = ['name', 'category_slug', 'category_sku_part', ]
-        for ele in mandatory_columns:
-            if ele not in header_list:
-                raise ValidationError(f"{mandatory_columns} are mandatory columns to Create Category")
-        category_slug_list = []
-        category_sku_part_list = []
-        category_name_list = []
-        for row in uploaded_data_list:
-            row_num += 1
-            if 'name' not in row.keys() or row['name'] == '':
-                raise ValidationError(f"Row {row_num} | 'name' can't be empty")
-
-            cat_obj = validate_category_name(row['name'].strip(), None, b2c=True)
-            if cat_obj is not None and 'error' in cat_obj:
-                raise ValidationError(f"Row {row_num} | {row['name']} | {cat_obj['error']}")
-            elif row['name'].strip().lower() in category_name_list:
-                raise ValidationError(f"Row {row_num} | {row['name']} | "
-                                      f"'name' getting repeated in csv file")
-            category_name_list.append(row['name'].strip().lower())
-
-            if 'category_slug' not in row.keys() or row['category_slug'] == '':
-                raise ValidationError(f"Row {row_num} | 'category_slug' can't be empty")
-
-            cat_obj = validate_category_slug(row['category_slug'].strip(), None, b2c=True)
-            if cat_obj is not None and 'error' in cat_obj:
-                raise ValidationError(f"Row {row_num} | {row['category_slug']} | {cat_obj['error']} ")
-
-            elif row['category_slug'].strip().lower() in category_slug_list:
-                raise ValidationError(f"Row {row_num} | {row['category_slug']} | "
-                                      f"'category_slug' getting repeated in csv file")
-            category_slug_list.append(row['category_slug'].strip().lower())
-
-            if 'category_sku_part' not in row.keys() or row['category_sku_part'] == '':
-                raise ValidationError(f"Row {row_num} | 'category_sku_part' can't be empty")
-
-            cat_obj = validate_category_sku_part(row['category_sku_part'].strip(), None)
-            if cat_obj is not None and 'error' in cat_obj:
-                raise ValidationError(f"Row {row_num} | {row['category_sku_part']} | {cat_obj['error']}")
-            elif row['category_sku_part'].strip().lower() in category_sku_part_list:
-                raise ValidationError(f"Row {row_num} | {row['category_sku_part']} | "
-                                      f"'category_sku_part' getting repeated in csv file")
-            category_sku_part_list.append(row['category_sku_part'].strip().lower())
-
-            if 'status' not in row.keys():
-                raise ValidationError(f"Row {row_num} | 'status' is a mandatory field")
-
-    validate_row(uploaded_data_list, header_list, category, upload_master_data)
+    validate_row(uploaded_data_list, header_list, category)
 
 
-def validate_row(uploaded_data_list, header_list, category, upload_master_data):
+def validate_row(uploaded_data_list, header_list, category):
     """
         This method will check that Data uploaded by user is valid or not.
     """
     try:
         brand = Brand.objects.all()
         categories = Category.objects.all()
-        b2c_categories = B2cCategory.objects.all()
         child_product = Product.objects.all()
         parent_products = ParentProduct.objects.all()
         product_hsn = ProductHSN.objects.all()
@@ -1099,14 +955,9 @@ def validate_row(uploaded_data_list, header_list, category, upload_master_data):
                                           f"'Category_ID' doesn't exist in the system ")
             if 'parent_category_id' in header_list and 'parent_category_id' in row.keys() and row[
                 'parent_category_id'] != '':
-                if 'b2c' in upload_master_data:
-                    if not b2c_categories.filter(id=row['parent_category_id']).exists():
-                        raise ValidationError(f"Row {row_num} | {row['parent_category_id']} | "
-                                            f"'parent_category_id' doesn't exist in the system ")
-                else:
-                    if not categories.filter(id=row['parent_category_id']).exists():
-                        raise ValidationError(f"Row {row_num} | {row['parent_category_id']} | "
-                                            f"'parent_category_id' doesn't exist in the system ")
+                if not categories.filter(id=row['parent_category_id']).exists():
+                    raise ValidationError(f"Row {row_num} | {row['parent_category_id']} | "
+                                          f"'parent_category_id' doesn't exist in the system ")
             if 'sub_category_id' in header_list and 'sub_category_id' in row.keys() and row['sub_category_id'] != '':
                 if not categories.filter(id=row['sub_category_id']).exists():
                     raise ValidationError(f"Row {row_num} | {row['sub_category_id']} | "
@@ -1172,22 +1023,13 @@ def validate_row(uploaded_data_list, header_list, category, upload_master_data):
                     if not parent_products.filter(parent_id=str(row['parent_id']).strip()).exists():
                         raise ValidationError(f"Row {row_num} | {row['parent_id']} | 'Parent ID' doesn't exist.")
                 parent_product = parent_products.filter(parent_id=row['parent_id'])
-                if 'b2c' not in upload_master_data:
-                    if category and 'sku_id' not in row.keys():
-                        sub_cat = Category.objects.filter(category_parent=category)
-                        if not ParentProductCategory.objects.filter(
-                                Q(category__in=sub_cat) | Q(category=category.id)).filter(
-                            parent_product=parent_product[0].id).exists():
-                            raise ValidationError(f"Row {row_num} | Please upload Products of Category "
-                                                f"{category.category_name}) that you have selected in Dropdown Only! ")
-                else:
-                    if category and 'sku_id' not in row.keys():
-                        sub_cat = B2cCategory.objects.filter(category_parent=category)
-                        if not ParentProductB2cCategory.objects.filter(
-                                Q(category__in=sub_cat) | Q(category=category.id)).filter(
-                            parent_product=parent_product[0].id).exists():
-                            raise ValidationError(f"Row {row_num} | Please upload Products of Category "
-                                                f"{category.category_name}) that you have selected in Dropdown Only! ")
+                if category and 'sku_id' not in row.keys():
+                    sub_cat = Category.objects.filter(category_parent=category)
+                    if not ParentProductCategory.objects.filter(
+                            Q(category__in=sub_cat) | Q(category=category.id)).filter(
+                        parent_product=parent_product[0].id).exists():
+                        raise ValidationError(f"Row {row_num} | Please upload Products of Category "
+                                              f"{category.category_name}) that you have selected in Dropdown Only! ")
 
             # if 'parent_name' in header_list and 'parent_name' in row.keys() and row['parent_name'] != '':
             #     if not parent_products.filter(name=row['parent_name']).exists():
