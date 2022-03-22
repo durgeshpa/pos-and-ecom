@@ -61,8 +61,8 @@ class CartProductMappingAdmin(admin.TabularInline):
             'admin/js/po_generation_form.js'
         )
 
-    fields = ('cart_parent_product', 'cart_product', 'mrp', 'sku', 'tax_percentage', 'case_sizes', 'no_of_cases',
-              'no_of_pieces', 'brand_to_gram_price_units', 'price', 'sub_total')
+    fields = ('cart_parent_product', 'cart_product', 'mrp', 'sku', 'tax_percentage', 'gst', 'cess', 'case_sizes',
+              'no_of_cases', 'no_of_pieces', 'brand_to_gram_price_units', 'price', 'sub_total')
     readonly_fields = ('tax_percentage', 'mrp', 'sku', 'case_sizes', 'brand_to_gram_price_units', 'sub_total')
 
     def get_readonly_fields(self, request, obj=None):

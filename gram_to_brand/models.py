@@ -186,6 +186,8 @@ class CartProductMapping(models.Model):
     price = models.FloatField(verbose_name='Brand To Gram Price')
     per_unit_price = models.FloatField(default=0, null=True, blank=True)
     is_grn_done = models.BooleanField(default=False)
+    gst = models.IntegerField(null=True, blank=True, choices=GST_CHOICE)
+    cess = models.FloatField(null=True, blank=True, validators=[MinValueValidator(0.0), MaxValueValidator(100.0)])
 
     class Meta:
         verbose_name = "Select Product"
@@ -325,6 +327,13 @@ class CartProductMapping(models.Model):
                 self.vendor_product = vendor_product_mapping(supplier, product.id, price, mrp, case_size, unit)
             self.per_unit_price = self.per_unit_prices()
             self.case_size = self.case_sizes()
+            if self._state.adding:
+                if self.vendor_product.product.parent_product.parent_product_pro_tax.filter(tax__tax_type='gst').exists():
+                    self.gst = self.vendor_product.product.parent_product.parent_product_pro_tax.filter(tax__tax_type='gst')\
+                        .last().tax.tax_percentage
+                if self.vendor_product.product.parent_product.parent_product_pro_tax.filter(tax__tax_type='cess').exists():
+                    self.cess = self.vendor_product.product.parent_product.parent_product_pro_tax.filter(tax__tax_type='cess')\
+                        .last().tax.tax_percentage
             super(CartProductMapping, self).save(*args, **kwargs)
 
 

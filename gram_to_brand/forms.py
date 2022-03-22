@@ -287,11 +287,15 @@ class CartProductMappingForm(forms.ModelForm):
                 'instance'].no_of_pieces else \
                 int(kwargs['instance'].cart_product.product_inner_case_size) * int(
                     kwargs['instance'].cart_product.product_case_size) * int(kwargs['instance'].number_of_cases)
+        else:
+            self.fields['gst'].disabled = True
+            self.fields['cess'].disabled = True
 
     class Meta:
         model = CartProductMapping
         fields = ('cart', 'cart_parent_product', 'cart_product', 'mrp', 'sku', 'tax_percentage', 'case_sizes',
-                  'no_of_cases', 'price', 'sub_total', 'no_of_pieces', 'vendor_product', 'brand_to_gram_price_units')
+                  'no_of_cases', 'price', 'sub_total', 'no_of_pieces', 'vendor_product', 'brand_to_gram_price_units',
+                  'gst', 'cess')
         search_fields = ('cart_product',)
         exclude = ('qty',)
 
