@@ -3781,7 +3781,7 @@ class DispatchTripCrateMapping(BaseTimestampUserModel):
 
 class PickerUserAssignmentLog(models.Model):
     picker_dashboard = models.ForeignKey(PickerDashboard, on_delete=models.DO_NOTHING, related_name='+')
-    initial_user = models.ForeignKey(get_user_model(), on_delete=models.DO_NOTHING, related_name='+')
+    initial_user = models.ForeignKey(get_user_model(), on_delete=models.DO_NOTHING, related_name='+', null=True)
     final_user = models.ForeignKey(get_user_model(), on_delete=models.DO_NOTHING, related_name='+')
     created_at = models.DateTimeField(auto_now_add=True)
     created_by = models.ForeignKey(get_user_model(), on_delete=models.DO_NOTHING)
