@@ -33,7 +33,7 @@ from .serializers import (
     ShopBasicSerializer, BulkUpdateShopSerializer, ShopEmployeeSerializers, ShopManagerListSerializers,
     RetailerTypeSerializer, DisapproveSelectedShopSerializers, PinCodeSerializer, CitySerializer, StateSerializer,
     BulkUpdateShopSampleCSVSerializer, BulkCreateShopUserMappingSerializer, ShopManagerListDistSerializers,
-    DownloadShopStatusCSVSerializer
+    DownloadShopStatusCSVSerializer, BulkUpdateShopStatusSerializer
 )
 from shops.common_functions import *
 from shops.services import (related_user_search, search_beat_planning_data, shop_search, get_distinct_pin_codes,
@@ -1228,4 +1228,30 @@ class DownloadShopStatusCSV(GenericAPIView):
         if serializer.is_valid():
             response = serializer.save()
             return HttpResponse(response, content_type='text/csv')
+        return get_response(serializer_error(serializer), False)
+
+
+class ShopDeActivateChoiceView(GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+
+    def get(self, request):
+        """ GET ShopDeActivateChoice List for Shop Updation"""
+
+        info_logger.info("ShopDeActivateChoiceView GET api called.")
+        """ GET ShopDeActivateChoiceView List """
+        fields = ['key', 'value', ]
+        data = [dict(zip(fields, d)) for d in Shop.DISAPPROVED_STATUS_REASON_CHOICES]
+        msg = ""
+        return get_response(msg, data, True)
+
+
+class BulkShopStatusUpdateView(GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    serializer_class = BulkUpdateShopStatusSerializer
+
+    def post(self, request):
+        serializer = self.get_serializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save(updated_by=request.user)
+            return get_response('data uploaded successfully!', serializer.data, True)
         return get_response(serializer_error(serializer), False)

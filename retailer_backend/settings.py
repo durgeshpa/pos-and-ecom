@@ -148,6 +148,7 @@ INSTALLED_APPS = [
     'drf_yasg',
     'report',
     'tinymce',
+    'drf_api_logger',
 ]
 
 # if ENVIRONMENT.lower() in ["production","qa"]:
@@ -188,6 +189,7 @@ MIDDLEWARE += [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'accounts.middlewares.RequestMiddleware',
+    'drf_api_logger.middleware.api_logger_middleware.APILoggerMiddleware',
 ]
 # if ENVIRONMENT.lower() in ["production", "qa"]:
 #     MIDDLEWARE += [
@@ -428,6 +430,7 @@ CRONJOBS = [
     ('30 1 * * *', 'wms.cron.create_update_discounted_products'),
     ('0 2 * * *', 'ecom.cron.bestseller_product'),
     ('0 * * * *', 'retailer_backend.cron.refresh_cron_es'),
+    # ('*/10 * * * *', 'retailer_to_sp.cron.all_products_es_refresh'),
     ('*/5 * * * *', 'wms.cron.assign_putaway_users_to_new_putways'),
     ('0 6 * * *', 'shops.cron.get_feedback_valid'),
     ('30 21 * * *', 'shops.tasks.cancel_beat_plan'),
@@ -622,6 +625,7 @@ EMAIL_USE_TLS = config('EMAIL_USE_TLS')
 WHATSAPP_API_ENDPOINT = config('WHATSAPP_API_ENDPOINT')
 WHATSAPP_API_USERID = config('WHATSAPP_API_USERID')
 WHATSAPP_API_PASSWORD = config('WHATSAPP_API_PASSWORD')
+INCENTIVE_DASHBOARD_MONTH = 2
 
 # AWS MEDIA URL
 AWS_MEDIA_URL = config('AWS_MEDIA_URL')
@@ -639,3 +643,9 @@ else:
         hosts=[config('ES_INDEX')],
         http_auth=(config('ES_USER_NAME'), config('ES_PASSWORD')),
     )
+
+# DRF API LOGGER
+DRF_API_LOGGER_DATABASE = config('DRF_API_LOGGER_DATABASE')
+DRF_API_LOGGER_EXCLUDE_KEYS = ['password', 'token', 'access', 'refresh']
+DRF_API_LOGGER_SLOW_API_ABOVE = 200
+DRF_API_LOGGER_TIMEDELTA = 330

@@ -513,15 +513,18 @@ class PutAwayAdmin(admin.ModelAdmin):
         f = StringIO()
         writer = csv.writer(f)
         # set the header name
-        writer.writerow(["Put Away User", "Warehouse", "Put Away Type", "Put Away Type ID", "SKU", "Batch ID",
+        writer.writerow(["Put Away User", "Warehouse", "Put Away Type", "Put Away Type ID", "GRN ID", "SKU", "Batch ID",
                          "Quantity", "Put Away Quantity", "Created At", "Modified At"])
 
         for query in queryset:
             # iteration for selected id from Admin Dashboard and get the instance
             putaway = Putaway.objects.get(id=query.id)
             # get object from queryset
+            in_type_id = None
+            if putaway.putaway_type == 'GRN':
+                in_type_id = In.objects.filter(id=putaway.putaway_type_id).last().in_type_id
             writer.writerow([putaway.putaway_user, putaway.warehouse_id,
-                             putaway.putaway_type, putaway.putaway_type_id,
+                             putaway.putaway_type, putaway.putaway_type_id, in_type_id,
                              putaway.sku.product_name + '-' + putaway.sku.product_sku,
                              putaway.batch_id, putaway.quantity, putaway.putaway_quantity,
                              putaway.created_at, putaway.modified_at])

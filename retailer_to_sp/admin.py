@@ -52,7 +52,7 @@ from .models import (Cart, CartProductMapping, Commercial, CustomerCare, Dispatc
                      OrderedProduct, OrderedProductMapping, Payment, ReturnProductMapping, Shipment,
                      ShipmentProductMapping, Trip, ShipmentRescheduling, Feedback, PickerDashboard, Invoice,
                      ResponseComment, BulkOrder, RoundAmount, OrderedProductBatch, DeliveryData, PickerPerformanceData,
-                     ShipmentPackaging, ShipmentPackagingMapping, ShipmentNotAttempt, ShopCrate)
+                     ShipmentPackaging, ShipmentPackagingMapping, ShipmentNotAttempt, ShopCrate, PickerUserAssignmentLog)
 from .resources import OrderResource
 from .signals import ReservedOrder
 from .utils import (GetPcsFromQty, add_cart_user, create_order_from_cart, create_order_data_excel,
@@ -1013,6 +1013,12 @@ class PickerDashboardAdmin(admin.ModelAdmin):
     download_pick_list.short_description = 'Download Pick List'
     download_bulk_pick_list.short_description = 'Download Pick List for Selected Orders/Repackagings'
 
+    def save_model(self, request, obj, form, change):
+        picker_boy = form.cleaned_data['picker_boy']
+        if obj.id and 'picker_boy' in form.changed_data and form.initial.get('picker_boy') != picker_boy:
+            PickerUserAssignmentLog.log_user_change(obj, get_current_user(), form.initial.get('picker_boy'))
+        super(PickerDashboardAdmin, self).save_model(request, obj, form, change)
+        
 
 class OrderZoneFilter(InputFilter):
     parameter_name = 'zone'

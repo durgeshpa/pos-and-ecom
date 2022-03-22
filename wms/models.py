@@ -141,6 +141,11 @@ class WarehouseAssortment(BaseTimestampUserModel):
     def __str__(self):
         return str(self.product) + " - " + str(self.zone) + " - " + str(self.pk)
 
+    def save(self, force_insert=False, force_update=False, using=None,
+             update_fields=None):
+        Putaway.objects.filter(warehouse=self.warehouse, sku__parent_product=self.product, zone__isnull=True) \
+            .update(zone=self.zone)
+
 
 class BaseQuerySet(query.QuerySet):
 
@@ -823,3 +828,4 @@ class PickupCrate(BaseTimestampUserModel):
     crate = models.ForeignKey(Crate, related_name='crates_pickup', on_delete=models.DO_NOTHING)
     quantity = models.PositiveIntegerField()
     is_in_use = models.BooleanField(default=True)
+

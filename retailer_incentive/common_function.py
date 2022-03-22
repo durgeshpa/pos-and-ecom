@@ -2,7 +2,7 @@ import logging
 from math import floor
 
 from accounts.models import User
-from .models import SchemeSlab, IncentiveDashboardDetails
+from .models import SchemeSlab, IncentiveDashboardDetails, Incentive
 from shops.models import Shop, ShopUserMapping, ParentRetailerMapping
 from retailer_to_sp.models import OrderedProductMapping
 
@@ -84,7 +84,7 @@ def get_total_sales(shop_id, start_date, end_date):
     return floor(total_sales)
 
 
-def shop_scheme_not_mapped(shop):
+def shop_scheme_not_mapped(shop, incentive_data):
     scheme_data = {'shop_id': shop.id,
                    'shop_name': str(shop.shop_name),
                    'mapped_scheme_id': "NA",
@@ -93,6 +93,12 @@ def shop_scheme_not_mapped(shop):
                    'discount_percentage': "NA",
                    'incentive_earned': "NA",
                    'start_date': "NA",
-                   'end_date': "NA"
+                   'end_date': "NA",
+                   'incentive_data': incentive_data
                    }
     return scheme_data
+
+
+def get_incentive_data_by_shop_month(shop_id, month, year):
+    # Incentive
+    return Incentive.objects.filter(shop_id=shop_id, created_at__date__year=year, created_at__date__month=month).last()

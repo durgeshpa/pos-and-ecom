@@ -37,7 +37,8 @@ from accounts.api.v1.serializers import PosUserSerializer, PosShopUserSerializer
 from addresses.models import Address, City, Pincode
 from audit.views import BlockUnblockProduct
 from barCodeGenerator import barcodeGen
-from global_config.views import get_config
+from global_config.views import get_config, get_config_fofo_shops
+from shops.models import Shop, ParentRetailerMapping, ShopUserMapping, ShopMigrationMapp, PosShopUserMapping, FOFOConfig
 from brand.models import Brand
 from categories import models as categorymodel
 from common.common_utils import (create_file_name, single_pdf_file, create_merge_pdf_name, merge_pdf_files,
@@ -50,7 +51,6 @@ from ecom.api.v1.serializers import EcomOrderListSerializer, EcomShipmentSeriali
 from ecom.models import Address as EcomAddress, EcomOrderAddress
 from ecom.utils import check_ecom_user_shop, check_ecom_user
 from global_config.models import GlobalConfig
-from global_config.views import get_config_fofo_shop
 from gram_to_brand.models import (GRNOrderProductMapping, OrderedProductReserved as GramOrderedProductReserved,
                                   PickList)
 from marketing.models import ReferralCode
@@ -89,13 +89,11 @@ from retailer_to_sp.models import (Cart, CartProductMapping, CreditNote, Order, 
                                    DispatchTrip, DispatchTripShipmentMapping, INVOICE_AVAILABILITY_CHOICES,
                                    DispatchTripShipmentPackages, LastMileTripShipmentMapping, PACKAGE_VERIFY_CHOICES,
                                    DispatchTripCrateMapping, ShipmentPackagingMapping, TRIP_TYPE_CHOICE, ShopCrate,
-                                   LastMileTripShipmentPackages)
-from retailer_to_sp.models import (ShipmentNotAttempt)
+                                   LastMileTripShipmentPackages, ShipmentNotAttempt, RoundAmount)
 from retailer_to_sp.tasks import send_invoice_pdf_email
 from shops.api.v1.serializers import ShopBasicSerializer
-from shops.models import Shop, ParentRetailerMapping, ShopUserMapping, ShopMigrationMapp, PosShopUserMapping
 from sp_to_gram.models import OrderedProductReserved
-from sp_to_gram.tasks import es_search, upload_shop_stock
+from sp_to_gram.tasks import es_search, upload_shop_stock, upload_all_products_in_es
 from wms.common_functions import OrderManagement, get_stock, is_product_not_eligible, get_response, \
     get_logged_user_wise_query_set_for_shipment, get_logged_user_wise_query_set_for_dispatch, \
     get_logged_user_wise_query_set_for_dispatch_trip, get_logged_user_wise_query_set_for_dispatch_crates, \
@@ -156,6 +154,27 @@ logger = logging.getLogger('django')
 info_logger = logging.getLogger('file-info')
 error_logger = logging.getLogger('file-error')
 
+
+def distance(shop_location, order_location):
+    """
+    Calculate distance between order location and shop location
+    """
+    lat1, lon1 = shop_location
+    lat2, lon2 = order_location
+    radius = 6371 # km
+
+    dlat = math.radians(lat2-lat1)
+    dlon = math.radians(lon2-lon1)
+    a = math.sin(dlat/2) * math.sin(dlat/2) + math.cos(math.radians(lat1)) \
+        * math.cos(math.radians(lat2)) * math.sin(dlon/2) * math.sin(dlon/2)
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
+    d = radius * c
+    return d
+def get_order_location(shop):
+    """
+    Get shop location ...
+    """
+    return float(shop.latitude),float(shop.longitude)
 
 class PickerDashboardViewSet(DataWrapperViewSet):
     '''
@@ -437,7 +456,8 @@ class SearchProducts(APIView):
                 body['query']['bool']['must_not'] = must_not
             else:
                 body['query'] = {"bool": {"must_not": must_not}}
-        return self.process_rp(output_type, body, shop_id)
+        return self.process_rp(output_type, body, shop_id, app_type)
+
 
     @check_pos_shop
     def rp_gf_search(self, request, *args, **kwargs):
@@ -445,12 +465,13 @@ class SearchProducts(APIView):
             Search Retailer Shop Catalogue - Followed by GramFactory Catalogue If Products not found
         """
         shop_id = kwargs['shop'].id
+        app_type = kwargs['app_type']
         search_type = self.request.GET.get('search_type', '1')
         # Exact Search
         if search_type == '1':
-            results = self.rp_gf_exact_search(shop_id)
+            results = self.rp_gf_exact_search(shop_id, app_type)
         elif search_type == '2':
-            results = self.rp_gf_normal_search(shop_id)
+            results = self.rp_gf_normal_search(shop_id, app_type)
         else:
             return api_response("Provide a valid search type")
         if results:
@@ -458,7 +479,7 @@ class SearchProducts(APIView):
         else:
             return api_response('No Products Found', None, status.HTTP_200_OK)
 
-    def rp_gf_exact_search(self, shop_id):
+    def rp_gf_exact_search(self, shop_id, app_type):
         """
             Exact Search Retailer Shop Catalogue - Followed by GramFactory Catalogue If Products not found
         """
@@ -470,13 +491,13 @@ class SearchProducts(APIView):
             response['products'] = rp_results
         # search GramFactory products if retailer products not found
         else:
-            gf_results = self.gf_exact_search()
+            gf_results = self.gf_exact_search(app_type)
             if gf_results:
                 response['product_type'] = 'gf_catalogue'
                 response['products'] = gf_results
         return response
 
-    def rp_gf_normal_search(self, shop_id):
+    def rp_gf_normal_search(self, shop_id, app_type):
         """
             Keyword Search Retailer Shop Catalogue - Followed by GramFactory Catalogue If Products not found
         """
@@ -488,7 +509,7 @@ class SearchProducts(APIView):
             response['products'] = rp_results
         # search GramFactory products if retailer products not found
         else:
-            gf_results = self.gf_pos_normal_search()
+            gf_results = self.gf_pos_normal_search(app_type)
             if gf_results:
                 response['product_type'] = 'gf_catalogue'
                 response['products'] = gf_results
@@ -579,7 +600,7 @@ class SearchProducts(APIView):
         if app_type != '2':
             # Normal Search
             if search_type == '2':
-                results, is_store_active = self.gf_normal_search()
+                results, is_store_active = self.gf_normal_search(app_type)
                 if results:
                     return api_response(['Products Found'], results, status.HTTP_200_OK, True, is_store_active)
                 else:
@@ -589,10 +610,10 @@ class SearchProducts(APIView):
         else:
             # Exact Search
             if search_type == '1':
-                results = self.gf_exact_search()
+                results = self.gf_exact_search(app_type)
             # Normal Search
             elif search_type == '2':
-                results = self.gf_pos_normal_search()
+                results = self.gf_pos_normal_search(app_type)
             else:
                 return api_response("Please Provide A Valid Search Type")
             if results:
@@ -601,7 +622,7 @@ class SearchProducts(APIView):
                 return api_response('Product not found in GramFactory catalog. Please add new Product.', None,
                                     status.HTTP_200_OK)
 
-    def gf_exact_search(self):
+    def gf_exact_search(self, app_type):
         """
             Search GramFactory Catalogue Exact Ean
         """
@@ -609,9 +630,9 @@ class SearchProducts(APIView):
         body = dict()
         if ean_code and ean_code != '':
             body["query"] = {"bool": {"filter": [{"term": {"ean": ean_code}}]}}
-        return self.process_gf(body)
+        return self.process_gf(app_type, body)
 
-    def gf_normal_search(self):
+    def gf_normal_search(self, app_type):
         """
             Search GramFactory Catalogue By Name, Brand, Category
             Full catalogue or for a particular parent shop
@@ -640,27 +661,31 @@ class SearchProducts(APIView):
         is_store_active = {'is_store_active': True if parent_shop else False}
         query = self.search_query()
         body = {'query': query, }
-        return self.process_gf(body, shop, parent_shop, cart_check, cart, cart_products), is_store_active
+        return self.process_gf(app_type, body, shop, parent_shop, cart_check, cart, cart_products), is_store_active
 
-    def gf_pos_normal_search(self):
+    def gf_pos_normal_search(self, app_type):
         """
             Search GramFactory Catalogue By Name
         """
         body = {'query': self.search_query(), }
-        return self.process_gf(body)
+        return self.process_gf(app_type, body)
 
-    def process_gf(self, body, shop=None, parent_shop=None, cart_check=False, cart=None, cart_products=None):
+    def process_gf(self, app_type, body, shop=None, parent_shop=None, cart_check=False, cart=None, cart_products=None):
         """
             Modify Es results for response based on shop
         """
         body["from"] = int(self.request.GET.get('offset', 0))
         body["size"] = int(self.request.GET.get('pro_count', 100))
         p_list = []
+        if app_type != '1':
+            es_index = 'all_b2c_product'
+        else:
+            es_index = 'all_products'
         # No Shop Id OR Store Inactive
         if not parent_shop:
             body["_source"] = {"includes": ["id", "name", "product_images", "pack_size", "brand_case_size",
                                             "weight_unit", "weight_value", "visible", "mrp", "ean"]}
-            products_list = es_search(index='all_products', body=body)
+            products_list = es_search(index=es_index, body=body)
             for p in products_list['hits']['hits']:
                 p["_source"]["description"] = p["_source"]["name"]
                 p_list.append(p["_source"])
@@ -1958,6 +1983,10 @@ class CartCheckout(APIView):
             use_rewrd_this_month = RewardCls.checkout_redeem_points(cart, 0, self.request.GET.get('use_rewards', 1))
             # Get offers available now and apply coupon if applicable
             offers = BasicCartOffers.refresh_offers_checkout(cart, False, self.request.data.get('coupon_id'))
+            data = self.serialize(cart)
+            data['redeem_points_message'] = use_rewrd_this_month
+            delivery_time = get_config_fofo_shops(kwargs['shop'].id)
+            data['maximum_delivery_time'] = delivery_time.get('delivery_time',None)
             if 'error' in offers:
                 return api_response(offers['error'], None, offers['code'])
             if offers['applied']:
@@ -2024,6 +2053,8 @@ class CartCheckout(APIView):
             data = self.serialize(cart, offers)
             address = AddressCheckoutSerializer(cart.buyer.ecom_user_address.filter(default=True).last()).data
             data.update({'default_address': address})
+            delivery_time = get_config_fofo_shops(kwargs['shop'])
+            data['maximum_delivery_time'] = delivery_time.get('delivery_time',None)
             data.update({'saving': round(data['total_mrp'] - data['amount_payable'], 2)})
             data.update({"redeem_points_message": use_rewrd_this_month})
             return api_response("Cart Checkout", data, status.HTTP_200_OK, True)
@@ -2503,6 +2534,93 @@ class CartCheckout(APIView):
 #             return Response(msg, status=status.HTTP_200_OK)
 
 
+def order_pickup_genrate_invioce(request,order):
+    if order.ordered_cart.cart_type != 'ECOM':
+        return api_response("Invalid action")
+    # if order.order_status != Order.PICKUP_CREATED:
+    #     return api_response("This order is not picked yet or is already out for delivery")
+    try:
+        delivery_person = User.objects.get(id=request.user.id)
+    except:
+        return api_response("Please select a delivery person")
+    order.order_status = Order.OUT_FOR_DELIVERY
+    order.delivery_person = delivery_person
+                ###### trip me save created
+    order.save()
+    shipment = OrderedProduct.objects.filter(order=order).last()
+    shipment.shipment_status = OrderedProduct.MOVED_TO_DISPATCH
+    shipment.save()
+    shipment.shipment_status = 'OUT_FOR_DELIVERY'
+    shipment.save()
+    if shipment.pos_trips.filter(trip_type='ECOM').exists():
+        pos_trip = shipment.pos_trips.filter(trip_type='ECOM').last()
+    else:
+        pos_trip = PosTrip.objects.create(trip_type='ECOM',
+                                          shipment=shipment)
+    pos_trip.trip_start_at = datetime.now()
+    pos_trip.save()
+                # Inventory move from ordered to picked
+    ordered_products = ShipmentProducts.objects.filter(ordered_product=shipment)
+    for product_map in ordered_products:
+        product_id = product_map.retailer_product_id
+        if product_map.shipped_qty > 0:
+            PosInventoryCls.order_inventory(product_id, PosInventoryState.ORDERED,
+                                            PosInventoryState.SHIPPED,
+                                            product_map.shipped_qty,
+                                            request.user, order.order_no, PosInventoryChange.SHIPPED)
+        ordered_p = CartProductMapping.objects.get(cart=order.ordered_cart,
+                                                               retailer_product=product_map.retailer_product,
+                                                               product_type=product_map.product_type)
+        if ordered_p.qty - product_map.shipped_qty > 0:
+            PosInventoryCls.order_inventory(product_id, PosInventoryState.ORDERED,
+                                            PosInventoryState.AVAILABLE,
+                                            ordered_p.qty - product_map.shipped_qty,
+                                            request.user, order.order_no, PosInventoryChange.SHIPPED)
+    pdf_generation_retailer(request, order.id)
+
+def order_shipment(request, data, *args, **kwargs):
+    shop = kwargs['shop']
+    serializer = EcomShipmentSerializer(data=data, context={'shop': shop})
+    if serializer.is_valid():
+        with transaction.atomic():
+                data = serializer.validated_data
+                products_info, order_id = data['products'], data['order_id']
+                order = Order.objects.filter(pk=order_id, seller_shop=shop,
+                                             order_status__in=['ordered', Order.PICKUP_CREATED],
+                                             ordered_cart__cart_type='ECOM').last()
+                    # Create shipment
+                shipment = OrderedProduct.objects.filter(order=order).last()
+                if not shipment:
+                    shipment = OrderedProduct(order=order)
+                    shipment.save()
+                for product_map in products_info:
+                    product_id, qty, product_type = product_map['product_id'], product_map['picked_qty'], product_map[
+                        'product_type']
+                    ordered_product_mapping, _ = ShipmentProducts.objects.get_or_create(ordered_product=shipment,
+                                                                                        retailer_product_id=product_id,
+                                                                                        product_type=product_type)
+                    ordered_product_mapping.shipped_qty = qty
+                    ordered_product_mapping.picked_pieces = qty
+                    ordered_product_mapping.selling_price = product_map['selling_price']
+                    ordered_product_mapping.save()
+                    # Item Batch
+                    batch = OrderedProductBatch.objects.filter(ordered_product_mapping=ordered_product_mapping).last()
+                    if not batch:
+                        OrderedProductBatch.objects.create(ordered_product_mapping=ordered_product_mapping,
+                                                           pickup_quantity=qty, quantity=qty, delivered_qty=qty)
+                    else:
+                        batch.pickup_quantity = qty
+                        batch.quantity = qty
+                        batch.delivered_qty = qty
+                        batch.save()
+
+                order.order_status = Order.PICKUP_CREATED
+                order.ordered_by = request.user
+                order.save()
+                return True
+    else:
+        return False
+
 class ReservedOrder(generics.ListAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (permissions.IsAuthenticated,)
@@ -2911,22 +3029,34 @@ class OrderCentral(APIView):
                 pdf_generation_retailer(request, order.id)
             # Delivered/Closed
             else:
-                if order.order_status not in [Order.OUT_FOR_DELIVERY, Order.DELIVERED]:
+                if order.delivery_option == '1':
+                    data = {'order_id': order.id,
+                            'products':[]}
+                    for i in CartProductMapping.objects.filter(cart=order.ordered_cart, product_type=1):
+
+                        data['products'].append({'product_id':i.retailer_product_id,
+                                                  'picked_qty': i.qty})
+                    order_shipment(request, data, *args, **kwargs)
+                    order_pickup_genrate_invioce(request, order)
+                elif order.order_status not in [Order.OUT_FOR_DELIVERY, Order.DELIVERED]:
                     return api_response("Invalid Order update")
                 order.order_status = order_status
                 order.last_modified_by = self.request.user
                 order.save()
-                shipment = OrderedProduct.objects.filter(order=order).last()
-                shipment.shipment_status = order_status
-                shipment.save()
-                shipment.rt_order_product_order_product_mapping.update(delivered_qty=F('shipped_qty'))
-                if shipment.pos_trips.filter(trip_type='ECOM').exists():
-                    pos_trip = shipment.pos_trips.filter(trip_type='ECOM').last()
-                else:
-                    pos_trip = PosTrip.objects.create(trip_type='ECOM',
-                                                      shipment=shipment)
-                pos_trip.trip_end_at = datetime.now()
-                pos_trip.save()
+                try:
+                    shipment = OrderedProduct.objects.filter(order=order).last()
+                    shipment.shipment_status = order_status
+                    shipment.save()
+                    shipment.rt_order_product_order_product_mapping.update(delivered_qty=F('shipped_qty'))
+                    if shipment.pos_trips.filter(trip_type='ECOM').exists():
+                        pos_trip = shipment.pos_trips.filter(trip_type='ECOM').last()
+                    else:
+                        pos_trip = PosTrip.objects.create(trip_type='ECOM',
+                                                          shipment=shipment)
+                    pos_trip.trip_end_at = datetime.now()
+                    pos_trip.save()
+                except:
+                    pass
 
         return api_response("Order updated successfully!", response, status.HTTP_200_OK, True)
 
@@ -3080,7 +3210,10 @@ class OrderCentral(APIView):
                                       buyer=self.request.user, ordered_cart__cart_type='ECOM')
         except ObjectDoesNotExist:
             return api_response("Order Not Found!")
-        return api_response('Order', self.get_serialize_process_pos_ecom(order), status.HTTP_200_OK, True)
+
+        return api_response('Order', self.get_serialize_process_pos_ecom(order), status.HTTP_200_OK, True,
+                            extra_params={"key_p": str(config('PAYU_KEY')),}
+                            )
 
     def post_retail_order(self):
         """
@@ -3225,7 +3358,10 @@ class OrderCentral(APIView):
 
         # Minimum Order Value
         # order_config = GlobalConfig.objects.filter(key='ecom_minimum_order_amount').last()
-        order_config = get_config_fofo_shop('Minimum order value', shop.id)
+        # order_config = get_config_fofo_shop('Minimum order value', shop.id)
+        fofo_config = get_config_fofo_shops(shop)
+        order_config = fofo_config.get('min_order_value',None)
+        order_config = order_config if order_config else GlobalConfig.objects.filter(key='ecom_minimum_order_amount').last().value
         if order_config is not None:
             order_amount = cart.order_amount_after_discount
             if order_amount < order_config:
@@ -3262,12 +3398,13 @@ class OrderCentral(APIView):
             return api_response("Few items in your cart are not available.", deleted_product, status.HTTP_200_OK,
                                 False, {'error_code': error_code.OUT_OF_STOCK_ITEMS})
 
+        delivery_option = request.data.get('delivery_option', None)
         with transaction.atomic():
             # Update Cart To Ordered
             self.update_cart_ecom(cart)
             # Refresh redeem reward
             RewardCls.checkout_redeem_points(cart, cart.redeem_points)
-            order = self.create_basic_order(cart, shop, address)
+            order = self.create_basic_order(cart, shop, address, payment_type_id, delivery_option)
             payments = [
                 {
                     "payment_type": payment_id,
@@ -3560,7 +3697,7 @@ class OrderCentral(APIView):
         order.save()
         return order
 
-    def create_basic_order(self, cart, shop, address=None):
+    def create_basic_order(self, cart, shop, address=None, payment_id=None, delivery_option=None):
         user = self.request.user
         order, _ = Order.objects.get_or_create(last_modified_by=user, ordered_by=user, ordered_cart=cart)
         order.buyer = cart.buyer
@@ -3569,6 +3706,15 @@ class OrderCentral(APIView):
         order.order_app_type = Order.POS_ECOMM if cart.cart_type == 'ECOM' else Order.POS_WALKIN
         # order.total_tax_amount = float(self.request.data.get('total_tax_amount', 0))
         order.order_status = Order.ORDERED
+        if cart.cart_type == 'ECOM':
+            if payment_id and str(PaymentType.objects.get(id=payment_id).type).lower() != 'cod':
+                if self.request.data.get('payment_status') == 'payment_pending':
+                    order.order_status = Order.PAYMENT_PENDING
+                elif self.request.data.get('payment_status') == 'payment_failed':
+                    order.order_status = Order.PAYMENT_FAILED
+            order.delivery_option = delivery_option
+        obj = FOFOConfig.objects.filter(shop=order.seller_shop.id).last()
+        order.estimate_delivery_time = obj.delivery_time if obj else None
         order.save()
 
         if address:
@@ -5157,19 +5303,46 @@ class CartStockCheckView(APIView):
         if address.pincode != shop.shop_name_address_mapping.filter(
                 address_type='shipping').last().pincode_link.pincode:
             return api_response("This Shop is not serviceable at your delivery address")
+        #
+        # lattitude,longitude = self.request.GET.get('latitude'),self.request.GET.get('longitude')
+        # if lattitude and longitude:
+        #     lattitude = float(lattitude)
+        #     longitude = float(longitude)
+        # shop_lattitude,shop_longitude = get_order_location(shop)
+        # order_distance = 0
+        # if lattitude and longitude:
+        #     order_distance = distance((shop_lattitude, shop_longitude), (lattitude, longitude))
+        # delivery_redius = get_config_fofo_shop('Delivery Radius', shop.id)
+        # if order_distance != 0 and delivery_redius and order_distance * 1000 > get_config_fofo_shop('Delivery Radius', shop.id):
+        #     return api_response("This Shop is not serviceable at your delivery address")
+        """"---------------------------------------------validation for fofo shop-----------------------------------------------"""
 
+        time = datetime.now().strftime("%H:%M:%S")
+        time = datetime.strptime(time,"%H:%M:%S").time()
+        day = datetime.today().date()
+
+        fofo_config = get_config_fofo_shops(shop)
+        if fofo_config.get('open_time',None) and fofo_config.get('close_time',None) and not (fofo_config['open_time']<time and fofo_config['close_time']>time):
+            return api_response("Sorry for the inconvenience, order acceptable b/w {} to {}".format(fofo_config['open_time'], fofo_config['close_time']))
+
+        start_off_day = fofo_config.get('working_off_start_date', None)
+        end_off_day = fofo_config.get('working_off_end_date',start_off_day)
+        if (start_off_day and end_off_day) and (start_off_day<= day and end_off_day >= day):
+            return api_response("Sorry for the inconvenience, Shop is non operational on {}".format(datetime.today().date()))
         # Check for changes in cart - price / offers / available inventory
         cart_products = cart.rt_cart_list.all()
         cart_products = PosCartCls.refresh_prices(cart_products)
         # Minimum Order Value
         # order_config = GlobalConfig.objects.filter(key='ecom_minimum_order_amount').last()
-        order_config = get_config_fofo_shop('Minimum order value', shop.id)
+        order_config = fofo_config.get('min_order_value',None)#get_config_fofo_shop('Minimum order value', shop.id)
+        order_config = order_config if order_config else GlobalConfig.objects.filter(key='ecom_minimum_order_amount').last().value
         if order_config is not None:
             order_amount = cart.order_amount_after_discount
             if order_amount < order_config:
                 return api_response(
                     "A minimum total purchase amount of {} is required to checkout.".format(order_config),
                     None, status.HTTP_200_OK, False)
+        """"-----------------------------------------------------------------------------------------------------------------------"""
 
         if shop.online_inventory_enabled:
             out_of_stock_items = PosCartCls.out_of_stock_items(cart_products)
@@ -5852,7 +6025,8 @@ def pdf_generation_retailer(request, order_id, delay=True):
             manager = order.ordered_cart.seller_shop.pos_shop.filter(user_type='manager').last()
             # whatsapp api call for sending an invoice
             if delay:
-                whatsapp_opt_in.delay(phone_number, shop_name, media_url, file_name)
+                if request.data.get("is_whatsapp", True):
+                    whatsapp_opt_in.delay(phone_number, shop_name, media_url, file_name)
                 if manager and manager.user.email:
                     send_invoice_pdf_email.delay(manager.user.email, shop_name, order.order_no, media_url, file_name,
                                                  'order')
@@ -5864,7 +6038,8 @@ def pdf_generation_retailer(request, order_id, delay=True):
                     send_invoice_pdf_email(manager.user.email, shop_name, order.order_no, media_url, file_name, 'order')
                 else:
                     logger.exception("Email not present for Manager {}".format(str(manager)))
-                return whatsapp_opt_in(phone_number, shop_name, media_url, file_name)
+                if request.data.get("is_whatsapp", True):
+                    return whatsapp_opt_in(phone_number, shop_name, media_url, file_name)
         except Exception as e:
             logger.exception("Retailer Invoice save and send error order {}".format(order.order_no))
             logger.exception(e)
@@ -6039,8 +6214,9 @@ def pdf_generation_return_retailer(request, order, ordered_product, order_return
             manager = order.ordered_cart.seller_shop.pos_shop.filter(user_type='manager').last()
             shop_name = order.ordered_cart.seller_shop.shop_name
             if delay:
-                whatsapp_order_refund.delay(order_number, order_status, phone_number, refund_amount, media_url,
-                                            file_name)
+                if request.data.get("is_whatsapp", True):
+                    whatsapp_order_refund.delay(order_number, order_status, phone_number, refund_amount, media_url,
+                                                file_name)
                 if manager and manager.user.email:
                     send_invoice_pdf_email.delay(manager.user.email, shop_name, order_number, media_url, file_name,
                                                  'return')
@@ -6053,7 +6229,8 @@ def pdf_generation_return_retailer(request, order, ordered_product, order_return
                 else:
                     logger.exception("Email not present for Manager {}".format(str(manager)))
                 # send mail to manager
-                return whatsapp_order_refund(order_number, order_status, phone_number, refund_amount, media_url,
+                if request.data.get("is_whatsapp", False):
+                    return whatsapp_order_refund(order_number, order_status, phone_number, refund_amount, media_url,
                                              file_name)
         except Exception as e:
             logger.exception("Retailer Credit note save and send error order {} return {}".format(order.order_no,

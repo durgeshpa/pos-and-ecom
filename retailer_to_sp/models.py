@@ -988,6 +988,10 @@ class Order(models.Model):
         ('5','Others')
     )
 
+    DELIVERY_CHOICE = ( ('1', 'Self Pick'),
+                        ('2', 'Home Delivery')
+                       )
+
     POS_WALKIN = 'pos_walkin'
     POS_ECOMM = 'pos_ecomm'
 
@@ -1042,12 +1046,14 @@ class Order(models.Model):
         get_user_model(), related_name='rt_order_modified_user',
         null=True, blank=True, on_delete=models.DO_NOTHING
     )
+    estimate_delivery_time = models.IntegerField(null=True, blank=True)
     pick_list_pdf = models.FileField(upload_to='shop_photos/shop_name/documents/', null=True, blank=True)
     points_added = models.IntegerField(default=0, null=True)
     delivery_person = models.ForeignKey(UserWithName, null=True, on_delete=models.DO_NOTHING, verbose_name='Delivery Boy')
     dispatch_delivery = models.BooleanField(default=False)
     dispatch_center = models.ForeignKey(Shop, related_name='dispatch_center_orders', null=True, blank=True,
                                         on_delete=models.DO_NOTHING)
+    delivery_option = models.CharField(max_length=50, choices=DELIVERY_CHOICE, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
@@ -2003,6 +2009,12 @@ class OrderedProduct(models.Model):  # Shipment
             self.no_of_packets = 0
         if self.no_of_sacks == None:
             self.no_of_sacks = 0
+        
+        shipment_payments = self.shipment_payment.all()
+        for ship_pay in shipment_payments:
+            if ship_pay.parent_order_payment and ship_pay.parent_order_payment.paid_amount:
+                ship_pay.paid_amount = ship_pay.parent_order_payment.paid_amount
+                ship_pay.save()
 
         super().save(*args, **kwargs)
 
@@ -2101,6 +2113,7 @@ class PickerDashboard(models.Model):
             elif self.repackaging:
                 Pickup.objects.filter(pickup_type_id=self.repackaging.repackaging_no, zone=self.zone,
                                       status='pickup_creation').update(status='picking_assigned')
+
 
     def __str__(self):
         return self.picklist_id if self.picklist_id is not None else str(self.id)
@@ -2475,15 +2488,12 @@ class OrderedProductMapping(models.Model):
             cart_product_mapping = self.ordered_product.order.ordered_cart.rt_cart_list.filter(
                 retailer_product=self.retailer_product,
                 product_type=self.product_type).last()
-            if not self.effective_price:
-                self.effective_price = cart_product_mapping.item_effective_prices
         else:
             cart_product_mapping = self.ordered_product.order.ordered_cart.rt_cart_list.filter(
                 cart_product=self.product).last()
-            # if not self.effective_price:
-            #     shipped_qty_in_pack = math.ceil(self.shipped_qty / cart_product_mapping.cart_product_case_size)
-            #     self.effective_price = cart_product_mapping.cart_product_price.get_per_piece_price(shipped_qty_in_pack)
+        if not self.effective_price:
             self.effective_price = cart_product_mapping.item_effective_prices
+
         self.discounted_price = cart_product_mapping.discounted_price
         if self.delivered_qty > 0:
             self.delivered_at_price = self.effective_price
@@ -3768,3 +3778,19 @@ class DispatchTripCrateMapping(BaseTimestampUserModel):
 
     def __str__(self):
         return str(self.crate) + "-" + str(self.trip)
+
+class PickerUserAssignmentLog(models.Model):
+    picker_dashboard = models.ForeignKey(PickerDashboard, on_delete=models.DO_NOTHING, related_name='+')
+    initial_user = models.ForeignKey(get_user_model(), on_delete=models.DO_NOTHING, related_name='+')
+    final_user = models.ForeignKey(get_user_model(), on_delete=models.DO_NOTHING, related_name='+')
+    created_at = models.DateTimeField(auto_now_add=True)
+    created_by = models.ForeignKey(get_user_model(), on_delete=models.DO_NOTHING)
+
+    @staticmethod
+    def log_user_change(instance, updated_by, last_user_id):
+        PickerUserAssignmentLog.objects.create(
+            picker_dashboard=instance,
+            initial_user_id=last_user_id,
+            final_user_id=instance.picker_boy_id,
+            created_by=updated_by
+        )

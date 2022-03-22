@@ -47,6 +47,22 @@
             document.getElementById('id_shop_type').onchange = function() {
                 enableForPosAction();
             };
+            function disapprovalReasonAction () {
+                approval_status = $("#id_approval_status").children("option:selected").text();
+                disapproval_status_reason = $("#id_disapproval_status_reason").children("option:selected").val();
+                if (approval_status == 'Disapproved'){
+                    $('.field-disapproval_status_reason').removeClass('hidden');
+                }
+                else {
+                    $('.field-disapproval_status_reason').addClass('hidden');
+                }
+            }
+
+            disapprovalReasonAction();
+
+            document.getElementById('id_approval_status').onchange = function() {
+                disapprovalReasonAction();
+            };
         });
 
 
