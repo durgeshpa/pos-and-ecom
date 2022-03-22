@@ -5889,7 +5889,7 @@ def pdf_generation_retailer(request, order_id, delay=True):
     template_name = 'admin/invoice/invoice_retailer_3inch.html'
     try:
         # Don't create pdf if already created
-        if ordered_product.invoice and ordered_product.invoice.invoice_pdf.url:
+        if ordered_product.invoice.invoice_pdf.url:
             try:
                 phone_number, shop_name = order.buyer.phone_number, order.seller_shop.shop_name
                 media_url, file_name, manager = ordered_product.invoice.invoice_pdf.url, ordered_product.invoice.invoice_no, \
