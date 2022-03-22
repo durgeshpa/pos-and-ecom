@@ -2603,6 +2603,12 @@ class DispatchTripStatusChangeSerializers(serializers.ModelSerializer):
         DispatchTripShipmentPackages.objects.filter(
             trip_shipment__in=shipment_details).update(package_status=DispatchTripShipmentPackages.CANCELLED)
         shipment_details.update(shipment_status=DispatchTripShipmentMapping.CANCELLED)
+        if dispatch_trip.trip_type == DispatchTrip.BACKWARD:
+            ShipmentPackaging.objects.filter(shipment_id__in=shipment_details.values_list('shipment_id', flat=True),
+                                             movement_type=ShipmentPackaging.RETURNED,
+                                             status=ShipmentPackaging.DISPATCH_STATUS_CHOICES.READY_TO_DISPATCH)\
+                .update(status=ShipmentPackaging.DISPATCH_STATUS_CHOICES.PACKED)
+
 
     @transaction.atomic
     def update(self, instance, validated_data):
