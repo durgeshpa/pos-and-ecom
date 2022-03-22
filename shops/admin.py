@@ -274,7 +274,7 @@ class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
                         ShopParentRetailerMapping, ShopStatusAdmin, ]
         if request.user.is_superuser or request.user.has_perm('shops.has_fofo_config_operations'):
             self.inlines.append(FOFOConfigurationsInline)
-        if request.user.is_superuser or request.user.has_perm('shops.has_foco_config_operations'):
+        if request.user.is_superuser or request.user.has_perm('shops.has_fofo_config_operations_shop'):
             self.inlines.append(FOFOConfigInline)
         return super(ShopAdmin, self).changeform_view(request, object_id, form_url, extra_context)
 
