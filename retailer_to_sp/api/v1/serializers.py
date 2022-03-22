@@ -2541,7 +2541,9 @@ class DispatchTripStatusChangeSerializers(serializers.ModelSerializer):
                 else:
                      raise serializers.ValidationError("'opening_kms' | This is mandatory")
 
-                if not (dispatch_trip.shipments_details.exists() or dispatch_trip.trip_empty_crates.filter(
+                if not (dispatch_trip.shipments_details.filter(~Q(shipment_status=
+                                                                  DispatchTripShipmentMapping.CANCELLED)).exists() 
+                        or dispatch_trip.trip_empty_crates.filter(
                         crate_status__in=[DispatchTripCrateMapping.LOADED,
                                           DispatchTripCrateMapping.DAMAGED_AT_LOADING]).exists()):
                     raise serializers.ValidationError("Load shipments/empty crates to the trip to start.")
