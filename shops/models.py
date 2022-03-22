@@ -847,5 +847,5 @@ class FOFOConfig(models.Model):
     delivery_time = models.IntegerField(blank=True, null=True, help_text="Insert value in minutes")
     class Meta:
         permissions = (
-            ("has_fofo_config_operations", "Has update FOFO config operations"),
+            ("has_fofo_config_operations_shop", "Has update FOFO  shop config operations"),
         )
