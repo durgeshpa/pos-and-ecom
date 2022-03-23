@@ -658,9 +658,8 @@ class LandingPageSerializer(serializers.ModelSerializer):
                     Functions.objects.filter(type=self.initial_data['type']).values_list('pk', flat=True):
                     raise serializers.ValidationError("Invalid function selected.")
                 func = Functions.objects.filter(pk=self.initial_data['page_function']).last()
-                if not isBlank(func.required_params):
-                    required_params = func.required_params.split(",")
-                    for param in required_params:
+                if func.required_params and len(func.required_params) > 0:
+                    for param in func.required_params:
                         if not self.initial_data.get('params') or param not in self.initial_data.get('params') or \
                                 self.initial_data['params'][param] is None:
                             raise serializers.ValidationError(f"{param} is missing in 'params'")
