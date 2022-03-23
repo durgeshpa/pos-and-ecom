@@ -8,7 +8,7 @@ from .views import ParentProductView, ParentProductExportAsCSVView, HSNListView,
     BuyerShopListView, CityListView, PinCodeListView, SlabProductPriceView, ProductPriceStatusListView, \
     DisapproveSelectedProductPriceView, ProductSlabPriceExportAsCSVView, ProductListView, DiscountProductView, \
     DiscountProductListForManualPriceView, B2cCategoryListView, HSNExportAsCSVUploadView, \
-    ParentProductsTaxStatusChoicesView, ParentProductApprovalView
+    ParentProductsTaxStatusChoicesView, ParentProductApprovalView, HSNExportAsCSVSampleDownloadView
 
 urlpatterns = [
     url(r'^parent-product/', ParentProductView.as_view(), name='parent-product'),
@@ -35,6 +35,7 @@ urlpatterns = [
     url(r'^weight/', WeightView.as_view(), name='weight'),
     url(r'^export-csv-weight/', WeightExportAsCSVView.as_view(), name='export-csv-weight'),
     url(r'^export-csv-hsn/', HSNExportAsCSVView.as_view(), name='export-csv-hsn'),
+    url(r'^download-csv-hsn-sample/', HSNExportAsCSVSampleDownloadView.as_view(), name='download-csv-hsn-sample'),
     url(r'^upload-csv-hsn/', HSNExportAsCSVUploadView.as_view(), name='upload-csv-hsn'),
     url(r'^hsn/', ProductHSNView.as_view(), name='hsn'),
     url(r'^child-product-list/', ActiveChildProductListView.as_view(), name='child-product-list'),

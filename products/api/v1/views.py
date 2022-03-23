@@ -1,3 +1,4 @@
+import csv
 import logging
 from datetime import datetime
 
@@ -908,9 +909,27 @@ class HSNExportAsCSVView(CreateAPIView):
         return get_response(serializer_error(serializer), False)
 
 
+class HSNExportAsCSVSampleDownloadView(GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+
+    def get(self, request):
+        """ Get API for Download sample TAX with HSN CSV """
+
+        info_logger.info("HSNExportAsCSVSampleDownloadView GET api called.")
+        filename = "hsn_tax_sample_csv.csv"
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
+        writer = csv.writer(response)
+        writer.writerow(["product_hsn_code", "gst_rate_1", "gst_rate_2", "gst_rate_3",
+                         "cess_rate_1", "cess_rate_2", "cess_rate_3"])
+        writer.writerow([8013210, 5, 12, 18, 20.89, 3, 5.55])
+        info_logger.info("HSN Tax CSVExported successfully ")
+        return HttpResponse(response, content_type='text/csv')
+
+
 class HSNExportAsCSVUploadView(GenericAPIView):
     """
-    This class is used to upload csv file for Shop Route to map the route with shop
+    This class is used to upload csv file for TAX with HSN
     """
     authentication_classes = (authentication.TokenAuthentication,)
     serializer_class = HSNExportAsCSVUploadSerializer
