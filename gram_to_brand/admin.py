@@ -216,10 +216,28 @@ class GRNOrderForm(forms.ModelForm):
         fields = ('order', 'invoice_no', 'deduction', 'total_freight_charges', 'discount_charges', 'insurance_charges',
                   'other_charges',)
 
+    def clean_discount_charges(self):
+        if self.cleaned_data['discount_charges'] < 0:
+            raise ValidationError("Discount Charges must be positive")
+        return self.cleaned_data['discount_charges']
+
+    def clean_insurance_charges(self):
+        if self.cleaned_data['insurance_charges'] < 0:
+            raise ValidationError("Insurance Charges must be positive")
+        return self.cleaned_data['insurance_charges']
+
+    def clean_other_charges(self):
+        if self.cleaned_data['other_charges'] < 0:
+            raise ValidationError("Other Charges must be positive")
+        return self.cleaned_data['other_charges']
+
     def clean(self):
         cleaned_data = super().clean()
-        if (cleaned_data['deduction'] and cleaned_data['total_freight_charges'] > 0) or \
-                cleaned_data['total_freight_charges'] < 0:
+
+        if cleaned_data['total_freight_charges'] < 0:
+            raise ValidationError("Total Freight Charges must be positive")
+
+        if cleaned_data['deduction'] and cleaned_data['total_freight_charges'] > 0:
             cleaned_data['total_freight_charges'] *= -1
         return cleaned_data
 
