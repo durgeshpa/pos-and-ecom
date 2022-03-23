@@ -6031,7 +6031,6 @@ def pdf_generation_retailer(request, order_id, delay=True):
             ordered_product.invoice.invoice_pdf.save("{}".format(filename), ContentFile(response.rendered_content),
                                                      save=True)
             phone_number = order.buyer.phone_number
-            phone_number = '9990580531'
             shop_name = order.seller_shop.shop_name
             media_url = ordered_product.invoice.invoice_pdf.url
             file_name = ordered_product.invoice.invoice_no
