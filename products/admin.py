@@ -124,7 +124,7 @@ class ExportCsvMixin:
             field_names_temp = field_names.copy()
             cost_params = ['raw_material', 'wastage', 'fumigation', 'label_printing', 'packing_labour',
                            'primary_pm_cost', 'secondary_pm_cost', 'final_fg_cost', 'conversion_cost']
-            add_fields = ['product_brand', 'product_category', 'image', 'source skus', 'packing_sku',
+            add_fields = ['product_brand', 'b2b_category', 'b2c_category', 'image', 'source skus', 'packing_sku',
                           'packing_sku_weight_per_unit_sku'] + cost_params
             for field_name in add_fields:
                 field_names_temp.append(field_name)
@@ -135,7 +135,8 @@ class ExportCsvMixin:
             items = [getattr(obj, field) for field in field_names]
             if self.model._meta.db_table == 'products_product':
                 items.append(obj.product_brand)
-                items.append(self.product_category(obj))
+                items.append(self.b2b_category(obj))
+                items.append(self.b2c_category(obj))
                 if obj.use_parent_image and obj.parent_product.parent_product_pro_image.last():
                     items.append(obj.parent_product.parent_product_pro_image.last().image.url)
                 elif obj.product_pro_image.last():
@@ -600,9 +601,10 @@ class ParentProductAdmin(admin.ModelAdmin):
     change_form_template = 'admin/products/parent_product_change_form.html'
     actions = [deactivate_selected_products, approve_selected_products, 'export_as_csv']
     list_display = [
-        'parent_id', 'name', 'parent_product_discriptions', 'parent_brand', 'product_category', 'product_hsn',
-        'product_gst', 'product_cess', 'product_surcharge', 'product_image', 'status',
-        'product_type', 'is_ptr_applicable', 'ptrtype', 'ptrpercent', 'discounted_life_percent'
+        'parent_id', 'name', 'parent_product_discriptions', 'parent_brand', 'b2b_category',
+        'b2c_category', 'product_hsn', 'product_gst', 'product_cess', 'product_surcharge',
+        'product_image', 'status', 'product_type', 'is_ptr_applicable', 'ptrtype', 'ptrpercent',
+        'discounted_life_percent'
     ]
     search_fields = [
         'parent_id', 'name'
@@ -619,7 +621,6 @@ class ParentProductAdmin(admin.ModelAdmin):
     def parent_product_discriptions(obj):
         """convert text string to html formate for display on admin pannel..."""
         return format_html('{}'.format(obj.product_discription[0:200:]))
-
 
     def product_gst(self, obj):
         if ParentProductTaxMapping.objects.filter(parent_product=obj, tax__tax_type='gst').exists():
@@ -645,35 +646,27 @@ class ParentProductAdmin(admin.ModelAdmin):
 
     product_surcharge.short_description = 'Product Surcharge'
 
-    def product_category(self, obj):
-        if obj.product_type == 'b2b':
-            try:
-                if obj.parent_product_pro_category.exists():
-                    cats = [str(c.category) for c in obj.parent_product_pro_category.filter(status=True)]
-                    return "\n".join(cats)
-                return ''
-            except:
-                return ''
-        elif obj.product_type == 'b2c':
-            try:
-                if obj.parent_product_pro_b2c_category.exists():
-                    cats = [str(c.category) for c in obj.parent_product_pro_b2c_category.filter(status=True)]
-                    return "\n".join(cats)
-                return ''
-            except:
-                return ''
-        else:
-            try:
-                cats = []
-                if obj.parent_product_pro_b2c_category.exists():
-                    cats += [str(c.category) for c in obj.parent_product_pro_b2c_category.filter(status=True)]
-                if obj.parent_product_pro_category.exists():
-                    cats += [str(c.category) for c in obj.parent_product_pro_category.filter(status=True)]
-                return "\n".join(cats) if cats else ''
-            except:
-                return ''
+    def b2b_category(self, obj):
+        try:
+            if obj.parent_product_pro_category.exists():
+                cats = [str(c.category) for c in obj.parent_product_pro_category.filter(status=True)]
+                return "\n".join(cats)
+            return ''
+        except:
+            return ''
 
-    product_category.short_description = 'Product Category'
+    b2b_category.short_description = 'Product B2B Category'
+
+    def b2c_category(self, obj):
+        try:
+            if obj.parent_product_pro_b2c_category.exists():
+                cats = [str(c.category) for c in obj.parent_product_pro_b2c_category.filter(status=True)]
+                return "\n".join(cats)
+            return ''
+        except:
+            return ''
+
+    b2c_category.short_description = 'Product B2C Category'
 
     def product_image(self, obj):
         if obj.parent_product_pro_image.exists():
@@ -695,9 +688,9 @@ class ParentProductAdmin(admin.ModelAdmin):
     def export_as_csv(self, request, queryset):
         meta = self.model._meta
         field_names = [
-            'parent_id', 'name', 'parent_brand', 'product_category', 'product_hsn',
-            'product_gst', 'product_cess', 'product_surcharge', 'product_image', 'status',
-            'product_type', 'is_ptr_applicable', 'ptr_type', 'ptr_percent', 'discounted_life_percent'
+            'parent_id', 'name', 'parent_brand', 'b2b_category', 'b2c_category', 'product_hsn', 'product_gst',
+            'product_cess', 'product_surcharge', 'product_image',
+            'status', 'product_type', 'is_ptr_applicable', 'ptr_type', 'ptr_percent', 'discounted_life_percent'
         ]
         response = HttpResponse(content_type='text/csv')
         response['Content-Disposition'] = 'attachment; filename={}.csv'.format(meta)
@@ -1121,9 +1114,9 @@ class ProductAdmin(admin.ModelAdmin, ExportCsvMixin):
 
     actions = [deactivate_selected_child_products, approve_selected_child_products, 'export_as_csv']
     list_display = [
-        'product_sku', 'product_name', 'parent_product', 'parent_name',
-        'product_brand', 'product_category', 'product_ean_code', 'product_hsn', 'product_gst',
-        'product_mrp', 'is_ptr_applicable', 'ptr_type', 'ptr_percent', 'products_image', 'status'
+        'product_sku', 'product_name', 'parent_product', 'parent_name', 'product_brand', 'b2b_category',
+        'b2c_category', 'product_ean_code', 'product_hsn', 'product_gst', 'product_mrp', 'is_ptr_applicable',
+        'ptr_type', 'ptr_percent', 'products_image', 'status'
     ]
 
     search_fields = ['product_name', 'id']
@@ -1180,30 +1173,27 @@ class ProductAdmin(admin.ModelAdmin, ExportCsvMixin):
     def ptr_percent(self, obj):
         return obj.parent_product.ptr_percent
 
-    def product_category(self, obj):
+    def b2b_category(self, obj):
         try:
-            if obj.parent_product.product_type=='b2b':
-                if obj.parent_product.parent_product_pro_category.exists():
-                    cats = [str(c.category) for c in obj.parent_product.parent_product_pro_category.filter(status=True)]
-                    return "\n".join(cats)
-                return ''
-            elif obj.parent_product.product_type=='b2c':
-                if obj.parent_product.parent_product_pro_b2c_category.exists():
-                    cats = [str(c.category) for c in obj.parent_product.parent_product_pro_b2c_category.filter(status=True)]
-                    return "\n".join(cats)
-                return ''
-            else:
-                if obj.parent_product.parent_product_pro_b2c_category.exists():
-                    cats = [str(c.category) for c in obj.parent_product.parent_product_pro_b2c_category.filter(status=True)]
-                    return "\n".join(cats)
-                elif obj.parent_product.parent_product_pro_category.exists():
-                    cats = [str(c.category) for c in
-                            obj.parent_product.parent_product_pro_category.filter(status=True)]
-                    return "\n".join(cats)
+            if obj.parent_product.parent_product_pro_category.exists():
+                cats = [str(c.category) for c in obj.parent_product.parent_product_pro_category.filter(status=True)]
+                return "\n".join(cats)
+            return ''
         except:
             return ''
 
-    product_category.short_description = 'Product Category'
+    b2b_category.short_description = 'Product B2B Category'
+
+    def b2c_category(self, obj):
+        try:
+            if obj.parent_product.parent_product_pro_b2c_category.exists():
+                cats = [str(c.category) for c in obj.parent_product.parent_product_pro_b2c_category.filter(status=True)]
+                return "\n".join(cats)
+            return ''
+        except:
+            return ''
+
+    b2c_category.short_description = 'Product B2C Category'
 
     def get_changeform_initial_data(self, request):
         if request.GET.get('product'):

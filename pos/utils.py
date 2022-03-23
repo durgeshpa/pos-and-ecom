@@ -24,10 +24,11 @@ def create_order_data_excel(queryset, request=None):
         'Seller Shop Name', 'Seller Shop Owner Id', 'Seller Shop Owner Name', 'Mobile No.(Seller Shop)',
         'Seller Shop Type', 'Buyer Id', 'Buyer Name', 'Mobile No(Buyer)', 'Purchased Product Id',
         'Purchased Product SKU', 'Linked Sku', 'Purchased Product Name', 'Purchased Product Ean Code',
-        'Product Category', 'Product SubCategory', 'Quantity', 'Invoice Quantity', 'Product Type', 'MRP',
-        'Selling Price', 'Item wise Amount', 'Offer Applied', 'Offer Discount', 'Spot Discount', 'Order Amount',
-        'Invoice Amount', 'Parent Id', 'Parent Name', 'Child Name', 'Brand', 'Tax Slab(GST)', 'Tax Slab(Cess)',
-        'Tax Slab(Surcharge)', 'Tax Slab(TCS)', 'Redeemed Points', 'Redeemed Points Value'])
+        'B2B Category', 'B2B Sub Category', 'B2C Category', 'B2C Sub Category', 'Quantity', 'Invoice Quantity',
+        'Product Type', 'MRP', 'Selling Price', 'Item wise Amount', 'Offer Applied', 'Offer Discount',
+        'Spot Discount', 'Order Amount', 'Invoice Amount', 'Parent Id', 'Parent Name', 'Child Name', 'Brand',
+        'Tax Slab(GST)', 'Tax Slab(Cess)', 'Tax Slab(Surcharge)', 'Tax Slab(TCS)', 'Redeemed Points',
+        'Redeemed Points Value'])
 
     orders = queryset \
         .prefetch_related('order', 'invoice', 'order__seller_shop', 'order__seller_shop__shop_owner',
@@ -39,6 +40,8 @@ def create_order_data_excel(queryset, request=None):
                           'rt_order_product_order_product_mapping__retailer_product__linked_product__parent_product',
                           'rt_order_product_order_product_mapping__retailer_product__linked_product__parent_product__parent_product_pro_category__category__category_parent',
                           'rt_order_product_order_product_mapping__retailer_product__linked_product__parent_product__parent_product_pro_category__category',
+                          'rt_order_product_order_product_mapping__retailer_product__linked_product__parent_product__parent_product_pro_b2c_category__category__category_parent',
+                          'rt_order_product_order_product_mapping__retailer_product__linked_product__parent_product__parent_product_pro_b2c_category__category',
                           'rt_order_product_order_product_mapping__retailer_product__linked_product__parent_product__parent_brand__brand_parent',
                           'rt_order_product_order_product_mapping__retailer_product__linked_product__parent_product__parent_brand',
                           'order__rt_payment_retailer_order__payment_type', 'order__ordered_cart', 'order__ordered_cart__rt_cart_list'
@@ -67,6 +70,8 @@ def create_order_data_excel(queryset, request=None):
                 'rt_order_product_order_product_mapping__retailer_product__linked_product__parent_product__name',
                 'rt_order_product_order_product_mapping__retailer_product__linked_product__parent_product__parent_product_pro_category__category__category_parent__category_name',
                 'rt_order_product_order_product_mapping__retailer_product__linked_product__parent_product__parent_product_pro_category__category__category_name',
+                'rt_order_product_order_product_mapping__retailer_product__linked_product__parent_product__parent_product_pro_b2c_category__category__category_parent__category_name',
+                'rt_order_product_order_product_mapping__retailer_product__linked_product__parent_product__parent_product_pro_b2c_category__category__category_name',
                 'rt_order_product_order_product_mapping__retailer_product__linked_product__parent_product__parent_brand__brand_parent__brand_name',
                 'rt_order_product_order_product_mapping__retailer_product__linked_product__parent_product__parent_brand__brand_name',
                 'purchased_subtotal', 'order__order_amount', 'invoice__shipment',
@@ -95,6 +100,7 @@ def create_order_data_excel(queryset, request=None):
         product_type = order.get('rt_order_product_order_product_mapping__product_type')
         cart_offers = order['order__ordered_cart__offers']
         offers = list(filter(lambda d: d['type'] in 'discount', cart_offers))
+
         category = order[
             'rt_order_product_order_product_mapping__retailer_product__linked_product__parent_product__parent_product_pro_category__category__category_parent__category_name']
         sub_category = order[
@@ -102,6 +108,14 @@ def create_order_data_excel(queryset, request=None):
         if not category:
             category = sub_category
             sub_category = None
+
+        b2c_category = order[
+            'rt_order_product_order_product_mapping__retailer_product__linked_product__parent_product__parent_product_pro_b2c_category__category__category_parent__category_name']
+        b2c_sub_category = order[
+            'rt_order_product_order_product_mapping__retailer_product__linked_product__parent_product__parent_product_pro_b2c_category__category__category_name']
+        if not b2c_category:
+            b2c_category = b2c_sub_category
+            b2c_sub_category = None
 
         brand = order[
             'rt_order_product_order_product_mapping__retailer_product__linked_product__parent_product__parent_brand__brand_parent__brand_name']
@@ -132,6 +146,8 @@ def create_order_data_excel(queryset, request=None):
             order.get('rt_order_product_order_product_mapping__retailer_product__product_ean_code'),
             category,
             sub_category,
+            b2c_category,
+            b2c_sub_category,
             order.get('rt_order_product_order_product_mapping__shipped_qty'),
             inv_qty,
             retailer_product_type.get(product_type, product_type),
@@ -236,8 +252,8 @@ def create_order_return_excel(queryset):
     writer = csv.writer(response)
     writer.writerow(['Order No', 'Order Status', 'Order date', 'Credit Inv#', 'Sales Inv#', 'Store ID', 'Store Name',
                      'User', "Buyer", 'Buyer Mobile Number', 'EAN code', 'Item Name', 'Returned Qty', 'Selling Price',
-                     'Returned Amount', 'MRP', 'Payment Mode', 'Product Category', 'Parent ID', 'SKU ID', 'Parent Name',
-                     'Child Name', 'Sub Category', 'Brand', 'Cart_Type'])
+                     'Returned Amount', 'MRP', 'Payment Mode', 'Parent ID', 'SKU ID', 'Parent Name', 'Child Name',
+                     'B2B Category', 'B2B Sub Category', 'B2C Category', 'B2C Sub Category', 'Brand', 'Cart_Type'])
 
     returns = queryset. \
         prefetch_related('credit_note_order_return_mapping', 'credit_note_order_return_mapping__credit_note_id'). \
@@ -261,7 +277,7 @@ def create_order_return_excel(queryset):
 
         for item in return_items:
             refund_amt = item.return_qty * item.ordered_product.selling_price
-            parent_id, category, sub_category, brand, sub_brand = get_product_details(
+            parent_id, category, sub_category, b2c_category, b2c_sub_category, brand, sub_brand = get_product_details(
                 item.ordered_product.retailer_product)
             selling_price, invoice_number, retailer_product_name, mrp, sku, name = None, None, None, None, None, None
             ean, product_name = None, None
@@ -296,12 +312,14 @@ def create_order_return_excel(queryset):
                 refund_amt,  # Returned Amount
                 mrp,  # MRP
                 return_mode_choice.get(order_rtn.get('refund_mode')),  # Payment Mode
-                category,  # Product Category
                 parent_id,  # Parent ID
                 sku,  # SKU ID
                 product_name,  # Parent Name
                 retailer_product_name,  # Child Name
+                category,  # Product Category
                 sub_category,  # Sub Category
+                b2c_category,
+                b2c_sub_category,
                 brand,  # Brand
                 order_rtn.get('order__ordered_cart__cart_type'),
             ])
@@ -502,19 +520,16 @@ def download_grn_cvs(queryset):
     writer = csv.writer(f)
     writer.writerow(
         ['GRN Id', 'GRN DATE', 'PO No', 'PO DATE', 'PO Status', 'GRN Amount', 'Bill amount', 'Supplier Invoice No',
-         'Invoice Date', 'Invoice Amount',
-         'Created At', 'Vendor', 'Vendor Address', 'Vendor State', 'Vendor GST NO.', 'Store Id', 'Store Name',
-         'Shop User',
-         'SKU', 'Product Name', 'Parent Product', 'Category', 'Sub Category', 'Brand', 'Sub Brand', 'PO Qty', 'GST Tax',
-         'Cess_Tax', 'Surcharge_Tax',
-         'Total Tax', 'Unit Price', 'Total Tax value',
-         'Recieved Quantity'])
+         'Invoice Date', 'Invoice Amount', 'Created At', 'Vendor', 'Vendor Address', 'Vendor State', 'Vendor GST NO.',
+         'Store Id', 'Store Name', 'Shop User', 'SKU', 'Product Name', 'Parent Product', 'B2B Category',
+         'B2B Sub Category', 'B2C Category', 'B2C Sub Category', 'Brand', 'Sub Brand', 'PO Qty', 'GST Tax',
+         'Cess_Tax', 'Surcharge_Tax', 'Total Tax', 'Unit Price', 'Total Tax value', 'Recieved Quantity'])
     rows = []
 
     for obj in queryset:
 
         for p in obj.po_grn_products.all():
-            parent_id, category, sub_category, brand, sub_brand = get_product_details(p.product)
+            parent_id, b2b_category, b2b_sub_category, b2c_category, b2c_sub_category, brand, sub_brand = get_product_details(p.product)
             gst_tax, cess_tax, surcharge_tax = '', '', ''
             total_tax = 0
             original_amount = 0
@@ -550,10 +565,9 @@ def download_grn_cvs(queryset):
                  obj.order.ordered_cart.retailer_shop.id,
                  obj.order.ordered_cart.retailer_shop.shop_name,
                  obj.order.ordered_cart.retailer_shop.shop_owner,
-                 p.product.sku, p.product.name, parent_id, category, sub_category,
-                 brand, sub_brand,
-                 p.grn_order.order.ordered_cart.po_products.filter(product_id=p.product_id).first().qty, gst_tax,
-                 cess_tax, surcharge_tax, total_tax if total_tax else '',
+                 p.product.sku, p.product.name, parent_id, b2b_category, b2b_sub_category, b2c_category,
+                 b2c_sub_category, brand, sub_brand, p.grn_order.order.ordered_cart.po_products.filter(product_id=p.product_id).first().qty,
+                 gst_tax, cess_tax, surcharge_tax, total_tax if total_tax else '',
                  p.grn_order.order.ordered_cart.po_products.filter(product_id=p.product_id).first().price,
                  round(((float(original_amount) * total_tax) / 100), 3) if total_tax else '',
                  p.received_qty])
