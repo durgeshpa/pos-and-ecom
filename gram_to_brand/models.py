@@ -59,6 +59,29 @@ GST_CHOICE = (
 )
 
 
+class BaseTimestampUserModel(models.Model):
+    """
+        Abstract Model to have helper fields of created_at, created_by, updated_at and updated_by
+    """
+    created_at = models.DateTimeField(verbose_name="Created at", auto_now_add=True)
+    updated_at = models.DateTimeField(verbose_name="Updated at", auto_now=True)
+    created_by = models.ForeignKey(
+        get_user_model(), null=True,
+        verbose_name="Created by",
+        related_name="%(app_label)s_%(class)s_created_by",
+        on_delete=models.DO_NOTHING
+    )
+    updated_by = models.ForeignKey(
+        get_user_model(), null=True,
+        verbose_name="Updated by",
+        related_name="%(app_label)s_%(class)s_updated_by",
+        on_delete=models.DO_NOTHING
+    )
+
+    class Meta:
+        abstract = True
+
+
 class Po_Message(models.Model):
     created_by = models.ForeignKey(get_user_model(), related_name='created_by_user_message', null=True, blank=True,
                                    on_delete=models.CASCADE)
@@ -335,6 +358,19 @@ class CartProductMapping(models.Model):
                     self.cess = self.vendor_product.product.parent_product.parent_product_pro_tax.filter(tax__tax_type='cess')\
                         .last().tax.tax_percentage
             super(CartProductMapping, self).save(*args, **kwargs)
+
+
+class CartProductMappingTaxLog(BaseTimestampUserModel):
+    cart_product_mapping = models.ForeignKey(CartProductMapping, related_name='cart_product_mapping_tax_log',
+                                             on_delete=models.DO_NOTHING)
+    existing_gst = models.IntegerField(null=True, blank=True, choices=GST_CHOICE)
+    existing_cess = models.FloatField(null=True, blank=True,
+                                      validators=[MinValueValidator(0.0), MaxValueValidator(100.0)])
+    new_gst = models.IntegerField(null=True, blank=True, choices=GST_CHOICE)
+    new_cess = models.FloatField(null=True, blank=True, validators=[MinValueValidator(0.0), MaxValueValidator(100.0)])
+
+    def __str__(self):
+        return str(self.cart_product_mapping)
 
 
 class Order(BaseOrder):
