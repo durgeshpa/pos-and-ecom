@@ -52,7 +52,7 @@ from .models import (Cart, CartProductMapping, Commercial, CustomerCare, Dispatc
                      OrderedProduct, OrderedProductMapping, Payment, ReturnProductMapping, Shipment,
                      ShipmentProductMapping, Trip, ShipmentRescheduling, Feedback, PickerDashboard, Invoice,
                      ResponseComment, BulkOrder, RoundAmount, OrderedProductBatch, DeliveryData, PickerPerformanceData,
-                     ShipmentPackaging, ShipmentPackagingMapping, ShipmentNotAttempt, ShopCrate)
+                     ShipmentPackaging, ShipmentPackagingMapping, ShipmentNotAttempt, ShopCrate, PickerUserAssignmentLog)
 from .resources import OrderResource
 from .signals import ReservedOrder
 from .utils import (GetPcsFromQty, add_cart_user, create_order_from_cart, create_order_data_excel,
@@ -1013,6 +1013,12 @@ class PickerDashboardAdmin(admin.ModelAdmin):
     download_pick_list.short_description = 'Download Pick List'
     download_bulk_pick_list.short_description = 'Download Pick List for Selected Orders/Repackagings'
 
+    def save_model(self, request, obj, form, change):
+        picker_boy = form.cleaned_data['picker_boy']
+        if obj.id and 'picker_boy' in form.changed_data and form.initial.get('picker_boy') != picker_boy:
+            PickerUserAssignmentLog.log_user_change(obj, get_current_user(), form.initial.get('picker_boy'))
+        super(PickerDashboardAdmin, self).save_model(request, obj, form, change)
+        
 
 class OrderZoneFilter(InputFilter):
     parameter_name = 'zone'
@@ -1552,13 +1558,14 @@ class ShipmentAdmin(NestedModelAdmin):
         'order__shipping_address__city',
     )
     list_display = (
-        'start_qc', 'order', 'created_at', 'qc_area', 'trip', 'shipment_address',
+        'start_qc', 'order', 'created_at', 'qc_area', 'trip_id', 'shipment_address',
         'seller_shop', 'invoice_city', 'invoice_amount', 'payment_mode',
-        'shipment_status', 'download_invoice', 'pincode',
+        'shipment_status', 'download_invoice', 'pincode', 'qc_started_at', 'qc_completed_at'
     )
     list_filter = [
         ('created_at', DateTimeRangeFilter), InvoiceSearch, ShipmentOrderIdSearch,
-        ShipmentSellerShopSearch, ('shipment_status', ChoiceDropdownFilter), PincodeSearch
+        ShipmentSellerShopSearch, ('shipment_status', ChoiceDropdownFilter), PincodeSearch,
+        ('qc_started_at', DateTimeRangeFilter), ('qc_completed_at', DateTimeRangeFilter),
     ]
     fields = ['order', 'invoice_no', 'invoice_amount', 'shipment_address', 'invoice_city',
               'shipment_status', 'no_of_crates', 'no_of_packets', 'no_of_sacks', 'close_order']
@@ -1684,6 +1691,10 @@ class ShipmentAdmin(NestedModelAdmin):
         # return obj.invoice_no if obj.invoice_no != '-' else format_html(
         #     "<a href='/admin/retailer_to_sp/shipment/%s/change/' class='button'>Start QC</a>" %(obj.id))
     start_qc.short_description = 'Invoice No'
+
+    def trip_id(self,obj):
+        return obj.last_trip
+    trip_id.short_description = 'Trip'
 
     def save_model(self, request, obj, form, change):
         if not hasattr(form.instance, 'invoice') and (form.cleaned_data.get('shipment_status', None) == form.instance.READY_TO_SHIP):

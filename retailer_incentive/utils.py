@@ -1,8 +1,20 @@
 import datetime
-from retailer_incentive.models import SchemeShopMapping, IncentiveDashboardDetails
+import io
+import logging
+
+import xlsxwriter
+from django.db import transaction
+from django.http import HttpResponse
+
+from retailer_incentive.common_validators import bulk_incentive_data_validation
+from retailer_incentive.models import SchemeShopMapping, IncentiveDashboardDetails, Incentive, BulkIncentive
 
 today_date = datetime.date.today()
 
+info_logger = logging.getLogger('file-info')
+error_logger = logging.getLogger('file-error')
+debug_logger = logging.getLogger('file-debug')
+cron_logger = logging.getLogger('cron_log')
 
 def get_active_mappings(shop_id):
     """
@@ -84,5 +96,53 @@ def get_shop_scheme_mapping_based(shop_id, month):
     return scheme_shop_mapping_list
 
 
+def pos_save_file(bulk_incentive_obj):
+    response_file = None
+    if bulk_incentive_obj:
+        if bulk_incentive_obj.uploaded_file:
+            error_list, validated_rows = bulk_incentive_data_validation(bulk_incentive_obj.uploaded_file)
+            if validated_rows:
+                bulk_create_incentives(validated_rows, bulk_incentive_obj.uploaded_by)
+            if len(error_list) > 1:
+                response_file = error_incentives_xlsx(error_list, bulk_incentive_obj)
+    return response_file
 
 
+def bulk_create_incentives(data, uploaded_by):
+    with transaction.atomic():
+        for row in data:
+            try:
+
+                Incentive.objects.create(
+                    shop_id=row[0], capping_applicable=True if str(row[2]).lower() == "yes" else False,
+                    capping_value=row[3], date_of_calculation=row[4],
+                    total_ex_tax_delivered_value=row[5], incentive=row[6], created_by=uploaded_by,
+                    updated_by=uploaded_by)
+            except Exception as e:
+                info_logger.info("BulkCreateIncentiveView | can't create Incentive", e.args)
+
+
+def error_incentives_xlsx(list_data, bulk_incentive_obj):
+    filename = f'incentive_error_sheet_{bulk_incentive_obj.pk}.xlsx'
+    info_logger.info("creating xlsx for wrong data.")
+    output = io.BytesIO()
+    workbook = xlsxwriter.Workbook(output)
+    worksheet = workbook.add_worksheet()
+    bold = workbook.add_format({'bold': True})
+    date_format = workbook.add_format({'num_format': 'yyyy-mm-dd'})
+
+    # Write error msg in xlsx sheet.
+    for row_num, columns in enumerate(list_data):
+        for col_num, cell_data in enumerate(columns):
+            if row_num == 0:
+                worksheet.write(row_num, col_num, cell_data, bold)
+            else:
+                worksheet.write(row_num, col_num, cell_data, date_format if col_num == 4 else None)
+    workbook.close()
+    output.seek(0)
+    response = HttpResponse(
+        output,
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    response['Content-Disposition'] = 'attachment; filename=%s' % filename
+    return response

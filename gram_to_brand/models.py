@@ -263,7 +263,7 @@ class CartProductMapping(models.Model):
         """
             Product mrp
         """
-        return round(self.vendor_product.product_mrp, 2) if self.vendor_product else '-'
+        return round(self.cart_product.product_mrp, 2) if self.cart_product else '-'
 
     def case_sizes(self):
         """
@@ -311,7 +311,7 @@ class CartProductMapping(models.Model):
                 product_vendor_obj = product_vendor.last()
                 mrp, case_size, unit = None, None, None
                 if product_vendor_obj:
-                    mrp, case_size, unit = product_vendor_obj.product_mrp, product_vendor_obj.case_size, \
+                    mrp, case_size, unit = product.product_mrp, product_vendor_obj.case_size, \
                                            product_vendor_obj.brand_to_gram_price_unit
                 self.vendor_product = vendor_product_mapping(supplier, product.id, price, mrp, case_size, unit)
             self.per_unit_price = self.per_unit_prices()

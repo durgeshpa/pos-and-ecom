@@ -11,6 +11,8 @@ from django.views import View
 from django.shortcuts import get_object_or_404, redirect
 from django.contrib import messages
 from django_filters.views import FilterView
+from rest_framework.permissions import AllowAny
+
 from shops.models import Shop, ShopType, BeatPlanning, DayBeatPlanning
 from products.models import Product
 from gram_to_brand.models import GRNOrderProductMapping
@@ -21,7 +23,8 @@ from dal import autocomplete
 
 from wms.common_functions import get_stock, get_expiry_date
 
-from .forms import StockAdjustmentUploadForm, BulkShopUpdation, ShopUserMappingCsvViewForm, BeatUserMappingCsvViewForm
+from .forms import StockAdjustmentUploadForm, BulkShopUpdation, ShopUserMappingCsvViewForm, BeatUserMappingCsvViewForm, \
+    BulkShopStatusChange
 
 from wms.models import BinInventory, InventoryType, InventoryState, WarehouseInventory, PutawayBinInventory
 from .forms import StockAdjustmentUploadForm, BulkShopUpdation, ShopUserMappingCsvViewForm
@@ -47,7 +50,9 @@ from django_tables2.export.views import ExportMixin
 from audit.models import AUDIT_PRODUCT_STATUS, AuditProduct
 
 # Create your views here.
-
+info_logger = logging.getLogger('file-info')
+error_logger = logging.getLogger('file-error')
+debug_logger = logging.getLogger('file-debug')
 logger = logging.getLogger('shop')
 
 
@@ -165,8 +170,16 @@ class ShopMappedProduct(ExportMixin, SingleTableView, FilterView):
                     parent_id = myproduct.sku.parent_product.parent_id
                     parent_name = myproduct.sku.parent_product.name
                     case_size = myproduct.sku.parent_product.inner_case_size
-                    category_list = myproduct.sku.parent_product.parent_product_pro_category.all()
                     tempcategory=None
+                    if myproduct.sku.parent_product.product_type=='b2b':
+                        category_list = myproduct.sku.parent_product.parent_product_pro_category.all()
+                    elif myproduct.sku.parent_product.product_type=='b2c':
+                        category_list = myproduct.sku.parent_product.parent_product_pro_b2c_category.all()
+                    else:
+                        if myproduct.sku.parent_product.parent_product_pro_category.all().exists():
+                            category_list = myproduct.sku.parent_product.parent_product_pro_category.all()
+                        elif myproduct.sku.parent_product.parent_product_pro_b2c_category.all().exists():
+                            category_list = myproduct.sku.parent_product.parent_product_pro_b2c_category.all()
                     for category1 in category_list:
                         if not tempcategory or category1.updated_at > tempcategory.updated_at:
                             tempcategory = category1
@@ -547,6 +560,50 @@ def bulk_shop_updation(request):
     return render(
         request,
         'admin/shop/bulk-shop-updation.html',
+        {'form': form}
+    )
+
+
+def bulk_shop_status_change_sample_file(request):
+    filename = "shop_status_change.csv"
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
+    writer = csv.writer(response)
+    writer.writerow(['Shop ID', 'Shop Name', 'Approval Status', 'Disapproval Status Reason'])
+    writer.writerow(['45903', 'GFDN', 'Approved', ''])
+    writer.writerow(['45903', 'GFDN', 'Disapproved', 'Region Not Serviced'])
+    return response
+
+
+def bulk_shop_status_update(request):
+    if request.method == 'POST':
+        form = BulkShopStatusChange(request.POST, request.FILES)
+        if form.is_valid():
+            try:
+                info_logger.info("File format validation has been successfully done.")
+                upload_data = form.cleaned_data['file']
+                for row_id, data in enumerate(upload_data):
+                    with transaction.atomic():
+                        info_logger.info("csv data validation has been passed.")
+                        # shop_obj.update(approval_status=data[2], disapproval_status_reason=data[3])
+                        shop_obj = Shop.objects.get(id=int(data[0]))
+                        shop_obj.approval_status = data[2]
+                        shop_obj.disapproval_status_reason = data[3]
+                        shop_obj.updated_by = request.user
+                        shop_obj.save()
+                return render(request, 'admin/shop/bulk_shop_status_change.html',
+                              {'form': form,
+                               'success': 'Shop uploaded successfully', })
+
+            except Exception as e:
+                error_logger.error(e)
+
+    else:
+        form = BulkShopStatusChange
+
+    return render(
+        request,
+        'admin/shop/bulk_shop_status_change.html',
         {'form': form}
     )
 

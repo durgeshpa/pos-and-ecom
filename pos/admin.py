@@ -19,6 +19,7 @@ from accounts.middlewares import get_current_user
 from marketing.filters import UserFilter, PosBuyerFilter
 from coupon.admin import CouponCodeFilter, CouponNameFilter, RuleNameFilter
 from retailer_to_sp.admin import OrderIDFilter, SellerShopFilter
+from retailer_to_sp.utils import round_half_down
 from wms.models import PosInventory, PosInventoryChange, PosInventoryState
 from .common_functions import RetailerProductCls, PosInventoryCls
 
@@ -112,14 +113,37 @@ class RetailerProductAdmin(admin.ModelAdmin):
     change_form_template = 'admin/pos/pos_change_form.html'
     form = RetailerProductsForm
     list_display = ('id', 'shop', 'sku', 'name', 'mrp', 'selling_price', 'product_ean_code', 'image',
-                    'linked_product', 'description', 'sku_type', 'status', 'product_pack_type', 'created_at',
-                    'modified_at')
+                    'linked_product', 'category', 'sub_category', 'description', 'sku_type', 'status',
+                    'product_pack_type', 'created_at', 'modified_at')
     fields = ('shop', 'linked_product', 'sku', 'name', 'mrp', 'selling_price', 'product_ean_code',
               'description', 'sku_type', 'status', 'is_deleted', 'purchase_pack_size', 'initial_purchase_value',
               'online_enabled', 'online_price', 'created_at', 'modified_at','product_pack_type','measurement_category')
     readonly_fields = ('shop', 'sku', 'product_ean_code',
                        'purchase_pack_size', 'online_enabled', 'online_price', 'name', 'created_at',
                        'sku_type', 'mrp', 'modified_at', 'description', 'initial_purchase_value')
+
+    def cat_sub_cat(self, obj):
+        if obj.linked_product and obj.linked_product.parent_product.product_type in ['b2c', 'both']:
+            if obj.linked_product.parent_product.parent_product_pro_b2c_category.exists():
+                if obj.linked_product.parent_product.parent_product_pro_b2c_category.last().category.category_parent:
+                    category = obj.linked_product.parent_product.parent_product_pro_b2c_category.last().\
+                        category.category_parent.category_name
+                    sub_category = obj.linked_product.parent_product.parent_product_pro_b2c_category.last().\
+                        category.category_name
+                else:
+                    category = obj.linked_product.parent_product.parent_product_pro_b2c_category.last(). \
+                        category.category_name
+                    sub_category = None
+                return category, sub_category
+        return None, None
+
+    def category(self, obj):
+        category, sub_category = self.cat_sub_cat(obj)
+        return category
+
+    def sub_category(self, obj):
+        category, sub_category = self.cat_sub_cat(obj)
+        return sub_category
 
     def get_queryset(self, request):
         qs = super(RetailerProductAdmin, self).get_queryset(request)
@@ -136,10 +160,25 @@ class RetailerProductAdmin(admin.ModelAdmin):
 
     @staticmethod
     def image(obj):
-        image = obj.retailer_product_image.last()
+        image = None
+        try:
+            retailer_object = obj.retailer_product_image.all()
+            images = None
+            if not retailer_object.exists():
+                images = obj.linked_product.product_pro_image.all() if obj.linked_product and \
+                                                                       obj.linked_product.product_pro_image.all().first() else None
+                images = obj.linked_product.parent_product.parent_product_pro_image.all() \
+                    if not images and obj.linked_product and obj.linked_product.parent_product \
+                       and obj.linked_product.parent_product.parent_product_pro_image.all().first() else images
+
+            else:
+                images = retailer_object
+            image = images.first()
+        except:
+            pass
         if image:
             return format_html('<a href="{}"><img alt="{}" src="{}" height="50px" width="50px"/></a>'.format(
-                image.image.url, (image.image_alt_text or image.image_name), image.image.url))
+                image.image.url, (image or image.image_name), image.image.url))
 
     def has_add_permission(self, request, obj=None):
         return False
@@ -199,8 +238,10 @@ class RetailerProductAdmin(admin.ModelAdmin):
 
 class PaymentAdmin(admin.ModelAdmin):
 
-    list_display = ( 'order', 'payment_status', 'order_status', 'seller_shop', 'payment_type',
-                     'transaction_id', 'amount', 'paid_by', 'processed_by', 'created_at')
+    list_display = ('order', 'payment_status', 'order_status', 'seller_shop', 'payment_type',
+                    'transaction_id', 'order_amount', 'invoice_amount', 'paid_by', 'processed_by',
+                    'created_at')
+
     list_per_page = 10
     search_fields = ('order__order_no', 'paid_by__phone_number', 'order__seller_shop__shop_name')
     list_filter = [('order__seller_shop', RelatedOnlyDropdownFilter),
@@ -209,14 +250,32 @@ class PaymentAdmin(admin.ModelAdmin):
                    ]
     actions = ['download_payment_report']
 
+    def cart_type(self, obj):
+        return obj.order.ordered_cart.cart_type
+
     def order_amount(self, obj):
         if obj:
             return obj.amount
         return None
 
+    # def invoice_amount(self, obj):
+    #     if obj and obj.order.rt_order_order_product.last():
+    #         if obj.order.order_app_type == Order.POS_WALKIN:
+    #             return round_half_down(obj.order.rt_order_order_product.last().invoice_amount_final)
+    #         return obj.order.rt_order_order_product.last().invoice_amount_final
+    #     return None
+
     def invoice_amount(self, obj):
-        if obj and obj.order.rt_order_order_product.last():
-            return obj.order.rt_order_order_product.last().invoice_amount
+        if obj and obj.payment_status not in [Payment.PAYMENT_PENDING, Payment.PAYMENT_FAILED, 'payment_not_found']:
+            if obj.order.order_app_type == Order.POS_WALKIN:
+                return obj.amount
+            elif obj.order.order_app_type == Order.POS_ECOMM and obj.payment_type.type == 'cod' \
+                    and obj.order.order_status in [Order.DELIVERED, Order.PARTIALLY_RETURNED, Order.FULLY_RETURNED]:
+                return obj.amount
+            elif obj.order.order_app_type == Order.POS_ECOMM and obj.payment_type.type in ['cod_upi', 'credit', 'online']\
+                    and obj.order.order_status in [Order.DELIVERED, Order.PARTIALLY_RETURNED, Order.FULLY_RETURNED,
+                                                   Order.OUT_FOR_DELIVERY]:
+                return obj.amount
         return None
 
     def get_queryset(self, request):
@@ -431,7 +490,8 @@ class RetailerOrderProductAdmin(admin.ModelAdmin):
     inlines = (OrderedProductMappingInline,)
     search_fields = ('invoice__invoice_no', 'order__order_no', 'order__buyer__phone_number')
     list_per_page = 50
-    list_display = ('order', 'invoice_no', 'download_invoice', 'order_amount', 'payment_type', 'transaction_id', 'created_at')
+    list_display = ('order', 'invoice_no', 'download_invoice', 'order_amount', 'invoice_amount', 'payment_type',
+                    'transaction_id', 'created_at')
     actions = ["order_data_excel_action"]
     list_filter = [('order__seller_shop__shop_type', RelatedOnlyDropdownFilter),
                    ('created_at', DateTimeRangeFilter)]
@@ -465,6 +525,9 @@ class RetailerOrderProductAdmin(admin.ModelAdmin):
 
     def order_amount(self, obj):
         return obj.order.order_amount
+
+    def invoice_amount(self, obj):
+        return round_half_down(obj.invoice_amount_final)
 
     def order_status(self, obj):
         return obj.order.order_status
@@ -1216,6 +1279,10 @@ class PaymentStatusUpdateBYCronAdmin(admin.ModelAdmin):
     def seller_shop(self, obj):
         return obj.order.seller_shop
 
+    def get_queryset(self, request):
+        qs = super(PaymentStatusUpdateBYCronAdmin, self).get_queryset(request)
+        qs = qs.filter(order__ordered_cart__cart_type='ECOM')
+        return qs
 
     class Media:
         pass

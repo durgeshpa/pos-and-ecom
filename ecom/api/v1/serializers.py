@@ -6,9 +6,9 @@ from django.db.models import Sum
 
 from accounts.models import User
 from addresses.models import Pincode
-from categories.models import Category
+from categories.models import Category, B2cCategory
 from marketing.models import ReferralCode, RewardPoint, RewardLog
-from shops.models import Shop
+from shops.models import Shop, FOFOConfig
 from retailer_to_sp.models import Order, OrderedProductMapping, CartProductMapping
 from pos.models import RetailerProduct, Payment, PaymentType
 from global_config.views import get_config
@@ -69,17 +69,49 @@ class UserLocationSerializer(serializers.Serializer):
     latitude = serializers.DecimalField(max_digits=30, decimal_places=15)
     longitude = serializers.DecimalField(max_digits=30, decimal_places=15)
 
+# class FoFOConfigSerializer(serializers.ModelSerializer):
+#     class Meta:
+#         FOFOConfig
+#         fields = ('shop_opening_timing', 'shop_closing_timing ', 'working_days')
+#         #read_only_fields = ['shop_opening_timing', 'shop_closing_timing ', 'working_days']
+
 
 class ShopSerializer(serializers.ModelSerializer):
     shipping_address = serializers.SerializerMethodField()
+    shop_config = serializers.SerializerMethodField()
 
     @staticmethod
     def get_shipping_address(obj):
         return obj.shipping_address
 
+    @staticmethod
+    def get_shop_config(obj):
+        try:
+            if obj.fofo_shop_config:
+                day = datetime.datetime.today().date()
+                start_off_day = obj.fofo_shop_config.working_off_start_date
+                end_off_day = obj.fofo_shop_config.working_off_end_date
+                shop_is_open_today = True
+                if (start_off_day and end_off_day) and (start_off_day<= day and end_off_day >= day):
+                    shop_is_open_today = False
+
+                return {'open_time': obj.fofo_shop_config.shop_opening_timing,
+                         'close_time': obj.fofo_shop_config.shop_closing_timing,
+                         'working_off_start_date': obj.fofo_shop_config.working_off_start_date,
+                         'working_off_end_date': obj.fofo_shop_config.working_off_end_date,
+                         'delivery_redius': obj.fofo_shop_config.delivery_redius,
+                         'min_order_value': obj.fofo_shop_config.min_order_value,
+                         'delivery_time':obj.fofo_shop_config.delivery_time,
+                         'shop_is_open_today':shop_is_open_today
+                            }
+        except:
+            pass
+
+
+
     class Meta:
         model = Shop
-        fields = ('id', 'shop_name', 'online_inventory_enabled', 'shipping_address')
+        fields = ('id', 'shop_name', 'online_inventory_enabled', 'shipping_address','shop_config')
 
 
 class AddressSerializer(serializers.ModelSerializer):
@@ -128,9 +160,22 @@ class CategorySerializer(serializers.ModelSerializer):
         fields = ('id', 'category_name', 'category_image')
 
 
+class B2cCategorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = B2cCategory
+        fields = ('id', 'category_name', 'category_image')
+
+
 class SubCategorySerializer(serializers.ModelSerializer):
     class Meta:
         model = Category
+        fields = ('id', 'category_name', 'category_image')
+
+
+
+class B2cSubCategorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = B2cCategory
         fields = ('id', 'category_name', 'category_image')
 
 
@@ -171,6 +216,7 @@ class EcomOrderListSerializer(serializers.ModelSerializer):
     payment = serializers.SerializerMethodField('payment_data')
     delivery_persons = serializers.SerializerMethodField()
     order_cancel_reson = serializers.SerializerMethodField()
+    delivery_option = serializers.SerializerMethodField()
 
     def get_order_status(self, obj):
         if obj.order_status == Order.PICKUP_CREATED:
@@ -203,11 +249,14 @@ class EcomOrderListSerializer(serializers.ModelSerializer):
             return {"name": delivery_person[0].first_name,
                     "phone_number": delivery_person[0].phone_number
                     }
+    def get_delivery_option(self, obj):
+        if obj.delivery_option:
+            return obj.get_delivery_option_display()
 
     class Meta:
         model = Order
         fields = ('id', 'order_status','order_cancel_reson', 'order_amount', 'total_items', 'order_no', 'created_at',
-                  'ecom_estimated_delivery_time', 'seller_shop', 'payment', 'delivery_persons', 'ordered_cart')
+                  'estimate_delivery_time', 'seller_shop', 'payment', 'delivery_persons', 'ordered_cart', 'delivery_option')
 
 
 class EcomOrderProductDetailSerializer(serializers.ModelSerializer):
@@ -327,6 +376,8 @@ class ProductSerializer(serializers.ModelSerializer):
     online_price = serializers.SerializerMethodField()
     category_id = serializers.SerializerMethodField()
     category = serializers.SerializerMethodField()
+    sub_category_id = serializers.SerializerMethodField()
+    sub_category = serializers.SerializerMethodField()
     brand_id = serializers.SerializerMethodField()
     brand = serializers.SerializerMethodField()
 
@@ -348,7 +399,7 @@ class ProductSerializer(serializers.ModelSerializer):
     def get_category(self, obj):
         try:
             category = [str(c.category) for c in
-                        obj.linked_product.parent_product.parent_product_pro_category.filter(status=True)]
+                        obj.linked_product.parent_product.parent_product_pro_b2c_category.filter(status=True)]
             return category if category else ''
         except:
             return ''
@@ -356,7 +407,23 @@ class ProductSerializer(serializers.ModelSerializer):
     def get_category_id(self, obj):
         try:
             category_id = [str(c.category_id) for c in
-                           obj.linked_product.parent_product.parent_product_pro_category.filter(status=True)]
+                           obj.linked_product.parent_product.parent_product_pro_b2c_category.filter(status=True)]
+            return category_id if category_id else ''
+        except:
+            return ''
+
+    def get_sub_category(self, obj):
+        try:
+            category = [str(c.category) for c in
+                        obj.linked_product.parent_product.parent_product_pro_b2c_category.filter(status=True)]
+            return category if category else ''
+        except:
+            return ''
+
+    def get_sub_category_id(self, obj):
+        try:
+            category_id = [str(c.category_id) for c in
+                           obj.linked_product.parent_product.parent_product_pro_b2c_category.filter(status=True)]
             return category_id if category_id else ''
         except:
             return ''
@@ -388,7 +455,8 @@ class ProductSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = RetailerProduct
-        fields = ('id', 'name', 'mrp', 'online_price', 'image', 'category', 'category_id', 'brand', 'brand_id',)
+        fields = ('id', 'name', 'mrp', 'online_price', 'image', 'category', 'category_id', 'brand', 'brand_id',
+                  'sub_category', 'sub_category_id',)
 
 
 class TagProductSerializer(serializers.ModelSerializer):

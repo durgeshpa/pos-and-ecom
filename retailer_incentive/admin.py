@@ -1,6 +1,7 @@
 import csv
 import datetime
 
+from django.conf.urls import url
 from django.contrib import admin, messages
 from io import StringIO
 
@@ -10,10 +11,12 @@ from django.http import HttpResponse
 from nested_admin.nested import NestedTabularInline
 
 from retailer_incentive.forms import SchemeCreationForm, SchemeSlabCreationForm, SchemeShopMappingCreationForm, \
-    SlabInlineFormSet
-from retailer_incentive.models import Scheme, SchemeSlab, SchemeShopMapping, IncentiveDashboardDetails
+    SlabInlineFormSet, BulkIncentiveForm
+from retailer_incentive.models import Scheme, SchemeSlab, SchemeShopMapping, IncentiveDashboardDetails, Incentive, \
+    BulkIncentive
 from retailer_incentive.utils import get_active_mappings
-from retailer_incentive.views import get_scheme_shop_mapping_sample_csv, scheme_shop_mapping_csv_upload
+from retailer_incentive.views import get_scheme_shop_mapping_sample_csv, scheme_shop_mapping_csv_upload, \
+    upload_incentives_list, IncentiveSampleFile
 
 
 class SchemeSlabAdmin(NestedTabularInline):
@@ -219,6 +222,65 @@ class IncentiveDashboardDetails(admin.ModelAdmin):
     """
     model = SchemeSlab
     list_display = ('scheme', 'min_value', 'max_value', 'discount_value', 'discount_type',)
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    class Media:
+        pass
+
+
+@admin.register(BulkIncentive)
+class BulkIncentiveAdmin(admin.ModelAdmin):
+    change_list_template = 'admin/retailer_incentive/incentive_change_list.html'
+    """
+    This class is used to get the BulkIncentive
+    """
+    model = BulkIncentive
+    fields = ('uploaded_file',)
+    list_display = ('uploaded_file', 'uploaded_by', 'created_at', 'modified_at', )
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    class Media:
+        pass
+
+    def get_urls(self):
+        urls = super(BulkIncentiveAdmin, self).get_urls()
+        urls = [
+                   url(r'incentive_xlsx_upload',
+                       self.admin_site.admin_view(upload_incentives_list),
+                       name="incentive_xlsx_upload"),
+
+                   url(r'download_incentive_sample_file',
+                       self.admin_site.admin_view(IncentiveSampleFile),
+                       name="download_incentive_sample_file"),
+
+               ] + urls
+        return urls
+
+
+@admin.register(Incentive)
+class IncentiveAdmin(admin.ModelAdmin):
+    """
+    This class is used to get the SchemeSlab
+    """
+    model = Incentive
+    list_display = ('shop', 'capping_applicable', 'capping_value', 'date_of_calculation', 'total_ex_tax_delivered_value',
+                    'incentive', 'created_by', 'created_at')
+
+    def has_add_permission(self, request, obj=None):
+        return False
 
     def has_change_permission(self, request, obj=None):
         return False

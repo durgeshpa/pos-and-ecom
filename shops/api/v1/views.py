@@ -18,7 +18,7 @@ from addresses.models import Address
 from addresses.api.v1.serializers import AddressSerializer
 from common.data_wrapper_view import DataWrapperViewSet
 from pos.common_functions import check_pos_shop, pos_check_permission, api_response, check_logged_in_user_is_superuser, \
-    check_fofo_shop
+    check_fofo_shop, check_logged_in_user_has_fofo_config_perm
 from retailer_backend.utils import SmallOffsetPagination
 from retailer_backend import messages
 from retailer_backend.messages import SUCCESS_MESSAGES, ERROR_MESSAGES
@@ -1232,6 +1232,222 @@ class PosShopUserMappingView(generics.GenericAPIView):
         return get_response(serializer_error(serializer), False)
 
 
+class UserDocumentChoices(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+
+    def get(self, request):
+        '''
+        API to get list of Shop User Document list
+        '''
+        fields = ['id', 'value']
+        data = [dict(zip(fields, d)) for d in USER_DOCUMENTS_TYPE_CHOICES]
+        msg = [""]
+        return get_response(msg, data, True)
+
+
+class ShopDocumentChoices(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+
+    def get(self, request):
+        '''
+        API to get list of Shop Document list
+        '''
+        fields = ['id', 'value']
+        data = [dict(zip(fields, d)) for d in [(ShopDocument.FSSAI, "Fssai License No"),
+                                               (ShopDocument.DRUG_L, 'Drug License'),
+                                               (ShopDocument.ELE_BILL, "Shop Electricity Bill"),
+                                               (ShopDocument.UDYOG_AADHAR, 'Udyog Aadhar'),
+                                               # (ShopDocument.SLN, "Shop License No"),
+                                               (ShopDocument.WSVD, "Weighing Scale Verification Document")]]
+        msg = [""]
+        return get_response(msg, data, True)
+
+
+class FOFOConfigCategoryView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.AllowAny,)
+    queryset = FOFOConfigCategory.objects.order_by('-id')
+    serializer_class = FOFOCategoryConfigurationsCrudSerializer
+
+    @check_logged_in_user_has_fofo_config_perm
+    def get(self, request):
+        """ GET Category List """
+        search_text = self.request.GET.get('search_text')
+        if search_text:
+            self.queryset = shop_category_search(self.queryset, search_text)
+        category = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        serializer = self.serializer_class(category, many=True)
+        msg = "" if category else "no category found"
+        return get_response(msg, serializer.data, True)
+
+    @check_logged_in_user_has_fofo_config_perm
+    def post(self, request, *args, **kwargs):
+        serializer = self.serializer_class(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return get_response('category created Successfully!', None, True, status.HTTP_200_OK)
+        return get_response(serializer_error(serializer), False)
+
+    @check_logged_in_user_has_fofo_config_perm
+    def put(self, request):
+        """ PUT API for Category Updation """
+
+        if 'id' not in request.data:
+            return get_response('please provide id to update category', False)
+
+        # validations for input id
+        id_instance = validate_id(self.queryset, int(request.data['id']))
+        if 'error' in id_instance:
+            return get_response(id_instance['error'])
+
+        cat_instance = id_instance['data'].last()
+        serializer = self.serializer_class(instance=cat_instance, data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return get_response('category updated Successfully!', serializer.data)
+        return get_response(serializer_error(serializer), False)
+
+
+class FOFOConfigSubCategoryView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.AllowAny,)
+    queryset = FOFOConfigSubCategory.objects.order_by('-id')
+    serializer_class = FOFOSubCategoryConfigurationsCrudSerializer
+
+    @check_logged_in_user_has_fofo_config_perm
+    def get(self, request):
+        """ GET Sub-Category List """
+        search_text = self.request.GET.get('search_text')
+        if search_text:
+            self.queryset = shop_sub_category_search(self.queryset, search_text)
+        sub_category = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        serializer = self.serializer_class(sub_category, many=True)
+        msg = "" if sub_category else "no sub category found"
+        return get_response(msg, serializer.data, True)
+
+    @check_logged_in_user_has_fofo_config_perm
+    def post(self, request, *args, **kwargs):
+        serializer = self.serializer_class(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return get_response('sub category created Successfully!', None, True, status.HTTP_200_OK)
+        return get_response(serializer_error(serializer), False)
+
+    @check_logged_in_user_has_fofo_config_perm
+    def put(self, request):
+        """ PUT API for Sub Category Updation """
+
+        if 'id' not in request.data:
+            return get_response('please provide id to update sub category', False)
+
+        # validations for input id
+        id_instance = validate_id(self.queryset, int(request.data['id']))
+        if 'error' in id_instance:
+            return get_response(id_instance['error'])
+
+        cat_instance = id_instance['data'].last()
+        serializer = self.serializer_class(instance=cat_instance, data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return get_response('sub category updated Successfully!', serializer.data)
+        return get_response(serializer_error(serializer), False)
+
+
+class FOFOListView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.AllowAny,)
+    queryset = FOFOConfigCategory.objects.order_by('-id')
+    serializer_class = FOFOListSerializer
+
+    @check_logged_in_user_has_fofo_config_perm
+    def get(self, request, *args, **kwargs):
+        """ GET Cat Sub-Cat Configurations List """
+        search_text = self.request.GET.get('search_text')
+        if search_text:
+            self.queryset = shop_category_search(self.queryset, search_text)
+        category = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        serializer = FOFOListSerializer(category, many=True)
+        msg = "" if category else "no data found"
+        return get_response(msg, serializer.data, True)
+
+
+class FOFOConfigurationsView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.AllowAny,)
+    queryset = FOFOConfigurations.objects.order_by('-id')
+    serializer_class = FOFOConfigurationsCrudSerializer
+
+    @check_logged_in_user_has_fofo_config_perm
+    @check_fofo_shop
+    def get(self, request, *args, **kwargs):
+        """ GET FOFO  List """
+        shop = kwargs['shop']
+        search_text = self.request.GET.get('search_text')
+        queryset = self.queryset.filter(shop=shop)
+        if request.GET.get('id'):
+            """ Get FOFO Configurations for specific ID """
+            id_validation = validate_id(queryset, int(request.GET.get('id')))
+            if 'error' in id_validation:
+                return get_response(id_validation['error'])
+            queryset = id_validation['data']
+        serializer = FOFOConfigurationsGetSerializer(queryset, context={'shop': shop,
+                                                                        'search_text': search_text,
+                                                                        'id': request.GET.get('id')})
+        msg = "" if queryset else "no configurations found"
+        return get_response(msg, serializer.data, True)
+
+    @check_logged_in_user_has_fofo_config_perm
+    @check_fofo_shop
+    def post(self, request, *args, **kwargs):
+        shop = kwargs['shop']
+        modified_data = self.validate_request_data()
+        if 'error' in modified_data:
+            return api_response(modified_data['error'])
+        validated_data = validate_fofo_sub_category(modified_data['data'], shop)
+        if 'error' in validated_data:
+            return api_response(validated_data['error'])
+        serializer = self.serializer_class(data=validated_data['data'], many=True)
+        if serializer.is_valid():
+            serializer.save()
+            return get_response('Configurations has been done Successfully!', None, True, status.HTTP_200_OK)
+        return get_response(serializer_error_batch(serializer), False)
+
+    @check_logged_in_user_has_fofo_config_perm
+    @check_fofo_shop
+    def put(self, request, *args, **kwargs):
+        shop = kwargs['shop']
+        modified_data = self.validate_request_data()
+        if 'error' in modified_data:
+            return api_response(modified_data['error'])
+        validated_data = validate_fofo_sub_category(modified_data['data'], shop)
+        if 'error' in validated_data:
+            return api_response(validated_data['error'])
+
+        resp_data = self.create_or_update_configurations(validated_data['data'])
+        if 'error' in resp_data:
+            return api_response(validated_data['error'])
+        return get_response('Configurations has been done Successfully!', None, True, status.HTTP_200_OK)
+
+    def create_or_update_configurations(self, data_list):
+        for data in data_list:
+            instance, created = FOFOConfigurations.objects.update_or_create(
+                shop_id=data['shop'], key_id=data['key'], defaults={'value': data['value']})
+        return {'data': 'Configurations has been done Successfully!'}
+
+    def validate_request_data(self):
+        # Validate product data
+        try:
+            data = self.request.data["data"]
+            if not isinstance(data, list):
+                return {'error': 'Format of data is expected to be a list.'}
+        except:
+            return {'error': "Invalid Data Format"}
+        return {'data': data}
+
+
+
+
+
 class SellerShopFilterView(generics.GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
@@ -1421,215 +1637,3 @@ class RetailerShopFilterView(generics.GenericAPIView):
 
         return self.queryset.distinct('id')
 
-
-class UserDocumentChoices(generics.GenericAPIView):
-    authentication_classes = (authentication.TokenAuthentication,)
-
-    def get(self, request):
-        '''
-        API to get list of Shop User Document list
-        '''
-        fields = ['id', 'value']
-        data = [dict(zip(fields, d)) for d in USER_DOCUMENTS_TYPE_CHOICES]
-        msg = [""]
-        return get_response(msg, data, True)
-
-
-class ShopDocumentChoices(generics.GenericAPIView):
-    authentication_classes = (authentication.TokenAuthentication,)
-
-    def get(self, request):
-        '''
-        API to get list of Shop Document list
-        '''
-        fields = ['id', 'value']
-        data = [dict(zip(fields, d)) for d in [(ShopDocument.FSSAI, "Fssai License No"),
-                                               (ShopDocument.DRUG_L, 'Drug License'),
-                                               (ShopDocument.ELE_BILL, "Shop Electricity Bill"),
-                                               (ShopDocument.UDYOG_AADHAR, 'Udyog Aadhar'),
-                                               # (ShopDocument.SLN, "Shop License No"),
-                                               (ShopDocument.WSVD, "Weighing Scale Verification Document")]]
-        msg = [""]
-        return get_response(msg, data, True)
-
-
-class FOFOConfigCategoryView(generics.GenericAPIView):
-    authentication_classes = (authentication.TokenAuthentication,)
-    permission_classes = (permissions.AllowAny,)
-    queryset = FOFOConfigCategory.objects.order_by('-id')
-    serializer_class = FOFOCategoryConfigurationsCrudSerializer
-
-    @check_logged_in_user_is_superuser
-    def get(self, request):
-        """ GET Category List """
-        search_text = self.request.GET.get('search_text')
-        if search_text:
-            self.queryset = shop_category_search(self.queryset, search_text)
-        category = SmallOffsetPagination().paginate_queryset(self.queryset, request)
-        serializer = self.serializer_class(category, many=True)
-        msg = "" if category else "no category found"
-        return get_response(msg, serializer.data, True)
-
-    @check_logged_in_user_is_superuser
-    def post(self, request, *args, **kwargs):
-        serializer = self.serializer_class(data=request.data)
-        if serializer.is_valid():
-            serializer.save()
-            return get_response('category created Successfully!', None, True, status.HTTP_200_OK)
-        return get_response(serializer_error(serializer), False)
-
-    @check_logged_in_user_is_superuser
-    def put(self, request):
-        """ PUT API for Category Updation """
-
-        if 'id' not in request.data:
-            return get_response('please provide id to update category', False)
-
-        # validations for input id
-        id_instance = validate_id(self.queryset, int(request.data['id']))
-        if 'error' in id_instance:
-            return get_response(id_instance['error'])
-
-        cat_instance = id_instance['data'].last()
-        serializer = self.serializer_class(instance=cat_instance, data=request.data)
-        if serializer.is_valid():
-            serializer.save()
-            return get_response('category updated Successfully!', serializer.data)
-        return get_response(serializer_error(serializer), False)
-
-
-class FOFOConfigSubCategoryView(generics.GenericAPIView):
-    authentication_classes = (authentication.TokenAuthentication,)
-    permission_classes = (permissions.AllowAny,)
-    queryset = FOFOConfigSubCategory.objects.order_by('-id')
-    serializer_class = FOFOSubCategoryConfigurationsCrudSerializer
-
-    @check_logged_in_user_is_superuser
-    def get(self, request):
-        """ GET Sub-Category List """
-        search_text = self.request.GET.get('search_text')
-        if search_text:
-            self.queryset = shop_sub_category_search(self.queryset, search_text)
-        sub_category = SmallOffsetPagination().paginate_queryset(self.queryset, request)
-        serializer = self.serializer_class(sub_category, many=True)
-        msg = "" if sub_category else "no sub category found"
-        return get_response(msg, serializer.data, True)
-
-    @check_logged_in_user_is_superuser
-    def post(self, request, *args, **kwargs):
-        serializer = self.serializer_class(data=request.data)
-        if serializer.is_valid():
-            serializer.save()
-            return get_response('sub category created Successfully!', None, True, status.HTTP_200_OK)
-        return get_response(serializer_error(serializer), False)
-
-    @check_logged_in_user_is_superuser
-    def put(self, request):
-        """ PUT API for Sub Category Updation """
-
-        if 'id' not in request.data:
-            return get_response('please provide id to update sub category', False)
-
-        # validations for input id
-        id_instance = validate_id(self.queryset, int(request.data['id']))
-        if 'error' in id_instance:
-            return get_response(id_instance['error'])
-
-        cat_instance = id_instance['data'].last()
-        serializer = self.serializer_class(instance=cat_instance, data=request.data)
-        if serializer.is_valid():
-            serializer.save()
-            return get_response('sub category updated Successfully!', serializer.data)
-        return get_response(serializer_error(serializer), False)
-
-
-class FOFOListView(generics.GenericAPIView):
-    authentication_classes = (authentication.TokenAuthentication,)
-    permission_classes = (permissions.AllowAny,)
-    queryset = FOFOConfigCategory.objects.order_by('-id')
-    serializer_class = FOFOListSerializer
-
-    @check_logged_in_user_is_superuser
-    def get(self, request, *args, **kwargs):
-        """ GET Cat Sub-Cat Configurations List """
-        search_text = self.request.GET.get('search_text')
-        if search_text:
-            self.queryset = shop_category_search(self.queryset, search_text)
-        category = SmallOffsetPagination().paginate_queryset(self.queryset, request)
-        serializer = FOFOListSerializer(category, many=True)
-        msg = "" if category else "no data found"
-        return get_response(msg, serializer.data, True)
-
-
-class FOFOConfigurationsView(generics.GenericAPIView):
-    authentication_classes = (authentication.TokenAuthentication,)
-    permission_classes = (permissions.AllowAny,)
-    queryset = FOFOConfigurations.objects.order_by('-id')
-    serializer_class = FOFOConfigurationsCrudSerializer
-
-    @check_logged_in_user_is_superuser
-    @check_fofo_shop
-    def get(self, request, *args, **kwargs):
-        """ GET FOFO  List """
-        shop = kwargs['shop']
-        search_text = self.request.GET.get('search_text')
-        queryset = self.queryset.filter(shop=shop)
-        if request.GET.get('id'):
-            """ Get FOFO Configurations for specific ID """
-            id_validation = validate_id(queryset, int(request.GET.get('id')))
-            if 'error' in id_validation:
-                return get_response(id_validation['error'])
-            queryset = id_validation['data']
-        serializer = FOFOConfigurationsGetSerializer(queryset, context={'shop': shop,
-                                                                        'search_text': search_text,
-                                                                        'id': request.GET.get('id')})
-        msg = "" if queryset else "no configurations found"
-        return get_response(msg, serializer.data, True)
-
-    @check_logged_in_user_is_superuser
-    @check_fofo_shop
-    def post(self, request, *args, **kwargs):
-        shop = kwargs['shop']
-        modified_data = self.validate_request_data()
-        if 'error' in modified_data:
-            return api_response(modified_data['error'])
-        validated_data = validate_fofo_sub_category(modified_data['data'], shop)
-        if 'error' in validated_data:
-            return api_response(validated_data['error'])
-        serializer = self.serializer_class(data=validated_data['data'], many=True)
-        if serializer.is_valid():
-            serializer.save()
-            return get_response('Configurations has been done Successfully!', None, True, status.HTTP_200_OK)
-        return get_response(serializer_error_batch(serializer), False)
-
-    @check_logged_in_user_is_superuser
-    @check_fofo_shop
-    def put(self, request, *args, **kwargs):
-        shop = kwargs['shop']
-        modified_data = self.validate_request_data()
-        if 'error' in modified_data:
-            return api_response(modified_data['error'])
-        validated_data = validate_fofo_sub_category(modified_data['data'], shop)
-        if 'error' in validated_data:
-            return api_response(validated_data['error'])
-
-        resp_data = self.create_or_update_configurations(validated_data['data'])
-        if 'error' in resp_data:
-            return api_response(validated_data['error'])
-        return get_response('Configurations has been done Successfully!', None, True, status.HTTP_200_OK)
-
-    def create_or_update_configurations(self, data_list):
-        for data in data_list:
-            instance, created = FOFOConfigurations.objects.update_or_create(
-                shop_id=data['shop'], key_id=data['key'], defaults={'value': data['value']})
-        return {'data': 'Configurations has been done Successfully!'}
-
-    def validate_request_data(self):
-        # Validate product data
-        try:
-            data = self.request.data["data"]
-            if not isinstance(data, list):
-                return {'error': 'Format of data is expected to be a list.'}
-        except:
-            return {'error': "Invalid Data Format"}
-        return {'data': data}

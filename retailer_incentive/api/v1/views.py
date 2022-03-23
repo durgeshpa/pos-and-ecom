@@ -1,27 +1,37 @@
 import datetime
 import logging
 from math import floor
+import io
+import xlsxwriter
 
+from django.http import HttpResponse
 from rest_framework import authentication, permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from retailer_backend.messages import SUCCESS_MESSAGES, VALIDATION_ERROR_MESSAGES, ERROR_MESSAGES
+from retailer_backend.settings import INCENTIVE_DASHBOARD_MONTH
 from retailer_incentive.api.v1.serializers import SchemeShopMappingSerializer, SalesExecutiveListSerializer, \
-    SchemeDetailSerializer, SchemeSlabSerializer
-from retailer_incentive.models import SchemeSlab, IncentiveDashboardDetails
+    SchemeDetailSerializer, SchemeSlabSerializer, IncentiveSerializer, GetListIncentiveSerializer
+from retailer_incentive.models import SchemeSlab, IncentiveDashboardDetails, Incentive, BulkIncentive
 from retailer_incentive.utils import get_shop_scheme_mapping, get_shop_scheme_mapping_based
 from shops.models import ShopUserMapping, Shop, ParentRetailerMapping
-from retailer_incentive.common_function import get_user_id_from_token, get_total_sales, shop_scheme_not_mapped
+from retailer_incentive.common_function import get_user_id_from_token, get_total_sales, shop_scheme_not_mapped, \
+    get_incentive_data_by_shop_month
 from accounts.models import User
 
 from retailer_backend.utils import SmallOffsetPagination
 
+# Get an instance of a logger
 logger = logging.getLogger('dashboard-api')
+info_logger = logging.getLogger('file-info')
+error_logger = logging.getLogger('file-error')
+debug_logger = logging.getLogger('file-debug')
 
 today = datetime.date.today()
 
 
+# retailer - app
 class ShopPurchaseMatrix(APIView):
     """
     This class is used to get the purchase matrix of a shop under mapped scheme
@@ -31,16 +41,25 @@ class ShopPurchaseMatrix(APIView):
     permission_classes = (permissions.IsAuthenticated,)
 
     def get(self, request):
+        is_previous = False
         shop_id = request.GET.get('shop_id')
         shop = Shop.objects.filter(id=shop_id).last()
         if shop is None:
-            msg = {'is_success': False, 'message': ['No shop found'], 'data': None}
+            msg = {'is_success': False, 'message': ['No shop found'], 'is_previous': is_previous, 'data': None}
             return Response(msg, status=status.HTTP_200_OK)
         today_date = datetime.date.today()
         current_year = today_date.year
         current_month = today_date.month
         input_month = int(request.GET.get('month', current_month))
+        if today.year <= 2022 and input_month <= INCENTIVE_DASHBOARD_MONTH:
+            is_previous = True
         response_data = list()
+
+        # Incentive
+        incentive_data = GetListIncentiveSerializer(
+            get_incentive_data_by_shop_month(shop_id, input_month, current_year),
+            read_only=True).data
+
         # Active Scheme
         if input_month == current_month:
             scheme_shop_mapping = get_shop_scheme_mapping(shop_id)
@@ -63,8 +82,13 @@ class ShopPurchaseMatrix(APIView):
                 se, sm = self.current_contact(shop)
                 scheme_data = self.per_scheme_data(scheme, total_sales, discount_percentage, discount_value,
                                                    scheme.start_date, scheme.end_date, sm, se)
+<<<<<<< HEAD
                 message = SUCCESS_MESSAGES['SCHEME_BUY_MORE']
                 scheme_data['message'] = message
+=======
+                # message = SUCCESS_MESSAGES['SCHEME_BUY_MORE']
+                # scheme_data['message'] = message
+>>>>>>> 35cd336148973ce61e9d7b1bb5a2b4dd9e0d4f15
                 response_data.append(scheme_data)
 
         # Inactive schemes
@@ -83,9 +107,10 @@ class ShopPurchaseMatrix(APIView):
                                                           scheme.start_date, scheme.end_date, scheme.sales_manager,
                                                           scheme.sales_executive))
 
-        msg = {'is_success': True, 'message': ['OK'], 'data': response_data}
+        msg = {'is_success': True, 'message': ['OK'], 'incentive_data': incentive_data, 'data': response_data,}
         if not response_data:
             msg = {'is_success': False, 'message': ['No Scheme Found for this shop'], 'data':None}
+        msg['is_previous'] = is_previous
         return Response(msg, status=status.HTTP_200_OK)
 
     @staticmethod
@@ -196,10 +221,12 @@ class IncentiveDashBoard(APIView):
         return user
 
     def get(self, request):
+        is_previous = False
         user = self.get_user_id_or_error_message(request)
         if type(user) == str:
             msg = {'is_success': False,
                    'message': ['User is not Authorised'],
+                   'is_previous': is_previous,
                    'data': None}
             return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
 
@@ -208,6 +235,8 @@ class IncentiveDashBoard(APIView):
             if user.user_type == 6:  # 'Sales Executive'
                 month = int(request.GET.get('month')) if request.GET.get(
                     'month') else today.month
+                if today.year <= 2022 and month <= INCENTIVE_DASHBOARD_MONTH:
+                    is_previous = True
 
                 mapped_shop_scheme_details = self.get_sales_executive_shop_scheme_details(user, month)
                 messages = SUCCESS_MESSAGES["2001"]
@@ -216,16 +245,18 @@ class IncentiveDashBoard(APIView):
                     messages = "Scheme Mapping is not exist."
                 return Response({"message": [messages],
                                  "data": mapped_shop_scheme_details,
+                                 "is_previous": is_previous,
                                  'is_success': True}, status=status.HTTP_200_OK)
             else:
                 msg = {'is_success': False,
                        'message': ["User is not Authorised"],
+                       'is_previous': is_previous,
                        'data': None}
                 return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
 
         except Exception as error:
             logger.exception(error)
-            return Response({"message": ["Error while getting data for Sales Executive"],
+            return Response({"message": ["Error while getting data for Sales Executive"], "is_previous": is_previous,
                              'is_success': False, 'data': None}, status=status.HTTP_200_OK)
 
     def get_manager(self):
@@ -249,11 +280,19 @@ class IncentiveDashBoard(APIView):
                         scheme_shop_mapping_list.append(scheme_sh_map)
                 else:
                     shop = Shop.objects.filter(id=shop_scheme.shop_id).last()
-                    scheme_data = shop_scheme_not_mapped(shop)
+                    incentive_data = GetListIncentiveSerializer(
+                        get_incentive_data_by_shop_month(shop.id, month, today.year),
+                        read_only=True).data
+                    scheme_data = shop_scheme_not_mapped(shop,incentive_data)
+
                     scheme_data_list.append(scheme_data)
             if scheme_shop_mapping_list:
                 for scheme_shop_map in scheme_shop_mapping_list:
                     if month == today.month:
+                        current_year = today.year
+                        incentive_data = GetListIncentiveSerializer(
+                            get_incentive_data_by_shop_month(scheme_shop_map.shop_id, month, current_year),
+                            read_only=True).data
                         try:
                             scheme = scheme_shop_map.scheme
                             total_sales = get_total_sales(scheme_shop_map.shop_id, scheme_shop_map.start_date,
@@ -264,6 +303,7 @@ class IncentiveDashBoard(APIView):
                             if scheme_slab is not None:
                                 discount_percentage = scheme_slab.discount_value
                             discount_value = floor(discount_percentage * total_sales / 100)
+
                             shop = Shop.objects.filter(id=scheme_shop_map.shop_id).last()
                             scheme_data = {'shop_id': shop.id,
                                            'shop_name': str(shop.shop_name),
@@ -273,7 +313,8 @@ class IncentiveDashBoard(APIView):
                                            'discount_percentage': str(discount_percentage),
                                            'incentive_earned': str(discount_value),
                                            'start_date': str(scheme_shop_map.start_date.strftime("%Y-%m-%d")),
-                                           'end_date': str(scheme_shop_map.end_date.strftime("%Y-%m-%d"))
+                                           'end_date': str(scheme_shop_map.end_date.strftime("%Y-%m-%d")),
+                                           'incentive_data': incentive_data
                                            }
                         except:
                             shop = Shop.objects.filter(id=scheme_shop_map.shop_id).last()
@@ -285,9 +326,14 @@ class IncentiveDashBoard(APIView):
                                            'discount_percentage': str(scheme_shop_map.discount_percentage),
                                            'incentive_earned': str(scheme_shop_map.incentive_earned),
                                            'start_date': str(scheme_shop_map.start_date.strftime("%Y-%m-%d")),
-                                           'end_date': str(scheme_shop_map.end_date.strftime("%Y-%m-%d"))
+                                           'end_date': str(scheme_shop_map.end_date.strftime("%Y-%m-%d")),
+                                           'incentive_data': incentive_data
                                            }
                     else:
+                        incentive_data = GetListIncentiveSerializer(
+                            get_incentive_data_by_shop_month(scheme_shop_map.shop_id, month, today.year),
+                            read_only=True).data
+                        
                         shop = Shop.objects.filter(id=scheme_shop_map.shop_id).last()
                         scheme_data = {'shop_id': shop.id,
                                        'shop_name': str(shop.shop_name),
@@ -297,7 +343,8 @@ class IncentiveDashBoard(APIView):
                                        'discount_percentage': str(scheme_shop_map.discount_percentage),
                                        'incentive_earned': str(scheme_shop_map.incentive_earned),
                                        'start_date': str(scheme_shop_map.start_date.strftime("%Y-%m-%d")),
-                                       'end_date': str(scheme_shop_map.end_date.strftime("%Y-%m-%d"))
+                                       'end_date': str(scheme_shop_map.end_date.strftime("%Y-%m-%d")),
+                                       'incentive_data': incentive_data
                                        }
                     scheme_data_list.append(scheme_data)
             scheme_data_list = SmallOffsetPagination().paginate_queryset(scheme_data_list, self.request)
@@ -319,3 +366,76 @@ class ShopSchemeDetails(APIView):
             serializer = SchemeDetailSerializer(scheme_slab)
         msg = {'is_success': True, 'message': ['OK'], 'data': serializer.data}
         return Response(msg, status=status.HTTP_200_OK)
+
+
+class BulkIncentiveSampleFileView(APIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+
+    def get(self, request):
+        """ Get API for Download sample XLSX to Create Incentive """
+
+        # Set up the Http response.
+        filename = 'incentive_sheet.xlsx'
+        info_logger.info("Get API for Download sample XLSX to Create Incentive api called.")
+
+        output = io.BytesIO()
+        workbook = xlsxwriter.Workbook(output, {'default_date_format': 'yyyy-mm-dd'})
+        worksheet = workbook.add_worksheet()
+
+        bold = workbook.add_format({'bold': True})
+        worksheet.write('A1', 'shop_id', bold)
+        worksheet.write('B1', 'shop_name', bold)
+        worksheet.write('C1', 'capping_applicable', bold)
+        worksheet.write('D1', 'capping_value', bold)
+        worksheet.write('E1', 'date_of_calculation', bold)
+        worksheet.write('F1', 'total_ex_tax_delivered_value', bold)
+        worksheet.write('G1', 'incentive', bold)
+        row = 1
+        col = 0
+        date_time = datetime.datetime.now().date()
+
+        worksheet.write(row, col, 322)
+        worksheet.write(row, col + 1, 'GFDN')
+        worksheet.write(row, col + 2, 'YES')
+        worksheet.write(row, col + 3, 50000)
+        worksheet.write(row, col + 4, date_time)
+        worksheet.write(row, col + 5, 4550)
+        worksheet.write(row, col + 6, 1200)
+
+        workbook.close()
+        # Rewind the buffer.
+        output.seek(0)
+        response = HttpResponse(
+            output,
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        response['Content-Disposition'] = 'attachment; filename=%s' % filename
+
+        return response
+
+
+class BulkCreateIncentiveView(APIView):
+
+    def post(self, request, *args, **kwargs):
+        """ POST API for Create Bulk Incentive """
+        user = self.check_user(request.user)
+        info_logger.info("BulkIncentiveView POST api called.")
+        if type(user) == str:
+            return Response({"message": [user], "data": None, 'is_success': False},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        incentive_serializer = IncentiveSerializer(data=request.data)
+        if incentive_serializer.is_valid():
+            response = incentive_serializer.save(uploaded_by=request.user)
+            if isinstance(response, HttpResponse):
+                return response
+
+            return Response({"message": ["File uploaded successfully."], "data": None, 'is_success': True},
+                            status=status.HTTP_201_CREATED)
+        else:
+            return Response(incentive_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def check_user(self, user):
+        if user.user_type not in [7, 6]:
+            return "User is not Authorised "
+        return user

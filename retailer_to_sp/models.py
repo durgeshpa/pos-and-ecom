@@ -990,10 +990,16 @@ class Order(models.Model):
     POS_WALKIN = 'pos_walkin'
     POS_ECOMM = 'pos_ecomm'
 
+<<<<<<< HEAD
     ORDER_APP_TYPE = (
         (POS_WALKIN, 'Pos Walkin'),  # 1
         (POS_ECOMM, 'Pos Ecomm'),  # 2
     )
+=======
+    DELIVERY_CHOICE = ( ('1', 'Self Pick'),
+                        ('2', 'Home Delivery')
+                       )
+>>>>>>> 35cd336148973ce61e9d7b1bb5a2b4dd9e0d4f15
 
     POS_WALKIN = 'pos_walkin'
     POS_ECOMM = 'pos_ecomm'
@@ -1049,12 +1055,14 @@ class Order(models.Model):
         get_user_model(), related_name='rt_order_modified_user',
         null=True, blank=True, on_delete=models.DO_NOTHING
     )
+    estimate_delivery_time = models.IntegerField(null=True, blank=True)
     pick_list_pdf = models.FileField(upload_to='shop_photos/shop_name/documents/', null=True, blank=True)
     points_added = models.IntegerField(default=0, null=True)
     delivery_person = models.ForeignKey(UserWithName, null=True, on_delete=models.DO_NOTHING, verbose_name='Delivery Boy')
     dispatch_delivery = models.BooleanField(default=False)
     dispatch_center = models.ForeignKey(Shop, related_name='dispatch_center_orders', null=True, blank=True,
                                         on_delete=models.DO_NOTHING)
+    delivery_option = models.CharField(max_length=50, choices=DELIVERY_CHOICE, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
@@ -1240,13 +1248,18 @@ class Order(models.Model):
         trips = []
         curr_trip = ''
         for s in self.shipments():
-            if s.trip:
-                curr_trip = '<b>' + s.trip.dispatch_no + '</b><br>'
-            rescheduling = s.rescheduling_shipment.select_related('trip').all()
-            if rescheduling.exists():
-                for reschedule in rescheduling:
-                    if reschedule.trip:
-                        trips += [reschedule.trip.dispatch_no]
+            curr_dispatch_no = ''
+            if s.last_trip:
+                curr_dispatch_no = s.last_trip.dispatch_no
+                curr_trip = '<b>' + s.last_trip.dispatch_no + '</b><br>'
+            trips += LastMileTripShipmentMapping.objects.filter(shipment=s). \
+                values_list('trip__dispatch_no', flat=True).distinct()
+            trips += DispatchTripShipmentMapping.objects.filter(shipment=s). \
+                values_list('trip__dispatch_no', flat=True).distinct()
+            trips += s.rescheduling_shipment.values_list('trip__dispatch_no', flat=True).distinct()
+            trips += s.not_attempt_shipment.values_list('trip__dispatch_no', flat=True).distinct()
+            while curr_dispatch_no in trips:
+                trips.remove(curr_dispatch_no)
         return format_html("<b>{}</b>".format(curr_trip)) + format_html_join("", "{}<br>", ((t,) for t in trips))
 
     @property
@@ -1535,9 +1548,10 @@ class Trip(models.Model):
             packages_loaded = shipment_mapping.last_mile_trip_shipment_mapped_packages.filter(
                                 ~Q(package_status__in=['CANCELLED', 'MISSING_AT_LOADING', 'DAMAGED_AT_LOADING']))
             for package_mapping in packages_loaded:
-                trip_weight += package_mapping.shipment_packaging.packaging_details.all()\
+                package_weight = package_mapping.shipment_packaging.packaging_details.all()\
                                 .aggregate(total_weight=Sum(F('ordered_product__product__weight_value') * F('quantity'),
                                            output_field=FloatField())).get('total_weight')
+                trip_weight += package_weight if package_weight else 0
         return trip_weight
 
     def get_package_data(self):
@@ -1690,6 +1704,10 @@ class OrderedProduct(models.Model):  # Shipment
     )
     created_at = models.DateTimeField(
         auto_now_add=True, verbose_name="Invoice Date")
+
+    qc_started_at = models.DateTimeField(null=True, blank=True)
+    qc_completed_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Invoice Date")
     modified_at = models.DateTimeField(auto_now=True)
 
     class Meta:
@@ -2000,6 +2018,12 @@ class OrderedProduct(models.Model):  # Shipment
             self.no_of_packets = 0
         if self.no_of_sacks == None:
             self.no_of_sacks = 0
+        
+        shipment_payments = self.shipment_payment.all()
+        for ship_pay in shipment_payments:
+            if ship_pay.parent_order_payment and ship_pay.parent_order_payment.paid_amount:
+                ship_pay.paid_amount = ship_pay.parent_order_payment.paid_amount
+                ship_pay.save()
 
         super().save(*args, **kwargs)
 
@@ -2098,6 +2122,7 @@ class PickerDashboard(models.Model):
             elif self.repackaging:
                 Pickup.objects.filter(pickup_type_id=self.repackaging.repackaging_no, zone=self.zone,
                                       status='pickup_creation').update(status='picking_assigned')
+
 
     def __str__(self):
         return self.picklist_id if self.picklist_id is not None else str(self.id)
@@ -2390,6 +2415,10 @@ class OrderedProductMapping(models.Model):
     def product_sub_total(self):
         return round(float(self.effective_price * self.shipped_qty), 2)
 
+    @property
+    def product_total_price(self):
+        return round(float(self.selling_price * self.shipped_qty), 2)
+
     def get_shop_specific_products_prices_sp(self):
         return self.product.product_pro_price.filter(
             seller_shop__shop_type__shop_type='sp', status=True
@@ -2468,15 +2497,12 @@ class OrderedProductMapping(models.Model):
             cart_product_mapping = self.ordered_product.order.ordered_cart.rt_cart_list.filter(
                 retailer_product=self.retailer_product,
                 product_type=self.product_type).last()
-            if not self.effective_price:
-                self.effective_price = cart_product_mapping.item_effective_prices
         else:
             cart_product_mapping = self.ordered_product.order.ordered_cart.rt_cart_list.filter(
                 cart_product=self.product).last()
-            # if not self.effective_price:
-            #     shipped_qty_in_pack = math.ceil(self.shipped_qty / cart_product_mapping.cart_product_case_size)
-            #     self.effective_price = cart_product_mapping.cart_product_price.get_per_piece_price(shipped_qty_in_pack)
+        if not self.effective_price:
             self.effective_price = cart_product_mapping.item_effective_prices
+
         self.discounted_price = cart_product_mapping.discounted_price
         if self.delivered_qty > 0:
             self.delivered_at_price = self.effective_price
@@ -3599,9 +3625,10 @@ class DispatchTrip(BaseTimestampUserModel):
             packages_loaded = shipment_mapping.trip_shipment_mapped_packages.filter(
                                 ~Q(package_status__in=['CANCELLED', 'MISSING_AT_LOADING', 'DAMAGED_AT_LOADING']))
             for package_mapping in packages_loaded:
-                trip_weight += package_mapping.shipment_packaging.packaging_details.all()\
+                package_weight = package_mapping.shipment_packaging.packaging_details.all()\
                                 .aggregate(total_weight=Sum(F('ordered_product__product__weight_value') * F('quantity'),
                                            output_field=FloatField())).get('total_weight')
+                trip_weight += package_weight if package_weight else 0
         return trip_weight
 
     def get_package_data(self):
@@ -3674,7 +3701,6 @@ class DispatchTripShipmentPackages(BaseTimestampUserModel):
     shipment_packaging = models.ForeignKey(ShipmentPackaging, related_name='trip_packaging_details',
                                            on_delete=models.DO_NOTHING)
     package_status = models.CharField(max_length=100, choices=PACKAGE_STATUS)
-    is_return_verified = models.BooleanField(default=False)
 
 
 INVOICE_AVAILABILITY_CHOICES = Choices((1, 'ALL', 'All'), (2, 'ADDED', 'Added'), (3, 'NOT_ADDED', 'Not Added'))
@@ -3761,3 +3787,19 @@ class DispatchTripCrateMapping(BaseTimestampUserModel):
 
     def __str__(self):
         return str(self.crate) + "-" + str(self.trip)
+
+class PickerUserAssignmentLog(models.Model):
+    picker_dashboard = models.ForeignKey(PickerDashboard, on_delete=models.DO_NOTHING, related_name='+')
+    initial_user = models.ForeignKey(get_user_model(), on_delete=models.DO_NOTHING, related_name='+', null=True)
+    final_user = models.ForeignKey(get_user_model(), on_delete=models.DO_NOTHING, related_name='+')
+    created_at = models.DateTimeField(auto_now_add=True)
+    created_by = models.ForeignKey(get_user_model(), on_delete=models.DO_NOTHING)
+
+    @staticmethod
+    def log_user_change(instance, updated_by, last_user_id):
+        PickerUserAssignmentLog.objects.create(
+            picker_dashboard=instance,
+            initial_user_id=last_user_id,
+            final_user_id=instance.picker_boy_id,
+            created_by=updated_by
+        )

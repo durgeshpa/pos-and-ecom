@@ -73,6 +73,23 @@ def get_validate_approval_status(approval_status):
     return {'data': approval_status}
 
 
+def get_validate_approval_status_change_reason(approval_status_change_reason, approval_status):
+    """validate shop status change reason"""
+    # if approval_status == 2:
+    #     if approval_status_change_reason not in [Shop.LOCATION_STARTED, Shop.SHOP_ONBOARDED]:
+    #         return {'error': 'please provide a valid reason to activate shop'}
+    if approval_status == 0:
+        if len(str(approval_status_change_reason).split(' ')) > 1:
+            approval_status_change_reason = str(approval_status_change_reason).title()
+        if any(approval_status_change_reason in i for i in Shop.DISAPPROVED_STATUS_REASON_CHOICES):
+            return {'data': Shop.DISAPPROVED_STATUS_REASON_CHOICES[list(approval_status_change_reason in i for i in Shop.DISAPPROVED_STATUS_REASON_CHOICES).index(True)][0]}
+        else:
+            return {'error': 'please provide a valid reason to deactivate shop'}
+    else:
+        approval_status_change_reason = None
+    return {'data': approval_status_change_reason}
+
+
 def validate_shop_doc_type(shop_type):
     """validate shop document type"""
     if not (any(shop_type in i for i in ShopDocument.SHOP_DOCUMENTS_TYPE_CHOICES)):

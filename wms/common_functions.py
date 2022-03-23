@@ -10,6 +10,7 @@ from celery.task import task
 from decouple import config
 # django imports
 from django import forms
+
 from django.db import transaction
 from django.db.models import Sum, Q
 from rest_framework import status
@@ -90,7 +91,7 @@ class PutawayCommonFunctions(object):
 
     @classmethod
     def create_putaway(cls, warehouse, putaway_type, putaway_type_id, sku, batch_id, quantity, putaway_quantity,
-                       inventory_type):
+                       inventory_type, reference_id=None):
         if warehouse.shop_type.shop_type in ['sp', 'f']:
             if putaway_quantity == 0:
                 putaway_status = Putaway.PUTAWAY_STATUS_CHOICE.NEW
@@ -102,7 +103,7 @@ class PutawayCommonFunctions(object):
                                                  putaway_type_id=putaway_type_id, sku=sku,
                                                  batch_id=batch_id, quantity=quantity,
                                                  putaway_quantity=putaway_quantity,
-                                                 inventory_type=inventory_type)
+                                                 inventory_type=inventory_type, reference_id=reference_id)
             if putaway_status is not None:
                 putaway_obj.status = putaway_status
                 putaway_obj.save()
@@ -145,7 +146,7 @@ class InCommonFunctions(object):
 
     @classmethod
     def create_in(cls, warehouse, in_type, in_type_id, sku, batch_id, quantity, putaway_quantity, inventory_type,
-                  weight=0, manufacturing_date=None):
+                  weight=0, manufacturing_date=None, reference_id=None):
         if warehouse.shop_type.shop_type in ['sp', 'f']:
             in_obj = In.objects.create(warehouse=warehouse, in_type=in_type, in_type_id=in_type_id, sku=sku,
                                        batch_id=batch_id, inventory_type=inventory_type,
@@ -153,7 +154,7 @@ class InCommonFunctions(object):
                                        manufacturing_date=manufacturing_date)
             PutawayCommonFunctions.create_putaway(in_obj.warehouse, in_obj.in_type, in_obj.id, in_obj.sku,
                                                   in_obj.batch_id, in_obj.quantity, putaway_quantity,
-                                                  in_obj.inventory_type)
+                                                  in_obj.inventory_type, reference_id)
             return in_obj
 
     @classmethod
@@ -250,6 +251,15 @@ class CommonBinInventoryFunctions(object):
     def add_to_be_picked_to_bin(cls, qty, bin_inv_obj):
         obj = BinInventory.objects.select_for_update().get(pk=bin_inv_obj.id)
         obj.to_be_picked_qty = obj.to_be_picked_qty + qty
+        obj.save()
+
+
+    @classmethod
+    @transaction.atomic
+    def move_to_to_be_picked(cls, qty, bin_inv_obj):
+        obj = BinInventory.objects.select_for_update().get(pk=bin_inv_obj.id)
+        obj.to_be_picked_qty = obj.to_be_picked_qty + qty
+        obj.quantity = obj.quantity - qty
         obj.save()
 
     @classmethod
@@ -1196,9 +1206,10 @@ def cancel_order_with_pick(instance):
                              .format(instance.order_no))
             return
         if pickup_qs.last().status in ['picking_complete', 'moved_to_qc']:
-            if instance.rt_order_order_product.last() and \
-                    instance.rt_order_order_product.last().shipment_status == 'QC_REJECTED':
+            shipment = instance.rt_order_order_product.last()
+            if shipment and shipment.shipment_status == 'QC_REJECTED':
                 return
+<<<<<<< HEAD
             pickup_id = pickup_qs.last().id
             warehouse = pickup_qs.last().warehouse
             sku = pickup_qs.last().sku
@@ -1217,71 +1228,57 @@ def cancel_order_with_pick(instance):
                                                                                      'READY_TO_DISPATCH']):
                         pickup_order = pickup_bin.shipment_batch
                         put_away_object = Putaway.objects.filter(warehouse=pickup_bin.warehouse,
+=======
+            for pickup in pickup_qs:
+                if shipment and shipment.shipment_status in ['QC_STARTED','READY_TO_SHIP','MOVED_TO_DISPATCH',
+                                                             'READY_TO_DISPATCH']:
+                    for batch_instance in shipment.rt_order_product_order_product_mapping.filter(product=pickup.sku)\
+                                                                            .last().rt_ordered_product_mapping.all():
+                        put_away_object = Putaway.objects.filter(warehouse=pickup.warehouse,
+>>>>>>> 35cd336148973ce61e9d7b1bb5a2b4dd9e0d4f15
                                                                  putaway_type='CANCELLED',
                                                                  putaway_type_id=instance.order_no,
-                                                                 sku=pickup_bin.bin.sku,
-                                                                 batch_id=pickup_bin.batch_id,
+                                                                 sku=pickup.sku,
+                                                                 batch_id=batch_instance.batch_id,
                                                                  inventory_type=type_normal)
                         if put_away_object.exists():
-                            quantity = put_away_object[0].quantity + pickup_order.quantity
-                            pick_up_bin_quantity = pickup_order.quantity
+                            putaway_qty = put_away_object[0].quantity + batch_instance.quantity
                         else:
-                            quantity = pickup_order.quantity
-                            pick_up_bin_quantity = pickup_order.quantity
-                        if quantity == 0 and pick_up_bin_quantity == 0:
+                            putaway_qty = batch_instance.quantity
+                        if putaway_qty == 0:
                             continue
-                        quantity = quantity
-                        status = 'Shipment_Cancelled'
-                        pick_up_bin_quantity = pick_up_bin_quantity
-                    else:
-                        put_away_object = Putaway.objects.filter(warehouse=pickup_bin.warehouse,
-                                                                 putaway_type='CANCELLED',
-                                                                 putaway_type_id=instance.order_no,
-                                                                 sku=pickup_bin.bin.sku,
+                        Putaway.objects.update_or_create(warehouse=pickup.warehouse, putaway_type='CANCELLED',
+                                                         putaway_type_id=instance.order_no, sku=pickup.sku,
+                                                         batch_id=batch_instance.batch_id, inventory_type=type_normal,
+                                                         defaults={'quantity': putaway_qty,
+                                                                   'status': Putaway.PUTAWAY_STATUS_CHOICE.NEW,
+                                                                   'putaway_quantity': 0})
+                else:
+                    for pickup_bin in pickup.bin_inventory.all():
+                        put_away_object = Putaway.objects.filter(warehouse=pickup.warehouse, putaway_type='CANCELLED',
+                                                                 putaway_type_id=instance.order_no, sku=pickup.sku,
                                                                  batch_id=pickup_bin.batch_id,
                                                                  inventory_type=type_normal,
                                                                  )
                         if put_away_object.exists():
                             quantity = put_away_object[0].quantity + pickup_bin.pickup_quantity
-                            pick_up_bin_quantity = pickup_bin.pickup_quantity
-                            status = 'Shipment_Cancelled'
                         else:
                             quantity = pickup_bin.pickup_quantity
-                            pick_up_bin_quantity = pickup_bin.pickup_quantity
-                            status = 'Shipment_Cancelled'
-                else:
-                    put_away_object = Putaway.objects.filter(warehouse=pickup_bin.warehouse, putaway_type='CANCELLED',
-                                                             putaway_type_id=instance.order_no, sku=pickup_bin.bin.sku,
-                                                             batch_id=pickup_bin.batch_id,
-                                                             inventory_type=type_normal,
-                                                             )
-                    if put_away_object.exists():
-                        quantity = put_away_object[0].quantity + pickup_bin.pickup_quantity
-                        pick_up_bin_quantity = pickup_bin.pickup_quantity
-                        status = 'Pickup_Cancelled'
-                    else:
-                        quantity = pickup_bin.pickup_quantity
-                        pick_up_bin_quantity = pickup_bin.pickup_quantity
-                        status = 'Pickup_Cancelled'
 
-            # update or create put away model
-                pu, _ = Putaway.objects.update_or_create(warehouse=pickup_bin.warehouse, putaway_type='CANCELLED',
-                                                         putaway_type_id=instance.order_no, sku=pickup_bin.bin.sku,
-                                                         batch_id=pickup_bin.batch_id,
-                                                         inventory_type=type_normal,
-                                                         defaults={'quantity': quantity,
-                                                                   'status': Putaway.PUTAWAY_STATUS_CHOICE.NEW,
-                                                                   'putaway_quantity': 0})
-                # update or create put away bin inventory model
-                # PutawayBinInventory.objects.update_or_create(warehouse=pickup_bin.warehouse, sku=pickup_bin.bin.sku,
-                #                                              batch_id=pickup_bin.batch_id, putaway_type=status,
-                #                                              putaway=pu, bin=pickup_bin.bin, putaway_status=False,
-                #                                              defaults={'putaway_quantity': pick_up_bin_quantity})
+                        # update or create put away model
+                        pu, _ = Putaway.objects.update_or_create(warehouse=pickup.warehouse, putaway_type='CANCELLED',
+                                                                 putaway_type_id=instance.order_no, sku=pickup.sku,
+                                                                 batch_id=pickup_bin.batch_id,
+                                                                 inventory_type=type_normal,
+                                                                 defaults={'quantity': quantity,
+                                                                           'status': Putaway.PUTAWAY_STATUS_CHOICE.NEW,
+                                                                           'putaway_quantity': 0})
 
                 CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
-                    warehouse, pickup_bin.bin.sku, type_normal, state_picked, -1 * pick_up_bin_quantity,
+                    pickup.warehouse, pickup.sku, type_normal, state_picked, -1 * pickup.pickup_quantity,
                     "order_cancelled", instance.order_no)
         pickup_qs.update(status='picking_cancelled')
+        instance.picker_order.update(picking_status='picking_cancelled')
 
 
 class AuditInventory(object):
@@ -2616,7 +2613,8 @@ def get_logged_user_wise_query_set_for_shipment(user, queryset):
             or user.has_perm('wms.can_have_zone_supervisor_permission') or \
             user.has_perm('wms.can_have_zone_coordinator_permission') or \
             user.groups.filter(name='Dispatch Executive'):
-        queryset = queryset.filter(order__seller_shop_id=user.shop_employee.last().shop_id)
+        queryset = queryset.filter(Q(order__seller_shop_id=user.shop_employee.last().shop_id)|
+                                   Q(order__dispatch_center_id=user.shop_employee.last().shop_id))
     elif user.has_perm('wms.can_have_qc_executive_permission'):
         queryset = queryset.filter(qc_area__qc_desk_areas__qc_executive=user)
     else:
@@ -2662,10 +2660,14 @@ def get_logged_user_wise_query_set_for_dispatch_trip(user, queryset):
     '''
         GET Logged-in user wise queryset for shipment based on criteria that matches
     '''
+    user_shop = user.shop_employee.last().shop
     if user.has_perm('wms.can_have_zone_warehouse_permission'):
-        queryset = queryset.filter(seller_shop_id=user.shop_employee.last().shop_id)
-    elif user.groups.filter(name='Dispatch Executive'):
-        queryset = queryset.filter(source_shop_id=user.shop_employee.last().shop_id)
+        queryset = queryset.filter(seller_shop=user_shop)
+    elif user.groups.filter(name='Dispatch Executive').exists():
+        if user_shop.shop_type.shop_type == 'dc':
+            queryset = queryset.filter(seller_shop=user_shop.retiler_mapping.last().parent)
+        else:
+            queryset = queryset.filter(seller_shop=user_shop)
     else:
         queryset = queryset.none()
     return queryset
@@ -2678,7 +2680,7 @@ def get_logged_user_wise_query_set_for_dispatch_crates(user, queryset):
     mapped_shop = user.shop_employee.all().last().shop
     if user.has_perm('wms.can_have_zone_warehouse_permission'):
         queryset = queryset.filter(Q(shop=mapped_shop) | Q(shop__retiler_mapping__parent=mapped_shop))
-    elif user.groups.filter(name='Dispatch Executive'):
+    elif user.groups.filter(name='Dispatch Executive').exists():
         queryset = queryset.filter(Q(shop=mapped_shop) | Q(shop__retiler_mapping__parent=mapped_shop))
     else:
         queryset = queryset.none()
@@ -2697,3 +2699,8 @@ def get_logged_user_wise_query_set_for_shipment_packaging(user, queryset):
     else:
         queryset = queryset.none()
     return queryset
+
+
+def get_zone_by_warehouse_and_product(warehouse, product):
+    assortment = WarehouseAssortment.objects.filter(warehouse=warehouse, product=product).last()
+    return assortment.zone if assortment else None

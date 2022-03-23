@@ -9,7 +9,7 @@ from products.common_validators import get_validate_parent_product_image_ids
 from shops.models import (PosShopUserMapping, RetailerType, ShopType, Shop, ShopPhoto,
                           ShopRequestBrand, ShopDocument, ShopUserMapping, SalesAppVersion, ShopTiming,
                           FavouriteProduct, DayBeatPlanning, ExecutiveFeedback, USER_TYPE_CHOICES, FOFOConfigurations,
-                          FOFOConfigCategory, FOFOConfigSubCategory
+                          FOFOConfigCategory, FOFOConfigSubCategory, FOFOConfig
                           )
 from django.contrib.auth import get_user_model
 from django.db import transaction
@@ -933,9 +933,27 @@ class FOFOCategoryConfigurationsGetSerializer(serializers.ModelSerializer):
             context={'shop': self.context.get('shop')}).data
 
 
+class FofoConfigSerilizer(serializers.ModelSerializer):
+    shop_is_open_today = serializers.SerializerMethodField()
+
+    class Meta:
+        model = FOFOConfig
+        fields = ('shop_opening_timing', 'shop_closing_timing', 'working_off_start_date',
+            'working_off_end_date', 'delivery_time', 'delivery_redius', 'min_order_value','shop_is_open_today')
+    def get_shop_is_open_today(self, obj):
+        day = datetime.today().date()
+        start_off_day = obj.working_off_start_date
+        end_off_day = obj.working_off_end_date
+        if (start_off_day and end_off_day) and (start_off_day<= day and end_off_day >= day):
+            return False
+        return True
+
+
+
 class FOFOConfigurationsGetSerializer(serializers.Serializer):
     shop = serializers.SerializerMethodField()
     category = serializers.SerializerMethodField()
+    shop_config = serializers.SerializerMethodField(read_only=True)
 
     def get_shop(self, obj):
         return ShopNameSerializer(self.context.get('shop'), read_only=True).data
@@ -956,6 +974,9 @@ class FOFOConfigurationsGetSerializer(serializers.Serializer):
         return FOFOCategoryConfigurationsGetSerializer(FOFOConfigCategory.objects.filter(
             fofo_category_details__fofo_category__shop=self.context.get('shop')).distinct(), many=True,
             context={'shop': self.context.get('shop')}).data
+    def get_shop_config(self,obj):
+            return FofoConfigSerilizer(FOFOConfig.objects.filter(shop=self.context.get('shop')).last()).data
+
 
 
 class FOFOConfigurationsCrudSerializer(serializers.ModelSerializer):
