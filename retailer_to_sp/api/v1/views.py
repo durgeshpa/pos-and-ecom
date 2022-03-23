@@ -2,7 +2,7 @@ import logging
 import math
 import re
 import json
-
+import codecs
 from django.http import HttpResponse
 from datetime import date as datetime_date
 from datetime import datetime, timedelta
@@ -6001,7 +6001,7 @@ def pdf_generation_retailer(request, order_id, delay=True):
             retailer_gstin_number = order.seller_shop.shop_name_documents.filter(
                 shop_document_type='gstin').last().shop_document_number
 
-        height = 140 + 5 * count  # calculating page height of invoice 145 is base value
+        height = 170 + 13 * count  # calculating page height of invoice 170 is base value
 
         data = {"shipment": ordered_product, "order": ordered_product.order, "url": request.get_host(),
                 "scheme": request.is_secure() and "https" or "http", "total_amount": total_amount, 'total': total,
@@ -6016,10 +6016,10 @@ def pdf_generation_retailer(request, order_id, delay=True):
                       "page-height": height, "page-width": 80, "no-stop-slow-scripts": True, "quiet": True, }
         response = PDFTemplateResponse(request=request, template=template_name, filename=filename,
                                        context=data, show_content_in_browser=False, cmd_options=cmd_option)
-        # with open("/var/www/gmfact/retailer-backend/heelo.pdf", "wb") as f:
+        # with open("heelo.pdf", "wb") as f:
         #     f.write(response.rendered_content)
         # content = render_to_string(template_name, data)
-        # with open("abc.html", 'w') as static_file:
+        # with codecs.open("abc.html", "w", "utf-8-sig") as static_file:
         #     static_file.write(content)
 
         try:
@@ -6171,7 +6171,7 @@ def pdf_generation_return_retailer(request, order, ordered_product, order_return
             retailer_gstin_number = order.seller_shop.shop_name_documents.filter(
                 shop_document_type='gstin').last().shop_document_number
 
-        height = 140 + 5 * count  # calculating page height of invoice 145 is base value
+        height = 170 + 13 * count  # calculating page height of invoice 170 is base value
         data = {
             "url": request.get_host(),
             "scheme": request.is_secure() and "https" or "http",
