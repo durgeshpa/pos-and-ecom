@@ -147,7 +147,7 @@ class ParentProduct(BaseTimestampUserStatusModel):
         ('both', 'Both B2B and B2C'),
     )
     brand_case_size = models.PositiveIntegerField(blank=False)
-    product_type = models.CharField(max_length=5, choices=PRODUCT_TYPE_CHOICES)
+    product_type = models.CharField(max_length=5, choices=PRODUCT_TYPE_CHOICES, default='both')
     is_ptr_applicable = models.BooleanField(verbose_name='Is PTR Applicable', default=False)
     ptr_percent = models.DecimalField(max_digits=4, decimal_places=2, blank=True, null=True,
                                       validators=[PercentageValidator])
