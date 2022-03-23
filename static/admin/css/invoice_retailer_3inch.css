@@ -4,7 +4,8 @@
 
 
      body{
-         width: 90mm;
+         width: 100mm;
+         margin:0px;
 		 margin-left:5px;
 		 font-size:14px
 }
@@ -26,10 +27,7 @@ padding-bottom:20px
 		padding:5px;
 
 }
-.user-info .left {
-		width:30%;
 
-}
 .items{
 	padding-top:10px;
 	text-align:left;
