@@ -5889,7 +5889,7 @@ def pdf_generation_retailer(request, order_id, delay=True):
     template_name = 'admin/invoice/invoice_retailer_3inch.html'
     # Don't create pdf if already created
     if ordered_product.invoice and ordered_product.invoice.invoice_pdf and ordered_product.invoice.invoice_pdf.url:
-         try:
+        try:
             phone_number, shop_name = order.buyer.phone_number, order.seller_shop.shop_name
             media_url, file_name, manager = ordered_product.invoice.invoice_pdf.url, ordered_product.invoice.invoice_no, \
                                             order.ordered_cart.seller_shop.pos_shop.filter(
@@ -5908,7 +5908,7 @@ def pdf_generation_retailer(request, order_id, delay=True):
                                            'order')
                 else:
                     logger.exception("Email not present for Manager {}".format(str(manager)))
-                return whatsapp_opt_in(phone_number, shop_name, media_url, file_name)
+            return whatsapp_opt_in(phone_number, shop_name, media_url, file_name)
         except Exception as e:
             logger.exception("Retailer Invoice send error order {}".format(order.order_no))
             logger.exception(e)
