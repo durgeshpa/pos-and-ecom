@@ -148,10 +148,7 @@ INSTALLED_APPS = [
     'drf_yasg',
     'report',
     'tinymce',
-<<<<<<< HEAD
-=======
     'drf_api_logger',
->>>>>>> 35cd336148973ce61e9d7b1bb5a2b4dd9e0d4f15
 ]
 
 # if ENVIRONMENT.lower() in ["production","qa"]:
@@ -406,11 +403,7 @@ CRONJOBS = [
     ('*/1 * * * *', 'wms.views.release_blocking_with_cron', '>>/tmp/release.log'),
     ('0 8 * * *', 'wms.views.assign_picker_user_to_pickup_created_orders', '>>/tmp/picking'),
     ('*/10 * * * *', 'wms.views.pickup_entry_creation_with_cron', '>>/tmp/picking'),
-<<<<<<< HEAD
-    ('0 10 * * *', 'wms.views.mail_products_list_not_mapped_yet_to_any_zone', '>>/tmp/picking'),
-=======
     # ('0 10 * * *', 'wms.views.mail_products_list_not_mapped_yet_to_any_zone', '>>/tmp/picking'),
->>>>>>> 35cd336148973ce61e9d7b1bb5a2b4dd9e0d4f15
     ('30 2 * * *', 'retailer_backend.cron.sync_es_products'),
     ('0 2 * * *', 'wms.views.archive_inventory_cron'),
     ('0 3 * * *', 'wms.views.move_expired_inventory_cron'),
@@ -441,11 +434,7 @@ CRONJOBS = [
     ('*/5 * * * *', 'wms.cron.assign_putaway_users_to_new_putways'),
     ('0 6 * * *', 'shops.cron.get_feedback_valid'),
     ('30 21 * * *', 'shops.tasks.cancel_beat_plan'),
-<<<<<<< HEAD
-    ('0 1 * * *', 'wms.scripts.populate_to_be_picked_qty.populate_to_be_picked_quantity_by_cron'),
-=======
     ('0 2 * * *', 'wms.scripts.populate_to_be_picked_qty.populate_to_be_picked_quantity_by_cron'),
->>>>>>> 35cd336148973ce61e9d7b1bb5a2b4dd9e0d4f15
     ('0 */6 * * *', 'wms.scripts.release_stucked_qc_areas.release_stucked_qc_areas_by_cron'),
 ]
 
@@ -653,9 +642,6 @@ else:
     es = Elasticsearch(
         hosts=[config('ES_INDEX')],
         http_auth=(config('ES_USER_NAME'), config('ES_PASSWORD')),
-<<<<<<< HEAD
-    )
-=======
     )
 
 # DRF API LOGGER
@@ -663,4 +649,3 @@ DRF_API_LOGGER_DATABASE = config('DRF_API_LOGGER_DATABASE')
 DRF_API_LOGGER_EXCLUDE_KEYS = ['password', 'token', 'access', 'refresh']
 DRF_API_LOGGER_SLOW_API_ABOVE = 200
 DRF_API_LOGGER_TIMEDELTA = 330
->>>>>>> 35cd336148973ce61e9d7b1bb5a2b4dd9e0d4f15

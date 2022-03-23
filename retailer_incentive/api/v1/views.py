@@ -82,13 +82,8 @@ class ShopPurchaseMatrix(APIView):
                 se, sm = self.current_contact(shop)
                 scheme_data = self.per_scheme_data(scheme, total_sales, discount_percentage, discount_value,
                                                    scheme.start_date, scheme.end_date, sm, se)
-<<<<<<< HEAD
-                message = SUCCESS_MESSAGES['SCHEME_BUY_MORE']
-                scheme_data['message'] = message
-=======
                 # message = SUCCESS_MESSAGES['SCHEME_BUY_MORE']
                 # scheme_data['message'] = message
->>>>>>> 35cd336148973ce61e9d7b1bb5a2b4dd9e0d4f15
                 response_data.append(scheme_data)
 
         # Inactive schemes

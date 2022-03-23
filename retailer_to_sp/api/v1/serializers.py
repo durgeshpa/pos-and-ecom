@@ -592,10 +592,6 @@ class OrderedProductSerializer(serializers.ModelSerializer):
         model = OrderedProduct
         fields = ('order','invoice_no','invoice_link', 'shipment_status')
 
-<<<<<<< HEAD
-=======
-
->>>>>>> 35cd336148973ce61e9d7b1bb5a2b4dd9e0d4f15
 # order serilizer
 class OrderSerializer(serializers.ModelSerializer):
     ordered_cart = CartSerializer()

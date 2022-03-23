@@ -157,9 +157,5 @@ pyodbc==4.0.30
 django-tables2==2.3.4
 django-multiselectfield==0.1.12
 pyfcm==1.4.5
-<<<<<<< HEAD
-django-extensions==2.1.5
-=======
 django-extensions==2.1.5
 drf-api-logger==1.0.10
->>>>>>> 35cd336148973ce61e9d7b1bb5a2b4dd9e0d4f15

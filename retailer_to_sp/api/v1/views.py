@@ -1,7 +1,3 @@
-<<<<<<< HEAD
-=======
-
->>>>>>> 35cd336148973ce61e9d7b1bb5a2b4dd9e0d4f15
 import logging
 import math
 import re
@@ -35,12 +31,8 @@ from accounts.api.v1.serializers import PosUserSerializer, PosShopUserSerializer
 from addresses.models import Address, City, Pincode
 from audit.views import BlockUnblockProduct
 from barCodeGenerator import barcodeGen
-<<<<<<< HEAD
-from global_config.views import get_config
-=======
 from global_config.views import get_config, get_config_fofo_shops
 from shops.models import Shop, ParentRetailerMapping, ShopUserMapping, ShopMigrationMapp, PosShopUserMapping, FOFOConfig
->>>>>>> 35cd336148973ce61e9d7b1bb5a2b4dd9e0d4f15
 from brand.models import Brand
 from categories import models as categorymodel
 from common.common_utils import (create_file_name, single_pdf_file, create_merge_pdf_name, merge_pdf_files,
@@ -92,11 +84,7 @@ from retailer_to_sp.models import (Cart, CartProductMapping, CreditNote, Order, 
                                    DispatchTrip, DispatchTripShipmentMapping, INVOICE_AVAILABILITY_CHOICES,
                                    DispatchTripShipmentPackages, LastMileTripShipmentMapping, PACKAGE_VERIFY_CHOICES,
                                    DispatchTripCrateMapping, ShipmentPackagingMapping, TRIP_TYPE_CHOICE, ShopCrate,
-<<<<<<< HEAD
-                                   LastMileTripShipmentPackages, RoundAmount, ShipmentNotAttempt)
-=======
                                    LastMileTripShipmentPackages, ShipmentNotAttempt, RoundAmount)
->>>>>>> 35cd336148973ce61e9d7b1bb5a2b4dd9e0d4f15
 from retailer_to_sp.tasks import send_invoice_pdf_email
 from shops.api.v1.serializers import ShopBasicSerializer
 from sp_to_gram.models import OrderedProductReserved
@@ -108,11 +96,6 @@ from wms.common_functions import OrderManagement, get_stock, is_product_not_elig
 from wms.common_validators import validate_id, validate_data_format, validate_data_days_date_request, validate_shipment
 from retailer_backend.settings import AWS_MEDIA_URL
 from wms.models import OrderReserveRelease, InventoryType, PosInventoryState, PosInventoryChange, Crate
-
-from ...common_validators import validate_shipment_dispatch_item, validate_trip_user, \
-    get_shipment_by_crate_id, get_shipment_by_shipment_label, validate_shipment_id, validate_trip_shipment, \
-    validate_trip, validate_shipment_label, validate_trip_shipment_package, check_user_can_plan_trip, \
-    validate_last_mile_trip_user
 
 from wms.views import shipment_not_attempt_inventory_change, shipment_reschedule_inventory_change
 from .serializers import (ProductsSearchSerializer, CartSerializer, OrderSerializer,
@@ -144,23 +127,19 @@ from .serializers import (ProductsSearchSerializer, CartSerializer, OrderSeriali
                           DetailedShipmentPackageInfoSerializer, DetailedShipmentPackagingMappingInfoSerializer,
                           VerifyBackwardTripItemsSerializer, BackwardTripQCSerializer, OrderPaymentStatusChangeSerializers
                           )
-<<<<<<< HEAD
+
 from ...common_validators import validate_shipment_dispatch_item, validate_trip_user, \
     get_shipment_by_crate_id, get_shipment_by_shipment_label, validate_shipment_id, validate_trip_shipment, \
     validate_trip, validate_shipment_label, validate_trip_shipment_package, check_user_can_plan_trip, \
     validate_last_mile_trip_user
-from pos.payU_payment import *
-from fcm.utils import get_device_model
-from datetime import datetime
-=======
 from wms.services import check_whc_manager_coordinator_supervisor_qc_executive, shipment_search, \
     check_whc_manager_dispatch_executive, check_qc_dispatch_executive, check_dispatch_executive
+from pos.payU_payment import *
 from fcm.utils import get_device_model
 from django.template.loader import render_to_string
 from datetime import datetime
 
 from ...utils import round_half_down
->>>>>>> 35cd336148973ce61e9d7b1bb5a2b4dd9e0d4f15
 
 Device = get_device_model()
 
@@ -2002,11 +1981,8 @@ class CartCheckout(APIView):
             offers = BasicCartOffers.refresh_offers_checkout(cart, False, self.request.data.get('coupon_id'))
             data = self.serialize(cart)
             data['redeem_points_message'] = use_rewrd_this_month
-<<<<<<< HEAD
-=======
             delivery_time = get_config_fofo_shops(kwargs['shop'].id)
             data['maximum_delivery_time'] = delivery_time.get('delivery_time',None)
->>>>>>> 35cd336148973ce61e9d7b1bb5a2b4dd9e0d4f15
             if 'error' in offers:
                 return api_response(offers['error'], None, offers['code'])
             if offers['applied']:
@@ -2073,11 +2049,8 @@ class CartCheckout(APIView):
             data = self.serialize(cart, offers)
             address = AddressCheckoutSerializer(cart.buyer.ecom_user_address.filter(default=True).last()).data
             data.update({'default_address': address})
-<<<<<<< HEAD
-=======
             delivery_time = get_config_fofo_shops(kwargs['shop'])
             data['maximum_delivery_time'] = delivery_time.get('delivery_time',None)
->>>>>>> 35cd336148973ce61e9d7b1bb5a2b4dd9e0d4f15
             data.update({'saving': round(data['total_mrp'] - data['amount_payable'], 2)})
             data.update({"redeem_points_message": use_rewrd_this_month})
             return api_response("Cart Checkout", data, status.HTTP_200_OK, True)
@@ -2977,25 +2950,6 @@ class OrderCentral(APIView):
                 order.order_status = order_status
                 order.last_modified_by = self.request.user
                 order.save()
-<<<<<<< HEAD
-                # try:
-                #     trxn_id = order.ordered_cart
-                #     payment_datails = PosPayment.objects.filter(order=order.id, transaction_id=trxn_id).first()
-                #     if payment_datails:
-                #         refund_amount = payment_datails.amount
-                #         payment_id = payment_datails.payment_id
-                #         response = send_request_refund(payment_id, refund_amount)
-                #         request_id = response.get('request_id')
-                #         if response.get('status'):
-                #             request_id = response.get('request_id')
-                #             payment_datails.is_refund = True
-                #             payment_datails.refund_status = 'queued'
-                #             payment_datails.request_id= request_id
-                #             payment_datails.refund_amount = refund_amount
-                #             payment_datails.save()
-                # except  Exception as e:
-                #     pass
-=======
                 try:
                     trxn_id = order.ordered_cart
                     payment_datails = PosPayment.objects.filter(order=order.id, transaction_id=trxn_id, payment_type__type='online',
@@ -3014,7 +2968,6 @@ class OrderCentral(APIView):
                             payment_datails.save()
                 except  Exception as e:
                     pass
->>>>>>> 35cd336148973ce61e9d7b1bb5a2b4dd9e0d4f15
                 # Refund redeemed loyalty points
                 # Deduct loyalty points awarded on order
                 points_credit, points_debit, net_points = RewardCls.adjust_points_on_return_cancel(
@@ -3086,19 +3039,6 @@ class OrderCentral(APIView):
                 order.order_status = order_status
                 order.last_modified_by = self.request.user
                 order.save()
-<<<<<<< HEAD
-                shipment = OrderedProduct.objects.filter(order=order).last()
-                shipment.shipment_status = order_status
-                shipment.save()
-                shipment.rt_order_product_order_product_mapping.update(delivered_qty=F('shipped_qty'))
-                if shipment.pos_trips.filter(trip_type='ECOM').exists():
-                    pos_trip = shipment.pos_trips.filter(trip_type='ECOM').last()
-                else:
-                    pos_trip = PosTrip.objects.create(trip_type='ECOM',
-                                                      shipment=shipment)
-                pos_trip.trip_end_at = datetime.now()
-                pos_trip.save()
-=======
                 try:
                     shipment = OrderedProduct.objects.filter(order=order).last()
                     shipment.shipment_status = order_status
@@ -3113,7 +3053,6 @@ class OrderCentral(APIView):
                     pos_trip.save()
                 except:
                     pass
->>>>>>> 35cd336148973ce61e9d7b1bb5a2b4dd9e0d4f15
 
         return api_response("Order updated successfully!", response, status.HTTP_200_OK, True)
 
@@ -3157,25 +3096,6 @@ class OrderCentral(APIView):
             whatsapp_order_cancel.delay(order_number, shop_name, phone_number, points_credit, points_debit,
                                         net_points)
             response = None
-<<<<<<< HEAD
-            # try:
-            #     trxn_id = order.ordered_cart
-            #     payment_datails = PosPayment.objects.filter(order=order.id, transaction_id=trxn_id).first()
-            #     if payment_datails:
-            #         refund_amount = payment_datails.amount
-            #         payment_id = payment_datails.payment_id
-            #         response = send_request_refund(payment_id, refund_amount)
-            #         request_id = response.get('request_id')
-            #         if response.get('status'):
-            #             request_id = response.get('request_id')
-            #             payment_datails.is_refund = True
-            #             payment_datails.refund_status = 'queued'
-            #             payment_datails.request_id= request_id
-            #             payment_datails.refund_amount = refund_amount
-            #             payment_datails.save()
-            # except Exception as e:
-            #     pass
-=======
             try:
                 trxn_id = order.ordered_cart
                 payment_datails = PosPayment.objects.filter(order=order.id, transaction_id=trxn_id, payment_type__type='online',
@@ -3194,7 +3114,6 @@ class OrderCentral(APIView):
                         payment_datails.save()
             except Exception as e:
                 pass
->>>>>>> 35cd336148973ce61e9d7b1bb5a2b4dd9e0d4f15
         return api_response("Order cancelled successfully!", response, status.HTTP_200_OK, True)
 
     def put_retail_order(self, pk):
@@ -3276,10 +3195,6 @@ class OrderCentral(APIView):
             elif order.ordered_cart.cart_type == 'ECOM':
                 return api_response('Order', self.get_serialize_process_pos_ecom(order), status.HTTP_200_OK, True,
                                     extra_params={"key_p": str(config('PAYU_KEY'))})
-<<<<<<< HEAD
-=======
-
->>>>>>> 35cd336148973ce61e9d7b1bb5a2b4dd9e0d4f15
         return api_response("Order not found")
 
     @check_ecom_user
@@ -3293,15 +3208,10 @@ class OrderCentral(APIView):
                                       buyer=self.request.user, ordered_cart__cart_type='ECOM')
         except ObjectDoesNotExist:
             return api_response("Order Not Found!")
-<<<<<<< HEAD
-        return api_response('Order', self.get_serialize_process_pos_ecom(order), status.HTTP_200_OK, True,
-                            extra_params={"key_p": str(config('PAYU_KEY'))})
-=======
 
         return api_response('Order', self.get_serialize_process_pos_ecom(order), status.HTTP_200_OK, True,
                             extra_params={"key_p": str(config('PAYU_KEY')),}
                             )
->>>>>>> 35cd336148973ce61e9d7b1bb5a2b4dd9e0d4f15
 
     def post_retail_order(self):
         """
@@ -3447,21 +3357,6 @@ class OrderCentral(APIView):
         if not payment_type_id == 4:
             if not self.request.data.get('payment_status'):
                 return api_response("Please provide online payment status.")
-<<<<<<< HEAD
-
-            if not any(self.request.data.get('payment_status') in i for i in PosPayment.PAYMENT_STATUS):
-                return api_response("Please provide valid online payment status")
-
-            # if not self.request.data.get('payment_mode'):
-            #     return api_response("Please provide online payment mode.")
-
-            # if not any(self.request.data.get('payment_mode') in i for i in PosPayment.MODE_CHOICES):
-            #     return api_response("Please provide valid online payment mode")
-
-        # Minimum Order Value
-        # order_config = GlobalConfig.objects.filter(key='ecom_minimum_order_amount').last()
-        order_config = get_config_fofo_shop('Minimum order value', shop.id)
-=======
             if not any(self.request.data.get('payment_status') in i for i in PosPayment.PAYMENT_STATUS):
                 return api_response("Please provide valid online payment status")
 
@@ -3471,7 +3366,6 @@ class OrderCentral(APIView):
         fofo_config = get_config_fofo_shops(shop)
         order_config = fofo_config.get('min_order_value',None)
         order_config = order_config if order_config else GlobalConfig.objects.filter(key='ecom_minimum_order_amount').last().value
->>>>>>> 35cd336148973ce61e9d7b1bb5a2b4dd9e0d4f15
         if order_config is not None:
             order_amount = cart.order_amount_after_discount
             if order_amount < order_config:
@@ -3514,11 +3408,7 @@ class OrderCentral(APIView):
             self.update_cart_ecom(cart)
             # Refresh redeem reward
             RewardCls.checkout_redeem_points(cart, cart.redeem_points)
-<<<<<<< HEAD
-            order = self.create_basic_order(cart, shop, address, payment_type_id)
-=======
             order = self.create_basic_order(cart, shop, address, payment_type_id, delivery_option)
->>>>>>> 35cd336148973ce61e9d7b1bb5a2b4dd9e0d4f15
             payments = [
                 {
                     "payment_type": payment_type_id,
@@ -3684,10 +3574,6 @@ class OrderCentral(APIView):
                 payment_method['payment_status'] = None
             if "payment_mode" not in payment_method:
                 payment_method['payment_mode'] = None
-<<<<<<< HEAD
-=======
-
->>>>>>> 35cd336148973ce61e9d7b1bb5a2b4dd9e0d4f15
         if not cash_only:
             if round(amount) != round(cart.order_amount):
                 return {'error': "Total payment amount should be equal to order amount"}
@@ -3821,11 +3707,7 @@ class OrderCentral(APIView):
         order.save()
         return order
 
-<<<<<<< HEAD
-    def create_basic_order(self, cart, shop, address=None, payment_id=None):
-=======
     def create_basic_order(self, cart, shop, address=None, payment_id=None, delivery_option=None):
->>>>>>> 35cd336148973ce61e9d7b1bb5a2b4dd9e0d4f15
         user = self.request.user
         order, _ = Order.objects.get_or_create(last_modified_by=user, ordered_by=user, ordered_cart=cart)
         order.buyer = cart.buyer
@@ -3840,12 +3722,9 @@ class OrderCentral(APIView):
                     order.order_status = Order.PAYMENT_PENDING
                 elif self.request.data.get('payment_status') == 'payment_failed':
                     order.order_status = Order.PAYMENT_FAILED
-<<<<<<< HEAD
-=======
             order.delivery_option = delivery_option
         obj = FOFOConfig.objects.filter(shop=order.seller_shop.id).last()
         order.estimate_delivery_time = obj.delivery_time if obj else None
->>>>>>> 35cd336148973ce61e9d7b1bb5a2b4dd9e0d4f15
         order.save()
 
         if address:
@@ -4040,13 +3919,8 @@ class OrderCentral(APIView):
                 paid_by=order.buyer,
                 processed_by=self.request.user,
                 amount=payment['amount'],
-<<<<<<< HEAD
-                payment_status=payment['payment_status'],
-                payment_mode=payment['payment_mode']
-=======
                 payment_status = payment['payment_status'],
                 payment_mode = payment['payment_mode']
->>>>>>> 35cd336148973ce61e9d7b1bb5a2b4dd9e0d4f15
             )
 
     def auto_process_pos_order(self, order):
@@ -4516,18 +4390,6 @@ class OrderedItemCentralDashBoard(APIView):
         ecom_orders = orders.filter(order_app_type=Order.POS_ECOMM)
 
         # invoices for shop
-<<<<<<< HEAD
-        invoices = OrderedProductMapping.objects.filter(ordered_product__order__seller_shop=shop).filter(
-            ~Q(ordered_product__order__ordered_cart__cart_type='ECOM',
-               ordered_product__order__rt_payment_retailer_order__payment_type__type__iexact='cod',
-               ordered_product__order__order_status = Order.OUT_FOR_DELIVERY))\
-            .exclude(ordered_product__order__order_status=Order.CANCELLED)
-
-        # pos invoices for shop
-        pos_invoices = invoices.filter(ordered_product__order__order_app_type=Order.POS_WALKIN)
-        # ecom invoices for shop
-        ecom_invoices = invoices.filter(ordered_product__order__order_app_type=Order.POS_ECOMM)
-=======
         invoices = OrderedProduct.objects.filter(order__seller_shop=shop).filter(
             ~Q(order__ordered_cart__cart_type='ECOM',
                order__rt_payment_retailer_order__payment_type__type__iexact='cod',
@@ -4538,7 +4400,6 @@ class OrderedItemCentralDashBoard(APIView):
         pos_invoices = invoices.filter(order__order_app_type=Order.POS_WALKIN)
         # ecom invoices for shop
         ecom_invoices = invoices.filter(order__order_app_type=Order.POS_ECOMM)
->>>>>>> 35cd336148973ce61e9d7b1bb5a2b4dd9e0d4f15
 
         # Return for shop
         returns = OrderReturn.objects.filter(order__seller_shop=shop, status='completed')
@@ -4563,17 +4424,10 @@ class OrderedItemCentralDashBoard(APIView):
             pos_orders = pos_orders.filter(order_status=order_status_actual) if order_status_actual else orders
             ecom_orders = ecom_orders.filter(order_status=order_status_actual) if order_status_actual else orders
 
-<<<<<<< HEAD
-            invoices = invoices.filter(ordered_product__order__order_status=order_status_actual) if order_status_actual else invoices
-            pos_invoices = pos_invoices.filter(ordered_product__order__order_status=order_status_actual) if \
-                order_status_actual else invoices
-            ecom_invoices = ecom_invoices.filter(ordered_product__order__order_status=order_status_actual) if \
-=======
             invoices = invoices.filter(order__order_status=order_status_actual) if order_status_actual else invoices
             pos_invoices = pos_invoices.filter(order__order_status=order_status_actual) if \
                 order_status_actual else invoices
             ecom_invoices = ecom_invoices.filter(order__order_status=order_status_actual) if \
->>>>>>> 35cd336148973ce61e9d7b1bb5a2b4dd9e0d4f15
                 order_status_actual else invoices
 
         # filter for date range
@@ -4587,15 +4441,9 @@ class OrderedItemCentralDashBoard(APIView):
             ecom_orders = ecom_orders.filter(created_at__date=today_date)
 
             # invoice
-<<<<<<< HEAD
-            invoices = invoices.filter(ordered_product__invoice__created_at__date=today_date)
-            pos_invoices = pos_invoices.filter(ordered_product__invoice__created_at__date=today_date)
-            ecom_invoices = ecom_invoices.filter(ordered_product__invoice__created_at__date=today_date)
-=======
             invoices = invoices.filter(invoice__created_at__date=today_date)
             pos_invoices = pos_invoices.filter(invoice__created_at__date=today_date)
             ecom_invoices = ecom_invoices.filter(invoice__created_at__date=today_date)
->>>>>>> 35cd336148973ce61e9d7b1bb5a2b4dd9e0d4f15
 
             # orders returns
             returns = returns.filter(modified_at__date=today_date)
@@ -4616,15 +4464,9 @@ class OrderedItemCentralDashBoard(APIView):
             ecom_orders = ecom_orders.filter(created_at__date=yesterday)
 
             # invoice
-<<<<<<< HEAD
-            invoices = invoices.filter(ordered_product__invoice__created_at__date=yesterday)
-            pos_invoices = pos_invoices.filter(ordered_product__invoice__created_at__date=yesterday)
-            ecom_invoices = ecom_invoices.filter(ordered_product__invoice__created_at__date=yesterday)
-=======
             invoices = invoices.filter(invoice__created_at__date=yesterday)
             pos_invoices = pos_invoices.filter(invoice__created_at__date=yesterday)
             ecom_invoices = ecom_invoices.filter(invoice__created_at__date=yesterday)
->>>>>>> 35cd336148973ce61e9d7b1bb5a2b4dd9e0d4f15
 
             # orders returns
             returns = returns.filter(modified_at__date=yesterday)
@@ -4644,15 +4486,9 @@ class OrderedItemCentralDashBoard(APIView):
             ecom_orders = ecom_orders.filter(created_at__week=today_date.isocalendar()[1])
 
             # invoice
-<<<<<<< HEAD
-            invoices = invoices.filter(ordered_product__invoice__created_at__week=today_date.isocalendar()[1])
-            pos_invoices = pos_invoices.filter(ordered_product__invoice__created_at__week=today_date.isocalendar()[1])
-            ecom_invoices = ecom_invoices.filter(ordered_product__invoice__created_at__week=today_date.isocalendar()[1])
-=======
             invoices = invoices.filter(invoice__created_at__week=today_date.isocalendar()[1])
             pos_invoices = pos_invoices.filter(invoice__created_at__week=today_date.isocalendar()[1])
             ecom_invoices = ecom_invoices.filter(invoice__created_at__week=today_date.isocalendar()[1])
->>>>>>> 35cd336148973ce61e9d7b1bb5a2b4dd9e0d4f15
 
             # orders returns
             returns = returns.filter(modified_at__week=today_date.isocalendar()[1])
@@ -4673,15 +4509,9 @@ class OrderedItemCentralDashBoard(APIView):
             ecom_orders = ecom_orders.filter(created_at__week=last_week.isocalendar()[1])
 
             # invoice
-<<<<<<< HEAD
-            invoices = invoices.filter(ordered_product__invoice__created_at__week=last_week.isocalendar()[1])
-            pos_invoices = pos_invoices.filter(ordered_product__invoice__created_at__week=last_week.isocalendar()[1])
-            ecom_invoices = ecom_invoices.filter(ordered_product__invoice__created_at__week=last_week.isocalendar()[1])
-=======
             invoices = invoices.filter(invoice__created_at__week=last_week.isocalendar()[1])
             pos_invoices = pos_invoices.filter(invoice__created_at__week=last_week.isocalendar()[1])
             ecom_invoices = ecom_invoices.filter(invoice__created_at__week=last_week.isocalendar()[1])
->>>>>>> 35cd336148973ce61e9d7b1bb5a2b4dd9e0d4f15
 
             # orders returns
             returns = returns.filter(modified_at__week=last_week.isocalendar()[1])
@@ -4701,15 +4531,9 @@ class OrderedItemCentralDashBoard(APIView):
             ecom_orders = ecom_orders.filter(created_at__month=today_date.month)
 
             # invoice
-<<<<<<< HEAD
-            invoices = invoices.filter(ordered_product__invoice__created_at__month=today_date.month)
-            pos_invoices = pos_invoices.filter(ordered_product__invoice__created_at__month=today_date.month)
-            ecom_invoices = ecom_invoices.filter(ordered_product__invoice__created_at__month=today_date.month)
-=======
             invoices = invoices.filter(invoice__created_at__month=today_date.month)
             pos_invoices = pos_invoices.filter(invoice__created_at__month=today_date.month)
             ecom_invoices = ecom_invoices.filter(invoice__created_at__month=today_date.month)
->>>>>>> 35cd336148973ce61e9d7b1bb5a2b4dd9e0d4f15
 
             # orders returns
             returns = returns.filter(modified_at__month=today_date.month)
@@ -4730,15 +4554,9 @@ class OrderedItemCentralDashBoard(APIView):
             ecom_orders = ecom_orders.filter(created_at__month=last_month.month)
 
             # invoice
-<<<<<<< HEAD
-            invoices = invoices.filter(ordered_product__invoice__created_at__month=last_month.month)
-            pos_invoices = pos_invoices.filter(ordered_product__invoice__created_at__month=last_month.month)
-            ecom_invoices = ecom_invoices.filter(ordered_product__invoice__created_at__month=last_month.month)
-=======
             invoices = invoices.filter(invoice__created_at__month=last_month.month)
             pos_invoices = pos_invoices.filter(invoice__created_at__month=last_month.month)
             ecom_invoices = ecom_invoices.filter(invoice__created_at__month=last_month.month)
->>>>>>> 35cd336148973ce61e9d7b1bb5a2b4dd9e0d4f15
 
             # orders returns
             returns = returns.filter(modified_at__month=last_month.month)
@@ -4758,15 +4576,9 @@ class OrderedItemCentralDashBoard(APIView):
             ecom_orders = ecom_orders.filter(created_at__year=today_date.year)
 
             # invoice
-<<<<<<< HEAD
-            invoices = invoices.filter(ordered_product__invoice__created_at__year=today_date.year)
-            pos_invoices = pos_invoices.filter(ordered_product__invoice__created_at__year=today_date.year)
-            ecom_invoices = ecom_invoices.filter(ordered_product__invoice__created_at__year=today_date.year)
-=======
             invoices = invoices.filter(invoice__created_at__year=today_date.year)
             pos_invoices = pos_invoices.filter(invoice__created_at__year=today_date.year)
             ecom_invoices = ecom_invoices.filter(invoice__created_at__year=today_date.year)
->>>>>>> 35cd336148973ce61e9d7b1bb5a2b4dd9e0d4f15
 
             # orders returns
             returns = returns.filter(modified_at__year=today_date.year)
@@ -4783,55 +4595,20 @@ class OrderedItemCentralDashBoard(APIView):
         total_refund_amount = returns.aggregate(Sum('refund_amount')).get('refund_amount__sum')
         if total_refund_amount:
             total_ordered_final_amount -= float(total_refund_amount)
-<<<<<<< HEAD
-=======
-
->>>>>>> 35cd336148973ce61e9d7b1bb5a2b4dd9e0d4f15
         # POS Ordered Count
         pos_total_ordered_final_amount = pos_orders.aggregate(Sum('order_amount')).get('order_amount__sum')
         pos_total_refund_amount = pos_returns.aggregate(Sum('refund_amount')).get('refund_amount__sum')
         if pos_total_refund_amount:
             pos_total_ordered_final_amount -= float(pos_total_refund_amount)
-<<<<<<< HEAD
-        # ECOM Ordered Count
-        ecom_total_ordered_final_amount = ecom_orders.aggregate(Sum('order_amount')).get('order_amount__sum')
-=======
 
         # ECOM Ordered Count
         ecom_total_ordered_final_amount = ecom_orders.aggregate(Sum('order_amount')).get('order_amount__sum')
         if not ecom_total_ordered_final_amount:
            ecom_total_ordered_final_amount = 0 
->>>>>>> 35cd336148973ce61e9d7b1bb5a2b4dd9e0d4f15
         ecom_total_refund_amount = ecom_returns.aggregate(Sum('refund_amount')).get('refund_amount__sum')
         if ecom_total_refund_amount:
             ecom_total_ordered_final_amount -= float(ecom_total_refund_amount)
 
-<<<<<<< HEAD
-        # Invoice Count
-        total_invoices_final_amount = invoices.annotate(inv_amt=RoundAmount(Sum(F('effective_price') * F('shipped_qty')))).\
-            aggregate(amt=Sum('inv_amt')).get('amt')
-        total_invoice_refund_amount = invoice_returns.aggregate(Sum('order_return__refund_amount')).\
-            get('order_return__refund_amount__sum')
-        if total_invoice_refund_amount:
-            total_invoices_final_amount -= Decimal(total_invoice_refund_amount)
-        # POS Invoice Count
-        pos_total_invoices_final_amount = pos_invoices.annotate(
-            inv_amt=RoundAmount(Sum(F('effective_price') * F('shipped_qty')))).\
-            aggregate(amt=Sum('inv_amt')).get('amt')
-        pos_total_invoice_refund_amount = pos_invoice_returns.aggregate(Sum('order_return__refund_amount')).\
-            get('order_return__refund_amount__sum')
-        if pos_total_invoice_refund_amount:
-            pos_total_invoices_final_amount -= Decimal(pos_total_invoice_refund_amount)
-        # ECOM Invoice Count
-        ecom_total_invoices_final_amount = ecom_invoices.annotate(
-            inv_amt=RoundAmount(Sum(F('effective_price') * F('shipped_qty')))).\
-            aggregate(amt=Sum('inv_amt')).get('amt')
-        ecom_total_invoice_refund_amount = ecom_invoice_returns.aggregate(Sum('order_return__refund_amount')). \
-            get('order_return__refund_amount__sum')
-        if ecom_total_invoice_refund_amount:
-            ecom_total_invoices_final_amount -= Decimal(ecom_total_invoice_refund_amount)
-
-=======
         # POS Invoice Count
         pos_total_invoices_final_amount = 0
         for invoice in pos_invoices:
@@ -4852,20 +4629,10 @@ class OrderedItemCentralDashBoard(APIView):
 
         # Invoice Count
         total_invoices_final_amount = pos_total_invoices_final_amount + ecom_total_invoices_final_amount
->>>>>>> 35cd336148973ce61e9d7b1bb5a2b4dd9e0d4f15
         # counts of order for shop_id with total_ordered_final_amount, total_invoices_final_amount  & products
         products_count = products.count()
 
         order_count = orders.count()
-<<<<<<< HEAD
-        invoice_count = invoices.values('ordered_product_id').distinct('ordered_product_id').count()
-
-        ecom_order_count = ecom_orders.count()
-        ecom_invoice_count = ecom_invoices.values('ordered_product_id').distinct('ordered_product_id').count()
-
-        pos_order_count = pos_orders.count()
-        pos_invoice_count = pos_invoices.values('ordered_product_id').distinct('ordered_product_id').count()
-=======
         invoice_count = invoices.count()
 
         ecom_order_count = ecom_orders.count()
@@ -4873,7 +4640,6 @@ class OrderedItemCentralDashBoard(APIView):
 
         pos_order_count = pos_orders.count()
         pos_invoice_count = pos_invoices.count()
->>>>>>> 35cd336148973ce61e9d7b1bb5a2b4dd9e0d4f15
 
         overview = [{"shop_name": shop.shop_name, "orders": order_count, "products": products_count,
                      "revenue": total_ordered_final_amount, "ecom_order_count": ecom_order_count,
@@ -5580,22 +5346,15 @@ class CartStockCheckView(APIView):
         cart_products = PosCartCls.refresh_prices(cart_products)
         # Minimum Order Value
         # order_config = GlobalConfig.objects.filter(key='ecom_minimum_order_amount').last()
-<<<<<<< HEAD
-        order_config = get_config_fofo_shop('Minimum order value', shop.id)
-=======
         order_config = fofo_config.get('min_order_value',None)#get_config_fofo_shop('Minimum order value', shop.id)
         order_config = order_config if order_config else GlobalConfig.objects.filter(key='ecom_minimum_order_amount').last().value
->>>>>>> 35cd336148973ce61e9d7b1bb5a2b4dd9e0d4f15
         if order_config is not None:
             order_amount = cart.order_amount_after_discount
             if order_amount < order_config:
                 return api_response(
                     "A minimum total purchase amount of {} is required to checkout.".format(order_config),
                     None, status.HTTP_200_OK, False)
-<<<<<<< HEAD
-=======
         """"-----------------------------------------------------------------------------------------------------------------------"""
->>>>>>> 35cd336148973ce61e9d7b1bb5a2b4dd9e0d4f15
 
         if shop.online_inventory_enabled:
             out_of_stock_items = PosCartCls.out_of_stock_items(cart_products)
@@ -6467,14 +6226,9 @@ def pdf_generation_return_retailer(request, order, ordered_product, order_return
             manager = order.ordered_cart.seller_shop.pos_shop.filter(user_type='manager').last()
             shop_name = order.ordered_cart.seller_shop.shop_name
             if delay:
-<<<<<<< HEAD
-                whatsapp_order_refund.delay(order_number, order_status, phone_number, refund_amount, media_url,
-                                            file_name)
-=======
                 if request.data.get("is_whatsapp", True):
                     whatsapp_order_refund.delay(order_number, order_status, phone_number, refund_amount, media_url,
                                                 file_name)
->>>>>>> 35cd336148973ce61e9d7b1bb5a2b4dd9e0d4f15
                 if manager and manager.user.email:
                     send_invoice_pdf_email.delay(manager.user.email, shop_name, order_number, media_url, file_name,
                                                  'return')
@@ -6487,12 +6241,8 @@ def pdf_generation_return_retailer(request, order, ordered_product, order_return
                 else:
                     logger.exception("Email not present for Manager {}".format(str(manager)))
                 # send mail to manager
-<<<<<<< HEAD
-                return whatsapp_order_refund(order_number, order_status, phone_number, refund_amount, media_url,
-=======
                 if request.data.get("is_whatsapp", False):
                     return whatsapp_order_refund(order_number, order_status, phone_number, refund_amount, media_url,
->>>>>>> 35cd336148973ce61e9d7b1bb5a2b4dd9e0d4f15
                                              file_name)
         except Exception as e:
             logger.exception("Retailer Credit note save and send error order {} return {}".format(order.order_no,

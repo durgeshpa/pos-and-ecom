@@ -990,16 +990,9 @@ class Order(models.Model):
     POS_WALKIN = 'pos_walkin'
     POS_ECOMM = 'pos_ecomm'
 
-<<<<<<< HEAD
-    ORDER_APP_TYPE = (
-        (POS_WALKIN, 'Pos Walkin'),  # 1
-        (POS_ECOMM, 'Pos Ecomm'),  # 2
-    )
-=======
     DELIVERY_CHOICE = ( ('1', 'Self Pick'),
                         ('2', 'Home Delivery')
                        )
->>>>>>> 35cd336148973ce61e9d7b1bb5a2b4dd9e0d4f15
 
     POS_WALKIN = 'pos_walkin'
     POS_ECOMM = 'pos_ecomm'

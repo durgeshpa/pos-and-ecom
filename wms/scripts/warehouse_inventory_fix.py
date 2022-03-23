@@ -6,10 +6,7 @@ from global_config.views import get_config
 from retailer_to_sp.models import Order
 from wms.models import InventoryState, InventoryType, Pickup, WarehouseInventory, BinInventory
 
-<<<<<<< HEAD:wms/scripts/warehouse_inventory_fix.py
-=======
 cron_logger = logging.getLogger('cron_log')
->>>>>>> 35cd336148973ce61e9d7b1bb5a2b4dd9e0d4f15:wms/scripts/warehouse-inventory-fix.py
 warehouse_list = get_config('active_wh_list', [600, 50484])
 
 type_normal = InventoryType.objects.only('id').get(inventory_type='normal').id

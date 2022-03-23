@@ -1209,33 +1209,12 @@ def cancel_order_with_pick(instance):
             shipment = instance.rt_order_order_product.last()
             if shipment and shipment.shipment_status == 'QC_REJECTED':
                 return
-<<<<<<< HEAD
-            pickup_id = pickup_qs.last().id
-            warehouse = pickup_qs.last().warehouse
-            sku = pickup_qs.last().sku
-
-            # get the queryset object from Pickup Bin Inventory Model
-            pickup_bin_object = PickupBinInventory.objects.filter(pickup__pickup_type_id=instance.order_no)\
-                                                          .exclude(pickup__status='picking_cancelled')
-            # iterate over the PickupBin Inventory object
-            for pickup_bin in pickup_bin_object:
-                quantity = 0
-                pick_up_bin_quantity = 0
-                if instance.rt_order_order_product.all():
-                    if (instance.rt_order_order_product.all()[0].shipment_status in ['QC_STARTED',
-                                                                                     'READY_TO_SHIP',
-                                                                                     'MOVED_TO_DISPATCH',
-                                                                                     'READY_TO_DISPATCH']):
-                        pickup_order = pickup_bin.shipment_batch
-                        put_away_object = Putaway.objects.filter(warehouse=pickup_bin.warehouse,
-=======
             for pickup in pickup_qs:
                 if shipment and shipment.shipment_status in ['QC_STARTED','READY_TO_SHIP','MOVED_TO_DISPATCH',
                                                              'READY_TO_DISPATCH']:
                     for batch_instance in shipment.rt_order_product_order_product_mapping.filter(product=pickup.sku)\
                                                                             .last().rt_ordered_product_mapping.all():
                         put_away_object = Putaway.objects.filter(warehouse=pickup.warehouse,
->>>>>>> 35cd336148973ce61e9d7b1bb5a2b4dd9e0d4f15
                                                                  putaway_type='CANCELLED',
                                                                  putaway_type_id=instance.order_no,
                                                                  sku=pickup.sku,

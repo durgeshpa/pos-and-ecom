@@ -1,8 +1,5 @@
 import datetime
-<<<<<<< HEAD
-=======
 import logging
->>>>>>> 35cd336148973ce61e9d7b1bb5a2b4dd9e0d4f15
 
 from django.db.models import Q, Sum, F
 
@@ -10,10 +7,7 @@ from global_config.views import get_config
 from wms.models import PickupBinInventory, BinInventory
 from ..scripts.warehouse_inventory_fix import warehouse_inventory_fix_by_cron
 
-<<<<<<< HEAD
-=======
 cron_logger = logging.getLogger('cron_log')
->>>>>>> 35cd336148973ce61e9d7b1bb5a2b4dd9e0d4f15
 warehouse_list = get_config('active_wh_list', [600, 50484])
 
 def run():
@@ -63,10 +57,7 @@ def populate_to_be_picked_quantity(warehouse):
             bin_inv_obj.save()
             print('Bin-{}, Batch-{}, Type-{}, old to be picked quantity-{}, UPDATED old to be picked quantity-{}'
                   .format(bin_inv_obj.bin, bin_inv_obj.batch_id, bin_inv_obj.inventory_type, old_qty, bin_inv_obj.to_be_picked_qty))
-<<<<<<< HEAD
-=======
             cron_logger.info('Bin-{}, Batch-{}, Type-{}, old to be picked quantity-{}, UPDATED old to be picked quantity-{}'
                   .format(bin_inv_obj.bin, bin_inv_obj.batch_id, bin_inv_obj.inventory_type, old_qty, bin_inv_obj.to_be_picked_qty))
->>>>>>> 35cd336148973ce61e9d7b1bb5a2b4dd9e0d4f15
 
     print('Warehouse-{}|populate_to_be_picked_quantity|ENDED'.format(warehouse))
