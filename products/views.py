@@ -948,12 +948,13 @@ def ParentProductsDownloadSampleCSV(request):
     response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
     writer = csv.writer(response)
     writer.writerow(
-        ["Name", "Brand", "B2b Category", "B2c Category", "HSN", "GST", "CESS", "Surcharge", "Brand Case Size", "Inner Case Size",
-         "Product Type","parent_product_discription"])
+        ["Name", "Brand", "B2b Category", "B2c Category", "HSN", "GST", "CESS", "Surcharge", "Brand Case Size",
+         "Inner Case Size", "Product Type", "parent_product_discription"])
     writer.writerow(
-        ["testparent2", "Nestle", "" ,"Health Care, Beverages, Grocery & Staples", "123456", "18", "12", "100", "10", "10",
-         "b2c",'product discription'])
+        ["test parent product", "Nestle", "", "Health Care, Beverages, Grocery & Staples", "123456", "18", "12", "100", "10", "10",
+         "both b2b and b2c", 'product discription'])
     return response
+
 
 def parent_product_upload(request):
     if request.method == 'POST':
@@ -1000,7 +1001,7 @@ def parent_product_upload(request):
                             product_hsn=ProductHSN.objects.filter(product_hsn_code=row[4].replace("'", '')).last(),
                             brand_case_size=int(row[8]),
                             inner_case_size=int(row[9]),
-                            product_type=row[10],
+                            product_type='both',
                             product_discription=row[11]
                         )
                         parent_product.save()
@@ -1035,38 +1036,38 @@ def parent_product_upload(request):
                                 parent_product=parent_product,
                                 tax=new_surcharge_tax
                             ).save()
-                        if parent_product.product_type == 'b2b' or parent_product.product_type == 'both':
-                            if Category.objects.filter(category_name=row[2].strip()).exists():
+
+                        if Category.objects.filter(category_name=row[2].strip()).exists():
+                            parent_product_category = ParentProductCategory.objects.create(
+                                parent_product=parent_product,
+                                category=Category.objects.filter(category_name=row[2].strip()).last()
+                            )
+                            parent_product_category.save()
+                        else:
+                            categories = row[2].split(',')
+                            for cat in categories:
+                                cat = cat.strip().replace("'", '')
                                 parent_product_category = ParentProductCategory.objects.create(
                                     parent_product=parent_product,
-                                    category=Category.objects.filter(category_name=row[2].strip()).last()
+                                    category=Category.objects.filter(category_name=cat).last()
                                 )
                                 parent_product_category.save()
-                            else:
-                                categories = row[2].split(',')
-                                for cat in categories:
-                                    cat = cat.strip().replace("'", '')
-                                    parent_product_category = ParentProductCategory.objects.create(
-                                        parent_product=parent_product,
-                                        category=Category.objects.filter(category_name=cat).last()
-                                    )
-                                    parent_product_category.save()
-                        if parent_product.product_type == 'b2c' or parent_product.product_type == 'both':
-                            if B2cCategory.objects.filter(category_name=row[3].strip()).exists():
+
+                        if B2cCategory.objects.filter(category_name=row[3].strip()).exists():
+                            parent_product_category = ParentProductB2cCategory.objects.create(
+                                parent_product=parent_product,
+                                category=B2cCategory.objects.filter(category_name=row[3].strip()).last()
+                            )
+                            parent_product_category.save()
+                        else:
+                            categories = row[3].split(',')
+                            for cat in categories:
+                                cat = cat.strip().replace("'", '')
                                 parent_product_category = ParentProductB2cCategory.objects.create(
                                     parent_product=parent_product,
-                                    category=B2cCategory.objects.filter(category_name=row[3].strip()).last()
+                                    category=B2cCategory.objects.filter(category_name=cat).last()
                                 )
                                 parent_product_category.save()
-                            else:
-                                categories = row[3].split(',')
-                                for cat in categories:
-                                    cat = cat.strip().replace("'", '')
-                                    parent_product_category = ParentProductB2cCategory.objects.create(
-                                        parent_product=parent_product,
-                                        category=B2cCategory.objects.filter(category_name=cat).last()
-                                    )
-                                    parent_product_category.save()
                         
             except Exception as e:
                 return render(request, 'admin/products/parent-product-upload.html', {
