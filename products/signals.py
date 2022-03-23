@@ -552,7 +552,6 @@ def update_product_on_brand_update(instance, shops):
 
 @receiver(pre_save, sender=ParentProductCategory)
 def create_parent_product_id(sender, instance=None, created=False, **kwargs):
-    print('parent id generation started')
     parent_product = ParentProduct.objects.get(pk=instance.parent_product.id)
     if parent_product.parent_id:
         return
@@ -567,7 +566,6 @@ def create_parent_product_id(sender, instance=None, created=False, **kwargs):
                                              last_auto_increment=last_sku_increment)
     parent_product.parent_id = "P%s%s%s" % (cat_sku_code, brand_sku_code, last_sku_increment)
     parent_product.save()
-    print(parent_product.parent_id)
 
 @receiver(pre_save, sender=ParentProductB2cCategory)
 def create_parent_product_id_b2c(sender, instance=None, created=False, **kwargs):
