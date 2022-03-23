@@ -446,7 +446,7 @@ DEBUG_TOOLBAR_CONFIG = {
 DEBUG_TOOLBAR_PATCH_SETTINGS = False
 
 # Initiate Sentry SDK
-if ENVIRONMENT.lower() in ["production", "stage", "qa", "qa1", "qa3", "qa4"]:
+if ENVIRONMENT.lower() in ["production",]:
     from sentry_sdk.integrations.celery import CeleryIntegration
     sentry_sdk.init(
         dsn="https://2f8d192414f94cd6a0ba5b26d6461684@sentry.io/1407300",
