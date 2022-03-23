@@ -245,7 +245,7 @@ def pending_for_approval_products_csv_report():
             writer = csv.writer(f)
 
             headings = ["Product Id", "HSN code", "Name", "Category", "Brand", "Entered Product GST rate",
-                        "HSN code Gst rate", "Entered Product Ces rate", "HSN code Cess rate", "Status", "Reason",
+                        "HSN code Gst rate", "Entered Product Cess rate", "HSN code Cess rate", "Status", "Reason",
                         "Created by", "Created at"]
 
             writer.writerow(headings)
@@ -262,7 +262,7 @@ def pending_for_approval_products_csv_report():
 
                 writer.writerow([product.parent_id, product.product_hsn.product_hsn_code, product.name,
                                  product_category, product.parent_brand.brand_name, entered_gst, hsn_gst, entered_cess,
-                                 hsn_cess, product.tax_status, product.tax_remark,
+                                 hsn_cess, product.get_tax_status_display(), product.tax_remark,
                                  product.created_by, product.created_at])
 
             curr_date = datetime.datetime.now()
