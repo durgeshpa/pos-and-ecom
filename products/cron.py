@@ -271,9 +271,9 @@ def pending_for_approval_products_csv_report():
             email = EmailMessage()
             email.subject = 'Pending For Approval products'
             email.body = 'PFA the list of products which are pending for approval. '
-            sender = GlobalConfig.objects.get(key='PENDING_FOR_APPROVAL_SENDER')
+            sender = GlobalConfig.objects.get(key='sender')
             email.from_email = sender.value
-            receiver = GlobalConfig.objects.get(key='PENDING_FOR_APPROVAL_RECIPIENT')
+            receiver = GlobalConfig.objects.get(key='PRODUCTS_PENDING_FOR_APPROVAL')
             email.to = receiver.value
             email.attach('pending_for_approval_products_{}'.format(curr_date) + '.csv', f.getvalue(), 'text/csv')
             email.send()
