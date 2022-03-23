@@ -551,6 +551,8 @@ class PageFunctionSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("'type' | This is required")
         elif 'url'not in self.initial_data or isBlank(self.initial_data.get('url')):
             raise serializers.ValidationError("'url' | This is required")
+        elif self.initial_data.get('required_params') and not isinstance(self.initial_data['required_params'], list):
+            raise serializers.ValidationError("'required_params' | Only list type is supported")
         elif Functions.objects.filter(type=self.initial_data['type'], name=self.initial_data['name'].strip()).exists():
             raise serializers.ValidationError(f"Function already exists")
         data['name'] = self.initial_data['name'].strip()

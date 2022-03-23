@@ -1,4 +1,4 @@
-from django.contrib.postgres.fields import JSONField
+from django.contrib.postgres.fields import JSONField, ArrayField
 from django.db import models
 from django.contrib.auth import get_user_model
 
@@ -44,7 +44,7 @@ class Functions(BaseTimestampUserModel):
     name = models.CharField(max_length=20)
     type = models.PositiveIntegerField(choices=FUNTION_TYPE_CHOICE)
     url = models.CharField(max_length=200)
-    required_params = models.CharField(max_length=200, null=True)
+    required_params = ArrayField(models.CharField(max_length=200), null=True, blank=True)
 
 
 class Card(BaseTimestampUserModel):
