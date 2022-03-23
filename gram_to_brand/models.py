@@ -423,7 +423,9 @@ class GRNOrderProductMapping(models.Model):
     @property
     def po_product_quantity(self):
         return self.grn_order.order.ordered_cart.cart_list.filter(
-            cart_product=self.product).last().qty if self.product else ''
+            cart_product=self.product).last().qty if self.product \
+                and self.grn_order.order.ordered_cart.cart_list.filter(
+            cart_product=self.product).last() else ''
 
     @property
     def po_product_price(self):
