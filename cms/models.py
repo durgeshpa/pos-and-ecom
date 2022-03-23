@@ -2,6 +2,8 @@ from django.contrib.postgres.fields import JSONField, ArrayField
 from django.db import models
 from django.contrib.auth import get_user_model
 
+from brand.models import Brand
+from categories.models import Category
 from cms.choices import CARD_TYPE_CHOICES, SCROLL_CHOICES, STATUS_CHOICES, PAGE_STATE_CHOICES, LANDING_PAGE_TYPE_CHOICE, \
     LISTING_SUBTYPE_CHOICE, FUNTION_TYPE_CHOICE
 from products.models import Product
@@ -53,6 +55,9 @@ class Card(BaseTimestampUserModel):
     type = models.CharField(max_length=10, choices=CARD_TYPE_CHOICES)
     sub_type = models.PositiveSmallIntegerField(choices=LISTING_SUBTYPE_CHOICE, default=LISTING_SUBTYPE_CHOICE.LIST)
     app = models.ForeignKey(Application, on_delete=models.CASCADE, related_name="cards")
+    category_subtype = models.ForeignKey(Category, on_delete=models.CASCADE, related_name='cms_cartegory_subtype', null=True, blank=True)
+    brand_subtype = models.ForeignKey(Brand, on_delete=models.CASCADE, related_name='cms_brand_subtype', null=True, blank=True)
+
 
     def __str__(self):
         return f"{self.name} - {self.type}"
@@ -84,8 +89,8 @@ class CardItem(BaseTimestampUserModel):
     action = models.URLField(blank=True, null=True)
     priority = models.IntegerField(default=1)
     row = models.IntegerField(default=1)
-    # subcategory = models.ForeignKey(Category, on_delete=models.CASCADE, blank=True, null=True)
-    # subbrand = models.ForeignKey(Brand, on_delete=models.CASCADE, blank=True, null=True)
+    subcategory = models.ForeignKey(Category, on_delete=models.CASCADE, blank=True, null=True)
+    subbrand = models.ForeignKey(Brand, on_delete=models.CASCADE, blank=True, null=True)
 
     def __str__(self):
         return f"{self.card_data.header[0:16]}..."

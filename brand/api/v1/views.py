@@ -10,7 +10,7 @@ from rest_framework.generics import GenericAPIView, CreateAPIView
 
 from wms.common_functions import get_stock_available_brand_list
 from .serializers import BrandDataSerializer, SubBrandSerializer, BrandCrudSerializers, ProductVendorMapSerializers, \
-    BrandExportAsCSVSerializers, BrandListSerializers
+    BrandExportAsCSVSerializers, BrandListSerializers, BannerImageSerializer
 
 from brand.models import Brand, BrandData
 from rest_framework.permissions import AllowAny
@@ -82,11 +82,11 @@ class GetSubBrandsListView(APIView):
         shop_id = self.request.GET.get('shop_id')
         brand = Brand.objects.get(pk=brand_id)
         banner_image = []
-        # card = Card.objects.filter(type='brand',brand_subtype = brand).last()
-        # if card:
-        #     latest_card_version = CardVersion.objects.filter(card = card).last()
-        #     card_items = latest_card_version.card_data.items.all()
-        #     banner_image = BannerImageSerializer(card_items, many=True).data
+        card = Card.objects.filter(type='brand',brand_subtype = brand).last()
+        if card:
+            latest_card_version = CardVersion.objects.filter(card = card).last()
+            card_items = latest_card_version.card_data.items.all()
+            banner_image = BannerImageSerializer(card_items, many=True).data
         if shop_id and shop_id != '-1' and Shop.objects.get(id=shop_id).retiler_mapping.exists():
             parent = ParentRetailerMapping.objects.get(retailer=shop_id, status=True).parent
             product_subbrands = brand.brand_child.filter(status=True)
