@@ -1452,7 +1452,7 @@ class FOFOConfigurationsView(generics.GenericAPIView):
 class SellerShopFilterView(generics.GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
-    queryset = Shop.objects.filter(id__in=[600, 1393]).order_by('-id')
+    queryset = Shop.objects.all()
     serializer_class = ShopBasicSerializer
 
     def get(self, request):
