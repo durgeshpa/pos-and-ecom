@@ -146,5 +146,5 @@ def create_crate_barcode(sender, instance=None, created=False, update_fields=Non
         info_logger.info(f"create_crate_barcode|Barcode created|Crate {instance}")
         shop_crate_instance, _ = ShopCrate.objects.update_or_create(shop=instance.warehouse, crate=instance,
                                                                     defaults={'is_available': True})
-        info_logger.info(f"create_crate_barcode|ShopCrate|shop_id {instance.warehouse.id} | crate_id {instance.id} "
-                         f"| is_available True | {shop_crate_instance}")
+        info_logger.info(f"create_crate_barcode|ShopCrate|shop_id {instance.warehouse.id} | crate_db_id {instance.id} "
+                         f"Crate Id {shop_crate_instance.crate.crate_id}| is_available True")

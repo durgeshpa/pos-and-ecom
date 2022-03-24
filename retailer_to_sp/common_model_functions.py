@@ -21,7 +21,8 @@ class ShopCrateCommonFunctions(object):
             shop_id=shop_id, crate_id=crate_id,
             defaults={'is_available': is_available})
         info_logger.info(f"create_update_shop_crate|ShopCrateCommonFunctions|Ended|shop_id {shop_id} | "
-                         f"crate_id {crate_id} | is_available {is_available} | {shop_crate_instance}")
+                         f"crate_db_id {crate_id} | Crate Id {shop_crate_instance.crate.crate_id} | "
+                         f"is_available {is_available}")
         return shop_crate_instance
 
     @classmethod

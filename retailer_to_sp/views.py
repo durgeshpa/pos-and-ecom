@@ -1302,7 +1302,7 @@ def update_delivered_qty(instance, inline_form):
 
 def release_dispatch_crates_used_in_shipment(shipment_instance):
     info_logger.info(f"release_dispatch_crates|Start|Order No {shipment_instance.order.order_no} "
-                     f"|Shipment {shipment_instance}")
+                     f"|Shipment Id {shipment_instance.id}")
     crates_used = shipment_instance.shipment_packaging.filter(
         packaging_type=ShipmentPackaging.PACKAGING_TYPE_CHOICES.CRATE,
         movement_type=ShipmentPackaging.DISPATCH).values_list('crate_id', flat=True)
@@ -1310,12 +1310,13 @@ def release_dispatch_crates_used_in_shipment(shipment_instance):
                      f"Order No {shipment_instance.order.order_no}")
     for crate_id in crates_used:
         ShopCrateCommonFunctions.mark_crate_available(shipment_instance.current_shop.id, crate_id)
-        info_logger.info(f"release_dispatch_crates| Crate{crate_id} | Released at {shipment_instance.current_shop}")
+        info_logger.info(f"release_dispatch_crates| Crate {crate_id} | Released at {shipment_instance.current_shop}")
     info_logger.info(f"release_dispatch_crates|Done|Order No {shipment_instance.order.order_no}")
 
 
 def update_shipment_status_verified(form_instance, formset):
-    info_logger.info(f"update_shipment_status_verified|Shipment{form_instance}|status {form_instance.shipment_status}")
+    info_logger.info(f"update_shipment_status_verified|Shipment Id {form_instance.id}|"
+                     f"status {form_instance.shipment_status}")
     shipped_qty_list = []
     returned_qty_list = []
     damaged_qty_list = []
@@ -1341,7 +1342,7 @@ def update_shipment_status_verified(form_instance, formset):
             form_instance.shipment_status = 'PARTIALLY_DELIVERED_AND_VERIFIED'
         release_dispatch_crates_used_in_shipment(form_instance)
         form_instance.save()
-    info_logger.info(f"update_shipment_status_verified|Completed|Shipment{form_instance}")
+    info_logger.info(f"update_shipment_status_verified|Completed|Shipment Id {form_instance.id}")
 
 # def update_order_status(close_order_checked, shipment_id):
 #     shipment = OrderedProduct.objects.get(pk=shipment_id)
