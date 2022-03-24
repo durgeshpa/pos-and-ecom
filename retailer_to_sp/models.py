@@ -1585,6 +1585,10 @@ class OrderedProduct(models.Model):  # Shipment
     PARTIALLY_DELIVERED_AND_VERIFIED = 'PARTIALLY_DELIVERED_AND_VERIFIED'
     FULLY_RETURNED_AND_COMPLETED = 'FULLY_RETURNED_AND_COMPLETED'
     FULLY_RETURNED_AND_VERIFIED = 'FULLY_RETURNED_AND_VERIFIED'
+
+    FULLY_RETURNED_AND_CLOSED = 'FULLY_RETURNED_AND_CLOSED'
+    PARTIALLY_DELIVERED_AND_CLOSED = 'PARTIALLY_DELIVERED_AND_CLOSED'
+    FULLY_DELIVERED_AND_CLOSED = 'FULLY_DELIVERED_AND_CLOSED'
     CANCELLED = 'CANCELLED'
     SHIPMENT_STATUS = (
         (SHIPMENT_CREATED, 'QC Pending'),
@@ -1601,9 +1605,9 @@ class OrderedProduct(models.Model):  # Shipment
         (FULLY_RETURNED_AND_VERIFIED, 'Fully Returned and Verified'),
         (PARTIALLY_DELIVERED_AND_VERIFIED, 'Partially Delivered and Verified'),
         (FULLY_DELIVERED_AND_VERIFIED, 'Fully Delivered and Verified'),
-        ('FULLY_RETURNED_AND_CLOSED', 'Fully Returned and Closed'),
-        ('PARTIALLY_DELIVERED_AND_CLOSED', 'Partially Delivered and Closed'),
-        ('FULLY_DELIVERED_AND_CLOSED', 'Fully Delivered and Closed'),
+        (FULLY_RETURNED_AND_CLOSED, 'Fully Returned and Closed'),
+        (PARTIALLY_DELIVERED_AND_CLOSED, 'Partially Delivered and Closed'),
+        (FULLY_DELIVERED_AND_CLOSED, 'Fully Delivered and Closed'),
         (CANCELLED, 'Cancelled'),
         (CLOSED, 'Closed'),
         (RESCHEDULED, 'Rescheduled'),
