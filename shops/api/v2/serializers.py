@@ -403,6 +403,8 @@ class AddressDataSerializers(serializers.ModelSerializer):
 
 
 class ShopStatusLogModelSerializer(serializers.ModelSerializer):
+    user = UserSerializers(read_only=True)
+
     class Meta:
         model = ShopStatusLog
         fields = '__all__'
