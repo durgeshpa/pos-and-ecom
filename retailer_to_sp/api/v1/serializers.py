@@ -3397,6 +3397,10 @@ class LoadVerifyPackageSerializer(serializers.ModelSerializer):
             if not package:
                 raise serializers.ValidationError("Invalid package for the trip")
 
+            if not package.shipment.order.dispatch_delivery or package.shipment.order.dispatch_center is None or \
+                    package.shipment.order.dispatch_center != trip.destination_shop:
+                raise serializers.ValidationError(f"Order does not belong to dispatch center {trip.destination_shop}")
+
             # Check for shipment status
             if package.shipment.shipment_status != OrderedProduct.MOVED_TO_DISPATCH:
                 raise serializers.ValidationError(f"The invoice is in {package.shipment.shipment_status} state, "
@@ -3446,10 +3450,9 @@ class LoadVerifyPackageSerializer(serializers.ModelSerializer):
 
         trip_shipment = None
         if DispatchTripShipmentMapping.objects.filter(
-                trip=trip, shipment=package.shipment,
-                shipment_status=DispatchTripShipmentMapping.LOADING_FOR_DC).exists():
+                trip=trip, shipment_status=DispatchTripShipmentMapping.LOADING_FOR_DC).exists():
             trip_shipment = DispatchTripShipmentMapping.objects.filter(
-                trip=trip, shipment=package.shipment, shipment_status=DispatchTripShipmentMapping.LOADING_FOR_DC).last()
+                trip=trip, shipment_status=DispatchTripShipmentMapping.LOADING_FOR_DC).last()
             current_invoice_being_loaded = trip_shipment.shipment
             if current_invoice_being_loaded != package.shipment:
                 raise serializers.ValidationError(f"Please scan the remaining box in invoice no."
