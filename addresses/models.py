@@ -1,9 +1,33 @@
+from django.contrib.auth import get_user_model
 from django.db import models
 from retailer_backend.validators import (NameValidator, AddressNameValidator,
         MobileNumberValidator, PinCodeValidator)
 from shops.models import Shop
 from django.utils.translation import ugettext_lazy as _
 from django.core.exceptions import ValidationError
+
+
+class BaseTimestampUserModel(models.Model):
+    """
+        Abstract Model to have helper fields of created_at, created_by, updated_at and updated_by
+    """
+    created_at = models.DateTimeField(verbose_name="Created at", auto_now_add=True)
+    updated_at = models.DateTimeField(verbose_name="Updated at", auto_now=True)
+    created_by = models.ForeignKey(
+        get_user_model(), null=True,
+        verbose_name="Created by",
+        related_name="%(app_label)s_%(class)s_created_by",
+        on_delete=models.DO_NOTHING
+    )
+    updated_by = models.ForeignKey(
+        get_user_model(), null=True,
+        verbose_name="Updated by",
+        related_name="%(app_label)s_%(class)s_updated_by",
+        on_delete=models.DO_NOTHING
+    )
+
+    class Meta:
+        abstract = True
 
 
 address_type_choices = (
@@ -178,3 +202,31 @@ class DispatchCenterPincodeMapping(models.Model):
     class Meta:
         verbose_name = _("Dispatch Center Pincode Mapping")
         verbose_name_plural = _("Dispatch Center Pincode Mappings")
+
+
+class Route(BaseTimestampUserModel):
+    """
+        Model to maintain routes under city
+    """
+    city = models.ForeignKey(City, related_name='city_routes', on_delete=models.DO_NOTHING)
+    name = models.CharField(max_length=30, null=True, blank=True)
+
+    class Meta:
+        unique_together = ("city", "name", )
+
+    def __str__(self):
+        return f"{self.city} -> {self.name}"
+
+
+class ShopRoute(BaseTimestampUserModel):
+    """
+        Mapping model of Shop and Route where we maintain the mapping
+    """
+    shop = models.ForeignKey(Shop, related_name='shop_routes', on_delete=models.CASCADE)
+    route = models.ForeignKey(Route, related_name='route_shops', on_delete=models.DO_NOTHING)
+
+    class Meta:
+        unique_together = ("shop", "route", )
+
+    def __str__(self):
+        return f"{self.route} - {self.shop.id}"

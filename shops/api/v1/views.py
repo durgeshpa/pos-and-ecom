@@ -42,9 +42,8 @@ from .serializers import (RetailerTypeSerializer, ShopTypeSerializer, ShopSerial
                           FOFOConfigurationsCrudSerializer, FOFOCategoryConfigurationsCrudSerializer,
                           FOFOSubCategoryConfigurationsCrudSerializer, FOFOConfigurationsGetSerializer,
                           FOFOListSerializer)
-from ...common_validators import validate_fofo_sub_category
 from ...common_validators import validate_id, get_logged_user_wise_query_set_to_filter_warehouse, \
-    get_logged_user_wise_query_set_for_seller_shop
+    get_logged_user_wise_query_set_for_seller_shop, validate_fofo_sub_category
 
 User = get_user_model()
 

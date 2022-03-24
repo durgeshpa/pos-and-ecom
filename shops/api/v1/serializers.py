@@ -931,6 +931,8 @@ class FOFOCategoryConfigurationsGetSerializer(serializers.ModelSerializer):
         return FOFOSubCategoryConfigurationsGetSerializer(FOFOConfigSubCategory.objects.filter(
             fofo_category__shop=self.context.get('shop'), category=obj), many=True,
             context={'shop': self.context.get('shop')}).data
+
+
 class FofoConfigSerilizer(serializers.ModelSerializer):
     shop_is_open_today = serializers.SerializerMethodField()
 

@@ -1,4 +1,3 @@
-
 import logging
 import math
 import re
@@ -10,21 +9,16 @@ from datetime import datetime, timedelta
 from decimal import Decimal
 from hashlib import sha512
 from operator import itemgetter
-
-import requests
-from decouple import config
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
 from django.core import validators
 from django.core.exceptions import ObjectDoesNotExist
-from django.db.models import F, Sum, Q, Case, When, Value
 from django.core.files.base import ContentFile
 from django.db import transaction, models
 from django.db.models import F, Sum, Q, Count, Value, Case, When
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from django.shortcuts import render
-from elasticsearch import Elasticsearch
 from num2words import num2words
 from rest_framework import status, generics, permissions, authentication
 from rest_framework.generics import GenericAPIView
@@ -51,6 +45,7 @@ from ecom.api.v1.serializers import EcomOrderListSerializer, EcomShipmentSeriali
 from ecom.models import Address as EcomAddress, EcomOrderAddress
 from ecom.utils import check_ecom_user_shop, check_ecom_user
 from global_config.models import GlobalConfig
+from global_config.views import get_config_fofo_shop
 from gram_to_brand.models import (GRNOrderProductMapping, OrderedProductReserved as GramOrderedProductReserved,
                                   PickList)
 from marketing.models import ReferralCode
@@ -102,11 +97,6 @@ from wms.common_validators import validate_id, validate_data_format, validate_da
 from retailer_backend.settings import AWS_MEDIA_URL
 from wms.models import OrderReserveRelease, InventoryType, PosInventoryState, PosInventoryChange, Crate
 
-from ...common_validators import validate_shipment_dispatch_item, validate_trip_user, \
-    get_shipment_by_crate_id, get_shipment_by_shipment_label, validate_shipment_id, validate_trip_shipment, \
-    validate_trip, validate_shipment_label, validate_trip_shipment_package, check_user_can_plan_trip, \
-    validate_last_mile_trip_user
-
 from wms.views import shipment_not_attempt_inventory_change, shipment_reschedule_inventory_change
 from .serializers import (ProductsSearchSerializer, CartSerializer, OrderSerializer,
                           CustomerCareSerializer, OrderNumberSerializer, GramPaymentCodSerializer,
@@ -135,10 +125,16 @@ from .serializers import (ProductsSearchSerializer, CartSerializer, OrderSeriali
                           LastMileLoadVerifyPackageSerializer, RemoveLastMileInvoiceFromTripSerializer,
                           VerifyNotAttemptShipmentPackageSerializer, VerifyShipmentPackageSerializer,
                           DetailedShipmentPackageInfoSerializer, DetailedShipmentPackagingMappingInfoSerializer,
-                          VerifyBackwardTripItemsSerializer, BackwardTripQCSerializer
+                          VerifyBackwardTripItemsSerializer, BackwardTripQCSerializer, OrderPaymentStatusChangeSerializers
                           )
+
+from ...common_validators import validate_shipment_dispatch_item, validate_trip_user, \
+    get_shipment_by_crate_id, get_shipment_by_shipment_label, validate_shipment_id, validate_trip_shipment, \
+    validate_trip, validate_shipment_label, validate_trip_shipment_package, check_user_can_plan_trip, \
+    validate_last_mile_trip_user
 from wms.services import check_whc_manager_coordinator_supervisor_qc_executive, shipment_search, \
     check_whc_manager_dispatch_executive, check_qc_dispatch_executive, check_dispatch_executive
+from pos.payU_payment import *
 from fcm.utils import get_device_model
 from django.template.loader import render_to_string
 from datetime import datetime
@@ -3199,7 +3195,6 @@ class OrderCentral(APIView):
             elif order.ordered_cart.cart_type == 'ECOM':
                 return api_response('Order', self.get_serialize_process_pos_ecom(order), status.HTTP_200_OK, True,
                                     extra_params={"key_p": str(config('PAYU_KEY'))})
-
         return api_response("Order not found")
 
     @check_ecom_user
@@ -3579,7 +3574,6 @@ class OrderCentral(APIView):
                 payment_method['payment_status'] = None
             if "payment_mode" not in payment_method:
                 payment_method['payment_mode'] = None
-
         if not cash_only:
             if round(amount) != round(cart.order_amount):
                 return {'error': "Total payment amount should be equal to order amount"}
@@ -4282,7 +4276,7 @@ class OrderListCentral(GenericAPIView):
                 qs = qs.filter(delivery_person=self.request.user)
             if order_status:
                 order_status_actual = ONLINE_ORDER_STATUS_MAP.get(int(order_status), None)
-                qs = qs.filter(order_status__in = order_status_actual) if order_status_actual else qs
+                qs = qs.filter(order_status__in=order_status_actual) if order_status_actual else qs
         else:
             return api_response("Invalid cart type")
         if search_text:
@@ -4601,7 +4595,6 @@ class OrderedItemCentralDashBoard(APIView):
         total_refund_amount = returns.aggregate(Sum('refund_amount')).get('refund_amount__sum')
         if total_refund_amount:
             total_ordered_final_amount -= float(total_refund_amount)
-
         # POS Ordered Count
         pos_total_ordered_final_amount = pos_orders.aggregate(Sum('order_amount')).get('order_amount__sum')
         pos_total_refund_amount = pos_returns.aggregate(Sum('refund_amount')).get('refund_amount__sum')
@@ -9953,14 +9946,83 @@ class DispatchTripStatusList(generics.GenericAPIView):
         return get_response(msg, data, True)
 
 
+class OrderPaymentStatusChangeView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+    queryset = Order.objects.order_by('-id')
+    serializer_class = OrderPaymentStatusChangeSerializers
+
+    def put(self, request, *args, **kwargs):
+        """
+            allowed updates to order status
+        """
+        info_logger.info("Order PUT api called.")
+        app_type = self.request.META.get('HTTP_APP_TYPE', '3')
+
+        if app_type == '2':
+            return self.put_ecom_order_status_from_pos_app(request, *args, **kwargs)
+        elif app_type == '3':
+            return self.put_ecom_order_status(request, *args, **kwargs)
+        else:
+            return api_response('Provide a valid app_type')
+
+    @check_pos_shop
+    def put_ecom_order_status(self, request, *args, **kwargs):
+        """
+            Update ecom order
+        """
+        shop = kwargs['shop']
+        modified_data = validate_data_format(self.request)
+        if 'error' in modified_data:
+            return api_response(modified_data['error'])
+
+        if 'id' not in modified_data:
+            return api_response('please provide id to update order')
+
+        try:
+            order = Order.objects.get(pk=int(modified_data['id']), seller_shop=shop, ordered_cart__cart_type='ECOM',
+                                      buyer=self.request.user)
+        except ObjectDoesNotExist:
+            return api_response('Order Not Found!')
+
+        serializer = self.serializer_class(instance=order, data=modified_data, context={'app-type': 3})
+        if serializer.is_valid():
+            serializer.save(updated_by=request.user)
+            info_logger.info("Order Updated Successfully.")
+            return api_response('order updated!', serializer.data, status.HTTP_200_OK, True)
+        return api_response(serializer_error(serializer), success=False)
+
+    @check_pos_shop
+    def put_ecom_order_status_from_pos_app(self, request, *args, **kwargs):
+        """
+            Update ecom order
+        """
+        shop = kwargs['shop']
+        modified_data = validate_data_format(self.request)
+        if 'error' in modified_data:
+            return api_response(modified_data['error'])
+
+        if 'id' not in modified_data:
+            return api_response('please provide id to update order')
+
+        try:
+            order = Order.objects.get(pk=int(modified_data['id']), seller_shop=shop, ordered_cart__cart_type='ECOM')
+        except ObjectDoesNotExist:
+            return api_response('Order Not Found!')
+
+        serializer = self.serializer_class(instance=order, data=modified_data, context={'app-type': 2})
+        if serializer.is_valid():
+            serializer.save(updated_by=request.user)
+            info_logger.info("Order Updated Successfully.")
+            return api_response('order updated!', serializer.data, status.HTTP_200_OK, True)
+        return api_response(serializer_error(serializer), success=False)
+
+
 class LastMileTripStatusList(generics.GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
 
     def get(self, request):
-        '''
-        API to get shipment package rejection reason list
-        '''
         fields = ['id', 'value']
         data = [dict(zip(fields, d)) for d in Trip.TRIP_STATUS]
         msg = ""
@@ -10555,3 +10617,19 @@ class BackwardTripQCView(generics.GenericAPIView):
                                              trip_shipment__trip=trip_instance,
                                              trip_shipment__shipment_status=DispatchTripShipmentMapping.UNLOADED_AT_DC)
         return self.queryset
+
+
+class OrderStatusChoicesList(GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+
+    def get(self, request):
+        '''
+        API to get payment mode choices list
+        '''
+        fields = ['id', 'value']
+        data = [dict(zip(fields, d)) for d in [(Order.PAYMENT_PENDING, "Payment Pending"),
+                                               (Order.PAYMENT_FAILED, "Payment Failed"),
+                                               (Order.PAYMENT_APPROVED, "Payment Approved"),
+                                               (Order.PAYMENT_COD, "Payment COD")]]
+        return api_response('', data, status.HTTP_200_OK, True)

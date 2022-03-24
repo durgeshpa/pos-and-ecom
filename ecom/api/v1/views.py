@@ -297,7 +297,6 @@ class UserShopView(APIView):
             is_success, message = True, "Shop Found"
         return api_response(message, data, status.HTTP_200_OK, is_success)
 
-
 class Contect_Us(APIView):
     authentication_classes = (TokenAuthentication,)
     def get(self, request, format=None):
@@ -305,7 +304,6 @@ class Contect_Us(APIView):
         serializer = ContectUs(data=data)
         if serializer.is_valid():
             return api_response('contct us details',serializer.data,status.HTTP_200_OK, True)
-
 
 class ParentProductDetails(APIView):
     """

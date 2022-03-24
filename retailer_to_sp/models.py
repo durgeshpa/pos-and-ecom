@@ -987,6 +987,8 @@ class Order(models.Model):
         ('4','Retailer Order'),
         ('5','Others')
     )
+    POS_WALKIN = 'pos_walkin'
+    POS_ECOMM = 'pos_ecomm'
 
     DELIVERY_CHOICE = ( ('1', 'Self Pick'),
                         ('2', 'Home Delivery')

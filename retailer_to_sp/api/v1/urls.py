@@ -162,6 +162,8 @@ urlpatterns = [
     url('shipment-package-products/', ShipmentPackageProductsView.as_view(), name='shipment_package_products'),
     url('bck-trip-verify-items/', VerifyBackwardTripItems.as_view()),
     url('bck-trip-qc-packages/', BackwardTripQCView.as_view()),
+    url('update-order-payment-status/', OrderPaymentStatusChangeView.as_view(), name='update_order_payment_status'),
+    url(r'^order-status-choice/$', OrderStatusChoicesList.as_view()),
 ]
 
 urlpatterns += router.urls
