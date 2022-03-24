@@ -143,4 +143,7 @@ def create_crate_barcode(sender, instance=None, created=False, update_fields=Non
         instance.crate_barcode = InMemoryUploadedFile(image, 'ImageField', "%s.jpg" % instance.crate_id, 'image/jpeg',
                                                  sys.getsizeof(image), None)
         instance.save()
-        ShopCrate.objects.update_or_create(shop=instance.warehouse, crate=instance, defaults={'is_available': True})
+        shop_crate_instance, _ = ShopCrate.objects.update_or_create(shop=instance.warehouse, crate=instance,
+                                                                    defaults={'is_available': True})
+        info_logger.info(f"create_crate_barcode|shop_id {instance.warehouse.id} | crate_id {instance.id} "
+                         f"| is_available True | {shop_crate_instance}")
