@@ -183,6 +183,8 @@ class CardDataSerializer(serializers.ModelSerializer):
             elif data.get('brand_subtype'):
                 brand = Brand.objects.get(id = data['brand_subtype'])
                 new_card = Card.objects.create(app=app,name=data["name"], type=data["type"], brand_subtype = brand)
+            elif data.get('sub_type'):
+                new_card = Card.objects.create(app=app,name=data["name"], type=data["type"], sub_type=data['sub_type'])
             else:
                 new_card = Card.objects.create(app=app,name=data["name"], type=data["type"])
             
