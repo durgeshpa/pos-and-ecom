@@ -5887,36 +5887,33 @@ def pdf_generation_retailer(request, order_id, delay=True):
     ordered_product = order.rt_order_order_product.all()[0]
     filename = create_file_name(file_prefix, ordered_product)
     template_name = 'admin/invoice/invoice_retailer_3inch.html'
-    try:
-        # Don't create pdf if already created
-        #raise Exception("Sorry, no numbers below zero")
-        if ordered_product.invoice.invoice_pdf.url:
-            try:
-                phone_number, shop_name = order.buyer.phone_number, order.seller_shop.shop_name
-                media_url, file_name, manager = ordered_product.invoice.invoice_pdf.url, ordered_product.invoice.invoice_no, \
-                                                order.ordered_cart.seller_shop.pos_shop.filter(
-                                                    user_type='manager').last()
-                if delay:
-                    whatsapp_opt_in.delay(phone_number, shop_name, media_url, file_name)
-                    if manager and manager.user.email:
-                        send_invoice_pdf_email.delay(manager.user.email, shop_name, order.order_no, media_url,
-                                                     file_name, 'order')
-                    else:
-                        logger.exception("Email not present for Manager {}".format(str(manager)))
-                    # email task to send manager order invoice ^
+    # Don't create pdf if already created
+    if ordered_product.invoice and ordered_product.invoice.invoice_pdf and ordered_product.invoice.invoice_pdf.url:
+        try:
+            phone_number, shop_name = order.buyer.phone_number, order.seller_shop.shop_name
+            media_url, file_name, manager = ordered_product.invoice.invoice_pdf.url, ordered_product.invoice.invoice_no, \
+                                            order.ordered_cart.seller_shop.pos_shop.filter(
+                                                user_type='manager').last()
+            if delay:
+                whatsapp_opt_in.delay(phone_number, shop_name, media_url, file_name)
+                if manager and manager.user.email:
+                    send_invoice_pdf_email.delay(manager.user.email, shop_name, order.order_no, media_url,
+                                                 file_name, 'order')
                 else:
-                    if manager and manager.user.email:
-                        send_invoice_pdf_email(manager.user.email, shop_name, order.order_no, media_url, file_name,
-                                               'order')
-                    else:
-                        logger.exception("Email not present for Manager {}".format(str(manager)))
-                    return whatsapp_opt_in(phone_number, shop_name, media_url, file_name)
-            except Exception as e:
-                logger.exception("Retailer Invoice send error order {}".format(order.order_no))
-                logger.exception(e)
+                    logger.exception("Email not present for Manager {}".format(str(manager)))
+                # email task to send manager order invoice ^
+            else:
+                if manager and manager.user.email:
+                    send_invoice_pdf_email(manager.user.email, shop_name, order.order_no, media_url, file_name,
+                                           'order')
+                else:
+                    logger.exception("Email not present for Manager {}".format(str(manager)))
+            return whatsapp_opt_in(phone_number, shop_name, media_url, file_name)
+        except Exception as e:
+            logger.exception("Retailer Invoice send error order {}".format(order.order_no))
+            logger.exception(e)
 
-    except Exception as e:
-        logger.exception(e)
+    else:
         barcode = barcodeGen(ordered_product.invoice_no)
         # Products
         product_listing = []
