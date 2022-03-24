@@ -5891,7 +5891,7 @@ def pdf_generation_retailer(request, order_id, delay=True):
     template_name = 'admin/invoice/invoice_retailer_3inch.html'
     try:
         # Don't create pdf if already created
-        #raise Exception("Sorry, no numbers below zero")
+       # raise Exception("Sorry, no numbers below zero")
         if ordered_product.invoice.invoice_pdf.url:
             try:
                 phone_number, shop_name = order.buyer.phone_number, order.seller_shop.shop_name
@@ -6016,7 +6016,7 @@ def pdf_generation_retailer(request, order_id, delay=True):
                 "cin": cin_number,
                 "payment_type": ordered_product.order.rt_payment_retailer_order.last().payment_type.type}
         cmd_option = {"margin-top": 2, "margin-left": 0, "margin-right": 0, "margin-bottom": 2, "javascript-delay": 0,
-                      "page-height": height, "page-width": 80, "no-stop-slow-scripts": True, "quiet": True,'encoding': 'utf8 '
+                      "page-height": height, "page-width": 70, "no-stop-slow-scripts": True, "quiet": True,'encoding': 'utf8 '
                       ,"dpi":300}
         response = PDFTemplateResponse(request=request, template=template_name, filename=filename,
                                        context=data, show_content_in_browser=False, cmd_options=cmd_option)
