@@ -3515,7 +3515,7 @@ class LoadVerifyPackageSerializer(serializers.ModelSerializer):
             package_weight = trip_package_mapping.shipment_packaging.packaging_details.all()\
                 .aggregate(total_weight=Sum(F('ordered_product__product__weight_value') * F('quantity'),
                                             output_field=FloatField())).get('total_weight')
-            trip.weight = trip.weight + package_weight
+            trip.weight = trip.weight + (package_weight if package_weight else 0)
         trip.save()
         if trip.trip_type == DispatchTrip.BACKWARD:
             trip_package_mapping.shipment_packaging.status \
