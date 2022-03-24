@@ -5891,7 +5891,7 @@ def pdf_generation_retailer(request, order_id, delay=True):
     template_name = 'admin/invoice/invoice_retailer_3inch.html'
     try:
         # Don't create pdf if already created
-        raise Exception("Sorry, no numbers below zero")
+        #raise Exception("Sorry, no numbers below zero")
         if ordered_product.invoice.invoice_pdf.url:
             try:
                 phone_number, shop_name = order.buyer.phone_number, order.seller_shop.shop_name
@@ -6020,18 +6020,17 @@ def pdf_generation_retailer(request, order_id, delay=True):
                       ,"dpi":300}
         response = PDFTemplateResponse(request=request, template=template_name, filename=filename,
                                        context=data, show_content_in_browser=False, cmd_options=cmd_option)
-        with open("heelo.pdf", "wb") as f:
-            f.write(response.rendered_content)
-        content = render_to_string(template_name, data)
-        with codecs.open("abc.html", "w", "utf-8-sig") as static_file:
-            static_file.write(content)
+        # with open("heelo.pdf", "wb") as f:
+        #     f.write(response.rendered_content)
+        # content = render_to_string(template_name, data)
+        # with codecs.open("abc.html", "w", "utf-8-sig") as static_file:
+        #     static_file.write(content)
 
         try:
             # create_invoice_data(ordered_product)
             ordered_product.invoice.invoice_pdf.save("{}".format(filename), ContentFile(response.rendered_content),
                                                      save=True)
             phone_number = order.buyer.phone_number
-            phone_number = '9990580531'
             shop_name = order.seller_shop.shop_name
             media_url = ordered_product.invoice.invoice_pdf.url
             file_name = ordered_product.invoice.invoice_no
