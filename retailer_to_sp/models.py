@@ -1551,7 +1551,7 @@ class Trip(models.Model):
         for shipment_mapping in shipments_loaded:
             packages_loaded = shipment_mapping.last_mile_trip_shipment_mapped_packages.filter(
                                 ~Q(package_status__in=['CANCELLED', 'MISSING_AT_LOADING', 'DAMAGED_AT_LOADING']))
-            data = packages_loaded.aggregate(
+            shipment_data = packages_loaded.aggregate(
                     no_of_crates=Sum(Case(When(shipment_packaging__packaging_type=ShipmentPackaging.CRATE, then=1),
                                           default=Value('0'), output_field=models.IntegerField(), )),
                     no_of_packs=Sum(Case(When(shipment_packaging__packaging_type=ShipmentPackaging.BOX, then=1),
@@ -1559,7 +1559,9 @@ class Trip(models.Model):
                     no_of_sacks=Sum(Case(When(shipment_packaging__packaging_type=ShipmentPackaging.SACK, then=1),
                                          default=Value('0'), output_field=models.IntegerField(), ))
                 )
-
+            data['no_of_crates'] += shipment_data.get('no_of_crates', 0)
+            data['no_of_packs'] += shipment_data.get('no_of_packs', 0)
+            data['no_of_sacks'] += shipment_data.get('no_of_sacks', 0)
         return data
 
 
@@ -3629,7 +3631,7 @@ class DispatchTrip(BaseTimestampUserModel):
         for shipment_mapping in shipments_loaded:
             packages_loaded = shipment_mapping.trip_shipment_mapped_packages.filter(
                                 ~Q(package_status__in=['CANCELLED', 'MISSING_AT_LOADING', 'DAMAGED_AT_LOADING']))
-            data = packages_loaded.aggregate(
+            shipment_data = packages_loaded.aggregate(
                     no_of_crates=Sum(Case(When(shipment_packaging__packaging_type=ShipmentPackaging.CRATE, then=1),
                                             default=Value('0'), output_field=models.IntegerField(), )),
                     no_of_packs=Sum(Case(When(shipment_packaging__packaging_type=ShipmentPackaging.BOX, then=1),
@@ -3638,6 +3640,9 @@ class DispatchTrip(BaseTimestampUserModel):
                                            default=Value('0'), output_field=models.IntegerField(), ))
                 )
 
+            data['no_of_crates'] += shipment_data.get('no_of_crates', 0)
+            data['no_of_packs'] += shipment_data.get('no_of_packs', 0)
+            data['no_of_sacks'] += shipment_data.get('no_of_sacks', 0)
         return data
 
 
