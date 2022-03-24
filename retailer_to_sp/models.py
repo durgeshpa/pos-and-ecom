@@ -1559,9 +1559,9 @@ class Trip(models.Model):
                     no_of_sacks=Sum(Case(When(shipment_packaging__packaging_type=ShipmentPackaging.SACK, then=1),
                                          default=Value('0'), output_field=models.IntegerField(), ))
                 )
-            data['no_of_crates'] += shipment_data.get('no_of_crates', 0)
-            data['no_of_packs'] += shipment_data.get('no_of_packs', 0)
-            data['no_of_sacks'] += shipment_data.get('no_of_sacks', 0)
+            data['no_of_crates'] += shipment_data['no_of_crates'] if shipment_data.get('no_of_crates') else 0
+            data['no_of_packs'] += shipment_data['no_of_packs'] if shipment_data.get('no_of_packs') else 0
+            data['no_of_sacks'] += shipment_data['no_of_sacks'] if shipment_data.get('no_of_sacks') else 0
         return data
 
 
@@ -3644,9 +3644,9 @@ class DispatchTrip(BaseTimestampUserModel):
                                            default=Value('0'), output_field=models.IntegerField(), ))
                 )
 
-            data['no_of_crates'] += shipment_data.get('no_of_crates', 0)
-            data['no_of_packs'] += shipment_data.get('no_of_packs', 0)
-            data['no_of_sacks'] += shipment_data.get('no_of_sacks', 0)
+            data['no_of_crates'] += shipment_data['no_of_crates'] if shipment_data.get('no_of_crates') else 0
+            data['no_of_packs'] += shipment_data['no_of_packs'] if shipment_data.get('no_of_packs') else 0
+            data['no_of_sacks'] += shipment_data['no_of_sacks'] if shipment_data.get('no_of_sacks') else 0
         return data
 
 
