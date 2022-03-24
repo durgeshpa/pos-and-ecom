@@ -3450,10 +3450,9 @@ class LoadVerifyPackageSerializer(serializers.ModelSerializer):
 
         trip_shipment = None
         if DispatchTripShipmentMapping.objects.filter(
-                trip=trip, shipment=package.shipment,
-                shipment_status=DispatchTripShipmentMapping.LOADING_FOR_DC).exists():
+                trip=trip, shipment_status=DispatchTripShipmentMapping.LOADING_FOR_DC).exists():
             trip_shipment = DispatchTripShipmentMapping.objects.filter(
-                trip=trip, shipment=package.shipment, shipment_status=DispatchTripShipmentMapping.LOADING_FOR_DC).last()
+                trip=trip, shipment_status=DispatchTripShipmentMapping.LOADING_FOR_DC).last()
             current_invoice_being_loaded = trip_shipment.shipment
             if current_invoice_being_loaded != package.shipment:
                 raise serializers.ValidationError(f"Please scan the remaining box in invoice no."
