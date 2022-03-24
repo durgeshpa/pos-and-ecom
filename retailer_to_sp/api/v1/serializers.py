@@ -1756,7 +1756,7 @@ class RetailerOrderedProductMappingSerializer(serializers.ModelSerializer):
             product_batch_id = product_batch.pop('id')
             product_batch.pop('total_qc_qty')
             self.update_product_batch_data(product_batch_instance, product_batch)
-            
+
         if ShipmentPackagingMapping.objects.filter(ordered_product=process_shipments_instance).exists():
             shipment_packaging_ids = list(
                 ShipmentPackagingMapping.objects.filter(ordered_product=process_shipments_instance) \
