@@ -364,6 +364,7 @@ class ParentProductView(GenericAPIView):
     def search_filter_parent_product(self):
 
         category = self.request.GET.get('category')
+        b2c_category = self.request.GET.get('b2c_category')
         brand = self.request.GET.get('brand')
         product_status = self.request.GET.get('status')
         search_text = self.request.GET.get('search_text')
@@ -379,6 +380,10 @@ class ParentProductView(GenericAPIView):
         if category is not None:
             self.queryset = self.queryset.filter(
                 parent_product_pro_category__category__id=category)
+        if b2c_category is not None:
+            self.queryset = self.queryset.filter(
+                parent_product_pro_b2c_category__category_id=b2c_category
+            )
         return self.queryset.distinct()
 
 
@@ -544,6 +549,7 @@ class ChildProductView(GenericAPIView):
     def search_filter_product_list(self):
 
         category = self.request.GET.get('category')
+        b2c_category = self.request.GET.get('b2c_category')
         brand = self.request.GET.get('brand')
         product_status = self.request.GET.get('status')
         parent_product_id = self.request.GET.get('parent_product_id')
@@ -562,6 +568,10 @@ class ChildProductView(GenericAPIView):
         if category is not None:
             self.queryset = self.queryset.filter(
                 parent_product__parent_product_pro_category__category__id=category)
+        if b2c_category is not None:
+            self.queryset = self.queryset.filter(
+                parent_product__parent_product_pro_category__category__id=category)
+        
         return self.queryset
 
 
