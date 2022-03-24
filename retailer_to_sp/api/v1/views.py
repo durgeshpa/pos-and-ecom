@@ -6891,18 +6891,21 @@ class RetailerList(generics.ListAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (permissions.IsAuthenticated,)
 
+    def get_manager(self):
+        return ShopUserMapping.objects.filter(employee=self.request.user, status=True)
+
+    def get_child_employee(self):
+        return ShopUserMapping.objects.filter(Q(manager__in=self.get_manager()) | Q(employee=self.request.user,
+                                                      employee_group__permissions__codename='can_sales_person_add_shop'),
+                                              shop__shop_type__shop_type__in=['r', 'f', 'sp'], status=True)
+
     def get_shops(self):
-        return ShopUserMapping.objects.filter(employee_id__in=self.request.user.shop_employee.all() \
-                                              .prefetch_related('employee_list').values('employee_list__employee_id'),
-                                              shop__shop_type__shop_type__in=['r', 'f'], status=True)
-
-    def get_employee(self):
-        return ShopUserMapping.objects.filter(employee=self.request.user,
-                                              employee_group__permissions__codename='can_sales_person_add_shop',
-                                              shop__shop_type__shop_type__in=['r', 'f'], status=True)
-
+        return ShopUserMapping.objects.filter(Q(manager__in=self.get_manager()) | Q(employee=self.request.user,
+                                                 employee_group__permissions__codename='can_sales_person_add_shop'),
+                                                 employee__in=self.get_child_employee().values('employee'),
+                                              shop__shop_type__shop_type__in=['r', 'f', ], status=True)
     def get_queryset(self):
-        shop_emp = self.get_employee()
+        shop_emp = self.get_child_employee()
         if not shop_emp.exists():
             shop_emp = self.get_shops()
         return shop_emp.values('shop')
