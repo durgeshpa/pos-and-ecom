@@ -8,6 +8,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import authentication
 from rest_framework.generics import GenericAPIView, CreateAPIView
+
 from retailer_backend.utils import SmallOffsetPagination
 
 from shops.models import Shop, ParentRetailerMapping
