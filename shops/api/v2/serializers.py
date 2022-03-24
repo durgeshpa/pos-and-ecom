@@ -418,6 +418,12 @@ class AddressDataSerializers(serializers.ModelSerializer):
                   'pincode_link', 'state', 'city', 'address_type')
 
 
+class ShopStatusLogModelSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ShopStatusLog
+        fields = '__all__'
+
+
 class ShopCrudSerializers(serializers.ModelSerializer):
     related_users = UserSerializers(read_only=True, many=True)
     shop_log = LogSerializers(many=True, read_only=True)
@@ -431,13 +437,14 @@ class ShopCrudSerializers(serializers.ModelSerializer):
     shop_name_documents = ShopDocumentDataSerializers(read_only=True, many=True)
     dispatch_center_cities = DispatchCenterCityMappingDataSerializers(read_only=True, many=True)
     dispatch_center_pincodes = DispatchCenterPincodeMappingDataSerializers(read_only=True, many=True)
+    shop_detail = ShopStatusLogModelSerializer(many=True, read_only=True)
 
     class Meta:
         model = Shop
         fields = ('id', 'shop_name', 'shop_code', 'shop_code_bulk', 'shop_code_discounted', 'warehouse_code',
                   'shop_owner', 'retiler_mapping', 'shop_name_address_mapping', 'approval_status', 'status',
                   'shop_type', 'related_users', 'shipping_address', 'created_at', 'imei_no', 'shop_name_photos',
-                  'shop_name_documents', 'shop_log', 'pos_enabled', 'cutoff_time', 'dispatch_center_cities',
+                  'shop_name_documents', 'shop_log', 'pos_enabled','shop_detail' ,'cutoff_time', 'dispatch_center_cities',
                   'dispatch_center_pincodes')
 
     def validate(self, data):
