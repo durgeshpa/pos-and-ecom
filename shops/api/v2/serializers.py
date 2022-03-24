@@ -1409,8 +1409,9 @@ class ShopRouteUploadSerializer(serializers.ModelSerializer):
         super(ShopRouteUploadSerializer, self).__init__(*args, **kwargs)  # call the super()
 
     class Meta:
-        model = ShopRoute@transaction.atomic
-    
+        model = ShopRoute
+
+    @transaction.atomic
     def create(self, validated_data):
         try:
             ShopRouteCommonFunction.create_shop_route(validated_data)
