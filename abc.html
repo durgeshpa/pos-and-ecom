@@ -1,4 +1,4 @@
-
+﻿
 
 
 
@@ -6,312 +6,143 @@
 
 
 <html>
-<head>
-    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-    <title>invoice</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <link href="http://127.0.0.1:8000/static/admin/css/bootstrap.css" rel="stylesheet" id="bootstrap-css">
-    <link rel="stylesheet" type="text/css" href="http://127.0.0.1:8000/static/admin/css/test.css">
-    <style>
-		/*
-        .receipt{
-          width: 76mm;
-          border: 2px solid black;
-          margin-right:-10mm ;
-
-
-        }
-    .receipt {
-    padding: 1mm;
-    width: 80mm;
-    border: 1px solid black;
-       }
-       */
-    </style>
-</head>
-<body>
-<div class="receipt">
-<div class="row">
-    <div class="col-lg-12">
-        <div class="row overflow-hidden" style="padding-bottom:5px; position:relative; ">
-            <div class=" col-md-6">
-                <div class="col-sm-12" style="text-align:center;">
-                    
-                </div>
-            </div>
-
-
-        </div>
-
-         <div class="col-md-12row  small" >
-             <center>
-                        <address>
-                            <br/>
-                            <img src="http://127.0.0.1:8000/static/admin/img/logo-peppertap.png" style="width: 150px; padding: 10px 0px 10px">
-                            <br/><span style="font:16px"><strong>Metro Mart</strong></span><br>
-                            House No. 17, Krishna Market, Behind Sahara Mall, Rao Complex, A-46 St, A Block, BM Plaza, Chakarpur, Sector. 28<br>
-                            Gurgaon, Haryana, <br>
-                            GSTIN No : <br>
-                            Contact : 9716911620<br>
-                        </address>
-             </center>
-        </div>
-        <hr style="border-top: 1px solid black;">
-        <div class="col-md-12 " >
-            <div class="table ">
-                <table class="table small" >
-                    <tr>
-                        <td class="text-left no-line" colspan="2">
-                            <b>Customer:&nbsp;</b>WADWA
-                        </td>
-                       <!--  <td class="text-center small">
-                            Order Date <br>Feb. 3, 2022, 8:02 p.m.
-                        </td> -->
-                        </tr>
-                        <tr>
-                        <td class="text-left no-line">
-                            <b>Date:&nbsp;</b>Feb 03, 2022
-                        </td>
-                        <!-- <td class="text-center small">
-                            Invoice Date <br>Feb. 3, 2022, 8:02 p.m.
-                        </td> -->
-
-
-                        <td class="text-left no-line" >
-                            <b>Order No:&nbsp;</b>FOR2106290001343
-                        </td>
-                       <!--  <td class="text-center small">
-                            Order Date <br>Feb. 3, 2022, 8:02 p.m.
-                        </td> -->
-                    </tr>
-                    <tr>
-                        <td class="text-left no-line">
-                            <b>Pay Type:&nbsp;</b>cash
-                        </td>
-                        <!-- <td class="text-center small">
-                            Invoice Date <br>Feb. 3, 2022, 8:02 p.m.
-                        </td> -->
-
-
-                        <!-- <td class="text-center " >
-                            Order ID.<br>FOR2106290001343
-                        </td> -->
-                        <td class="text-left no-line" >
-                            <b>Invoice No:&nbsp;</b>FIV2106290001343
-                        </td>
-                        <!-- <td class="text-center " >
-                            Invoice No <br>FIV2106290001343
-                        </td> -->
-                    </tr>
-                </table>
-            </div>
-
-            <!--<hr style="border-top: 1px solid black;">
-             <div class="row">
-                <div class="col-md-12">
-                    <div class="col-xs-6 ">
-                        <address>
-                            <span>Customer Details:</span><br>
-                            <strong style="text-transform:capitalize;">WADWA <br>
-                            7073461187<br>
-                        </address>
-                    </div>
-                    <div class="col-xs-6  ">
-                        <address>
-                            <span>Shop :</span><br>
-                            Metro Mart<br>
-                            Suraj Kumar, House No. 17, Krishna Market, Behind Sahara Mall, Rao Complex, A-46 St, A Block, BM Plaza, Chakarpur, Sector. 28, Gurgaon<br>
-                            9716911620<br>
-							State Name: <span>Haryana </span>Pincode: <span></span><br>
-                        </address>
-                    </div>
-                </div>
-            </div> -->
-        </div>
-    </div>
-</div>
-
-<div class="row">
-    <div class="panel panel-default small">
-        <!-- <div class="panel-heading">
-            <h3 class="panel-title">Order summary</h3>
-        </div> -->
-        <div class="panel-body">
-            <div class="table" style="margin: auto; border : 1px;">
-                <table class="table table-condensed small" >
-                    <thead>
-                    <tr class="text-center">
-                        <th>No.</th>
-                        <th>Product</th>
-                        <th>MRP</th>
-                        <th>QTY </th>
-                        <th> Rate</th>
-                        <th>Amount</th>
-                    </tr>
-                    </thead>
-                    <tbody>
+	<head>
+		<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+		<title>invoice</title>
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<link rel="stylesheet" type="text/css" href="http://127.0.0.1:8000/static/admin/css/invoice_retailer_3inch.css">
+	</head>
+	<body>
+		<div>
+			<div class="address">
+				<img src="http://127.0.0.1:8000/static/admin/img/logo-peppertap.png" style="width: 150px; padding: 10px 0px 10px">
+				<br/><span style="font-size:16px"><strong>Meenakshi Bhatt, Rajiv Nagar</strong></span><br/><br/>
+				Shop No. 1908-1/3, Ground Floor, Rajiv Nagar<br>
+				 Gurgaon, Haryana, <br>
+				GSTIN No : 06FAOPB4429P1Z7<br>
+				Contact : 8800791965<br>
+			</div>
+			<div class="user-info">
+				<table>
+					<tr>
+						<td colspan="2">
+							<b>Customer:&nbsp;</b>Na
+						</td>
+					</tr>
+					<tr>
+						<td>
+							<b>Date:&nbsp;</b>Mar 24, 2022
+						</td>
+						<td>
+							<b>Order&nbspNo:&nbsp;</b>FOR2106080005849
+						</td>
+					</tr>
+					<tr>
+						<td>
+							<b>Pay Type:&nbsp;</b>cash
+						</td>
+						<td>
+							<b>Invoice&nbspNo:&nbsp;</b>FIV2106080005849
+						</td>
+					</tr>
+				</table>
+			</div>
+			<div class="items">
+				<table>
+					<tr>
+						<th>No</th>
+						<th>Product</th>
+						<th>MRP</th>
+						<th>QTY</th>
+						<th>Rate</th>
+						<th>Amt</th>
+					</tr>
                     
                     
-                    <tr class="text-center " >
+					<tr>
+						<td>1</td>
+                        <td>Real Juice - Mixed Fruit, 1 Ltr</td>
+                        <td>115.00</td>
                         <td>1</td>
-                        <td>Brooke Bond Taaza Masala Chaska 250 Gm</td>
-                        <td>95.00</td>
-                        <td>1</td>
-                        <td>95.0</td>
-                        <td>95.00/-
+                        <td>103.0</td>
+                        <td>103.00/-
                         </td>
-                    </tr>
+					</tr>
                     
                     
                     
-                    <tr class="text-center " >
+					<tr>
+						<td>2</td>
+                        <td>Britannia Tiger Krunch Choc Cookies 64G/80G</td>
+                        <td>10.00</td>
                         <td>2</td>
-                        <td>JohnsonS Baby No More Tears Johnson Baby Shampoo, 200 ml</td>
-                        <td>180.00</td>
-                        <td>1</td>
-                        <td>180.0</td>
-                        <td>180.00/-
+                        <td>10.0</td>
+                        <td>20.00/-
                         </td>
-                    </tr>
+					</tr>
                     
                     
-                    
-                    <tr class="text-center " >
-                        <td>3</td>
-                        <td>Tata Premium Kadak Assam Chai 250 Gm</td>
-                        <td>130.00</td>
-                        <td>1</td>
-                        <td>130.0</td>
-                        <td>130.00/-
-                        </td>
-                    </tr>
-                    
-                    
-                    
-                    <tr class="text-center " >
-                        <td>4</td>
-                        <td>Himalaya Purifying Neem Fw, 100 Ml</td>
-                        <td>130.00</td>
-                        <td>1</td>
-                        <td>130.0</td>
-                        <td>130.00/-
-                        </td>
-                    </tr>
-                    
-                    
-                    
-                    <tr class="text-center " >
-                        <td>5</td>
-                        <td>Nivea Men Fresh Active Deodorant 50 Ml</td>
-                        <td>199.00</td>
-                        <td>1</td>
-                        <td>199.0</td>
-                        <td>199.00/-
-                        </td>
-                    </tr>
-                    
-                    
-                    
-                    <tr class="text-center " >
-                        <td>6</td>
-                        <td>Sunsilk Grean Tea &amp; White Lily Freshness For Freshly Fragrant &amp; Lively Hair Shampoo 370Ml</td>
-                        <td>210.00</td>
-                        <td>1</td>
-                        <td>210.0</td>
-                        <td>210.00/-
-                        </td>
-                    </tr>
-                    
-                    
-                    
-                    <tr class="text-center " >
-                        <td>7</td>
-                        <td>Kidys Oven Fresh Fruity Cake Rusk 300G</td>
-                        <td>85.00</td>
-                        <td>1</td>
-                        <td>85.0</td>
-                        <td>85.00/-
-                        </td>
-                    </tr>
-                    
-                    
-
-                    <tr class="text-center small" style="text-align:center;">
-                        <td></td>
-                        <td></td>
-                        <td></td>
-                        <td class="thick-line">7.000 PCS</td>
-                        <td class="thick-line"></td>
-                        <td class="thick-line">₹1,029/-</td>
-                    </tr>
-                    <tr class="text-center small" style="text-align:center;">
-                        <td class="no-line"></td>
-                        <td class="no-line"></td>
-                        <td class="no-line"></td>
-                        <td class="no-line"></td>
-                        <td class="thick-line"></td>
-                        <td class="thick-line"></td>
-                    </tr>
-                    <tr class="text-center small" style="text-align:center;">
-                        <td class="no-line"></td>
-                        <td class="no-line"></td>
-                        <td class="no-line"></td>
-                        <td class="no-line"></td>
-                        <td class="no-line">Discount</td>
-                        <td class="no-line">
-                            ₹0.0/-
-                        </td>
-                    </tr>
-                    
-                    <tr class="text-center small" style="text-align:center;">
-                        <td class="no-line"></td>
-                        <td class="no-line"></td>
-                        <td class="no-line"></td>
-                        <td class="no-line"></td>
-                        <td class="no-line">Total</td>
-                        <td class="no-line">
-                            <strong> ₹1,029/-</strong>
-                        </td>
-                    </tr>
-                    <tr class="text-center small">
-                        <td colspan="12"></td>
-                    </tr>
+					<tr>
+						<td>&nbsp;&nbsp;</td>
+						<td>&nbsp;&nbsp;</td>
+						<td class="line">&nbsp;&nbsp;</td>
+						<td class="line" colspan="2">3.000 PCS</td>
+						<td class="line">₹123/-</td>
+					</tr>
+					<tr>
+						<td>&nbsp;&nbsp;</td>
+						<td>&nbsp;&nbsp;</td>
+						<td>&nbsp;&nbsp;</td>
+						<td colspan="2">Discount</td>
+						<td>₹0.0/-</td>
+					</tr>
                     <tr>
-                        <td colspan="11" class="no-line"><b>Amount Chargeable (in words):</b> INR one thousand and twenty-nine only</td>
-                    </tr>
+						<td>&nbsp;&nbsp;</td>
+						<td>&nbsp;&nbsp;</td>
+						<td colspan="3">Reward Value Used</td>
+						<td>₹ 0.0/-</td>
+					</tr>
+					<tr>
+						<td>&nbsp;&nbsp;</td>
+						<td>&nbsp;&nbsp;</td>
+						<td>&nbsp;&nbsp;</td>
+						<td colspan="2">Total</td>
+						<td><b>₹123/-</b></td>
+					</tr>
+					<tr>
+						<td colspan="6"></td>
+					</tr>
+					<tr>
+						<td colspan="5" ><b>Amount Chargeable (in words):</b> INR one hundred and twenty-three only</td>
+					</tr>
 
-                    <tr class="text-center small">
-                        <td colspan="12"></td>
-                    </tr>
-                    <tr>
-                        <td colspan="11" class="no-line"><b>You have saved </b>Rs:0.00 on this order</td>
-                    </tr>
-                    </tbody>
-                </table>
+					<tr>
+						<td colspan="6"></td>
+					</tr>
+					<tr>
+						<td colspan="5" ><b>You have saved </b>Rs:12.00 on this order</td>
+					</tr>
+				</table>
+			</div>
+			<div class="footer">
+				<div>
+					Declaration:
+					<br>
+						We declare that this invoice shows the actual
+						price of the goods described and that
+						all particulars are true and correct.
+					<br>
+						Note: This is a computer generated invoice <br><br>
 
-            <div class="text-left small" style="margin: auto;">
-                Declaration:
-                <br>
-                               We declare that this invoice shows the actual
-                               price of the goods described and that
-                               all particulars are true and correct.
-                <br>
-                               Note: This is a computer generated invoice <br><br>
-
-            </div>
-            <div class="col-md-6 small">
-                <div class="barcode">
-
-                    <div style="text-align:center;">Invoice No:<img src="data:image/png;base64,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" height="60px" width="200px">
-                    </div>
-                </div>
-                 <div class="no-line" style="display:block;">E .&amp; O. E</div>
-            </div>
-
-        </div>
-    </div>
-
-</div>
-</div>
-</body>
+				</div>
+				<div>
+					<div class="barcode">
+                    <div style="text-align:center;">Invoice No:<img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAdEAAACmCAIAAAAK8SIBAAAPvElEQVR4nO3ceWxUVRvH8WfoMm2FUlpLS4GwaUugIJGyRyhoQTCAiWERQVmsmECsoNJUoxG1IPJCMBrR0BZKVECiCMEFRcoa1CoiJSLYjrW00NIF6QIz3eb948TJZDZmhs4x6vfzB6F3nvvccxjm1zvn3hmD1WoVAIAWnf7uAQDAfwiZCwD6kLkAoA+ZCwD6kLkAoA+ZCwD6kLkAoA+ZCwD6kLkAoA+ZCwD6BGs7ksFgsP9RfeZYbXT4/LHLjS67uaxxeSB3NfbD8GYXP7q5fMjv43rT3F2BuyN66OluGDfd6LKPw/Qd+P2cej8Mb8bm/SEcdrzFbt4/fR66eWjiucab/2DeHPEWnxpvXvUuD+SuuYdDePPqCwTOcwFAHzIXAPQhcwFAHzIXAPQhcwFAHzIXAPQhcwFAHzIXAPQhcwFAHzIXAPQhcwFAHzIXAPQhcwFAHzIXAPQhcwFAHzIXAPQhcwFAHzIXAPQhcwFAHzIXAPQhcwFAHzIXAPQhcwFAHzIXAPQhcwFAHzIXAPQhcwFAHzIXAPQhcwFAHzIXAPQhcwFAHzIXAPQhcwFAHzIXAPQhcwFAHzIXAPQhcwFAHzIXAPQhcwFAHzIXAPQhcwFAHzIXAPQhcwFAHzIXAPQhcwFAHzIXAPQhcwFAHzIXAPQhcwFAHzIXAPQhcwFAHzIXAPQhcwFAHzIXAPQhcwFAHzIXAPQhcwFAHzIXAPQhcwFAHzIXAPQhcwFAHzIXAPQhcwFAHzIXAPQhcwFAHzIXAPQhcwFAHzIXAPQhcwFAHzIXAPQhcwFAHzIXAPQhcwFAHzIXAPQhcwFAHzIXAPQhcwFAHzIXAPQhcwFAHzIXAPQhcwFAHzIXAPQhcwFAHzIXAPQhcwFAHzIXAPQhcwFAHzIXAPQhcwFAHzIXAPQhcwFAHzIXAPQhcwFAHzIXAPQhcwFAHzIXAPQhcwFAHzIXAPQhcwFAHzIXAPQhcwFAHzIXAPQhcwFAHzIXAPQhcwFAHzIXAPQhcwFAH4PVav27xwAA/xWc5wKAPmQuAOhD5gKAPmQuAOhD5gKAPmQuAOhD5gKAPmQuAOhD5gKAPmSuVgcPHjR4ZDabVeX8+fM9lNXU1IjI6dOn1Y+HDx92ebjhw4cbDIYFCxaoH8+cObN69erx48f36dPHaDRGR0dPnDgxNze3ra3Ned/z58+/++67c+bMiYuLU0c5ffq0u3kdO3Zs+vTpsbGxERERycnJa9eubW5udllpsVg2bNgwevTo6Ohoo9GYnJycnZ2tpuNfz5aWljfffHPUqFGRkZFGo7Fv376LFy/+9ddfb3GcHVu5fPlyd0/ll19+eSszsikvL+/cubPBYAgLC3N+tK6u7vnnnx80aFBERETXrl1TUlI2bNjQ0tLiuScCwgqNvv76a89Px40bN1TlI4884qGsurpalfXo0UNEXnzxRedj1dXVderUSUQ++OADq9VaXV3trtuECRMaGhrs97148aJz2U8//eRyUlu3blUHsjdu3Diz2exQWVFRMXDgQOfOS5Ys8a9nU1PT2LFjnRuGh4d//vnnfo+zwyuXLVvmPEjliy++8HtG9h566CFVaTQaHR4qKyvr37+/c88xY8Zcv37dQ08EApmrlS1zL1686P1eRqNRRDZv3uz80KJFi9SL3PmhTz75REQ6deqkArqmpiY5OTkrK+vQoUMmk+nGjRslJSVZWVkqMh577DH7fcvLyxMTE5cuXbpz507bSbTLzC0uLlbDmzFjRklJSUNDw7Zt29Sp1jPPPGNf2dLSMmzYMBGJj4/Py8urqqqyWCwXLlx49dVXs7Ky/OuZmZkpIgaDYfXq1WVlZfX19d98801SUpKIxMTEXLt2zY+egahUmbts2TLnf0AH3s/I3oEDB0RElTln7uTJk0UkKipqx44dDQ0Nf/75Z25ubkREhIhkZGTcdEjoWGSuVh2euR999JGIhISENDY2Ojy0fPlyERk1apTn5k899ZSIBAUF1dTUuCw4d+6ch8xdunSpiPTr18/+zO5///ufOjWrra21bdy8ebOIREdHl5SUeB6S9z179uwpIvPnz7ff3bYGsmvXLj96BqLS+8z1fkY2ZrP5zjvv7NOnz1tvveWcubZFiS1btthvf/vtt0UkLCzs6tWrNx0VOhDruf9saWlpQUFBLS0tx48fd3jo0KFDIjJ16lTPHWbNmiUibW1tRUVFvh7darXu3btXRB5//HH1i0FJT083Go03btywX6zMzc0VkaysLJfvc/3o2dLSUlFRISL33XeffYe77rorJiZGREwmk689A1HpPe9nZG/9+vW//fbbunXrXK7kqv8YQUFBjz76qP329PT0sLAw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" height="100px" width="300px">
+						</div>
+					</div>
+				<div  style="display:block;">E .&amp; O. E</div>
+				</div>
+			</div>
+		</div>
+	</body>
 </html>
