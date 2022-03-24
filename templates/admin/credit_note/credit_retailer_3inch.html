@@ -23,29 +23,29 @@
 				Contact : {{address_contact_number}}<br>
 			</div>
 			<div class="user-info">
-				<div class="div-table">
-					<div class="trow">
-						<div class="tcolumn">
+				<table>
+					<tr >
+						<td colspan="2">
 							<b>Customer:&nbsp;</b>{{shipment.order.buyer.first_name}}
-						</div>
-					</div>
-					<div class="trow">
-						<div class="tcolumn left">
+						</td>
+					</tr>
+					<tr>
+						<td>
 							<b>Date:&nbsp;</b>{{order.created_at|date:"M d, Y" }}
-						</div>
-						<div class="tcolumn">
+						</td>
+						<td>
 							<b>Order&nbspNo:&nbsp;</b>{{order.order_no}}
-						</div>
-					</div>
-					<div class="trow">
-						<div class="tcolumn left">
+						</td>
+					</tr>
+					<tr>
+						<td>
 							<b>Pay Type:&nbsp;</b>{{payment_type}}
-						</div>
-						<div class="tcolumn">
+						</td>
+						<td>
 							<b>Cr Note Date:&nbsp</b>{{credit_note.created_at|date:"M d, Y"}}
-						</div>
-					</div>
-				</div>
+						</td>
+					</tr>
+				</table>
 			</div>
 			<div class="items">
 				<table>

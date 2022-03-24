@@ -4,7 +4,7 @@
 
 
      body{
-         width: 100mm;
+         width: 90mm;
          margin:0px;
 		 margin-left:5px;
 		 font-size:14px
@@ -23,9 +23,10 @@ padding-bottom:20px
 
 }
 
-.user-info .tcolumn {
-		padding:5px;
-
+.user-info tr td{
+    vertical-align: top;
+	padding:4px;
+	text-align: left;
 }
 
 .items{
@@ -42,38 +43,9 @@ padding-bottom:20px
 .items tr td.line{
 	border-top:2px solid black
 }
-
-.div-table {
-    display: table;
-    width: 100%;
-}
-
-.trow {
-    display: table-row
-}
-
-.tcolumn {
-    display: table-cell;
-    vertical-align: top;
-	padding:5px;
-	padding-top:10px;
-}
-
-.items .theader .tcolumn{
-
-border-bottom:1px solid grey
-}
-
-.tcolumn1 {
-		font-weight:bold;
-		padding:5px
-
-}
-
-.item_name{
-	width:30%
-}
-
 .footer{
 	padding-top:20px
+}
+table{
+font-size:14px
 }

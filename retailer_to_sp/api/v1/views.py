@@ -5999,7 +5999,7 @@ def pdf_generation_retailer(request, order_id, delay=True):
             retailer_gstin_number = order.seller_shop.shop_name_documents.filter(
                 shop_document_type='gstin').last().shop_document_number
 
-        height = 170 + 13 * count  # calculating page height of invoice 170 is base value
+        height = 170 + 17 * count  # calculating page height of invoice 170 is base value
 
         data = {"shipment": ordered_product, "order": ordered_product.order, "url": request.get_host(),
                 "scheme": request.is_secure() and "https" or "http", "total_amount": total_amount, 'total': total,
@@ -6011,8 +6011,8 @@ def pdf_generation_retailer(request, order_id, delay=True):
                 "cin": cin_number,
                 "payment_type": ordered_product.order.rt_payment_retailer_order.last().payment_type.type}
         cmd_option = {"margin-top": 2, "margin-left": 0, "margin-right": 0, "margin-bottom": 2, "javascript-delay": 0,
-                      "page-height": height, "page-width": 80, "no-stop-slow-scripts": True, "quiet": True,'encoding': 'utf8'
-                      ,"dpi":203}
+                      "page-height": height, "page-width": 80, "no-stop-slow-scripts": True, "quiet": True,'encoding': 'utf8 '
+                      ,"dpi":300}
         response = PDFTemplateResponse(request=request, template=template_name, filename=filename,
                                        context=data, show_content_in_browser=False, cmd_options=cmd_option)
         # with open("heelo.pdf", "wb") as f:
