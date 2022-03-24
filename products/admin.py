@@ -2037,6 +2037,26 @@ class DiscountedProductsAdmin(admin.ModelAdmin, ExportCsvMixin):
             return ''
     product_category.short_description = 'Product Category'
 
+    def b2b_category(self, obj):
+        try:
+            if obj.parent_product.parent_product_pro_category.exists():
+                cats = [str(c.category) for c in obj.parent_product.parent_product_pro_category.filter(status=True)]
+                return "\n".join(cats)
+            return ''
+        except:
+            return ''
+
+    b2b_category.short_description = 'Product B2B Category'
+
+    def b2c_category(self, obj):
+        try:
+            if obj.parent_product.parent_product_pro_b2c_category.exists():
+                cats = [str(c.category) for c in obj.parent_product.parent_product_pro_b2c_category.filter(status=True)]
+                return "\n".join(cats)
+            return ''
+        except:
+            return ''
+
     def has_add_permission(self, request):
         return False
 

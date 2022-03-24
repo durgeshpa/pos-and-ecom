@@ -220,6 +220,9 @@ class ParentProductB2cCategory(BaseTimeModel):
         verbose_name = _("Parent Product B2c Category")
         verbose_name_plural = _("Parent Product B2c Categories")
 
+    def __str__(self):
+        return f"{self.parent_product} --> {self.category}"
+
 
 class ParentProductImage(BaseTimeModel):
     parent_product = models.ForeignKey(ParentProduct, related_name='parent_product_pro_image', on_delete=models.CASCADE)

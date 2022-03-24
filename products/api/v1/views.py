@@ -91,7 +91,7 @@ class B2cCategoryListView(GenericAPIView):
             self.queryset = category_search(self.queryset, search_text)
         category = SmallOffsetPagination().paginate_queryset(self.queryset, request)
         serializer = self.serializer_class(category, many=True)
-        msg = "" if category else "no category found"
+        msg = "" if category else "no b2c category found"
         return get_response(msg, serializer.data, True)
 
 
