@@ -374,16 +374,16 @@ class UploadMasterData(object):
 
                     if row['b2c_sub_category_id']:
                         b2c_category_instance = ParentProductB2cCategory.objects.filter(
-                            parent_product=parent_product.last(), category_id=row['b2c_sub_category_id'],
-                            category__category_parent=row['b2c_category_id'])
+                            parent_product=parent_product.last(), category_id=int(row['b2c_sub_category_id']),
+                            category__category_parent=int(row['b2c_category_id']))
                     else:
                         b2c_category_instance = ParentProductB2cCategory.objects.filter(
-                            parent_product=parent_product.last(), category_id=row['b2c_category_id'])
+                            parent_product=parent_product.last(), category_id=int(row['b2c_category_id']))
 
                     if row['new_b2c_sub_category_id']:
-                        b2c_category_instance.update(category_id=row['new_b2c_sub_category_id'])
+                        b2c_category_instance.update(category_id=int(row['new_b2c_sub_category_id']))
                     else:
-                        b2c_category_instance.update(category_id=row['new_b2c_category_id'])
+                        b2c_category_instance.update(category_id=int(row['new_b2c_category_id']))
 
                     parent_product.update(updated_by=user)
                     ParentProductCls.create_parent_product_log(parent_product.last(), "updated")
