@@ -620,7 +620,7 @@ class LandingPageSerializer(serializers.ModelSerializer):
     def get_page_link(self, obj):
         request = self.context.get('request')
         if request:
-            return request.build_absolute_uri('/cms/api/v1/?id='+str(obj.id))
+            return request.build_absolute_uri('/cms/api/v1/landing-pages/?id='+str(obj.id))
 
     class Meta:
         model = LandingPage
