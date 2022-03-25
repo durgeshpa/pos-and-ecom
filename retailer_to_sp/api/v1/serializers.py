@@ -575,7 +575,7 @@ class OrderedProductSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = OrderedProduct
-        fields = ('order', 'invoice_no', 'invoice_link')
+        fields = ('order', 'invoice_no', 'invoice_link', 'shipment_status')
 
 
 # order serilizer
