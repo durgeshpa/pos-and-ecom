@@ -1059,7 +1059,7 @@ def check_mandatory_columns(uploaded_data_list, header_list, upload_master_data,
             if 'status' not in row.keys():
                 raise ValidationError(f"Row {row_num} | 'status' is a mandatory field")
 
-    validate_row(uploaded_data_list, header_list, category, b2c_category)
+    validate_row(uploaded_data_list, header_list, category, b2c_category_obj)
 
 
 def validate_row(uploaded_data_list, header_list, category, b2c_category):
