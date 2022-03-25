@@ -1467,9 +1467,11 @@ def check_product_hsn_mandatory_columns(uploaded_data_list, header_list):
         if not re.match("^\d+$", str(row['product_hsn_code'])):
             raise ValidationError(f"Row {row_num} | {row['product_hsn_code']} "
                                   f"'Product HSN Code' can only be a numeric value.")
-        if len(str(row['product_hsn_code']).strip()) < 6:
+        if len(str(row['product_hsn_code']).strip()) < 6 or len(str(row['product_hsn_code']).strip()) > 8:
             raise ValidationError(f"Row {row_num} | {row['product_hsn_code']} | "
-                                  f"'Product HSN Code' must be of minimum 6 digits.")
+                                  f"'Product HSN Code' must be between 6 to 8 digits.")
+        gst_rates = []
+        cess_rates = []
 
         if 'gst_rate_1' not in row.keys() or str(row['gst_rate_1']).strip() == '':
             raise ValidationError(f"Row {row_num} | 'gst_rate_1' can't be empty")
@@ -1477,36 +1479,52 @@ def check_product_hsn_mandatory_columns(uploaded_data_list, header_list):
             raise ValidationError(f"Row {row_num} | {row['gst_rate_1']} 'GST Rate 1' can only be a numeric value.")
         if not any(int(str(row['gst_rate_1']).strip()) in i for i in ProductHsnGst.GST_CHOICE):
             raise ValidationError(f"Row {row_num} | {row['gst_rate_1']} | GST does not exist.")
+        gst_rates.append(row['gst_rate_1'])
 
         if 'gst_rate_2' in row.keys() and str(row['gst_rate_2']).strip() != '':
             if not re.match("^\d+$", str(row['gst_rate_2'])):
                 raise ValidationError(f"Row {row_num} | {row['gst_rate_2']} 'GST Rate 2' can only be a numeric value.")
             if not any(int(str(row['gst_rate_2']).strip()) in i for i in ProductHsnGst.GST_CHOICE):
                 raise ValidationError(f"Row {row_num} | {row['gst_rate_2']} | GST does not exist.")
+            if row['gst_rate_2'] in gst_rates:
+                raise ValidationError(f"Row {row_num} | {row['gst_rate_2']} | Duplicate GST not allowed.")
+            gst_rates.append(row['gst_rate_2'])
 
         if 'gst_rate_3' in row.keys() and str(row['gst_rate_3']).strip() != '':
             if not re.match("^\d+$", str(row['gst_rate_3'])):
                 raise ValidationError(f"Row {row_num} | {row['gst_rate_3']} 'GST Rate 3' can only be a numeric value.")
             if not any(int(str(row['gst_rate_3']).strip()) in i for i in ProductHsnGst.GST_CHOICE):
                 raise ValidationError(f"Row {row_num} | {row['gst_rate_3']} | GST does not exist.")
+            if row['gst_rate_3'] in gst_rates:
+                raise ValidationError(f"Row {row_num} | {row['gst_rate_3']} | Duplicate GST not allowed.")
+            gst_rates.append(row['gst_rate_3'])
 
         if 'cess_rate_1' in row.keys() and str(row['cess_rate_1']).strip() != '':
             if not re.match("^\d+[.]?[\d]{0,2}$", str(row['cess_rate_1'])):
                 raise ValidationError(f"Row {row_num} | {row['cess_rate_1']} 'Cess Rate 1' can only be a numeric value.")
             if float(str(row['cess_rate_1']).strip()) < 0 or float(str(row['cess_rate_1']).strip()) > 100:
                 raise ValidationError(f"Row {row_num} | {row['cess_rate_1']} | CESS does not exist.")
+            if row['cess_rate_1'] in cess_rates:
+                raise ValidationError(f"Row {row_num} | {row['cess_rate_1']} | Duplicate GST not allowed.")
+            cess_rates.append(row['cess_rate_1'])
 
         if 'cess_rate_2' in row.keys() and str(row['cess_rate_2']).strip() != '':
             if not re.match("^\d+[.]?[\d]{0,2}$", str(row['cess_rate_2'])):
                 raise ValidationError(f"Row {row_num} | {row['cess_rate_2']} 'Cess Rate 2' can only be a numeric value.")
             if float(str(row['cess_rate_2']).strip()) < 0 or float(str(row['cess_rate_2']).strip()) > 100:
                 raise ValidationError(f"Row {row_num} | {row['cess_rate_2']} | CESS does not exist.")
+            if row['cess_rate_2'] in cess_rates:
+                raise ValidationError(f"Row {row_num} | {row['cess_rate_2']} | Duplicate GST not allowed.")
+            cess_rates.append(row['cess_rate_2'])
 
         if 'cess_rate_3' in row.keys() and str(row['cess_rate_3']).strip() != '':
             if not re.match("^\d+[.]?[\d]{0,2}$", str(row['cess_rate_3'])):
                 raise ValidationError(f"Row {row_num} | {row['cess_rate_3']} 'Cess Rate 3' can only be a numeric value.")
             if float(str(row['cess_rate_3']).strip()) < 0 or float(str(row['cess_rate_3']).strip()) > 100:
                 raise ValidationError(f"Row {row_num} | {row['cess_rate_3']} | CESS does not exist.")
+            if row['cess_rate_3'] in cess_rates:
+                raise ValidationError(f"Row {row_num} | {row['cess_rate_3']} | Duplicate GST not allowed.")
+            cess_rates.append(row['cess_rate_3'])
 
 
 def read_product_hsn_file(csv_file):
