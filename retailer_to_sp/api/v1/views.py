@@ -6911,12 +6911,14 @@ class RetailerList(generics.ListAPIView):
         return ShopUserMapping.objects.filter(employee=self.request.user, status=True)
 
     def get_child_employee(self):
-        return ShopUserMapping.objects.filter(manager__in=self.get_manager(),
+        return ShopUserMapping.objects.filter(Q(manager__in=self.get_manager()) | Q(employee=self.request.user,
+                                                      employee_group__permissions__codename='can_sales_person_add_shop'),
                                               shop__shop_type__shop_type__in=['r', 'f', 'sp'], status=True)
 
     def get_shops(self):
-        return ShopUserMapping.objects.filter(employee__in=self.get_child_employee().values('employee'),
-                                              manager__in=self.get_manager(),
+        return ShopUserMapping.objects.filter(Q(manager__in=self.get_manager()) | Q(employee=self.request.user,
+                                                 employee_group__permissions__codename='can_sales_person_add_shop'),
+                                                 employee__in=self.get_child_employee().values('employee'),
                                               shop__shop_type__shop_type__in=['r', 'f', ], status=True)
     def get_queryset(self):
         shop_emp = self.get_child_employee()
