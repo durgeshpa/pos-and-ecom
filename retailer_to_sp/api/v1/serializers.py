@@ -575,7 +575,7 @@ class OrderedProductSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = OrderedProduct
-        fields = ('order', 'invoice_no', 'invoice_link')
+        fields = ('order', 'invoice_no', 'invoice_link', 'shipment_status')
 
 
 # order serilizer
@@ -745,7 +745,7 @@ class OrderDetailSerializer(serializers.ModelSerializer):
     class Meta:
         model = Order
         fields = ('id', 'ordered_cart', 'order_no', 'shipping_address', 'total_mrp', 'total_discount_amount',
-                  'total_tax_amount', 'total_final_amount', 'order_status', 'received_by',
+                  'total_tax_amount', 'total_final_amount', 'order_status', 'received_by', 'shipment_status',
                   'created_at', 'modified_at', 'rt_order_order_product')
 
 
