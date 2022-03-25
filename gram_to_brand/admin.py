@@ -214,7 +214,7 @@ class GRNOrderForm(forms.ModelForm):
     class Meta:
         model = GRNOrder
         fields = ('order', 'invoice_no', 'deduction', 'total_freight_charges', 'discount_charges', 'insurance_charges',
-                  'other_charges',)
+                  'other_charges', 'total_grn_amount',)
 
     def clean_discount_charges(self):
         if self.cleaned_data['discount_charges'] < 0:
@@ -249,6 +249,7 @@ class GRNOrderForm(forms.ModelForm):
             if instance.total_freight_charges < 0 and 'deduction' in self.fields:
                 self.initial['total_freight_charges'] = instance.total_freight_charges * -1
                 self.initial['deduction'] = True
+        self.fields['total_grn_amount'].disabled = True
 
 
 class DocumentAdmin(admin.StackedInline):
@@ -336,7 +337,7 @@ class GRNOrderAdmin(admin.ModelAdmin):
                    ('grn_order_grn_order_product__expiry_date', DateRangeFilter)]
     form = GRNOrderForm
     fields = ('order', 'invoice_no', 'invoice_date', 'invoice_amount', 'tcs_amount', 'total_freight_charges',
-              'deduction', 'discount_charges', 'insurance_charges', 'other_charges')
+              'deduction', 'discount_charges', 'insurance_charges', 'other_charges', 'total_grn_amount')
 
     class Media:
         js = ('admin/js/picker.js',)
@@ -471,6 +472,20 @@ class GRNOrderAdmin(admin.ModelAdmin):
         return merged_barcode_gen(bin_id_list)
 
     download_barcode.short_description = "Download Barcode List"
+
+    def response_add(self, request, new_object):
+        obj = self.after_saving_model_and_related_inlines(new_object)
+        return super(GRNOrderAdmin, self).response_add(request, obj)
+
+    def response_change(self, request, obj):
+        obj = self.after_saving_model_and_related_inlines(obj)
+        return super(GRNOrderAdmin, self).response_change(request, obj)
+
+    def after_saving_model_and_related_inlines(self, obj):
+        total_grn_amount = obj.grn_order_grn_order_product.all().aggregate(total=Sum('product_amount')).get('total')
+        obj.total_grn_amount = total_grn_amount if total_grn_amount else 0
+        obj.save()
+        return obj
 
 
 class OrderAdmin(admin.ModelAdmin):
