@@ -1059,6 +1059,54 @@ def check_mandatory_columns(uploaded_data_list, header_list, upload_master_data,
             if 'status' not in row.keys():
                 raise ValidationError(f"Row {row_num} | 'status' is a mandatory field")
 
+    if upload_master_data == "create_b2c_category":
+        row_num = 1
+        mandatory_columns = ['name', 'category_slug', 'category_sku_part', ]
+        for ele in mandatory_columns:
+            if ele not in header_list:
+                raise ValidationError(f"{mandatory_columns} are mandatory columns to Create Category")
+        category_slug_list = []
+        category_sku_part_list = []
+        category_name_list = []
+        for row in uploaded_data_list:
+            row_num += 1
+            if 'name' not in row.keys() or row['name'] == '':
+                raise ValidationError(f"Row {row_num} | 'name' can't be empty")
+
+            cat_obj = validate_category_name(row['name'].strip(), None, True)
+            if cat_obj is not None and 'error' in cat_obj:
+                raise ValidationError(f"Row {row_num} | {row['name']} | {cat_obj['error']}")
+            elif row['name'].strip().lower() in category_name_list:
+                raise ValidationError(f"Row {row_num} | {row['name']} | "
+                                      f"'name' getting repeated in csv file")
+            category_name_list.append(row['name'].strip().lower())
+
+            if 'category_slug' not in row.keys() or row['category_slug'] == '':
+                raise ValidationError(f"Row {row_num} | 'category_slug' can't be empty")
+
+            cat_obj = validate_category_slug(row['category_slug'].strip(), None, True)
+            if cat_obj is not None and 'error' in cat_obj:
+                raise ValidationError(f"Row {row_num} | {row['category_slug']} | {cat_obj['error']} ")
+
+            elif row['category_slug'].strip().lower() in category_slug_list:
+                raise ValidationError(f"Row {row_num} | {row['category_slug']} | "
+                                      f"'category_slug' getting repeated in csv file")
+            category_slug_list.append(row['category_slug'].strip().lower())
+
+            if 'category_sku_part' not in row.keys() or row['category_sku_part'] == '':
+                raise ValidationError(f"Row {row_num} | 'category_sku_part' can't be empty")
+
+            cat_obj = validate_category_sku_part(row['category_sku_part'].strip(), None, True)
+            if cat_obj is not None and 'error' in cat_obj:
+                raise ValidationError(f"Row {row_num} | {row['category_sku_part']} | {cat_obj['error']}")
+            elif row['category_sku_part'].strip().lower() in category_sku_part_list:
+                raise ValidationError(f"Row {row_num} | {row['category_sku_part']} | "
+                                      f"'category_sku_part' getting repeated in csv file")
+            category_sku_part_list.append(row['category_sku_part'].strip().lower())
+
+            if 'status' not in row.keys():
+                raise ValidationError(f"Row {row_num} | 'status' is a mandatory field")
+
     validate_row(uploaded_data_list, header_list, category, b2c_category_obj)
 
 
