@@ -738,7 +738,7 @@ def check_mandatory_columns(uploaded_data_list, header_list, upload_master_data,
                                       f"'b2c_category_id' getting repeated in csv file")
             category_id_list.append(row['b2c_category_id'].strip().lower())
 
-            cat_obj = validate_category_name(row['name'].strip(), int(row['b2c_category_id']))
+            cat_obj = validate_category_name(row['name'].strip(), int(row['b2c_category_id']), True)
             if cat_obj is not None and 'error' in cat_obj:
                 raise ValidationError(f"Row {row_num} | {row['name']} | {cat_obj['error']}")
             elif row['name'].strip().lower() in category_name_list:
