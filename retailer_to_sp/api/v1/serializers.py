@@ -1354,7 +1354,7 @@ class TripSerializer(serializers.ModelSerializer):
         return obj.total_trip_amount_value  # total_trip_amount()
 
     def get_cash_to_be_collected(self, obj):
-        return obj.cash_collected_by_delivery_boy()
+        return obj.cash_to_be_collected()
 
     def get_trip_return_amount(self, obj):
         try:
