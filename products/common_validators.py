@@ -1505,7 +1505,7 @@ def check_product_hsn_mandatory_columns(uploaded_data_list, header_list):
             if float(str(row['cess_rate_1']).strip()) < 0 or float(str(row['cess_rate_1']).strip()) > 100:
                 raise ValidationError(f"Row {row_num} | {row['cess_rate_1']} | CESS does not exist.")
             if row['cess_rate_1'] in cess_rates:
-                raise ValidationError(f"Row {row_num} | {row['cess_rate_1']} | Duplicate GST not allowed.")
+                raise ValidationError(f"Row {row_num} | {row['cess_rate_1']} | Duplicate CESS not allowed.")
             cess_rates.append(row['cess_rate_1'])
 
         if 'cess_rate_2' in row.keys() and str(row['cess_rate_2']).strip() != '':
@@ -1514,7 +1514,7 @@ def check_product_hsn_mandatory_columns(uploaded_data_list, header_list):
             if float(str(row['cess_rate_2']).strip()) < 0 or float(str(row['cess_rate_2']).strip()) > 100:
                 raise ValidationError(f"Row {row_num} | {row['cess_rate_2']} | CESS does not exist.")
             if row['cess_rate_2'] in cess_rates:
-                raise ValidationError(f"Row {row_num} | {row['cess_rate_2']} | Duplicate GST not allowed.")
+                raise ValidationError(f"Row {row_num} | {row['cess_rate_2']} | Duplicate CESS not allowed.")
             cess_rates.append(row['cess_rate_2'])
 
         if 'cess_rate_3' in row.keys() and str(row['cess_rate_3']).strip() != '':
@@ -1523,7 +1523,7 @@ def check_product_hsn_mandatory_columns(uploaded_data_list, header_list):
             if float(str(row['cess_rate_3']).strip()) < 0 or float(str(row['cess_rate_3']).strip()) > 100:
                 raise ValidationError(f"Row {row_num} | {row['cess_rate_3']} | CESS does not exist.")
             if row['cess_rate_3'] in cess_rates:
-                raise ValidationError(f"Row {row_num} | {row['cess_rate_3']} | Duplicate GST not allowed.")
+                raise ValidationError(f"Row {row_num} | {row['cess_rate_3']} | Duplicate CESS not allowed.")
             cess_rates.append(row['cess_rate_3'])
 
 
