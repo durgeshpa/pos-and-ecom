@@ -10,8 +10,8 @@ from products.models import Product, Tax, ParentProductTaxMapping, ParentProduct
     ProductSourceMapping, DestinationRepackagingCostMapping, ProductPackingMapping, CentralLog, \
     ParentProductB2cCategory, ProductHsnGst, ProductHsnCess, ParentProductTaxApprovalLog
 from categories.models import Category, B2cCategory
-from products.utils import send_mail_on_product_tax_declined
 from wms.models import Out, WarehouseInventory, BinInventory
+from products.utils import send_mail_on_product_tax_declined
 
 from products.common_validators import get_validate_parent_brand, get_validate_product_hsn, get_validate_product, \
     get_validate_seller_shop, get_validate_vendor, get_validate_parent_product, get_csv_file_data
