@@ -421,10 +421,15 @@ class SearchProducts(APIView):
         if category_ids:
             category = category_ids.split(',')
             if app_type == '3':
-                category_filter = str(categorymodel.B2cCategory.objects.filter(id__in=category, status=True).last())
+                category = categorymodel.B2cCategory.objects.filter(id__in=category, status=True).last()
+                category_filter = str(category)
+                if category and category.b2c_cat_parent.exists():
+                    filter_list.append({"match": {"category": {"query": category_filter, "operator": "and"}}})
+                else:
+                    filter_list.append({"match_phrase": {"category": {"query": category_filter}}})
             else:
                 category_filter = str(categorymodel.Category.objects.filter(id__in=category, status=True).last())
-            filter_list.append({"match": {"category": {"query": category_filter, "operator": "and"}}})
+                filter_list.append({"match": {"category": {"query": category_filter, "operator": "and"}}})
 
         if sub_category_ids:
             #sub_category = sub_category_ids.split(',')
