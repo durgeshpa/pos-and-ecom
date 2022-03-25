@@ -232,6 +232,7 @@ class ParentProductSerializers(serializers.ModelSerializer):
     parent_product_pro_tax = ParentProductTaxMappingSerializers(many=True)
     product_parent_product = ChildProductVendorSerializers(many=True, required=False)
     parent_id = serializers.CharField(read_only=True)
+    product_type = serializers.CharField(read_only=True)
     max_inventory = serializers.IntegerField(allow_null=True, max_value=999)
     product_images = serializers.ListField(required=False, default=None, child=serializers.ImageField(),
                                            write_only=True)
@@ -325,7 +326,7 @@ class ParentProductSerializers(serializers.ModelSerializer):
 
     class Meta:
         model = ParentProduct
-        fields = ('id', 'parent_id', 'name', 'inner_case_size', 'brand_case_size', 'status',
+        fields = ('id', 'parent_id', 'name', 'inner_case_size', 'brand_case_size', 'status', 'product_type',
                   'product_hsn', 'parent_brand', 'parent_product_pro_tax', 'parent_product_pro_category',
                   'parent_product_pro_b2c_category', 'is_ptr_applicable', 'ptr_percent', 'ptr_type',
                   'is_ars_applicable', 'max_inventory', 'is_lead_time_applicable', 'discounted_life_percent',
