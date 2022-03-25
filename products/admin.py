@@ -615,7 +615,7 @@ class ParentProductAdmin(admin.ModelAdmin):
     actions = [deactivate_selected_products, approve_selected_products, 'export_as_csv']
     list_display = [
         'parent_id', 'name', 'parent_product_discriptions', 'parent_brand', 'product_category', 'product_hsn',
-        'product_gst', 'product_cess', 'product_surcharge', 'product_image', 'status',
+        'product_gst', 'product_cess', 'product_surcharge', 'tax_status', 'tax_remark', 'product_image', 'status',
         'product_type', 'is_ptr_applicable', 'ptrtype', 'ptrpercent', 'discounted_life_percent'
     ]
     search_fields = [

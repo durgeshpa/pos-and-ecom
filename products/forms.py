@@ -432,7 +432,7 @@ class ParentProductForm(forms.ModelForm):
 
     class Meta:
         model = ParentProduct
-        fields = ('parent_brand', 'name', 'product_hsn',
+        fields = ('parent_brand', 'name', 'product_hsn', 'tax_status', 'tax_remark',
                   'brand_case_size', 'inner_case_size',
                   'product_type', 'is_ptr_applicable', 'ptr_percent', 'ptr_type', 'is_ars_applicable', 'max_inventory',
                   'is_lead_time_applicable', 'discounted_life_percent','product_discription')

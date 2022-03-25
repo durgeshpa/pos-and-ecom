@@ -276,6 +276,13 @@ class CartProductMappingForm(forms.ModelForm):
     brand_to_gram_price_units = forms.CharField(disabled=True, required=False)
     sub_total = forms.CharField(disabled=True, required=False)
 
+    def clean(self):
+        cleaned_data = self.cleaned_data
+        if cleaned_data['cart_parent_product'] and \
+                cleaned_data['cart_parent_product'].tax_status != ParentProduct.APPROVED:
+            raise ValidationError(f"Product {cleaned_data['cart_parent_product']} must be approved to create PO.")
+        return cleaned_data
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         if 'instance' in kwargs and kwargs['instance'].pk:
