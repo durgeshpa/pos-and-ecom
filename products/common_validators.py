@@ -592,8 +592,9 @@ def check_mandatory_columns(uploaded_data_list, header_list, upload_master_data,
                         raise ValidationError(f"Row {row_num} | for parent_id {row['parent_id']} "
                                               f"given b2c_category_id is invalid")
                 elif b2c_category_obj.id == sub_cat.id:
-                    if not ParentProductB2cCategory.objects.filter(parent_product__parent_id=str(row['parent_id']),
-                                                                   category=sub_cat.id):
+                    if not ParentProductB2cCategory.objects.filter(
+                            (Q(category=sub_cat.id) | Q(category__category_parent=sub_cat.id)),
+                            parent_product__parent_id=str(row['parent_id'])):
                         raise ValidationError(f"Row {row_num} | for parent_id {row['parent_id']} "
                                               f"given b2c_sub_category_id is invalid")
                 else:
@@ -614,14 +615,16 @@ def check_mandatory_columns(uploaded_data_list, header_list, upload_master_data,
                     category_parent = b2c_category.category_parent
 
                     if b2c_category_obj.id == category_parent.id:
-                        if not ParentProductB2cCategory.objects.filter(parent_product__parent_id=str(row['parent_id']),
-                                                                       category=category_parent.id):
+                        if not ParentProductB2cCategory.objects.filter(
+                                (Q(category=category_parent.id) | Q(category__category_parent=category_parent.id)),
+                                parent_product__parent_id=str(row['parent_id'])):
                             raise ValidationError(f"Row {row_num} | for parent_id {row['parent_id']} "
                                                   f"given b2c_category_id is invalid")
 
                     if b2c_category_obj.id == b2c_category.id:
-                        if not ParentProductB2cCategory.objects.filter(parent_product__parent_id=str(row['parent_id']),
-                                                                       category=b2c_category.id):
+                        if not ParentProductB2cCategory.objects.filter(
+                                (Q(category=b2c_category.id) | Q(category__category_parent=b2c_category.id)),
+                                parent_product__parent_id=str(row['parent_id'])):
                             raise ValidationError(f"Row {row_num} | for parent_id  {row['parent_id']} "
                                                   f"given b2c_category_id is invalid")
                 else:
