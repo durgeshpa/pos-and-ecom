@@ -21,6 +21,7 @@ from products.models import Product, ParentProductTaxMapping, ParentProduct, Par
 from categories.models import Category, B2cCategory
 from addresses.models import Pincode, City
 from brand.models import Brand, Vendor
+from products.utils import send_mail_on_product_tax_declined
 from shops.models import Shop
 from accounts.models import User
 
@@ -1815,5 +1816,7 @@ class ParentProductApprovalSerializers(serializers.ModelSerializer):
         ParentProductCls.update_tax_status_and_remark_in_log(
             parent_product, validated_data['tax_status'], validated_data['tax_remark'], validated_data['updated_by'])
         ParentProductCls.create_parent_product_log(parent_product, "updated")
+        if parent_product.tax_status == ParentProduct.DECLINED:
+            send_mail_on_product_tax_declined(parent_product)
 
         return parent_product

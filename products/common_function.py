@@ -10,6 +10,7 @@ from products.models import Product, Tax, ParentProductTaxMapping, ParentProduct
     ProductSourceMapping, DestinationRepackagingCostMapping, ProductPackingMapping, CentralLog, \
     ParentProductB2cCategory, ProductHsnGst, ProductHsnCess, ParentProductTaxApprovalLog
 from categories.models import Category, B2cCategory
+from products.utils import send_mail_on_product_tax_declined
 from wms.models import Out, WarehouseInventory, BinInventory
 
 from products.common_validators import get_validate_parent_brand, get_validate_product_hsn, get_validate_product, \
@@ -142,6 +143,8 @@ class ParentProductCls(object):
             ParentProductCls.update_tax_status_and_remark_in_log(
                 parent_product, tax_status, tax_remark,
                 parent_product.updated_by if parent_product.updated_by else parent_product.created_by)
+            if parent_product.tax_status == ParentProduct.DECLINED:
+                send_mail_on_product_tax_declined(parent_product)
 
     @classmethod
     def update_tax_status_and_remark_in_log(cls, parent_product, tax_status, tax_remark, user):
