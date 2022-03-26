@@ -3421,7 +3421,9 @@ class LoadVerifyPackageSerializer(serializers.ModelSerializer):
 
             # Check for shipment status
             if package.shipment.shipment_status not in [OrderedProduct.FULLY_RETURNED_AND_VERIFIED,
-                                                        OrderedProduct.PARTIALLY_DELIVERED_AND_VERIFIED]:
+                                                        OrderedProduct.PARTIALLY_DELIVERED_AND_VERIFIED,
+                                                        OrderedProduct.FULLY_RETURNED_AND_CLOSED,
+                                                        OrderedProduct.PARTIALLY_DELIVERED_AND_CLOSED]:
                 raise serializers.ValidationError(f"The invoice is in {package.shipment.shipment_status} state, "
                                                   f"cannot load package")
 
