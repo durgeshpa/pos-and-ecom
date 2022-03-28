@@ -61,6 +61,7 @@ DATA_TYPE_CHOICES = (
         ('child_product_update', 'Update Child Product'),
         ('parent_product_update', 'Update Parent Product'),
         ('category_update', 'Update Category'),
+        ('parent_product_b2c_category_update', 'Update Parent Product B2C Category'),
         ('b2c_category_update', 'Update b2c category'),
         ('brand_update', 'Update Brand'),
     )
@@ -99,23 +100,34 @@ class UploadMasterDataSerializers(serializers.ModelSerializer):
 
         if data['upload_type'] == "product_status_update_inactive" or data['upload_type'] == \
                 "child_parent_product_update" or data['upload_type'] == "parent_product_update" \
-                or data['upload_type'] == "child_product_update":
+                or data['upload_type'] == "child_product_update" or data['upload_type'] == \
+                "parent_product_b2c_category_update":
 
             if not 'category_id' in self.initial_data:
                 raise serializers.ValidationError(_('Please Select One Category!'))
 
             elif 'category_id' in self.initial_data and self.initial_data['category_id']:
-                category_val = get_validate_category(self.initial_data['category_id'])
+                if data['upload_type'] == "parent_product_b2c_category_update":
+                    category_val = get_validate_category(self.initial_data['category_id'], True)
+                else:
+                    category_val = get_validate_category(self.initial_data['category_id'])
                 if 'error' in category_val:
                     raise serializers.ValidationError(_(category_val["error"]))
                 self.initial_data['category_id'] = category_val['category']
         else:
             self.initial_data['category_id'] = None
 
+        category = self.initial_data['category_id'] if self.initial_data['category_id'] else None
+        b2c_category = None
+        if data['upload_type'] == "parent_product_b2c_category_update":
+            b2c_category = category
+            category = None
+
         csv_file_data = csv.reader(codecs.iterdecode(data['file'], 'utf-8', errors='ignore'))
         # Checking, whether csv file is empty or not!
+
         if csv_file_data:
-            read_file(csv_file_data, self.initial_data['upload_type'], self.initial_data['category_id'])
+            read_file(csv_file_data, self.initial_data['upload_type'], category, b2c_category)
         else:
             raise serializers.ValidationError("CSV File cannot be empty.Please add some data to upload it!")
         return data
@@ -161,19 +173,24 @@ class DownloadMasterDataSerializers(serializers.ModelSerializer):
     def validate(self, data):
 
         if data['upload_type'] == "product_status_update_inactive" or data['upload_type'] == "parent_product_update" \
-                or data['upload_type'] == "child_parent_product_update" or data[
-            'upload_type'] == "child_product_update":
+                or data['upload_type'] == "child_parent_product_update" or \
+                data['upload_type'] == "child_product_update" or data['upload_type'] == \
+                "parent_product_b2c_category_update":
 
             if not 'category_id' in self.initial_data:
                 raise serializers.ValidationError(_('Please Select One Category!'))
 
             elif 'category_id' in self.initial_data and self.initial_data['category_id']:
-                category_val = get_validate_category(self.initial_data['category_id'])
+                if data['upload_type'] == "parent_product_b2c_category_update":
+                    category_val = get_validate_category(self.initial_data['category_id'], True)
+                else:
+                    category_val = get_validate_category(self.initial_data['category_id'])
                 if 'error' in category_val:
                     raise serializers.ValidationError(_(category_val["error"]))
                 data['category_id'] = category_val['category']
         else:
-            self.initial_data['category_id'] = None
+            if 'category_id' in self.initial_data and self.initial_data['category_id']:
+                self.initial_data['category_id'] = None
 
         return data
 

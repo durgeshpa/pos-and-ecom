@@ -113,8 +113,8 @@ class RetailerProductAdmin(admin.ModelAdmin):
     change_form_template = 'admin/pos/pos_change_form.html'
     form = RetailerProductsForm
     list_display = ('id', 'shop', 'sku', 'name', 'mrp', 'selling_price', 'product_ean_code', 'image',
-                    'linked_product', 'category', 'sub_category', 'description', 'sku_type', 'status',
-                    'product_pack_type', 'created_at', 'modified_at')
+                    'linked_product', 'b2b_category', 'b2b_sub_category', 'b2c_category', 'b2c_sub_category',
+                    'description', 'sku_type', 'status', 'product_pack_type', 'created_at', 'modified_at')
     fields = ('shop', 'linked_product', 'sku', 'name', 'mrp', 'selling_price', 'product_ean_code',
               'description', 'sku_type', 'status', 'is_deleted', 'purchase_pack_size', 'initial_purchase_value',
               'online_enabled', 'online_price', 'created_at', 'modified_at','product_pack_type','measurement_category')
@@ -122,27 +122,48 @@ class RetailerProductAdmin(admin.ModelAdmin):
                        'purchase_pack_size', 'online_enabled', 'online_price', 'name', 'created_at',
                        'sku_type', 'mrp', 'modified_at', 'description', 'initial_purchase_value')
 
-    def cat_sub_cat(self, obj):
-        if obj.linked_product and obj.linked_product.parent_product.product_type in ['b2c', 'both']:
-            if obj.linked_product.parent_product.parent_product_pro_b2c_category.exists():
-                if obj.linked_product.parent_product.parent_product_pro_b2c_category.last().category.category_parent:
-                    category = obj.linked_product.parent_product.parent_product_pro_b2c_category.last().\
-                        category.category_parent.category_name
-                    sub_category = obj.linked_product.parent_product.parent_product_pro_b2c_category.last().\
-                        category.category_name
-                else:
-                    category = obj.linked_product.parent_product.parent_product_pro_b2c_category.last(). \
-                        category.category_name
-                    sub_category = None
-                return category, sub_category
+    def b2c_cat_sub_cat(self, obj):
+        if obj.linked_product and obj.linked_product.parent_product.parent_product_pro_b2c_category.exists():
+            if obj.linked_product.parent_product.parent_product_pro_b2c_category.last().category.category_parent:
+                category = obj.linked_product.parent_product.parent_product_pro_b2c_category.last().\
+                    category.category_parent.category_name
+                sub_category = obj.linked_product.parent_product.parent_product_pro_b2c_category.last().\
+                    category.category_name
+            else:
+                category = obj.linked_product.parent_product.parent_product_pro_b2c_category.last(). \
+                    category.category_name
+                sub_category = None
+            return category, sub_category
         return None, None
 
-    def category(self, obj):
-        category, sub_category = self.cat_sub_cat(obj)
+    def b2b_cat_sub_cat(self, obj):
+        if obj.linked_product and obj.linked_product.parent_product.parent_product_pro_category.exists():
+            if obj.linked_product.parent_product.parent_product_pro_category.last().category.category_parent:
+                category = obj.linked_product.parent_product.parent_product_pro_category.last().\
+                    category.category_parent.category_name
+                sub_category = obj.linked_product.parent_product.parent_product_pro_category.last().\
+                    category.category_name
+            else:
+                category = obj.linked_product.parent_product.parent_product_pro_category.last(). \
+                    category.category_name
+                sub_category = None
+            return category, sub_category
+        return None, None
+
+    def b2b_category(self, obj):
+        category, sub_category = self.b2b_cat_sub_cat(obj)
         return category
 
-    def sub_category(self, obj):
-        category, sub_category = self.cat_sub_cat(obj)
+    def b2b_sub_category(self, obj):
+        category, sub_category = self.b2b_cat_sub_cat(obj)
+        return sub_category
+
+    def b2c_category(self, obj):
+        category, sub_category = self.b2c_cat_sub_cat(obj)
+        return category
+
+    def b2c_sub_category(self, obj):
+        category, sub_category = self.b2c_cat_sub_cat(obj)
         return sub_category
 
     def get_queryset(self, request):
@@ -1057,19 +1078,20 @@ class PosCartAdmin(admin.ModelAdmin):
         f = StringIO()
         writer = csv.writer(f)
         writer.writerow(['PO No', 'Status', 'Vendor', 'Store Id', 'Store Name', 'Shop User', 'Raised By',
-                         'GF Order No', 'Created At', 'SKU', 'Product Name', 'Parent Product', 'Category',
-                         'Sub Category',
-                         'Brand', 'Sub Brand', 'Quantity', 'Purchase Price', 'Purchase Value', 'linked_product_sku'])
+                         'GF Order No', 'Created At', 'SKU', 'Product Name', 'Parent Product', 'B2B Category',
+                         'B2B Sub Category', 'B2C Category', 'B2C Sub Category', 'Brand', 'Sub Brand', 'Quantity',
+                         'Purchase Price', 'Purchase Value', 'linked_product_sku'])
 
         for obj in queryset:
             for p in obj.po_products.all():
-                parent_id, category, sub_category, brand, sub_brand = get_product_details(p.product)
+                parent_id, b2b_category, b2b_sub_category, b2c_category, b2c_sub_category, brand, sub_brand \
+                    = get_product_details(p.product)
                 purchase_value = p.price * p.qty
                 writer.writerow([obj.po_no, obj.status, obj.vendor, obj.retailer_shop.id, obj.retailer_shop.shop_name,
                                  obj.retailer_shop.shop_owner, obj.raised_by, obj.gf_order_no,
-                                 obj.created_at, p.product.sku, p.product.name, parent_id, category, sub_category,
-                                 brand, sub_brand, p.qty, p.price, purchase_value,
-                                 p.product.linked_product.product_sku if p.product.linked_product else ''])
+                                 obj.created_at, p.product.sku, p.product.name, parent_id, b2b_category,
+                                 b2b_sub_category, b2c_category, b2c_sub_category, brand, sub_brand, p.qty,
+                                 p.price, purchase_value, p.product.linked_product.product_sku if p.product.linked_product else ''])
 
         f.seek(0)
         response = HttpResponse(f, content_type='text/csv')

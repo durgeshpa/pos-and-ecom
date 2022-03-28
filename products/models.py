@@ -147,7 +147,7 @@ class ParentProduct(BaseTimestampUserStatusModel):
         ('both', 'Both B2B and B2C'),
     )
     brand_case_size = models.PositiveIntegerField(blank=False)
-    product_type = models.CharField(max_length=5, choices=PRODUCT_TYPE_CHOICES)
+    product_type = models.CharField(max_length=5, choices=PRODUCT_TYPE_CHOICES, default='both')
     is_ptr_applicable = models.BooleanField(verbose_name='Is PTR Applicable', default=False)
     ptr_percent = models.DecimalField(max_digits=4, decimal_places=2, blank=True, null=True,
                                       validators=[PercentageValidator])
@@ -166,6 +166,7 @@ class ParentProduct(BaseTimestampUserStatusModel):
         on_delete=models.DO_NOTHING
     )
     product_discription = HTMLField(blank=True)
+
     @property
     def ptr_type_text(self):
         if self.ptr_type is not None and self.ptr_type in self.PTR_TYPE_CHOICES:
@@ -219,6 +220,9 @@ class ParentProductB2cCategory(BaseTimeModel):
     class Meta:
         verbose_name = _("Parent Product B2c Category")
         verbose_name_plural = _("Parent Product B2c Categories")
+
+    def __str__(self):
+        return f"{self.parent_product} --> {self.category}"
 
 
 class ParentProductImage(BaseTimeModel):
@@ -980,11 +984,11 @@ def create_product_sku(sender, instance=None, created=False, **kwargs):
                 parent_product_category = ParentProductCategory.objects.filter(
                     parent_product=instance.parent_product).first().category
             else:
-                if ParentProductB2cCategory.objects.filter(parent_product=instance.parent_product).exists():
-                    parent_product_category = ParentProductB2cCategory.objects.filter(
-                        parent_product=instance.parent_product).first().category
-                elif ParentProductCategory.objects.filter(parent_product=instance.parent_product).exists():
+                if ParentProductCategory.objects.filter(parent_product=instance.parent_product).exists():
                     parent_product_category = ParentProductCategory.objects.filter(
+                        parent_product=instance.parent_product).first().category
+                elif ParentProductB2cCategory.objects.filter(parent_product=instance.parent_product).exists():
+                    parent_product_category = ParentProductB2cCategory.objects.filter(
                         parent_product=instance.parent_product).first().category
             cat_sku_code = parent_product_category.category_sku_part
             parent_cat_sku_code = parent_product_category.category_parent.category_sku_part if parent_product_category.category_parent else cat_sku_code
