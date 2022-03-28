@@ -1533,7 +1533,7 @@ class OrderedProductBatchSerializer(serializers.ModelSerializer):
 
     @staticmethod
     def get_is_crate_used_in_picking(obj):
-        return obj.rt_pickup_batch_mapping.last().pickup.pickup_crates.exists()
+        return obj.pickup.pickup_crates.exists() if obj.pickup else False
 
 
 class CrateSerializer(serializers.ModelSerializer):
