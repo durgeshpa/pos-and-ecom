@@ -3,7 +3,8 @@ from django.contrib import admin
 from import_export.admin import ImportExportModelAdmin
 
 from .models import (
-    Country, State, City, Address, Area, InvoiceCityMapping, Pincode
+    Country, State, City, Address, Area, InvoiceCityMapping, Pincode, DispatchCenterCityMapping,
+    DispatchCenterPincodeMapping
 )
 from .forms import AddressForm, StateForm
 from .resources import PincodeResource
@@ -41,11 +42,41 @@ class InvoiceCityMappingAdmin(admin.ModelAdmin):
     list_display = ('city', 'city_code')
 
 
+class DispatchCenterCityMappingAdmin(admin.ModelAdmin):
+    fields = ('city', 'dispatch_center')
+    list_display = ('city', 'dispatch_center')
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
+class DispatchCenterPincodeMappingAdmin(admin.ModelAdmin):
+    fields = ('pincode', 'dispatch_center')
+    list_display = ('pincode', 'dispatch_center')
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
 admin.site.register(Country)
 admin.site.register(Area)
 admin.site.register(City, CityAdmin)
 admin.site.register(State, StateAdmin)
 admin.site.register(Address, AddressAdmin)
 admin.site.register(InvoiceCityMapping, InvoiceCityMappingAdmin)
+admin.site.register(DispatchCenterCityMapping, DispatchCenterCityMappingAdmin)
+admin.site.register(DispatchCenterPincodeMapping, DispatchCenterPincodeMappingAdmin)
 admin.site.register(Pincode, PincodeAdmin)
 

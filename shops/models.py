@@ -1,6 +1,8 @@
 import logging
 from datetime import date
 import traceback
+from typing import Tuple
+
 from django.db import models
 from django.contrib.auth import get_user_model
 # from django.conf import settings
@@ -18,6 +20,7 @@ from django.contrib.auth.models import Group
 from django.contrib.postgres.fields import JSONField
 from categories.models import BaseTimeModel, BaseTimestampUserStatusModel
 from .fields import CaseInsensitiveCharField
+from django.core.validators import MinValueValidator
 # from analytics.post_save_signal import get_retailer_report
 
 Product = 'products.product'
@@ -28,7 +31,8 @@ SHOP_TYPE_CHOICES = (
     ("r", "Retailer"),
     ("sr", "Super Retailer"),
     ("gf", "Gram Factory"),
-    ("f", "Franchise")
+    ("f", "Franchise"),
+    ("dc", "Dispatch Center")
 )
 
 RETAILER_TYPE_CHOICES = (
@@ -131,6 +135,7 @@ class Shop(models.Model):
     latitude = models.DecimalField(max_digits=30, decimal_places=15, null=True, verbose_name='Latitude For Ecommerce')
     longitude = models.DecimalField(max_digits=30, decimal_places=15, null=True, verbose_name='Longitude For Ecommerce')
     online_inventory_enabled = models.BooleanField(default=True, verbose_name='Online Inventory Enabled')
+    cutoff_time = models.TimeField(null=True, blank=True)
     dynamic_beat = models.BooleanField(default=False)
 
     # last_order_at = models.DateTimeField(auto_now_add=True)
@@ -812,4 +817,37 @@ class FOFOConfigurations(models.Model):
     class Meta:
         permissions = (
             ("has_fofo_config_operations", "Has update FOFO config operations"),
+        )
+
+class FOFOConfig(models.Model):
+    # SUN = 'SUN'
+    # MON = 'MON'
+    # TUE = 'TUE'
+    # WED = 'WED'
+    # THU = 'THU'
+    # FRI = 'FRI'
+    # SAT = 'SAT'
+
+    # working_day_choices = (
+    #     (SUN, 'SUN'),
+    #     (MON, 'MON'),
+    #     (TUE, 'TUE'),
+    #     (WED, 'WED'),
+    #     (THU, 'THU'),
+    #     (FRI, 'FRI'),
+    #     (SAT, 'FRI'),
+    # )
+    shop = models.OneToOneField(Shop, related_name='fofo_shop_config', null=True, blank=True, unique=True, on_delete=models.CASCADE,)
+    shop_opening_timing = models.TimeField(null=True, blank=True)
+    shop_closing_timing = models.TimeField(null=True, blank=True)
+
+    working_off_start_date = models.DateField(null=True, blank=True)
+    working_off_end_date = models.DateField(null=True, blank=True)
+    
+    delivery_redius = models.DecimalField(max_digits=8, decimal_places=1, blank=True, null=True, help_text="Insert value in meters")
+    min_order_value = models.DecimalField(max_digits=10, decimal_places=2, default=199,validators=[MinValueValidator(199)], blank=True, null=True)
+    delivery_time = models.IntegerField(blank=True, null=True, help_text="Insert value in minutes")
+    class Meta:
+        permissions = (
+            ("has_fofo_config_operations_shop", "Has update FOFO  shop config operations"),
         )

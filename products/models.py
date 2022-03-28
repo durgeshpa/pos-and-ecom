@@ -17,7 +17,7 @@ from addresses.models import Address, Area, City, Country, Pincode, State
 from brand.models import Brand, Vendor
 from categories.models import BaseTimeModel, BaseTimestampUserStatusModel, Category, B2cCategory
 from coupon.models import Coupon, Discount
-from global_config.views import get_config
+from global_config.views import get_config,get_config_fofo_shops
 from retailer_backend.validators import *
 from shops.models import Shop, ShopUserMapping, ShopType
 from tinymce.models import HTMLField
@@ -976,9 +976,16 @@ def create_product_sku(sender, instance=None, created=False, **kwargs):
             if instance.parent_product.product_type=='b2c':
                 parent_product_category = ParentProductB2cCategory.objects.filter(
                     parent_product=instance.parent_product).first().category
-            else:
+            elif instance.parent_product.product_type=='b2b':
                 parent_product_category = ParentProductCategory.objects.filter(
                     parent_product=instance.parent_product).first().category
+            else:
+                if ParentProductB2cCategory.objects.filter(parent_product=instance.parent_product).exists():
+                    parent_product_category = ParentProductB2cCategory.objects.filter(
+                        parent_product=instance.parent_product).first().category
+                elif ParentProductCategory.objects.filter(parent_product=instance.parent_product).exists():
+                    parent_product_category = ParentProductCategory.objects.filter(
+                        parent_product=instance.parent_product).first().category
             cat_sku_code = parent_product_category.category_sku_part
             parent_cat_sku_code = parent_product_category.category_parent.category_sku_part if parent_product_category.category_parent else cat_sku_code
             brand_sku_code = instance.product_brand.brand_code

@@ -15,7 +15,8 @@ from retailer_backend.validators import PinCodeValidator
 from shops.models import (BeatPlanning, RetailerType, ShopType, Shop, ShopPhoto,
                           ShopDocument, ShopInvoicePattern, ShopUserMapping, SHOP_TYPE_CHOICES, ParentRetailerMapping,
                           DayBeatPlanning, ShopStatusLog)
-from addresses.models import Address, City, Pincode, State, address_type_choices
+from addresses.models import Address, City, Pincode, State, address_type_choices, DispatchCenterPincodeMapping, \
+    DispatchCenterCityMapping
 
 from shops.common_validators import get_validate_approval_status, get_validate_existing_shop_photos, \
     get_validate_favourite_products, get_validate_related_users, get_validate_shop_address, get_validate_shop_documents, \
@@ -23,9 +24,8 @@ from shops.common_validators import get_validate_approval_status, get_validate_e
     get_validated_shop, read_beat_planning_file, validate__existing_shop_with_name_owner, validate_shop_id, \
     validate_shop, validate_employee_group, validate_employee, validate_manager, \
     validate_shop_sub_type, validate_shop_and_sub_shop_type, validate_shop_name, read_file, \
-    get_validate_approval_status_change_reason
+    get_validate_dispatch_center_cities, get_validate_dispatch_center_pincodes, get_validate_approval_status_change_reason
 from shops.common_functions import ShopCls, bulk_update_shop_status
-
 from products.api.v1.serializers import LogSerializers
 from accounts.api.v1.serializers import GroupSerializer
 
@@ -384,6 +384,22 @@ class ShopDocumentDataSerializers(serializers.ModelSerializer):
         fields = ('id', 'shop_document_type', 'shop_document_number', 'shop_document_photo')
 
 
+class DispatchCenterCityMappingDataSerializers(serializers.ModelSerializer):
+    city = CitySerializer(read_only=True)
+
+    class Meta:
+        model = DispatchCenterCityMapping
+        fields = ('id', 'city')
+
+
+class DispatchCenterPincodeMappingDataSerializers(serializers.ModelSerializer):
+    pincode = PincodeSerializer(read_only=True)
+
+    class Meta:
+        model = DispatchCenterPincodeMapping
+        fields = ('id', 'pincode')
+
+
 class ShopPhotoDataSerializers(serializers.ModelSerializer):
     class Meta:
         model = ShopPhoto
@@ -413,13 +429,16 @@ class ShopCrudSerializers(serializers.ModelSerializer):
     shop_name_address_mapping = AddressDataSerializers(read_only=True, many=True)
     shop_name_photos = ShopPhotoDataSerializers(read_only=True, many=True)
     shop_name_documents = ShopDocumentDataSerializers(read_only=True, many=True)
+    dispatch_center_cities = DispatchCenterCityMappingDataSerializers(read_only=True, many=True)
+    dispatch_center_pincodes = DispatchCenterPincodeMappingDataSerializers(read_only=True, many=True)
 
     class Meta:
         model = Shop
         fields = ('id', 'shop_name', 'shop_code', 'shop_code_bulk', 'shop_code_discounted', 'warehouse_code',
                   'shop_owner', 'retiler_mapping', 'shop_name_address_mapping', 'approval_status', 'status',
                   'shop_type', 'related_users', 'shipping_address', 'created_at', 'imei_no', 'shop_name_photos',
-                  'shop_name_documents', 'shop_log', 'pos_enabled', 'disapproval_status_reason')
+                  'shop_name_documents', 'shop_log', 'pos_enabled', 'cutoff_time', 'dispatch_center_cities',
+                  'dispatch_center_pincodes', 'disapproval_status_reason')
 
     def validate(self, data):
 
@@ -477,6 +496,29 @@ class ShopCrudSerializers(serializers.ModelSerializer):
                 except ValueError:
                     raise serializers.ValidationError("'warehouse_code' | can only be positive integer value.")
             data['shop_type'] = shop_type['data']
+            if shop_type['data'].shop_type in ['dc']:
+                if 'cutoff_time' in self.initial_data and self.initial_data['cutoff_time']:
+                    cutoff_time = self.initial_data['cutoff_time']
+                    data['cutoff_time'] = cutoff_time
+                else:
+                    raise serializers.ValidationError(_("'cutoff_time' | This is required for dispatch center"))
+
+                if 'dispatch_center_cities' in self.initial_data and self.initial_data['dispatch_center_cities']:
+                    val_data = get_validate_dispatch_center_cities(self.initial_data['dispatch_center_cities'])
+                    if 'error' in val_data:
+                        raise serializers.ValidationError((val_data["error"]))
+                    data['dispatch_center_cities'] = val_data['data']
+                else:
+                    raise serializers.ValidationError("'dispatch_center_cities' | This is required for dispatch center")
+
+                if 'dispatch_center_pincodes' in self.initial_data and self.initial_data['dispatch_center_pincodes']:
+                    val_data = get_validate_dispatch_center_pincodes(self.initial_data['dispatch_center_pincodes'])
+                    if 'error' in val_data:
+                        raise serializers.ValidationError((val_data["error"]))
+                    data['dispatch_center_pincodes'] = val_data['data']
+                else:
+                    raise serializers.ValidationError(
+                        "'dispatch_center_pincodes' | This is required for dispatch center")
 
         if 'shop_name_photos' in self.initial_data and self.initial_data['shop_name_photos']:
             photos = get_validate_existing_shop_photos(
@@ -522,6 +564,8 @@ class ShopCrudSerializers(serializers.ModelSerializer):
         """create a new Shop with Address, Photos, Docs & Invoice Pattern"""
         validated_data.pop('related_users', None)
         validated_data.pop('shop_name_address_mapping', None)
+        validated_data.pop('dispatch_center_cities', None)
+        validated_data.pop('dispatch_center_pincodes', None)
         validated_data.pop('shop_name_documents', None)
         validated_data.pop('shop_name_photos', None)
         validated_data.pop('shop_invoice_pattern', None)
@@ -542,6 +586,8 @@ class ShopCrudSerializers(serializers.ModelSerializer):
         """ This method is used to update an instance of the Shop's attribute. """
         validated_data.pop('related_users', None)
         validated_data.pop('shop_name_address_mapping', None)
+        validated_data.pop('dispatch_center_cities', None)
+        validated_data.pop('dispatch_center_pincodes', None)
         validated_data.pop('shop_name_documents', None)
         validated_data.pop('shop_name_photos', None)
         validated_data.pop('retiler_mapping', None)
@@ -579,9 +625,17 @@ class ShopCrudSerializers(serializers.ModelSerializer):
         shop_docs = None
         shop_parent_shop = None
         related_usrs = None
+        dispatch_center_cities = None
+        dispatch_center_pincodes = None
 
         if 'shop_name_address_mapping' in self.validated_data and self.validated_data['shop_name_address_mapping']:
             shop_address = self.validated_data['shop_name_address_mapping']
+
+        if 'dispatch_center_cities' in self.validated_data and self.validated_data['dispatch_center_cities']:
+            dispatch_center_cities = self.validated_data['dispatch_center_cities']
+
+        if 'dispatch_center_pincodes' in self.validated_data and self.validated_data['dispatch_center_pincodes']:
+            dispatch_center_pincodes = self.validated_data['dispatch_center_pincodes']
 
         if 'shop_name_documents' in self.validated_data and self.validated_data['shop_name_documents']:
             shop_docs = self.validated_data['shop_name_documents']
@@ -604,6 +658,8 @@ class ShopCrudSerializers(serializers.ModelSerializer):
             shop_parent_shop = validated_parent_shop['data']
 
         ShopCls.create_update_shop_address(shop, shop_address)
+        ShopCls.create_update_dispatch_center_cities(shop, dispatch_center_cities)
+        ShopCls.create_update_dispatch_center_pincodes(shop, dispatch_center_pincodes)
         ShopCls.create_upadte_shop_photos(shop, shop_photo, shop_new_photos)
         ShopCls.create_upadte_shop_docs(shop, shop_docs)
         ShopCls.update_related_users(shop, related_usrs)

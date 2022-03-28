@@ -256,9 +256,7 @@ def validate_putaways_by_token_id_and_zone(token_id, zone_id):
                     When(putaway_type__in=['RETURNED', 'CANCELLED', 'PAR_SHIPMENT', 'REPACKAGING'],
                          then=Cast('putaway_type_id', models.CharField())),
                     output_field=models.CharField(),
-                ),
-                    zone_id=Subquery(WarehouseAssortment.objects.filter(
-                        warehouse=OuterRef('warehouse'), product=OuterRef('sku__parent_product')).values('zone')[:1])
+                )
                 ). \
         filter(zone_id=zone_id, token_id=token_id, status__in=[Putaway.NEW, Putaway.ASSIGNED])
     if not putaways.exists():

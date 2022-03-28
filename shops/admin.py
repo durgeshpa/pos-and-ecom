@@ -16,12 +16,14 @@ from .models import (
     PosShopUserMapping, Shop, ShopType, RetailerType, ParentRetailerMapping,
     ShopPhoto, ShopDocument, ShopInvoicePattern, ShopUserMapping,
     ShopRequestBrand, SalesAppVersion, ShopTiming, FavouriteProduct, BeatPlanning, DayBeatPlanning, ExecutiveFeedback,
-    ShopStatusLog, FOFOConfigCategory, FOFOConfigSubCategory, FOFOConfigurations)
-from addresses.models import Address
+    ShopStatusLog, FOFOConfigCategory, FOFOConfigSubCategory, FOFOConfigurations, FOFOConfig)
+from addresses.models import Address, DispatchCenterCityMapping, DispatchCenterPincodeMapping
 from addresses.forms import AddressForm
 from .forms import (ParentRetailerMappingForm, PosShopUserMappingForm, ShopParentRetailerMappingForm,
                     ShopForm, RequiredInlineFormSet, BeatPlanningAdminForm,
-                    AddressInlineFormSet, ShopUserMappingForm, ShopTimingForm, FOFOShopConfigForm)
+                    AddressInlineFormSet, ShopUserMappingForm, ShopTimingForm, DispatchCenterCityMappingInlineFormSet,
+                    DispatchCenterPincodeMappingInlineFormSet, DispatchCenterCityMappingForm,
+                    DispatchCenterPincodeMappingForm, FOFOShopConfigForm, FOFOConfigInlineForm)
 
 from .views import (StockAdjustmentView, bulk_shop_updation, ShopAutocomplete, UserAutocomplete,
                     ShopUserMappingCsvView, ShopUserMappingCsvSample, ShopTimingAutocomplete,
@@ -180,6 +182,22 @@ class AddressAdmin(admin.TabularInline):
     extra = 2
 
 
+class DispatchCenterCityAdmin(admin.TabularInline):
+    model = DispatchCenterCityMapping
+    formset = DispatchCenterCityMappingInlineFormSet
+    form = DispatchCenterCityMappingForm
+    fields = ('city', )
+    extra = 2
+
+
+class DispatchCenterPincodeAdmin(admin.TabularInline):
+    model = DispatchCenterPincodeMapping
+    formset = DispatchCenterPincodeMappingInlineFormSet
+    form = DispatchCenterPincodeMappingForm
+    fields = ('pincode', )
+    extra = 2
+
+
 class ShopParentRetailerMapping(admin.TabularInline):
     model = ParentRetailerMapping
     form = ShopParentRetailerMappingForm
@@ -236,6 +254,11 @@ class FOFOConfigurationsInline(admin.TabularInline):
     extra = 1
     fields = ('key', 'value')
 
+class FOFOConfigInline(admin.TabularInline):
+    form = FOFOConfigInlineForm
+    model = FOFOConfig
+    can_delete = False
+
 
 class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
     change_list_template = 'admin/shops/shop/change_list.html'
@@ -243,14 +266,14 @@ class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
     resource_class = ShopResource
     form = ShopForm
     fields = ['shop_name', 'shop_owner', 'shop_type', 'status', 'pos_enabled', 'online_inventory_enabled',
-              'approval_status', 'disapproval_status_reason']
-
-    actions = ["export_as_csv", "download_status_report"]
-    inlines = [ShopPhotosAdmin, ShopDocumentsAdmin, AddressAdmin, ShopInvoicePatternAdmin,
-               ShopParentRetailerMapping, ShopStatusAdmin, ]
-
+              'latitude', 'longitude', 'approval_status', 'cutoff_time', 'disapproval_status_reason']
+    actions = ["export_as_csv", "disable_shop", "download_status_report"]
+    inlines = [
+        ShopPhotosAdmin, ShopDocumentsAdmin, AddressAdmin, DispatchCenterCityAdmin, DispatchCenterPincodeAdmin,
+        ShopInvoicePatternAdmin, ShopParentRetailerMapping, ShopStatusAdmin
+    ]
     list_display = (
-        'shop_name', 'get_shop_shipping_address', 'get_shop_pin_code', 'get_shop_parent',
+        'shop_name', 'get_shop_shipping_address', 'get_shop_pin_code', 'get_shop_parent',"working_off_start_date", 'working_off_end_date',
         'shop_owner', 'shop_type', 'created_at', 'status', 'get_shop_city', 'approval_status',
         'shop_mapped_product', 'imei_no', 'warehouse_code'
     )
@@ -266,15 +289,23 @@ class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
 
     def changeform_view(self, request, object_id, form_url='', extra_context=None):
         self.inlines = [ShopPhotosAdmin, ShopDocumentsAdmin, AddressAdmin, ShopInvoicePatternAdmin,
-                        ShopParentRetailerMapping, ShopStatusAdmin, ]
+                        DispatchCenterCityAdmin, DispatchCenterPincodeAdmin, ShopParentRetailerMapping, ShopStatusAdmin]
         if request.user.is_superuser or request.user.has_perm('shops.has_fofo_config_operations'):
             self.inlines.append(FOFOConfigurationsInline)
+        if request.user.is_superuser or request.user.has_perm('shops.has_fofo_config_operations_shop'):
+            self.inlines.append(FOFOConfigInline)
         return super(ShopAdmin, self).changeform_view(request, object_id, form_url, extra_context)
 
     def get_readonly_fields(self, request, obj=None):
         if obj and obj.shop_type.shop_type == 'f':
             return self.readonly_fields + ('shop_code', 'warehouse_code')
         return self.readonly_fields
+    def working_off_start_date(self,obj):
+        return obj.fofo_shop_config.working_off_start_date
+
+    def working_off_end_date(self,obj):
+        return obj.fofo_shop_config.working_off_end_date
+
 
     def get_urls(self):
         from django.conf.urls import url

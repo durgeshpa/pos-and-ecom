@@ -25,10 +25,8 @@ from django.db import transaction, models
 from gram_to_brand.models import GRNOrderProductMapping
 import datetime
 from wms.common_functions import (CommonBinInventoryFunctions, PutawayCommonFunctions, CommonBinFunctions,
-                                  updating_tables_on_putaway,
-                                  CommonWarehouseInventoryFunctions, InternalInventoryChange,
+                                  updating_tables_on_putaway, CommonWarehouseInventoryFunctions, InternalInventoryChange,
                                   get_logged_user_wise_query_set_for_pickup_list)
-
 from ..v2.serializers import PicklistSerializer
 from ...common_validators import validate_pickup_crates_list, validate_pickup_request
 from ...services import check_whc_manager_coordinator_supervisor_picker, pickup_search, check_picker
@@ -520,7 +518,6 @@ class PickupList(APIView):
             start_date = end_date.replace(hour=0, minute=0, second=0)
             if data_days:
                 start_date = end_date.replace(hour=0, minute=0, second=0) - datetime.timedelta(days=int(data_days))
-
             self.queryset = self.queryset.filter(created_at__gte=start_date, created_at__lte=end_date)
         return self.queryset
 
@@ -629,10 +626,10 @@ class PickupDetail(APIView):
             return Response(msg, status=status.HTTP_200_OK)
 
         order = Order.objects.filter(order_no=order_no).last()
-        if not order:
+        if not order and not Repackaging.objects.filter(repackaging_no=order_no).exists():
             msg = {'is_success': True, 'message': 'Invalid order no.', 'data': None}
             return Response(msg, status=status.HTTP_200_OK)
-        elif order.order_status == Order.CANCELLED:
+        elif order and order.order_status == Order.CANCELLED:
             msg = {'is_success': True, 'message': ERROR_MESSAGES['ORDER_CANCELLED'].format(order_no), 'data': None}
             return Response(msg, status=status.HTTP_200_OK)
         try:
@@ -684,7 +681,7 @@ class PickupDetail(APIView):
         if not order_no:
             return Response(msg, status=status.HTTP_200_OK)
         order = Order.objects.filter(order_no=order_no).last()
-        if order.order_status == Order.CANCELLED:
+        if order and order.order_status == Order.CANCELLED:
             msg = {'is_success': True, 'message': ERROR_MESSAGES['ORDER_CANCELLED'].format(order_no), 'data': None}
             return Response(msg, status=status.HTTP_200_OK)
 

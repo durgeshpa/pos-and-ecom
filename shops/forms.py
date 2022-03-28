@@ -5,7 +5,7 @@ from django import forms
 from .common_validators import get_validate_approval_status_change_reason
 from .models import ParentRetailerMapping, PosShopUserMapping, Shop, ShopType, ShopUserMapping, ShopTiming, \
     BeatPlanning, ShopStatusLog, FOFOConfigurations
-from addresses.models import Address
+from addresses.models import Address, City, DispatchCenterCityMapping, DispatchCenterPincodeMapping, Pincode
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
 from django.core.validators import RegexValidator
@@ -14,13 +14,14 @@ import csv
 import codecs
 from products.models import Product, ProductPrice
 import re
-from .models import Shop
+from .models import Shop, FOFOConfig
 from addresses.models import State
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group, Permission
 from retailer_backend.messages import VALIDATION_ERROR_MESSAGES
 from django.core.exceptions import ObjectDoesNotExist
 from accounts.middlewares import get_current_user
+from django.utils.translation import ugettext_lazy as __
 
 
 class ParentRetailerMappingForm(forms.ModelForm):
@@ -160,7 +161,14 @@ class ShopForm(forms.ModelForm):
         fields = (
             'shop_name', 'shop_owner', 'shop_type', 'approval_status', 'disapproval_status_reason',
             'shop_code', 'shop_code_bulk', 'shop_code_discounted', 'warehouse_code','created_by', 'status',
-            'pos_enabled', 'online_inventory_enabled', 'shop_location', 'latitude', 'longitude')
+            'pos_enabled', 'online_inventory_enabled', 'shop_location', 'latitude', 'longitude', 'cutoff_time')
+
+    def clean(self):
+        data = self.cleaned_data
+        if data.get('approval_status') == Shop.DISAPPROVED and data.get('disapproval_status_reason') is None:
+            raise ValidationError('Disapproval status reason is required.')
+
+        return data
 
     def clean(self):
         data = self.cleaned_data
@@ -178,6 +186,13 @@ class ShopForm(forms.ModelForm):
     def shop_type_retailer(cls, data):
         shop_type = cls.get_shop_type(data)
         if shop_type and shop_type.shop_type not in ['r', 'f']:
+            return False
+        return True
+
+    @classmethod
+    def shop_type_dispatch_center(cls, data):
+        shop_type = cls.get_shop_type(data)
+        if shop_type.shop_type != 'dc':
             return False
         return True
 
@@ -205,12 +220,17 @@ class ShopForm(forms.ModelForm):
             raise ValidationError(_("This field is required"))
         return warehouse_code
 
+    def clean_cutoff_time(self):
+        cutoff_time = self.cleaned_data.get('cutoff_time', None)
+        if self.shop_type_dispatch_center(self) and not cutoff_time:
+            raise ValidationError(_("This field is required"))
+        return cutoff_time
+
     def clean_disapproval_status_reason(self):
         disapproval_status_reason = self.cleaned_data.get('disapproval_status_reason', None)
         if int(self.data['approval_status']) != Shop.DISAPPROVED:
             return None
         return disapproval_status_reason
-
 
 from django.forms.models import BaseInlineFormSet
 
@@ -248,6 +268,63 @@ class AddressInlineFormSet(BaseInlineFormSet):
                 raise forms.ValidationError('You cant delete all billing address')
             elif flag_bill == 0:
                 raise forms.ValidationError('Please add at least one billing address')
+from django.contrib.admin import widgets as wi
+class FOFOConfigInlineForm(forms.ModelForm):
+    # SUN = 'SUN'
+    # MON = 'MON'
+    # TUE = 'TUE'
+    # WED = 'WED'
+    # THU = 'THU'
+    # FRI = 'FRI'
+    # SAT = 'SAT'
+    #
+    # off_day_choices = (
+    #     (SUN, 'Sunday'),
+    #     (MON, 'Monday'),
+    #     (TUE, 'Tuesday'),
+    #     (WED, 'Wednesday'),
+    #     (THU, 'Thuresday'),
+    #     (FRI, 'Friday'),
+    #     (SAT, 'Saturday'),
+    # )
+    #days = forms.CharField(widget=forms.TextInput)
+    class Meta:
+        model = FOFOConfig
+        fields = ('shop_opening_timing','shop_closing_timing','working_off_start_date','working_off_end_date','delivery_time', 'delivery_redius','min_order_value')
+        help_texts = {
+            'redius': 'Insert value in meters',
+            'delivery_time':'Insert value in minutes',
+        }
+        widgets = {'delivery_time':forms.TextInput(attrs={'placeholder': 'Enter Value In Minutes'}),
+                    'delivery_redius': forms.TextInput(attrs={'placeholder': 'Enter Value In Meter'})}
+        labels = {
+            'delivery_time': __('Delivery Time (Minutes)'),
+            'delivery_redius': __('Delivery Radius (Meter)')
+            }
+
+    def clean(self):
+        start_date = self.cleaned_data.get('working_off_start_date')
+        end_date = self.cleaned_data.get('working_off_end_date')
+        if start_date and start_date < datetime.today().date():
+            self._errors['working_off_start_date'] = self.error_class(["Only Current Or Future Date Allowed"])
+        if end_date and end_date < datetime.today().date():
+            self._errors['working_off_end_date'] = self.error_class(["Only Current Or Future Date Allowed"])
+        if start_date and not end_date:
+            self._errors['working_off_end_date'] = self.error_class(["Date Required"])
+        if end_date and not start_date:
+            self._errors['working_off_start_date'] = self.error_class(["Date Required"])
+        if (start_date and end_date ) and start_date > end_date:
+            self._errors['working_off_start_date'] = self.error_class(["Start Date Should Be Less Than Or Eqal To End Date"])
+            self._errors['working_off_end_date'] = self.error_class(["End Date Should Be Greater Than or Eqal to Start Date"])
+        time = self.cleaned_data.get('delivery_time')
+        if time and time<0:
+            self._errors['delivery_time'] = self.error_class(["Delivery Time Should Be Positive Number"])
+        delivery_redius = self.cleaned_data.get('delivery_redius')
+        if delivery_redius and delivery_redius<0:
+            self._errors['delivery_redius'] = self.error_class(["Delivery Radius Should Be Positive Number"])
+
+        return self.cleaned_data
+
 
 class ShopTimingForm(forms.ModelForm):
     SUN = 'SUN'
@@ -523,6 +600,75 @@ class BeatUserMappingCsvViewForm(forms.Form):
         return form_data_list
 
 
+class DispatchCenterCityMappingForm(forms.ModelForm):
+    city = forms.ModelChoiceField(
+        queryset=City.objects.all(),
+        widget=autocomplete.ModelSelect2(url='dispatch-center-cities-autocomplete'),
+        required=True
+    )
+
+    class Meta:
+        model = DispatchCenterCityMapping
+        fields = ('city', )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+
+class DispatchCenterCityMappingInlineFormSet(BaseInlineFormSet):
+
+    def clean(self):
+        super(DispatchCenterCityMappingInlineFormSet, self).clean()
+        flag = 0
+        address_form = []
+        for form in self.forms:
+            if form.cleaned_data and form.cleaned_data['city']:
+                # if form.cleaned_data['city'].city_center_mapping.last() is not None:
+                #     raise forms.ValidationError('City is already mapped with another dispatch center')
+                address_form.append(form.cleaned_data.get('DELETE'))
+                flag = 1
+
+        if self.instance.shop_type and self.instance.shop_type.shop_type == 'dc':
+            if address_form and all(address_form):
+                raise forms.ValidationError('You cant delete all cities of dispatch center')
+            elif flag == 0:
+                raise forms.ValidationError('Please add at least one city of dispatch center')
+
+
+class DispatchCenterPincodeMappingForm(forms.ModelForm):
+    pincode = forms.ModelChoiceField(
+        queryset=Pincode.objects.all(),
+        widget=autocomplete.ModelSelect2(url='dispatch-center-pincodes-autocomplete'),
+        required=True
+    )
+
+    class Meta:
+        model = DispatchCenterPincodeMapping
+        fields = ('pincode', )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+
+class DispatchCenterPincodeMappingInlineFormSet(BaseInlineFormSet):
+
+    def clean(self):
+        super(DispatchCenterPincodeMappingInlineFormSet, self).clean()
+        flag = 0
+        address_form = []
+        for form in self.forms:
+            if form.cleaned_data and form.cleaned_data['pincode']:
+                # if form.cleaned_data['pincode'].pincode_center_mapping.last() is not None:
+                #     raise forms.ValidationError('Pincode is already mapped with another dispatch center')
+                address_form.append(form.cleaned_data.get('DELETE'))
+                flag = 1
+
+        if self.instance.shop_type and self.instance.shop_type.shop_type == 'dc':
+            if address_form and all(address_form):
+                raise forms.ValidationError('You cant delete all pincodes of dispatch center')
+            elif flag == 0:
+                raise forms.ValidationError('Please add at least one pincode of dispatch center')
+
 class FOFOShopConfigForm(forms.ModelForm):
     shop = forms.ModelChoiceField(
         queryset=Shop.objects.filter(online_inventory_enabled=True,
@@ -533,3 +679,4 @@ class FOFOShopConfigForm(forms.ModelForm):
     class Meta:
         model = FOFOConfigurations
         fields = ('shop', 'key', 'value')
+

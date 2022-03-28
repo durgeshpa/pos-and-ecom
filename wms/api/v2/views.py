@@ -21,7 +21,7 @@ from gram_to_brand.models import GRNOrder
 from products.models import Product
 
 from retailer_backend.utils import CustomOffsetPaginationDefault25, SmallOffsetPagination, OffsetPaginationDefault50
-from retailer_to_sp.models import PickerDashboard, OrderedProduct
+from retailer_to_sp.models import PickerDashboard, OrderedProduct, PickerUserAssignmentLog
 from shops.models import Shop
 from wms.common_functions import get_response, serializer_error, get_logged_user_wise_query_set, \
     picker_dashboard_search, get_logged_user_wise_query_set_for_picker, \
@@ -976,8 +976,7 @@ class PutawayItemsCrudView(generics.GenericAPIView):
             self.queryset = self.queryset.filter(putaway_user_id=putaway_user)
 
         if zone:
-            zone_product_ids = WarehouseAssortment.objects.filter(zone__id=zone).values_list('product_id', flat=True)
-            self.queryset = self.queryset.filter(sku__parent_product__id__in=zone_product_ids)
+            self.queryset = self.queryset.filter(zone__id=zone)
 
         elif is_zone_not_assigned:
             no_zone_product_ids = WarehouseAssortment.objects.filter(zone__isnull=True).values_list('product_id', flat=True)
@@ -988,11 +987,11 @@ class PutawayItemsCrudView(generics.GenericAPIView):
 
         if putaway_type_id:
             if putaway_type == 'GRN':
-                self.queryset = self.queryset.filter(putaway_type=putaway_type,
-                                                     putaway_type_id__in=In.objects.filter(in_type=putaway_type,
-                                                                                           in_type_id=putaway_type_id)
-                                                     .annotate(id_key=Cast('id', CharField()))
-                                                     .values_list('id_key', flat=True))
+                grn_order_instance = GRNOrder.objects.filter(grn_id=putaway_type_id).last()
+                if grn_order_instance:
+                    self.queryset = self.queryset.filter(putaway_type=putaway_type, reference_id=grn_order_instance.id)
+                else:
+                    self.queryset = self.queryset.none()
             if putaway_type == 'picking_cancelled':
                 self.queryset = self.queryset.filter(putaway_type=putaway_type,
                                                      putaway_type_id__in=Pickup.objects.filter(
@@ -1071,8 +1070,6 @@ class GroupedByGRNPutawaysView(generics.GenericAPIView):
                          then=Cast('putaway_type_id', models.CharField())),
                     output_field=models.CharField(),
                  ),
-                 zone=Subquery(WarehouseAssortment.objects.filter(
-                     warehouse=OuterRef('warehouse'), product=OuterRef('sku__parent_product')).values('zone')[:1]),
                  putaway_status=Case(
                      When(status__in=[Putaway.ASSIGNED, Putaway.INITIATED], then=Value(Putaway.ASSIGNED)),
                      default=F('status'),
@@ -1165,8 +1162,6 @@ class AssignPutawayUserByGRNAndZoneView(generics.GenericAPIView):
                          then=Cast('putaway_type_id', models.CharField())),
                     output_field=models.CharField(),
                 ),
-                    zone_id=Subquery(WarehouseAssortment.objects.filter(
-                        warehouse=OuterRef('warehouse'), product=OuterRef('sku__parent_product')).values('zone')[:1])
                 ). \
         exclude(zone_id__isnull=True). \
         exclude(token_id__isnull=True). \
@@ -1641,9 +1636,11 @@ class PickerUserReAssignmentView(generics.GenericAPIView):
         if 'error' in id_validation:
             return get_response(id_validation['error'])
         picker_dashboard_instance = id_validation['data'].last()
+        last_picker = picker_dashboard_instance.picker_boy_id
         serializer = self.serializer_class(instance=picker_dashboard_instance, data=modified_data)
         if serializer.is_valid():
             serializer.save(updated_by=request.user)
+            PickerUserAssignmentLog.log_user_change(picker_dashboard_instance, request.user, last_picker)
             info_logger.info("PickerDashboard Updated Successfully.")
             return get_response('PickerDashboard updated!', serializer.data)
         return get_response(serializer_error(serializer), False)
@@ -1804,8 +1801,6 @@ class POSummaryView(generics.GenericAPIView):
                          then=Cast('putaway_type_id', models.CharField())),
                     output_field=models.CharField(),
                  ),
-                 zone=Subquery(WarehouseAssortment.objects.filter(
-                     warehouse=OuterRef('warehouse'), product=OuterRef('sku__parent_product')).values('zone')[:1])
                  ). \
         exclude(zone__isnull=True). \
         exclude(po_no__isnull=True). \
@@ -1844,9 +1839,6 @@ class PutawaySummaryView(generics.GenericAPIView):
     permission_classes = (AllowAny,)
     queryset = Putaway.objects.filter(
         putaway_type__in=['GRN', 'RETURNED', 'CANCELLED', 'PAR_SHIPMENT', 'REPACKAGING', 'picking_cancelled']). \
-        annotate(zone=Subquery(WarehouseAssortment.objects.filter(
-                     warehouse=OuterRef('warehouse'), product=OuterRef('sku__parent_product')).values('zone')[:1])
-                 ). \
         exclude(status__isnull=True)
     serializer_class = PutawaySummarySerializers
 
@@ -1977,9 +1969,6 @@ class ZoneWiseSummaryView(generics.GenericAPIView):
     permission_classes = (AllowAny,)
     queryset = Putaway.objects.filter(
         putaway_type__in=['GRN', 'RETURNED', 'CANCELLED', 'PAR_SHIPMENT', 'REPACKAGING', 'picking_cancelled']). \
-        annotate(zone=Subquery(WarehouseAssortment.objects.filter(
-                     warehouse=OuterRef('warehouse'), product=OuterRef('sku__parent_product')).values('zone')[:1])
-                 ). \
         exclude(status__isnull=True). \
         order_by('zone', 'status')
     serializer_class = ZonewiseSummarySerializers
