@@ -232,6 +232,7 @@ class ParentProductSerializers(serializers.ModelSerializer):
     parent_product_pro_tax = ParentProductTaxMappingSerializers(many=True)
     product_parent_product = ChildProductVendorSerializers(many=True, required=False)
     parent_id = serializers.CharField(read_only=True)
+    product_type = serializers.CharField(read_only=True)
     max_inventory = serializers.IntegerField(allow_null=True, max_value=999)
     product_images = serializers.ListField(required=False, default=None, child=serializers.ImageField(),
                                            write_only=True)
@@ -261,18 +262,19 @@ class ParentProductSerializers(serializers.ModelSerializer):
         if not 'product_hsn' in self.initial_data or not self.initial_data['product_hsn']:
             raise serializers.ValidationError(_('product_hsn is required'))
 
-        if self.initial_data.get('product_type') == 'b2c' and \
-                (not 'parent_product_pro_b2c_category' in self.initial_data or not \
-                self.initial_data['parent_product_pro_b2c_category']):
-            raise serializers.ValidationError(_('parent product b2c category is required'))
-        elif self.initial_data.get('product_type') == 'b2b' and \
-                (not 'parent_product_pro_category' in self.initial_data or not \
-                self.initial_data['parent_product_pro_category']):
+        # if self.initial_data.get('product_type') == 'b2c' and \
+        #         (not 'parent_product_pro_b2c_category' in self.initial_data or not \
+        #         self.initial_data['parent_product_pro_b2c_category']):
+        #     raise serializers.ValidationError(_('parent product b2c category is required'))
+        # elif self.initial_data.get('product_type') == 'b2b' and \
+        #         (not 'parent_product_pro_category' in self.initial_data or not \
+        #         self.initial_data['parent_product_pro_category']):
+        #     raise serializers.ValidationError(_('parent product category is required'))
+        if not 'parent_product_pro_category' in self.initial_data or not self.initial_data['parent_product_pro_category']:
             raise serializers.ValidationError(_('parent product category is required'))
-        elif self.initial_data.get('product_type') == 'both' and \
-            not (('parent_product_pro_category' in self.initial_data and self.initial_data['parent_product_pro_category']) \
-                or ('parent_product_pro_b2c_category' in self.initial_data and self.initial_data['parent_product_pro_b2c_category'])):
-            raise serializers.ValidationError(_('parent product category or parent product b2c category is required'))
+        
+        if not 'parent_product_pro_b2c_category' in self.initial_data or not self.initial_data['parent_product_pro_b2c_category']:
+            raise serializers.ValidationError(_('parent product b2c category is required'))
 
         if not 'parent_product_pro_tax' in self.initial_data or not self.initial_data['parent_product_pro_tax']:
             raise serializers.ValidationError(_('parent_product_pro_tax is required'))
@@ -324,7 +326,7 @@ class ParentProductSerializers(serializers.ModelSerializer):
 
     class Meta:
         model = ParentProduct
-        fields = ('id', 'parent_id', 'name', 'inner_case_size', 'brand_case_size', 'product_type', 'status',
+        fields = ('id', 'parent_id', 'name', 'inner_case_size', 'brand_case_size', 'status', 'product_type',
                   'product_hsn', 'parent_brand', 'parent_product_pro_tax', 'parent_product_pro_category',
                   'parent_product_pro_b2c_category', 'is_ptr_applicable', 'ptr_percent', 'ptr_type',
                   'is_ars_applicable', 'max_inventory', 'is_lead_time_applicable', 'discounted_life_percent',
@@ -492,7 +494,7 @@ class ActiveDeactiveSelectedParentProductSerializers(serializers.ModelSerializer
 
         try:
             parent_products = ParentProduct.objects.filter(id__in=validated_data['parent_product_id_list'])
-            parent_products.update(status=parent_product_status, updated_by=validated_data['updated_by'],
+            parent_products.update(status=parent_product_status, product_type='both', updated_by=validated_data['updated_by'],
                                    updated_at=timezone.now())
             for parent_product_obj in parent_products:
                 Product.objects.filter(parent_product=parent_product_obj).update(status=product_status,
