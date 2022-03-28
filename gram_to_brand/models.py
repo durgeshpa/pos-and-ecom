@@ -12,7 +12,7 @@ from django.db import models, transaction
 from django.db.models import Sum, F, Subquery, OuterRef
 from model_utils import Choices
 
-from products.models import Product, ProductVendorMapping, ParentProduct
+from products.models import Product, ProductVendorMapping, ParentProduct, GST_CHOICE, CESS_CHOICE
 from products.utils import vendor_product_mapping
 from brand.models import Brand, Vendor
 from addresses.models import Address, State
@@ -48,14 +48,6 @@ BEST_BEFORE_YEAR_CHOICE = (
     (3, '3 Year'),
     (4, '4 Year'),
     (5, '5 Year'),
-)
-
-GST_CHOICE = (
-    (0, 'GST-0'),
-    (5, 'GST-5'),
-    (12, 'GST-12'),
-    (18, 'GST-18'),
-    (28, 'GST-28'),
 )
 
 
@@ -210,7 +202,7 @@ class CartProductMapping(models.Model):
     per_unit_price = models.FloatField(default=0, null=True, blank=True)
     is_grn_done = models.BooleanField(default=False)
     gst = models.IntegerField(null=True, blank=True, choices=GST_CHOICE)
-    cess = models.FloatField(null=True, blank=True, validators=[MinValueValidator(0.0), MaxValueValidator(100.0)])
+    cess = models.IntegerField(null=True, blank=True, choices=CESS_CHOICE)
 
     class Meta:
         verbose_name = "Select Product"
@@ -364,10 +356,9 @@ class CartProductMappingTaxLog(BaseTimestampUserModel):
     cart_product_mapping = models.ForeignKey(CartProductMapping, related_name='cart_product_mapping_tax_log',
                                              on_delete=models.DO_NOTHING)
     existing_gst = models.IntegerField(null=True, blank=True, choices=GST_CHOICE)
-    existing_cess = models.FloatField(null=True, blank=True,
-                                      validators=[MinValueValidator(0.0), MaxValueValidator(100.0)])
+    existing_cess = models.IntegerField(null=True, blank=True, choices=CESS_CHOICE)
     new_gst = models.IntegerField(null=True, blank=True, choices=GST_CHOICE)
-    new_cess = models.FloatField(null=True, blank=True, validators=[MinValueValidator(0.0), MaxValueValidator(100.0)])
+    new_cess = models.IntegerField(null=True, blank=True, choices=CESS_CHOICE)
 
     def __str__(self):
         return str(self.cart_product_mapping)
@@ -471,8 +462,7 @@ class GRNOrderProductMapping(models.Model):
     batch_id = models.CharField(max_length=50, null=True, blank=True)
     barcode_id = models.CharField(max_length=15, null=True, blank=True)
     product_invoice_gst = models.IntegerField(default=0, null=True, choices=GST_CHOICE)
-    cess_percentage = models.FloatField(default=0, null=True,
-                                        validators=[MinValueValidator(0.0), MaxValueValidator(100.0)])
+    cess_percentage = models.IntegerField(null=True, blank=True, choices=CESS_CHOICE)
     product_amount = models.FloatField(default=0, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)

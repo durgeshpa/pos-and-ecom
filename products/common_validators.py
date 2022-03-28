@@ -7,7 +7,7 @@ from django.db.models import Q
 
 from brand.models import Brand, Vendor
 from products.models import Product, Tax, ParentProductTaxMapping, ParentProduct, ParentProductCategory, \
-    ParentProductImage, ProductHSN, ProductCapping, ProductImage, ProductHsnGst, ProductHsnCess
+    ParentProductImage, ProductHSN, ProductCapping, ProductImage, ProductHsnGst, ProductHsnCess, GST_CHOICE
 from categories.models import B2cCategory, Category
 from shops.models import Shop
 from brand.common_validators import validate_brand_name, validate_brand_code, validate_brand_slug
@@ -1332,7 +1332,7 @@ def get_validate_hsn_gsts(hsn_gsts, product_hsn):
         if 'gst' not in gst:
             return {'error': "'gst': This is mandatory for every hsn_gsts."}
 
-        if not any(int(gst['gst']) in i for i in ProductHsnGst.GST_CHOICE):
+        if not any(int(gst['gst']) in i for i in GST_CHOICE):
             return {'error': f"'gst': {gst['gst']} Invalid GST selected."}
 
         if 'id' in gst and gst['id']:
@@ -1374,7 +1374,7 @@ def get_validate_gsts_mandatory_fields(gsts):
         if 'gst' not in gst:
             return {'error': "'gst': This is mandatory for every hsn_gsts."}
 
-        if not any(int(gst['gst']) in i for i in ProductHsnGst.GST_CHOICE):
+        if not any(int(gst['gst']) in i for i in GST_CHOICE):
             return {'error': f"'gst': {gst['gst']} Invalid GST selected."}
 
         gsts_obj.append(gst)
@@ -1477,14 +1477,14 @@ def check_product_hsn_mandatory_columns(uploaded_data_list, header_list):
             raise ValidationError(f"Row {row_num} | 'gst_rate_1' can't be empty")
         if not re.match("^\d+$", str(row['gst_rate_1'])):
             raise ValidationError(f"Row {row_num} | {row['gst_rate_1']} 'GST Rate 1' can only be a numeric value.")
-        if not any(int(str(row['gst_rate_1']).strip()) in i for i in ProductHsnGst.GST_CHOICE):
+        if not any(int(str(row['gst_rate_1']).strip()) in i for i in GST_CHOICE):
             raise ValidationError(f"Row {row_num} | {row['gst_rate_1']} | GST does not exist.")
         gst_rates.append(row['gst_rate_1'])
 
         if 'gst_rate_2' in row.keys() and str(row['gst_rate_2']).strip() != '':
             if not re.match("^\d+$", str(row['gst_rate_2'])):
                 raise ValidationError(f"Row {row_num} | {row['gst_rate_2']} 'GST Rate 2' can only be a numeric value.")
-            if not any(int(str(row['gst_rate_2']).strip()) in i for i in ProductHsnGst.GST_CHOICE):
+            if not any(int(str(row['gst_rate_2']).strip()) in i for i in GST_CHOICE):
                 raise ValidationError(f"Row {row_num} | {row['gst_rate_2']} | GST does not exist.")
             if row['gst_rate_2'] in gst_rates:
                 raise ValidationError(f"Row {row_num} | {row['gst_rate_2']} | Duplicate GST not allowed.")
@@ -1493,7 +1493,7 @@ def check_product_hsn_mandatory_columns(uploaded_data_list, header_list):
         if 'gst_rate_3' in row.keys() and str(row['gst_rate_3']).strip() != '':
             if not re.match("^\d+$", str(row['gst_rate_3'])):
                 raise ValidationError(f"Row {row_num} | {row['gst_rate_3']} 'GST Rate 3' can only be a numeric value.")
-            if not any(int(str(row['gst_rate_3']).strip()) in i for i in ProductHsnGst.GST_CHOICE):
+            if not any(int(str(row['gst_rate_3']).strip()) in i for i in GST_CHOICE):
                 raise ValidationError(f"Row {row_num} | {row['gst_rate_3']} | GST does not exist.")
             if row['gst_rate_3'] in gst_rates:
                 raise ValidationError(f"Row {row_num} | {row['gst_rate_3']} | Duplicate GST not allowed.")

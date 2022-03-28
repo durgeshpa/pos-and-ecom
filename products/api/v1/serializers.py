@@ -17,7 +17,7 @@ from products.models import Product, ParentProductTaxMapping, ParentProduct, Par
     ProductTaxMapping, ProductCapping, ProductVendorMapping, \
     ProductImage, ProductPrice, ProductHSN, Tax, \
     ProductSourceMapping, ProductPackingMapping, DestinationRepackagingCostMapping, \
-    Weight, CentralLog, PriceSlab, ProductHsnCess, ProductHsnGst
+    Weight, CentralLog, PriceSlab, ProductHsnCess, ProductHsnGst, GST_CHOICE
 from categories.models import Category, B2cCategory
 from addresses.models import Pincode, City
 from brand.models import Brand, Vendor
@@ -953,7 +953,7 @@ class ChildProductExportAsCSVSerializers(serializers.ModelSerializer):
 
 
 class ProductHSNGstSerializers(serializers.ModelSerializer):
-    gst = ChoiceField(choices=ProductHsnGst.GST_CHOICE, required=False)
+    gst = ChoiceField(choices=GST_CHOICE, required=False)
 
     class Meta:
         model = ProductHsnGst

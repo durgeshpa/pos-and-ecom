@@ -39,6 +39,21 @@ WEIGHT_UNIT_CHOICES = (
 CAPPING_TYPE_CHOICES = Choices((0, 'DAILY', 'Daily'), (1, 'WEEKLY', 'Weekly'),
                                (2, 'MONTHLY', 'Monthly'))
 
+GST_CHOICE = (
+    (0, 'GST-0'),
+    (5, 'GST-5'),
+    (12, 'GST-12'),
+    (18, 'GST-18'),
+    (28, 'GST-28'),
+)
+
+CESS_CHOICE = (
+    (0, 'CESS-0'),
+    (5, 'CESS-5'),
+    (12, 'CESS-12'),
+    (36, 'CESS-36')
+)
+
 
 class Size(models.Model):
     size_value = models.CharField(max_length=255, validators=[ValueValidator], null=True, blank=True)
@@ -135,13 +150,6 @@ class ProductHSN(BaseTimestampUserStatusModel):
 
 
 class ProductHsnGst(BaseTimestampUserStatusModel):
-    GST_CHOICE = (
-        (0, 'GST-0'),
-        (5, 'GST-5'),
-        (12, 'GST-12'),
-        (18, 'GST-18'),
-        (28, 'GST-28'),
-    )
     gst = models.IntegerField(null=True, choices=GST_CHOICE)
     product_hsn = models.ForeignKey(ProductHSN, related_name='hsn_gst', on_delete=models.DO_NOTHING)
 
@@ -150,7 +158,7 @@ class ProductHsnGst(BaseTimestampUserStatusModel):
 
 
 class ProductHsnCess(BaseTimestampUserStatusModel):
-    cess = models.FloatField(null=True, validators=[MinValueValidator(0.0), MaxValueValidator(100.0)])
+    cess = models.IntegerField(null=True, choices=CESS_CHOICE)
     product_hsn = models.ForeignKey(ProductHSN, related_name='hsn_cess', on_delete=models.DO_NOTHING)
 
     def __str__(self):
