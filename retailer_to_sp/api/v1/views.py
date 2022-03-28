@@ -458,7 +458,6 @@ class SearchProducts(APIView):
                 body['query'] = {"bool": {"must_not": must_not}}
         return self.process_rp(output_type, body, shop_id, app_type)
 
-
     @check_pos_shop
     def rp_gf_search(self, request, *args, **kwargs):
         """
