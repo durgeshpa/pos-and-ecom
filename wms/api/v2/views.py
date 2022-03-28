@@ -51,7 +51,7 @@ from .serializers import InOutLedgerSerializer, InOutLedgerCSVSerializer, ZoneCr
     QCDeskQCAreaAssignmentMappingSerializers, QCDeskHelperDashboardSerializer, QCJobsDashboardSerializer, \
     QCDeskSerializer, CrateSerializer, PendingQCJobsSerializer
 
-from ...views import pickup_entry_creation_with_cron, release_blocking_with_cron
+from ...views import pickup_entry_creation_with_cron
 
 info_logger = logging.getLogger('file-info')
 error_logger = logging.getLogger('file-error')
@@ -1554,7 +1554,7 @@ class PickupEntryCreationView(generics.GenericAPIView):
 
     def get(self, request):
         """ GET User Details post login """
-        release_blocking_with_cron()
+        pickup_entry_creation_with_cron()
         return get_response("", {}, True)
 
 
