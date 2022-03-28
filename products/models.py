@@ -166,6 +166,7 @@ class ParentProduct(BaseTimestampUserStatusModel):
         on_delete=models.DO_NOTHING
     )
     product_discription = HTMLField(blank=True)
+
     @property
     def ptr_type_text(self):
         if self.ptr_type is not None and self.ptr_type in self.PTR_TYPE_CHOICES:
