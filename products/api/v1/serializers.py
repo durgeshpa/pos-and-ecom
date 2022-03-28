@@ -25,7 +25,7 @@ from products.common_validators import get_validate_parent_brand, get_validate_p
     get_validate_seller_shop, check_active_capping, get_validate_packing_material, get_source_product, product_category, \
     product_gst, product_cess, product_surcharge, product_image, get_validate_vendor, get_validate_buyer_shop, \
     get_validate_parent_product_image_ids, get_validate_child_product_image_ids, validate_parent_product_name, \
-    validate_child_product_name, validate_tax_name, get_validate_slab_price
+    validate_child_product_name, validate_tax_name, get_validate_slab_price, b2b_category, b2c_category
 from products.common_function import ParentProductCls, ProductCls
 from shops.common_validators import get_validate_city_id, get_validate_pin_code
 
@@ -428,7 +428,7 @@ class ParentProductExportAsCSVSerializers(serializers.ModelSerializer):
     def create(self, validated_data):
         meta = ParentProduct._meta
         field_names = [
-            'parent_id', 'name', 'parent_brand', 'product_category', 'product_hsn', 'product_gst', 'product_cess',
+            'parent_id', 'name', 'parent_brand', 'b2b_category', 'b2c_category', 'product_hsn', 'product_gst', 'product_cess',
             'product_surcharge', 'inner_case_size', 'product_image', 'status', 'product_type', 'is_ptr_applicable',
             'ptr_type',
             'ptr_percent', 'is_ars_applicable', 'is_lead_time_applicable', 'max_inventory',
@@ -905,7 +905,7 @@ class ChildProductExportAsCSVSerializers(serializers.ModelSerializer):
         field_names_dest = field_names.copy()
         cost_params = ['raw_material', 'wastage', 'fumigation', 'label_printing', 'packing_labour',
                        'primary_pm_cost', 'secondary_pm_cost', 'final_fg_cost', 'conversion_cost']
-        add_fields = ['product_brand', 'product_category', 'image', 'source skus', 'packing_sku',
+        add_fields = ['product_brand',  'b2b_category', 'b2c_category', 'image', 'source skus', 'packing_sku',
                       'packing_sku_weight_per_unit_sku'] + cost_params
 
         for field_name in add_fields:
@@ -917,7 +917,8 @@ class ChildProductExportAsCSVSerializers(serializers.ModelSerializer):
             obj = Product.objects.filter(id=id).last()
             items = [getattr(obj, field) for field in field_names]
             items.append(obj.product_brand)
-            items.append(product_category(obj))
+            items.append(b2b_category(obj.parent_product))
+            items.append(b2c_category(obj.parent_product))
 
             if obj.use_parent_image and obj.parent_product.parent_product_pro_image.last():
                 items.append(obj.parent_product.parent_product_pro_image.last().image.url)

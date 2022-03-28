@@ -91,7 +91,7 @@ class B2cCategoryListView(GenericAPIView):
             self.queryset = category_search(self.queryset, search_text)
         category = SmallOffsetPagination().paginate_queryset(self.queryset, request)
         serializer = self.serializer_class(category, many=True)
-        msg = "" if category else "no category found"
+        msg = "" if category else "no b2c category found"
         return get_response(msg, serializer.data, True)
 
 
@@ -264,7 +264,8 @@ class ParentProductView(GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
     queryset = ParentProducts.objects.select_related('parent_brand', 'product_hsn', 'updated_by').prefetch_related(
-        'parent_product_pro_category', 'parent_product_pro_b2c_category', 'parent_product_pro_tax', 'product_parent_product', 'parent_product_log',
+        'parent_product_pro_category', 'parent_product_pro_b2c_category', 'parent_product_pro_tax',
+        'product_parent_product', 'parent_product_log',
         'product_parent_product__product_pro_image', 'parent_product_pro_category__category',
         'product_parent_product__product_vendor_mapping', 'parent_product_pro_tax__tax', 'parent_product_pro_image',
         'parent_product_log__updated_by', 'product_parent_product__product_vendor_mapping__vendor', ) \

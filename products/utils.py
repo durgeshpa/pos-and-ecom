@@ -277,17 +277,10 @@ def deactivate_product(product):
 
 
 def parent_product_categories(parent_product):
-    try:
-        if parent_product.product_type == 'b2b':
-            return parent_product.parent_product_pro_category.filter(status=True)
-        elif parent_product.product_type == 'b2c':
-            return parent_product.parent_product_pro_b2c_category.filter(status=True)
-        else:
-            if parent_product.parent_product_pro_b2c_category.exists():
-                return parent_product.parent_product_pro_b2c_category.filter(status=True)
-            elif parent_product.parent_product_pro_category.exists():
-                return parent_product.parent_product_pro_category.filter(status=True)
-            else:
-                return None
-    except:
-        return None
+    b2b_cat = None
+    b2c_cat = None
+    if parent_product.parent_product_pro_category.filter(status=True).exists():
+        b2b_cat = parent_product.parent_product_pro_category.filter(status=True)
+    if parent_product.parent_product_pro_b2c_category.filter(status=True).exists():
+        b2c_cat = parent_product.parent_product_pro_b2c_category.filter(status=True)
+    return b2b_cat, b2c_cat
