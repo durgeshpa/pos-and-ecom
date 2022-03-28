@@ -1271,11 +1271,11 @@ def validate_row(uploaded_data_list, header_list, category, b2c_category):
                     raise ValidationError(f"Row {row_num} | {row['parent_category_name']} | "
                                           f"'parent_category_name' doesn't exist in the system ")
 
-            if 'b2b_parent_category_name' in header_list and 'b2b_parent_category_name' in row.keys() and \
-                    row['b2b_parent_category_name'] != '':
-                if not categories.filter(category_name=row['b2b_parent_category_name']).exists():
-                    raise ValidationError(f"Row {row_num} | {row['b2b_parent_category_name']} | "
-                                          f"'b2b_parent_category_name' doesn't exist in the system ")
+            if 'b2b_category_name' in header_list and 'b2b_category_name' in row.keys() and \
+                    row['b2b_category_name'] != '':
+                if not categories.filter(category_name=row['b2b_category_name']).exists():
+                    raise ValidationError(f"Row {row_num} | {row['b2b_category_name']} | "
+                                          f"'b2b_category_name' doesn't exist in the system ")
 
             if 'b2c_parent_category_name' in header_list and 'b2c_parent_category_name' in row.keys() and \
                     row['b2c_parent_category_name'] != '':
