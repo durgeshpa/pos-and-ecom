@@ -2880,7 +2880,10 @@ class OrderCentral(APIView):
         app_type = self.request.META.get('HTTP_APP_TYPE', '1')
         # app_type = request.data.get('cart_type', '1')
         if app_type == '1':
-            return self.put_retail_order(kwargs['pk'])
+
+            # return self.put_retail_order(kwargs['pk'])
+            return api_response(["Sorry! Order cannot be cancelled from the APP"])
+
         elif app_type == '2':
             return self.put_basic_order(request, *args, **kwargs)
         elif app_type == '3':
