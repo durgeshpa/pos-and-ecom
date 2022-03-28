@@ -3365,9 +3365,6 @@ class OrderCentral(APIView):
         # order_config = GlobalConfig.objects.filter(key='ecom_minimum_order_amount').last()
         # order_config = get_config_fofo_shop('Minimum order value', shop.id)
         fofo_config = get_config_fofo_shops(shop)
-        msg = None
-        if fofo_config.get('open_time',None) and fofo_config.get('close_time',None) and not (fofo_config['open_time']<time and fofo_config['close_time']>time):
-            msg = "your order will be delivered tomorrow "
         order_config = fofo_config.get('min_order_value',None)
         order_config = order_config if order_config else GlobalConfig.objects.filter(key='ecom_minimum_order_amount').last().value
         if order_config is not None:
@@ -3728,7 +3725,9 @@ class OrderCentral(APIView):
                     order.order_status = Order.PAYMENT_FAILED
             order.delivery_option = delivery_option
             fofo_config = get_config_fofo_shops(shop)
-            msg = obj.fofo_config('delivery_time',None)
+            time = datetime.now().strftime("%H:%M:%S")
+            time = datetime.strptime(time,"%H:%M:%S").time()
+            msg = fofo_config.get('delivery_time',None)
             if fofo_config.get('open_time',None) and fofo_config.get('close_time',None) and not (fofo_config['open_time']<time and fofo_config['close_time']>time):
                 msg = "your order will be delivered tomorrow "
             order.estimate_delivery_time = msg
