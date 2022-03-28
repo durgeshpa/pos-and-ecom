@@ -1980,11 +1980,11 @@ class CartCheckout(APIView):
             return api_response("Invalid request")
         with transaction.atomic():
             # Refresh redeem reward
-            uses_reward_point = RewardCls.checkout_redeem_points(cart, 0, self.request.GET.get('use_rewards', 1))
+            use_reward_this_month = RewardCls.checkout_redeem_points(cart, 0, self.request.GET.get('use_rewards', 1))
             # Get offers available now and apply coupon if applicable
             offers = BasicCartOffers.refresh_offers_checkout(cart, False, self.request.data.get('coupon_id'))
             data = self.serialize(cart)
-            data['redeem_points_message'] = uses_reward_point
+            data['redeem_points_message'] = use_reward_this_month
             delivery_time = get_config_fofo_shops(kwargs['shop'].id)
             data['maximum_delivery_time'] = delivery_time.get('delivery_time',None)
             if 'error' in offers:
