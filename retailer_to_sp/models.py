@@ -1561,9 +1561,9 @@ class Trip(models.Model):
                     no_of_sacks=Sum(Case(When(shipment_packaging__packaging_type=ShipmentPackaging.SACK, then=1),
                                          default=Value('0'), output_field=models.IntegerField(), ))
                 )
-            data['no_of_crates'] += shipment_data.get('no_of_crates', 0)
-            data['no_of_packs'] += shipment_data.get('no_of_packs', 0)
-            data['no_of_sacks'] += shipment_data.get('no_of_sacks', 0)
+            data['no_of_crates'] += shipment_data['no_of_crates'] if shipment_data.get('no_of_crates') else 0
+            data['no_of_packs'] += shipment_data['no_of_packs'] if shipment_data.get('no_of_packs') else 0
+            data['no_of_sacks'] += shipment_data['no_of_sacks'] if shipment_data.get('no_of_sacks') else 0
         return data
 
 
@@ -1587,6 +1587,10 @@ class OrderedProduct(models.Model):  # Shipment
     PARTIALLY_DELIVERED_AND_VERIFIED = 'PARTIALLY_DELIVERED_AND_VERIFIED'
     FULLY_RETURNED_AND_COMPLETED = 'FULLY_RETURNED_AND_COMPLETED'
     FULLY_RETURNED_AND_VERIFIED = 'FULLY_RETURNED_AND_VERIFIED'
+
+    FULLY_RETURNED_AND_CLOSED = 'FULLY_RETURNED_AND_CLOSED'
+    PARTIALLY_DELIVERED_AND_CLOSED = 'PARTIALLY_DELIVERED_AND_CLOSED'
+    FULLY_DELIVERED_AND_CLOSED = 'FULLY_DELIVERED_AND_CLOSED'
     CANCELLED = 'CANCELLED'
     SHIPMENT_STATUS = (
         (SHIPMENT_CREATED, 'QC Pending'),
@@ -1603,9 +1607,9 @@ class OrderedProduct(models.Model):  # Shipment
         (FULLY_RETURNED_AND_VERIFIED, 'Fully Returned and Verified'),
         (PARTIALLY_DELIVERED_AND_VERIFIED, 'Partially Delivered and Verified'),
         (FULLY_DELIVERED_AND_VERIFIED, 'Fully Delivered and Verified'),
-        ('FULLY_RETURNED_AND_CLOSED', 'Fully Returned and Closed'),
-        ('PARTIALLY_DELIVERED_AND_CLOSED', 'Partially Delivered and Closed'),
-        ('FULLY_DELIVERED_AND_CLOSED', 'Fully Delivered and Closed'),
+        (FULLY_RETURNED_AND_CLOSED, 'Fully Returned and Closed'),
+        (PARTIALLY_DELIVERED_AND_CLOSED, 'Partially Delivered and Closed'),
+        (FULLY_DELIVERED_AND_CLOSED, 'Fully Delivered and Closed'),
         (CANCELLED, 'Cancelled'),
         (CLOSED, 'Closed'),
         (RESCHEDULED, 'Rescheduled'),
@@ -3642,9 +3646,9 @@ class DispatchTrip(BaseTimestampUserModel):
                                            default=Value('0'), output_field=models.IntegerField(), ))
                 )
 
-            data['no_of_crates'] += shipment_data.get('no_of_crates', 0)
-            data['no_of_packs'] += shipment_data.get('no_of_packs', 0)
-            data['no_of_sacks'] += shipment_data.get('no_of_sacks', 0)
+            data['no_of_crates'] += shipment_data['no_of_crates'] if shipment_data.get('no_of_crates') else 0
+            data['no_of_packs'] += shipment_data['no_of_packs'] if shipment_data.get('no_of_packs') else 0
+            data['no_of_sacks'] += shipment_data['no_of_sacks'] if shipment_data.get('no_of_sacks') else 0
         return data
 
 
