@@ -455,6 +455,12 @@ class CommonWarehouseInventoryFunctions(object):
                                  .format(warehouse.id, sku.product_sku, inventory_type.inventory_type,
                                          inventory_state.inventory_state, ware_house_quantity))
                 ware_house_quantity = 0
+
+            info_logger.info(f"warehouse.id {warehouse.id} ,sku.product_sku {sku.product_sku} ,"
+                             f"inventory_type.inventory_type "
+                             f"{inventory_type.inventory_type} ,inventory_state.inventory_state "
+                             f"{inventory_state.inventory_state} " f",ware_house_quantity {ware_house_quantity} ,"
+                             f"ware_house_inventory_obj {ware_house_inventory_obj} ")
             ware_house_inventory_obj.quantity = ware_house_quantity if ware_house_quantity >= 0 else 0
             ware_house_inventory_obj.save()
         else:
