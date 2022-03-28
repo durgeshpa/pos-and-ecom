@@ -166,6 +166,7 @@ class ParentProduct(BaseTimestampUserStatusModel):
         on_delete=models.DO_NOTHING
     )
     product_discription = HTMLField(blank=True)
+
     @property
     def ptr_type_text(self):
         if self.ptr_type is not None and self.ptr_type in self.PTR_TYPE_CHOICES:
@@ -219,6 +220,9 @@ class ParentProductB2cCategory(BaseTimeModel):
     class Meta:
         verbose_name = _("Parent Product B2c Category")
         verbose_name_plural = _("Parent Product B2c Categories")
+
+    def __str__(self):
+        return f"{self.parent_product} --> {self.category}"
 
 
 class ParentProductImage(BaseTimeModel):
