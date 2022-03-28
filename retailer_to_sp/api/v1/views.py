@@ -3365,6 +3365,9 @@ class OrderCentral(APIView):
         # order_config = GlobalConfig.objects.filter(key='ecom_minimum_order_amount').last()
         # order_config = get_config_fofo_shop('Minimum order value', shop.id)
         fofo_config = get_config_fofo_shops(shop)
+        msg = None
+        if fofo_config.get('open_time',None) and fofo_config.get('close_time',None) and not (fofo_config['open_time']<time and fofo_config['close_time']>time):
+            msg = "your order will be delivered tomorrow "
         order_config = fofo_config.get('min_order_value',None)
         order_config = order_config if order_config else GlobalConfig.objects.filter(key='ecom_minimum_order_amount').last().value
         if order_config is not None:
@@ -3724,8 +3727,11 @@ class OrderCentral(APIView):
                 elif self.request.data.get('payment_status') == 'payment_failed':
                     order.order_status = Order.PAYMENT_FAILED
             order.delivery_option = delivery_option
-        obj = FOFOConfig.objects.filter(shop=order.seller_shop.id).last()
-        order.estimate_delivery_time = obj.delivery_time if obj else None
+            fofo_config = get_config_fofo_shops(shop)
+            msg = obj.fofo_config('delivery_time',None)
+            if fofo_config.get('open_time',None) and fofo_config.get('close_time',None) and not (fofo_config['open_time']<time and fofo_config['close_time']>time):
+                msg = "your order will be delivered tomorrow "
+            order.estimate_delivery_time = msg
         order.save()
 
         if address:
@@ -5336,8 +5342,10 @@ class CartStockCheckView(APIView):
         day = datetime.today().date()
 
         fofo_config = get_config_fofo_shops(shop)
+        msg = 'Stock check completed'
         if fofo_config.get('open_time',None) and fofo_config.get('close_time',None) and not (fofo_config['open_time']<time and fofo_config['close_time']>time):
-            return api_response("Sorry for the inconvenience, order acceptable b/w {} to {}".format(fofo_config['open_time'], fofo_config['close_time']))
+            msg = "Your Order Will Pick Up Tomorrow"
+            #return api_response("Sorry for the inconvenience, order acceptable b/w {} to {}".format(fofo_config['open_time'], fofo_config['close_time']))
 
         start_off_day = fofo_config.get('working_off_start_date', None)
         end_off_day = fofo_config.get('working_off_end_date',start_off_day)
@@ -5366,7 +5374,7 @@ class CartStockCheckView(APIView):
                 return api_response("Few items in your cart are not available.", out_of_stock_items, status.HTTP_200_OK,
                                     False, {'error_code': error_code.OUT_OF_STOCK_ITEMS})
 
-        return api_response("Stock check completed", None, status.HTTP_200_OK, True)
+        return api_response(msg, None, status.HTTP_200_OK, True)
 
 
 class OrderReturnComplete(APIView):
