@@ -9267,7 +9267,9 @@ class DispatchCenterShipmentPackageView(generics.GenericAPIView):
                     self.queryset = self.queryset.filter(status='PACKED',
                                                          shipment__shipment_status__in=[
                                                              OrderedProduct.FULLY_RETURNED_AND_VERIFIED,
-                                                             OrderedProduct.PARTIALLY_DELIVERED_AND_VERIFIED])
+                                                             OrderedProduct.PARTIALLY_DELIVERED_AND_VERIFIED,
+                                                             OrderedProduct.FULLY_RETURNED_AND_CLOSED,
+                                                             OrderedProduct.PARTIALLY_DELIVERED_AND_CLOSED])
             except:
                 pass
 
