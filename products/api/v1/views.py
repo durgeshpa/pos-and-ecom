@@ -570,7 +570,7 @@ class ChildProductView(GenericAPIView):
                 parent_product__parent_product_pro_category__category__id=category)
         if b2c_category is not None:
             self.queryset = self.queryset.filter(
-                parent_product__parent_product_pro_category__category__id=category)
+                parent_product__parent_product_pro_b2c_category__category__id=b2c_category)
         
         return self.queryset
 
