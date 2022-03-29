@@ -401,6 +401,7 @@ CRONJOBS = [
     ('*/10 * * * *', 'retailer_backend.cron.po_status_change_exceeds_validity_date'),
     ('30 21 * * *', 'shops.api.v1.views.set_shop_map_cron', '>>/tmp/shops'),
     ('*/1 * * * *', 'wms.views.release_blocking_with_cron', '>>/tmp/release.log'),
+    ('0 8 * * *', 'wms.views.assign_picker_user_to_pickup_created_orders', '>>/tmp/picking'),
     ('*/10 * * * *', 'wms.views.pickup_entry_creation_with_cron', '>>/tmp/picking'),
     # ('0 10 * * *', 'wms.views.mail_products_list_not_mapped_yet_to_any_zone', '>>/tmp/picking'),
     ('30 2 * * *', 'retailer_backend.cron.sync_es_products'),
@@ -428,7 +429,8 @@ CRONJOBS = [
     ('30 21 * * *', 'products.cron.update_price_discounted_product'),
     ('30 1 * * *', 'wms.cron.create_update_discounted_products'),
     ('0 2 * * *', 'ecom.cron.bestseller_product'),
-    ('0 * * * *', 'retailer_backend.cron.refresh_cron_es'),
+    # ('0 * * * *', 'retailer_backend.cron.refresh_cron_es'),
+    ('0 * * * *', 'retailer_to_sp.api.v1.views.refresh_cron_es'),
     # ('*/10 * * * *', 'retailer_to_sp.cron.all_products_es_refresh'),
     ('*/5 * * * *', 'wms.cron.assign_putaway_users_to_new_putways'),
     ('0 6 * * *', 'shops.cron.get_feedback_valid'),
@@ -446,7 +448,7 @@ DEBUG_TOOLBAR_CONFIG = {
 DEBUG_TOOLBAR_PATCH_SETTINGS = False
 
 # Initiate Sentry SDK
-if ENVIRONMENT.lower() in ["production", "stage", "qa", "qa1", "qa3", "qa4"]:
+if ENVIRONMENT.lower() in ["production",]:
     from sentry_sdk.integrations.celery import CeleryIntegration
     sentry_sdk.init(
         dsn="https://2f8d192414f94cd6a0ba5b26d6461684@sentry.io/1407300",
