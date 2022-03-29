@@ -590,7 +590,10 @@ class TripForm(forms.ModelForm):
     def clean(self):
         data = self.cleaned_data
         shipment_status_verify = ['FULLY_RETURNED_AND_VERIFIED', 'PARTIALLY_DELIVERED_AND_VERIFIED',
-                                  'FULLY_DELIVERED_AND_VERIFIED','FULLY_DELIVERED_AND_COMPLETED']
+                                  'FULLY_DELIVERED_AND_VERIFIED', 'FULLY_DELIVERED_AND_COMPLETED']
+
+        if not data.get('selected_id'):
+            raise forms.ValidationError("Please select at least one shipment to create a trip.")
 
         shipment_ids = data.get('selected_id').split(',')
         if self.instance and self.instance.trip_status == Trip.COMPLETED and data[
