@@ -1012,8 +1012,8 @@ class AutoSuggest(APIView):
         index = "all_products"
         if shop_id:
             if Shop.objects.filter(id=shop_id).exists():
-                parent_mapping = ParentRetailerMapping.objects.get(retailer=shop_id, status=True)
-                if parent_mapping.parent.shop_type.shop_type == 'sp':
+                parent_mapping = ParentRetailerMapping.objects.filter(retailer=shop_id, status=True).last()
+                if parent_mapping and parent_mapping.parent.shop_type.shop_type == 'sp':
                     index = parent_mapping.parent.id
         products_list = es_search(index=index, body=body)
         p_list = []
