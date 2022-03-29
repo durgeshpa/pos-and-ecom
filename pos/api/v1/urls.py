@@ -1,12 +1,18 @@
 from django.conf.urls import url
 
+from rest_framework.routers import DefaultRouter
+
 from .views import (PosProductView, CouponOfferCreation, InventoryReport, SalesReport, CustomerReport, VendorView,
                     POView, POProductInfoView, POListView, GrnOrderView, GrnOrderListView, VendorListView,
                     PaymentTypeDetailView, IncentiveView, ShopSpecificationView, GrnReturnOrderView,
                     GetGrnOrderListView, ReturnStatusListView, MeasurementCategoryView, StockUpdateReasonListView,
                     PRNwithoutGRNView, CreateBulkProductView, UpdateInventoryStockView, Contect_Us, PaymentStatusList,
-                    EcomPaymentTypeDetailView, PaymentModeChoicesList, RefundPayment
+                    EcomPaymentTypeDetailView, PaymentModeChoicesList, RefundPayment, RetailerProductListViewSet
                     )
+
+router = DefaultRouter()
+
+router.register('retailer-products', RetailerProductListViewSet, base_name='retailer-products')
 
 urlpatterns = [
     url(r'^catalogue-product/', PosProductView.as_view(), name='catalogue-product'),
@@ -53,3 +59,5 @@ urlpatterns = [
     url(r'^payment-mode-choice/$', PaymentModeChoicesList.as_view()),
     url(r'^payment-refund/$', RefundPayment.as_view(), name='payment-refund')
 ]
+
+urlpatterns += router.urls

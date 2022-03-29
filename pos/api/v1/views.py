@@ -15,7 +15,8 @@ from django.core.validators import URLValidator
 from django.db import transaction
 from django.db.models import Q, Sum, F, Count, Subquery, OuterRef, FloatField, ExpressionWrapper
 from django.db.models.functions import Coalesce
-from rest_framework import status, authentication, permissions
+from products.common_function import get_response
+from rest_framework import status, authentication, permissions, mixins, viewsets
 from rest_framework.generics import GenericAPIView, ListAPIView
 from rest_framework.permissions import AllowAny
 from rest_framework.views import APIView
@@ -48,7 +49,8 @@ from .serializers import (PaymentTypeSerializer, RetailerProductCreateSerializer
                           POSerializer, POGetSerializer, POProductInfoSerializer, POListSerializer,
                           PosGrnOrderCreateSerializer, PosGrnOrderUpdateSerializer, GrnListSerializer,
                           GrnOrderGetSerializer, MeasurementCategorySerializer, ReturnGrnOrderSerializer,
-                          GrnOrderGetListSerializer, PRNOrderSerializer, BulkProductUploadSerializers, ContectUs)
+                          GrnOrderGetListSerializer, PRNOrderSerializer, BulkProductUploadSerializers, ContectUs,
+                          RetailerProductListSerializer)
 from global_config.views import get_config
 from ...forms import RetailerProductsStockUpdateForm
 from ...views import stock_update
@@ -1678,3 +1680,36 @@ class RefundPayment(GenericAPIView):
         payment_datails.save()
 
         return api_response('refund request successful .....', response, status.HTTP_200_OK, True)
+
+
+class RetailerProductListViewSet(mixins.ListModelMixin, 
+                                 viewsets.GenericViewSet):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    serializer_class = RetailerProductListSerializer
+    queryset = RetailerProduct.objects.filter(~Q(sku_type=4))
+    pagination_class = SmallOffsetPagination
+    
+    def list(self, request, *args, **kwargs):
+        name_search = request.query_params.get('name_search')
+        ean_code = request.query_params.get('ean_code')
+        shop_id = request.query_params.get('shop_id')
+        if request.user.is_superuser:
+            qs = self.queryset.all()
+        else:
+            qs = self.queryset.filter(shop__pos_shop__user=request.user, 
+                                      shop__pos_shop__status=True)
+        if name_search:
+            qs = qs.filter(name__icontains=name_search)
+        
+        if ean_code:
+            qs = qs.filter(product_ean_code__iexact=ean_code)
+        
+        if shop_id:
+            qs = qs.filter(shop_id=shop_id)
+        
+        retailer_products = self.pagination_class().paginate_queryset(qs, request)
+        
+        serializer = self.serializer_class(retailer_products, many=True)
+        msg = "success"
+        return get_response(msg, serializer.data, True)
