@@ -6070,41 +6070,39 @@ def pdf_generation_return_retailer(request, order, ordered_product, order_return
     # template_name = 'admin/credit_note/credit_note_retailer.html'
     template_name = 'admin/credit_note/credit_retailer_3inch.html'
 
-    try:
-        # Don't create pdf if already created
-        if credit_note_instance.credit_note_pdf.url:
-            try:
-                order_number, order_status, phone_number = order.order_no, order.order_status, order.buyer.phone_number
-                refund_amount = order_return.refund_amount if order_return.refund_amount > 0 else 0
-                media_url, file_name = credit_note_instance.credit_note_pdf.url, ordered_product.invoice_no
-                manager = order.ordered_cart.seller_shop.pos_shop.filter(user_type='manager').last()
-                shop_name = order.ordered_cart.seller_shop.shop_name
-                if delay:
-                    whatsapp_order_refund.delay(order_number, order_status, phone_number, refund_amount, media_url,
-                                                file_name)
-                    if manager and manager.user.email:
-                        send_invoice_pdf_email.delay(manager.user.email, shop_name, order_number, media_url, file_name,
-                                                     'return')
-                    else:
-                        logger.exception("Email not present for Manager {}".format(str(manager)))
-                    # send mail to manager for return
+
+    # Don't create pdf if already created
+    if credit_note_instance and credit_note_instance.credit_note_pdf and credit_note_instance.credit_note_pdf.url:
+        try:
+            order_number, order_status, phone_number = order.order_no, order.order_status, order.buyer.phone_number
+            refund_amount = order_return.refund_amount if order_return.refund_amount > 0 else 0
+            media_url, file_name = credit_note_instance.credit_note_pdf.url, ordered_product.invoice_no
+            manager = order.ordered_cart.seller_shop.pos_shop.filter(user_type='manager').last()
+            shop_name = order.ordered_cart.seller_shop.shop_name
+            if delay:
+                whatsapp_order_refund.delay(order_number, order_status, phone_number, refund_amount, media_url,
+                                            file_name)
+                if manager and manager.user.email:
+                    send_invoice_pdf_email.delay(manager.user.email, shop_name, order_number, media_url, file_name,
+                                                 'return')
                 else:
-                    if manager and manager.user.email:
-                        send_invoice_pdf_email(manager.user.email, shop_name, order_number, media_url, file_name,
-                                               'return')
-                    else:
-                        logger.exception("Email not present for Manager {}".format(str(manager)))
-                    return whatsapp_order_refund(order_number, order_status, phone_number, refund_amount, media_url,
-                                                 file_name)
-                    # send mail to manager for return
-            except Exception as e:
-                logger.exception("Retailer Credit note send error order {} return {}".format(order.order_no,
-                                                                                             order_return.id))
-                logger.exception(e)
+                    logger.exception("Email not present for Manager {}".format(str(manager)))
+                # send mail to manager for return
+            else:
+                if manager and manager.user.email:
+                    send_invoice_pdf_email(manager.user.email, shop_name, order_number, media_url, file_name,
+                                           'return')
+                else:
+                    logger.exception("Email not present for Manager {}".format(str(manager)))
+                return whatsapp_order_refund(order_number, order_status, phone_number, refund_amount, media_url,
+                                                             file_name)
+                # send mail to manager for return
+        except Exception as e:
+            logger.exception("Retailer Credit note send error order {} return {}".format(order.order_no,
+                                                                                         order_return.id))
+            logger.exception(e)
 
-    except Exception as e:
-        logger.exception(e)
-
+    else:
         filename = create_file_name(file_prefix, credit_note_instance.credit_note_id)
         barcode = barcodeGen(credit_note_instance.credit_note_id)
         # Total Items
