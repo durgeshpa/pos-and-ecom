@@ -843,8 +843,8 @@ class TaxGroup(BaseTimestampUserStatusModel):
 
 
 class GroupTaxMapping(BaseTimestampUserStatusModel):
-    tax_group = models.ForeignKey(TaxGroup, related_name='group_taxes', null=True, blank=True, on_delete=models.CASCADE)
-    tax = models.ForeignKey(Tax, related_name='tax_group', null=True, blank=True, on_delete=models.CASCADE)
+    tax_group = models.ForeignKey(TaxGroup, related_name='group_taxes', on_delete=models.CASCADE)
+    tax = models.ForeignKey(Tax, related_name='tax_group', on_delete=models.CASCADE)
 
     def __str__(self):
         return f"{self.tax_group} -> {self.tax}"
@@ -881,6 +881,14 @@ class ParentProductTaxMapping(BaseTimeModel):
 
     def __str__(self):
         return "{}-{}".format(self.parent_product, self.tax.tax_name)
+
+
+class ParentProductTaxGroupMapping(BaseTimeModel):
+    parent_product = models.ForeignKey(ParentProduct, related_name='parent_product_tax_group', on_delete=models.CASCADE)
+    tax_group = models.ForeignKey(TaxGroup, related_name='tax_group_parent_product', on_delete=models.CASCADE)
+
+    def __str__(self):
+        return f"{self.parent_product} -> {self.tax_group.name}"
 
 
 class DestinationRepackagingCostMapping(models.Model):
