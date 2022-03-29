@@ -156,6 +156,9 @@ class ProductHsnGst(BaseTimestampUserStatusModel):
     def __str__(self):
         return f"{self.product_hsn} -> {self.gst}"
 
+    class Meta:
+        unique_together = ('product_hsn', 'gst')
+
 
 class ProductHsnCess(BaseTimestampUserStatusModel):
     cess = models.IntegerField(null=True, choices=CESS_CHOICE)
@@ -163,6 +166,9 @@ class ProductHsnCess(BaseTimestampUserStatusModel):
 
     def __str__(self):
         return f"{self.product_hsn} -> {self.cess}"
+
+    class Meta:
+        unique_together = ('product_hsn', 'cess')
 
 
 class ParentProduct(BaseTimestampUserStatusModel):
