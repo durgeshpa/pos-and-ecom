@@ -7,7 +7,7 @@ from django.db.models import Q
 
 from brand.models import Brand, Vendor
 from products.models import Product, Tax, ParentProductTaxMapping, ParentProduct, ParentProductCategory, \
-    ParentProductImage, ProductHSN, ProductCapping, ProductImage, ProductHsnGst, ProductHsnCess, GST_CHOICE
+    ParentProductImage, ProductHSN, ProductCapping, ProductImage, ProductHsnGst, ProductHsnCess, GST_CHOICE, CESS_CHOICE
 from categories.models import B2cCategory, Category
 from shops.models import Shop
 from brand.common_validators import validate_brand_name, validate_brand_code, validate_brand_slug
@@ -1402,8 +1402,11 @@ def get_validate_hsn_cess(hsn_cess, product_hsn):
         if not isinstance(cess, dict):
             return {"error": "Key 'hsn_cess' can be of list of object type only."}
 
-        if 'cess' not in cess or not cess['cess']:
+        if 'cess' not in cess:
             return {'error': "'cess': This is mandatory for every hsn_cess."}
+
+        if not any(int(cess['cess']) in i for i in CESS_CHOICE):
+            return {'error': f"'cess': {cess['cess']} Invalid CESS selected."}
 
         if 'id' in cess and cess['id']:
             try:
@@ -1439,8 +1442,11 @@ def get_validate_cess_mandatory_fields(cess):
         if not isinstance(cess, dict):
             return {"error": "Key 'hsn_cess' can be of list of object type only."}
 
-        if 'cess' not in cess or not cess['cess']:
+        if 'cess' not in cess:
             return {'error': "'cess': This is mandatory for every hsn_cess."}
+
+        if not any(int(cess['cess']) in i for i in CESS_CHOICE):
+            return {'error': f"'cess': {cess['cess']} Invalid CESS selected."}
 
         cess_obj.append(cess)
         if cess['cess'] in cess_names_list:
