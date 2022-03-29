@@ -18,7 +18,7 @@ from django.utils.html import format_html
 from barCodeGenerator import merged_barcode_gen
 from retailer_backend.admin import InputFilter
 from retailer_backend.filters import CityFilter, ProductCategoryFilter
-from .common_function import generate_tax_group_name
+from .common_function import generate_tax_group_name, generate_tax_group_name_by_the_mapped_taxes
 
 from .forms import (ProductCappingForm, ProductForm, ProductPriceAddPerm,
                     ProductPriceChangePerm, ProductPriceNewForm, ProductHSNForm,
@@ -26,7 +26,8 @@ from .forms import (ProductCappingForm, ProductForm, ProductPriceAddPerm,
                     RepackagingForm, ParentProductForm, ProductSourceMappingForm, DestinationRepackagingCostMappingForm,
                     ProductSourceMappingFormSet, DestinationRepackagingCostMappingFormSet, ProductImageFormSet,
                     SlabInlineFormSet, PriceSlabForm, ProductPriceSlabForm, ProductPriceSlabCreationForm,
-                    ProductPackingMappingForm, ProductPackingMappingFormSet, DiscountedProductForm, DiscountedProductPriceSlabCreationForm)
+                    ProductPackingMappingForm, ProductPackingMappingFormSet, DiscountedProductForm,
+                    DiscountedProductPriceSlabCreationForm, TaxGroupFormSet)
 
 from .models import *
 from .resources import (ColorResource, FlavorResource, FragranceResource,
@@ -2077,6 +2078,7 @@ class DiscountedProductsAdmin(admin.ModelAdmin, ExportCsvMixin):
 
 
 class GroupTaxMappingInline(admin.TabularInline):
+    formset = TaxGroupFormSet
     model = GroupTaxMapping
     extra = 0
     fields = ('tax',)
@@ -2098,7 +2100,8 @@ class TaxGroupAdmin(admin.ModelAdmin, ExportCsvMixin):
         return super(TaxGroupAdmin, self).response_change(request, obj)
 
     def after_saving_model_and_related_inlines(self, obj):
-        obj.name = generate_tax_group_name(obj)
+        obj.name = generate_tax_group_name_by_the_mapped_taxes(Tax.objects.filter(
+            id__in=obj.group_taxes.values_list('tax__id', flat=True)))
         obj.save()
         return obj
 

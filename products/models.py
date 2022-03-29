@@ -841,10 +841,6 @@ class TaxGroup(BaseTimestampUserStatusModel):
     def __str__(self):
         return str(self.name)
 
-    def clean(self):
-        if TaxGroup.objects.filter(name=self.name).exists():
-            raise ValidationError('Same Tax group already exist.')
-
 
 class GroupTaxMapping(BaseTimestampUserStatusModel):
     tax_group = models.ForeignKey(TaxGroup, related_name='group_taxes', on_delete=models.CASCADE)
