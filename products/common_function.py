@@ -439,3 +439,14 @@ def get_b2c_product_details(product):
     }
     info_logger.info("inside get_b2c_product_details product_details: " + str(product_details))
     return product_details
+
+
+def generate_tax_group_name(tax_group_instance):
+    group_names = []
+    tax_types = ['gst', 'cess', 'surcharge', 'tcs']
+    for tax_type in tax_types:
+        taxes = tax_group_instance.group_taxes.filter(tax__tax_type__iexact=tax_type).\
+            values_list('tax__tax_percentage', flat=True)
+        if taxes:
+            group_names.append('-'.join([tax_type.upper()] + [str(int(x)) for x in taxes]))
+    return '_'.join(group_names)
