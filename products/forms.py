@@ -487,29 +487,24 @@ class UploadParentProductAdminForm(forms.Form):
                 raise ValidationError(_(f"Row {row_id + 2} | 'Brand' can not be empty."))
             elif not Brand.objects.filter(brand_name=row[1].strip()).exists():
                 raise ValidationError(_(f"Row {row_id + 2} | 'Brand' doesn't exist in the system."))
-            if not row[2] and not row[3]:
-                raise ValidationError(_(f"Row {row_id + 2} | 'Categories' can not be empty."))
-            else:
-                if not row[2] and (row[10] == 'b2b' or row[10] == 'both'):
-                    raise ValidationError(
-                                _(f"Row {row_id + 2} | 'B2b Category' is required."))
-                if not row[3] and (row[10] == 'b2c' or row[10] == 'both'):
-                    raise ValidationError(
-                                _(f"Row {row_id + 2} | 'B2c Category' is required."))
-                if row[2] and not Category.objects.filter(category_name=row[2].strip()).exists():
-                    categories = row[2].split(',')
-                    for cat in categories:
-                        cat = cat.strip().replace("'", '')
-                        if not Category.objects.filter(category_name=cat).exists():
-                            raise ValidationError(
-                                _(f"Row {row_id + 2} | 'B2b Category' {cat.strip()} doesn't exist in the system."))
-                if row[3] and not B2cCategory.objects.filter(category_name=row[3].strip()).exists():
-                    categories = row[3].split(',')
-                    for cat in categories:
-                        cat = cat.strip().replace("'", '')
-                        if not B2cCategory.objects.filter(category_name=cat).exists():
-                            raise ValidationError(
-                                _(f"Row {row_id + 2} | 'B2c Category' {cat.strip()} doesn't exist in the system."))
+            if not row[2]:
+                raise ValidationError(_(f"Row {row_id + 2} | 'B2B Categories' can not be empty."))
+            if not row[3]:
+                raise ValidationError(_(f"Row {row_id + 2} | 'B2C Categories' can not be empty."))
+            if row[2] and not Category.objects.filter(category_name=row[2].strip()).exists():
+                categories = row[2].split(',')
+                for cat in categories:
+                    cat = cat.strip().replace("'", '')
+                    if not Category.objects.filter(category_name=cat).exists():
+                        raise ValidationError(
+                            _(f"Row {row_id + 2} | 'B2b Category' {cat.strip()} doesn't exist in the system."))
+            if row[3] and not B2cCategory.objects.filter(category_name=row[3].strip()).exists():
+                categories = row[3].split(',')
+                for cat in categories:
+                    cat = cat.strip().replace("'", '')
+                    if not B2cCategory.objects.filter(category_name=cat).exists():
+                        raise ValidationError(
+                            _(f"Row {row_id + 2} | 'B2c Category' {cat.strip()} doesn't exist in the system."))
             if not row[4]:
                 raise ValidationError(_(f"Row {row_id + 2} | 'HSN' can not be empty."))
             elif not ProductHSN.objects.filter(product_hsn_code=row[4].replace("'", '')).exists():
@@ -533,8 +528,8 @@ class UploadParentProductAdminForm(forms.Form):
                 raise ValidationError(_(f"Row {row_id + 2} | 'Inner Case Size' can only be a numeric value."))
             if not row[10]:
                 raise ValidationError(_(f"Row {row_id + 2} | 'Product Type' can not be empty."))
-            elif row[10].lower() not in ['b2b', 'b2c', 'both', 'both b2b and b2c']:
-                raise ValidationError(_(f"Row {row_id + 2} | 'GST' can only be 'B2B', 'B2C', 'Both B2B and B2C'."))
+            elif row[10].lower() not in ['both', 'both b2b and b2c']:
+                raise ValidationError(_(f"Row {row_id + 2} | 'Product Type' can only 'Both B2B and B2C'."))
         return self.cleaned_data['file']
 
 

@@ -617,11 +617,11 @@ def DownloadRetailerCatalogue(request, *args, **kwargs):
     writer = csv.writer(response)
     writer.writerow(
         ['product_id', 'shop_id', 'shop_name', 'product_sku', 'product_name', 'mrp', 'selling_price',
-         'linked_product_sku', 'product_ean_code', 'description', 'sku_type','parent_product_id' , 'category',
-         'sub_category', 'brand', 'sub_brand', 'status', 'quantity', 'discounted_sku', 'discounted_stock',
-         'discounted_price', 'product_pack_type', 'measurement_category', 'purchase_pack_size',
-         'available_for_online_orders', 'online_order_price', 'is_visible', 'offer_price', 'offer_start_date',
-         'offer_end_date', 'initial_purchase_value'])
+         'linked_product_sku', 'product_ean_code', 'description', 'sku_type','parent_product_id', 'b2b_category',
+         'b2b_sub_category', 'b2c_category', 'b2c_sub_category', 'brand', 'sub_brand', 'status', 'quantity',
+         'discounted_sku', 'discounted_stock', 'discounted_price', 'product_pack_type', 'measurement_category',
+         'purchase_pack_size', 'available_for_online_orders', 'online_order_price', 'is_visible', 'offer_price',
+         'offer_start_date', 'offer_end_date', 'initial_purchase_value'])
 
     product_qs = RetailerProduct.objects.filter(~Q(sku_type=4), shop_id=int(shop_id), is_deleted=False)
     if product_qs.exists():
@@ -663,17 +663,14 @@ def DownloadRetailerCatalogue(request, *args, **kwargs):
         inventory_data = {i.product_id: i.quantity for i in inventory}
         is_visible = 'False'
         for product_id, product in product_dict.items():
-            # category = product[
-            #     'linked_product__parent_product__parent_product_pro_category__category__category_parent__category_name']
-            # sub_category = product[
-            #     'linked_product__parent_product__parent_product_pro_category__category__category_name']
-            # if not category:
-            #     category = sub_category
-            #     sub_category = None
+            category = product[
+                'linked_product__parent_product__parent_product_pro_category__category__category_parent__category_name']
+            sub_category = product[
+                'linked_product__parent_product__parent_product_pro_category__category__category_name']
+            if not category:
+                category = sub_category
+                sub_category = None
 
-            category = None
-            sub_category = None
-            product_type = product['linked_product__parent_product__product_type']
             b2c_category = product[
                 'linked_product__parent_product__parent_product_pro_b2c_category__category__category_parent__category_name']
             b2c_sub_category = product[
@@ -712,16 +709,13 @@ def DownloadRetailerCatalogue(request, *args, **kwargs):
                 initial_purchase_value = product['initial_purchase_value'] \
                     if product['initial_purchase_value'] else 0
 
-            if product['linked_product__product_sku'] and (product_type =='b2c' or product_type == 'both'):
-                category = b2c_category
-                sub_category = b2c_sub_category
             writer.writerow(
                 [product['id'], product['shop'], product['shop__shop_name'], product['sku'], product['name'],
                  product['mrp'], product['selling_price'], product['linked_product__product_sku'],
                  product['product_ean_code'], product['description'],
                  RetailerProductCls.get_sku_type(product['sku_type']),
                  product['linked_product__parent_product__parent_id'],
-                 category, sub_category, brand, sub_brand, product['status'], inventory_data.get(product_id, 0),
+                 category, sub_category, b2c_category, b2c_sub_category, brand, sub_brand, product['status'], inventory_data.get(product_id, 0),
                  product['discounted_product__sku'], discounted_stock, discounted_price, product['product_pack_type'],
                  measurement_category, product['purchase_pack_size'], online_enabled,
                  product['online_price'], is_visible, product['offer_price'], product['offer_start_date'],
@@ -811,13 +805,13 @@ def RetailerCatalogueSampleFile(request, *args):
     writer = csv.writer(response)
     writer.writerow(
         ['product_id', 'shop_id', 'shop_name', 'product_sku', 'product_name', 'mrp', 'selling_price',
-         'linked_product_sku', 'product_ean_code', 'description', 'sku_type', 'category', 'sub_category',
-         'brand', 'sub_brand', 'status', 'quantity', 'discounted_sku', 'discounted_stock', 'discounted_price',
-         'product_pack_type', 'measurement_category', 'purchase_pack_size', 'available_for_online_orders',
+         'linked_product_sku', 'product_ean_code', 'description', 'sku_type', 'b2b_category', 'b2b_sub_category',
+         'b2c_category', 'b2c_sub_category', 'brand', 'sub_brand', 'status', 'quantity', 'discounted_sku',
+         'discounted_stock', 'discounted_price', 'product_pack_type', 'measurement_category', 'purchase_pack_size', 'available_for_online_orders',
          'online_order_price', 'is_visible', 'offer_price', 'offer_start_date', 'offer_end_date',
          'initial_purchase_value'])
     writer.writerow(["", 36966, "", "", 'Loose Noodles', 12, 10, 'PROPROTOY00000019', 'EAEASDF', 'XYZ', "",
-                     "", "", "", "", 'active', 2, "", "", "", 'loose', 'weight', 1, 'Yes', 11, 'Yes', 9, "2021-11-21",
+                     "", "", "", "", "", "", 'active', 2, "", "", "", 'loose', 'weight', 1, 'Yes', 11, 'Yes', 9, "2021-11-21",
                      "2021-11-23", 8])
     writer.writerow(["", 36966, "", "", 'Packed Noodles', 12, 10, 'PROPROTOY00000019', 'EAEASDF', 'XYZ', "",
                      "", "", "", "", 'active', 2, "", "", "", 'packet', '', 1, 'Yes', 11, 'Yes', 9, "2021-11-21",
@@ -999,7 +993,7 @@ def posinventorychange_data_excel(request, queryset):
 
 
 def get_product_details(product):
-    parent_id, category, sub_category, brand, sub_brand = None, None, None, None, None
+    parent_id, category, sub_category, b2c_category, b2c_sub_category, brand, sub_brand = None, None, None, None, None, None, None
     if product.linked_product:
         parent_id = product.linked_product.parent_product.parent_id
         brand_details = Product.objects.values('parent_product__parent_brand__brand_name',
@@ -1014,15 +1008,22 @@ def get_product_details(product):
         # cat = ParentProductCategory.objects.values('category__category_name',
         #                                            'category__category_parent__category_name').filter \
         #     (parent_product__id=product.linked_product.parent_product.id)
-        cat_obj = parent_product_categories(product.linked_product.parent_product)
-        if cat_obj:
-            cat = cat_obj.values('category__category_name', 'category__category_parent__category_name')
+        b2b_cat, b2c_cat = parent_product_categories(product.linked_product.parent_product)
+        if b2b_cat:
+            cat = b2b_cat.values('category__category_name', 'category__category_parent__category_name')
             if cat[0]['category__category_parent__category_name']:
                 category = cat[0]['category__category_parent__category_name']
                 sub_category = cat[0]['category__category_name']
             else:
                 category = cat[0]['category__category_name']
-    return parent_id, category, sub_category, brand, sub_brand
+        if b2c_cat:
+            b2ccat = b2c_cat.values('category__category_name', 'category__category_parent__category_name')
+            if b2ccat[0]['category__category_parent__category_name']:
+                b2c_category = b2ccat[0]['category__category_parent__category_name']
+                b2c_sub_category = b2ccat[0]['category__category_name']
+            else:
+                b2c_category = b2ccat[0]['category__category_name']
+    return parent_id, category, sub_category, b2c_category, b2c_sub_category, brand, sub_brand
 
 
 def get_tax_details(product):

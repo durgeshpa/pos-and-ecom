@@ -42,6 +42,7 @@ class CategoryListView(GenericAPIView):
         msg = "" if category else "no category found"
         return get_response(msg, serializer.data, True)
 
+
 class B2cCategoryListView(GenericAPIView):
     """
         Get Category List
@@ -56,7 +57,7 @@ class B2cCategoryListView(GenericAPIView):
             self.queryset = category_search(self.queryset, search_text)
         category = SmallOffsetPagination().paginate_queryset(self.queryset, request)
         serializer = self.serializer_class(category, many=True)
-        msg = "" if category else "no category found"
+        msg = "" if category else "no b2c category found"
         return get_response(msg, serializer.data, True)
 
 
@@ -98,11 +99,13 @@ class BulkCreateUpdateAttributesView(GenericAPIView):
             h)Create Parent Product
             i)Create Brand
             j)Create Category
+            k)Create B2c Category
 
             g)Update Child Product
             h)Update Parent Product
             i)Update Brand
             j)Update Category
+            k)Update B2c Category
 
             After following operations, an entry will be created in 'BulkUploadForProductAttributes' Table
         """
