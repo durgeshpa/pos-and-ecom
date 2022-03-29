@@ -18,7 +18,7 @@ from django.utils.html import format_html
 from barCodeGenerator import merged_barcode_gen
 from retailer_backend.admin import InputFilter
 from retailer_backend.filters import CityFilter, ProductCategoryFilter
-from .common_function import generate_tax_group_name, generate_tax_group_name_by_the_mapped_taxes
+from .common_function import generate_tax_group_name_by_the_mapped_taxes
 
 from .forms import (ProductCappingForm, ProductForm, ProductPriceAddPerm,
                     ProductPriceChangePerm, ProductPriceNewForm, ProductHSNForm,
