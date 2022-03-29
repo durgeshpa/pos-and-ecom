@@ -1988,8 +1988,16 @@ class CartCheckout(APIView):
             offers = BasicCartOffers.refresh_offers_checkout(cart, False, self.request.data.get('coupon_id'))
             data = self.serialize(cart)
             data['redeem_points_message'] = use_rewrd_this_month
-            delivery_time = get_config_fofo_shops(kwargs['shop'].id)
-            data['maximum_delivery_time'] = delivery_time.get('delivery_time',None)
+            time = datetime.now().strftime("%H:%M:%S")
+            time = datetime.strptime(time,"%H:%M:%S").time()
+            fofo_config = get_config_fofo_shops(kwargs['shop'].id)
+            delivery_time = str(fofo_config.get('delivery_time')) + " " + 'min' if fofo_config.get('delivery_time', None) else None
+
+            if fofo_config.get('open_time',None) and fofo_config.get('close_time',None) and not (
+                    fofo_config['open_time'] < time < fofo_config['close_time']):
+                delivery_time = "your order will be delivered tomorrow"
+
+            data['estimate_delivery_time'] = delivery_time
             if 'error' in offers:
                 return api_response(offers['error'], None, offers['code'])
             if offers['applied']:
@@ -2057,7 +2065,15 @@ class CartCheckout(APIView):
             address = AddressCheckoutSerializer(cart.buyer.ecom_user_address.filter(default=True).last()).data
             data.update({'default_address': address})
             delivery_time = get_config_fofo_shops(kwargs['shop'])
-            data['maximum_delivery_time'] = delivery_time.get('delivery_time',None)
+            time = datetime.now().strftime("%H:%M:%S")
+            time = datetime.strptime(time,"%H:%M:%S").time()
+            fofo_config = get_config_fofo_shops(kwargs['shop'].id)
+            delivery_time = str(fofo_config.get('delivery_time')) + " "+ 'min' if fofo_config.get('delivery_time', None) else None
+
+            if fofo_config.get('open_time',None) and fofo_config.get('close_time',None) and not (
+                    fofo_config['open_time'] < time < fofo_config['close_time']):
+                delivery_time = "your order will be delivered tomorrow"
+            data['estimate_delivery_time'] = delivery_time
             data.update({'saving': round(data['total_mrp'] - data['amount_payable'], 2)})
             data.update({"redeem_points_message": use_rewrd_this_month})
             return api_response("Cart Checkout", data, status.HTTP_200_OK, True)
@@ -3739,6 +3755,8 @@ class OrderCentral(APIView):
             time = datetime.now().strftime("%H:%M:%S")
             time = datetime.strptime(time,"%H:%M:%S").time()
             msg = fofo_config.get('delivery_time',None)
+            if msg:
+                msg = str(msg)+" "+"min"
             if fofo_config.get('open_time',None) and fofo_config.get('close_time',None) and not (fofo_config['open_time']<time and fofo_config['close_time']>time):
                 msg = "your order will be delivered tomorrow "
             order.estimate_delivery_time = msg
