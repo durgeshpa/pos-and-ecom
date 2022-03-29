@@ -620,7 +620,7 @@ class LandingPageSerializer(serializers.ModelSerializer):
     def get_page_link(self, obj):
         request = self.context.get('request')
         if request:
-            return request.build_absolute_uri('/cms/api/v1/?id='+str(obj.id))
+            return request.build_absolute_uri('/cms/api/v1/landing-pages/?id='+str(obj.id))
 
     class Meta:
         model = LandingPage
@@ -704,14 +704,11 @@ class LandingPageSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(error)
         return landing_page
 
-
     @transaction.atomic
     def update(self, instance, validated_data):
         try:
-            product_list = None
-            if validated_data.get('products') is not None:
-                product_list = validated_data.pop('products')
-            landing_page = LandingPage.objects.create(**validated_data)
+            product_list = validated_data.pop('products', None)
+            landing_page = super.update(instance, validated_data)
             if product_list:
                 landing_page.landing_page_products.all().delete()
                 LandingPageProducts.objects.bulk_create([LandingPageProducts(landing_page=landing_page, product=p,

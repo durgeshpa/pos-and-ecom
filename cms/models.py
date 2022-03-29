@@ -68,6 +68,7 @@ class CardData(BaseTimestampUserModel):
     image = models.ImageField(upload_to="cards/data/images", null=True, blank=True)
     header = models.CharField(max_length=255, blank=True, null=True)
     header_action = models.URLField(blank=True, null=True)
+    header_action_text = models.CharField(max_length=50, blank=True, null=True)
     sub_header = models.CharField(max_length=255, null=True, blank=True)
     footer = models.CharField(max_length=255, null=True, blank=True)
     scroll_type = models.CharField(max_length=10, choices=SCROLL_CHOICES, default="noscroll")
