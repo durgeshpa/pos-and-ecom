@@ -704,14 +704,11 @@ class LandingPageSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(error)
         return landing_page
 
-
     @transaction.atomic
     def update(self, instance, validated_data):
         try:
-            product_list = None
-            if validated_data.get('products') is not None:
-                product_list = validated_data.pop('products')
-            landing_page = LandingPage.objects.create(**validated_data)
+            product_list = validated_data.pop('products', None)
+            landing_page = super.update(instance, validated_data)
             if product_list:
                 landing_page.landing_page_products.all().delete()
                 LandingPageProducts.objects.bulk_create([LandingPageProducts(landing_page=landing_page, product=p,

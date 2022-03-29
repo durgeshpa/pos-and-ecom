@@ -57,7 +57,7 @@ class CardView(APIView, PaginationHandlerMixin):
             info_logger.info("----------USING CACHED CARDS @GET cards/--------")
             queryset = cache.get('cards')
         else:
-            queryset = Card.objects.all()
+            queryset = Card.objects.order_by('-id')
             info_logger.info("-----CACHING CARDS  @GET cards/----------")
             cache.set('cards', queryset)
 
@@ -321,7 +321,7 @@ class ItemsView(APIView):
 class CardDetailView(RetrieveAPIView):
     """Get card by id"""
     lookup_field = "id"
-    queryset = Card.objects.all()
+    queryset = Card.objects.order_by('-id')
     serializer_class = CardSerializer
 
 
@@ -434,7 +434,7 @@ class PageView(APIView):
             info_logger.info("----------USING CACHED PAGES @GET pages/--------")
             pages = cache.get('pages')
         else:
-            pages = Page.objects.all()
+            pages = Page.objects.order_by('-id')
             info_logger.info("-----CACHING PAGES  @GET pages/----------")
             cache.set('pages', pages)
 
@@ -717,7 +717,7 @@ class PageFunctionView(generics.GenericAPIView):
 
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (permissions.IsAuthenticated, IsCMSDesigner)
-    queryset = Functions.objects.all()
+    queryset = Functions.objects.order_by('-id')
     serializer_class = PageFunctionSerializer
 
     def get(self, request):
@@ -755,7 +755,7 @@ class LandingPageView(generics.GenericAPIView):
 
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (permissions.IsAuthenticated, IsCMSDesigner)
-    queryset = LandingPage.objects.all()
+    queryset = LandingPage.objects.order_by('-id')
     serializer_class = LandingPageSerializer
 
     def get(self, request):
