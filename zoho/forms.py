@@ -68,8 +68,8 @@ class ZohoCustomerFileUploadForm(forms.ModelForm):
                 reader = csv.reader(codecs.iterdecode(self.cleaned_data['file'], 'utf-8', errors='ignore'))
                 headers = next(reader, None)
 
-        return self.cleaned_data['file']
+        return self.cleaned_data
 
     class Meta:
         model = ZohoFileUpload
-        fields = ['file']
+        fields = ['file',]

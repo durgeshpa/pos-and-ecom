@@ -4,10 +4,10 @@ from django.db import transaction
 from django.shortcuts import render, redirect
 
 # Create your views here.
-from zoho.forms import ZohoInvoiceFileUploadForm, ZohoCreditNoteFileUploadForm, ZohoCustomerFileUploadForm
+from .forms import ZohoInvoiceFileUploadForm, ZohoCreditNoteFileUploadForm, ZohoCustomerFileUploadForm
 # Logger
-from zoho.models import ZohoFileUpload
-from zoho.services import zoho_credit_note_data_upload, zoho_invoice_data_upload
+from .models import ZohoFileUpload
+from .services import zoho_credit_note_data_upload, zoho_invoice_data_upload, zoho_customers_file_upload
 
 info_logger = logging.getLogger('file-info')
 error_logger = logging.getLogger('file-error')
@@ -67,7 +67,7 @@ def bulk_zoho_credit_note_file_upload(request):
 def bulk_upload_zoho_customers_file_upload(request):
     if request.method == "POST":
         info_logger.info("POST request while bulk zoho Customers file upload.")
-        form = ZohoCustomerFileUploadForm(request.POST)
+        form = ZohoCustomerFileUploadForm(request.POST, request.FILES)
         if form.is_valid():
             info_logger.info("Data validation has been successfully done.")
             try:

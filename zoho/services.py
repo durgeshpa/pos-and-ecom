@@ -14,7 +14,7 @@ def zoho_invoice_data_upload(invoice_file):
 
 
 def zoho_customers_file_upload(request, customer_file):
-    reader = csv.reader(codecs.iterdecode(invoice_file, 'utf-8'))
+    reader = csv.reader(codecs.iterdecode(customer_file, 'utf-8'))
     next(reader)
     for row in reader:
         pass
