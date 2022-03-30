@@ -2326,6 +2326,7 @@ def move_inventory(warehouse, discounted_product, original_product, bin, batch_i
     available_qty = available_stock.get(original_product.id, 0)
 
     if available_qty <= 0:
+        info_logger.info('LB|move_inventory|Stock not available|SKU {}'.format(original_product.product_sku))
         raise Exception('LB|move_inventory|Stock not available|SKU {}'.format(original_product.product_sku))
 
     if available_qty < quantity:
@@ -2382,10 +2383,11 @@ def create_price_for_discounted_product(warehouse, discounted_product, original_
     return discounted_price
 
 
-@receiver(post_save, sender=ParentProduct)
-def create_discounted_product_on_parent_update(sender, instance=None, created=False, **kwargs):
-    if instance.discounted_life_percent > 0:
-        create_update_discounted_products(instance)
+# @receiver(post_save, sender=ParentProduct)
+# def create_discounted_product_on_parent_update(sender, instance=None, created=False, **kwargs):
+#     if instance.discounted_life_percent > 0:
+#         create_update_discounted_products(instance)
+#         pass
 
 
 @receiver(post_save, sender=WarehouseInventory)
