@@ -2807,10 +2807,14 @@ class TaxGroupFormSet(BaseInlineFormSet):
     def clean(self):
         super(TaxGroupFormSet, self).clean()
         tax_ids = []
+        tax_types_added = []
         non_empty_forms = 0
         for form in self:
             if form.cleaned_data and form.cleaned_data.get('tax'):
                 non_empty_forms += 1
+                if form.cleaned_data['tax'].tax_type in tax_types_added:
+                    raise ValidationError("This type of tax already exists in the group!")
+                tax_types_added.append(form.cleaned_data['tax'].tax_type)
                 tax_ids.append(form.cleaned_data['tax'].id)
 
         if non_empty_forms - len(self.deleted_forms) < 1:

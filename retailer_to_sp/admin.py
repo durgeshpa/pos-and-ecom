@@ -2662,13 +2662,14 @@ class EInvoiceAdmin(admin.ModelAdmin):
     def get_buyer_gstin(self, obj):
         buyer_shop_document = ShopDocument.objects.filter(shop_name_id=obj.shipment.order.buyer_shop_id,
                                                           shop_document_type=ShopDocument.GSTIN).last()
-        return buyer_shop_document.shop_document_number if buyer_shop_document else '-'
+        return buyer_shop_document.shop_document_number if buyer_shop_document else None
     get_buyer_gstin.short_description = "Buyer GSTIN"
 
     def get_queryset(self, request):
         qs = super().get_queryset(request)\
             .filter(shipment__order__seller_shop_id=get_config('current_wh_active', 50484),
-                    created_at__gte=(datetime.datetime.now()-datetime.timedelta(days=60)))
+                    created_at__gte=(datetime.datetime.now()-datetime.timedelta(days=get_config('e_invoice_days', 60))),
+                    shipment__order__buyer_shop__shop_name_documents__shop_document_type='gstin')
         qs = qs.exclude(shipment__order__ordered_cart__cart_type='BASIC')
         qs = qs.exclude(shipment__order__order_status=Order.CANCELLED)
         qs = qs.annotate(buyer_name=F('shipment__order__buyer_shop__shop_name'))

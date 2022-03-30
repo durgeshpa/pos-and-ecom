@@ -533,8 +533,9 @@ def get_shop_gstin(shop_id, ShopDocument):
     gstin = cache.get(cache_key)
     if not gstin:
         buyer_shop_document = ShopDocument.objects.filter(shop_name_id=shop_id, shop_document_type=ShopDocument.GSTIN).last()
-        gstin = buyer_shop_document.shop_document_number if buyer_shop_document else 'unregistered'
-        cache.set(cache_key, gstin)
+        gstin = buyer_shop_document.shop_document_number if buyer_shop_document else None
+        if gstin:
+            cache.set(cache_key, gstin)
     return gstin
 
 
@@ -608,6 +609,8 @@ def create_e_invoice_data_excel(queryset, OrderedProduct, RoundAmount, ShopDocum
                              'shipment__order__buyer_shop__shop_name', 'shipment__order__shipping_address__state__state_name')
     for invoice in invoices:
         shop_gstin = get_shop_gstin(invoice.buyer_shop_id, ShopDocument)
+        if not shop_gstin:
+            continue
         tcs_data = get_tcs_data(invoice, invoice.buyer_shop_id, shop_gstin, OrderedProduct, RoundAmount)
         for item in invoice.shipment.rt_order_product_order_product_mapping.all():
             tax_data = get_tax_data(item.product_tax_json)
@@ -615,7 +618,7 @@ def create_e_invoice_data_excel(queryset, OrderedProduct, RoundAmount, ShopDocum
                 invoice.invoice_no,
                 '',
                 invoice.created_at,
-                'Overdue',
+                '',
                 invoice.buyer_name,
                 'business_gst',
                 'TCS',
@@ -623,13 +626,13 @@ def create_e_invoice_data_excel(queryset, OrderedProduct, RoundAmount, ShopDocum
                 tcs_data['tcs_tax'],
                 tcs_data['nature_of_collection'],
                 tcs_data['tcs_payable'],
-                'TCS Receivable',
+                '',
                 shop_gstin,
                 invoice.state_code_txt,
-                '','',0,'Due on Receipt','','','',
+                '','','','','','','',
                 'INR',
-                1,
-                'Sales',
+                '',
+                '',
                 item.product.product_name,
                 item.product.product_sku,
                 item.product.product_name,
@@ -644,21 +647,21 @@ def create_e_invoice_data_excel(queryset, OrderedProduct, RoundAmount, ShopDocum
                 tax_data['tax_percent'],
                 '',
                 'Taxable',
-                'entity_level',
-                1,
+                '',
+                '',
                 0,
                 0,
                 0,
                 0,
                 0,
                 0,
-                'Adjustment',
+                '',
                 0,
                 0,
                 0,
-                'Spreadsheet Template',
-                'Looking forward for your business.',
-                'We reserve the right to cancel.'
+                '',
+                '',
+                ''
 
             ])
     return response

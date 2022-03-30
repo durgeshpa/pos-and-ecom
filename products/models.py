@@ -836,7 +836,7 @@ class Tax(BaseTimestampUserStatusModel):
 
 class TaxGroup(BaseTimestampUserStatusModel):
     name = models.CharField(max_length=100, unique=True, null=True, blank=True)
-    zoho_id = models.PositiveIntegerField(null=True, blank=True)
+    zoho_id = models.CharField(max_length=100)
 
     def __str__(self):
         return str(self.name)
