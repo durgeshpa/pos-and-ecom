@@ -4,7 +4,7 @@ from django.db import transaction
 from django.shortcuts import render, redirect
 
 # Create your views here.
-from zoho.forms import ZohoInvoiceFileUploadForm, ZohoCreditNoteFileUploadForm
+# from zoho.forms import ZohoInvoiceFileUploadForm, ZohoCreditNoteFileUploadForm
 # Logger
 from zoho.models import ZohoFileUpload
 from zoho.services import zoho_credit_note_data_upload, zoho_invoice_data_upload
@@ -61,3 +61,31 @@ def bulk_zoho_credit_note_file_upload(request):
     else:
         form = ZohoCreditNoteFileUploadForm()
     return render(request, 'admin/zoho/bulk-upload-credit-note.html', {'form': form})
+
+
+
+def bulk_upload_zoho_customers_file_upload(request):
+    if request.method == "POST":
+        info_logger.info("POST request while bulk zoho Customers file upload.")
+        form = ZohoCustomerFileUploadForm(request.POST)
+        if form.is_valid():
+            info_logger.info("Data validation has been successfully done.")
+            try:
+                credit_note_file = form.cleaned_data['file']
+                ZohoFileUpload.objects.create(file=credit_note_file, upload_type='Credit Note',
+                                              created_by=request.user, updated_by=request.user)
+                info_logger.info("bulk zoho Customers file upload.")
+                with transaction.atomic():
+                    zoho_customers_file_upload(credit_note_file)
+                return redirect('/admin/zoho/zohofileupload/')
+
+            except Exception as e:
+                error_logger.error(e)
+        else:
+            return render(request, 'admin/zoho/bulk-upload-credit-note.html', {'form': form})
+    else:
+        form = ZohoCustomerFileUploadForm()
+    return render(request, 'admin/zoho/bulk-upload-credit-note.html', {'form': form})
+
+        
+
