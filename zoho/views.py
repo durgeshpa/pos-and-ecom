@@ -4,7 +4,7 @@ from django.db import transaction
 from django.shortcuts import render, redirect
 
 # Create your views here.
-# from zoho.forms import ZohoInvoiceFileUploadForm, ZohoCreditNoteFileUploadForm
+from zoho.forms import ZohoInvoiceFileUploadForm, ZohoCreditNoteFileUploadForm, ZohoCustomerFileUploadForm
 # Logger
 from zoho.models import ZohoFileUpload
 from zoho.services import zoho_credit_note_data_upload, zoho_invoice_data_upload
@@ -76,7 +76,7 @@ def bulk_upload_zoho_customers_file_upload(request):
                                               created_by=request.user, updated_by=request.user)
                 info_logger.info("bulk zoho Customers file upload.")
                 with transaction.atomic():
-                    zoho_customers_file_upload(credit_note_file)
+                    zoho_customers_file_upload(request, credit_note_file)
                 return redirect('/admin/zoho/zohofileupload/')
 
             except Exception as e:

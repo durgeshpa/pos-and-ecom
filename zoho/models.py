@@ -237,8 +237,7 @@ class ZohoInvoiceItem(ZohoCommonItemFields):
 
 
 class ZohoCustomers(models.Model):
-    created_by = models.ForeignKey(BaseTimestampUserModel, on_delete=models.DO_NOTHING, blank=True, null=True)
-    updated_by = models.ForeignKey(BaseTimestampUserModel, on_delete=models.DO_NOTHING, blank=True, null=True)
+    created_by = models.ForeignKey(get_user_model(), null=True, on_delete=models.DO_NOTHING)
     display_name = models.CharField(max_length=133, blank=True, null=True)
     company_name = models.CharField(max_length=133, blank=True, null=True)
     salutation = models.CharField(max_length=10, blank=True, null=True)
