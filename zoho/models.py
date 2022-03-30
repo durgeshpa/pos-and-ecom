@@ -13,10 +13,18 @@ class ZohoFileUpload(BaseTimeModel):
         on_delete=models.DO_NOTHING
     )
 
-    # def __str__(self):
-    #     return f"BulkUpload for Zoho File Upload updated at {self.created_at} by {self.updated_by}"
+    def __str__(self):
+        return f"BulkUpload for Zoho File Upload updated at {self.created_at} by {self.updated_by}"
 
 
 # class ZohoCreditNote(models.Model):
+#     pass
+
+
+# class ZohoInvoice(models.Model):
+#     pass
+
+
+# class ZohoCustomers(models.Model):
 #     pass
 
