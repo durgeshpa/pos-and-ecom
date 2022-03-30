@@ -3975,3 +3975,10 @@ class RetailerProductListSerializer(serializers.ModelSerializer):
         fields = ('shop', 'sku', 'name', 'mrp', 'selling_price', 'product_ean_code', 'image',
                 'linked_product', 'category', 'sub_category', 'b2c_category', 'b2c_sub_category',
                 'description', 'sku_type', 'status', 'product_pack_type', 'created_at', 'modified_at')
+
+
+class DownloadRetailerProductsCsvShopWiseSerializer(serializers.Serializer):
+    shop = serializers.IntegerField()
+
+class DownloadUploadRetailerProductsCsvSampleFileSerializer(serializers.Serializer):
+    shop = serializers.IntegerField()

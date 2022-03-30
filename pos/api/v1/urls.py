@@ -7,8 +7,8 @@ from .views import (PosProductView, CouponOfferCreation, InventoryReport, SalesR
                     PaymentTypeDetailView, IncentiveView, ShopSpecificationView, GrnReturnOrderView,
                     GetGrnOrderListView, ReturnStatusListView, MeasurementCategoryView, StockUpdateReasonListView,
                     PRNwithoutGRNView, CreateBulkProductView, UpdateInventoryStockView, Contect_Us, PaymentStatusList,
-                    EcomPaymentTypeDetailView, PaymentModeChoicesList, RefundPayment, RetailerProductListViewSet
-                    )
+                    EcomPaymentTypeDetailView, PaymentModeChoicesList, RefundPayment, RetailerProductListViewSet,
+                    DownloadRetailerProductCsvShopWiseView, DownloadUploadRetailerProductsCsvSampleFileView)
 
 router = DefaultRouter()
 
@@ -57,7 +57,9 @@ urlpatterns = [
 
     url(r'^payment-status-choice/$', PaymentStatusList.as_view()),
     url(r'^payment-mode-choice/$', PaymentModeChoicesList.as_view()),
-    url(r'^payment-refund/$', RefundPayment.as_view(), name='payment-refund')
+    url(r'^payment-refund/$', RefundPayment.as_view(), name='payment-refund'),
+    url(r'^download-retailer-products-csv/$', DownloadRetailerProductCsvShopWiseView.as_view(), name='download-retailer-products-csv'),
+    url(r'^download-upload-retailer-products-sample-file/$', DownloadUploadRetailerProductsCsvSampleFileView.as_view(), name='download-upload-retailer-products-sample-file')
 ]
 
 urlpatterns += router.urls
