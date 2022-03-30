@@ -550,5 +550,13 @@
             });
 
     });
+    $("input[name^='grn_order_grn_order_product-']").change(function(){
+        var elementId = $(this).attr('id');
+        const arr = elementId.split("-");
+        var i = arr[1];
+        var product_invoice_qty = $("#id_grn_order_grn_order_product-"+i+"-product_invoice_qty").val();
+        var invoice_price = $("#id_grn_order_grn_order_product-"+i+"-product_invoice_price").val();
+        $("#id_grn_order_grn_order_product-"+i+"-product_amount").val(invoice_price * product_invoice_qty);
+    });
 })(django.jQuery);
 </script>

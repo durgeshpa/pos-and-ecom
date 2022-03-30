@@ -7,7 +7,8 @@ from .views import ParentProductView, ParentProductExportAsCSVView, HSNListView,
     ProductStatusListView, ProductVendorMappingExportAsCSVView, ActiveChildProductListView, SellerShopListView, \
     BuyerShopListView, CityListView, PinCodeListView, SlabProductPriceView, ProductPriceStatusListView, \
     DisapproveSelectedProductPriceView, ProductSlabPriceExportAsCSVView, ProductListView, DiscountProductView, \
-    DiscountProductListForManualPriceView, B2cCategoryListView
+    DiscountProductListForManualPriceView, B2cCategoryListView, HSNExportAsCSVUploadView, \
+    ParentProductsTaxStatusChoicesView, ParentProductApprovalView, HSNExportAsCSVSampleDownloadView
 
 urlpatterns = [
     url(r'^parent-product/', ParentProductView.as_view(), name='parent-product'),
@@ -34,6 +35,8 @@ urlpatterns = [
     url(r'^weight/', WeightView.as_view(), name='weight'),
     url(r'^export-csv-weight/', WeightExportAsCSVView.as_view(), name='export-csv-weight'),
     url(r'^export-csv-hsn/', HSNExportAsCSVView.as_view(), name='export-csv-hsn'),
+    url(r'^download-csv-hsn-sample/', HSNExportAsCSVSampleDownloadView.as_view(), name='download-csv-hsn-sample'),
+    url(r'^upload-csv-hsn/', HSNExportAsCSVUploadView.as_view(), name='upload-csv-hsn'),
     url(r'^hsn/', ProductHSNView.as_view(), name='hsn'),
     url(r'^child-product-list/', ActiveChildProductListView.as_view(), name='child-product-list'),
     url(r'^vendor-list/', VendorListView.as_view(), name='vendor-list'),
@@ -53,5 +56,7 @@ urlpatterns = [
     url(r'^product-price-status-list/', ProductPriceStatusListView.as_view(), name='product-price-status-list'),
     url(r'^product-list/', ProductListView.as_view(), name='product-list'),
     url(r'^discounted-product-list/', DiscountProductListForManualPriceView.as_view(), name='discounted-product-list'),
+    url(r'^parent-product-tax-status-list/', ParentProductsTaxStatusChoicesView.as_view(), name='tax-status-list'),
+    url(r'^parent-product-approval/', ParentProductApprovalView.as_view(), name='parent-product-approval'),
 
 ]

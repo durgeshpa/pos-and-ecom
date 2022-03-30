@@ -44,5 +44,24 @@
         cache: false
     });
     });
+
+    calculateColumn();
+
+    $('[class$="-product_invoice_price"], [class$="-product_invoice_qty"], [class$="-delivered_qty"], [class$="-returned_qty"], [class$="-product_amount"]').on('change', function(){
+        calculateColumn();
+    });
+
+    function calculateColumn() {
+        var total = 0;
+        var product_amount_counts = $('[id^="grn_order_grn_order_product-"]').length
+        for (let count = 0; count < product_amount_counts; count++) {
+            var value = parseFloat($('#id_grn_order_grn_order_product-' + count + '-product_amount').val());
+            if (!isNaN(value)) {
+                total += value;
+            }
+        }
+        $('#tot').html('<h1 align="right"><b>Total GRN amount:' + total.toFixed(2)  + ' </b></h1>');
+    }
+
   });
 })(django.jQuery);
