@@ -27,6 +27,7 @@ from addresses.models import City, Pincode, State
 from brand.models import Brand, Vendor
 from categories.models import Category, B2cCategory
 from global_config.views import get_config
+from products.common_function import generate_tax_group_name_by_the_mapped_taxes
 from products.models import (Color, Flavor, Fragrance, PackageSize, Product,
                              ProductImage, ProductPrice,
                              ProductVendorMapping, Size, Tax,
@@ -34,7 +35,7 @@ from products.models import (Color, Flavor, Fragrance, PackageSize, Product,
                              Repackaging, ParentProduct, ProductHSN, ProductSourceMapping,
                              DestinationRepackagingCostMapping, ParentProductImage, ProductCapping,
                              ParentProductCategory, PriceSlab, SlabProductPrice, ProductPackingMapping,
-                             DiscountedProductPrice)
+                             DiscountedProductPrice, TaxGroup)
 from retailer_backend.utils import isDateValid, getStrToDate, isBlankRow
 from retailer_backend.validators import *
 from shops.models import Shop, ShopType
@@ -2788,3 +2789,33 @@ class DiscountedProductPriceSlabCreationForm(forms.ModelForm):
             raise ValidationError('Invalid Selling Price')
 
         return data
+
+
+class TaxGroupForm(forms.ModelForm):
+    class Meta:
+        model = TaxGroup
+        fields = ('name', 'zoho_id',)
+
+    def clean(self):
+        if self.cleaned_data['name']:
+            if TaxGroup.objects.filter(name=self.cleaned_data['name']).exists():
+                raise ValidationError('Same Tax group already exist.')
+        return
+
+
+class TaxGroupFormSet(BaseInlineFormSet):
+    def clean(self):
+        super(TaxGroupFormSet, self).clean()
+        tax_ids = []
+        non_empty_forms = 0
+        for form in self:
+            if form.cleaned_data and form.cleaned_data.get('tax'):
+                non_empty_forms += 1
+                tax_ids.append(form.cleaned_data['tax'].id)
+
+        if non_empty_forms - len(self.deleted_forms) < 1:
+            raise ValidationError("Please add atleast one product to cart!")
+
+        if TaxGroup.objects.filter(
+                name=generate_tax_group_name_by_the_mapped_taxes(Tax.objects.filter(id__in=tax_ids))).exists():
+            raise ValidationError('Same Tax group already exist.')

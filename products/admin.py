@@ -18,6 +18,7 @@ from django.utils.html import format_html
 from barCodeGenerator import merged_barcode_gen
 from retailer_backend.admin import InputFilter
 from retailer_backend.filters import CityFilter, ProductCategoryFilter
+from .common_function import generate_tax_group_name_by_the_mapped_taxes
 
 from .forms import (ProductCappingForm, ProductForm, ProductPriceAddPerm,
                     ProductPriceChangePerm, ProductPriceNewForm, ProductHSNForm,
@@ -25,7 +26,8 @@ from .forms import (ProductCappingForm, ProductForm, ProductPriceAddPerm,
                     RepackagingForm, ParentProductForm, ProductSourceMappingForm, DestinationRepackagingCostMappingForm,
                     ProductSourceMappingFormSet, DestinationRepackagingCostMappingFormSet, ProductImageFormSet,
                     SlabInlineFormSet, PriceSlabForm, ProductPriceSlabForm, ProductPriceSlabCreationForm,
-                    ProductPackingMappingForm, ProductPackingMappingFormSet, DiscountedProductForm, DiscountedProductPriceSlabCreationForm)
+                    ProductPackingMappingForm, ProductPackingMappingFormSet, DiscountedProductForm,
+                    DiscountedProductPriceSlabCreationForm, TaxGroupFormSet)
 
 from .models import *
 from .resources import (ColorResource, FlavorResource, FragranceResource,
@@ -2075,6 +2077,35 @@ class DiscountedProductsAdmin(admin.ModelAdmin, ExportCsvMixin):
         return urls
 
 
+class GroupTaxMappingInline(admin.TabularInline):
+    formset = TaxGroupFormSet
+    model = GroupTaxMapping
+    extra = 0
+    fields = ('tax',)
+
+
+class TaxGroupAdmin(admin.ModelAdmin, ExportCsvMixin):
+    inlines = [GroupTaxMappingInline]
+    fields = ['name', 'zoho_id']
+    readonly_fields = ['name', 'zoho_id']
+    list_display = ['name', 'zoho_id']
+    search_fields = ['name', 'zoho_id']
+
+    def response_add(self, request, new_object):
+        obj = self.after_saving_model_and_related_inlines(new_object)
+        return super(TaxGroupAdmin, self).response_add(request, obj)
+
+    def response_change(self, request, obj):
+        obj = self.after_saving_model_and_related_inlines(obj)
+        return super(TaxGroupAdmin, self).response_change(request, obj)
+
+    def after_saving_model_and_related_inlines(self, obj):
+        obj.name = generate_tax_group_name_by_the_mapped_taxes(Tax.objects.filter(
+            id__in=obj.group_taxes.values_list('tax__id', flat=True)))
+        obj.save()
+        return obj
+
+
 admin.site.register(ProductImage, ProductImageMainAdmin)
 admin.site.register(ProductVendorMapping, ProductVendorMappingAdmin)
 admin.site.register(PackageSize, PackageSizeAdmin)
@@ -2093,3 +2124,4 @@ admin.site.register(Repackaging, RepackagingAdmin)
 admin.site.register(ParentProduct, ParentProductAdmin)
 admin.site.register(SlabProductPrice, ProductSlabPriceAdmin)
 admin.site.register(DiscountedProductPrice, DiscountedProductSlabPriceAdmin)
+admin.site.register(TaxGroup, TaxGroupAdmin)
