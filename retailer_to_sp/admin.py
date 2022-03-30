@@ -2668,7 +2668,7 @@ class EInvoiceAdmin(admin.ModelAdmin):
     def get_queryset(self, request):
         qs = super().get_queryset(request)\
             .filter(shipment__order__seller_shop_id=get_config('current_wh_active', 50484),
-                    created_at__gte=(datetime.datetime.now()-datetime.timedelta(days=2)))
+                    created_at__gte=(datetime.datetime.now()-datetime.timedelta(days=60)))
         qs = qs.exclude(shipment__order__ordered_cart__cart_type='BASIC')
         qs = qs.exclude(shipment__order__order_status=Order.CANCELLED)
         qs = qs.annotate(buyer_name=F('shipment__order__buyer_shop__shop_name'))

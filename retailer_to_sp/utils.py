@@ -563,16 +563,18 @@ def get_tcs_data(invoice, buyer_shop_id, buyer_shop_gstin, OrderedProduct, Round
     return tcs_data
 
 def get_tax_data(tax_json):
-    tax_data = {'tax_name': '', 'tax_type': 'Tax Group', 'tax_percent': 0}
+    tax_data = {'tax_name': '', 'tax_type': '', 'tax_percent': 0}
+    if not tax_json:
+        return tax_data
     tax_types = ['GST', 'CESS']
     group_names = []
+    tax_data['tax_percent'] = tax_json.pop('tax_sum', 0)
     for tax in tax_json.values():
-        if isinstance(tax, list):
-            for tax_type in tax_types:
-                if tax_type in tax[0]:
-                    group_names.append(tax_type + str(int(tax[1])))
+        for tax_type in tax_types:
+            if tax_type in tax[0]:
+                group_names.append(tax_type + str(int(tax[1])))
     tax_data['tax_name'] = '_'.join(group_names)
-    tax_data['tax_percent'] = tax_json.get('tax_sum', 0)
+    tax_data['tax_type'] = 'Tax Group'
     return tax_data
 
 def create_e_invoice_data_excel(queryset, OrderedProduct, RoundAmount, ShopDocument):
