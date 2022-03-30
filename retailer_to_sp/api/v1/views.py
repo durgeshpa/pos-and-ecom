@@ -1983,11 +1983,11 @@ class CartCheckout(APIView):
             return api_response("Invalid request")
         with transaction.atomic():
             # Refresh redeem reward
-            use_rewrd_this_month = RewardCls.checkout_redeem_points(cart, 0, self.request.GET.get('use_rewards', 1))
+            use_reward_this_month = RewardCls.checkout_redeem_points(cart, 0, self.request.GET.get('use_rewards', 1))
             # Get offers available now and apply coupon if applicable
             offers = BasicCartOffers.refresh_offers_checkout(cart, False, self.request.data.get('coupon_id'))
             data = self.serialize(cart)
-            data['redeem_points_message'] = use_rewrd_this_month
+            data['redeem_points_message'] = use_reward_this_month
             delivery_time = get_config_fofo_shops(kwargs['shop'].id)
             data['maximum_delivery_time'] = delivery_time.get('delivery_time',None)
             if 'error' in offers:
@@ -2033,7 +2033,7 @@ class CartCheckout(APIView):
             redeem_points_message = RewardCls.checkout_redeem_points(cart, int(redeem_points))
             app_type = kwargs['app_type']
             data = self.serialize(cart, offers, app_type)
-            data.update({"redeem_points_message": redeem_points_message})
+            data.update({"redeem_points_message": redeem_points_message if redeem_points_message else ""})
 
             return api_response("Cart Checkout", data, status.HTTP_200_OK, True)
 
@@ -2052,14 +2052,14 @@ class CartCheckout(APIView):
             # Get Offers Applicable, Verify applied offers, Apply highest discount on cart if auto apply
             offers = BasicCartOffers.refresh_offers_checkout(cart, False, None)
             # Refresh redeem reward
-            use_rewrd_this_month = RewardCls.checkout_redeem_points(cart, 0, self.request.GET.get('use_rewards', 1))
+            use_reward_this_month = RewardCls.checkout_redeem_points(cart, 0, self.request.GET.get('use_rewards', 1))
             data = self.serialize(cart, offers)
             address = AddressCheckoutSerializer(cart.buyer.ecom_user_address.filter(default=True).last()).data
             data.update({'default_address': address})
             delivery_time = get_config_fofo_shops(kwargs['shop'])
             data['maximum_delivery_time'] = delivery_time.get('delivery_time',None)
             data.update({'saving': round(data['total_mrp'] - data['amount_payable'], 2)})
-            data.update({"redeem_points_message": use_rewrd_this_month})
+            data.update({"redeem_points_message": use_reward_this_month if use_reward_this_month else ""})
             return api_response("Cart Checkout", data, status.HTTP_200_OK, True)
 
     def delete(self, request, *args, **kwargs):
