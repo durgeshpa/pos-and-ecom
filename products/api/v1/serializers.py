@@ -1,5 +1,9 @@
+import codecs
 import csv
 import logging
+import re
+
+from django.db.models import Q
 from django.utils.translation import gettext_lazy as _
 from django.http import HttpResponse
 from django.db import transaction
@@ -11,12 +15,13 @@ from rest_framework import serializers
 from products.models import Product, ParentProductTaxMapping, ParentProduct, ParentProductCategory, \
     ParentProductB2cCategory, ParentProductImage, \
     ProductTaxMapping, ProductCapping, ProductVendorMapping, \
-        ProductImage, ProductPrice, ProductHSN, Tax, \
+    ProductImage, ProductPrice, ProductHSN, Tax, \
     ProductSourceMapping, ProductPackingMapping, DestinationRepackagingCostMapping, \
-        Weight, CentralLog, PriceSlab
+    Weight, CentralLog, PriceSlab, ProductHsnCess, ProductHsnGst, GST_CHOICE
 from categories.models import Category, B2cCategory
 from addresses.models import Pincode, City
 from brand.models import Brand, Vendor
+from products.utils import send_mail_on_product_tax_declined
 from shops.models import Shop
 from accounts.models import User
 
@@ -25,8 +30,11 @@ from products.common_validators import get_validate_parent_brand, get_validate_p
     get_validate_seller_shop, check_active_capping, get_validate_packing_material, get_source_product, product_category, \
     product_gst, product_cess, product_surcharge, product_image, get_validate_vendor, get_validate_buyer_shop, \
     get_validate_parent_product_image_ids, get_validate_child_product_image_ids, validate_parent_product_name, \
-    validate_child_product_name, validate_tax_name, get_validate_slab_price, b2b_category, b2c_category
-from products.common_function import ParentProductCls, ProductCls
+    validate_child_product_name, validate_tax_name, get_validate_slab_price, b2b_category, b2c_category,\
+    get_validate_hsn_gsts, get_validate_gsts_mandatory_fields, get_validate_hsn_cess, \
+    get_validate_cess_mandatory_fields, read_product_hsn_file
+
+from products.common_function import ParentProductCls, ProductCls, ProductHSNCommonFunction
 from shops.common_validators import get_validate_city_id, get_validate_pin_code
 
 info_logger = logging.getLogger('file-info')
@@ -229,8 +237,8 @@ class ParentProductSerializers(serializers.ModelSerializer):
     parent_product_pro_image = ParentProductImageSerializers(many=True, read_only=True)
     parent_product_pro_category = ParentProductCategorySerializers(many=True, read_only=True)
     parent_product_pro_b2c_category = ParentProductB2cCategorySerializers(many=True, read_only=True)
-    parent_product_pro_tax = ParentProductTaxMappingSerializers(many=True)
-    product_parent_product = ChildProductVendorSerializers(many=True, required=False)
+    parent_product_pro_tax = ParentProductTaxMappingSerializers(many=True, read_only=True)
+    product_parent_product = ChildProductVendorSerializers(many=True, required=False, read_only=True)
     parent_id = serializers.CharField(read_only=True)
     product_type = serializers.CharField(read_only=True)
     max_inventory = serializers.IntegerField(allow_null=True, max_value=999)
@@ -293,6 +301,8 @@ class ParentProductSerializers(serializers.ModelSerializer):
         if 'error' in product_hsn_val:
             raise serializers.ValidationError(_(f'{product_hsn_val["error"]}'))
         data['product_hsn'] = product_hsn_val['product_hsn']
+        b2b_category_val = None
+        b2c_category_val = None
         if self.initial_data.get('product_type') == 'b2b':
             b2b_category_val = get_validate_categories(self.initial_data['parent_product_pro_category'])
             if 'error' in b2b_category_val:
@@ -311,7 +321,6 @@ class ParentProductSerializers(serializers.ModelSerializer):
                 b2c_category_val = get_validate_categories(self.initial_data['parent_product_pro_b2c_category'], True)
                 if 'error' in b2c_category_val:
                     raise serializers.ValidationError(_(b2c_category_val["error"]))
-
         tax_val = get_validate_tax(self.initial_data['parent_product_pro_tax'])
         if 'error' in tax_val:
             raise serializers.ValidationError(_(tax_val["error"]))
@@ -330,7 +339,8 @@ class ParentProductSerializers(serializers.ModelSerializer):
                   'product_hsn', 'parent_brand', 'parent_product_pro_tax', 'parent_product_pro_category',
                   'parent_product_pro_b2c_category', 'is_ptr_applicable', 'ptr_percent', 'ptr_type',
                   'is_ars_applicable', 'max_inventory', 'is_lead_time_applicable', 'discounted_life_percent',
-                  'product_images', 'parent_product_pro_image', 'product_parent_product', 'parent_product_log')
+                  'product_images', 'parent_product_pro_image', 'product_parent_product', 'parent_product_log',
+                  'tax_status', 'tax_remark')
 
     def to_representation(self, instance):
         representation = super().to_representation(instance)
@@ -357,6 +367,7 @@ class ParentProductSerializers(serializers.ModelSerializer):
             raise serializers.ValidationError(error)
 
         self.create_parent_tax_image_cat(parent_product)
+        ParentProductCls.update_tax_status_and_remark(parent_product)
         ParentProductCls.create_parent_product_log(parent_product, "created")
 
         return parent_product
@@ -379,6 +390,7 @@ class ParentProductSerializers(serializers.ModelSerializer):
             raise serializers.ValidationError(error)
 
         self.create_parent_tax_image_cat(parent_product)
+        ParentProductCls.update_tax_status_and_remark(parent_product)
         ParentProductCls.create_parent_product_log(parent_product, "updated")
 
         return parent_product
@@ -943,14 +955,31 @@ class ChildProductExportAsCSVSerializers(serializers.ModelSerializer):
         return response
 
 
+class ProductHSNGstSerializers(serializers.ModelSerializer):
+    gst = ChoiceField(choices=GST_CHOICE, required=False)
+
+    class Meta:
+        model = ProductHsnGst
+        fields = ('id', 'gst')
+
+
+class ProductHSNCessSerializers(serializers.ModelSerializer):
+
+    class Meta:
+        model = ProductHsnCess
+        fields = ('id', 'cess')
+
+
 class ProductHSNCrudSerializers(serializers.ModelSerializer):
     """ Handles Get & creating """
     product_hsn_code = serializers.CharField(max_length=8, min_length=6, validators=[only_int])
+    hsn_gst = ProductHSNGstSerializers(many=True, read_only=True)
+    hsn_cess = ProductHSNCessSerializers(many=True, read_only=True)
     hsn_log = LogSerializers(many=True, read_only=True)
 
     class Meta:
         model = ProductHSN
-        fields = ('id', 'product_hsn_code', 'hsn_log')
+        fields = ('id', 'product_hsn_code', 'hsn_gst', 'hsn_cess', 'hsn_log')
 
     def validate(self, data):
         hsn_id = self.instance.id if self.instance else None
@@ -958,26 +987,101 @@ class ProductHSNCrudSerializers(serializers.ModelSerializer):
             if ProductHSN.objects.filter(product_hsn_code__iexact=data['product_hsn_code'], status=True) \
                     .exclude(id=hsn_id).exists():
                 raise serializers.ValidationError("hsn code already exists.")
+            if not re.match("^\d+$", str(self.initial_data['product_hsn_code'])):
+                raise serializers.ValidationError(f"{self.initial_data['product_hsn_code']} "
+                                                  f"'Product HSN Code' can only be a numeric value.")
+            if len(self.initial_data['product_hsn_code']) < 6:
+                raise serializers.ValidationError(f"'Product HSN Code' must be of minimum 6 digits.")
+
+        if 'hsn_gst' in self.initial_data:
+            if self.instance:
+                hsn_gsts = get_validate_hsn_gsts(self.initial_data['hsn_gst'], self.instance)
+            else:
+                hsn_gsts = get_validate_gsts_mandatory_fields(self.initial_data['hsn_gst'])
+            if 'error' in hsn_gsts:
+                raise serializers.ValidationError(hsn_gsts['error'])
+            data['gsts'] = hsn_gsts['data']['gsts']
+            data['gst_update_ids'] = hsn_gsts['data'].get('gst_update_ids', [])
+
+        if 'hsn_cess' in self.initial_data and self.initial_data['hsn_cess']:
+            if self.instance:
+                hsn_cess = get_validate_hsn_cess(self.initial_data['hsn_cess'], self.instance)
+            else:
+                hsn_cess = get_validate_cess_mandatory_fields(self.initial_data['hsn_cess'])
+            if 'error' in hsn_cess:
+                raise serializers.ValidationError(hsn_cess['error'])
+            data['cess'] = hsn_cess['data']['cess']
+            data['cess_update_ids'] = hsn_cess['data'].get('cess_update_ids', [])
 
         return data
 
     @transaction.atomic
     def create(self, validated_data):
         """create a new HSN"""
+        gsts = validated_data.pop("gsts", [])
+        gst_update_ids = validated_data.pop("gst_update_ids", [])
+        cess = validated_data.pop("cess", [])
+        cess_update_ids = validated_data.pop("cess_update_ids", [])
         try:
             hsn = ProductHSN.objects.create(**validated_data)
             ProductCls.create_hsn_log(hsn, "created")
+            self.post_product_hsn_save(gsts, gst_update_ids, cess, cess_update_ids, hsn)
         except Exception as e:
             error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
             raise serializers.ValidationError(error)
 
         return hsn
 
+    @transaction.atomic
     def update(self, instance, validated_data):
         """update hsn"""
-        instance = super().update(instance, validated_data)
-        ProductCls.create_hsn_log(instance, "updated")
+        gsts = validated_data.pop("gsts", [])
+        gst_update_ids = validated_data.pop("gst_update_ids", [])
+        cess = validated_data.pop("cess", [])
+        cess_update_ids = validated_data.pop("cess_update_ids", [])
+        try:
+            instance = super().update(instance, validated_data)
+            ProductCls.create_hsn_log(instance, "updated")
+            self.post_product_hsn_save(gsts, gst_update_ids, cess, cess_update_ids, instance)
+        except Exception as e:
+            error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
+            raise serializers.ValidationError(error)
+
         return instance
+
+    def post_product_hsn_save(self, gsts, gst_update_ids, cess, cess_update_ids, product_hsn_instance):
+        self.remove_non_exist_product_hsn_gsts(gst_update_ids, product_hsn_instance)
+        if gsts:
+            self.create_update_product_hsn_gsts(gsts, product_hsn_instance)
+        self.remove_non_exist_product_hsn_cess(cess_update_ids, product_hsn_instance)
+        if cess:
+            self.create_update_product_hsn_cess(cess, product_hsn_instance)
+
+    def remove_non_exist_product_hsn_gsts(self, gst_ids, product_hsn_instance):
+        gsts_to_be_deleted = ProductHsnGst.objects.filter(
+            ~Q(id__in=gst_ids), product_hsn=product_hsn_instance)
+        gsts_to_be_deleted.delete()
+
+    def create_update_product_hsn_gsts(self, data_list, product_hsn_instance):
+        for data in data_list:
+            if 'id' in data and data['id']:
+                ProductHsnGst.objects.filter(id=data['id'], product_hsn=product_hsn_instance).update(gst=data['gst'])
+            else:
+                ProductHsnGst.objects.create(
+                    product_hsn=product_hsn_instance, gst=data['gst'], created_by=self.context['request'].user)
+
+    def remove_non_exist_product_hsn_cess(self, cess_ids, product_hsn_instance):
+        cess_to_be_deleted = ProductHsnCess.objects.filter(
+            ~Q(id__in=cess_ids), product_hsn=product_hsn_instance)
+        cess_to_be_deleted.delete()
+
+    def create_update_product_hsn_cess(self, data_list, product_hsn_instance):
+        for data in data_list:
+            if 'id' in data and data['id']:
+                ProductHsnCess.objects.filter(id=data['id'], product_hsn=product_hsn_instance).update(cess=data['cess'])
+            else:
+                ProductHsnCess.objects.create(
+                    product_hsn=product_hsn_instance, cess=data['cess'], created_by=self.context['request'].user)
 
 
 class TaxCrudSerializers(serializers.ModelSerializer):
@@ -1174,7 +1278,9 @@ class HSNExportAsCSVSerializers(serializers.ModelSerializer):
     def create(self, validated_data):
         meta = ProductHSN._meta
         exclude_fields = ['created_at', 'updated_at', 'created_by', 'updated_by', 'status']
-        field_names = [field.name for field in meta.fields if field.name not in exclude_fields]
+        model_field_names = [field.name for field in meta.fields if field.name not in exclude_fields]
+        gst_cess_field_names = ["gst_rate_1", "gst_rate_2", "gst_rate_3", "cess_rate_1", "cess_rate_2", "cess_rate_3"]
+        field_names = model_field_names + gst_cess_field_names
 
         response = HttpResponse(content_type='text/csv')
         response['Content-Disposition'] = 'attachment; filename={}.csv'.format(meta)
@@ -1183,8 +1289,49 @@ class HSNExportAsCSVSerializers(serializers.ModelSerializer):
         writer.writerow(field_names)
         queryset = ProductHSN.objects.filter(id__in=validated_data['hsn_id_list'])
         for obj in queryset:
-            writer.writerow([getattr(obj, field) for field in field_names])
+            hsn_gsts = obj.hsn_gst.values_list('gst', flat=True)[:3]
+            hsn_cess = obj.hsn_cess.values_list('cess', flat=True)[:3]
+            writer.writerow([getattr(obj, field) for field in model_field_names] +
+                            list(hsn_gsts) + ([None] * (3 - len(hsn_gsts))) +
+                            list(hsn_cess) + ([None] * (3 - len(hsn_cess))))
         return response
+
+
+class HSNExportAsCSVUploadSerializer(serializers.ModelSerializer):
+    file = serializers.FileField(
+        label='Upload Shop Route', required=True, write_only=True)
+
+    def __init__(self, *args, **kwargs):
+        super(HSNExportAsCSVUploadSerializer, self).__init__(*args, **kwargs)  # call the super()
+
+    class Meta:
+        model = ProductHSN
+        fields = ('file',)
+
+    def validate(self, data):
+        if not data['file'].name[-4:] in '.csv':
+            raise serializers.ValidationError(
+                _('Sorry! Only csv file accepted.'))
+        csv_file_data = csv.reader(codecs.iterdecode(data['file'], 'utf-8', errors='ignore'))
+        # Checking, whether csv file is empty or not!
+        if csv_file_data:
+            read_product_hsn_file(csv_file_data)
+        else:
+            raise serializers.ValidationError(
+                "CSV File cannot be empty.Please add some data to upload it!")
+
+        return data
+
+    @transaction.atomic
+    def create(self, validated_data):
+        try:
+            ProductHSNCommonFunction.create_product_hsn(validated_data, self.context['request'].user)
+        except Exception as e:
+            error = {'message': ",".join(e.args) if len(
+                e.args) > 0 else 'Unknown Error'}
+            raise serializers.ValidationError(error)
+
+        return validated_data
 
 
 class ChildProductSerializer(serializers.ModelSerializer):
@@ -1578,3 +1725,101 @@ class DiscountChildProductSerializers(serializers.ModelSerializer):
             raise serializers.ValidationError(error)
 
         return child_product
+
+
+class ProductHSNApprovalSerializers(serializers.ModelSerializer):
+    hsn_gst = ProductHSNGstSerializers(many=True, read_only=True)
+    hsn_cess = ProductHSNCessSerializers(many=True, read_only=True)
+
+    class Meta:
+        model = ProductHSN
+        fields = ('id', 'product_hsn_code', 'hsn_gst', 'hsn_cess')
+
+
+class ParentProductApprovalSerializers(serializers.ModelSerializer):
+    """Handles creating, reading and updating parent product items."""
+    parent_brand = BrandSerializers(read_only=True)
+    product_hsn = ProductHSNApprovalSerializers(read_only=True)
+    parent_product_pro_category = ParentProductCategorySerializers(many=True, read_only=True)
+    parent_product_pro_tax = ParentProductTaxMappingSerializers(many=True, read_only=True)
+    parent_id = serializers.CharField(read_only=True)
+    name = serializers.CharField(required=False)
+    product_type = serializers.CharField(required=False)
+
+    def validate(self, data):
+        """
+            tax_status & tax_remark validation.
+        """
+        if not self.instance:
+            raise serializers.ValidationError("Only update allowed.")
+
+        if 'name' in self.initial_data and self.initial_data['name'] is not None:
+            pro_obj = validate_parent_product_name(self.initial_data['name'], self.instance.id)
+            if pro_obj is not None and 'error' in pro_obj:
+                raise serializers.ValidationError(pro_obj['error'])
+
+        if self.instance.tax_status == ParentProduct.APPROVED:
+            raise serializers.ValidationError("Product Tax is already approved.")
+
+        if 'tax_status' not in self.initial_data or not self.initial_data['tax_status']:
+            raise serializers.ValidationError(_('tax_status is required'))
+        if self.initial_data['tax_status'] not in [ParentProduct.APPROVED, ParentProduct.DECLINED]:
+            raise serializers.ValidationError(_('Invalid tax_status.'))
+
+        if self.instance.tax_status == self.initial_data['tax_status']:
+            raise serializers.ValidationError(f"Product Tax is already {self.instance.get_tax_status_display()}.")
+
+        tax_remark = None
+        if self.initial_data['tax_status'] == ParentProduct.DECLINED:
+            # Validate tax_remark if the tax_status is DECLINED
+            if 'tax_remark' not in self.initial_data or not self.initial_data['tax_remark']:
+                raise serializers.ValidationError(_('tax_remark is required'))
+            if len(str(self.initial_data['tax_remark']).strip()) > 50:
+                raise serializers.ValidationError(_("'tax_remark' | Max length exceeded, only 50 characters allowed."))
+            tax_remark = str(self.initial_data['tax_remark']).strip()
+        elif self.initial_data['tax_status'] == ParentProduct.APPROVED:
+            # Validate GST from HSN
+            product_gst_tax = self.instance.parent_product_pro_tax.filter(tax__tax_type='gst').last()
+            if product_gst_tax and product_gst_tax.tax.tax_percentage not in \
+                    self.instance.product_hsn.hsn_gst.values_list('gst', flat=True):
+                raise serializers.ValidationError("Please map GST in HSN to approve product.")
+            # Validate Cess from HSN
+            product_cess_tax = self.instance.parent_product_pro_tax.filter(tax__tax_type='cess').last()
+            if product_cess_tax and product_cess_tax.tax.tax_percentage not in \
+                    self.instance.product_hsn.hsn_cess.values_list('cess', flat=True):
+                raise serializers.ValidationError("Please map CESS in HSN to approve product.")
+
+        data['tax_status'] = self.initial_data['tax_status']
+        data['tax_remark'] = tax_remark
+
+        return data
+
+    class Meta:
+        model = ParentProduct
+        fields = ('id', 'parent_id', 'name', 'product_type', 'status', 'product_hsn', 'parent_brand',
+                  'parent_product_pro_tax', 'parent_product_pro_category', 'tax_status', 'tax_remark',
+                  'created_at', 'updated_at', 'created_by', 'updated_by')
+
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        if representation['name']:
+            representation['name'] = representation['name'].title()
+        return representation
+
+    @transaction.atomic
+    def update(self, instance, validated_data):
+        """ This method is used to update an instance of the Parent Product's attribute. """
+        try:
+            # call super to save modified instance along with the validated data
+            parent_product = super().update(instance, validated_data)
+        except Exception as e:
+            error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
+            raise serializers.ValidationError(error)
+
+        ParentProductCls.update_tax_status_and_remark_in_log(
+            parent_product, validated_data['tax_status'], validated_data['tax_remark'], validated_data['updated_by'])
+        ParentProductCls.create_parent_product_log(parent_product, "updated")
+        if parent_product.tax_status == ParentProduct.DECLINED:
+            send_mail_on_product_tax_declined(parent_product)
+
+        return parent_product

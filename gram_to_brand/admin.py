@@ -4,6 +4,7 @@ import math
 
 from dal import autocomplete
 from django import forms
+from django.core.exceptions import ValidationError
 from django.db.models import Sum, F, Q
 from django.db import models
 from django.contrib import messages, admin
@@ -60,8 +61,8 @@ class CartProductMappingAdmin(admin.TabularInline):
             'admin/js/po_generation_form.js'
         )
 
-    fields = ('cart_parent_product', 'cart_product', 'mrp', 'sku', 'tax_percentage', 'case_sizes', 'no_of_cases',
-              'no_of_pieces', 'brand_to_gram_price_units', 'price', 'sub_total')
+    fields = ('cart_parent_product', 'cart_product', 'mrp', 'sku', 'tax_percentage', 'gst', 'cess', 'case_sizes',
+              'no_of_cases', 'no_of_pieces', 'brand_to_gram_price_units', 'price', 'sub_total')
     readonly_fields = ('tax_percentage', 'mrp', 'sku', 'case_sizes', 'brand_to_gram_price_units', 'sub_total')
 
     def get_readonly_fields(self, request, obj=None):
@@ -208,10 +209,47 @@ class GRNOrderForm(forms.ModelForm):
         queryset=Order.objects.all(),
         widget=autocomplete.ModelSelect2(url='order-autocomplete', )
     )
+    deduction = forms.BooleanField(required=False)
 
     class Meta:
         model = GRNOrder
-        fields = ('order', 'invoice_no',)
+        fields = ('order', 'invoice_no', 'deduction', 'total_freight_charges', 'discount_charges', 'insurance_charges',
+                  'other_charges', 'total_grn_amount',)
+
+    def clean_discount_charges(self):
+        if self.cleaned_data['discount_charges'] < 0:
+            raise ValidationError("Discount Charges must be positive")
+        return self.cleaned_data['discount_charges']
+
+    def clean_insurance_charges(self):
+        if self.cleaned_data['insurance_charges'] < 0:
+            raise ValidationError("Insurance Charges must be positive")
+        return self.cleaned_data['insurance_charges']
+
+    def clean_other_charges(self):
+        if self.cleaned_data['other_charges'] < 0:
+            raise ValidationError("Other Charges must be positive")
+        return self.cleaned_data['other_charges']
+
+    def clean(self):
+        cleaned_data = super().clean()
+
+        if cleaned_data['total_freight_charges'] < 0:
+            raise ValidationError("Total Freight Charges must be positive")
+
+        if cleaned_data['deduction'] and cleaned_data['total_freight_charges'] > 0:
+            cleaned_data['total_freight_charges'] *= -1
+        return cleaned_data
+
+    def __init__(self, *args, **kwargs):
+        super(GRNOrderForm, self).__init__(*args, **kwargs)
+        instance = getattr(self, 'instance', None)
+
+        if instance and instance.pk:
+            if instance.total_freight_charges < 0 and 'deduction' in self.fields:
+                self.initial['total_freight_charges'] = instance.total_freight_charges * -1
+                self.initial['deduction'] = True
+        self.fields['total_grn_amount'].disabled = True
 
 
 class DocumentAdmin(admin.StackedInline):
@@ -230,7 +268,8 @@ class GRNOrderProductMappingAdmin(admin.TabularInline):
     fields = ('product', 'product_mrp', 'po_product_quantity', 'po_product_price', 'already_grned_product',
               'already_returned_product', 'product_invoice_price', 'manufacture_date', 'expiry_date',
               'best_before_year', 'best_before_month', 'product_invoice_qty', 'delivered_qty', 'returned_qty',
-              'download_batch_id_barcode', 'show_batch_id', 'zone',)
+              'product_invoice_gst', 'cess_percentage', 'product_amount', 'download_batch_id_barcode',
+              'show_batch_id', 'zone',)
     exclude = ('last_modified_by', 'available_qty',)
     readonly_fields = ('download_batch_id_barcode', 'show_batch_id')
     extra = 0
@@ -297,7 +336,8 @@ class GRNOrderAdmin(admin.ModelAdmin):
                    POCreatedBySearch, ('created_at', DateRangeFilter),
                    ('grn_order_grn_order_product__expiry_date', DateRangeFilter)]
     form = GRNOrderForm
-    fields = ('order', 'invoice_no', 'invoice_date', 'invoice_amount', 'tcs_amount')
+    fields = ('order', 'invoice_no', 'invoice_date', 'invoice_amount', 'tcs_amount', 'total_freight_charges',
+              'deduction', 'discount_charges', 'insurance_charges', 'other_charges', 'total_grn_amount')
 
     class Media:
         js = ('admin/js/picker.js',)
@@ -432,6 +472,20 @@ class GRNOrderAdmin(admin.ModelAdmin):
         return merged_barcode_gen(bin_id_list)
 
     download_barcode.short_description = "Download Barcode List"
+
+    def response_add(self, request, new_object):
+        obj = self.after_saving_model_and_related_inlines(new_object)
+        return super(GRNOrderAdmin, self).response_add(request, obj)
+
+    def response_change(self, request, obj):
+        obj = self.after_saving_model_and_related_inlines(obj)
+        return super(GRNOrderAdmin, self).response_change(request, obj)
+
+    def after_saving_model_and_related_inlines(self, obj):
+        total_grn_amount = obj.grn_order_grn_order_product.all().aggregate(total=Sum('product_amount')).get('total')
+        obj.total_grn_amount = total_grn_amount if total_grn_amount else 0
+        obj.save()
+        return obj
 
 
 class OrderAdmin(admin.ModelAdmin):
