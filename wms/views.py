@@ -947,9 +947,10 @@ def assign_dispatch_center_to_order_by_pincode(order_id):
     try:
         order_ins = Order.objects.get(id=order_id)
         if not order_ins.dispatch_delivery and order_ins.dispatch_center is None:
-            order_pincode = order_ins.shipping_address.pincode_link if order_ins.shipping_address else None
+            order_pincode = order_ins.shipping_address.pincode_link.pincode if \
+                order_ins.shipping_address and order_ins.shipping_address.pincode_link else None
             if order_pincode:
-                dispatch_center_map = DispatchCenterPincodeMapping.objects.filter(pincode=order_pincode).last()
+                dispatch_center_map = DispatchCenterPincodeMapping.objects.filter(pincode__pincode=order_pincode).last()
                 if dispatch_center_map:
                     order_ins.dispatch_center = dispatch_center_map.dispatch_center
                     order_ins.dispatch_delivery = True

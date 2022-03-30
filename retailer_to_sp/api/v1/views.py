@@ -3,7 +3,7 @@ import logging
 import math
 import re
 import json
-
+import codecs
 from django.http import HttpResponse
 from datetime import date as datetime_date
 from datetime import datetime, timedelta
@@ -457,7 +457,6 @@ class SearchProducts(APIView):
             else:
                 body['query'] = {"bool": {"must_not": must_not}}
         return self.process_rp(output_type, body, shop_id, app_type)
-
 
     @check_pos_shop
     def rp_gf_search(self, request, *args, **kwargs):
@@ -2880,7 +2879,10 @@ class OrderCentral(APIView):
         app_type = self.request.META.get('HTTP_APP_TYPE', '1')
         # app_type = request.data.get('cart_type', '1')
         if app_type == '1':
-            return self.put_retail_order(kwargs['pk'])
+
+            # return self.put_retail_order(kwargs['pk'])
+            return api_response(["Sorry! Order cannot be cancelled from the APP"])
+
         elif app_type == '2':
             return self.put_basic_order(request, *args, **kwargs)
         elif app_type == '3':
@@ -5900,6 +5902,7 @@ def pdf_generation_retailer(request, order_id, delay=True):
     template_name = 'admin/invoice/invoice_retailer_3inch.html'
     try:
         # Don't create pdf if already created
+       # raise Exception("Sorry, no numbers below zero")
         if ordered_product.invoice.invoice_pdf.url:
             try:
                 phone_number, shop_name = order.buyer.phone_number, order.seller_shop.shop_name
@@ -6012,7 +6015,7 @@ def pdf_generation_retailer(request, order_id, delay=True):
             retailer_gstin_number = order.seller_shop.shop_name_documents.filter(
                 shop_document_type='gstin').last().shop_document_number
 
-        height = 140 + 5 * count  # calculating page height of invoice 145 is base value
+        height = 170 + 17 * count  # calculating page height of invoice 170 is base value
 
         data = {"shipment": ordered_product, "order": ordered_product.order, "url": request.get_host(),
                 "scheme": request.is_secure() and "https" or "http", "total_amount": total_amount, 'total': total,
@@ -6024,13 +6027,14 @@ def pdf_generation_retailer(request, order_id, delay=True):
                 "cin": cin_number,
                 "payment_type": ordered_product.order.rt_payment_retailer_order.last().payment_type.type}
         cmd_option = {"margin-top": 2, "margin-left": 0, "margin-right": 0, "margin-bottom": 2, "javascript-delay": 0,
-                      "page-height": height, "page-width": 80, "no-stop-slow-scripts": True, "quiet": True, }
+                      "page-height": height, "page-width": 70, "no-stop-slow-scripts": True, "quiet": True,'encoding': 'utf8 '
+                      ,"dpi":300}
         response = PDFTemplateResponse(request=request, template=template_name, filename=filename,
                                        context=data, show_content_in_browser=False, cmd_options=cmd_option)
-        # with open("/var/www/gmfact/retailer-backend/heelo.pdf", "wb") as f:
+        # with open("heelo.pdf", "wb") as f:
         #     f.write(response.rendered_content)
         # content = render_to_string(template_name, data)
-        # with open("abc.html", 'w') as static_file:
+        # with codecs.open("abc.html", "w", "utf-8-sig") as static_file:
         #     static_file.write(content)
 
         try:
@@ -6182,7 +6186,7 @@ def pdf_generation_return_retailer(request, order, ordered_product, order_return
             retailer_gstin_number = order.seller_shop.shop_name_documents.filter(
                 shop_document_type='gstin').last().shop_document_number
 
-        height = 140 + 5 * count  # calculating page height of invoice 145 is base value
+        height = 170 + 13 * count  # calculating page height of invoice 170 is base value
         data = {
             "url": request.get_host(),
             "scheme": request.is_secure() and "https" or "http",
@@ -6909,12 +6913,14 @@ class RetailerList(generics.ListAPIView):
         return ShopUserMapping.objects.filter(employee=self.request.user, status=True)
 
     def get_child_employee(self):
-        return ShopUserMapping.objects.filter(manager__in=self.get_manager(),
+        return ShopUserMapping.objects.filter(Q(manager__in=self.get_manager()) | Q(employee=self.request.user,
+                                                      employee_group__permissions__codename='can_sales_person_add_shop'),
                                               shop__shop_type__shop_type__in=['r', 'f', 'sp'], status=True)
 
     def get_shops(self):
-        return ShopUserMapping.objects.filter(employee__in=self.get_child_employee().values('employee'),
-                                              manager__in=self.get_manager(),
+        return ShopUserMapping.objects.filter(Q(manager__in=self.get_manager()) | Q(employee=self.request.user,
+                                                 employee_group__permissions__codename='can_sales_person_add_shop'),
+                                                 employee__in=self.get_child_employee().values('employee'),
                                               shop__shop_type__shop_type__in=['r', 'f', ], status=True)
     def get_queryset(self):
         shop_emp = self.get_child_employee()
