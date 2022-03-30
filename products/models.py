@@ -835,9 +835,12 @@ class Tax(BaseTimestampUserStatusModel):
 
 
 class TaxGroup(BaseTimestampUserStatusModel):
+    TAX_GROUP, TAX_SINGLE = 'TAX_GROUP', 'TAX_SINGLE'
+    ZOHO_TAX_TYPE_CHOICE = ((TAX_GROUP, 'Tax Group'), (TAX_SINGLE, 'itemAmount'))
     name = models.CharField(max_length=100, unique=True, null=True, blank=True)
     zoho_id = models.CharField(max_length=100)
     is_igst = models.BooleanField(default=False)
+    zoho_grp_type = models.CharField(choices=ZOHO_TAX_TYPE_CHOICE, max_length=50)
 
     def __str__(self):
         return str(self.name)
