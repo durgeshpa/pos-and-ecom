@@ -1367,7 +1367,7 @@ class CartCentral(GenericAPIView):
         """
         serializer = GramMappedCartSerializer(GramMappedCart.objects.get(id=cart.id),
                                               context={'parent_mapping_id': seller_shop.id,
-                                                       'delivery_message': self.delivery_message()})
+                                                       'delivery_message': self.delivery_message(seller_shop.shop_type)})
         return serializer.data
 
     def get_serialize_process_basic(self, cart, next_offer):
