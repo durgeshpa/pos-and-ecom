@@ -1,4 +1,5 @@
 import datetime
+import re
 from datetime import timedelta
 
 from django.contrib.auth import get_user_model
@@ -498,6 +499,12 @@ class GRNOrderProductMapping(models.Model):
     def clean(self):
         super(GRNOrderProductMapping, self).clean()
         self.already_grn = self.delivered_qty
+
+        if not re.match("^\d+[.]?[\d]{0,2}$", str(self.po_product_price)):
+            raise ValidationError(f"{self.po_product_price} |' PO Product Price' can only be a numeric value.")
+        if not re.match("^\d+[.]?[\d]{0,2}$", str(self.product_invoice_price)):
+            raise ValidationError(f"{self.product_invoice_price} |' PO Invoice Price' can only be a numeric value.")
+
         if self.delivered_qty and float(self.po_product_price) != float(self.product_invoice_price):
             raise ValidationError(_("Po_Product_Price and Po_Invoice_Price are not similar"))
 
