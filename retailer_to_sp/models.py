@@ -2071,6 +2071,13 @@ class Invoice(models.Model):
             inv_amount = self.shipment.invoice_amount
         return inv_amount
 
+    @property
+    def is_igst_applicable(self):
+        if self.shipment.order.shipping_address.state_id == \
+                self.shipment.order.seller_shop.shop_name_address_mapping.last().state_id:
+            return False
+        return True
+
 
 class PickerDashboard(models.Model):
     PICKING_PENDING, PICKING_ASSIGNED = 'picking_pending', 'picking_assigned'
@@ -3803,3 +3810,10 @@ class PickerUserAssignmentLog(models.Model):
             final_user_id=instance.picker_boy_id,
             created_by=updated_by
         )
+
+
+class EInvoiceData(Invoice):
+    class Meta:
+        proxy = True
+        verbose_name = 'e-invoice'
+        verbose_name_plural = 'e-invoices'

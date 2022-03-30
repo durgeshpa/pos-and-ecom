@@ -1,4 +1,5 @@
 import django_filters
+from django.contrib.admin import SimpleListFilter
 from django_filters import rest_framework as filters
 from rangefilter.filter import DateTimeRangeFilter
 
@@ -66,3 +67,28 @@ class OrderCreatedAt(DateTimeRangeFilter):
     def __init__(self, field, request, params, model, model_admin, field_path):
         super().__init__(field, request, params, model, model_admin, field_path)
         self.title = 'Order Created At'
+
+
+class EInvoiceAdminBuyerFilter(InputFilter):
+    parameter_name = 'buyer_name'
+    title = 'Buyer'
+
+    def queryset(self, request, queryset):
+        if self.value() is not None:
+            return queryset.filter(shipment__order__buyer_shop__shop_name__icontains=self.value())
+
+
+class EInvoiceStatusFilter(SimpleListFilter):
+    title = 'Order Status'
+    parameter_name = 'order_status'
+
+    def lookups(self, request, model_admin):
+        return (
+            ('CANCELLED', 'Cancelled'),
+        )
+
+    def queryset(self, request, queryset):
+        if self.value() in ('CANCELLED',):
+            return queryset.filter(shipment__order__order_status=self.value())
+        elif self.value() == None:
+            return queryset

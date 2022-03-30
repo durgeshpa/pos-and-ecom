@@ -834,6 +834,29 @@ class Tax(BaseTimestampUserStatusModel):
         verbose_name_plural = _("Taxes")
 
 
+class TaxGroup(BaseTimestampUserStatusModel):
+    TAX_GROUP, TAX_SINGLE = 'TAX_GROUP', 'TAX_SINGLE'
+    ZOHO_TAX_TYPE_CHOICE = ((TAX_GROUP, 'Tax Group'), (TAX_SINGLE, 'itemAmount'))
+    name = models.CharField(max_length=100, unique=True, null=True, blank=True)
+    zoho_id = models.CharField(max_length=100)
+    is_igst = models.BooleanField(default=False)
+    zoho_grp_type = models.CharField(choices=ZOHO_TAX_TYPE_CHOICE, max_length=50)
+
+    def __str__(self):
+        return str(self.name)
+
+
+class GroupTaxMapping(BaseTimestampUserStatusModel):
+    tax_group = models.ForeignKey(TaxGroup, related_name='group_taxes', on_delete=models.CASCADE)
+    tax = models.ForeignKey(Tax, related_name='tax_group', on_delete=models.CASCADE)
+
+    def __str__(self):
+        return f"{self.tax_group} -> {self.tax}"
+
+    class Meta:
+        unique_together = ('tax_group', 'tax',)
+
+
 class ProductTaxMapping(BaseTimeModel):
     product = models.ForeignKey(Product, related_name='product_pro_tax', on_delete=models.CASCADE)
     tax = models.ForeignKey(Tax, related_name='tax_pro_tax', on_delete=models.CASCADE)

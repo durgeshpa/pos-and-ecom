@@ -439,3 +439,17 @@ def get_b2c_product_details(product):
     }
     info_logger.info("inside get_b2c_product_details product_details: " + str(product_details))
     return product_details
+
+
+def generate_tax_group_name_by_the_mapped_taxes(taxes_instance, is_igst=False):
+    group_names = []
+    tax_types = ['gst', 'cess']
+    for tax_type in tax_types:
+        taxes = taxes_instance.filter(tax_type__iexact=tax_type).\
+            values_list('tax_percentage', flat=True)
+        if taxes:
+            group_names.append(''.join([tax_type.upper()] + [str(int(x)) for x in taxes]))
+    group_name = '_'.join(group_names)
+    if is_igst:
+        group_name = 'I'+group_name
+    return group_name
