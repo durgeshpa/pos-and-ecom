@@ -61,7 +61,7 @@ from .signals import ReservedOrder
 from .utils import (GetPcsFromQty, add_cart_user, create_order_from_cart, create_order_data_excel,
                     create_invoice_data_excel, create_e_invoice_data_excel)
 from .filters import (InvoiceAdminOrderFilter, InvoiceAdminTripFilter, InvoiceCreatedAt, DeliveryStartsAt,
-                      DeliveryCompletedAt, OrderCreatedAt, EInvoiceAdminBuyerFilter)
+                      DeliveryCompletedAt, OrderCreatedAt, EInvoiceAdminBuyerFilter, EInvoiceStatusFilter)
 from .tasks import update_order_status_picker_reserve_qty
 from payments.models import OrderPayment, ShipmentPayment
 from retailer_backend.messages import ERROR_MESSAGES
@@ -2642,6 +2642,7 @@ class EInvoiceAdmin(admin.ModelAdmin):
     search_fields = ('invoice_no',)
     ordering = ('-created_at',)
     list_filter = (
+        EInvoiceStatusFilter,
         EInvoiceAdminBuyerFilter,
         InvoiceAdminOrderFilter,
         ('created_at', InvoiceCreatedAt),
