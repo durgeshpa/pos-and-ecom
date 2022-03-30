@@ -7547,6 +7547,11 @@ class ShipmentQCView(generics.GenericAPIView):
     @check_qc_dispatch_executive
     def put(self, request):
         """ PUT API for shipment update """
+
+        info_logger.info("PUT API for shipment update called.")
+        if not request.data.get('id'):
+            return get_response('please provide id to update shipment', False)
+
         modified_data = validate_data_format(self.request)
         if 'error' in modified_data:
             return get_response(modified_data['error'])
