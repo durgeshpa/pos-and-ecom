@@ -1012,8 +1012,8 @@ class AutoSuggest(APIView):
         index = "all_products"
         if shop_id:
             if Shop.objects.filter(id=shop_id).exists():
-                parent_mapping = ParentRetailerMapping.objects.get(retailer=shop_id, status=True)
-                if parent_mapping.parent.shop_type.shop_type == 'sp':
+                parent_mapping = ParentRetailerMapping.objects.filter(retailer=shop_id, status=True).last()
+                if parent_mapping and parent_mapping.parent.shop_type.shop_type == 'sp':
                     index = parent_mapping.parent.id
         products_list = es_search(index=index, body=body)
         p_list = []
@@ -1987,9 +1987,19 @@ class CartCheckout(APIView):
             # Get offers available now and apply coupon if applicable
             offers = BasicCartOffers.refresh_offers_checkout(cart, False, self.request.data.get('coupon_id'))
             data = self.serialize(cart)
-            data['redeem_points_message'] = use_reward_this_month
-            delivery_time = get_config_fofo_shops(kwargs['shop'].id)
-            data['maximum_delivery_time'] = delivery_time.get('delivery_time',None)
+
+            data['redeem_points_message'] = use_rewrd_this_month
+            time = datetime.now().strftime("%H:%M:%S")
+            time = datetime.strptime(time,"%H:%M:%S").time()
+            fofo_config = get_config_fofo_shops(kwargs['shop'].id)
+            delivery_time = str(fofo_config.get('delivery_time')) + " " + 'min' if fofo_config.get('delivery_time', None) else None
+
+            if fofo_config.get('open_time',None) and fofo_config.get('close_time',None) and not (
+                    fofo_config['open_time'] < time < fofo_config['close_time']):
+                delivery_time = "your order will be delivered tomorrow"
+
+            data['estimate_delivery_time'] = delivery_time
+
             if 'error' in offers:
                 return api_response(offers['error'], None, offers['code'])
             if offers['applied']:
@@ -2057,7 +2067,15 @@ class CartCheckout(APIView):
             address = AddressCheckoutSerializer(cart.buyer.ecom_user_address.filter(default=True).last()).data
             data.update({'default_address': address})
             delivery_time = get_config_fofo_shops(kwargs['shop'])
-            data['maximum_delivery_time'] = delivery_time.get('delivery_time',None)
+            time = datetime.now().strftime("%H:%M:%S")
+            time = datetime.strptime(time,"%H:%M:%S").time()
+            fofo_config = get_config_fofo_shops(kwargs['shop'].id)
+            delivery_time = str(fofo_config.get('delivery_time')) + " "+ 'min' if fofo_config.get('delivery_time', None) else None
+
+            if fofo_config.get('open_time',None) and fofo_config.get('close_time',None) and not (
+                    fofo_config['open_time'] < time < fofo_config['close_time']):
+                delivery_time = "your order will be delivered tomorrow"
+            data['estimate_delivery_time'] = delivery_time
             data.update({'saving': round(data['total_mrp'] - data['amount_payable'], 2)})
             data.update({"redeem_points_message": use_reward_this_month if use_reward_this_month else ""})
             return api_response("Cart Checkout", data, status.HTTP_200_OK, True)
@@ -3739,6 +3757,8 @@ class OrderCentral(APIView):
             time = datetime.now().strftime("%H:%M:%S")
             time = datetime.strptime(time,"%H:%M:%S").time()
             msg = fofo_config.get('delivery_time',None)
+            if msg:
+                msg = str(msg)+" "+"min"
             if fofo_config.get('open_time',None) and fofo_config.get('close_time',None) and not (fofo_config['open_time']<time and fofo_config['close_time']>time):
                 msg = "your order will be delivered tomorrow "
             order.estimate_delivery_time = msg
@@ -6081,41 +6101,39 @@ def pdf_generation_return_retailer(request, order, ordered_product, order_return
     # template_name = 'admin/credit_note/credit_note_retailer.html'
     template_name = 'admin/credit_note/credit_retailer_3inch.html'
 
-    try:
-        # Don't create pdf if already created
-        if credit_note_instance.credit_note_pdf.url:
-            try:
-                order_number, order_status, phone_number = order.order_no, order.order_status, order.buyer.phone_number
-                refund_amount = order_return.refund_amount if order_return.refund_amount > 0 else 0
-                media_url, file_name = credit_note_instance.credit_note_pdf.url, ordered_product.invoice_no
-                manager = order.ordered_cart.seller_shop.pos_shop.filter(user_type='manager').last()
-                shop_name = order.ordered_cart.seller_shop.shop_name
-                if delay:
-                    whatsapp_order_refund.delay(order_number, order_status, phone_number, refund_amount, media_url,
-                                                file_name)
-                    if manager and manager.user.email:
-                        send_invoice_pdf_email.delay(manager.user.email, shop_name, order_number, media_url, file_name,
-                                                     'return')
-                    else:
-                        logger.exception("Email not present for Manager {}".format(str(manager)))
-                    # send mail to manager for return
+
+    # Don't create pdf if already created
+    if credit_note_instance and credit_note_instance.credit_note_pdf and credit_note_instance.credit_note_pdf.url:
+        try:
+            order_number, order_status, phone_number = order.order_no, order.order_status, order.buyer.phone_number
+            refund_amount = order_return.refund_amount if order_return.refund_amount > 0 else 0
+            media_url, file_name = credit_note_instance.credit_note_pdf.url, ordered_product.invoice_no
+            manager = order.ordered_cart.seller_shop.pos_shop.filter(user_type='manager').last()
+            shop_name = order.ordered_cart.seller_shop.shop_name
+            if delay:
+                whatsapp_order_refund.delay(order_number, order_status, phone_number, refund_amount, media_url,
+                                            file_name)
+                if manager and manager.user.email:
+                    send_invoice_pdf_email.delay(manager.user.email, shop_name, order_number, media_url, file_name,
+                                                 'return')
                 else:
-                    if manager and manager.user.email:
-                        send_invoice_pdf_email(manager.user.email, shop_name, order_number, media_url, file_name,
-                                               'return')
-                    else:
-                        logger.exception("Email not present for Manager {}".format(str(manager)))
-                    return whatsapp_order_refund(order_number, order_status, phone_number, refund_amount, media_url,
-                                                 file_name)
-                    # send mail to manager for return
-            except Exception as e:
-                logger.exception("Retailer Credit note send error order {} return {}".format(order.order_no,
-                                                                                             order_return.id))
-                logger.exception(e)
+                    logger.exception("Email not present for Manager {}".format(str(manager)))
+                # send mail to manager for return
+            else:
+                if manager and manager.user.email:
+                    send_invoice_pdf_email(manager.user.email, shop_name, order_number, media_url, file_name,
+                                           'return')
+                else:
+                    logger.exception("Email not present for Manager {}".format(str(manager)))
+                return whatsapp_order_refund(order_number, order_status, phone_number, refund_amount, media_url,
+                                                             file_name)
+                # send mail to manager for return
+        except Exception as e:
+            logger.exception("Retailer Credit note send error order {} return {}".format(order.order_no,
+                                                                                         order_return.id))
+            logger.exception(e)
 
-    except Exception as e:
-        logger.exception(e)
-
+    else:
         filename = create_file_name(file_prefix, credit_note_instance.credit_note_id)
         barcode = barcodeGen(credit_note_instance.credit_note_id)
         # Total Items
