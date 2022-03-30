@@ -2810,6 +2810,7 @@ class TaxGroupFormSet(forms.ModelForm):
             raise ValidationError("Please add atleast one tax group")
 
         super(TaxGroupFormSet, self).clean()
+
     class Meta:
         GroupTaxMapping
         fields = ('__all__')

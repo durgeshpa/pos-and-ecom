@@ -20,7 +20,7 @@ from django.http import HttpResponse
 from django.db.models import Sum, F, FloatField, OuterRef, Subquery
 
 from marketing.sms import SendSms
-from products.models import Product
+from products.models import Product, TaxGroup
 from retailer_backend.messages import NOTIFICATIONS
 from retailer_backend.utils import time_diff_days_hours_mins_secs
 
@@ -563,19 +563,29 @@ def get_tcs_data(invoice, buyer_shop_id, buyer_shop_gstin, OrderedProduct, Round
         tcs_data['tcs_payable'] = 'TCS Payable'
     return tcs_data
 
-def get_tax_data(tax_json):
-    tax_data = {'tax_name': '', 'tax_type': '', 'tax_percent': 0}
+def get_tax_data(tax_json, invoice, TaxGroup):
+    tax_data = {'tax_name': '', 'tax_type': '', 'tax_percent': 0, 'zoho_tax_name': '' }
     if not tax_json:
         return tax_data
     tax_types = ['GST', 'CESS']
     group_names = []
-    tax_data['tax_percent'] = tax_json.pop('tax_sum', 0)
+    tax_percent = 0
+    tax_json.pop('tax_sum', 0)
     for tax in tax_json.values():
         for tax_type in tax_types:
-            if tax_type in tax[0]:
+            if tax_type in tax[0] and (tax_type=='GST' or tax[1] > 0):
                 group_names.append(tax_type + str(int(tax[1])))
-    tax_data['tax_name'] = '_'.join(group_names)
-    tax_data['tax_type'] = 'Tax Group'
+                tax_percent = tax_percent + tax[1]
+    tax_name = '_'.join(group_names)
+    if invoice.is_igst_applicable:
+        tax_name = 'I'+tax_name
+
+    tax_group = TaxGroup.objects.filter(name=tax_name).last()
+    tax_data['tax_percent'] = tax_percent
+    if tax_group:
+        tax_data['tax_name'] = tax_name
+        tax_data['zoho_tax_name'] = tax_group.zoho_id
+        tax_data['tax_type'] = tax_group.get_zoho_grp_type_display()
     return tax_data
 
 def create_e_invoice_data_excel(queryset, OrderedProduct, RoundAmount, ShopDocument):
@@ -613,7 +623,7 @@ def create_e_invoice_data_excel(queryset, OrderedProduct, RoundAmount, ShopDocum
             continue
         tcs_data = get_tcs_data(invoice, invoice.buyer_shop_id, shop_gstin, OrderedProduct, RoundAmount)
         for item in invoice.shipment.rt_order_product_order_product_mapping.all():
-            tax_data = get_tax_data(item.product_tax_json)
+            tax_data = get_tax_data(item.product_tax_json, invoice, TaxGroup)
             writer.writerow([
                 invoice.invoice_no,
                 '',
@@ -641,7 +651,8 @@ def create_e_invoice_data_excel(queryset, OrderedProduct, RoundAmount, ShopDocum
                 item.shipped_qty,
                 'Pcs',
                 item.effective_price,
-                '','',
+                '',
+                1,
                 tax_data['tax_name'],
                 tax_data['tax_type'],
                 tax_data['tax_percent'],
