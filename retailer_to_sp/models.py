@@ -3803,3 +3803,10 @@ class PickerUserAssignmentLog(models.Model):
             final_user_id=instance.picker_boy_id,
             created_by=updated_by
         )
+
+
+class EInvoiceData(Invoice):
+    class Meta:
+        proxy = True
+        verbose_name = 'e-invoice'
+        verbose_name_plural = 'e-invoices'
