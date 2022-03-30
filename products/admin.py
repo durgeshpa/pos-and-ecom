@@ -2086,7 +2086,7 @@ class GroupTaxMappingInline(admin.TabularInline):
 
 class TaxGroupAdmin(admin.ModelAdmin, ExportCsvMixin):
     inlines = [GroupTaxMappingInline]
-    fields = ['name', 'zoho_id']
+    fields = ['name', 'zoho_id', 'is_igst']
     readonly_fields = ['name']
     list_display = ['name', 'zoho_id']
     search_fields = ['name', 'zoho_id']
