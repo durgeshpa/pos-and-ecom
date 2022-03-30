@@ -66,3 +66,12 @@ class OrderCreatedAt(DateTimeRangeFilter):
     def __init__(self, field, request, params, model, model_admin, field_path):
         super().__init__(field, request, params, model, model_admin, field_path)
         self.title = 'Order Created At'
+
+
+class EInvoiceAdminBuyerFilter(InputFilter):
+    parameter_name = 'buyer_name'
+    title = 'Buyer'
+
+    def queryset(self, request, queryset):
+        if self.value() is not None:
+            return queryset.filter(shipment__order__buyer_shop__shop_name__icontains=self.value())

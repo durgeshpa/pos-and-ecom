@@ -7,6 +7,7 @@ import csv
 import codecs
 import datetime
 
+from django.core.cache import cache
 from django.db import transaction
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -23,7 +24,7 @@ from products.models import Product
 from retailer_backend.messages import NOTIFICATIONS
 from retailer_backend.utils import time_diff_days_hours_mins_secs
 
-# Logger
+
 info_logger = logging.getLogger('file-info')
 
 def add_cart_user(form, request):
@@ -521,3 +522,141 @@ def send_sms_on_trip_start(trip_instance):
 def round_half_down(n, decimals=0):
     multiplier = 10 ** decimals
     return math.ceil(n*multiplier - 0.5) / multiplier
+
+# def get_state_code(state_name):
+#     states_data = {"Gujarat": 'GJ', "Delhi": 'DL', "Uttar Pradesh": 'UP', "Haryana": 'HR', "Rajasthan": 'RJ',
+#                    "Uttarakhand": 'UK'}
+#     return states_data.get(state_name, None)
+
+def get_shop_gstin(shop_id, ShopDocument):
+    cache_key = 'GSTIN_CACHE_KEY'+str(shop_id)
+    gstin = cache.get(cache_key)
+    if not gstin:
+        buyer_shop_document = ShopDocument.objects.filter(shop_name_id=shop_id, shop_document_type=ShopDocument.GSTIN).last()
+        gstin = buyer_shop_document.shop_document_number if buyer_shop_document else 'unregistered'
+        cache.set(cache_key, gstin)
+    return gstin
+
+
+def get_tcs_data(invoice, buyer_shop_id, buyer_shop_gstin, OrderedProduct, RoundAmount):
+    tcs_data = {'tcs_rate': 0, 'tcs_tax': 0, 'nature_of_collection': '', 'tcs_payable': ''}
+
+    cache_key = 'TCS_RATE_CACHE_KEY'+'_'+str(buyer_shop_id)
+    tcs_rate = cache.get(cache_key)
+    if tcs_rate is None:
+        tcs_rate = 0
+        paid_amount = OrderedProduct.objects.filter(order__buyer_shop_id=invoice.buyer_shop_id,
+                                                    created_at__gte='2019-04-01')\
+                .aggregate(paid_amount=RoundAmount(Sum(
+                    F('rt_order_product_order_product_mapping__effective_price') *
+                    F('rt_order_product_order_product_mapping__shipped_qty'),
+                    output_field=FloatField())))['paid_amount']
+        if paid_amount and paid_amount > 5000000:
+            tcs_rate = 1 if buyer_shop_gstin == 'unregistered' else 0.1
+        cache.set(cache_key, tcs_rate)
+
+    tcs_data['tcs_rate'] = tcs_rate
+    if tcs_rate > 0:
+        tcs_data['tcs_tax'] = round(float(invoice.invoice_amount) * float(tcs_data['tcs_rate'] / 100), 2)
+        tcs_data['nature_of_collection'] = '206C(1H)'
+        tcs_data['tcs_payable'] = 'TCS Payable'
+    return tcs_data
+
+def get_tax_data(tax_json):
+    tax_data = {'tax_name': '', 'tax_type': 'Tax Group', 'tax_percent': 0}
+    tax_types = ['GST', 'CESS']
+    group_names = []
+    for tax in tax_json.values():
+        if isinstance(tax, list):
+            for tax_type in tax_types:
+                if tax_type in tax[0]:
+                    group_names.append(tax_type + str(int(tax[1])))
+    tax_data['tax_name'] = '_'.join(group_names)
+    tax_data['tax_percent'] = tax_json.get('tax_sum', 0)
+    return tax_data
+
+def create_e_invoice_data_excel(queryset, OrderedProduct, RoundAmount, ShopDocument):
+    queryset = queryset.select_related('shipment__order__buyer_shop', 'shipment__order__shipping_address__state')\
+        .prefetch_related('shipment__rt_order_product_order_product_mapping',
+                          'shipment__rt_order_product_order_product_mapping__product',
+                          'shipment__rt_order_product_order_product_mapping__product__parent_product',
+                          'shipment__rt_order_product_order_product_mapping__product__parent_product__product_hsn')
+    filename = "e-Invoice_data_{}.csv".format(datetime.date.today())
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
+    writer = csv.writer(response)
+    writer.writerow([
+        'Invoice No.', 'Estimate Number', 'Invoice Date', 'Invoice Status', 'Customer Name', 'GST Treatment',
+        'TCS Tax Name', 'TCS Percentage', 'TCS Amount',
+        'Nature Of Collection',  'TCS Payable Account', 'TCS Receivable Account', 'GST Identification Number (GSTIN)',
+        'Place of Supply', 'PurchaseOrder', 'Expense Reference ID',	'Payment Terms', 'Payment Terms Label',	'Due Date',
+        'Expected Payment Date', 'Sales person', 'Currency Code', 'Exchange Rate', 'Account', 'Item Name', 'SKU',
+        'Item Desc', 'Item Type', 'HSN/SAC', 'Quantity', 'Usage unit', 'Item Price', 'Item Tax Exemption Reason',
+        'Is Inclusive Tax', 'Item Tax', 'Item Tax Type', 'Item Tax %', 'Project Name', 'Supply Type', 'Discount Type',
+        'Is Discount Before Tax', 'Entity Discount Percent', 'Entity Discount Amount', 'Discount', 'Discount Amount',
+        'Shipping Charge', 'Adjustment', 'Adjustment Description', 'PayPal', 'Razorpay', 'Partial Payments',
+        'Template Name', 'Notes', 'Terms & Conditions'
+    ])
+
+    invoices = queryset.annotate(buyer_shop_id=F('shipment__order__buyer_shop_id'),
+                                 buyer_name=F('shipment__order__buyer_shop__shop_name'),
+                                 state=F('shipment__order__shipping_address__state__state_name'),
+                                 state_code_txt=F('shipment__order__shipping_address__state__state_code_txt'))\
+                       .only('invoice_no', 'created_at', 'shipment__order__buyer_shop_id',
+                             'shipment__order__buyer_shop__shop_name', 'shipment__order__shipping_address__state__state_name')
+    for invoice in invoices:
+        shop_gstin = get_shop_gstin(invoice.buyer_shop_id, ShopDocument)
+        tcs_data = get_tcs_data(invoice, invoice.buyer_shop_id, shop_gstin, OrderedProduct, RoundAmount)
+        for item in invoice.shipment.rt_order_product_order_product_mapping.all():
+            tax_data = get_tax_data(item.product_tax_json)
+            writer.writerow([
+                invoice.invoice_no,
+                '',
+                invoice.created_at,
+                'Overdue',
+                invoice.buyer_name,
+                'business_gst',
+                'TCS',
+                tcs_data['tcs_rate'],
+                tcs_data['tcs_tax'],
+                tcs_data['nature_of_collection'],
+                tcs_data['tcs_payable'],
+                'TCS Receivable',
+                shop_gstin,
+                invoice.state_code_txt,
+                '','',0,'Due on Receipt','','','',
+                'INR',
+                1,
+                'Sales',
+                item.product.product_name,
+                item.product.product_sku,
+                item.product.product_name,
+                'goods',
+                item.product.product_hsn,
+                item.shipped_qty,
+                'Pcs',
+                item.effective_price,
+                '','',
+                tax_data['tax_name'],
+                tax_data['tax_type'],
+                tax_data['tax_percent'],
+                '',
+                'Taxable',
+                'entity_level',
+                1,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                'Adjustment',
+                0,
+                0,
+                0,
+                'Spreadsheet Template',
+                'Looking forward for your business.',
+                'We reserve the right to cancel.'
+
+            ])
+    return response
