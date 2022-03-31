@@ -90,17 +90,13 @@ def bulk_upload_zoho_customers_file_upload(request):
             try:
                 credit_note_file = form.cleaned_data['file']
                 info_logger.info("bulk zoho Customers file upload.")
-                count = zoho_customers_file_upload(request, credit_note_file)
-                # if error:
-                #     #messages.success(request, '{} |record created sucessfully'.format(error[0]))
-                #     form.add_error(None, error)
-                #     return render(request, 'admin/zoho/bulk-upload-credit-note.html', {'form': form})
+                response = zoho_customers_file_upload(request, credit_note_file)
 
 
                 ZohoFileUpload.objects.create(file=credit_note_file, upload_type='Credit Note',
                                               created_by=request.user, updated_by=request.user)
-                messages.success(request, "{} |record created sucessfully".format(count))
-                return redirect('/admin/zoho/zohofileupload/')
+                messages.success(request, 'zoho Customers file upload. sucessfully')
+                return response
 
             except Exception as e:
                 error_logger.error(e)
