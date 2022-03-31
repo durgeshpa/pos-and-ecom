@@ -35,7 +35,7 @@ from products.models import (Color, Flavor, Fragrance, PackageSize, Product,
                              Repackaging, ParentProduct, ProductHSN, ProductSourceMapping,
                              DestinationRepackagingCostMapping, ParentProductImage, ProductCapping,
                              ParentProductCategory, PriceSlab, SlabProductPrice, ProductPackingMapping,
-                             DiscountedProductPrice, TaxGroup)
+                             DiscountedProductPrice, TaxGroup, GroupTaxMapping)
 from retailer_backend.utils import isDateValid, getStrToDate, isBlankRow
 from retailer_backend.validators import *
 from shops.models import Shop, ShopType
@@ -2803,23 +2803,14 @@ class TaxGroupForm(forms.ModelForm):
         return
 
 
-class TaxGroupFormSet(BaseInlineFormSet):
+class TaxGroupFormSet(forms.ModelForm):
+    tax = forms.ModelChoiceField(queryset=Tax.objects.filter(~Q(tax_name__startswith='Surcharge')))
     def clean(self):
+        if int(self.data.get('group_taxes-INITIAL_FORMS', 0))<1:
+            raise ValidationError("Please add atleast one tax group")
+
         super(TaxGroupFormSet, self).clean()
-        tax_ids = []
-        tax_types_added = []
-        non_empty_forms = 0
-        for form in self:
-            if form.cleaned_data and form.cleaned_data.get('tax'):
-                non_empty_forms += 1
-                if form.cleaned_data['tax'].tax_type in tax_types_added:
-                    raise ValidationError("This type of tax already exists in the group!")
-                tax_types_added.append(form.cleaned_data['tax'].tax_type)
-                tax_ids.append(form.cleaned_data['tax'].id)
 
-        if non_empty_forms - len(self.deleted_forms) < 1:
-            raise ValidationError("Please add atleast one tax to group!")
-
-        if TaxGroup.objects.filter(
-                name=generate_tax_group_name_by_the_mapped_taxes(Tax.objects.filter(id__in=tax_ids), self.cleaned_data[0]['tax_group'].is_igst)).exists():
-            raise ValidationError('Same Tax group already exist.')
+    class Meta:
+        GroupTaxMapping
+        fields = ('__all__')

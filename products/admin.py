@@ -2078,7 +2078,7 @@ class DiscountedProductsAdmin(admin.ModelAdmin, ExportCsvMixin):
 
 
 class GroupTaxMappingInline(admin.TabularInline):
-    formset = TaxGroupFormSet
+    form = TaxGroupFormSet
     model = GroupTaxMapping
     extra = 0
     fields = ('tax',)
