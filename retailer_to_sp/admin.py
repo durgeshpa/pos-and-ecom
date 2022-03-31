@@ -2669,7 +2669,7 @@ class EInvoiceAdmin(admin.ModelAdmin):
 
     def get_queryset(self, request):
 
-        gstin_exists = ShopDocument.objects.filter(shop_name_id=OuterRef('shipment__order__seller_shop_id'),
+        gstin_exists = ShopDocument.objects.filter(shop_name_id=OuterRef('shipment__order__buyer_shop_id'),
                                                    shop_document_type='gstin')
         qs = super().get_queryset(request)\
             .filter(shipment__order__seller_shop_id=get_config('current_wh_active', 50484),
@@ -2722,7 +2722,7 @@ class ENoteAdmin(admin.ModelAdmin):
     get_buyer_gstin.short_description = "Buyer GSTIN"
 
     def get_queryset(self, request):
-        gstin_exists = ShopDocument.objects.filter(shop_name_id=OuterRef('shipment__order__seller_shop_id'),
+        gstin_exists = ShopDocument.objects.filter(shop_name_id=OuterRef('shipment__order__buyer_shop_id'),
                                                    shop_document_type='gstin')
         qs = super().get_queryset(request)\
             .filter(shipment__order__seller_shop_id=get_config('current_wh_active', 50484),
