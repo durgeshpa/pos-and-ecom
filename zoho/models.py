@@ -142,6 +142,7 @@ class ZohoCommonFields(models.Model):
 
 class ZohoCommonItemFields(models.Model):
     usage_unit = models.CharField(max_length=100, null=True, blank=True)
+    product_id = models.CharField(max_length=100, null=True, blank=True)
     item_price = models.CharField(max_length=100, null=True, blank=True)
     item_type = models.CharField(max_length=100, null=True, blank=True)
     item_tax = models.CharField(max_length=100, null=True, blank=True)
@@ -154,6 +155,8 @@ class ZohoCommonItemFields(models.Model):
 
 
 class ZohoCreditNote(ZohoCommonFields):
+    creditnotes_id = models.CharField(max_length=100, null=True, blank=True)
+    credit_note_date = models.CharField(max_length=100, null=True, blank=True)
     credit_note_number = models.CharField(max_length=100, null=True, blank=True)
     credit_note_status = models.CharField(max_length=100, null=True, blank=True)
     billing_street_2 = models.CharField(max_length=100, null=True, blank=True)
@@ -233,7 +236,6 @@ class ZohoInvoiceItem(ZohoCommonItemFields):
     discount = models.CharField(max_length=100, null=True, blank=True)
     discount_amount = models.CharField(max_length=100, null=True, blank=True)
     item_total = models.CharField(max_length=100, null=True, blank=True)
-    product_id = models.CharField(max_length=100, null=True, blank=True)
     tax_id = models.CharField(max_length=100, null=True, blank=True)
     item_tax_amount = models.CharField(max_length=100, null=True, blank=True)
 

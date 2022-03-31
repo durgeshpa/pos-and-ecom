@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import ZohoFileUpload, ZohoInvoice, ZohoInvoiceItem
+from .models import ZohoFileUpload, ZohoInvoice, ZohoInvoiceItem, ZohoCreditNote, ZohoCreditNoteItem
 
 # Register your models here.
 from .views import bulk_zoho_invoice_file_upload, bulk_zoho_credit_note_file_upload
@@ -50,6 +50,19 @@ class ZohoInvoiceItemAdmin(admin.TabularInline):
         pass
 
 
+class ZohoCreditNoteItemAdmin(admin.TabularInline):
+    model = ZohoCreditNoteItem
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    class Media:
+        pass
+
+
 class ZohoInvoiceAdmin(admin.ModelAdmin):
     list_display = ['invoice_date', 'invoice_id', 'invoice_number', 'invoice_status']
     inlines = [ZohoInvoiceItemAdmin, ]
@@ -64,6 +77,22 @@ class ZohoInvoiceAdmin(admin.ModelAdmin):
         return False
 
 
+class ZohoCreditNoteAdmin(admin.ModelAdmin):
+    list_display = ['credit_note_number', 'credit_note_status', 'shipping_phone', 'reference',
+                    'associated_invoice_number', 'associated_invoice_date', 'reason']
+    inlines = [ZohoCreditNoteItemAdmin, ]
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
 admin.site.register(ZohoFileUpload, ZohoFileUploadAdmin)
 admin.site.register(ZohoInvoice, ZohoInvoiceAdmin)
+admin.site.register(ZohoCreditNote, ZohoCreditNoteAdmin)
 
