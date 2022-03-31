@@ -243,7 +243,7 @@ class ZohoCustomers(models.Model):
     created_by = models.ForeignKey(get_user_model(), null=True, on_delete=models.DO_NOTHING)
     created_time = models.DateTimeField(blank=True, null=True)
     last_modified_time = models.DateTimeField(blank=True, null=True)
-    display_name = models.CharField(max_length=133, blank=True, null=True)
+    display_name = models.CharField(max_length=133, unique=True, blank=True, null=True)
     company_name = models.CharField(max_length=133, blank=True, null=True)
     salutation = models.CharField(max_length=10, blank=True, null=True)
     first_name = models.CharField(max_length=100, blank=True, null=True)

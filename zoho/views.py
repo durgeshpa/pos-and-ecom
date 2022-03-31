@@ -84,7 +84,10 @@ def bulk_upload_zoho_customers_file_upload(request):
             try:
                 credit_note_file = form.cleaned_data['file']
                 info_logger.info("bulk zoho Customers file upload.")
-                zoho_customers_file_upload(request, credit_note_file)
+                error = zoho_customers_file_upload(request, credit_note_file)
+                if error:
+                    form.add_error(None, error)
+                    return render(request, 'admin/zoho/bulk-upload-credit-note.html', {'form': form})
 
                 ZohoFileUpload.objects.create(file=credit_note_file, upload_type='Credit Note',
                                               created_by=request.user, updated_by=request.user)
