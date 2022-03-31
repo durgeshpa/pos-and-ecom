@@ -95,3 +95,12 @@ class EInvoiceStatusFilter(SimpleListFilter):
             return queryset.exclude(shipment__order__order_status='CANCELLED')
         elif self.value() == None:
             return queryset
+
+
+class ENoteAdminInvoiceFilter(InputFilter):
+    parameter_name = 'invoice_no'
+    title = 'Invoice'
+
+    def queryset(self, request, queryset):
+        if self.value() is not None:
+            return queryset.filter(shipment__invoice__invoice_no__icontains=self.value())

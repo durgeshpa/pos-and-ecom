@@ -3817,3 +3817,10 @@ class EInvoiceData(Invoice):
         proxy = True
         verbose_name = 'e-invoice'
         verbose_name_plural = 'e-invoices'
+
+
+class ENoteData(Note):
+    class Meta:
+        proxy = True
+        verbose_name = 'e-note'
+        verbose_name_plural = 'e-notes'
