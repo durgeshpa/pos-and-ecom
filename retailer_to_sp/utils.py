@@ -628,9 +628,9 @@ def create_e_invoice_data_excel(queryset, OrderedProduct, RoundAmount, ShopDocum
             writer.writerow([
                 invoice.invoice_no,
                 '',
-                invoice.created_at,
+                invoice.created_at.strftime('%d-%m-%Y'),
                 '',
-                invoice.buyer_name,
+                invoice.buyer_name+'_'+str(invoice.buyer_shop_id),
                 'business_gst',
                 'TCS',
                 tcs_data['tcs_rate'],
@@ -653,7 +653,7 @@ def create_e_invoice_data_excel(queryset, OrderedProduct, RoundAmount, ShopDocum
                 'Pcs',
                 item.effective_price,
                 '',
-                1,
+                'True',
                 tax_data['tax_name'],
                 tax_data['tax_type'],
                 tax_data['tax_percent'],
@@ -719,11 +719,11 @@ def create_e_note_data_excel(queryset, OrderedProduct, RoundAmount, ShopDocument
                 qty = item.returned_qty + item.returned_damage_qty
             writer.writerow([
                 note.credit_note_id,
-                note.created_at,
+                note.created_at.strftime('%d-%m-%Y'),
                 note.invoice_no,
                 'Registered',
                 '','','',
-                note.buyer_name,
+                note.buyer_name+'_'+str(note.buyer_shop_id),
                 'business_gst',
                 shop_gstin,
                 note.state_code_txt,
@@ -740,7 +740,7 @@ def create_e_note_data_excel(queryset, OrderedProduct, RoundAmount, ShopDocument
                 tax_data['tax_name'],
                 tax_data['tax_percent'],
                 tax_data['tax_type'],
-                1,
+                'True',
                 '','','','','','','','','','','','',''
             ])
     return response
