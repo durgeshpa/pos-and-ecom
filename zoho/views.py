@@ -5,7 +5,7 @@ from django.http import HttpResponse
 from django.shortcuts import render, redirect
 
 # Create your views here.
-from zoho.common_function import ZohoInvoiceCls, error_invoice_csv_file, error_invoice_credit_note_csv_file
+from zoho.common_function import ZohoInvoiceCls, error_invoice_credit_note_csv_file
 from zoho.common_validators import bulk_invoice_data_validation
 from zoho.forms import ZohoInvoiceFileUploadForm, ZohoCreditNoteFileUploadForm
 # Logger
