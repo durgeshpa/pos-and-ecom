@@ -105,6 +105,8 @@ class POGenerationForm(forms.ModelForm):
                 # Input Value Validation
                 try:
                     parent_product = ParentProduct.objects.get(parent_id=row[0])
+                    if parent_product.tax_status != ParentProduct.APPROVED:
+                        self.error_csv(row_id, titles[0], row[0], f"Product TAX not approved.")
                 except ObjectDoesNotExist:
                     self.error_csv(row_id, titles[0], row[0], VALIDATION_ERROR_MESSAGES['INVALID_PARENT_ID'])
                 try:
