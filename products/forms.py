@@ -2818,8 +2818,8 @@ class TaxGroupFormSet(BaseInlineFormSet):
                 tax_ids.append(form.cleaned_data['tax'].id)
 
         if non_empty_forms - len(self.deleted_forms) < 1:
-            raise ValidationError("Please add atleast one product to cart!")
+            raise ValidationError("Please add atleast one tax to group!")
 
         if TaxGroup.objects.filter(
-                name=generate_tax_group_name_by_the_mapped_taxes(Tax.objects.filter(id__in=tax_ids))).exists():
+                name=generate_tax_group_name_by_the_mapped_taxes(Tax.objects.filter(id__in=tax_ids), self.cleaned_data[0]['tax_group'].is_igst)).exists():
             raise ValidationError('Same Tax group already exist.')

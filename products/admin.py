@@ -2086,9 +2086,9 @@ class GroupTaxMappingInline(admin.TabularInline):
 
 class TaxGroupAdmin(admin.ModelAdmin, ExportCsvMixin):
     inlines = [GroupTaxMappingInline]
-    fields = ['name', 'zoho_id']
+    fields = ['name', 'zoho_id', 'is_igst']
     readonly_fields = ['name']
-    list_display = ['name', 'zoho_id']
+    list_display = ['name', 'zoho_id', 'zoho_grp_type']
     search_fields = ['name', 'zoho_id']
 
     def response_add(self, request, new_object):
@@ -2101,7 +2101,11 @@ class TaxGroupAdmin(admin.ModelAdmin, ExportCsvMixin):
 
     def after_saving_model_and_related_inlines(self, obj):
         obj.name = generate_tax_group_name_by_the_mapped_taxes(Tax.objects.filter(
-            id__in=obj.group_taxes.values_list('tax__id', flat=True)))
+            id__in=obj.group_taxes.values_list('tax__id', flat=True)), obj.is_igst)
+        if obj.group_taxes.count() > 1:
+            obj.zoho_grp_type = TaxGroup.TAX_GROUP
+        else:
+            obj.zoho_grp_type = TaxGroup.TAX_SINGLE
         obj.save()
         return obj
 
