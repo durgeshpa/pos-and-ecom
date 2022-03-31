@@ -138,9 +138,8 @@ class ParentProductCls(object):
                     ParentProduct.GST_MULTIPLE_RATES_AND_CESS_RATE_MISMATCH if \
                         tax_remark == ParentProduct.GST_MULTIPLE_RATES else ParentProduct.CESS_RATE_MISMATCH
         if tax_status or tax_remark:
-            parent_product.tax_status = tax_status
-            parent_product.tax_remark = tax_remark
-            parent_product.save()
+            ParentProduct.objects.filter(id=parent_product.id).update(
+                tax_status=tax_status, tax_remark=tax_remark)
             ParentProductCls.update_tax_status_and_remark_in_log(
                 parent_product, tax_status, tax_remark,
                 parent_product.updated_by if parent_product.updated_by else parent_product.created_by)
