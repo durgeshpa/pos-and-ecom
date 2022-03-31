@@ -149,6 +149,13 @@ class ZohoCommonItemFields(models.Model):
     item_tax_percentage = models.CharField(max_length=100, null=True, blank=True)
     item_tax_type = models.CharField(max_length=100, null=True, blank=True)
     item_tax_exemption_reason = models.CharField(max_length=100, null=True, blank=True)
+    item_name = models.CharField(max_length=100, null=True, blank=True)
+    item_desc = models.TextField(null=True, blank=True)
+    quantity = models.CharField(max_length=100, null=True, blank=True)
+    discount = models.CharField(max_length=100, null=True, blank=True)
+    discount_amount = models.CharField(max_length=100, null=True, blank=True)
+    item_total = models.CharField(max_length=100, null=True, blank=True)
+    item_tax_amount = models.CharField(max_length=100, null=True, blank=True)
 
     class Meta:
         abstract = True
@@ -167,7 +174,6 @@ class ZohoCreditNote(ZohoCommonFields):
     associated_invoice_date = models.CharField(max_length=100, null=True, blank=True)
     applied_invoice_number = models.CharField(max_length=100, null=True, blank=True)
     reason = models.TextField(null=True, blank=True)
-    tax1_id = models.CharField(max_length=100, null=True, blank=True)
 
 
 class ZohoCreditNoteItem(ZohoCommonItemFields):
@@ -230,14 +236,7 @@ class ZohoInvoice(ZohoCommonFields):
 
 class ZohoInvoiceItem(ZohoCommonItemFields):
     zoho_invoice = models.ForeignKey(ZohoInvoice, on_delete=models.CASCADE)
-    item_name = models.CharField(max_length=100, null=True, blank=True)
-    item_desc = models.TextField(null=True, blank=True)
-    quantity = models.CharField(max_length=100, null=True, blank=True)
-    discount = models.CharField(max_length=100, null=True, blank=True)
-    discount_amount = models.CharField(max_length=100, null=True, blank=True)
-    item_total = models.CharField(max_length=100, null=True, blank=True)
     tax_id = models.CharField(max_length=100, null=True, blank=True)
-    item_tax_amount = models.CharField(max_length=100, null=True, blank=True)
 
 
 # class ZohoCustomers(models.Model):
