@@ -17,10 +17,10 @@ from django.utils.html import format_html_join, format_html
 from django.utils.safestring import mark_safe
 from django.urls import reverse
 from django.http import HttpResponse
-from django.db.models import Sum, F, FloatField, OuterRef, Subquery
+from django.db.models import Sum, F, FloatField, OuterRef, Subquery, Q
 
 from marketing.sms import SendSms
-from products.models import Product
+from products.models import Product, TaxGroup
 from retailer_backend.messages import NOTIFICATIONS
 from retailer_backend.utils import time_diff_days_hours_mins_secs
 
@@ -563,20 +563,31 @@ def get_tcs_data(invoice, buyer_shop_id, buyer_shop_gstin, OrderedProduct, Round
         tcs_data['tcs_payable'] = 'TCS Payable'
     return tcs_data
 
-def get_tax_data(tax_json):
-    tax_data = {'tax_name': '', 'tax_type': '', 'tax_percent': 0}
+def get_tax_data(tax_json, invoice, TaxGroup):
+    tax_data = {'tax_name': '', 'tax_type': '', 'tax_percent': 0, 'zoho_tax_name': '' }
     if not tax_json:
         return tax_data
     tax_types = ['GST', 'CESS']
     group_names = []
-    tax_data['tax_percent'] = tax_json.pop('tax_sum', 0)
+    tax_percent = 0
+    tax_json.pop('tax_sum', 0)
     for tax in tax_json.values():
         for tax_type in tax_types:
-            if tax_type in tax[0]:
+            if tax_type in tax[0] and (tax_type=='GST' or tax[1] > 0):
                 group_names.append(tax_type + str(int(tax[1])))
-    tax_data['tax_name'] = '_'.join(group_names)
-    tax_data['tax_type'] = 'Tax Group'
+                tax_percent = tax_percent + tax[1]
+    tax_name = '_'.join(group_names)
+    if invoice.is_igst_applicable:
+        tax_name = 'I'+tax_name
+
+    tax_group = TaxGroup.objects.filter(name=tax_name).last()
+    tax_data['tax_percent'] = tax_percent
+    if tax_group:
+        tax_data['tax_name'] = tax_name
+        tax_data['zoho_tax_name'] = tax_group.zoho_id
+        tax_data['tax_type'] = tax_group.get_zoho_grp_type_display()
     return tax_data
+
 
 def create_e_invoice_data_excel(queryset, OrderedProduct, RoundAmount, ShopDocument):
     queryset = queryset.select_related('shipment__order__buyer_shop', 'shipment__order__shipping_address__state')\
@@ -613,13 +624,13 @@ def create_e_invoice_data_excel(queryset, OrderedProduct, RoundAmount, ShopDocum
             continue
         tcs_data = get_tcs_data(invoice, invoice.buyer_shop_id, shop_gstin, OrderedProduct, RoundAmount)
         for item in invoice.shipment.rt_order_product_order_product_mapping.all():
-            tax_data = get_tax_data(item.product_tax_json)
+            tax_data = get_tax_data(item.product_tax_json, invoice, TaxGroup)
             writer.writerow([
                 invoice.invoice_no,
                 '',
-                invoice.created_at,
+                invoice.created_at.strftime('%d-%m-%Y'),
                 '',
-                invoice.buyer_name,
+                invoice.buyer_name+'_'+str(invoice.buyer_shop_id),
                 'business_gst',
                 'TCS',
                 tcs_data['tcs_rate'],
@@ -641,7 +652,8 @@ def create_e_invoice_data_excel(queryset, OrderedProduct, RoundAmount, ShopDocum
                 item.shipped_qty,
                 'Pcs',
                 item.effective_price,
-                '','',
+                '',
+                'True',
                 tax_data['tax_name'],
                 tax_data['tax_type'],
                 tax_data['tax_percent'],
@@ -663,5 +675,72 @@ def create_e_invoice_data_excel(queryset, OrderedProduct, RoundAmount, ShopDocum
                 '',
                 ''
 
+            ])
+    return response
+
+
+def create_e_note_data_excel(queryset, OrderedProduct, RoundAmount, ShopDocument):
+    queryset = queryset.select_related('shipment__order__buyer_shop', 'shipment__order__shipping_address__state')\
+        .prefetch_related('shipment__rt_order_product_order_product_mapping',
+                          'shipment__rt_order_product_order_product_mapping__product',
+                          'shipment__rt_order_product_order_product_mapping__product__parent_product',
+                          'shipment__rt_order_product_order_product_mapping__product__parent_product__product_hsn')
+    filename = "e-note_data_{}.csv".format(datetime.date.today())
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
+    writer = csv.writer(response)
+    writer.writerow([
+        'Credit Note Number', 'Credit Note Date', 'Invoice#', 'Reference Invoice Type', 'Reference#',
+        'Credit Note Status', 'Reason', 'Customer Name', 'GST Treatment', 'GST Identification Number (GSTIN)',
+        'Place of Supply', 'Sales person', 'Currency Code', 'Exchange Rate', 'Item Name', 'SKU', 'Item Desc',
+        'Item Type', 'Account', 'HSN/SAC', 'Quantity', 'Usage unit','Item Price', 'Item Tax', 'Item Tax %',
+        'Item Tax Type', 'Is Inclusive Tax', 'Item Tax Exemption Reason', 'Discount Type', 'Is Discount Before Tax',
+        'Entity Discount Percent', 'Entity Discount Amount', 'Discount', 'Discount Amount', 'Shipping Charge',
+        'Adjustment', 'Adjustment Description', 'Template Name', 'Notes	Terms & Conditions'
+    ])
+
+    notes = queryset.annotate(buyer_shop_id=F('shipment__order__buyer_shop_id'),
+                                 buyer_name=F('shipment__order__buyer_shop__shop_name'),
+                                 state=F('shipment__order__shipping_address__state__state_name'),
+                                 state_code_txt=F('shipment__order__shipping_address__state__state_code_txt'))\
+                       .only('credit_note_id', 'created_at', 'shipment__order__buyer_shop_id',
+                             'shipment__order__buyer_shop__shop_name', 'shipment__order__shipping_address__state__state_name')
+    for note in notes:
+        shop_gstin = get_shop_gstin(note.buyer_shop_id, ShopDocument)
+        if not shop_gstin:
+            continue
+        items = note.shipment.rt_order_product_order_product_mapping.all()
+        if note.shipment.shipment_status != 'CANCELLED':
+            items = items.filter(Q(returned_qty__gt=0) | Q(returned_damage_qty__gt=0))
+        for item in items:
+            tax_data = get_tax_data(item.product_tax_json, note, TaxGroup)
+            qty = item.shipped_qty
+            if note.shipment.shipment_status != 'CANCELLED':
+                qty = item.returned_qty + item.returned_damage_qty
+            writer.writerow([
+                note.credit_note_id,
+                note.created_at.strftime('%d-%m-%Y'),
+                note.invoice_no,
+                'Registered',
+                '','','',
+                note.buyer_name+'_'+str(note.buyer_shop_id),
+                'business_gst',
+                shop_gstin,
+                note.state_code_txt,
+                '','','',
+                item.product.product_name,
+                item.product.product_sku,
+                item.product.product_name,
+                'goods',
+                '',
+                item.product.product_hsn,
+                qty,
+                'Pcs',
+                item.effective_price,
+                tax_data['tax_name'],
+                tax_data['tax_percent'],
+                tax_data['tax_type'],
+                'True',
+                '','','','','','','','','','','','',''
             ])
     return response

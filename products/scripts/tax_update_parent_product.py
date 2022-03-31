@@ -6,8 +6,7 @@ def run():
     print('tax_update_parent_product | STARTED')
 
     parent_products = ParentProduct.objects.filter(
-        tax_status__isnull=True, product_hsn__isnull=False, parent_product_pro_tax__isnull=False,
-        product_hsn__hsn_gst__isnull=True)
+        tax_status__isnull=True, product_hsn__isnull=False, parent_product_pro_tax__isnull=False)
     total = parent_products.count()
     print(f"Total: {total}")
 
@@ -26,7 +25,9 @@ def run():
             hsn_cess = ProductHsnCess.objects.update_or_create(
                 product_hsn=product_hsn, cess=int(cess_tax), defaults={"created_by": parent_product.updated_by})
             print(f"{parent_product} | {parent_product.id} | HSN CESS {hsn_cess} created.")
-        ParentProductCls.update_tax_status_and_remark(parent_product)
+        # ParentProductCls.update_tax_status_and_remark(parent_product)
+        parent_product.tax_status = ParentProduct.APPROVED
+        parent_product.save()
 
     print('tax_update_parent_product | ENDED')
 

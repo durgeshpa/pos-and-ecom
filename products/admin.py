@@ -18,7 +18,7 @@ from django.utils.html import format_html
 from barCodeGenerator import merged_barcode_gen
 from retailer_backend.admin import InputFilter
 from retailer_backend.filters import CityFilter, ProductCategoryFilter
-from .common_function import ParentProductCls, generate_tax_group_name_by_the_mapped_taxes
+from .common_function import generate_tax_group_name_by_the_mapped_taxes, ParentProductCls
 
 from .forms import (ProductCappingForm, ProductForm, ProductPriceAddPerm,
                     ProductPriceChangePerm, ProductPriceNewForm, ProductHSNForm,
@@ -616,8 +616,8 @@ class ParentProductAdmin(admin.ModelAdmin):
     change_form_template = 'admin/products/parent_product_change_form.html'
     actions = [deactivate_selected_products, approve_selected_products, 'export_as_csv']
     list_display = [
-        'parent_id', 'name', 'parent_product_discriptions', 'parent_brand', 'product_hsn',
-        'b2c_category', 'product_gst', 'product_cess', 'product_surcharge',  'tax_status', 'tax_remark',
+        'parent_id', 'name', 'parent_product_discriptions', 'parent_brand', 'b2b_category', 'b2c_category',
+        'product_hsn', 'product_gst', 'product_cess', 'product_surcharge', 'tax_status', 'tax_remark',
         'product_image', 'status', 'product_type', 'is_ptr_applicable', 'ptrtype', 'ptrpercent',
         'discounted_life_percent'
     ]
@@ -2127,9 +2127,9 @@ class GroupTaxMappingInline(admin.TabularInline):
 
 class TaxGroupAdmin(admin.ModelAdmin, ExportCsvMixin):
     inlines = [GroupTaxMappingInline]
-    fields = ['name', 'zoho_id']
+    fields = ['name', 'zoho_id', 'is_igst']
     readonly_fields = ['name']
-    list_display = ['name', 'zoho_id']
+    list_display = ['name', 'zoho_id', 'zoho_grp_type']
     search_fields = ['name', 'zoho_id']
 
     def response_add(self, request, new_object):
@@ -2142,7 +2142,11 @@ class TaxGroupAdmin(admin.ModelAdmin, ExportCsvMixin):
 
     def after_saving_model_and_related_inlines(self, obj):
         obj.name = generate_tax_group_name_by_the_mapped_taxes(Tax.objects.filter(
-            id__in=obj.group_taxes.values_list('tax__id', flat=True)))
+            id__in=obj.group_taxes.values_list('tax__id', flat=True)), obj.is_igst)
+        if obj.group_taxes.count() > 1:
+            obj.zoho_grp_type = TaxGroup.TAX_GROUP
+        else:
+            obj.zoho_grp_type = TaxGroup.TAX_SINGLE
         obj.save()
         return obj
 

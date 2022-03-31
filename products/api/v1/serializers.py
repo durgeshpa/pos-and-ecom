@@ -30,10 +30,9 @@ from products.common_validators import get_validate_parent_brand, get_validate_p
     get_validate_seller_shop, check_active_capping, get_validate_packing_material, get_source_product, product_category, \
     product_gst, product_cess, product_surcharge, product_image, get_validate_vendor, get_validate_buyer_shop, \
     get_validate_parent_product_image_ids, get_validate_child_product_image_ids, validate_parent_product_name, \
-    validate_child_product_name, validate_tax_name, get_validate_slab_price, b2b_category, b2c_category,\
-    get_validate_hsn_gsts, get_validate_gsts_mandatory_fields, get_validate_hsn_cess, \
-    get_validate_cess_mandatory_fields, read_product_hsn_file
-
+    validate_child_product_name, validate_tax_name, get_validate_slab_price, b2b_category, b2c_category, \
+    get_validate_hsn_gsts, get_validate_gsts_mandatory_fields, get_validate_hsn_cess, get_validate_cess_mandatory_fields,\
+    read_product_hsn_file
 from products.common_function import ParentProductCls, ProductCls, ProductHSNCommonFunction
 from shops.common_validators import get_validate_city_id, get_validate_pin_code
 
@@ -1753,10 +1752,10 @@ class ParentProductApprovalSerializers(serializers.ModelSerializer):
         if not self.instance:
             raise serializers.ValidationError("Only update allowed.")
 
-        if 'name' in self.initial_data and self.initial_data['name'] is not None:
-            pro_obj = validate_parent_product_name(self.initial_data['name'], self.instance.id)
-            if pro_obj is not None and 'error' in pro_obj:
-                raise serializers.ValidationError(pro_obj['error'])
+        # if 'name' in self.initial_data and self.initial_data['name'] is not None:
+        #     pro_obj = validate_parent_product_name(self.initial_data['name'], self.instance.id)
+        #     if pro_obj is not None and 'error' in pro_obj:
+        #         raise serializers.ValidationError(pro_obj['error'])
 
         if self.instance.tax_status == ParentProduct.APPROVED:
             raise serializers.ValidationError("Product Tax is already approved.")
@@ -1788,6 +1787,10 @@ class ParentProductApprovalSerializers(serializers.ModelSerializer):
             if product_cess_tax and product_cess_tax.tax.tax_percentage not in \
                     self.instance.product_hsn.hsn_cess.values_list('cess', flat=True):
                 raise serializers.ValidationError("Please map CESS in HSN to approve product.")
+
+        data['name'] = self.instance.name
+        data['parent_id'] = self.instance.parent_id
+        data['product_type'] = self.instance.product_type
 
         data['tax_status'] = self.initial_data['tax_status']
         data['tax_remark'] = tax_remark

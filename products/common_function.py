@@ -138,9 +138,8 @@ class ParentProductCls(object):
                     ParentProduct.GST_MULTIPLE_RATES_AND_CESS_RATE_MISMATCH if \
                         tax_remark == ParentProduct.GST_MULTIPLE_RATES else ParentProduct.CESS_RATE_MISMATCH
         if tax_status or tax_remark:
-            parent_product.tax_status = tax_status
-            parent_product.tax_remark = tax_remark
-            parent_product.save()
+            ParentProduct.objects.filter(id=parent_product.id).update(
+                tax_status=tax_status, tax_remark=tax_remark)
             ParentProductCls.update_tax_status_and_remark_in_log(
                 parent_product, tax_status, tax_remark,
                 parent_product.updated_by if parent_product.updated_by else parent_product.created_by)
@@ -556,7 +555,7 @@ def get_b2c_product_details(product):
     return product_details
 
 
-def generate_tax_group_name_by_the_mapped_taxes(taxes_instance):
+def generate_tax_group_name_by_the_mapped_taxes(taxes_instance, is_igst=False):
     group_names = []
     tax_types = ['gst', 'cess']
     for tax_type in tax_types:
@@ -564,7 +563,10 @@ def generate_tax_group_name_by_the_mapped_taxes(taxes_instance):
             values_list('tax_percentage', flat=True)
         if taxes:
             group_names.append(''.join([tax_type.upper()] + [str(int(x)) for x in taxes]))
-    return '_'.join(group_names)
+    group_name = '_'.join(group_names)
+    if is_igst:
+        group_name = 'I'+group_name
+    return group_name
 
 def can_approve_product_tax(view_func):
     """
@@ -579,4 +581,3 @@ def can_approve_product_tax(view_func):
         return view_func(self, request, *args, **kwargs)
 
     return _wrapped_view_func
-
