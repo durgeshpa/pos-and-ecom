@@ -15,6 +15,11 @@ class ZohoInvoiceCls:
                 invoice_id = invoice_kwargs.pop('invoice_id', None)
                 zoho_invoice_obj, created = ZohoInvoice.objects.update_or_create(
                     invoice_id=invoice_id, defaults=invoice_kwargs)
+                if created:
+                    zoho_invoice_obj.created_by = created_by
+                else:
+                    zoho_invoice_obj.updated_by = created_by
+                zoho_invoice_obj.save()
                 # Store Items in db
                 product_id = items_kwargs.pop('product_id', None)
                 ZohoInvoiceItem.objects.update_or_create(
@@ -32,6 +37,11 @@ class ZohoInvoiceCls:
                 creditnotes_id = credit_note_kwargs.pop('creditnotes_id', None)
                 credit_note_obj, created = ZohoCreditNote.objects.update_or_create(
                     creditnotes_id=creditnotes_id, defaults=credit_note_kwargs)
+                if created:
+                    credit_note_obj.created_by = created_by
+                else:
+                    credit_note_obj.updated_by = created_by
+                credit_note_obj.save()
                 # Store Items in db
                 product_id = credit_note_items_kwargs.pop('product_id', None)
                 ZohoCreditNoteItem.objects.update_or_create(

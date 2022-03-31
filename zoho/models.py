@@ -1,9 +1,8 @@
 from django.contrib.auth import get_user_model
 from django.db import models
 
+
 # Create your models here.
-
-
 class BaseTimestampUserModel(models.Model):
     """
         Abstract Model to have helper fields of created_at, created_by, updated_at and updated_by
@@ -41,7 +40,7 @@ class ZohoFileUpload(BaseTimestampUserModel):
         return f"BulkUpload for Zoho File Upload updated at {self.created_at} by {self.updated_by}"
 
 
-class ZohoCommonFields(models.Model):
+class ZohoCommonFields(BaseTimestampUserModel):
     customer_id = models.CharField(max_length=100, null=True, blank=True)
     customer_name = models.CharField(max_length=100, null=True, blank=True)
     place_of_supply = models.TextField(null=True, blank=True)
