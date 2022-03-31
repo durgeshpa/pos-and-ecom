@@ -7,7 +7,7 @@ from .views import bulk_zoho_invoice_file_upload, bulk_zoho_credit_note_file_upl
 
 class ZohoFileUploadAdmin(admin.ModelAdmin):
     list_display = ['file', 'upload_type', 'created_by', 'updated_by', 'created_at', 'updated_at']
-    list_filter = ['upload_type', 'created_at', 'updated_at']
+    list_filter = ['upload_type', 'created_by', 'updated_by',  'created_at', 'updated_at']
     ordering = ('-created_at',)
 
     def has_add_permission(self, request):
@@ -46,6 +46,9 @@ class ZohoInvoiceItemAdmin(admin.TabularInline):
     def has_change_permission(self, request, obj=None):
         return False
 
+    def has_delete_permission(self, request, obj=None):
+        return False
+
     class Media:
         pass
 
@@ -59,13 +62,17 @@ class ZohoCreditNoteItemAdmin(admin.TabularInline):
     def has_change_permission(self, request, obj=None):
         return False
 
+    def has_delete_permission(self, request, obj=None):
+        return False
+
     class Media:
         pass
 
 
 class ZohoInvoiceAdmin(admin.ModelAdmin):
-    list_display = ['invoice_date', 'invoice_id', 'invoice_number',
-                    'invoice_status', 'created_by', 'updated_by', 'created_at', 'updated_at']
+    list_display = ['invoice_id', 'invoice_number', 'invoice_status', 'invoice_date', 'customer_name',
+                    'shipping_phone_number', 'shipping_bill', 'shipping_bill_date', 'shipping_bill_total',
+                    'subtotal', 'total', 'balance', 'created_by', 'updated_by', 'created_at', 'updated_at']
     inlines = [ZohoInvoiceItemAdmin, ]
 
     def has_add_permission(self, request):
@@ -79,8 +86,8 @@ class ZohoInvoiceAdmin(admin.ModelAdmin):
 
 
 class ZohoCreditNoteAdmin(admin.ModelAdmin):
-    list_display = ['credit_note_number', 'credit_note_status', 'shipping_phone', 'reference',
-                    'associated_invoice_number', 'associated_invoice_date', 'reason',
+    list_display = ['creditnotes_id', 'credit_note_date', 'credit_note_number', 'credit_note_status',
+                    'reference', 'associated_invoice_number', 'associated_invoice_date', 'reason',
                     'created_by', 'updated_by', 'created_at', 'updated_at']
     inlines = [ZohoCreditNoteItemAdmin, ]
 
