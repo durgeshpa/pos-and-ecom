@@ -93,9 +93,8 @@ def bulk_upload_zoho_customers_file_upload(request):
                 response = zoho_customers_file_upload(request, credit_note_file)
 
 
-                ZohoFileUpload.objects.create(file=credit_note_file, upload_type='Credit Note',
+                ZohoFileUpload.objects.create(file=credit_note_file, upload_type='CUSTOMER',
                                               created_by=request.user, updated_by=request.user)
-                messages.success(request, 'zoho Customers file upload. sucessfully')
                 return response
 
             except Exception as e:
