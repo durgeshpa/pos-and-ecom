@@ -59,7 +59,7 @@ from .models import (Cart, CartProductMapping, Commercial, CustomerCare, Dispatc
 from .resources import OrderResource
 from .signals import ReservedOrder
 from .utils import (GetPcsFromQty, add_cart_user, create_order_from_cart, create_order_data_excel,
-                    create_invoice_data_excel, create_e_invoice_data_excel)
+                    create_invoice_data_excel, create_e_invoice_data_excel, create_e_note_data_excel)
 from .filters import (InvoiceAdminOrderFilter, InvoiceAdminTripFilter, InvoiceCreatedAt, DeliveryStartsAt,
                       DeliveryCompletedAt, OrderCreatedAt, EInvoiceAdminBuyerFilter, EInvoiceStatusFilter,
                       ENoteAdminInvoiceFilter)
@@ -2703,10 +2703,10 @@ class ENoteAdmin(admin.ModelAdmin):
         ('created_at', InvoiceCreatedAt),
         ('shipment__order__created_at', OrderCreatedAt))
 
-    def invoice_data_excel_action(self, request, queryset):
-        return create_e_invoice_data_excel(queryset, OrderedProduct, RoundAmount, ShopDocument)
+    def e_note_data_excel(self, request, queryset):
+        return create_e_note_data_excel(queryset, OrderedProduct, RoundAmount, ShopDocument)
 
-    invoice_data_excel_action.short_description = "Download CSV of selected Invoices"
+    e_note_data_excel.short_description = "Download CSV of selected notes"
 
     class Media:
         js = ('admin/js/picker.js',)
