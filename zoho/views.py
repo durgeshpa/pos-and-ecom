@@ -3,6 +3,8 @@ import logging
 from django.db import transaction
 from django.http import HttpResponse
 from django.shortcuts import render, redirect
+from django.contrib import messages
+
 
 # Create your views here.
 
@@ -86,6 +88,7 @@ def bulk_upload_zoho_customers_file_upload(request):
 
                 ZohoFileUpload.objects.create(file=credit_note_file, upload_type='Credit Note',
                                               created_by=request.user, updated_by=request.user)
+                messages.success(request, 'zoho Customers file upload. sucessfully')
                 return redirect('/admin/zoho/zohofileupload/')
 
             except Exception as e:
