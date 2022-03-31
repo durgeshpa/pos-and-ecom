@@ -149,6 +149,7 @@ INSTALLED_APPS = [
     'report',
     'tinymce',
     'drf_api_logger',
+    'zoho',
 ]
 
 # if ENVIRONMENT.lower() in ["production","qa"]:
