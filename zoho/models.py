@@ -3,8 +3,6 @@ from django.db import models
 
 
 # Create your models here.
-
-
 class BaseTimestampUserModel(models.Model):
     """
         Abstract Model to have helper fields of created_at, created_by, updated_at and updated_by
@@ -42,7 +40,7 @@ class ZohoFileUpload(BaseTimestampUserModel):
         return f"BulkUpload for Zoho File Upload updated at {self.created_at} by {self.updated_by}"
 
 
-class ZohoCommonFields(models.Model):
+class ZohoCommonFields(BaseTimestampUserModel):
     customer_id = models.CharField(max_length=100, null=True, blank=True)
     customer_name = models.CharField(max_length=100, null=True, blank=True)
     place_of_supply = models.TextField(null=True, blank=True)
@@ -143,18 +141,28 @@ class ZohoCommonFields(models.Model):
 
 class ZohoCommonItemFields(models.Model):
     usage_unit = models.CharField(max_length=100, null=True, blank=True)
+    product_id = models.CharField(max_length=100, null=True, blank=True)
     item_price = models.CharField(max_length=100, null=True, blank=True)
     item_type = models.CharField(max_length=100, null=True, blank=True)
     item_tax = models.CharField(max_length=100, null=True, blank=True)
     item_tax_percentage = models.CharField(max_length=100, null=True, blank=True)
     item_tax_type = models.CharField(max_length=100, null=True, blank=True)
     item_tax_exemption_reason = models.CharField(max_length=100, null=True, blank=True)
+    item_name = models.CharField(max_length=100, null=True, blank=True)
+    item_desc = models.TextField(null=True, blank=True)
+    quantity = models.CharField(max_length=100, null=True, blank=True)
+    discount = models.CharField(max_length=100, null=True, blank=True)
+    discount_amount = models.CharField(max_length=100, null=True, blank=True)
+    item_total = models.CharField(max_length=100, null=True, blank=True)
+    item_tax_amount = models.CharField(max_length=100, null=True, blank=True)
 
     class Meta:
         abstract = True
 
 
 class ZohoCreditNote(ZohoCommonFields):
+    creditnotes_id = models.CharField(max_length=100, null=True, blank=True)
+    credit_note_date = models.CharField(max_length=100, null=True, blank=True)
     credit_note_number = models.CharField(max_length=100, null=True, blank=True)
     credit_note_status = models.CharField(max_length=100, null=True, blank=True)
     billing_street_2 = models.CharField(max_length=100, null=True, blank=True)
@@ -165,7 +173,6 @@ class ZohoCreditNote(ZohoCommonFields):
     associated_invoice_date = models.CharField(max_length=100, null=True, blank=True)
     applied_invoice_number = models.CharField(max_length=100, null=True, blank=True)
     reason = models.TextField(null=True, blank=True)
-    tax1_id = models.CharField(max_length=100, null=True, blank=True)
 
 
 class ZohoCreditNoteItem(ZohoCommonItemFields):
@@ -228,15 +235,8 @@ class ZohoInvoice(ZohoCommonFields):
 
 class ZohoInvoiceItem(ZohoCommonItemFields):
     zoho_invoice = models.ForeignKey(ZohoInvoice, on_delete=models.CASCADE)
-    item_name = models.CharField(max_length=100, null=True, blank=True)
-    item_desc = models.TextField(null=True, blank=True)
-    quantity = models.CharField(max_length=100, null=True, blank=True)
-    discount = models.CharField(max_length=100, null=True, blank=True)
-    discount_amount = models.CharField(max_length=100, null=True, blank=True)
-    item_total = models.CharField(max_length=100, null=True, blank=True)
-    product_id = models.CharField(max_length=100, null=True, blank=True)
     tax_id = models.CharField(max_length=100, null=True, blank=True)
-    item_tax_amount = models.CharField(max_length=100, null=True, blank=True)
+
 
 
 class ZohoCustomers(models.Model):
@@ -279,6 +279,7 @@ class ZohoCustomers(models.Model):
     shipping_code = models.CharField(max_length=33, blank=True, null=True)
     shipping_phone = models.CharField(max_length=50, blank=True, null=True)
     shipping_fax = models.CharField(max_length=133, blank=True, null=True)
+
 
     skype_identity = models.CharField(max_length=133, blank=True, null=True)
     facebook = models.CharField(max_length=133, blank=True, null=True)

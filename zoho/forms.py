@@ -29,7 +29,7 @@ class ZohoInvoiceFileUploadForm(forms.Form):
 
 class ZohoCreditNoteFileUploadForm(forms.ModelForm):
 
-    def clean(self):
+    def clean_file(self):
         """
             FileField validation Check if file ends with only .csv
         """

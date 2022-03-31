@@ -89,22 +89,7 @@ def zoho_customers_file_upload(request, customer_file):
         if display_name:
             if not ZohoCustomers.objects.filter(display_name=display_name):
                 pass
-                # obj = ZohoCustomers.objects.create(created_by=created_by,created_time=created_time,last_modified_time=last_modified_time,display_name=display_name,
-                #                             company_name=company_name,salutation=salutation,first_name=first_name,last_name=last_name,phone=phone,
-                #                             currency_code=currency_code,notes=notes,website=website,status=status,opening_balance=opening_balance,
-                #                             exchange_rate=exchange_rate,branch_id=branch_id,branch_name=branch_name,credit_limit=credit_limit,
-                #                             customer_sub_type=customer_sub_type,billing_attention=billing_attention,billing_address=billing_address,
-                #                             billing_street2=billing_street2,billing_city=billing_city,billing_state=billing_state,billing_country=billing_country,
-                #                             billing_code=billing_code,billing_phone=billing_phone,billing_fax=billing_fax,shipping_attention=shipping_attention,
-                #                             shipping_address=shipping_address,shipping_street2=shipping_street2,shipping_city=shipping_city,shipping_state=shipping_state,
-                #                             shipping_country=shipping_country,shipping_code=shipping_code,shipping_phone=shipping_phone,shipping_fax=shipping_fax,
-                #                             skype_identity=skype_identity,facebook=facebook,twitter=twitter,department=department,designation=designation,price_list=price_list,
-                #                             payment_team=payment_team,payment_team_labs=payment_team_labs,gst_treatment=gst_treatment,gst_identification_number=gst_identification_number,
-                #                             pan_number=pan_number,last_sync_time=last_sync_time,owner_name=owner_name,primary_contact_id=primary_contact_id,email_id=email_id,
-                #                             mobile_phone=mobile_phone,contact_id=contact_id,contact_name=contact_name,contact_type=contact_type,place_of_contact=place_of_contact,
-                #                             place_of_contact_with_state_code=place_of_contact_with_state_code,taxable=taxable,tax_name=tax_name,tax_percentage=tax_percentage,exemption_reason=exemption_reason,
-                #                             contact_address_id=contact_address_id,source=source
-                #                             )
+
             else:
                 error.append("Display Name  allready exists | error in row_no:{}".format(row_no))
         else:
@@ -113,7 +98,7 @@ def zoho_customers_file_upload(request, customer_file):
         if display_name_valid.count(display_name)>1:
             error.append(" duplicate Display Name  | error in row_no:{}".format(row_no))
 
-    if len(error)>0:
+    if len(error) > 0:
         return error
     reader = csv.DictReader(codecs.iterdecode(customer_file, 'utf-8'))
 
