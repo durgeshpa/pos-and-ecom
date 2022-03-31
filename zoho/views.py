@@ -3,13 +3,22 @@ import logging
 from django.db import transaction
 from django.http import HttpResponse
 from django.shortcuts import render, redirect
+from django.contrib import messages
+
 
 # Create your views here.
+
+
+from .services import zoho_credit_note_data_upload, zoho_invoice_data_upload, zoho_customers_file_upload
+
 from zoho.common_function import ZohoInvoiceCls, error_invoice_credit_note_csv_file
+
 from zoho.common_validators import bulk_invoice_data_validation, bulk_credit_note_data_validation
-from zoho.forms import ZohoInvoiceFileUploadForm, ZohoCreditNoteFileUploadForm
+from zoho.forms import ZohoInvoiceFileUploadForm, ZohoCreditNoteFileUploadForm, ZohoCustomerFileUploadForm
+
 # Logger
 from zoho.models import ZohoFileUpload
+
 
 info_logger = logging.getLogger('file-info')
 error_logger = logging.getLogger('file-error')
@@ -68,6 +77,40 @@ def bulk_zoho_credit_note_file_upload(request):
     else:
         form = ZohoCreditNoteFileUploadForm()
     return render(request, 'admin/zoho/bulk-upload-credit-note.html', {'form': form})
+
+
+
+
+def bulk_upload_zoho_customers_file_upload(request):
+    if request.method == "POST":
+        info_logger.info("POST request while bulk zoho Customers file upload.")
+        form = ZohoCustomerFileUploadForm(request.POST, request.FILES)
+        if form.is_valid():
+            info_logger.info("Data validation has been successfully done.")
+            try:
+                credit_note_file = form.cleaned_data['file']
+                info_logger.info("bulk zoho Customers file upload.")
+                count = zoho_customers_file_upload(request, credit_note_file)
+                # if error:
+                #     #messages.success(request, '{} |record created sucessfully'.format(error[0]))
+                #     form.add_error(None, error)
+                #     return render(request, 'admin/zoho/bulk-upload-credit-note.html', {'form': form})
+
+
+                ZohoFileUpload.objects.create(file=credit_note_file, upload_type='Credit Note',
+                                              created_by=request.user, updated_by=request.user)
+                messages.success(request, "{} |record created sucessfully".format(count))
+                return redirect('/admin/zoho/zohofileupload/')
+
+            except Exception as e:
+                error_logger.error(e)
+        else:
+            return render(request, 'admin/zoho/bulk-upload-credit-note.html', {'form': form})
+    else:
+        form = ZohoCustomerFileUploadForm()
+    return render(request, 'admin/zoho/bulk-upload-credit-note.html', {'form': form})
+
+        
 
 
 def pos_save_invoice_file(bulk_invoice_obj):

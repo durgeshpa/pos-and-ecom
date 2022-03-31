@@ -3,8 +3,7 @@ from django.contrib import admin
 from .models import ZohoFileUpload, ZohoInvoice, ZohoInvoiceItem, ZohoCreditNote, ZohoCreditNoteItem
 
 # Register your models here.
-from .views import bulk_zoho_invoice_file_upload, bulk_zoho_credit_note_file_upload
-
+from .views import bulk_zoho_invoice_file_upload, bulk_zoho_credit_note_file_upload, bulk_upload_zoho_customers_file_upload
 
 class UserFilter(AutocompleteFilter):
     title = 'Created By'
@@ -39,6 +38,11 @@ class ZohoFileUploadAdmin(admin.ModelAdmin):
                        r'^bulk-upload-credit-note/$',
                        self.admin_site.admin_view(bulk_zoho_credit_note_file_upload),
                        name="bulk-upload-credit-note"
+                   ),
+                   url(
+                       r'^bulk-upload-ZohoCustomers/$',
+                       self.admin_site.admin_view(bulk_upload_zoho_customers_file_upload),
+                       name="bulk-upload-ZohoCustomers"
                    )
                ] + urls
         return urls
