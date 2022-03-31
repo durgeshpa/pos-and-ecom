@@ -17,7 +17,8 @@ def zoho_customers_file_upload(request, customer_file):
     reader = csv.DictReader(codecs.iterdecode(customer_file, 'utf-8'))
     error = []
     row_no =1
-    display_name_valid = []
+    count = 0
+
     for row in reader:
         row_no +=1
         created_by = request.user
@@ -84,90 +85,10 @@ def zoho_customers_file_upload(request, customer_file):
         exemption_reason = row.get('Exemption Reason')
         contact_address_id = row.get('Contact Address ID')
         source = row.get('Source')
-        display_name_valid.append(display_name)
 
         if display_name:
             if not ZohoCustomers.objects.filter(display_name=display_name):
-                pass
-
-            else:
-                error.append("Display Name  allready exists | error in row_no:{}".format(row_no))
-        else:
-            error.append("Display Name  can not be blank| error in row_no{}".format(row_no))
-
-        if display_name_valid.count(display_name)>1:
-            error.append(" duplicate Display Name  | error in row_no:{}".format(row_no))
-
-    if len(error) > 0:
-        return error
-    reader = csv.DictReader(codecs.iterdecode(customer_file, 'utf-8'))
-
-    for row in reader:
-        created_by = request.user
-        created_time = row.get('Created Time')
-        last_modified_time = row.get('Last Modified Time')
-        display_name = row.get('Display Name')
-        company_name = row.get('Company Name')
-        salutation = row.get('Salutation')
-        first_name = row.get('First Name')
-        last_name = row.get('Last Name')
-        phone = row.get('Phone')
-        currency_code = row.get('Currency Code')
-        notes = row.get('Notes')
-        website = row.get('Website')
-        status = row.get('Status')
-        opening_balance = row.get('Opening Balance')
-        exchange_rate = row.get('Exchange Rate')
-        branch_id = row.get('Branch ID')
-        branch_name = row.get('Branch Name')
-        credit_limit = row.get('Credit Limit')
-        customer_sub_type = row.get('Customer Sub Type')
-        billing_attention = row.get('Billing Attention')
-        billing_address = row.get('Billing Address')
-        billing_street2 = row.get('Billing Street2')
-        billing_city = row.get('Billing City')
-        billing_state = row.get('Billing State')
-        billing_country = row.get('Billing Country')
-        billing_code = row.get('Billing Code')
-        billing_phone = row.get('Billing Phone')
-        billing_fax = row.get('Billing Fax')
-        shipping_attention = row.get('Shipping Attention')
-        shipping_address = row.get('Shipping Address')
-        shipping_street2 = row.get('Shipping Street2')
-        shipping_city = row.get('Shipping City')
-        shipping_state =row.get('Shipping State')
-        shipping_country = row.get('Shipping Country')
-        shipping_code = row.get('Shipping Code')
-        shipping_phone = row.get('Shipping Phone')
-        shipping_fax = row.get('Shipping Fax')
-        skype_identity = row.get('Skype Identity')
-        facebook = row.get('Facebook')
-        twitter = row.get('Twitter')
-        department = row.get('Department')
-        designation = row.get('Designation')
-        price_list = row.get('Price List')
-        payment_team = row.get('Payment Terms')
-        payment_team_labs = row.get('Payment Terms Label')
-        gst_treatment = row.get('GST Treatment')
-        gst_identification_number = row.get('GST Identification Number (GSTIN)')
-        pan_number = row.get('PAN Number')
-        last_sync_time = row.get('Last Sync Time')
-        owner_name = row.get('Owner Name')
-        primary_contact_id = row.get('Primary Contact ID')
-        email_id = row.get('EmailID')
-        mobile_phone = row.get('MobilePhone')
-        contact_id = row.get('Contact ID')
-        contact_name = row.get('Contact Name')
-        contact_type = row.get('Contact Type')
-        place_of_contact = row.get('Place Of Contact')
-        place_of_contact_with_state_code  = row.get('Place of Contact(With State Code)')
-        taxable = row.get('Taxable')
-        tax_name = row.get('Tax Name')
-        tax_percentage = row.get('Tax Percentage')
-        exemption_reason = row.get('Exemption Reason')
-        contact_address_id = row.get('Contact Address ID')
-        source = row.get('Source')
-        obj = ZohoCustomers.objects.create(created_by=created_by,created_time=created_time,last_modified_time=last_modified_time,display_name=display_name,
+                obj = ZohoCustomers.objects.create(created_by=created_by,created_time=created_time,last_modified_time=last_modified_time,display_name=display_name,
                                             company_name=company_name,salutation=salutation,first_name=first_name,last_name=last_name,phone=phone,
                                             currency_code=currency_code,notes=notes,website=website,status=status,opening_balance=opening_balance,
                                             exchange_rate=exchange_rate,branch_id=branch_id,branch_name=branch_name,credit_limit=credit_limit,
@@ -183,6 +104,12 @@ def zoho_customers_file_upload(request, customer_file):
                                             place_of_contact_with_state_code=place_of_contact_with_state_code,taxable=taxable,tax_name=tax_name,tax_percentage=tax_percentage,exemption_reason=exemption_reason,
                                             contact_address_id=contact_address_id,source=source
                                             )
+                count+=1
+            else:
+                error.append("Display Name  allready exists | error in row_no:{}".format(row_no))
+        else:
+            error.append("Display Name  can not be blank| error in row_no{}".format(row_no))
+    return count
 
 
         
