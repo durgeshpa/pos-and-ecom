@@ -72,11 +72,11 @@ def bulk_upload_zoho_customers_file_upload(request):
             info_logger.info("Data validation has been successfully done.")
             try:
                 credit_note_file = form.cleaned_data['file']
+                info_logger.info("bulk zoho Customers file upload.")
+                zoho_customers_file_upload(request, credit_note_file)
+
                 ZohoFileUpload.objects.create(file=credit_note_file, upload_type='Credit Note',
                                               created_by=request.user, updated_by=request.user)
-                info_logger.info("bulk zoho Customers file upload.")
-                with transaction.atomic():
-                    zoho_customers_file_upload(request, credit_note_file)
                 return redirect('/admin/zoho/zohofileupload/')
 
             except Exception as e:
