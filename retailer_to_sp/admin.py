@@ -2672,7 +2672,6 @@ class EInvoiceAdmin(admin.ModelAdmin):
                     created_at__gte=(datetime.datetime.now()-datetime.timedelta(days=get_config('e_invoice_days', 60))),
                     shipment__order__buyer_shop__shop_name_documents__shop_document_type='gstin')
         qs = qs.exclude(shipment__order__ordered_cart__cart_type='BASIC')
-        qs = qs.exclude(shipment__order__order_status=Order.CANCELLED)
         qs = qs.annotate(buyer_name=F('shipment__order__buyer_shop__shop_name'))
         return qs
 
