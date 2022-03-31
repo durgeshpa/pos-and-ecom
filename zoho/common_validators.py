@@ -24,10 +24,16 @@ def bulk_invoice_data_validation(invoice_file):
     uploaded_data_by_user_list = get_csv_file_data_as_dict(reader, header_list)
     for row in uploaded_data_by_user_list:
         error_msg = []
-        if not row.get('invoice_id'):
+        if not 'invoice_id' in uploaded_data_by_user_list:
+            error_msg.append("invoice_id field is mandatory ")
+
+        if not 'product_id' in uploaded_data_by_user_list:
+            error_msg.append("product_id field is mandatory ")
+
+        if 'invoice_id' in uploaded_data_by_user_list and not row.get('invoice_id'):
             error_msg.append(f"{headers_rev_map['invoice_id']} cant be blank")
 
-        if not row.get('product_id'):
+        if 'product_id' in uploaded_data_by_user_list and not row.get('product_id'):
             error_msg.append(f"{headers_rev_map['product_id']} cant be blank")
 
         if error_msg:
@@ -59,10 +65,17 @@ def bulk_credit_note_data_validation(credit_note_file):
     uploaded_data_by_user_list = get_csv_file_data_as_dict(reader, header_list)
     for row in uploaded_data_by_user_list:
         error_msg = []
-        if not row.get('creditnotes_id'):
+
+        if not 'creditnotes_id' in uploaded_data_by_user_list:
+            error_msg.append("creditnotes_id field is mandatory ")
+
+        if not 'product_id' in uploaded_data_by_user_list:
+            error_msg.append("product_id field is mandatory ")
+
+        if 'creditnotes_id' in uploaded_data_by_user_list and not row.get('creditnotes_id'):
             error_msg.append(f"{headers_rev_map['creditnotes_id']} cant be blank")
 
-        if not row.get('product_id'):
+        if 'product_id' in uploaded_data_by_user_list and not row.get('product_id'):
             error_msg.append(f"{headers_rev_map['product_id']} cant be blank")
 
         if error_msg:
