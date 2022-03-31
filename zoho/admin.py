@@ -64,7 +64,8 @@ class ZohoCreditNoteItemAdmin(admin.TabularInline):
 
 
 class ZohoInvoiceAdmin(admin.ModelAdmin):
-    list_display = ['invoice_date', 'invoice_id', 'invoice_number', 'invoice_status']
+    list_display = ['invoice_date', 'invoice_id', 'invoice_number',
+                    'invoice_status', 'created_by', 'updated_by', 'created_at', 'updated_at']
     inlines = [ZohoInvoiceItemAdmin, ]
 
     def has_add_permission(self, request):
@@ -79,7 +80,8 @@ class ZohoInvoiceAdmin(admin.ModelAdmin):
 
 class ZohoCreditNoteAdmin(admin.ModelAdmin):
     list_display = ['credit_note_number', 'credit_note_status', 'shipping_phone', 'reference',
-                    'associated_invoice_number', 'associated_invoice_date', 'reason']
+                    'associated_invoice_number', 'associated_invoice_date', 'reason',
+                    'created_by', 'updated_by', 'created_at', 'updated_at']
     inlines = [ZohoCreditNoteItemAdmin, ]
 
     def has_add_permission(self, request):
