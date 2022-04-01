@@ -238,7 +238,6 @@ class ZohoInvoiceItem(ZohoCommonItemFields):
     tax_id = models.CharField(max_length=100, null=True, blank=True)
 
 
-
 class ZohoCustomers(models.Model):
     created_by = models.ForeignKey(get_user_model(), null=True, on_delete=models.DO_NOTHING)
     created_time = models.DateTimeField(blank=True, null=True)
