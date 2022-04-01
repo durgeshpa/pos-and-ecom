@@ -673,7 +673,7 @@ class LandingPageSerializer(serializers.ModelSerializer):
                 validation_result = self.validate_landing_page_function()
                 if 'error' in validation_result:
                     raise serializers.ValidationError(validation_result['error'])
-                data['page_function'] = data['data']
+                data['page_function'] = validation_result['data']
                 data['params'] = self.initial_data.get('params')
 
         data['name'] = self.initial_data['name'].strip()
