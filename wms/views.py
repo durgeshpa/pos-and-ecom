@@ -2281,17 +2281,18 @@ def create_update_discounted_products(parent_product=None):
                     discounted_product = create_discounted_product(i.sku)
                     info_logger.info('LB|Discounted product created|SKU {}'.format(discounted_product.product_sku))
                     # move inventory
-                    move_inventory(i.warehouse, discounted_product, i.sku, i.bin, i.batch_id, manufacturing_date,
-                                   i.quantity,
-                                   state_total_available, type_normal, tr_id, tr_type_added_as_discounted,
-                                   tr_type_move_to_discounted)
+                    move_inv = move_inventory(i.warehouse, discounted_product, i.sku, i.bin, i.batch_id, manufacturing_date,
+                                              i.quantity,
+                                              state_total_available, type_normal, tr_id, tr_type_added_as_discounted,
+                                              tr_type_move_to_discounted)
                     info_logger.info('LB|Inventory moved to discounted|Batch Id {}, quantity {}'
                                      .format(i.batch_id, i.quantity))
-                    # Setting price
-                    price = create_price_for_discounted_product(i.warehouse, discounted_product, i.sku, discounted_life,
-                                                                remaining_life)
-                    info_logger.info('LB|Discounted price created|SKU {}, price {}'
-                                     .format(discounted_product.product_sku, price))
+                    if not move_inv == 'error':
+                        # Setting price
+                        price = create_price_for_discounted_product(i.warehouse, discounted_product, i.sku, discounted_life,
+                                                                    remaining_life)
+                        info_logger.info('LB|Discounted price created|SKU {}, price {}'
+                                         .format(discounted_product.product_sku, price))
             except Exception as e:
                 info_logger.error(e)
                 info_logger.info('Exception | create_move_discounted_products | Batch {}, quantity {}'
@@ -2326,7 +2327,9 @@ def move_inventory(warehouse, discounted_product, original_product, bin, batch_i
     available_qty = available_stock.get(original_product.id, 0)
 
     if available_qty <= 0:
-        raise Exception('LB|move_inventory|Stock not available|SKU {}'.format(original_product.product_sku))
+        info_logger.info('LB|move_inventory|Stock not available|SKU {}'.format(original_product.product_sku))
+        return 'error'
+        # raise Exception('LB|move_inventory|Stock not available|SKU {}'.format(original_product.product_sku))
 
     if available_qty < quantity:
         info_logger.info('LB|move_inventory||SKU {}, bin quantity {}, warehouse available qty {}'
@@ -2382,10 +2385,11 @@ def create_price_for_discounted_product(warehouse, discounted_product, original_
     return discounted_price
 
 
-@receiver(post_save, sender=ParentProduct)
-def create_discounted_product_on_parent_update(sender, instance=None, created=False, **kwargs):
-    if instance.discounted_life_percent > 0:
-        create_update_discounted_products(instance)
+# @receiver(post_save, sender=ParentProduct)
+# def create_discounted_product_on_parent_update(sender, instance=None, created=False, **kwargs):
+#     if instance.discounted_life_percent > 0:
+#         create_update_discounted_products(instance)
+#         pass
 
 
 @receiver(post_save, sender=WarehouseInventory)

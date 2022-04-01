@@ -36,7 +36,7 @@ from wms.models import PosInventory, PosInventoryState, PosInventoryChange
 from marketing.models import ReferralCode
 from accounts.models import User
 from ecom.models import Address
-from ecom.api.v1.serializers import EcomOrderAddressSerializer
+from ecom.api.v1.serializers import EcomOrderAddressSerializer, ShopInfoSerializer
 
 
 info_logger = logging.getLogger('file-info')
@@ -3485,7 +3485,7 @@ class PosEcomOrderDetailSerializer(serializers.ModelSerializer):
                     if return_item['status'] != 'created':
                         product['returned_qty'] = product['returned_qty'] + return_item['return_qty'
                         ] if 'returned_qty' in product else return_item['return_qty']
-            product['returned_subtotal'] = round(float(product['selling_price']) * product['returned_qty'], 2)
+            product['returned_subtotal'] = round(Decimal(product['selling_price']) * product['returned_qty'], 2)
             # map purchased product with free product
             if product['retailer_product']['id'] in product_offer_map:
                 free_prod_info = self.get_free_product_text(product_offer_map, return_item_map, product, free_picked_map)
@@ -3895,3 +3895,90 @@ class BulkProductUploadSerializers(serializers.ModelSerializer):
 class ContectUs(serializers.Serializer):
     phone_number = serializers.CharField()
     email = serializers.EmailField()
+
+
+class RetailerProductListSerializer(serializers.ModelSerializer):
+    @staticmethod
+    def return_category(instance):
+        if instance.linked_product and instance.linked_product.parent_product.parent_product_pro_category.exists():
+            if instance.linked_product.parent_product.parent_product_pro_category.last().category.category_parent:
+                category = instance.linked_product.parent_product.parent_product_pro_category.last().\
+                    category.category_parent.category_name
+                sub_category = instance.linked_product.parent_product.parent_product_pro_category.last().\
+                    category.category_name
+            else:
+                category = instance.linked_product.parent_product.parent_product_pro_category.last(). \
+                    category.category_name
+                sub_category = None
+            return category, sub_category
+        return None, None
+    
+    @staticmethod
+    def return_b2c_category(instance):
+        if instance.linked_product and instance.linked_product.parent_product.parent_product_pro_b2c_category.exists():
+            if instance.linked_product.parent_product.parent_product_pro_b2c_category.last().category.category_parent:
+                category = instance.linked_product.parent_product.parent_product_pro_b2c_category.last().\
+                    category.category_parent.category_name
+                sub_category = instance.linked_product.parent_product.parent_product_pro_b2c_category.last().\
+                    category.category_name
+            else:
+                category = instance.linked_product.parent_product.parent_product_pro_b2c_category.last(). \
+                    category.category_name
+                sub_category = None
+            return category, sub_category
+        return None, None
+    
+    shop = ShopInfoSerializer(read_only=True)
+    image = serializers.SerializerMethodField()
+    sku_type = serializers.SerializerMethodField()
+    linked_product = serializers.SerializerMethodField()
+    category = serializers.SerializerMethodField()
+    sub_category = serializers.SerializerMethodField()
+    b2c_category = serializers.SerializerMethodField()
+    b2c_sub_category = serializers.SerializerMethodField()
+    
+    def get_category(self, instance):
+        category, _ = RetailerProductListSerializer.return_category(instance)
+        return category
+
+    def get_sub_category(self, instance):
+        _, sub_category = RetailerProductListSerializer.return_category(instance)
+        return sub_category
+
+    def get_b2c_category(self, instance):
+        category, _ = RetailerProductListSerializer.return_b2c_category(instance)
+        return category
+
+    def get_b2c_sub_category(self, instance):
+        _, sub_category = RetailerProductListSerializer.return_b2c_category(instance)
+        return sub_category
+    
+    def get_linked_product(self, instance):
+        if instance.linked_product:
+            return str(instance.linked_product)
+        return None
+    
+    def get_image(self, instance):
+        image = instance.retailer_product_image.filter(status=True).first()
+        return RetailerProductImageSerializer(image).data
+    
+    def get_sku_type(self, instance):
+        sku_type_dict = {
+            1: 'CREATED',
+            2: 'LINKED',
+        }
+        return sku_type_dict.get(instance.sku_type)
+
+        
+    class Meta:
+        model = RetailerProduct
+        fields = ('shop', 'sku', 'name', 'mrp', 'selling_price', 'product_ean_code', 'image',
+                'linked_product', 'category', 'sub_category', 'b2c_category', 'b2c_sub_category',
+                'description', 'sku_type', 'status', 'product_pack_type', 'created_at', 'modified_at')
+
+
+class DownloadRetailerProductsCsvShopWiseSerializer(serializers.Serializer):
+    shop = serializers.IntegerField()
+
+class DownloadUploadRetailerProductsCsvSampleFileSerializer(serializers.Serializer):
+    shop = serializers.IntegerField()
