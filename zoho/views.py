@@ -79,8 +79,6 @@ def bulk_zoho_credit_note_file_upload(request):
     return render(request, 'admin/zoho/bulk-upload-credit-note.html', {'form': form})
 
 
-
-
 def bulk_upload_zoho_customers_file_upload(request):
     if request.method == "POST":
         info_logger.info("POST request while bulk zoho Customers file upload.")
@@ -91,7 +89,6 @@ def bulk_upload_zoho_customers_file_upload(request):
                 credit_note_file = form.cleaned_data['file']
                 info_logger.info("bulk zoho Customers file upload.")
                 response = zoho_customers_file_upload(request, credit_note_file)
-
 
                 ZohoFileUpload.objects.create(file=credit_note_file, upload_type='CUSTOMER',
                                               created_by=request.user, updated_by=request.user)
@@ -104,8 +101,6 @@ def bulk_upload_zoho_customers_file_upload(request):
     else:
         form = ZohoCustomerFileUploadForm()
     return render(request, 'admin/zoho/bulk_upload_customer.html', {'form': form})
-
-        
 
 
 def pos_save_invoice_file(bulk_invoice_obj):
