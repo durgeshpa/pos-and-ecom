@@ -390,8 +390,9 @@ def mail_to_vendor_on_order_return_creation(pos_return_items_obj):
                '\n \n Note: Take Prior appointment before return and bring PR copy along with Original Invoice.' \
                '\n \n Thanks, \n {}'.format(vendor_name, instance.pr_number, shop_name, shop_name)
 
-        message = SendSms(phone=phone_number, body=body)
-        message.send()
+        if phone_number:
+            message = SendSms(phone=phone_number, body=body)
+            message.send()
 
     except Exception as e:
         exc_type, exc_obj, exc_tb = sys.exc_info()
