@@ -144,9 +144,10 @@ def zoho_customers_file_upload(request, customer_file):
                                                        exemption_reason=exemption_reason,
                                                        contact_address_id=contact_address_id, source=source
                                                        )
+                    status_upload = 'success'
                 except Exception as e:
                    status_upload = e
-                status_upload = 'success'
+                
             else:
                 status_upload = "Display Name  allready exists | error in row_no:{}".format(row_no)
         else:
