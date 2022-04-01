@@ -24,17 +24,23 @@ def bulk_invoice_data_validation(invoice_file):
     uploaded_data_by_user_list = get_csv_file_data_as_dict(reader, header_list)
     for row in uploaded_data_by_user_list:
         error_msg = []
-        if not 'invoice_id' in row:
-            error_msg.append("invoice_id field is mandatory ")
+        # if not 'invoice_id' in row:
+        #     error_msg.append("invoice_id field is mandatory ")
+        #
+        # if not 'product_id' in row:
+        #     error_msg.append("product_id field is mandatory ")
+        #
+        # if 'invoice_id' in row and not row.get('invoice_id', None):
+        #     error_msg.append(f"{headers_rev_map['invoice_id']} cant be blank")
+        #
+        # if 'product_id' in row and not row.get('product_id', None):
+        #     error_msg.append(f"{headers_rev_map['product_id']} cant be blank")
 
-        if not 'product_id' in row:
-            error_msg.append("product_id field is mandatory ")
+        if not 'invoice_number' in row:
+            error_msg.append("invoice_number field is mandatory ")
 
-        if 'invoice_id' in row and not row.get('invoice_id', None):
-            error_msg.append(f"{headers_rev_map['invoice_id']} cant be blank")
-
-        if 'product_id' in row and not row.get('product_id', None):
-            error_msg.append(f"{headers_rev_map['product_id']} cant be blank")
+        if 'invoice_number' in row and not row.get('invoice_number', None):
+            error_msg.append(f"{headers_rev_map['invoice_number']} cant be blank")
 
         if error_msg:
             msg = ", "
@@ -66,17 +72,23 @@ def bulk_credit_note_data_validation(credit_note_file):
     for row in uploaded_data_by_user_list:
         error_msg = []
 
-        if not 'creditnotes_id' in row:
-            error_msg.append("creditnotes_id field is mandatory ")
+        # if not 'creditnotes_id' in row:
+        #     error_msg.append("creditnotes_id field is mandatory ")
 
-        if not 'product_id' in row:
-            error_msg.append("product_id field is mandatory ")
+        # if not 'product_id' in row:
+        #     error_msg.append("product_id field is mandatory ")
 
-        if 'creditnotes_id' in row and not row.get('creditnotes_id', None):
-            error_msg.append(f"{headers_rev_map['creditnotes_id']} cant be blank")
+        # if 'creditnotes_id' in row and not row.get('creditnotes_id', None):
+        #     error_msg.append(f"{headers_rev_map['creditnotes_id']} cant be blank")
+        #
+        # if 'product_id' in row and not row.get('product_id', None):
+        #     error_msg.append(f"{headers_rev_map['product_id']} cant be blank")
 
-        if 'product_id' in row and not row.get('product_id', None):
-            error_msg.append(f"{headers_rev_map['product_id']} cant be blank")
+        if not 'credit_note_number' in row:
+            error_msg.append("credit_note_number field is mandatory ")
+
+        if 'credit_note_number' in row and not row.get('credit_note_number', None):
+            error_msg.append(f"{headers_rev_map['credit_note_number']} cant be blank")
 
         if error_msg:
             msg = ", "
