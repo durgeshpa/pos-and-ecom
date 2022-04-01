@@ -9,7 +9,9 @@ from zoho.utils import get_field_name_by_file_field_name, get_csv_file_data_as_d
 def bulk_invoice_data_validation(invoice_file):
     error_file_list = []
     validated_rows = []
-    reader = csv.reader(codecs.iterdecode(invoice_file, 'utf-8', errors='ignore'))
+
+    # reader = csv.reader(invoice_file, quoting=csv.QUOTE_ALL, skipinitialspace=True)
+    reader = csv.reader(codecs.iterdecode(invoice_file, 'utf-8', errors='ignore'),) # quoting=csv.QUOTE_NONE)
     header = next(reader)
     error_file_list.append(list(header) + ["status"])
     header_list = []
