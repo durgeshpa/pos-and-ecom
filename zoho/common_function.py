@@ -58,11 +58,11 @@ class ZohoInvoiceCls:
                 credit_note_obj.save()
                 # Store Items in db
                 if credit_note_obj in created_credit_note:
+                    credit_note_items_kwargs["zoho_credit_note"] = credit_note_obj
+                    ZohoCreditNoteItem.objects.create(**credit_note_items_kwargs)
                     # product_id = credit_note_items_kwargs.pop('product_id', None)
                     # ZohoCreditNoteItem.objects.update_or_create(
                     #     product_id=product_id, zoho_credit_note=credit_note_obj, defaults=credit_note_items_kwargs)
-                    credit_note_items_kwargs["zoho_credit_note"] = credit_note_obj
-                    ZohoCreditNoteItem.objects.create(**credit_note_items_kwargs)
 
         except Exception as e:
             error_logger.error(e)
