@@ -280,9 +280,10 @@ class CartProductMappingForm(forms.ModelForm):
 
     def clean(self):
         cleaned_data = self.cleaned_data
-        if cleaned_data['cart_parent_product'] and \
-                cleaned_data['cart_parent_product'].tax_status != ParentProduct.APPROVED:
-            raise ValidationError(f"Product {cleaned_data['cart_parent_product']} must be approved to create PO.")
+        if self.instance is None or self.instance.pk is None:
+            if cleaned_data['cart_parent_product'] and \
+                    cleaned_data['cart_parent_product'].tax_status != ParentProduct.APPROVED:
+                raise ValidationError(f"Product {cleaned_data['cart_parent_product']} must be approved to create PO.")
         return cleaned_data
 
     def __init__(self, *args, **kwargs):
