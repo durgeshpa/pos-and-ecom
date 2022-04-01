@@ -789,9 +789,9 @@ class LandingPageView(generics.GenericAPIView):
         id_validation = validate_id(self.queryset, int(request.data['id']))
         if 'error' in id_validation:
             return get_response(id_validation['error'])
-        function_instance = id_validation['data'].last()
+        instance = id_validation['data'].last()
 
-        serializer = self.serializer_class(instance=function_instance, data=request.data)
+        serializer = self.serializer_class(instance=instance, data=request.data)
         if serializer.is_valid():
             serializer.save(updated_by=request.user)
             return get_response('landing page updated!', serializer.data)
