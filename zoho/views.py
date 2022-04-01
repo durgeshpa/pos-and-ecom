@@ -116,7 +116,7 @@ def pos_save_invoice_file(bulk_invoice_obj):
             if validated_rows:
                 ZohoInvoiceCls.create_zoho_invoice(validated_rows, bulk_invoice_obj.created_by)
             if len(error_list) > 1:
-                response_file = error_invoice_credit_note_csv_file(error_list, 'zoho_invoice_error')
+                response_file = error_invoice_credit_note_csv_file(error_list, 'zoho_invoice_error.csv')
     return response_file
 
 
@@ -128,5 +128,5 @@ def pos_save_credit_note_file(bulk_credit_note_obj):
             if validated_rows:
                 ZohoInvoiceCls.create_zoho_credit_note(validated_rows, bulk_credit_note_obj.created_by)
             if len(error_list) > 1:
-                response_file = error_invoice_credit_note_csv_file(error_list, 'zoho_credit_note_error')
+                response_file = error_invoice_credit_note_csv_file(error_list, 'zoho_credit_note_error.csv')
     return response_file

@@ -53,7 +53,7 @@ class ZohoInvoiceCls:
 
 def error_invoice_credit_note_csv_file(data_list, file_name):
     # Write error msg in csv sheet.
-    filename = file_name.csv
+    filename = file_name
     response = HttpResponse(content_type='text/csv')
     response['Content-Disposition'] = 'attachement; filename="{}"'.format(filename)
 
