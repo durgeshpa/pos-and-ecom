@@ -104,7 +104,8 @@ class ParentProductCls(object):
         """
             Update Tax status and remark of specific ParentProduct on the basis of Parent Product Tax in HSN
         """
-        # if parent_product.tax_status != ParentProduct.APPROVED:
+        if parent_product.tax_status == ParentProduct.APPROVED:
+            return
         parent_taxs = ParentProductTaxMapping.objects.filter(parent_product=parent_product)
         product_hsn_gsts = parent_product.product_hsn.hsn_gst.values_list('gst', flat=True)
         product_hsn_cess = parent_product.product_hsn.hsn_cess.values_list('cess', flat=True)
