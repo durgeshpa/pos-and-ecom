@@ -42,8 +42,8 @@ class ZohoFileUpload(BaseTimestampUserModel):
 
 class ZohoCommonFields(BaseTimestampUserModel):
     customer_id = models.CharField(max_length=100, null=True, blank=True)
-    customer_name = models.CharField(max_length=100, null=True, blank=True)
-    place_of_supply = models.TextField(null=True, blank=True)
+    customer_name = models.CharField(max_length=255, null=True, blank=True)
+    place_of_supply = models.CharField(max_length=100, null=True, blank=True)
     place_of_supply_with_state_code = models.CharField(max_length=100, null=True, blank=True)
     gst_treatment = models.CharField(max_length=100, null=True, blank=True)
     is_inclusive_tax = models.CharField(max_length=100, null=True, blank=True)
@@ -91,8 +91,8 @@ class ZohoCommonFields(BaseTimestampUserModel):
     shipping_country = models.CharField(max_length=100, null=True, blank=True)
     shipping_code = models.CharField(max_length=100, null=True, blank=True)
     shipping_fax = models.CharField(max_length=100, null=True, blank=True)
-    e_invoice_qrjson = models.CharField(max_length=100, null=True, blank=True)
-    e_invoice_qr_raw_data = models.CharField(max_length=100, null=True, blank=True)
+    e_invoice_qrjson = models.TextField(null=True, blank=True)
+    e_invoice_qr_raw_data = models.TextField(null=True, blank=True)
     e_invoice_ack_number = models.CharField(max_length=100, null=True, blank=True)
     e_invoice_ack_date = models.CharField(max_length=100, null=True, blank=True)
     e_invoice_cancel_remark = models.CharField(max_length=100, null=True, blank=True)
@@ -172,7 +172,7 @@ class ZohoCreditNote(ZohoCommonFields):
     associated_invoice_number = models.CharField(max_length=100, null=True, blank=True)
     associated_invoice_date = models.CharField(max_length=100, null=True, blank=True)
     applied_invoice_number = models.CharField(max_length=100, null=True, blank=True)
-    reason = models.TextField(null=True, blank=True)
+    reason = models.CharField(max_length=100, null=True, blank=True)
 
 
 class ZohoCreditNoteItem(ZohoCommonItemFields):
