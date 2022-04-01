@@ -16,13 +16,13 @@ class ZohoFileUploadAdmin(admin.ModelAdmin):
     list_filter = ['upload_type', 'created_at', 'updated_at']
     ordering = ('-created_at',)
 
-    def has_add_permission(self, request):
+    def has_add_permission(self, request, obj=None):
         return False
 
     def has_change_permission(self, request, obj=None):
         return False
 
-    def has_delete_permission(self, request):
+    def has_delete_permission(self, request, obj=None):
         return False
 
     def get_urls(self):
@@ -51,7 +51,7 @@ class ZohoFileUploadAdmin(admin.ModelAdmin):
 class ZohoInvoiceItemAdmin(admin.TabularInline):
     model = ZohoInvoiceItem
 
-    def has_add_permission(self, request):
+    def has_add_permission(self, request, obj=None):
         return False
 
     def has_change_permission(self, request, obj=None):
@@ -67,7 +67,7 @@ class ZohoInvoiceItemAdmin(admin.TabularInline):
 class ZohoCreditNoteItemAdmin(admin.TabularInline):
     model = ZohoCreditNoteItem
 
-    def has_add_permission(self, request):
+    def has_add_permission(self, request, obj=None):
         return False
 
     def has_change_permission(self, request, obj=None):
@@ -103,7 +103,7 @@ class ZohoInvoiceAdmin(admin.ModelAdmin):
     list_filter = ['invoice_status', UserFilter]
     inlines = [ZohoInvoiceItemAdmin, ]
 
-    def has_add_permission(self, request):
+    def has_add_permission(self, request, obj=None):
         return False
 
     def has_change_permission(self, request, obj=None):
@@ -123,7 +123,7 @@ class ZohoCreditNoteAdmin(admin.ModelAdmin):
     list_filter = [UserFilter,]
     inlines = [ZohoCreditNoteItemAdmin, ]
 
-    def has_add_permission(self, request):
+    def has_add_permission(self, request, obj=None):
         return False
 
     def has_change_permission(self, request, obj=None):
