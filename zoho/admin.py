@@ -94,7 +94,7 @@ class ZohoCustomersAdmin(admin.ModelAdmin):
              'taxable', 'tax_name', 'tax_percentage', 'exemption_reason', 'contact_address_id', 'source',]
 
     list_filter = ['status']
-    search_fields = ['created_by', 'display_name']
+    search_fields = ['display_name']
 
 class ZohoInvoiceAdmin(admin.ModelAdmin):
     list_display = ['invoice_id', 'invoice_number', 'invoice_status', 'invoice_date', 'customer_name',
