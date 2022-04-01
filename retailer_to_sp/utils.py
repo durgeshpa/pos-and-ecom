@@ -618,11 +618,11 @@ def create_e_invoice_data_excel(queryset, OrderedProduct, RoundAmount, ShopDocum
                                  buyer_name=F('shipment__order__buyer_shop__shop_name'),
                                  state_code_txt=F('shipment__order__shipping_address__state__state_code_txt'),
                                  billing_address=F('shipment__order__billing_address__address_line1'),
-                                 billing_pincode=F('shipment__order__billing_address__pincode'),
+                                 billing_pincode=F('shipment__order__billing_address__pincode_link__pincode'),
                                  billing_city=F('shipment__order__billing_address__city__city_name'),
                                  billing_state=F('shipment__order__billing_address__state__state_name'),
                                  shipping_address=F('shipment__order__shipping_address__address_line1'),
-                                 shipping_pincode=F('shipment__order__shipping_address__pincode'),
+                                 shipping_pincode=F('shipment__order__shipping_address__pincode_link__pincode'),
                                  shipping_city=F('shipment__order__shipping_address__city__city_name'),
                                  shipping_state=F('shipment__order__shipping_address__state__state_name')
                                  )\
@@ -630,11 +630,11 @@ def create_e_invoice_data_excel(queryset, OrderedProduct, RoundAmount, ShopDocum
                              'shipment__order__buyer_shop__shop_name',
                              'shipment__order__shipping_address__state__state_name',
                              'shipment__order__shipping_address__city__city_name',
-                             'shipment__order__shipping_address__pincode',
+                             'shipment__order__shipping_address__pincode_link__pincode',
                              'shipment__order__shipping_address__address_line1',
                              'shipment__order__billing_address__state__state_name',
                              'shipment__order__billing_address__city__city_name',
-                             'shipment__order__billing_address__pincode',
+                             'shipment__order__billing_address__pincode_link__pincode',
                              'shipment__order__billing_address__address_line1'
                              )
     for invoice in invoices:
