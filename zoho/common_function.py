@@ -1,8 +1,9 @@
 import csv
 from django.http import HttpResponse
-
+import logging
 from zoho.models import ZohoInvoice, ZohoInvoiceItem, ZohoCreditNoteItem, ZohoCreditNote
 from zoho.utils import get_invoice_and_items_dict, get_credit_note_and_items_dict
+error_logger = logging.getLogger('file-error')
 
 
 class ZohoInvoiceCls:
@@ -26,7 +27,7 @@ class ZohoInvoiceCls:
                     product_id=product_id, zoho_invoice=zoho_invoice_obj, defaults=items_kwargs)
 
         except Exception as e:
-            print(e)
+            error_logger.error(e)
 
     @classmethod
     def create_zoho_credit_note(cls, validated_rows, created_by):
@@ -48,7 +49,7 @@ class ZohoInvoiceCls:
                     product_id=product_id, zoho_credit_note=credit_note_obj, defaults=credit_note_items_kwargs)
 
         except Exception as e:
-            print(e)
+            error_logger.error(e)
 
 
 def error_invoice_credit_note_csv_file(data_list, file_name):

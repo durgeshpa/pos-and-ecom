@@ -258,7 +258,6 @@ class ZohoCustomers(models.Model):
     branch_id = models.CharField(max_length=100, blank=True, null=True)
     branch_name = models.CharField(max_length=133, blank=True, null=True)
     credit_limit = models.CharField(max_length=100, blank=True, null=True)
-
     customer_sub_type = models.CharField(max_length=100, blank=True, null=True)
     billing_attention = models.CharField(max_length=100, blank=True, null=True)
     billing_address = models.CharField(max_length=133, blank=True, null=True)
@@ -269,7 +268,6 @@ class ZohoCustomers(models.Model):
     billing_code = models.CharField(max_length=33, blank=True, null=True)
     billing_phone = models.CharField(max_length=50, blank=True, null=True)
     billing_fax = models.CharField(max_length=133, blank=True, null=True)
-
     shipping_attention = models.CharField(max_length=100, blank=True, null=True)
     shipping_address = models.CharField(max_length=133, blank=True, null=True)
     shipping_street2 = models.CharField(max_length=133, blank=True, null=True)
@@ -279,8 +277,6 @@ class ZohoCustomers(models.Model):
     shipping_code = models.CharField(max_length=33, blank=True, null=True)
     shipping_phone = models.CharField(max_length=50, blank=True, null=True)
     shipping_fax = models.CharField(max_length=133, blank=True, null=True)
-
-
     skype_identity = models.CharField(max_length=133, blank=True, null=True)
     facebook = models.CharField(max_length=133, blank=True, null=True)
     twitter = models.CharField(max_length=133, blank=True, null=True)
@@ -312,4 +308,4 @@ class ZohoCustomers(models.Model):
     modified_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        pass
+        verbose_name_plural = "Zoho customers"
