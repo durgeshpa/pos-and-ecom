@@ -4634,20 +4634,22 @@ class OrderedItemCentralDashBoard(APIView):
 
         # Ordered Count
         total_ordered_final_amount = orders.aggregate(Sum('order_amount')).get('order_amount__sum')
+        total_ordered_final_amount = total_ordered_final_amount if total_ordered_final_amount else 0
         total_refund_amount = returns.aggregate(Sum('refund_amount')).get('refund_amount__sum')
+
         if total_refund_amount:
             total_ordered_final_amount -= float(total_refund_amount)
 
         # POS Ordered Count
         pos_total_ordered_final_amount = pos_orders.aggregate(Sum('order_amount')).get('order_amount__sum')
+        pos_total_ordered_final_amount = pos_total_ordered_final_amount if pos_total_ordered_final_amount else 0
         pos_total_refund_amount = pos_returns.aggregate(Sum('refund_amount')).get('refund_amount__sum')
         if pos_total_refund_amount:
             pos_total_ordered_final_amount -= float(pos_total_refund_amount)
 
         # ECOM Ordered Count
         ecom_total_ordered_final_amount = ecom_orders.aggregate(Sum('order_amount')).get('order_amount__sum')
-        if not ecom_total_ordered_final_amount:
-           ecom_total_ordered_final_amount = 0 
+        ecom_total_ordered_final_amount = ecom_total_ordered_final_amount if ecom_total_ordered_final_amount else 0
         ecom_total_refund_amount = ecom_returns.aggregate(Sum('refund_amount')).get('refund_amount__sum')
         if ecom_total_refund_amount:
             ecom_total_ordered_final_amount -= float(ecom_total_refund_amount)
