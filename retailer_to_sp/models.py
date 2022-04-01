@@ -1907,7 +1907,7 @@ class OrderedProduct(models.Model):  # Shipment
 
     def total_returned_pieces(self):
         return self.rt_order_product_order_product_mapping.all() \
-            .aggregate(cnt=Sum(F('returned_qty'))).get('cnt')
+            .aggregate(cnt=Sum(F('returned_qty') + F('returned_damage_qty'))).get('cnt')
 
     def sum_amount_tax(self):
         return sum([item.product_tax_amount for item in self.rt_order_product_order_product_mapping.all()])
