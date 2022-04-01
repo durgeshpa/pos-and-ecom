@@ -105,12 +105,15 @@ class POGenerationForm(forms.ModelForm):
                 # Input Value Validation
                 try:
                     parent_product = ParentProduct.objects.get(parent_id=row[0])
-                    if parent_product.tax_status != ParentProduct.APPROVED:
-                        self.error_csv(row_id, titles[0], row[0], f"Product TAX not approved.")
                 except ObjectDoesNotExist:
                     self.error_csv(row_id, titles[0], row[0], VALIDATION_ERROR_MESSAGES['INVALID_PARENT_ID'])
                 try:
                     product = Product.objects.get(pk=row[2], parent_product=parent_product)
+                    if self.instance is None or self.instance.pk is None or \
+                            not CartProductMapping.objects.filter(
+                                cart=self.instance, cart_parent_product=parent_product, cart_product=product).exists():
+                        if parent_product.tax_status != ParentProduct.APPROVED:
+                            self.error_csv(row_id, titles[0], row[0], f"Product TAX not approved.")
                 except ObjectDoesNotExist:
                     self.error_csv(row_id, titles[2], row[2], VALIDATION_ERROR_MESSAGES['INVALID_PRODUCT_ID'])
                 if product.status == 'deactivated':
@@ -280,9 +283,10 @@ class CartProductMappingForm(forms.ModelForm):
 
     def clean(self):
         cleaned_data = self.cleaned_data
-        if cleaned_data['cart_parent_product'] and \
-                cleaned_data['cart_parent_product'].tax_status != ParentProduct.APPROVED:
-            raise ValidationError(f"Product {cleaned_data['cart_parent_product']} must be approved to create PO.")
+        if self.instance is None or self.instance.pk is None:
+            if cleaned_data['cart_parent_product'] and \
+                    cleaned_data['cart_parent_product'].tax_status != ParentProduct.APPROVED:
+                raise ValidationError(f"Product {cleaned_data['cart_parent_product']} must be approved to create PO.")
         return cleaned_data
 
     def __init__(self, *args, **kwargs):
