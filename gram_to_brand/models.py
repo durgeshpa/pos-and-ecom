@@ -354,7 +354,7 @@ class CartProductMapping(models.Model):
 
 class CartProductMappingTaxLog(BaseTimestampUserModel):
     cart_product_mapping = models.ForeignKey(CartProductMapping, related_name='cart_product_mapping_tax_log',
-                                             on_delete=models.DO_NOTHING)
+                                             null=True, blank=True, on_delete=models.CASCADE)
     existing_gst = models.IntegerField(null=True, blank=True, choices=GST_CHOICE)
     existing_cess = models.IntegerField(null=True, blank=True, choices=CESS_CHOICE)
     new_gst = models.IntegerField(null=True, blank=True, choices=GST_CHOICE)
