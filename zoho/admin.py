@@ -1,6 +1,6 @@
 from dal_admin_filters import AutocompleteFilter
 from django.contrib import admin
-from .models import ZohoFileUpload, ZohoInvoice, ZohoInvoiceItem, ZohoCreditNote, ZohoCreditNoteItem
+from .models import ZohoFileUpload, ZohoInvoice, ZohoInvoiceItem, ZohoCreditNote, ZohoCreditNoteItem,ZohoCustomers
 
 # Register your models here.
 from .views import bulk_zoho_invoice_file_upload, bulk_zoho_credit_note_file_upload, bulk_upload_zoho_customers_file_upload
@@ -79,6 +79,22 @@ class ZohoCreditNoteItemAdmin(admin.TabularInline):
     class Media:
         pass
 
+class ZohoCustomersAdmin(admin.ModelAdmin):
+    list_display = ['created_by', 'created_time', 'last_modified_time', 'display_name', 'company_name', 'salutation', 'first_name', 'last_name', 'phone',
+             'currency_code', 'notes', 'website',
+             'status', 'opening_balance', 'exchange_rate', 'branch_id', 'branch_name', 'credit_limit',
+             'customer_sub_type', 'billing_attention', 'billing_address', 'billing_street2', 'billing_city',
+             'billing_state', 'billing_country', 'billing_code', 'billing_phone', 'billing_fax', 'shipping_attention',
+             'shipping_address', 'shipping_street2', 'shipping_city', 'shipping_state', 'shipping_country', 'shipping_code',
+             'shipping_phone', 'shipping_fax', 'skype_identity', 'facebook', 'twitter', 'department', 'designation', 'price_list',
+             'payment_team', 'payment_team_labs', 'gst_treatment', 'gst_identification_number', 'pan_number', 'last_sync_time',
+             'owner_name',
+             'primary_contact_id', 'email_id', 'mobile_phone', 'contact_id', 'contact_name', 'contact_type', 'place_of_contact',
+             'place_of_contact_with_state_code',
+             'taxable', 'tax_name', 'tax_percentage', 'exemption_reason', 'contact_address_id', 'source',]
+
+    list_filter = ['status']
+    search_fields = ['created_by', 'display_name']
 
 class ZohoInvoiceAdmin(admin.ModelAdmin):
     list_display = ['invoice_id', 'invoice_number', 'invoice_status', 'invoice_date', 'customer_name',
@@ -123,4 +139,5 @@ class ZohoCreditNoteAdmin(admin.ModelAdmin):
 admin.site.register(ZohoFileUpload, ZohoFileUploadAdmin)
 admin.site.register(ZohoInvoice, ZohoInvoiceAdmin)
 admin.site.register(ZohoCreditNote, ZohoCreditNoteAdmin)
+admin.site.register(ZohoCustomers, ZohoCustomersAdmin)
 
