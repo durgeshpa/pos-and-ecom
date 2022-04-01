@@ -1996,7 +1996,7 @@ class CartCheckout(APIView):
 
             if fofo_config.get('open_time',None) and fofo_config.get('close_time',None) and not (
                     fofo_config['open_time'] < time < fofo_config['close_time']):
-                delivery_time = "your order will be delivered tomorrow"
+                delivery_time = "Your order will be deliverd tomorrow"
 
             data['estimate_delivery_time'] = delivery_time
 
@@ -2074,7 +2074,7 @@ class CartCheckout(APIView):
 
             if fofo_config.get('open_time',None) and fofo_config.get('close_time',None) and not (
                     fofo_config['open_time'] < time < fofo_config['close_time']):
-                delivery_time = "your order will be delivered tomorrow"
+                delivery_time = "Your order will be deliverd tomorrow"
             data['estimate_delivery_time'] = delivery_time
             data.update({'saving': round(data['total_mrp'] - data['amount_payable'], 2)})
             data.update({"redeem_points_message": use_reward_this_month if use_reward_this_month else ""})
@@ -3757,10 +3757,15 @@ class OrderCentral(APIView):
             time = datetime.now().strftime("%H:%M:%S")
             time = datetime.strptime(time,"%H:%M:%S").time()
             msg = fofo_config.get('delivery_time',None)
-            if msg:
+            if msg :
                 msg = str(msg)+" "+"min"
+            if delivery_option and delivery_option == '1':
+                msg = None
             if fofo_config.get('open_time',None) and fofo_config.get('close_time',None) and not (fofo_config['open_time']<time and fofo_config['close_time']>time):
-                msg = "your order will be delivered tomorrow "
+                msg = "Your order will be deliverd tomorrow"
+                if delivery_option and delivery_option == '1':
+                    msg = "Please pickup your order tommorow"
+
             order.estimate_delivery_time = msg
         order.save()
 
