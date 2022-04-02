@@ -609,15 +609,34 @@ def create_e_invoice_data_excel(queryset, OrderedProduct, RoundAmount, ShopDocum
         'Is Inclusive Tax', 'Item Tax', 'Item Tax Type', 'Item Tax %', 'Project Name', 'Supply Type', 'Discount Type',
         'Is Discount Before Tax', 'Entity Discount Percent', 'Entity Discount Amount', 'Discount', 'Discount Amount',
         'Shipping Charge', 'Adjustment', 'Adjustment Description', 'PayPal', 'Razorpay', 'Partial Payments',
-        'Template Name', 'Notes', 'Terms & Conditions'
+        'Template Name', 'Notes', 'Terms & Conditions', 'Billing Address', 'Billing Street2', 'Billing City',
+        'Billing State', 'Billing Country', 'Billing Code', 'Shipping Address', 'Shipping Street2', 'Shipping City',
+        'Shipping State', 'Shipping Country', 'Shipping Code'
     ])
 
     invoices = queryset.annotate(buyer_shop_id=F('shipment__order__buyer_shop_id'),
                                  buyer_name=F('shipment__order__buyer_shop__shop_name'),
-                                 state=F('shipment__order__shipping_address__state__state_name'),
-                                 state_code_txt=F('shipment__order__shipping_address__state__state_code_txt'))\
+                                 state_code_txt=F('shipment__order__shipping_address__state__state_code_txt'),
+                                 billing_address=F('shipment__order__billing_address__address_line1'),
+                                 billing_pincode=F('shipment__order__billing_address__pincode_link__pincode'),
+                                 billing_city=F('shipment__order__billing_address__city__city_name'),
+                                 billing_state=F('shipment__order__billing_address__state__state_name'),
+                                 shipping_address=F('shipment__order__shipping_address__address_line1'),
+                                 shipping_pincode=F('shipment__order__shipping_address__pincode_link__pincode'),
+                                 shipping_city=F('shipment__order__shipping_address__city__city_name'),
+                                 shipping_state=F('shipment__order__shipping_address__state__state_name')
+                                 )\
                        .only('invoice_no', 'created_at', 'shipment__order__buyer_shop_id',
-                             'shipment__order__buyer_shop__shop_name', 'shipment__order__shipping_address__state__state_name')
+                             'shipment__order__buyer_shop__shop_name',
+                             'shipment__order__shipping_address__state__state_name',
+                             'shipment__order__shipping_address__city__city_name',
+                             'shipment__order__shipping_address__pincode_link__pincode',
+                             'shipment__order__shipping_address__address_line1',
+                             'shipment__order__billing_address__state__state_name',
+                             'shipment__order__billing_address__city__city_name',
+                             'shipment__order__billing_address__pincode_link__pincode',
+                             'shipment__order__billing_address__address_line1'
+                             )
     for invoice in invoices:
         shop_gstin = get_shop_gstin(invoice.buyer_shop_id, ShopDocument)
         if not shop_gstin:
@@ -673,7 +692,20 @@ def create_e_invoice_data_excel(queryset, OrderedProduct, RoundAmount, ShopDocum
                 0,
                 '',
                 '',
-                ''
+                '',
+                invoice.billing_address,
+                '',
+                invoice.billing_city,
+                invoice.billing_state,
+                'India',
+                invoice.billing_pincode,
+                invoice.shipping_address,
+                '',
+                invoice.shipping_city,
+                invoice.shipping_state,
+                'India',
+                invoice.shipping_pincode
+
 
             ])
     return response
@@ -710,13 +742,20 @@ def create_e_note_data_excel(queryset, OrderedProduct, RoundAmount, ShopDocument
         if not shop_gstin:
             continue
         items = note.shipment.rt_order_product_order_product_mapping.all()
-        if note.shipment.shipment_status != 'CANCELLED':
+        if note.shipment.shipment_status != 'CANCELLED' and note.credit_note_type != 'DISCOUNTED':
             items = items.filter(Q(returned_qty__gt=0) | Q(returned_damage_qty__gt=0))
         for item in items:
             tax_data = get_tax_data(item.product_tax_json, note, TaxGroup)
-            qty = item.shipped_qty
-            if note.shipment.shipment_status != 'CANCELLED':
+
+            if note.shipment.shipment_status == 'CANCELLED':
+                qty = item.shipped_qty
+            elif note.credit_note_type == 'DISCOUNTED':
+                qty = item.shipped_qty - (item.returned_qty + item.returned_damage_qty)
+            else:
                 qty = item.returned_qty + item.returned_damage_qty
+
+            price = item.effective_price if note.credit_note_type != 'DISCOUNTED'\
+                            else (item.effective_price - item.discounted_price)
             writer.writerow([
                 note.credit_note_id,
                 note.created_at.strftime('%d-%m-%Y'),
@@ -736,7 +775,7 @@ def create_e_note_data_excel(queryset, OrderedProduct, RoundAmount, ShopDocument
                 item.product.product_hsn,
                 qty,
                 'Pcs',
-                item.effective_price,
+                price,
                 tax_data['tax_name'],
                 tax_data['tax_percent'],
                 tax_data['tax_type'],

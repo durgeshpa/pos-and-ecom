@@ -46,6 +46,7 @@ from sp_to_gram.models import OrderedProductReserved
 from common.constants import DOWNLOAD_BULK_INVOICE, ZERO, FIFTY
 from wms.admin import ZoneFilter, QCAreaAutocomplete, CrateFilter, Warehouse
 from wms.models import Pickup
+from zoho.models import ZohoInvoice, ZohoCreditNote
 from .forms import (CartForm, CartProductMappingForm, CommercialForm, CustomerCareForm,
                     ReturnProductMappingForm, ShipmentForm, ShipmentProductMappingForm, ShipmentReschedulingForm,
                     OrderedProductReschedule, OrderedProductMappingRescheduleForm, OrderForm, EditAssignPickerForm,
@@ -2668,7 +2669,7 @@ class EInvoiceAdmin(admin.ModelAdmin):
     get_buyer_gstin.short_description = "Buyer GSTIN"
 
     def get_queryset(self, request):
-
+        zoho_invoices = ZohoInvoice.objects.all().values_list('invoice_number', flat=True)
         gstin_exists = ShopDocument.objects.filter(shop_name_id=OuterRef('shipment__order__buyer_shop_id'),
                                                    shop_document_type='gstin')
         qs = super().get_queryset(request)\
@@ -2677,6 +2678,7 @@ class EInvoiceAdmin(admin.ModelAdmin):
         qs = qs.exclude(shipment__order__ordered_cart__cart_type='BASIC')
         qs = qs.annotate(buyer_name=F('shipment__order__buyer_shop__shop_name'), gstin_exists=Exists(gstin_exists))
         qs = qs.filter(gstin_exists=True)
+        qs = qs.exclude(invoice_no__in=zoho_invoices)
         return qs
 
     def has_add_permission(self, request, obj=None):
@@ -2722,6 +2724,8 @@ class ENoteAdmin(admin.ModelAdmin):
     get_buyer_gstin.short_description = "Buyer GSTIN"
 
     def get_queryset(self, request):
+
+        zoho_notes = ZohoCreditNote.objects.all().values_list('credit_note_number', flat=True)
         gstin_exists = ShopDocument.objects.filter(shop_name_id=OuterRef('shipment__order__buyer_shop_id'),
                                                    shop_document_type='gstin')
         qs = super().get_queryset(request)\
@@ -2731,6 +2735,7 @@ class ENoteAdmin(admin.ModelAdmin):
         qs = qs.exclude(shipment__order__ordered_cart__cart_type='BASIC')
         qs = qs.annotate(buyer_name=F('shipment__order__buyer_shop__shop_name'), gstin_exists=Exists(gstin_exists))
         qs = qs.filter(gstin_exists=True)
+        qs = qs.exclude(credit_note_id__in=zoho_notes)
         return qs
 
     def has_add_permission(self, request, obj=None):
