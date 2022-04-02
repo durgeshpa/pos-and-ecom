@@ -95,6 +95,14 @@ class ZohoCustomersAdmin(admin.ModelAdmin):
 
     list_filter = ['status']
     search_fields = ['display_name']
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
 
 class ZohoInvoiceAdmin(admin.ModelAdmin):
     list_display = ['invoice_id', 'invoice_number', 'invoice_status', 'invoice_date', 'customer_name',
