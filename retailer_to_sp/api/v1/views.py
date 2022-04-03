@@ -393,6 +393,12 @@ class SearchProducts(APIView):
         category_ids = self.request.GET.get('category_ids')
         sub_category_ids = self.request.GET.get('sub_category_ids')
         filter_list = [{"term": {"is_deleted": False}}]
+        if int(self.request.GET.get('online_enabled', 0) ) == 1:
+            filter_list.append({"term": {"online_enabled": True}})
+        if int(self.request.GET.get('offline', 0)) == 1:
+            filter_list.append({"term": {"online_enabled": False}})
+        if int(self.request.GET.get('inactive', 0)) == 1:
+            filter_list.append({"term": {"status": 'deactivated'}})
 
         if app_type == '3':
             filter_list.append({"term": {"status": 'active'}})
