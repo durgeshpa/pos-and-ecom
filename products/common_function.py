@@ -104,8 +104,8 @@ class ParentProductCls(object):
         """
             Update Tax status and remark of specific ParentProduct on the basis of Parent Product Tax in HSN
         """
-        if parent_product.tax_status == ParentProduct.APPROVED:
-            return
+        # if parent_product.tax_status == ParentProduct.APPROVED:
+        #     return
         parent_taxs = ParentProductTaxMapping.objects.filter(parent_product=parent_product)
         product_hsn_gsts = parent_product.product_hsn.hsn_gst.values_list('gst', flat=True)
         product_hsn_cess = parent_product.product_hsn.hsn_cess.values_list('cess', flat=True)
@@ -113,7 +113,7 @@ class ParentProductCls(object):
         tax_remark = None
         if parent_taxs.filter(tax__tax_type='gst').exists():
             if parent_taxs.filter(tax__tax_type='gst').last().tax.tax_percentage in product_hsn_gsts:
-                if len(product_hsn_gsts) == 1:
+                if len(product_hsn_gsts) == 1 or parent_product.tax_status == ParentProduct.APPROVED:
                     tax_status = ParentProduct.APPROVED
                 else:
                     tax_status = ParentProduct.PENDING
@@ -123,7 +123,7 @@ class ParentProductCls(object):
                 tax_remark = ParentProduct.GST_RATE_MISMATCH
         if parent_taxs.filter(tax__tax_type='cess').exists():
             if parent_taxs.filter(tax__tax_type='cess').last().tax.tax_percentage in product_hsn_cess:
-                if len(product_hsn_cess) == 1:
+                if len(product_hsn_cess) == 1 or parent_product.tax_status == ParentProduct.APPROVED:
                     tax_status = ParentProduct.PENDING \
                         if tax_status == ParentProduct.PENDING else ParentProduct.APPROVED
                 else:
