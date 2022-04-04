@@ -115,7 +115,7 @@ class Shop(models.Model):
     related_users = models.ManyToManyField(get_user_model(), blank=True, related_name='related_shop_user')
     created_by = models.ForeignKey(get_user_model(), related_name='shop_created_by', null=True, blank=True,
                                    on_delete=models.DO_NOTHING)
-    enable_loyalty_points = models.BooleanField( default=True)
+    enable_loyalty_points = models.BooleanField( default=False)
     shop_code = models.CharField(max_length=1, blank=True, null=True)
     shop_code_bulk = models.CharField(max_length=1, blank=True, null=True)
     shop_code_discounted = models.CharField(max_length=1, blank=True, null=True)
