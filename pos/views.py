@@ -50,6 +50,7 @@ from products.utils import parent_product_categories
 from shops.models import Shop, PosShopUserMapping
 from retailer_to_sp.models import OrderReturn, OrderedProduct, CreditNote, OrderedProductMapping, RoundAmount, Order
 from wms.models import PosInventory, PosInventoryState, PosInventoryChange
+from retailer_backend.settings import AWS_MEDIA_URL
 
 info_logger = logging.getLogger('file-info')
 logger = logging.getLogger(__name__)
@@ -616,7 +617,7 @@ def DownloadRetailerCatalogue(request, *args, **kwargs):
     response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
     writer = csv.writer(response)
     writer.writerow(
-        ['product_id', 'shop_id', 'shop_name', 'product_sku', 'product_name', 'mrp', 'selling_price',
+        ['product_id', 'shop_id', 'shop_name', 'product_sku', 'product_name', 'product_image', 'mrp', 'selling_price',
          'linked_product_sku', 'product_ean_code', 'description', 'sku_type','parent_product_id', 'b2b_category',
          'b2b_sub_category', 'b2c_category', 'b2c_sub_category', 'brand', 'sub_brand', 'status', 'quantity',
          'discounted_sku', 'discounted_stock', 'discounted_price', 'product_pack_type', 'measurement_category',
@@ -636,6 +637,7 @@ def DownloadRetailerCatalogue(request, *args, **kwargs):
             .prefetch_related('linked_product__parent_product__parent_product_pro_b2c_category__category__category_parent') \
             .select_related('measurement_category')\
             .values('id', 'shop', 'shop__shop_name', 'sku', 'name', 'mrp', 'selling_price', 'product_pack_type',
+                    'retailer_product_image__image',
                     'purchase_pack_size',
                     'measurement_category__category',
                     'linked_product__product_sku',
@@ -708,9 +710,13 @@ def DownloadRetailerCatalogue(request, *args, **kwargs):
             else:
                 initial_purchase_value = product['initial_purchase_value'] \
                     if product['initial_purchase_value'] else 0
-
+            if product['retailer_product_image__image'] is None:
+                product_image = ''
+            else:
+                product_image = str(AWS_MEDIA_URL) + str(product['retailer_product_image__image'])
             writer.writerow(
                 [product['id'], product['shop'], product['shop__shop_name'], product['sku'], product['name'],
+                 product_image,
                  product['mrp'], product['selling_price'], product['linked_product__product_sku'],
                  product['product_ean_code'], product['description'],
                  RetailerProductCls.get_sku_type(product['sku_type']),
