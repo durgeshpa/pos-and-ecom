@@ -39,21 +39,6 @@ WEIGHT_UNIT_CHOICES = (
 CAPPING_TYPE_CHOICES = Choices((0, 'DAILY', 'Daily'), (1, 'WEEKLY', 'Weekly'),
                                (2, 'MONTHLY', 'Monthly'))
 
-GST_CHOICE = (
-    (0, 'GST-0'),
-    (5, 'GST-5'),
-    (12, 'GST-12'),
-    (18, 'GST-18'),
-    (28, 'GST-28'),
-)
-
-CESS_CHOICE = (
-    (0, 'CESS-0'),
-    (5, 'CESS-5'),
-    (12, 'CESS-12'),
-    (36, 'CESS-36')
-)
-
 
 class Size(models.Model):
     size_value = models.CharField(max_length=255, validators=[ValueValidator], null=True, blank=True)
@@ -149,36 +134,7 @@ class ProductHSN(BaseTimestampUserStatusModel):
         return self.product_hsn_code
 
 
-class ProductHsnGst(BaseTimestampUserStatusModel):
-    gst = models.IntegerField(null=True, choices=GST_CHOICE)
-    product_hsn = models.ForeignKey(ProductHSN, related_name='hsn_gst', on_delete=models.DO_NOTHING)
-
-    def __str__(self):
-        return f"{self.product_hsn} -> {self.gst}"
-
-    class Meta:
-        unique_together = ('product_hsn', 'gst')
-
-
-class ProductHsnCess(BaseTimestampUserStatusModel):
-    cess = models.IntegerField(null=True, choices=CESS_CHOICE)
-    product_hsn = models.ForeignKey(ProductHSN, related_name='hsn_cess', on_delete=models.DO_NOTHING)
-
-    def __str__(self):
-        return f"{self.product_hsn} -> {self.cess}"
-
-    class Meta:
-        unique_together = ('product_hsn', 'cess')
-
-
 class ParentProduct(BaseTimestampUserStatusModel):
-    GST_MULTIPLE_RATES, CESS_MULTIPLE_RATES = 'GST Multiple Rates', 'Cess Multiple Rates'
-    GST_AND_CESS_MULTIPLE_RATES = 'GST and Cess Multiple Rates'
-    GST_RATE_MISMATCH, CESS_RATE_MISMATCH = 'GST Rate mismatch', 'Cess Rate mismatch'
-    GST_AND_CESS_RATE_MISMATCH = 'GST and Cess Rate mismatch'
-    GST_MULTIPLE_RATES_AND_CESS_RATE_MISMATCH = 'GST Multiple Rates and Cess Rate mismatch'
-    CESS_MULTIPLE_RATES_AND_GST_RATE_MISMATCH = 'Cess Multiple Rates and GST Rate mismatch'
-
     parent_id = models.CharField(max_length=255, validators=[ParentIDValidator])
     name = models.CharField(max_length=255, validators=[ProductNameValidator])
     parent_slug = models.SlugField(max_length=255)
@@ -197,14 +153,6 @@ class ParentProduct(BaseTimestampUserStatusModel):
                                       validators=[PercentageValidator])
     PTR_TYPE_CHOICES = Choices((1, 'MARK_UP', 'Mark Up'), (2, 'MARK_DOWN', 'Mark Down'))
     ptr_type = models.SmallIntegerField(choices=PTR_TYPE_CHOICES, null=True, blank=True)
-    PENDING, APPROVED, DECLINED = 'PENDING', 'APPROVED', 'DECLINED'
-    TAX_STATUS_CHOICES = Choices(
-        (PENDING, 'Pending For Approval'),
-        (APPROVED, 'Approved'),
-        (DECLINED, 'Declined')
-    )
-    tax_status = models.CharField(max_length=10, choices=TAX_STATUS_CHOICES, null=True, blank=True)
-    tax_remark = models.CharField(max_length=50, null=True, blank=True)
     is_ars_applicable = models.BooleanField(verbose_name='Is ARS Applicable', default=False)
     max_inventory = models.PositiveSmallIntegerField(verbose_name='Max Inventory(In Days)',
                                                      validators=[MinValueValidator(1), MaxValueValidator(999)])
@@ -238,22 +186,9 @@ class ParentProduct(BaseTimestampUserStatusModel):
 
     class Meta:
         ordering = ['-created_at']
-        permissions = (
-            ("can_approve_product_tax", "Can Approve Product TAX."),
-        )
 
     def __str__(self):
         return "{}-{}".format(self.parent_id, self.name)
-
-
-class ParentProductTaxApprovalLog(BaseTimestampUserStatusModel):
-    parent_product = models.ForeignKey(ParentProduct, related_name='parent_product_tax_approval_log',
-                                       on_delete=models.DO_NOTHING)
-    tax_status = models.CharField(max_length=10, null=True, blank=True)
-    tax_remark = models.CharField(max_length=100, null=True, blank=True)
-
-    def __str__(self):
-        return str(self.parent_product)
 
 
 class ParentProductSKUGenerator(models.Model):
@@ -897,29 +832,6 @@ class Tax(BaseTimestampUserStatusModel):
     class Meta:
         verbose_name = _("Tax")
         verbose_name_plural = _("Taxes")
-
-
-class TaxGroup(BaseTimestampUserStatusModel):
-    TAX_GROUP, TAX_SINGLE = 'TAX_GROUP', 'TAX_SINGLE'
-    ZOHO_TAX_TYPE_CHOICE = ((TAX_GROUP, 'Tax Group'), (TAX_SINGLE, 'itemAmount'))
-    name = models.CharField(max_length=100, unique=True, null=True, blank=True)
-    zoho_id = models.CharField(max_length=100)
-    is_igst = models.BooleanField(default=False)
-    zoho_grp_type = models.CharField(choices=ZOHO_TAX_TYPE_CHOICE, max_length=50)
-
-    def __str__(self):
-        return str(self.name)
-
-
-class GroupTaxMapping(BaseTimestampUserStatusModel):
-    tax_group = models.ForeignKey(TaxGroup, related_name='group_taxes', on_delete=models.CASCADE)
-    tax = models.ForeignKey(Tax, related_name='tax_group', on_delete=models.CASCADE)
-
-    def __str__(self):
-        return f"{self.tax_group} -> {self.tax}"
-
-    class Meta:
-        unique_together = ('tax_group', 'tax',)
 
 
 class ProductTaxMapping(BaseTimeModel):
