@@ -2107,7 +2107,11 @@ class CartCheckout(APIView):
                                     cart_type='BASIC')
         except ObjectDoesNotExist:
             return api_response("Cart Does Not Exist / Already Closed")
-        RewardCls.checkout_redeem_points(cart, 0, self.request.GET.get('use_rewards', 1))
+        if self.request.GET.get('redeem_points'):
+            redeem_points = self.request.GET.get('redeem_points')
+            redeem_points = redeem_points if redeem_points else cart.redeem_points
+            # Refresh redeem reward
+            RewardCls.checkout_redeem_points(cart, int(redeem_points))
         cart_products = cart.rt_cart_list.all()
         cart_value = 0
         for product_map in cart_products:
@@ -3379,10 +3383,9 @@ class OrderCentral(APIView):
         if address.pincode != shop.shop_name_address_mapping.filter(
                 address_type='shipping').last().pincode_link.pincode:
             return api_response("This Shop is not serviceable at your delivery address")
-        try:
-            cart = Cart.objects.filter(cart_type='ECOM', buyer=self.request.user, seller_shop=shop,
-                                       cart_status='active').last()
-        except ObjectDoesNotExist:
+        cart = Cart.objects.filter(cart_type='ECOM', buyer=self.request.user, seller_shop=shop,
+                                   cart_status='active').last()
+        if not cart:
             return api_response("Please add items to proceed to order")
 
         try:

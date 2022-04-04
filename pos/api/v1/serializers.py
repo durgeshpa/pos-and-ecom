@@ -628,6 +628,7 @@ class BasicCartSerializer(serializers.ModelSerializer):
         return round(discount, 2)
 
     def get_amount_payable(self, obj):
+        sub_total = float(self.total_amount_dt(obj)) - self.get_total_discount(obj)
         if obj.cart_type == 'ECOM':
             sub_total = float(self.total_amount_dt(obj)) - (
                     float(self.get_total_discount(obj)))
