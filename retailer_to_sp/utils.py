@@ -742,13 +742,20 @@ def create_e_note_data_excel(queryset, OrderedProduct, RoundAmount, ShopDocument
         if not shop_gstin:
             continue
         items = note.shipment.rt_order_product_order_product_mapping.all()
-        if note.shipment.shipment_status != 'CANCELLED':
+        if note.shipment.shipment_status != 'CANCELLED' and note.credit_note_type != 'DISCOUNTED':
             items = items.filter(Q(returned_qty__gt=0) | Q(returned_damage_qty__gt=0))
         for item in items:
             tax_data = get_tax_data(item.product_tax_json, note, TaxGroup)
-            qty = item.shipped_qty
-            if note.shipment.shipment_status != 'CANCELLED':
+
+            if note.shipment.shipment_status == 'CANCELLED':
+                qty = item.shipped_qty
+            elif note.credit_note_type == 'DISCOUNTED':
+                qty = item.shipped_qty - (item.returned_qty + item.returned_damage_qty)
+            else:
                 qty = item.returned_qty + item.returned_damage_qty
+
+            price = item.effective_price if note.credit_note_type != 'DISCOUNTED'\
+                            else (item.effective_price - item.discounted_price)
             writer.writerow([
                 note.credit_note_id,
                 note.created_at.strftime('%d-%m-%Y'),
@@ -768,7 +775,7 @@ def create_e_note_data_excel(queryset, OrderedProduct, RoundAmount, ShopDocument
                 item.product.product_hsn,
                 qty,
                 'Pcs',
-                item.effective_price,
+                price,
                 tax_data['tax_name'],
                 tax_data['tax_percent'],
                 tax_data['tax_type'],
