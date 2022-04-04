@@ -7585,7 +7585,7 @@ class ShipmentQCView(generics.GenericAPIView):
         """ PUT API for shipment update """
 
         info_logger.info("PUT API for shipment update called.")
-        if not request.data.get('id'):
+        if not request.data.get('data').get('id'):
             return get_response('please provide id to update shipment', False)
 
         modified_data = validate_data_format(self.request)
