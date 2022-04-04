@@ -575,6 +575,8 @@ class GRNOrderProductMapping(models.Model):
             else:
                 expiry_date = datetime.datetime.strptime(str(self.expiry_date), '%Y-%m-%d').strftime('%d%m%y')
             self.barcode_id = str("2" + product_id + str(expiry_date))
+        self.product_amount = (self.product_invoice_price if self.product_invoice_price else 0) * \
+                              (self.product_invoice_qty if self.product_invoice_qty else 0)
         super(GRNOrderProductMapping, self).save(*args, **kwargs)
 
 
