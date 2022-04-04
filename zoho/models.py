@@ -77,7 +77,7 @@ class ZohoCommonFields(BaseTimestampUserModel):
     shipping_charge_tax_exemption_code = models.CharField(max_length=100, null=True, blank=True)
     shipping_charge_sac_code = models.CharField(max_length=100, null=True, blank=True)
     billing_attention = models.CharField(max_length=100, null=True, blank=True)
-    billing_address = models.TextField(null=True, blank=True)
+    billing_address = models.CharField(max_length=100, null=True, blank=True)
     billing_city = models.CharField(max_length=100, null=True, blank=True)
     billing_state = models.CharField(max_length=100, null=True, blank=True)
     billing_country = models.CharField(max_length=100, null=True, blank=True)
