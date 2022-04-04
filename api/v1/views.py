@@ -124,69 +124,69 @@ class GRNReport(CreateAPIView):
                 data = grn_details
             return Response({"message": [""], "response_data": '', "is_success": True})
 
-class MasterReport(CreateAPIView):
-    permission_classes = (AllowAny,)
-    serializer_class = ProductPriceSerializer
-    authentication_classes = (authentication.TokenAuthentication,)
-
-    def create(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
-        if serializer.is_valid():
-            shop = Shop.objects.get(pk=request.data["seller_shop_id"])
-            product_prices = ProductPrice.objects.filter(seller_shop=shop, approval_status=ProductPrice.APPROVED)
-            products_list = {}
-            i=0
-            for products in product_prices:
-                i+=1
-                product = products.product
-                mrp = products.mrp
-                price_to_retailer = products.price_to_retailer
-                #New Code for pricing
-                selling_price = products.selling_price if products.selling_price else ''
-                buyer_shop = products.buyer_shop if products.buyer_shop else ''
-                city = products.city if products.city else ''
-                pincode = products.pincode if products.pincode else ''
-
-                product_gf_code = products.product.product_gf_code
-                product_ean_code = products.product.product_ean_code
-                product_brand = products.product.product_brand if products.product.product_brand.brand_parent == None else products.product.product_brand.brand_parent
-                product_subbrand = products.product.product_brand.brand_name if products.product.product_brand.brand_parent != None else ''
-                product_category = products.product.product_pro_category.last().category
-                tax_gst_percentage = 0
-                tax_cess_percentage = 0
-                tax_surcharge_percentage = 0
-                for tax in products.product.product_pro_tax.all():
-                    if tax.tax.tax_type == 'gst':
-                        tax_gst_percentage = tax.tax.tax_percentage
-                    elif tax.tax.tax_type == 'cess':
-                        tax_cess_percentage = tax.tax.tax_percentage
-                    elif tax.tax.tax_type == 'surcharge':
-                        tax_surcharge_percentage = tax.tax.tax_percentage
-                service_partner = products.seller_shop
-                pack_size = products.product.product_inner_case_size
-                case_size = products.product.product_case_size
-                hsn_code = products.product.product_hsn
-                product_id = products.product.id
-                sku_code = products.product.product_sku
-                short_description = products.product.product_short_description
-                long_description = products.product.product_long_description
-                created_at = products.product.created_at
-                MasterReports.objects.using('dataanalytics').create(product = product, service_partner = service_partner,
-                mrp = mrp, price_to_retailer = price_to_retailer, selling_price=selling_price, buyer_shop=buyer_shop, city=city,
-                pincode=pincode, product_gf_code = product_gf_code,  product_brand = product_brand,
-                product_subbrand = product_subbrand, product_category = product_category, tax_gst_percentage = tax_gst_percentage,
-                tax_cess_percentage = tax_cess_percentage, tax_surcharge_percentage = tax_surcharge_percentage, pack_size = pack_size,
-                case_size = case_size, hsn_code = hsn_code, product_id = product_id, sku_code = sku_code,
-                short_description = short_description, long_description = long_description, created_at = created_at)
-
-                products_list[i] = {'product':product, 'service_partner':service_partner, 'mrp':mrp, 'price_to_retailer':price_to_retailer,
-                'selling_price':selling_price, 'buyer_shop':buyer_shop, 'city':city,'pincode':pincode,
-                'product_gf_code':product_gf_code, 'product_brand':product_brand, 'product_subbrand':product_subbrand,
-                'product_category':product_category, 'tax_gst_percentage':tax_gst_percentage, 'tax_cess_percentage':tax_cess_percentage,
-                'tax_surcharge_percentage':tax_surcharge_percentage, 'pack_size':pack_size, 'case_size':case_size, 'hsn_code':hsn_code,
-                'product_id':product_id, 'sku_code':sku_code, 'short_description':short_description, 'long_description':long_description}
-            data = products_list
-        return Response({"message": [""], "response_data": '', "is_success": True})
+# class MasterReport(CreateAPIView):
+#     permission_classes = (AllowAny,)
+#     serializer_class = ProductPriceSerializer
+#     authentication_classes = (authentication.TokenAuthentication,)
+#
+#     def create(self, request, *args, **kwargs):
+#         serializer = self.get_serializer(data=request.data)
+#         if serializer.is_valid():
+#             shop = Shop.objects.get(pk=request.data["seller_shop_id"])
+#             product_prices = ProductPrice.objects.filter(seller_shop=shop, approval_status=ProductPrice.APPROVED)
+#             products_list = {}
+#             i=0
+#             for products in product_prices:
+#                 i+=1
+#                 product = products.product
+#                 mrp = products.mrp
+#                 price_to_retailer = products.price_to_retailer
+#                 #New Code for pricing
+#                 selling_price = products.selling_price if products.selling_price else ''
+#                 buyer_shop = products.buyer_shop if products.buyer_shop else ''
+#                 city = products.city if products.city else ''
+#                 pincode = products.pincode if products.pincode else ''
+#
+#                 product_gf_code = products.product.product_gf_code
+#                 product_ean_code = products.product.product_ean_code
+#                 product_brand = products.product.product_brand if products.product.product_brand.brand_parent == None else products.product.product_brand.brand_parent
+#                 product_subbrand = products.product.product_brand.brand_name if products.product.product_brand.brand_parent != None else ''
+#                 product_category = products.product.product_pro_category.last().category
+#                 tax_gst_percentage = 0
+#                 tax_cess_percentage = 0
+#                 tax_surcharge_percentage = 0
+#                 for tax in products.product.product_pro_tax.all():
+#                     if tax.tax.tax_type == 'gst':
+#                         tax_gst_percentage = tax.tax.tax_percentage
+#                     elif tax.tax.tax_type == 'cess':
+#                         tax_cess_percentage = tax.tax.tax_percentage
+#                     elif tax.tax.tax_type == 'surcharge':
+#                         tax_surcharge_percentage = tax.tax.tax_percentage
+#                 service_partner = products.seller_shop
+#                 pack_size = products.product.product_inner_case_size
+#                 case_size = products.product.product_case_size
+#                 hsn_code = products.product.product_hsn
+#                 product_id = products.product.id
+#                 sku_code = products.product.product_sku
+#                 short_description = products.product.product_short_description
+#                 long_description = products.product.product_long_description
+#                 created_at = products.product.created_at
+#                 MasterReports.objects.using('dataanalytics').create(product = product, service_partner = service_partner,
+#                 mrp = mrp, price_to_retailer = price_to_retailer, selling_price=selling_price, buyer_shop=buyer_shop, city=city,
+#                 pincode=pincode, product_gf_code = product_gf_code,  product_brand = product_brand,
+#                 product_subbrand = product_subbrand, product_category = product_category, tax_gst_percentage = tax_gst_percentage,
+#                 tax_cess_percentage = tax_cess_percentage, tax_surcharge_percentage = tax_surcharge_percentage, pack_size = pack_size,
+#                 case_size = case_size, hsn_code = hsn_code, product_id = product_id, sku_code = sku_code,
+#                 short_description = short_description, long_description = long_description, created_at = created_at)
+#
+#                 products_list[i] = {'product':product, 'service_partner':service_partner, 'mrp':mrp, 'price_to_retailer':price_to_retailer,
+#                 'selling_price':selling_price, 'buyer_shop':buyer_shop, 'city':city,'pincode':pincode,
+#                 'product_gf_code':product_gf_code, 'product_brand':product_brand, 'product_subbrand':product_subbrand,
+#                 'product_category':product_category, 'tax_gst_percentage':tax_gst_percentage, 'tax_cess_percentage':tax_cess_percentage,
+#                 'tax_surcharge_percentage':tax_surcharge_percentage, 'pack_size':pack_size, 'case_size':case_size, 'hsn_code':hsn_code,
+#                 'product_id':product_id, 'sku_code':sku_code, 'short_description':short_description, 'long_description':long_description}
+#             data = products_list
+#         return Response({"message": [""], "response_data": '', "is_success": True})
 
 
 class OrderReport(CreateAPIView):

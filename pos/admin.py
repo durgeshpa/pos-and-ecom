@@ -113,14 +113,58 @@ class RetailerProductAdmin(admin.ModelAdmin):
     change_form_template = 'admin/pos/pos_change_form.html'
     form = RetailerProductsForm
     list_display = ('id', 'shop', 'sku', 'name', 'mrp', 'selling_price', 'product_ean_code', 'image',
-                    'linked_product', 'description', 'sku_type', 'status', 'product_pack_type', 'created_at',
-                    'modified_at')
+                    'linked_product', 'b2b_category', 'b2b_sub_category', 'b2c_category', 'b2c_sub_category',
+                    'description', 'sku_type', 'status', 'product_pack_type', 'created_at', 'modified_at')
     fields = ('shop', 'linked_product', 'sku', 'name', 'mrp', 'selling_price', 'product_ean_code',
               'description', 'sku_type', 'status', 'is_deleted', 'purchase_pack_size', 'initial_purchase_value',
               'online_enabled', 'online_price', 'created_at', 'modified_at','product_pack_type','measurement_category')
     readonly_fields = ('shop', 'sku', 'product_ean_code',
                        'purchase_pack_size', 'online_enabled', 'online_price', 'name', 'created_at',
                        'sku_type', 'mrp', 'modified_at', 'description', 'initial_purchase_value')
+
+    def b2c_cat_sub_cat(self, obj):
+        if obj.linked_product and obj.linked_product.parent_product.parent_product_pro_b2c_category.exists():
+            if obj.linked_product.parent_product.parent_product_pro_b2c_category.last().category.category_parent:
+                category = obj.linked_product.parent_product.parent_product_pro_b2c_category.last().\
+                    category.category_parent.category_name
+                sub_category = obj.linked_product.parent_product.parent_product_pro_b2c_category.last().\
+                    category.category_name
+            else:
+                category = obj.linked_product.parent_product.parent_product_pro_b2c_category.last(). \
+                    category.category_name
+                sub_category = None
+            return category, sub_category
+        return None, None
+
+    def b2b_cat_sub_cat(self, obj):
+        if obj.linked_product and obj.linked_product.parent_product.parent_product_pro_category.exists():
+            if obj.linked_product.parent_product.parent_product_pro_category.last().category.category_parent:
+                category = obj.linked_product.parent_product.parent_product_pro_category.last().\
+                    category.category_parent.category_name
+                sub_category = obj.linked_product.parent_product.parent_product_pro_category.last().\
+                    category.category_name
+            else:
+                category = obj.linked_product.parent_product.parent_product_pro_category.last(). \
+                    category.category_name
+                sub_category = None
+            return category, sub_category
+        return None, None
+
+    def b2b_category(self, obj):
+        category, sub_category = self.b2b_cat_sub_cat(obj)
+        return category
+
+    def b2b_sub_category(self, obj):
+        category, sub_category = self.b2b_cat_sub_cat(obj)
+        return sub_category
+
+    def b2c_category(self, obj):
+        category, sub_category = self.b2c_cat_sub_cat(obj)
+        return category
+
+    def b2c_sub_category(self, obj):
+        category, sub_category = self.b2c_cat_sub_cat(obj)
+        return sub_category
 
     def get_queryset(self, request):
         qs = super(RetailerProductAdmin, self).get_queryset(request)
@@ -137,10 +181,25 @@ class RetailerProductAdmin(admin.ModelAdmin):
 
     @staticmethod
     def image(obj):
-        image = obj.retailer_product_image.last()
+        image = None
+        try:
+            retailer_object = obj.retailer_product_image.all()
+            images = None
+            if not retailer_object.exists():
+                images = obj.linked_product.product_pro_image.all() if obj.linked_product and \
+                                                                       obj.linked_product.product_pro_image.all().first() else None
+                images = obj.linked_product.parent_product.parent_product_pro_image.all() \
+                    if not images and obj.linked_product and obj.linked_product.parent_product \
+                       and obj.linked_product.parent_product.parent_product_pro_image.all().first() else images
+
+            else:
+                images = retailer_object
+            image = images.first()
+        except:
+            pass
         if image:
             return format_html('<a href="{}"><img alt="{}" src="{}" height="50px" width="50px"/></a>'.format(
-                image.image.url, (image.image_alt_text or image.image_name), image.image.url))
+                image.image.url, (image or image.image_name), image.image.url))
 
     def has_add_permission(self, request, obj=None):
         return False
@@ -201,7 +260,8 @@ class RetailerProductAdmin(admin.ModelAdmin):
 class PaymentAdmin(admin.ModelAdmin):
 
     list_display = ('order', 'payment_status', 'order_status', 'seller_shop', 'payment_type',
-                    'transaction_id', 'order_amount', 'invoice_amount', 'paid_by', 'processed_by', 'created_at')
+                    'transaction_id', 'order_amount', 'invoice_amount', 'paid_by', 'processed_by',
+                    'created_at')
 
     list_per_page = 10
     search_fields = ('order__order_no', 'paid_by__phone_number', 'order__seller_shop__shop_name')
@@ -219,11 +279,24 @@ class PaymentAdmin(admin.ModelAdmin):
             return obj.amount
         return None
 
+    # def invoice_amount(self, obj):
+    #     if obj and obj.order.rt_order_order_product.last():
+    #         if obj.order.order_app_type == Order.POS_WALKIN:
+    #             return round_half_down(obj.order.rt_order_order_product.last().invoice_amount_final)
+    #         return obj.order.rt_order_order_product.last().invoice_amount_final
+    #     return None
+
     def invoice_amount(self, obj):
-        if obj and obj.order.rt_order_order_product.last():
-            if obj.order.order_app_type==Order.POS_WALKIN:
-                return round_half_down(obj.order.rt_order_order_product.last().invoice_amount_final)
-            return obj.order.rt_order_order_product.last().invoice_amount_final
+        if obj and obj.payment_status not in [Payment.PAYMENT_PENDING, Payment.PAYMENT_FAILED, 'payment_not_found']:
+            if obj.order.order_app_type == Order.POS_WALKIN:
+                return obj.amount
+            elif obj.order.order_app_type == Order.POS_ECOMM and obj.payment_type.type == 'cod' \
+                    and obj.order.order_status in [Order.DELIVERED, Order.PARTIALLY_RETURNED, Order.FULLY_RETURNED]:
+                return obj.amount
+            elif obj.order.order_app_type == Order.POS_ECOMM and obj.payment_type.type in ['cod_upi', 'credit', 'online']\
+                    and obj.order.order_status in [Order.DELIVERED, Order.PARTIALLY_RETURNED, Order.FULLY_RETURNED,
+                                                   Order.OUT_FOR_DELIVERY]:
+                return obj.amount
         return None
 
     def get_queryset(self, request):
@@ -1005,19 +1078,20 @@ class PosCartAdmin(admin.ModelAdmin):
         f = StringIO()
         writer = csv.writer(f)
         writer.writerow(['PO No', 'Status', 'Vendor', 'Store Id', 'Store Name', 'Shop User', 'Raised By',
-                         'GF Order No', 'Created At', 'SKU', 'Product Name', 'Parent Product', 'Category',
-                         'Sub Category',
-                         'Brand', 'Sub Brand', 'Quantity', 'Purchase Price', 'Purchase Value', 'linked_product_sku'])
+                         'GF Order No', 'Created At', 'SKU', 'Product Name', 'Parent Product', 'B2B Category',
+                         'B2B Sub Category', 'B2C Category', 'B2C Sub Category', 'Brand', 'Sub Brand', 'Quantity',
+                         'Purchase Price', 'Purchase Value', 'linked_product_sku'])
 
         for obj in queryset:
             for p in obj.po_products.all():
-                parent_id, category, sub_category, brand, sub_brand = get_product_details(p.product)
+                parent_id, b2b_category, b2b_sub_category, b2c_category, b2c_sub_category, brand, sub_brand \
+                    = get_product_details(p.product)
                 purchase_value = p.price * p.qty
                 writer.writerow([obj.po_no, obj.status, obj.vendor, obj.retailer_shop.id, obj.retailer_shop.shop_name,
                                  obj.retailer_shop.shop_owner, obj.raised_by, obj.gf_order_no,
-                                 obj.created_at, p.product.sku, p.product.name, parent_id, category, sub_category,
-                                 brand, sub_brand, p.qty, p.price, purchase_value,
-                                 p.product.linked_product.product_sku if p.product.linked_product else ''])
+                                 obj.created_at, p.product.sku, p.product.name, parent_id, b2b_category,
+                                 b2b_sub_category, b2c_category, b2c_sub_category, brand, sub_brand, p.qty,
+                                 p.price, purchase_value, p.product.linked_product.product_sku if p.product.linked_product else ''])
 
         f.seek(0)
         response = HttpResponse(f, content_type='text/csv')

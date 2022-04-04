@@ -58,13 +58,13 @@ def get_validate_category(category_id, b2c=False):
     return {'category': category}
 
 
-def validate_category_name(category_name, brand_id, b2c=False):
+def validate_category_name(category_name, category_id, b2c=False):
     """ validate category_name already exist in Category Model  """
     if b2c:
         model = B2cCategory
     else:
         model = Category
-    if model.objects.filter(category_name__iexact=category_name, status=True).exclude(id=brand_id).exists():
+    if model.objects.filter(category_name__iexact=category_name, status=True).exclude(id=category_id).exists():
         return {'error': 'category with this category name already exists'}
 
 
@@ -78,11 +78,11 @@ def validate_category_sku_part(category_sku_part, brand_id, b2c=False):
         return {'error': 'category with this category sku part already exists'}
 
 
-def validate_category_slug(category_slug, brand_id, b2c=False):
+def validate_category_slug(category_slug, cat_id, b2c=False):
     """ validate category_slug already exist in Category Model  """
     if b2c:
         model = B2cCategory
     else:
         model = Category
-    if model.objects.filter(category_slug__iexact=category_slug, status=True).exclude(id=brand_id).exists():
+    if model.objects.filter(category_slug__iexact=category_slug, status=True).exclude(id=cat_id).exists():
         return {'error': 'category with this category slug already exists'}

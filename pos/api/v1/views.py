@@ -12,10 +12,12 @@ import requests
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.core.files.uploadedfile import InMemoryUploadedFile
 from django.core.validators import URLValidator
+from django.http import HttpResponse
 from django.db import transaction
 from django.db.models import Q, Sum, F, Count, Subquery, OuterRef, FloatField, ExpressionWrapper
 from django.db.models.functions import Coalesce
-from rest_framework import status, authentication, permissions
+from products.common_function import get_response
+from rest_framework import status, authentication, permissions, mixins, viewsets
 from rest_framework.generics import GenericAPIView, ListAPIView
 from rest_framework.permissions import AllowAny
 from rest_framework.views import APIView
@@ -23,7 +25,8 @@ from rest_framework.views import APIView
 from coupon.models import CouponRuleSet, RuleSetProductMapping, DiscountValue, Coupon
 
 from pos.models import (RetailerProduct, RetailerProductImage, ShopCustomerMap, Vendor, PosCart, PosGRNOrder,
-                        PaymentType, MeasurementCategory, PosReturnGRNOrder, BulkRetailerProduct, Payment)
+                        PaymentType, MeasurementCategory, PosReturnGRNOrder, BulkRetailerProduct, Payment,
+                        PosCartProductMapping)
 from pos.common_functions import (RetailerProductCls, OffersCls, serializer_error, api_response, PosInventoryCls,
                                   check_pos_shop, ProductChangeLogs, pos_check_permission_delivery_person,
                                   pos_check_permission, check_return_status, pos_check_user_permission)
@@ -48,7 +51,8 @@ from .serializers import (PaymentTypeSerializer, RetailerProductCreateSerializer
                           POSerializer, POGetSerializer, POProductInfoSerializer, POListSerializer,
                           PosGrnOrderCreateSerializer, PosGrnOrderUpdateSerializer, GrnListSerializer,
                           GrnOrderGetSerializer, MeasurementCategorySerializer, ReturnGrnOrderSerializer,
-                          GrnOrderGetListSerializer, PRNOrderSerializer, BulkProductUploadSerializers, ContectUs)
+                          GrnOrderGetListSerializer, PRNOrderSerializer, BulkProductUploadSerializers, ContectUs,
+                          RetailerProductListSerializer, DownloadRetailerProductsCsvShopWiseSerializer, DownloadUploadRetailerProductsCsvSampleFileSerializer)
 from global_config.views import get_config
 from ...forms import RetailerProductsStockUpdateForm
 from ...views import stock_update
@@ -1650,15 +1654,15 @@ class RefundPayment(GenericAPIView):
                                                           payment_status__in=["payment_approved", 'double_payment']).first()
 
         if not payment_datails:
-            return api_response('transaction does not found .....', '', status.HTTP_200_OK, False)
+            return api_response('Transaction not Found', '', status.HTTP_200_OK, False)
 
         if payment_datails.is_refund and (payment_datails.refund_status != 'failure'):
-            return api_response(f'Refund Already Created.', '', status.HTTP_200_OK, False)
+            return api_response(f'Refund is already initiated for the selected order', '', status.HTTP_200_OK, False)
 
         refund_amount = None
         if data.get('amount', None):
             if data.get('amount') > payment_datails.amount:
-                return api_response('amount should less then or equal transaction amount.....', '', status.HTTP_200_OK,
+                return api_response('amount should be less then or equal to transaction amount', '', status.HTTP_200_OK,
                                     True)
             refund_amount = data.get('amount')
         else:
@@ -1678,3 +1682,198 @@ class RefundPayment(GenericAPIView):
         payment_datails.save()
 
         return api_response('refund request successful .....', response, status.HTTP_200_OK, True)
+
+
+class RetailerProductListViewSet(mixins.ListModelMixin, 
+                                 viewsets.GenericViewSet):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    serializer_class = RetailerProductListSerializer
+    queryset = RetailerProduct.objects.filter(~Q(sku_type=4))
+    pagination_class = SmallOffsetPagination
+    
+    def list(self, request, *args, **kwargs):
+        name_search = request.query_params.get('name_search')
+        ean_code = request.query_params.get('ean_code')
+        shop_id = request.query_params.get('shop_id')
+        if request.user.is_superuser:
+            qs = self.queryset.all()
+        else:
+            qs = self.queryset.filter(shop__pos_shop__user=request.user, 
+                                      shop__pos_shop__status=True)
+        if name_search:
+            qs = qs.filter(name__icontains=name_search)
+        
+        if ean_code:
+            qs = qs.filter(product_ean_code__iexact=ean_code)
+        
+        if shop_id:
+            qs = qs.filter(shop_id=shop_id)
+        
+        retailer_products = self.pagination_class().paginate_queryset(qs, request)
+        
+        serializer = self.serializer_class(retailer_products, many=True)
+        msg = "success"
+        return get_response(msg, serializer.data, True)
+
+
+class DownloadRetailerProductCsvShopWiseView(GenericAPIView):
+    
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    serializer_class = DownloadRetailerProductsCsvShopWiseSerializer
+    
+    def post(self, request, *args, **kwargs):
+        serializer = self.serializer_class(data=request.data)
+        if serializer.is_valid():
+            shop_id = request.data.get('shop')
+            filename = f"{shop_id}_retailer_products_{datetime.datetime.now()}.csv"
+            response = HttpResponse(content_type='text/csv')
+            response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
+            writer = csv.writer(response)
+            writer.writerow(
+                ['product_id', 'shop_id', 'shop_name', 'product_sku', 'product_name', 'mrp', 'selling_price',
+                'linked_product_sku', 'product_ean_code', 'description', 'sku_type','parent_product_id', 'b2b_category',
+                'b2b_sub_category', 'b2c_category', 'b2c_sub_category', 'brand', 'sub_brand', 'status', 'quantity',
+                'discounted_sku', 'discounted_stock', 'discounted_price', 'product_pack_type', 'measurement_category',
+                'purchase_pack_size', 'available_for_online_orders', 'online_order_price', 'is_visible', 'offer_price',
+                'offer_start_date', 'offer_end_date', 'initial_purchase_value'])
+
+            product_qs = RetailerProduct.objects.filter(~Q(sku_type=4), shop_id=int(shop_id), is_deleted=False)
+            if product_qs.exists():
+                retailer_products = product_qs \
+                    .prefetch_related('linked_product') \
+                    .prefetch_related('linked_product__parent_product__product_type') \
+                    .prefetch_related('linked_product__parent_product__parent_brand') \
+                    .prefetch_related('linked_product__parent_product__parent_brand__brand_parent') \
+                    .prefetch_related('linked_product__parent_product__parent_product_pro_category__category') \
+                    .prefetch_related('linked_product__parent_product__parent_product_pro_category__category__category_parent') \
+                    .prefetch_related('linked_product__parent_product__parent_product_pro_b2c_category__category') \
+                    .prefetch_related('linked_product__parent_product__parent_product_pro_b2c_category__category__category_parent') \
+                    .select_related('measurement_category')\
+                    .values('id', 'shop', 'shop__shop_name', 'sku', 'name', 'mrp', 'selling_price', 'product_pack_type',
+                            'purchase_pack_size',
+                            'measurement_category__category',
+                            'linked_product__product_sku',
+                            'product_ean_code', 'description', 'sku_type',
+                            'linked_product__parent_product__parent_product_pro_category__category__category_name',
+                            'linked_product__parent_product__parent_product_pro_b2c_category__category__category_name',
+                            'linked_product__parent_product__parent_product_pro_category__category__category_parent__category_name',
+                            'linked_product__parent_product__parent_product_pro_b2c_category__category__category_parent__category_name',
+                            'linked_product__parent_product__product_type',
+                            'linked_product__parent_product__parent_id',
+                            'linked_product__parent_product__parent_brand__brand_name',
+                            'linked_product__parent_product__parent_brand__brand_parent__brand_name',
+                            'status', 'discounted_product', 'discounted_product__sku', 'online_enabled', 'online_price',
+                            'is_deleted', 'offer_price', 'offer_start_date', 'offer_end_date', 'initial_purchase_value')
+                product_dict = {}
+                discounted_product_ids = []
+                for product in retailer_products:
+                    product_dict[product['id']] = product
+                    if product['discounted_product'] is not None:
+                        discounted_product_ids.append(product['discounted_product'])
+                product_ids = list(product_dict.keys())
+                product_ids.extend(discounted_product_ids)
+                inventory = PosInventory.objects.filter(product_id__in=product_ids,
+                                                        inventory_state__inventory_state=PosInventoryState.AVAILABLE)
+                inventory_data = {i.product_id: i.quantity for i in inventory}
+                is_visible = 'False'
+                for product_id, product in product_dict.items():
+                    category = product[
+                        'linked_product__parent_product__parent_product_pro_category__category__category_parent__category_name']
+                    sub_category = product[
+                        'linked_product__parent_product__parent_product_pro_category__category__category_name']
+                    if not category:
+                        category = sub_category
+                        sub_category = None
+
+                    b2c_category = product[
+                        'linked_product__parent_product__parent_product_pro_b2c_category__category__category_parent__category_name']
+                    b2c_sub_category = product[
+                        'linked_product__parent_product__parent_product_pro_b2c_category__category__category_name']
+                    if not b2c_category:
+                        b2c_category = b2c_sub_category
+                        b2c_sub_category = None
+
+                    brand = product[
+                        'linked_product__parent_product__parent_brand__brand_parent__brand_name']
+                    sub_brand = product[
+                        'linked_product__parent_product__parent_brand__brand_name']
+                    if not brand:
+                        brand = sub_brand
+                        sub_brand = None
+                    discounted_stock = None
+                    discounted_price = None
+                    if product['discounted_product']:
+                        discounted_stock = inventory_data.get(product['discounted_product'], 0)
+                        discounted_price = RetailerProduct.objects.filter(id=product['discounted_product']).last().selling_price
+                    measurement_category = product['measurement_category__category']
+                    if product['online_enabled']:
+                        online_enabled = 'Yes'
+                    else:
+                        online_enabled = 'No'
+
+                    if not product['is_deleted']:
+                        is_visible = 'Yes'
+
+                    if PosCartProductMapping.objects.filter(product__id=product['id'], is_grn_done=True,
+                                                            cart__retailer_shop__id=product['shop']).exists():
+                        po_grn_initial_value = PosCartProductMapping.objects.filter(
+                            product__id=product['id'], is_grn_done=True).last()
+                        initial_purchase_value = po_grn_initial_value.price * po_grn_initial_value.pack_size
+                    else:
+                        initial_purchase_value = product['initial_purchase_value'] \
+                            if product['initial_purchase_value'] else 0
+
+                    writer.writerow(
+                        [product['id'], product['shop'], product['shop__shop_name'], product['sku'], product['name'],
+                        product['mrp'], product['selling_price'], product['linked_product__product_sku'],
+                        product['product_ean_code'], product['description'],
+                        RetailerProductCls.get_sku_type(product['sku_type']),
+                        product['linked_product__parent_product__parent_id'],
+                        category, sub_category, b2c_category, b2c_sub_category, brand, sub_brand, product['status'], inventory_data.get(product_id, 0),
+                        product['discounted_product__sku'], discounted_stock, discounted_price, product['product_pack_type'],
+                        measurement_category, product['purchase_pack_size'], online_enabled,
+                        product['online_price'], is_visible, product['offer_price'], product['offer_start_date'],
+                        product['offer_end_date'], initial_purchase_value])
+            else:
+                writer.writerow(["Products for selected shop doesn't exists"])
+            return response
+        else:
+            errors = [f"{error} :: {serializer.errors[error][0]}" for error in serializer.errors]
+            errors = "\n".join(errors)
+            return api_response(errors)
+
+
+class DownloadUploadRetailerProductsCsvSampleFileView(GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    serializer_class = DownloadUploadRetailerProductsCsvSampleFileSerializer
+    
+    def post(self, request, *args, **kwargs):
+        serializer = self.serializer_class(data=request.data)
+        if serializer.is_valid():
+            shop_id = request.data.get('shop')
+            filename = "upload_retailer_products_sample.csv"
+            response = HttpResponse(content_type='text/csv')
+            response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
+            writer = csv.writer(response)
+            writer.writerow(
+            ['product_id', 'shop_id', 'shop_name', 'product_sku', 'product_name', 'mrp', 'selling_price',
+            'linked_product_sku', 'product_ean_code', 'description', 'sku_type', 'b2b_category', 'b2b_sub_category',
+            'b2c_category', 'b2c_sub_category', 'brand', 'sub_brand', 'status', 'quantity', 'discounted_sku',
+            'discounted_stock', 'discounted_price', 'product_pack_type', 'measurement_category', 'purchase_pack_size', 'available_for_online_orders',
+            'online_order_price', 'is_visible', 'offer_price', 'offer_start_date', 'offer_end_date',
+            'initial_purchase_value'])
+            writer.writerow(["", shop_id, "", "", 'Loose Noodles', 12, 10, 'PROPROTOY00000019', 'EAEASDF', 'XYZ', "",
+                     "", "", "", "", "", "", 'active', 2, "", "", "", 'loose', 'weight', 1, 'Yes', 11, 'Yes', 9, "2021-11-21",
+                     "2021-11-23", 8])
+            writer.writerow(["", shop_id, "", "", 'Packed Noodles', 12, 10, 'PROPROTOY00000019', 'EAEASDF', 'XYZ', "",
+                            "", "", "", "", 'active', 2, "", "", "", 'packet', '', 1, 'Yes', 11, 'Yes', 9, "2021-11-21",
+                            "2021-11-23", 9.5])
+            return response
+        else:
+            errors = [f"{error} :: {serializer.errors[error][0]}" for error in serializer.errors]
+            errors = "\n".join(errors)
+            return api_response(errors)
+            

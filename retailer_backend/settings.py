@@ -148,6 +148,7 @@ INSTALLED_APPS = [
     'drf_yasg',
     'report',
     'tinymce',
+    'drf_api_logger',
 ]
 
 # if ENVIRONMENT.lower() in ["production","qa"]:
@@ -188,6 +189,7 @@ MIDDLEWARE += [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'accounts.middlewares.RequestMiddleware',
+    'drf_api_logger.middleware.api_logger_middleware.APILoggerMiddleware',
 ]
 # if ENVIRONMENT.lower() in ["production", "qa"]:
 #     MIDDLEWARE += [
@@ -399,14 +401,15 @@ CRONJOBS = [
     ('*/10 * * * *', 'retailer_backend.cron.po_status_change_exceeds_validity_date'),
     ('30 21 * * *', 'shops.api.v1.views.set_shop_map_cron', '>>/tmp/shops'),
     ('*/1 * * * *', 'wms.views.release_blocking_with_cron', '>>/tmp/release.log'),
+    ('0 8 * * *', 'wms.views.assign_picker_user_to_pickup_created_orders', '>>/tmp/picking'),
     ('*/10 * * * *', 'wms.views.pickup_entry_creation_with_cron', '>>/tmp/picking'),
-    ('0 10 * * *', 'wms.views.mail_products_list_not_mapped_yet_to_any_zone', '>>/tmp/picking'),
+    # ('0 10 * * *', 'wms.views.mail_products_list_not_mapped_yet_to_any_zone', '>>/tmp/picking'),
     ('30 2 * * *', 'retailer_backend.cron.sync_es_products'),
     ('0 2 * * *', 'wms.views.archive_inventory_cron'),
     ('0 3 * * *', 'wms.views.move_expired_inventory_cron'),
-    ('0 23 * * *', 'audit.cron.update_audit_status_cron'),
-    ('*/30 * * * *', 'audit.cron.create_audit_tickets_cron'),
-    ('0 */1 * * *', 'audit.cron.release_products_from_audit'),
+    # ('0 23 * * *', 'audit.cron.update_audit_status_cron'),
+    # ('*/30 * * * *', 'audit.cron.create_audit_tickets_cron'),
+    # ('0 */1 * * *', 'audit.cron.release_products_from_audit'),
     ('30 19 * * *', 'franchise.crons.cron.franchise_sales_returns_inventory'),
     ('30 21 * * *', 'franchise.crons.sales_rewards.process_rewards_on_sales'),
     ('30 22 * * *', 'wms.views.auto_report_for_expired_product'),
@@ -426,11 +429,13 @@ CRONJOBS = [
     ('30 21 * * *', 'products.cron.update_price_discounted_product'),
     ('30 1 * * *', 'wms.cron.create_update_discounted_products'),
     ('0 2 * * *', 'ecom.cron.bestseller_product'),
-    ('0 * * * *', 'retailer_backend.cron.refresh_cron_es'),
+    # ('0 * * * *', 'retailer_backend.cron.refresh_cron_es'),
+    ('0 * * * *', 'retailer_to_sp.api.v1.views.refresh_cron_es'),
+    # ('*/10 * * * *', 'retailer_to_sp.cron.all_products_es_refresh'),
     ('*/5 * * * *', 'wms.cron.assign_putaway_users_to_new_putways'),
     ('0 6 * * *', 'shops.cron.get_feedback_valid'),
     ('30 21 * * *', 'shops.tasks.cancel_beat_plan'),
-    ('0 1 * * *', 'wms.scripts.populate_to_be_picked_qty.populate_to_be_picked_quantity_by_cron'),
+    ('0 2 * * *', 'wms.scripts.populate_to_be_picked_qty.populate_to_be_picked_quantity_by_cron'),
     ('0 */6 * * *', 'wms.scripts.release_stucked_qc_areas.release_stucked_qc_areas_by_cron'),
 ]
 
@@ -443,7 +448,7 @@ DEBUG_TOOLBAR_CONFIG = {
 DEBUG_TOOLBAR_PATCH_SETTINGS = False
 
 # Initiate Sentry SDK
-if ENVIRONMENT.lower() in ["production", "stage", "qa", "qa1", "qa3", "qa4"]:
+if ENVIRONMENT.lower() in ["production",]:
     from sentry_sdk.integrations.celery import CeleryIntegration
     sentry_sdk.init(
         dsn="https://2f8d192414f94cd6a0ba5b26d6461684@sentry.io/1407300",
@@ -621,6 +626,7 @@ EMAIL_USE_TLS = config('EMAIL_USE_TLS')
 WHATSAPP_API_ENDPOINT = config('WHATSAPP_API_ENDPOINT')
 WHATSAPP_API_USERID = config('WHATSAPP_API_USERID')
 WHATSAPP_API_PASSWORD = config('WHATSAPP_API_PASSWORD')
+INCENTIVE_DASHBOARD_MONTH = 2
 
 # AWS MEDIA URL
 AWS_MEDIA_URL = config('AWS_MEDIA_URL')
@@ -638,3 +644,9 @@ else:
         hosts=[config('ES_INDEX')],
         http_auth=(config('ES_USER_NAME'), config('ES_PASSWORD')),
     )
+
+# DRF API LOGGER
+DRF_API_LOGGER_DATABASE = config('DRF_API_LOGGER_DATABASE')
+DRF_API_LOGGER_EXCLUDE_KEYS = ['password', 'token', 'access', 'refresh']
+DRF_API_LOGGER_SLOW_API_ABOVE = 200
+DRF_API_LOGGER_TIMEDELTA = 330

@@ -123,11 +123,10 @@ class BasicCartOffers(object):
         c_list = []
         try:
             coupons_list = es.search(index=create_es_index("rc-{}".format(shop_id)), body=body)
+            for c in coupons_list['hits']['hits']:
+                c_list.append(c["_source"])
         except:
-            es_create = es.index(index=create_es_index('rc-{}'.format(shop_id)), body=body)
-            coupons_list = es.search(index=create_es_index("rc-{}".format(shop_id)), body=body)
-        for c in coupons_list['hits']['hits']:
-            c_list.append(c["_source"])
+            pass
         return c_list
 
     @classmethod
@@ -268,11 +267,10 @@ class BasicCartOffers(object):
         c_list = []
         try:
             coupons_list = es.search(index=create_es_index("rc-{}".format(shop_id)), body=body)
+            for c in coupons_list['hits']['hits']:
+                c_list.append(c["_source"])
         except:
-            es_create = es.index(index=create_es_index('rc-{}'.format(shop_id)), body=body)
-            coupons_list = es.search(index=create_es_index("rc-{}".format(shop_id)), body=body)
-        for c in coupons_list['hits']['hits']:
-            c_list.append(c["_source"])
+            pass
         return c_list
 
     @classmethod
@@ -298,11 +296,10 @@ class BasicCartOffers(object):
         c_list = []
         try:
             coupons_list = es.search(index=create_es_index("rc-{}".format(shop_id)), body=body)
+            for c in coupons_list['hits']['hits']:
+                c_list.append(c["_source"])
         except:
-            es_create = es.index(index=create_es_index('rc-{}'.format(shop_id)), body=body)
-            coupons_list = es.search(index=create_es_index("rc-{}".format(shop_id)), body=body)
-        for c in coupons_list['hits']['hits']:
-            c_list.append(c["_source"])
+            pass
         return c_list
 
     @classmethod
@@ -576,11 +573,10 @@ class BasicCartOffers(object):
         c_list = []
         try:
             coupons_list = es.search(index=create_es_index("rc-{}".format(shop_id)), body=body)
-        except:
-            es_create = es.index(index=create_es_index('rc-{}'.format(shop_id)), body=body)
-            coupons_list = es.search(index=create_es_index("rc-{}".format(shop_id)), body=body)
-        for c in coupons_list['hits']['hits']:
-            c_list.append(c["_source"])
+            for c in coupons_list['hits']['hits']:
+                c_list.append(c["_source"])
+        except Exception as e:
+            pass
         return c_list
 
     @classmethod
