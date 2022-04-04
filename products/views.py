@@ -35,7 +35,6 @@ from wms.models import InventoryType, WarehouseInventory, InventoryState, BinInv
 from wms.common_functions import get_stock, StockMovementCSV, create_batch_id, InCommonFunctions, \
     CommonBinInventoryFunctions, CommonWarehouseInventoryFunctions, InternalInventoryChange, \
     InternalStockCorrectionChange, inventory_in_and_out_weight, get_manufacturing_date
-from .common_function import ParentProductCls
 
 from .forms import (
     GFProductPriceForm, ProductPriceForm, ProductsFilterForm,
@@ -1069,7 +1068,6 @@ def parent_product_upload(request):
                                     category=B2cCategory.objects.filter(category_name=cat).last()
                                 )
                                 parent_product_category.save()
-                        ParentProductCls.update_tax_status_and_remark(parent_product)
                         
             except Exception as e:
                 return render(request, 'admin/products/parent-product-upload.html', {

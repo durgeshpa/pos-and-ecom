@@ -644,7 +644,7 @@ class LandingPageSerializer(serializers.ModelSerializer):
             elif int(self.initial_data['sub_type']) not in get_config('CMS_LANDING_PAGE_SUBTYPE', LISTING_SUBTYPE_CHOICE):
                 raise serializers.ValidationError(f"Invalid landing page sub type selected{self.initial_data['sub_type']}")
             elif int(self.initial_data['sub_type']) == LISTING_SUBTYPE_CHOICE.LIST:
-                validation_result = self.validate_landing_page_products()
+                validation_result = self.validate_landing_page_products(data)
                 if 'error' in validation_result:
                     raise serializers.ValidationError(validation_result['error'])
                 data['products'] = validation_result['data']
