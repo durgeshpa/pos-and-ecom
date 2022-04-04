@@ -40,19 +40,20 @@ from retailer_backend.utils import SmallOffsetPagination, OffsetPaginationDefaul
 from retailer_to_sp.models import OrderedProduct, Order, OrderReturn
 from shops.models import Shop
 from wms.models import PosInventoryChange, PosInventoryState, PosInventory
-from .serializers import (PaymentTypeSerializer, RetailerProductCreateSerializer, RetailerProductUpdateSerializer,
+from .serializers import (BulkCreateUpdateRetailerProductsSerializer, PaymentTypeSerializer, RetailerProductCreateSerializer, RetailerProductUpdateSerializer,
                           RetailerProductResponseSerializer, CouponOfferSerializer, FreeProductOfferSerializer,
                           ComboOfferSerializer, CouponOfferUpdateSerializer, ComboOfferUpdateSerializer,
                           CouponListSerializer, FreeProductOfferUpdateSerializer, OfferCreateSerializer,
                           OfferUpdateSerializer, CouponGetSerializer, OfferGetSerializer, ImageFileSerializer,
                           InventoryReportSerializer, InventoryLogReportSerializer, SalesReportResponseSerializer,
                           SalesReportSerializer, CustomerReportSerializer, CustomerReportResponseSerializer,
-                          CustomerReportDetailResponseSerializer, VendorSerializer, VendorListSerializer,
+                          CustomerReportDetailResponseSerializer, UpdateRetailerProductCsvSerializer, VendorSerializer, VendorListSerializer,
                           POSerializer, POGetSerializer, POProductInfoSerializer, POListSerializer,
                           PosGrnOrderCreateSerializer, PosGrnOrderUpdateSerializer, GrnListSerializer,
                           GrnOrderGetSerializer, MeasurementCategorySerializer, ReturnGrnOrderSerializer,
                           GrnOrderGetListSerializer, PRNOrderSerializer, BulkProductUploadSerializers, ContectUs,
-                          RetailerProductListSerializer, DownloadRetailerProductsCsvShopWiseSerializer, DownloadUploadRetailerProductsCsvSampleFileSerializer)
+                          RetailerProductListSerializer, DownloadRetailerProductsCsvShopWiseSerializer, DownloadUploadRetailerProductsCsvSampleFileSerializer,
+                          CreateRetailerProductCsvSerializer)
 from global_config.views import get_config
 from ...forms import RetailerProductsStockUpdateForm
 from ...views import stock_update
@@ -1876,4 +1877,50 @@ class DownloadUploadRetailerProductsCsvSampleFileView(GenericAPIView):
             errors = [f"{error} :: {serializer.errors[error][0]}" for error in serializer.errors]
             errors = "\n".join(errors)
             return api_response(errors)
-            
+
+
+class BulkCreateUpdateRetailerProductsView(GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    serializer_class = BulkCreateUpdateRetailerProductsSerializer
+    
+    def post(self, request, *args, **kwargs):
+        serializer = self.serializer_class(data=request.data)
+        if serializer.is_valid():
+            data_file = csv.DictReader(codecs.iterdecode(request.data['file'], 'utf-8', errors='ignore'))
+            product_serializers = []
+            for product_data in data_file:
+                if product_data.get('product_id'):
+                    product_serializer = UpdateRetailerProductCsvSerializer(product_data.get('product'), 
+                                                                            data=product_data)
+                else:
+                    product_serializer = CreateRetailerProductCsvSerializer(data=product_data)
+                if product_serializer.is_valid():
+                    product_serializers.append(product_serializer)
+                else:
+                    errors = [f"{error} :: {serializer.errors[error][0]}" for error in serializer.errors]
+                    errors = "\n".join(errors)
+                    return api_response(errors)
+            for product in product_serializers:
+                product.save()
+        else:
+            errors = [f"{error} :: {serializer.errors[error][0]}" for error in serializer.errors]
+            errors = "\n".join(errors)
+            return api_response(errors)
+
+
+class LinkRetailerProductsBulkUploadCsvSampleView(GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    
+    def post(self, request, *args, **kwargs):
+        filename = 'link_retailer_products_sample.csv'
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
+        writer = csv.writer(
+            ['shop_id', 'product_sku', 'product_name', 'linked_product_sku', 'linked_product_name', 'status']
+        )
+        writer.writerow(
+            ['35323', '35323284D5FAB99A6', 'Fruit', 'AFGARFTOY00000001', 'Mango', 'linked']
+        )
+        return response

@@ -8,7 +8,8 @@ from .views import (PosProductView, CouponOfferCreation, InventoryReport, SalesR
                     GetGrnOrderListView, ReturnStatusListView, MeasurementCategoryView, StockUpdateReasonListView,
                     PRNwithoutGRNView, CreateBulkProductView, UpdateInventoryStockView, Contect_Us, PaymentStatusList,
                     EcomPaymentTypeDetailView, PaymentModeChoicesList, RefundPayment, RetailerProductListViewSet,
-                    DownloadRetailerProductCsvShopWiseView, DownloadUploadRetailerProductsCsvSampleFileView)
+                    DownloadRetailerProductCsvShopWiseView, DownloadUploadRetailerProductsCsvSampleFileView, 
+                    BulkCreateUpdateRetailerProductsView, LinkRetailerProductsBulkUploadCsvSampleView)
 
 router = DefaultRouter()
 
@@ -59,7 +60,9 @@ urlpatterns = [
     url(r'^payment-mode-choice/$', PaymentModeChoicesList.as_view()),
     url(r'^payment-refund/$', RefundPayment.as_view(), name='payment-refund'),
     url(r'^download-retailer-products-csv/$', DownloadRetailerProductCsvShopWiseView.as_view(), name='download-retailer-products-csv'),
-    url(r'^download-upload-retailer-products-sample-file/$', DownloadUploadRetailerProductsCsvSampleFileView.as_view(), name='download-upload-retailer-products-sample-file')
+    url(r'^download-upload-retailer-products-sample-file/$', DownloadUploadRetailerProductsCsvSampleFileView.as_view(), name='download-upload-retailer-products-sample-file'),
+    url(r'^create-update-bulk-retailer-products-file/$', BulkCreateUpdateRetailerProductsView.as_view(), name='create-update-bulk-retailer-products-file'),
+    url(r'^link-retailer-products-sample-file/$', LinkRetailerProductsBulkUploadCsvSampleView.as_view(), name='link-retailer-products-sample-file')
 ]
 
 urlpatterns += router.urls

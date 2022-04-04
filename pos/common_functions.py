@@ -99,6 +99,36 @@ class RetailerProductCls(object):
         return product
 
     @classmethod
+    def update_retailer_product(cls, product_id, shop_id, name, mrp, selling_price, linked_product_id, sku_type, description,
+                                product_ean_code, user, event_type, pack_type, measure_cat_id, event_id=None,
+                                product_status='active', offer_price=None, offer_sd=None, offer_ed=None,
+                                product_ref=None, online_enabled=True, online_price=None, purchase_pack_size=1,
+                                is_visible=False, initial_purchase_value=None, add_offer_price=False):
+        product_status = 'active' if product_status is None else product_status
+        try:
+            if online_enabled is True and float(online_price) == 0.0 and add_offer_price is True:
+                online_price = offer_price
+            elif online_enabled is True and float(online_price) == 0.0:
+                online_price = selling_price
+        except:
+            online_price = selling_price
+        product = RetailerProduct.objects.filter(id=product_id)
+        old_product = deepcopy(product.last())
+        product = product.update(name=name, linked_product_id=linked_product_id,
+                                mrp=mrp, sku_type=sku_type, selling_price=selling_price,
+                                offer_price=offer_price, offer_start_date=offer_sd,
+                                offer_end_date=offer_ed, description=description,
+                                product_ean_code=product_ean_code, status=product_status,
+                                product_ref=product_ref, product_pack_type=pack_type,
+                                measurement_category_id=measure_cat_id,
+                                online_enabled=online_enabled, online_price=online_price,
+                                purchase_pack_size=purchase_pack_size, is_deleted=is_visible,
+                                initial_purchase_value=initial_purchase_value)
+        event_id = product.sku if not event_id else event_id
+        ProductChangeLogs.product_update(product, old_product, user, event_type, event_id)
+        return product
+    
+    @classmethod
     def create_images(cls, product, images):
         if images:
             count = 0
