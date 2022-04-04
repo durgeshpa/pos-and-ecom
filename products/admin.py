@@ -18,6 +18,7 @@ from django.utils.html import format_html
 from barCodeGenerator import merged_barcode_gen
 from retailer_backend.admin import InputFilter
 from retailer_backend.filters import CityFilter, ProductCategoryFilter
+from .common_function import generate_tax_group_name_by_the_mapped_taxes, ParentProductCls
 
 from .forms import (ProductCappingForm, ProductForm, ProductPriceAddPerm,
                     ProductPriceChangePerm, ProductPriceNewForm, ProductHSNForm,
@@ -25,7 +26,8 @@ from .forms import (ProductCappingForm, ProductForm, ProductPriceAddPerm,
                     RepackagingForm, ParentProductForm, ProductSourceMappingForm, DestinationRepackagingCostMappingForm,
                     ProductSourceMappingFormSet, DestinationRepackagingCostMappingFormSet, ProductImageFormSet,
                     SlabInlineFormSet, PriceSlabForm, ProductPriceSlabForm, ProductPriceSlabCreationForm,
-                    ProductPackingMappingForm, ProductPackingMappingFormSet, DiscountedProductForm, DiscountedProductPriceSlabCreationForm)
+                    ProductPackingMappingForm, ProductPackingMappingFormSet, DiscountedProductForm,
+                    DiscountedProductPriceSlabCreationForm, TaxGroupFormSet)
 
 from .models import *
 from .resources import (ColorResource, FlavorResource, FragranceResource,
@@ -586,6 +588,19 @@ class ParentProductTaxMappingAdmin(admin.TabularInline):
         pass
 
 
+class ParentProductTaxApprovalLogAdmin(admin.TabularInline):
+    model = ParentProductTaxApprovalLog
+    fields = ('parent_product', 'tax_status', 'tax_remark', 'created_by', 'created_at')
+    readonly_fields = ('parent_product', 'tax_status', 'tax_remark', 'created_by', 'created_at')
+    extra = 0
+
+    def has_add_permission(self, request, obj):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
 class ParentProductAdmin(admin.ModelAdmin):
     resource_class = ParentProductResource
     form = ParentProductForm
@@ -601,8 +616,8 @@ class ParentProductAdmin(admin.ModelAdmin):
     change_form_template = 'admin/products/parent_product_change_form.html'
     actions = [deactivate_selected_products, approve_selected_products, 'export_as_csv']
     list_display = [
-        'parent_id', 'name', 'parent_product_discriptions', 'parent_brand', 'b2b_category',
-        'b2c_category', 'product_hsn', 'product_gst', 'product_cess', 'product_surcharge',
+        'parent_id', 'name', 'parent_product_discriptions', 'parent_brand', 'b2b_category', 'b2c_category',
+        'product_hsn', 'product_gst', 'product_cess', 'product_surcharge', 'tax_status', 'tax_remark',
         'product_image', 'status', 'product_type', 'is_ptr_applicable', 'ptrtype', 'ptrpercent',
         'discounted_life_percent'
     ]
@@ -611,7 +626,7 @@ class ParentProductAdmin(admin.ModelAdmin):
     ]
     inlines = [
         ParentProductCategoryAdmin, ParentProductB2cCategoryAdminInline, 
-        ParentProductImageAdmin, ParentProductTaxMappingAdmin
+        ParentProductImageAdmin, ParentProductTaxMappingAdmin, ParentProductTaxApprovalLogAdmin
     ]
     list_filter = [ParentCategorySearch, ParentBrandFilter, ParentIDFilter, 'status']
     list_per_page = 50
@@ -768,6 +783,18 @@ class ParentProductAdmin(admin.ModelAdmin):
            ),
         ] + urls
         return urls
+
+    def response_add(self, request, new_object):
+        obj = self.after_saving_model_and_related_inlines(new_object)
+        return super(ParentProductAdmin, self).response_add(request, obj)
+
+    def response_change(self, request, obj):
+        obj = self.after_saving_model_and_related_inlines(obj)
+        return super(ParentProductAdmin, self).response_change(request, obj)
+
+    def after_saving_model_and_related_inlines(self, obj):
+        ParentProductCls.update_tax_status_and_remark(obj)
+        return obj
 
 
 def deactivate_selected_child_products(modeladmin, request, queryset):
@@ -1386,8 +1413,24 @@ class ProductPriceAdmin(admin.ModelAdmin, ExportProductPrice):
         ).distinct()
 
 
+class ProductHsnGstInline(admin.TabularInline):
+    model = ProductHsnGst
+    extra = 0
+    max_num = 3
+    fields = ('gst',)
+    formset = AtLeastOneFormSet
+
+
+class ProductHsnCessInline(admin.TabularInline):
+    model = ProductHsnCess
+    extra = 0
+    max_num = 3
+    fields = ('cess',)
+
+
 class ProductHSNAdmin(admin.ModelAdmin, ExportCsvMixin):
     form = ProductHSNForm
+    inlines = [ProductHsnGstInline, ProductHsnCessInline]
     fields = ['product_hsn_code']
     list_display = ['product_hsn_code']
     actions = ['export_as_csv']
@@ -2075,6 +2118,39 @@ class DiscountedProductsAdmin(admin.ModelAdmin, ExportCsvMixin):
         return urls
 
 
+class GroupTaxMappingInline(admin.TabularInline):
+    formset = TaxGroupFormSet
+    model = GroupTaxMapping
+    extra = 0
+    fields = ('tax',)
+
+
+class TaxGroupAdmin(admin.ModelAdmin, ExportCsvMixin):
+    inlines = [GroupTaxMappingInline]
+    fields = ['name', 'zoho_id', 'is_igst']
+    readonly_fields = ['name']
+    list_display = ['name', 'zoho_id', 'zoho_grp_type']
+    search_fields = ['name', 'zoho_id']
+
+    def response_add(self, request, new_object):
+        obj = self.after_saving_model_and_related_inlines(new_object)
+        return super(TaxGroupAdmin, self).response_add(request, obj)
+
+    def response_change(self, request, obj):
+        obj = self.after_saving_model_and_related_inlines(obj)
+        return super(TaxGroupAdmin, self).response_change(request, obj)
+
+    def after_saving_model_and_related_inlines(self, obj):
+        obj.name = generate_tax_group_name_by_the_mapped_taxes(Tax.objects.filter(
+            id__in=obj.group_taxes.values_list('tax__id', flat=True)), obj.is_igst)
+        if obj.group_taxes.count() > 1:
+            obj.zoho_grp_type = TaxGroup.TAX_GROUP
+        else:
+            obj.zoho_grp_type = TaxGroup.TAX_SINGLE
+        obj.save()
+        return obj
+
+
 admin.site.register(ProductImage, ProductImageMainAdmin)
 admin.site.register(ProductVendorMapping, ProductVendorMappingAdmin)
 admin.site.register(PackageSize, PackageSizeAdmin)
@@ -2093,3 +2169,4 @@ admin.site.register(Repackaging, RepackagingAdmin)
 admin.site.register(ParentProduct, ParentProductAdmin)
 admin.site.register(SlabProductPrice, ProductSlabPriceAdmin)
 admin.site.register(DiscountedProductPrice, DiscountedProductSlabPriceAdmin)
+admin.site.register(TaxGroup, TaxGroupAdmin)
