@@ -1,4 +1,5 @@
 import datetime
+import re
 from datetime import timedelta
 
 from django.contrib.auth import get_user_model
@@ -263,7 +264,7 @@ class CartProductMapping(models.Model):
         """
             Product mrp
         """
-        return round(self.vendor_product.product_mrp, 2) if self.vendor_product else '-'
+        return round(self.cart_product.product_mrp, 2) if self.cart_product else '-'
 
     def case_sizes(self):
         """
@@ -311,7 +312,7 @@ class CartProductMapping(models.Model):
                 product_vendor_obj = product_vendor.last()
                 mrp, case_size, unit = None, None, None
                 if product_vendor_obj:
-                    mrp, case_size, unit = product_vendor_obj.product_mrp, product_vendor_obj.case_size, \
+                    mrp, case_size, unit = product.product_mrp, product_vendor_obj.case_size, \
                                            product_vendor_obj.brand_to_gram_price_unit
                 self.vendor_product = vendor_product_mapping(supplier, product.id, price, mrp, case_size, unit)
             self.per_unit_price = self.per_unit_prices()
@@ -423,7 +424,9 @@ class GRNOrderProductMapping(models.Model):
     @property
     def po_product_quantity(self):
         return self.grn_order.order.ordered_cart.cart_list.filter(
-            cart_product=self.product).last().qty if self.product else ''
+            cart_product=self.product).last().qty if self.product \
+                and self.grn_order.order.ordered_cart.cart_list.filter(
+            cart_product=self.product).last() else ''
 
     @property
     def po_product_price(self):
@@ -496,6 +499,12 @@ class GRNOrderProductMapping(models.Model):
     def clean(self):
         super(GRNOrderProductMapping, self).clean()
         self.already_grn = self.delivered_qty
+
+        if not re.match("^\d+[.]?[\d]{0,2}$", str(self.po_product_price)):
+            raise ValidationError(f"{self.po_product_price} |' PO Product Price' can only be a numeric value.")
+        if not re.match("^\d+[.]?[\d]{0,2}$", str(self.product_invoice_price)):
+            raise ValidationError(f"{self.product_invoice_price} |' PO Invoice Price' can only be a numeric value.")
+
         if self.delivered_qty and float(self.po_product_price) != float(self.product_invoice_price):
             raise ValidationError(_("Po_Product_Price and Po_Invoice_Price are not similar"))
 

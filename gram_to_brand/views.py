@@ -439,8 +439,8 @@ class VendorProductPrice(APIView):
     
 
     def get(self, *args, **kwargs):
-        supplier_id = self.request.GET.get('supplier_id')
-        product_id = self.request.GET.get('product_id')
+        supplier_id = None if self.request.GET.get('supplier_id').strip()=='' else self.request.GET.get('supplier_id')
+        product_id = None if self.request.GET.get('product_id').strip()=='' else self.request.GET.get('product_id')
         vendor_product_price, vendor_product_mrp, product_case_size, product_inner_case_size = 0, 0, 0, 0
         vendor_mapping = ProductVendorMapping.objects.filter(vendor__id=supplier_id, product__id=product_id)
 

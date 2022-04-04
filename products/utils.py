@@ -275,3 +275,12 @@ def deactivate_product(product):
     product.status = 'deactivated'
     product.save()
 
+
+def parent_product_categories(parent_product):
+    b2b_cat = None
+    b2c_cat = None
+    if parent_product.parent_product_pro_category.filter(status=True).exists():
+        b2b_cat = parent_product.parent_product_pro_category.filter(status=True)
+    if parent_product.parent_product_pro_b2c_category.filter(status=True).exists():
+        b2c_cat = parent_product.parent_product_pro_b2c_category.filter(status=True)
+    return b2b_cat, b2c_cat

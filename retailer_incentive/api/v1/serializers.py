@@ -1,8 +1,26 @@
+import datetime
+
+from django.db import transaction
+from decimal import Decimal
+import logging
+import io
+import xlsxwriter
+from django.http import HttpResponse
+from django.utils.safestring import mark_safe
+from django.urls import reverse
 from rest_framework import serializers
 
-from retailer_incentive.models import SchemeShopMapping, SchemeSlab, Scheme
+from retailer_incentive.common_validators import bulk_incentive_data_validation
+from retailer_incentive.models import SchemeShopMapping, SchemeSlab, Scheme, Incentive, BulkIncentive
+from retailer_incentive.utils import pos_save_file
 from shops.models import ShopUserMapping, Shop
 from accounts.models import User
+
+
+info_logger = logging.getLogger('file-info')
+error_logger = logging.getLogger('file-error')
+debug_logger = logging.getLogger('file-debug')
+cron_logger = logging.getLogger('cron_log')
 
 
 class SchemeSlabSerializer(serializers.ModelSerializer):
@@ -76,3 +94,42 @@ class SchemeDetailSerializer(serializers.ModelSerializer):
         """ Meta class """
         model = SchemeSlab
         fields = ['id', 'scheme', ]
+
+
+class IncentiveSerializer(serializers.ModelSerializer):
+    uploaded_file = serializers.FileField(label='Upload Incentive')
+
+    class Meta:
+        """ Meta class """
+        model = BulkIncentive
+        fields = ('uploaded_file',)
+
+    def validate(self, data):
+        if not data['uploaded_file'].name[-5:] in ('.xlsx'):
+            raise serializers.ValidationError('Sorry! Only xlsx file accepted.')
+
+        return data
+
+    @transaction.atomic
+    def create(self, validated_data):
+        """ create incentive """
+        try:
+            bulk_incentive_obj = BulkIncentive.objects.create(**validated_data)
+        except Exception as e:
+            error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
+            raise serializers.ValidationError(error)
+        data = pos_save_file(bulk_incentive_obj)
+        return data if data else bulk_incentive_obj
+
+
+class GetListIncentiveSerializer(serializers.ModelSerializer):
+    shop_name = serializers.SerializerMethodField()
+
+    class Meta:
+        """ Meta class """
+        model = Incentive
+        fields = ('shop', 'shop_name', 'capping_applicable', 'capping_value', 'date_of_calculation',
+                  'total_ex_tax_delivered_value', 'incentive')
+
+    def get_shop_name(self, obj):
+        return obj.shop.shop_name

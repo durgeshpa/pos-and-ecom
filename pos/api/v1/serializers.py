@@ -36,7 +36,7 @@ from wms.models import PosInventory, PosInventoryState, PosInventoryChange
 from marketing.models import ReferralCode
 from accounts.models import User
 from ecom.models import Address
-from ecom.api.v1.serializers import EcomOrderAddressSerializer
+from ecom.api.v1.serializers import EcomOrderAddressSerializer, ShopInfoSerializer
 
 
 info_logger = logging.getLogger('file-info')
@@ -225,12 +225,28 @@ class RetailerProductUpdateSerializer(serializers.Serializer):
             raise serializers.ValidationError("Product not found!")
 
         sp = attrs['selling_price'] if attrs['selling_price'] else product.selling_price
-        mrp = attrs['mrp'] if attrs['mrp'] else product.mrp
         ean = attrs['product_ean_code'] if attrs['product_ean_code'] else product.product_ean_code
 
-        if ean and RetailerProduct.objects.filter(sku_type=product.sku_type, shop=shop_id, product_ean_code=ean,
-                                                  mrp=mrp, is_deleted=False).exclude(id=pid).exists():
-            raise serializers.ValidationError("Another product with same ean and mrp exists in catalog.")
+        if attrs['mrp'] and not product.mrp == attrs['mrp']:
+            if ean and RetailerProduct.objects.filter(sku_type=product.sku_type, shop=shop_id, product_ean_code=ean,
+                                                      mrp=attrs['mrp'], is_deleted=False).exclude(id=pid).exists():
+                raise serializers.ValidationError("Another product with same ean and mrp exists in catalog.")
+
+        mrp = attrs['mrp'] if attrs['mrp'] else product.mrp
+
+        # if 'stock_qty' in self.initial_data and self.initial_data['stock_qty'] is not None:
+        #     available_state = PosInventoryState.objects.get(inventory_state=PosInventoryState.AVAILABLE)
+        #     pos_stock_qty = PosInventory.objects.filter(product=product.id, inventory_state=available_state)
+        #     if pos_stock_qty:
+        #         if pos_stock_qty.last().quantity == self.initial_data['stock_qty']:
+        #
+        #             if ean and RetailerProduct.objects.filter(sku_type=product.sku_type, shop=shop_id, product_ean_code=ean,
+        #                                                       mrp=mrp, is_deleted=False).exclude(id=pid).exists():
+        #                 raise serializers.ValidationError("Another product with same ean and mrp exists in catalog.")
+        #
+        # elif ean and RetailerProduct.objects.filter(sku_type=product.sku_type, shop=shop_id, product_ean_code=ean,
+        #                                             mrp=mrp, is_deleted=False).exclude(id=pid).exists():
+        #     raise serializers.ValidationError("Another product with same ean and mrp exists in catalog.")
 
         if (attrs['selling_price'] or attrs['mrp']) and sp > mrp:
             raise serializers.ValidationError("Selling Price should be equal to OR less than MRP")
@@ -613,6 +629,12 @@ class BasicCartSerializer(serializers.ModelSerializer):
 
     def get_amount_payable(self, obj):
         sub_total = float(self.total_amount_dt(obj)) - self.get_total_discount(obj)
+        if obj.cart_type == 'ECOM':
+            sub_total = float(self.total_amount_dt(obj)) - (
+                    float(self.get_total_discount(obj)))
+        else:
+            sub_total = float(self.total_amount_dt(obj)) - (
+                    float(self.get_total_discount(obj)) + float(self.get_product_discount_from_mrp(obj)))
         return round(sub_total)
 
 
@@ -754,6 +776,7 @@ class BasicOrderListSerializer(serializers.ModelSerializer):
     seller_shop = PosEcomShopSerializer(read_only=True)
     gstn_no = serializers.SerializerMethodField()
     invoice_no = serializers.SerializerMethodField()
+    delivery_option = serializers.SerializerMethodField()
 
     @staticmethod
     def get_invoice_no(obj):
@@ -782,6 +805,11 @@ class BasicOrderListSerializer(serializers.ModelSerializer):
         ordered_product = obj.rt_order_order_product.last()
         return round((ordered_product.invoice_amount_final), 2) if ordered_product else(obj.order_amount)
 
+    def get_delivery_option(self, obj):
+        if obj.delivery_option:
+            return obj.get_delivery_option_display()
+
+
     def get_ordered_product(self, obj):
         """
             Get ordered product id
@@ -808,7 +836,7 @@ class BasicOrderListSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Order
-        fields = ('id', 'order_status', 'order_cancel_reson', 'order_amount', 'order_no', 'buyer', 'created_at',
+        fields = ('id', 'order_status', 'delivery_option', 'order_cancel_reson', 'order_amount', 'order_no', 'buyer', 'created_at',
                   'payment', 'invoice_amount', 'delivery_persons', 'ordered_product', 'rt_return_order', 'ordered_cart',
                   'seller_shop', 'gstn_no', 'invoice_no')
 
@@ -1015,6 +1043,8 @@ class BasicOrderSerializer(serializers.ModelSerializer):
     gstn_no = serializers.SerializerMethodField()
     invoice_no = serializers.SerializerMethodField()
     discount = serializers.SerializerMethodField()
+    delivery_option = serializers.SerializerMethodField()
+    estimate_delivery_time = serializers.SerializerMethodField()
 
     def get_discount(self, obj):
         discount = 0
@@ -1022,6 +1052,10 @@ class BasicOrderSerializer(serializers.ModelSerializer):
         for offer in offers:
             discount += float(offer['discount_value'])
         return round(discount, 2)
+
+    def get_delivery_option(self, obj):
+        if obj.delivery_option:
+            return obj.get_delivery_option_display()
 
     @staticmethod
     def get_cart_offers(obj):
@@ -1160,10 +1194,14 @@ class BasicOrderSerializer(serializers.ModelSerializer):
                 discount += i['discount_value']
         return round(discount, 2)
 
+    def get_estimate_delivery_time(self, obj):
+        if obj.estimate_delivery_time:
+            return str(obj.estimate_delivery_time)
+
     class Meta:
         model = Order
-        fields = ('id', 'order_no', 'ordered_cart', 'products', 'ongoing_return', 'seller_shop',
-                  'gstn_no', 'invoice_no', 'discount')
+        fields = ('id', 'order_no', 'ordered_cart', 'products', 'delivery_option', 'ongoing_return', 'seller_shop',
+                  'gstn_no', 'invoice_no', 'discount', "estimate_delivery_time")
 
 
 class OrderReturnCheckoutSerializer(serializers.ModelSerializer):
@@ -3315,6 +3353,7 @@ class PosEcomOrderDetailSerializer(serializers.ModelSerializer):
     payment = serializers.SerializerMethodField('payment_data')
     order_cancel_reson = serializers.SerializerMethodField()
     ordered_product = serializers.SerializerMethodField()
+    delivery_option = serializers.SerializerMethodField()
 
     def __init__(self, *args, **kwargs):
         super(PosEcomOrderDetailSerializer,self).__init__( *args, **kwargs)
@@ -3328,6 +3367,10 @@ class PosEcomOrderDetailSerializer(serializers.ModelSerializer):
         elif obj.order_status == Order.OUT_FOR_DELIVERY:
             return {Order.DELIVERED: 'Mark Delivered'}
         return ret
+
+    def get_delivery_option(self, obj):
+        if obj.delivery_option:
+            return obj.get_delivery_option_display()
 
     def get_order_cancel_reson(self,obj):
         if obj.order_status == "CANCELLED":
@@ -3443,7 +3486,7 @@ class PosEcomOrderDetailSerializer(serializers.ModelSerializer):
                     if return_item['status'] != 'created':
                         product['returned_qty'] = product['returned_qty'] + return_item['return_qty'
                         ] if 'returned_qty' in product else return_item['return_qty']
-            product['returned_subtotal'] = round(float(product['selling_price']) * product['returned_qty'], 2)
+            product['returned_subtotal'] = round(Decimal(product['selling_price']) * product['returned_qty'], 2)
             # map purchased product with free product
             if product['retailer_product']['id'] in product_offer_map:
                 free_prod_info = self.get_free_product_text(product_offer_map, return_item_map, product, free_picked_map)
@@ -3530,7 +3573,7 @@ class PosEcomOrderDetailSerializer(serializers.ModelSerializer):
         model = Order
         fields = ('id', 'order_no', 'creation_date', 'order_status', 'items', 'order_summary', 'return_summary',
                   'invoice_summary', 'ordered_product', 'invoice_amount', 'address', 'order_update',
-                  'ecom_estimated_delivery_time', 'delivery_person', 'order_status_display', 'order_cancel_reson',
+                  'estimate_delivery_time', 'delivery_person', 'delivery_option', 'order_status_display', 'order_cancel_reson',
                   'payment', 'ordered_cart')
 
 
@@ -3853,3 +3896,90 @@ class BulkProductUploadSerializers(serializers.ModelSerializer):
 class ContectUs(serializers.Serializer):
     phone_number = serializers.CharField()
     email = serializers.EmailField()
+
+
+class RetailerProductListSerializer(serializers.ModelSerializer):
+    @staticmethod
+    def return_category(instance):
+        if instance.linked_product and instance.linked_product.parent_product.parent_product_pro_category.exists():
+            if instance.linked_product.parent_product.parent_product_pro_category.last().category.category_parent:
+                category = instance.linked_product.parent_product.parent_product_pro_category.last().\
+                    category.category_parent.category_name
+                sub_category = instance.linked_product.parent_product.parent_product_pro_category.last().\
+                    category.category_name
+            else:
+                category = instance.linked_product.parent_product.parent_product_pro_category.last(). \
+                    category.category_name
+                sub_category = None
+            return category, sub_category
+        return None, None
+    
+    @staticmethod
+    def return_b2c_category(instance):
+        if instance.linked_product and instance.linked_product.parent_product.parent_product_pro_b2c_category.exists():
+            if instance.linked_product.parent_product.parent_product_pro_b2c_category.last().category.category_parent:
+                category = instance.linked_product.parent_product.parent_product_pro_b2c_category.last().\
+                    category.category_parent.category_name
+                sub_category = instance.linked_product.parent_product.parent_product_pro_b2c_category.last().\
+                    category.category_name
+            else:
+                category = instance.linked_product.parent_product.parent_product_pro_b2c_category.last(). \
+                    category.category_name
+                sub_category = None
+            return category, sub_category
+        return None, None
+    
+    shop = ShopInfoSerializer(read_only=True)
+    image = serializers.SerializerMethodField()
+    sku_type = serializers.SerializerMethodField()
+    linked_product = serializers.SerializerMethodField()
+    category = serializers.SerializerMethodField()
+    sub_category = serializers.SerializerMethodField()
+    b2c_category = serializers.SerializerMethodField()
+    b2c_sub_category = serializers.SerializerMethodField()
+    
+    def get_category(self, instance):
+        category, _ = RetailerProductListSerializer.return_category(instance)
+        return category
+
+    def get_sub_category(self, instance):
+        _, sub_category = RetailerProductListSerializer.return_category(instance)
+        return sub_category
+
+    def get_b2c_category(self, instance):
+        category, _ = RetailerProductListSerializer.return_b2c_category(instance)
+        return category
+
+    def get_b2c_sub_category(self, instance):
+        _, sub_category = RetailerProductListSerializer.return_b2c_category(instance)
+        return sub_category
+    
+    def get_linked_product(self, instance):
+        if instance.linked_product:
+            return str(instance.linked_product)
+        return None
+    
+    def get_image(self, instance):
+        image = instance.retailer_product_image.filter(status=True).first()
+        return RetailerProductImageSerializer(image).data
+    
+    def get_sku_type(self, instance):
+        sku_type_dict = {
+            1: 'CREATED',
+            2: 'LINKED',
+        }
+        return sku_type_dict.get(instance.sku_type)
+
+        
+    class Meta:
+        model = RetailerProduct
+        fields = ('shop', 'sku', 'name', 'mrp', 'selling_price', 'product_ean_code', 'image',
+                'linked_product', 'category', 'sub_category', 'b2c_category', 'b2c_sub_category',
+                'description', 'sku_type', 'status', 'product_pack_type', 'created_at', 'modified_at')
+
+
+class DownloadRetailerProductsCsvShopWiseSerializer(serializers.Serializer):
+    shop = serializers.IntegerField()
+
+class DownloadUploadRetailerProductsCsvSampleFileSerializer(serializers.Serializer):
+    shop = serializers.IntegerField()

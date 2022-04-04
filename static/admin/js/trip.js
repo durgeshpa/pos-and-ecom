@@ -14,7 +14,8 @@
     SubmitFormConfirmDialog();
     AddCheckedIDToList();
     GetResultOnTypingArea();
-    GetResultOnChangeSellerShop();
+//    GetResultOnChangeSellerShop();
+//    GetResultOnChangeSourceShop();
     CallAPI();
     initTripStatus();
   });
@@ -98,15 +99,18 @@ function GetURL() {
 
 function GetResultByTripAndSellerShop() {
   var seller_shop_id = $('select#id_seller_shop').val();
+  var source_shop_id = $('select#id_source_shop').val();
   var trip_id = $('#id_trip_id').val();
   EmptyElement('tbody#data');
   HideField('tr#heading');
   ShowField('tr#loading');
-  var seller_shop_id = $("option:selected").val();
+//  var seller_shop_id = $("option:selected").val();
+//  var source_shop_id = $("option:selected").val();
   $.ajax({
       url: GetURL(),
      data: {
           'seller_shop_id': seller_shop_id,
+          'source_shop_id': source_shop_id,
           'trip_id': trip_id,
       },
       success: function(data) {
@@ -125,6 +129,7 @@ function GetResultOnTypingArea(){
       ShowField('tr#loading');
       var area = $(this).val();
       var seller_shop = $('#id_seller_shop').val();
+      var source_shop = $('#id_source_shop').val();
       var trip_id = $('#id_trip_id').val();
 
       if (seller_shop.length == 0) {
@@ -134,6 +139,7 @@ function GetResultOnTypingArea(){
               url: GetURL(),
               data: {
                   'seller_shop_id': seller_shop,
+                  'source_shop_id': source_shop,
                   'area': area,
                   'trip_id': trip_id
 
@@ -153,11 +159,14 @@ function GetResultOnTypingPincode(){
       ShowField('tr#loading');
       var area = $(this).val();
       var seller_shop = $('#id_seller_shop').val();
+      var source_shop = $('#id_source_shop').val();
       var trip_id = $('#id_trip_id').val();
 
       if (seller_shop.length == 0) {
           alert("Please select Seller Shop first!");
-      } else {
+      } if (source_shop.length == 0) {
+          alert("Please select Source Shop first!");
+      }  else {
           $.ajax({
               url: GetURL(),
               success: function(data) {
@@ -168,34 +177,53 @@ function GetResultOnTypingPincode(){
       }
   });
 }
+//
+//function GetResultOnChangeSellerShop() {
+//  $("#id_seller_shop").on('change',function() {
+//      $('option:selected', $(this)).each(function() {
+//          EmptyElement('tbody#data');
+//          HideField('tr#heading');
+//          ShowField('tr#loading');
+//          var seller_shop_id = $("option:selected").val();
+//          $.ajax({
+//              url: GetURL(),
+//              data: {
+//                  'seller_shop_id': seller_shop_id
+//              },
+//              success: function(data) {
+//              if(data.is_success){
+//                initPageData(data);
+//                CheckResponse(data);
+//                }
+//
+//
+//              }
+//          });
+//      });
+//
+//  });
+//}
 
-function GetResultOnChangeSellerShop() {
-  $("#id_seller_shop").on('change',function() {
-      $('option:selected', $(this)).each(function() {
+function GetResultOnChangeSourceShop() {
           EmptyElement('tbody#data');
           HideField('tr#heading');
           ShowField('tr#loading');
-          var seller_shop_id = $("option:selected").val();
+          var seller_shop_id = $('#id_seller_shop').val();
+          var source_shop_id = $('#id_source_shop').val();
           $.ajax({
               url: GetURL(),
               data: {
-                  'seller_shop_id': seller_shop_id
+                  'seller_shop_id': seller_shop_id,
+                  'source_shop_id': source_shop_id
               },
               success: function(data) {
               if(data.is_success){
                 initPageData(data);
                 CheckResponse(data);
                 }
-                
-
               }
           });
-      });
-
-  });
 }
-
-
 
 function GetResultByTripID() {
   var trip_id = $('#id_trip_id').val();
@@ -256,10 +284,15 @@ function CreateResponseTable(data){
       var trip = elem.trip;
       var order = "<td>" + elem.order + "</td>";
       var shipment_status = "<td>" + elem.shipment_status + "</td>";
-      if (GetTripStatus() == ('COMPLETED') || GetTripStatus() == 'CLOSED'){
-        var invoice_no = "<td><a href='/admin/retailer_to_sp/orderedproduct/"+elem.pk+"/change/' target='_blank'>"+ elem.invoice_no + "</a></td>";
-      }else {
-        var invoice_no = "<td><a href='/admin/retailer_to_sp/dispatch/"+elem.pk+"/change/' target='_blank'>"+ elem.invoice_no + "</a></td>";
+      if (GetTripSourceShopType() == 'dc'){
+        var invoice_no = "<td>"+ elem.invoice_no + "</td>";
+      }
+      else {
+          if (GetTripStatus() == ('COMPLETED') || GetTripStatus() == 'CLOSED'){
+            var invoice_no = "<td><a href='/admin/retailer_to_sp/orderedproduct/"+elem.pk+"/change/' target='_blank'>"+ elem.invoice_no + "</a></td>";
+          }else {
+            var invoice_no = "<td><a href='/admin/retailer_to_sp/dispatch/"+elem.pk+"/change/' target='_blank'>"+ elem.invoice_no + "</a></td>";
+          }
       }
       var invoice_amount = "<td>" + elem.invoice_amount + "</td>";
       var invoice_city = "<td>" + elem.invoice_city + "</td>";
@@ -307,6 +340,18 @@ function DisableCheckBox() {
 
 function GetTripStatus(){
   return $('select#id_trip_status').val();
+}
+
+function GetTripSourceShopType(){
+    var source_shop = $('select#id_source_shop  option:selected').text();
+    const arr = source_shop.split("-")
+    var source_shop_type = arr.at(-2);
+    if(source_shop_type == " Dispatch Center ") {
+        return "dc"
+    }
+    else{
+        return "sp"
+    }
 }
 
 

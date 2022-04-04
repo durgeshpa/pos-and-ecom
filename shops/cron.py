@@ -1,4 +1,5 @@
-import datetime
+from datetime import (datetime,
+                      timedelta)
 import logging
 import math
 
@@ -30,29 +31,50 @@ def get_feedback_valid():
     Function to check validity of beat planning feedback
     """
     try:
-        previous_date = datetime.date.today() - datetime.timedelta(days=1)
-        beat_plan = DayBeatPlanning.objects.filter(next_plan_date__gte=previous_date)
-        executive_feedback = ExecutiveFeedback.objects.filter(day_beat_plan__in=beat_plan)
-        print(executive_feedback)
-        for feedback in executive_feedback:
+        lday = datetime.today().date() - timedelta(days=3)
+        feedbacks = ExecutiveFeedback.objects.filter(latitude__isnull=False, longitude__isnull=False,
+                                                     feedback_date__gte=lday).order_by(
+            'day_beat_plan__beat_plan__executive', 'feedback_date', 'feedback_time')
+        # print(feedbacks)
+        valid = []
+        invalid = []
+        config_distance = get_config('feedback_distance')
+        for feedback in feedbacks:
+            last_shop_distance = None
             feedback_lat = feedback.latitude
             feedback_lng = feedback.longitude
             shop_lat = feedback.day_beat_plan.shop.latitude
             shop_lng = feedback.day_beat_plan.shop.longitude
-            print(feedback_lat, feedback_lng, shop_lat, shop_lng)
             if not feedback_lng or not feedback_lat or not shop_lat or not shop_lng:
-                continue
+                pass;
             else:
                 d = distance((shop_lat, shop_lng), (feedback_lat, feedback_lng))
-                config_distance = get_config('feedback_distance')
-                if d > config_distance:
+                d=round(d,3)
+                d2 = round(d, 2)
+                if d2 > config_distance:
                     feedback.is_valid = False
                     feedback.distance_in_km = d
+                    invalid.append([feedback.id, d2])
                     feedback.save()
-                elif d <= config_distance:
+                elif d2 <= config_distance:
                     feedback.is_valid = True
                     feedback.distance_in_km = d
+                    valid.append([feedback.id, d2])
                     feedback.save()
-                print(feedback.is_valid)
+            if feedback_lng and feedback_lat and feedback.feedback_time:
+                last_feedback_list = ExecutiveFeedback.objects.filter(
+                    day_beat_plan__beat_plan__executive=feedback.day_beat_plan.beat_plan.executive,
+                    feedback_date=feedback.feedback_date,
+                    feedback_time__lt=feedback.feedback_time).order_by('feedback_time')
+                last_feedback = last_feedback_list.last()
+                if last_feedback:
+                    if last_feedback.latitude and last_feedback.longitude:
+                        last_shop_distance = distance((last_feedback.latitude, last_feedback.longitude),
+                                                      (feedback_lat, feedback_lng))
+                else:
+                    last_shop_distance = -0.001
+                feedback.last_shop_distance = round(last_shop_distance,3)
+                print(feedback)
+                feedback.save()
     except Exception as error:
         logger.exception(error)

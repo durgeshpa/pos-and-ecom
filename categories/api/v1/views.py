@@ -8,6 +8,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import authentication
 from rest_framework.generics import GenericAPIView, CreateAPIView
+
 from retailer_backend.utils import SmallOffsetPagination
 
 from shops.models import Shop, ParentRetailerMapping
@@ -105,7 +106,7 @@ class GetSubCategoriesListView(APIView):
     def get(self, *args, **kwargs):
         category_id = kwargs.get('category')
         shop_id = self.request.GET.get('shop_id')
-        if Shop.objects.filter(id=shop_id).exists():
+        if Shop.objects.filter(id=shop_id).exists() and ParentRetailerMapping.objects.filter(retailer=shop_id, status=True).exists():
             shop = ParentRetailerMapping.objects.get(retailer=shop_id, status=True).parent
             # get list of category ids with available inventory for this shop
             categories_with_products = get_stock_available_category_list(shop)

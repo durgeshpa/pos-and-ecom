@@ -471,8 +471,8 @@ class PutAwayAdmin(admin.ModelAdmin):
     info_logger.info("Put Away Admin has been called.")
     form = PutAwayForm
     list_display = (
-        'putaway_user', 'warehouse', 'sku', 'batch_id', 'putaway_type', 'putaway_type_id', 'grn_id', 'trip_id',
-        'inventory_type', 'quantity', 'status', 'putaway_quantity', 'created_at', 'modified_at')
+        'putaway_user', 'warehouse', 'sku', 'batch_id', 'putaway_type', 'zone', 'putaway_type_id',
+        'grn_id', 'trip_id', 'inventory_type', 'quantity', 'status', 'putaway_quantity', 'created_at', 'modified_at')
     actions = ['download_bulk_put_away_csv']
     readonly_fields = ('warehouse', 'putaway_type', 'putaway_type_id', 'sku', 'batch_id', 'inventory_type',
                        'quantity', 'putaway_quantity',)
@@ -513,15 +513,18 @@ class PutAwayAdmin(admin.ModelAdmin):
         f = StringIO()
         writer = csv.writer(f)
         # set the header name
-        writer.writerow(["Put Away User", "Warehouse", "Put Away Type", "Put Away Type ID", "SKU", "Batch ID",
+        writer.writerow(["Put Away User", "Warehouse", "Put Away Type", "Put Away Type ID", "GRN ID", "SKU", "Batch ID",
                          "Quantity", "Put Away Quantity", "Created At", "Modified At"])
 
         for query in queryset:
             # iteration for selected id from Admin Dashboard and get the instance
             putaway = Putaway.objects.get(id=query.id)
             # get object from queryset
+            in_type_id = None
+            if putaway.putaway_type == 'GRN':
+                in_type_id = In.objects.filter(id=putaway.putaway_type_id).last().in_type_id
             writer.writerow([putaway.putaway_user, putaway.warehouse_id,
-                             putaway.putaway_type, putaway.putaway_type_id,
+                             putaway.putaway_type, putaway.putaway_type_id, in_type_id,
                              putaway.sku.product_name + '-' + putaway.sku.product_sku,
                              putaway.batch_id, putaway.quantity, putaway.putaway_quantity,
                              putaway.created_at, putaway.modified_at])

@@ -11,14 +11,13 @@ from sp_to_gram.tasks import upload_shop_stock, create_es_index, update_shop_pro
 from shops.models import Shop, ExecutiveFeedback
 from wms.common_functions import get_visibility_changes, update_visibility, update_visibility_bulk
 from wms.models import WarehouseInventory, InventoryType, InventoryState
-from shops.cron import distance
+from shops.cron import distance, get_feedback_valid
 
 import urllib.parse
 import requests
 import re
 from celery.task import task
 from datetime import datetime, date, timedelta
-from shops.tasks import set_feedbacks
 
 
-set_feedbacks()
+get_feedback_valid()
