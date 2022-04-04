@@ -2042,6 +2042,13 @@ class OrderedProduct(models.Model):  # Shipment
         payment_mode, _ = self.payments()
         return payment_mode
 
+    @property
+    def is_igst_applicable(self):
+        if self.order.shipping_address.state_id == \
+                self.order.seller_shop.shop_name_address_mapping.last().state_id:
+            return False
+        return True
+
 
 class Invoice(models.Model):
     invoice_no = models.CharField(max_length=255, unique=True, db_index=True)
@@ -2070,6 +2077,10 @@ class Invoice(models.Model):
         except:
             inv_amount = self.shipment.invoice_amount
         return inv_amount
+
+    @property
+    def is_igst_applicable(self):
+        return self.shipment.is_igst_applicable
 
 
 class PickerDashboard(models.Model):
@@ -2968,6 +2979,11 @@ class Note(models.Model):
         if self.shipment:
             return round(self.amount)
 
+    @property
+    def is_igst_applicable(self):
+        return self.shipment.is_igst_applicable
+
+
 
 class Feedback(models.Model):
     STAR1 = '1'
@@ -3803,3 +3819,17 @@ class PickerUserAssignmentLog(models.Model):
             final_user_id=instance.picker_boy_id,
             created_by=updated_by
         )
+
+
+class EInvoiceData(Invoice):
+    class Meta:
+        proxy = True
+        verbose_name = 'e-invoice'
+        verbose_name_plural = 'e-invoices'
+
+
+class ENoteData(Note):
+    class Meta:
+        proxy = True
+        verbose_name = 'e-note'
+        verbose_name_plural = 'e-notes'

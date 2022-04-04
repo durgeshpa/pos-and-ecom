@@ -149,6 +149,7 @@ INSTALLED_APPS = [
     'report',
     'tinymce',
     'drf_api_logger',
+    'zoho',
 ]
 
 # if ENVIRONMENT.lower() in ["production","qa"]:
@@ -437,6 +438,8 @@ CRONJOBS = [
     ('30 21 * * *', 'shops.tasks.cancel_beat_plan'),
     ('*/30 * * * *', 'wms.scripts.populate_to_be_picked_qty.populate_to_be_picked_quantity_by_cron'),
     ('0 */6 * * *', 'wms.scripts.release_stucked_qc_areas.release_stucked_qc_areas_by_cron'),
+    ('0 */12 * * *', 'products.cron.pending_for_approval_products_csv_report'),
+    ('0 */24 * * *', 'gram_to_brand.cron.po_tax_change_csv_report'),
 ]
 
 INTERNAL_IPS = ['127.0.0.1', 'localhost']
