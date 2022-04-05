@@ -189,7 +189,7 @@ class CartAdmin(admin.ModelAdmin):
     }
 
     def get_readonly_fields(self, request, obj=None):
-        return 'po_status'
+        return ('po_status',)
 
     def get_form(self, request, obj=None, **kwargs):
         defaults = {}
