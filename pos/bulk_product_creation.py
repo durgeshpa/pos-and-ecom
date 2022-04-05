@@ -179,7 +179,6 @@ def bulk_create_update_validated_products(uploaded_by, shop_id, uploaded_data_by
                     else:
                         product.offer_price = None
 
-
                     if row['offer_start_date'] and row['offer_price']:
                         product.offer_start_date = row['offer_start_date']
                     else:
