@@ -3372,6 +3372,7 @@ class OrderCentral(APIView):
             For ecom cart
         """
         shop = kwargs['shop']
+        self.shop = shop
         if not shop.online_inventory_enabled:
             return api_response("Franchise Shop Is Not Online Enabled!")
 
