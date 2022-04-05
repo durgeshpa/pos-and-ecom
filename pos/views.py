@@ -720,10 +720,8 @@ def DownloadRetailerCatalogue(request, *args, **kwargs):
                     if product_images is not None:
                         product_image = str(product_images)
             else:
-
                 product_image = ", ".join([x.image.url for x in retailer_images.all()])
-                # product_image = ", ".join(list(map(lambda orig_string: str(AWS_MEDIA_URL) + orig_string,
-                #                                    list(retailer_images.values_list('image', flat=True)))))
+                # product_image = str(AWS_MEDIA_URL) + str(product['retailer_product_image__image'])
             writer.writerow(
                 [product['id'], product['shop'], product['shop__shop_name'], product['sku'], product['name'],
                  product_image,
