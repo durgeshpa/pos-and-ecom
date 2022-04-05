@@ -1219,6 +1219,8 @@ def pickup_entry_creation_with_cron():
 
                 info_logger.info("pickup_entry_creation_with_cron | " + str(order.order_no) + " | " +
                                  str(order.order_status))
+                if Order.objects.filter(id=order.id).filter(~Q(order_status='ordered')).exists():
+                    raise ValidationError(f"{order.id}|{order.order_no}|Picklist already generated.")
                 order.save()
                 assign_dispatch_center_to_order_by_pincode(order.pk)
                 cron_logger.info('pickup entry created for order {}'.format(order.order_no))
