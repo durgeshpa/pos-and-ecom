@@ -32,8 +32,6 @@ def run():
         mapped_products = ParentProduct.objects.filter(product_hsn__product_hsn_code=code['product_hsn_code'])
         print(f"HSN {code['product_hsn_code']} | Product count {mapped_products.count()} | "
               f"Products {list(mapped_products.values_list('id', flat=True))}")
-        if mapped_products.count() > 0:
-            break
         mapped_products.update(product_hsn=hsn_ins, tax_status=ParentProduct.APPROVED, tax_remark=None)
 
         to_be_removed_hsns = ProductHSN.objects.filter(product_hsn_code=code['product_hsn_code']).exclude(id=hsn_ins.pk)
