@@ -4839,7 +4839,8 @@ class LoadLastMileInvoiceSerializer(serializers.ModelSerializer):
 
         if shipment.shipment_status not in [OrderedProduct.MOVED_TO_DISPATCH, OrderedProduct.RESCHEDULED,
                                             OrderedProduct.NOT_ATTEMPT]:
-            raise serializers.ValidationError(f"Invoice {shipment} not in a good state to load into this trip.")
+            raise serializers.ValidationError(f"The invoice {shipment} is in {shipment.get_shipment_status_display()} "
+                                              f"state, cannot load into this trip")
 
         if shipment.current_shop != trip.source_shop:
             raise serializers.ValidationError(
