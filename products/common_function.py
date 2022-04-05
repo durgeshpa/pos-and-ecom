@@ -17,6 +17,8 @@ from products.utils import send_mail_on_product_tax_declined
 from products.common_validators import get_validate_parent_brand, get_validate_product_hsn, get_validate_product, \
     get_validate_seller_shop, get_validate_vendor, get_validate_parent_product, get_csv_file_data
 
+from global_config.views import get_config
+
 # Get an instance of a logger
 info_logger = logging.getLogger('file-info')
 error_logger = logging.getLogger('file-error')
@@ -104,8 +106,11 @@ class ParentProductCls(object):
         """
             Update Tax status and remark of specific ParentProduct on the basis of Parent Product Tax in HSN
         """
-        # if parent_product.tax_status == ParentProduct.APPROVED:
-        #     return
+        enable_parent_product_tax_approval = get_config('ENABLE_PARENT_PRODUCT_TAX_APPROVAL', None)
+        if enable_parent_product_tax_approval and enable_parent_product_tax_approval.lower() == 'yes':
+            ParentProduct.objects.filter(id=parent_product.id).update(
+                tax_status=ParentProduct.APPROVED, tax_remark=None)
+            return
         parent_taxs = ParentProductTaxMapping.objects.filter(parent_product=parent_product)
         product_hsn_gsts = parent_product.product_hsn.hsn_gst.values_list('gst', flat=True)
         product_hsn_cess = parent_product.product_hsn.hsn_cess.values_list('cess', flat=True)
