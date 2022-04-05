@@ -665,6 +665,7 @@ def DownloadRetailerCatalogue(request, *args, **kwargs):
         inventory_data = {i.product_id: i.quantity for i in inventory}
         is_visible = 'False'
         for product_id, product in product_dict.items():
+            retailer_images = RetailerProductImage.objects.filter(product=product['id'])
             category = product[
                 'linked_product__parent_product__parent_product_pro_category__category__category_parent__category_name']
             sub_category = product[
@@ -711,15 +712,19 @@ def DownloadRetailerCatalogue(request, *args, **kwargs):
                 initial_purchase_value = product['initial_purchase_value'] \
                     if product['initial_purchase_value'] else 0
 
-            product_image = '-'
-            if product['retailer_product_image__image'] is None:
+            product_image = None
+            if not retailer_images:
                 if product['linked_product__product_sku']:
                     product_obj = Product.objects.get(product_sku=product['linked_product__product_sku'])
                     product_images = products_image(product_obj)
                     if product_images is not None:
                         product_image = str(product_images)
             else:
-                product_image = str(AWS_MEDIA_URL) + str(product['retailer_product_image__image'])
+                product_image = ", ".join(list(map(lambda orig_string: str(AWS_MEDIA_URL) + orig_string,
+                                                   list(retailer_images.values_list('image', flat=True)))))
+                # product_image = []
+                # for image in retailer_images:
+                #     product_image += str(AWS_MEDIA_URL) + str(image.image)
             writer.writerow(
                 [product['id'], product['shop'], product['shop__shop_name'], product['sku'], product['name'],
                  product_image,
@@ -740,11 +745,20 @@ def DownloadRetailerCatalogue(request, *args, **kwargs):
 
 def products_image(obj):
     if obj.use_parent_image and obj.parent_product.parent_product_pro_image.exists():
-        return obj.parent_product.parent_product_pro_image.last().image.url
+        return ", ".join(
+            list(map(lambda orig_string: str(AWS_MEDIA_URL) + orig_string,
+                     list(obj.parent_product.parent_product_pro_image.values_list('image', flat=True)))))
+
     elif not obj.use_parent_image and obj.product_pro_image.exists():
-        return obj.product_pro_image.last().image.url
+        return ", ".join(
+            list(map(lambda orig_string: str(AWS_MEDIA_URL) + orig_string,
+                     list(obj.product_pro_image.values_list('image', flat=True)))))
+
     elif not obj.use_parent_image and obj.child_product_pro_image.exists():
-        return obj.child_product_pro_image.last().image.url
+        return ", ".join(
+            list(map(lambda orig_string: str(AWS_MEDIA_URL) + orig_string,
+                     list(obj.child_product_pro_image.values_list('image', flat=True)))))
+
     return '-'
 
 
