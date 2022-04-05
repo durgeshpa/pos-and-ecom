@@ -720,11 +720,10 @@ def DownloadRetailerCatalogue(request, *args, **kwargs):
                     if product_images is not None:
                         product_image = str(product_images)
             else:
-                product_image = ", ".join(list(map(lambda orig_string: str(AWS_MEDIA_URL) + orig_string,
-                                                   list(retailer_images.values_list('image', flat=True)))))
-                # product_image = []
-                # for image in retailer_images:
-                #     product_image += str(AWS_MEDIA_URL) + str(image.image)
+
+                product_image = ", ".join([x.image.url for x in retailer_images.all()])
+                # product_image = ", ".join(list(map(lambda orig_string: str(AWS_MEDIA_URL) + orig_string,
+                #                                    list(retailer_images.values_list('image', flat=True)))))
             writer.writerow(
                 [product['id'], product['shop'], product['shop__shop_name'], product['sku'], product['name'],
                  product_image,
@@ -745,20 +744,11 @@ def DownloadRetailerCatalogue(request, *args, **kwargs):
 
 def products_image(obj):
     if obj.use_parent_image and obj.parent_product.parent_product_pro_image.exists():
-        return ", ".join(
-            list(map(lambda orig_string: str(AWS_MEDIA_URL) + orig_string,
-                     list(obj.parent_product.parent_product_pro_image.values_list('image', flat=True)))))
-
+        return ", ".join([x.image.url for x in obj.parent_product.parent_product_pro_image.all()])
     elif not obj.use_parent_image and obj.product_pro_image.exists():
-        return ", ".join(
-            list(map(lambda orig_string: str(AWS_MEDIA_URL) + orig_string,
-                     list(obj.product_pro_image.values_list('image', flat=True)))))
-
+        return ", ".join([x.image.url for x in obj.product_pro_image.all()])
     elif not obj.use_parent_image and obj.child_product_pro_image.exists():
-        return ", ".join(
-            list(map(lambda orig_string: str(AWS_MEDIA_URL) + orig_string,
-                     list(obj.child_product_pro_image.values_list('image', flat=True)))))
-
+        return ", ".join([x.image.url for x in obj.child_product_pro_image.all()])
     return '-'
 
 
