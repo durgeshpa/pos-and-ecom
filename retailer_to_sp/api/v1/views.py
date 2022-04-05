@@ -3337,6 +3337,7 @@ class OrderCentral(APIView):
             For basic cart
         """
         shop = kwargs['shop']
+        self.shop = shop
         with transaction.atomic():
             # basic validations for inputs
             initial_validation = self.post_basic_validate(shop)
@@ -3933,9 +3934,10 @@ class OrderCentral(APIView):
             RewardCls.redeem_points_on_order(redeem_points, redeem_factor, order.buyer, self.request.user,
                                              order.order_no)
         # Loyalty points credit
-        shops_str = GlobalConfig.objects.get(key=app_type + '_loyalty_shop_ids').value
-        shops_str = str(shops_str) if shops_str else ''
-        if shops_str == 'all' or (shops_str and str(order.seller_shop.id) in shops_str.split(',')):
+        # shops_str = GlobalConfig.objects.get(key=app_type + '_loyalty_shop_ids').value
+        # shops_str = str(shops_str) if shops_str else ''
+        # if shops_str == 'all' or (shops_str and str(order.seller_shop.id) in shops_str.split(',')):
+        if self.shop.enable_loyalty_points:
             if ReferralCode.is_marketing_user(order.buyer):
                 order.points_added = order_loyalty_points_credit(order.order_amount, order.buyer.id, order.order_no,
                                                                  'order_credit', 'order_indirect_credit',
