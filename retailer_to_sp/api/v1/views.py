@@ -3471,7 +3471,7 @@ class OrderCentral(APIView):
                     registration_id = device.reg_id
                     message_title = "PepperTap Store Order Alert !!"
                     message_body = "Hello, You received a new Order."
-                    result = push_service.notify_single_device(registration_id=registration_id,
+                    result = push_service.notify_single_device(registration_id='d_NXKGpIR8Gir0ITnp7wIt:APA91bFF1ADII_kbwJfE_ANLfzCquUdbSDPHqZKvaMc9JRgOV69mCde943n6PIt-2rtgMcY1ppwgvuBKjQC71C9PsbiKwoxQfsB0GlCdZTGK3jyFuTIaiM-TLtwnJ7qQ397Yng54PZSw',
                                                                message_title=message_title,
                                                                message_body=message_body)
                     info_logger.info(result)
