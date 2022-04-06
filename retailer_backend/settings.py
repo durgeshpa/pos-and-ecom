@@ -440,6 +440,7 @@ CRONJOBS = [
     ('0 */6 * * *', 'wms.scripts.release_stucked_qc_areas.release_stucked_qc_areas_by_cron'),
     ('0 */12 * * *', 'products.cron.pending_for_approval_products_csv_report'),
     ('0 */24 * * *', 'gram_to_brand.cron.po_tax_change_csv_report'),
+    ('0 */1 * * *', 'shops.scripts.remove_duplicate_data.remove_duplicate_feedbacks'),
 ]
 
 INTERNAL_IPS = ['127.0.0.1', 'localhost']
