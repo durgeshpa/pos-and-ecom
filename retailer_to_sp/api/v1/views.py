@@ -9756,13 +9756,14 @@ class LastMileTripShipmentsView(generics.GenericAPIView):
                 elif availability == INVOICE_AVAILABILITY_CHOICES.NOT_ADDED:
                     current_date = datetime.now().date()
                     self.queryset = self.queryset.filter(
-                        Q(shipment_status=OrderedProduct.MOVED_TO_DISPATCH) |
+                        Q((Q(last_mile_trip_shipment__isnull=True) |
+                           Q(last_mile_trip_shipment__shipment_status=LastMileTripShipmentMapping.CANCELLED)),
+                            shipment_status=OrderedProduct.MOVED_TO_DISPATCH) |
                         Q(shipment_status=OrderedProduct.NOT_ATTEMPT,
                           not_attempt_shipment__created_at__date__lt=current_date) |
                         Q(shipment_status=OrderedProduct.RESCHEDULED,
-                          rescheduling_shipment__rescheduling_date__gte=current_date)).filter(
-                        Q(last_mile_trip_shipment__isnull=True) |
-                        Q(last_mile_trip_shipment__shipment_status=LastMileTripShipmentMapping.CANCELLED))
+                          rescheduling_shipment__rescheduling_date__lte=current_date)).exclude(
+                        last_mile_trip_shipment__trip__trip_status__in=[Trip.READY, Trip.STARTED, Trip.COMPLETED])
                 elif availability == INVOICE_AVAILABILITY_CHOICES.ALL:
                     self.queryset = self.queryset.filter(
                         Q(last_mile_trip_shipment__trip_id=trip_id) | Q(last_mile_trip_shipment__isnull=True) |
