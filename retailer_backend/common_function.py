@@ -349,3 +349,9 @@ def send_mail(sender, recipient_list, subject, body, attachment_list=[], **kwarg
 
 def purchase_return_number_pattern(instance_id, order_no):
     return "%s%s%s" % ("PR", order_no, instance_id)
+
+def isBlank (string):
+    """Checks if string is blank"""
+    if string and string.strip():
+        return False
+    return True
