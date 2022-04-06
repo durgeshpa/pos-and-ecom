@@ -3833,6 +3833,12 @@ class LastMileTripCrudSerializers(serializers.ModelSerializer):
                         raise serializers.ValidationError(
                             "The trip can not start until and unless all shipments get loaded.")
 
+                    if trip_instance.last_mile_trip_shipments_details.filter(
+                            last_mile_trip_shipment_mapped_packages__package_status=LastMileTripShipmentPackages.MISSING_AT_LOADING)\
+                            .exists():
+                        raise serializers.ValidationError(
+                            "The trip can not start as some packages are missing.")
+
                 if trip_status == Trip.COMPLETED:
                     if 'closing_kms' in self.initial_data and self.initial_data['closing_kms']:
                         try:
@@ -4709,7 +4715,8 @@ class LoadLastMileInvoiceSerializer(serializers.ModelSerializer):
 
         if shipment.shipment_status not in [OrderedProduct.MOVED_TO_DISPATCH, OrderedProduct.RESCHEDULED,
                                             OrderedProduct.NOT_ATTEMPT]:
-            raise serializers.ValidationError(f"Invoice {shipment} not in a good state to load into this trip.")
+            raise serializers.ValidationError(f"The invoice {shipment} is in {shipment.get_shipment_status_display()} "
+                                              f"state, cannot load into this trip")
 
         if shipment.current_shop != trip.source_shop:
             raise serializers.ValidationError(
