@@ -5620,21 +5620,27 @@ def pdf_generation(request, ordered_product):
         ordered_product = ordered_product
 
     try:
-        if ordered_product.invoice.invoice_pdf.url:
+        if ordered_product.invoice.invoice_pdf.url and ordered_product.invoice.e_invoice_generated:
             pass
+        else:
+            raise
     except Exception as e:
         barcode = barcodeGen(ordered_product.invoice_no)
         e_invoice_data = None
-        zoho_invoice = ZohoInvoice.objects.filter(invoice_number='GIV2209010000245').last()
+        # Check if e-invoicing is done for this order
+        # and get e-invocing details
+        # details include QRCode, IRN, Ack No, Ack Date
+        zoho_invoice = ZohoInvoice.objects.filter(invoice_number=ordered_product.invoice_no).last()
         if zoho_invoice and zoho_invoice.e_invoice_qr_raw_data:
             try:
                 qrCode = qrCodeGen(ordered_product.invoice_no, zoho_invoice.e_invoice_qr_raw_data)
-                irn = json.loads(zoho_invoice.e_invoice_qrjson)['Irn']
+                irn = zoho_invoice.e_invoice_reference_number
                 ack_no = zoho_invoice.e_invoice_ack_number
                 ack_date = zoho_invoice.e_invoice_ack_date
 
                 e_invoice_data = {'qrCode': qrCode, 'irn': irn, 'ack_no': ack_no, 'ack_date': ack_date}
-
+                filename = "{}-{}".format("e-invoice", filename)
+                ordered_product.invoice.e_invoice_generated=True
             except Exception as e:
                 pass
         buyer_shop_id = ordered_product.order.buyer_shop_id
@@ -5879,7 +5885,7 @@ def pdf_generation(request, ordered_product):
                 "shop_name_gram": shop_name_gram, "nick_name_gram": nick_name_gram,
                 "address_line1_gram": address_line1_gram, "city_gram": city_gram, "state_gram": state_gram,
                 "pincode_gram": pincode_gram, "cin": cin_number,
-                "hsn_list": list1, "license_number": license_number, "e_invoice_data":e_invoice_data}
+                "hsn_list": list1, "license_number": license_number, "e_invoice_data": e_invoice_data}
 
         cmd_option = {"margin-top": 10, "zoom": 1, "javascript-delay": 1000, "footer-center": "[page]/[topage]",
                       "no-stop-slow-scripts": True, "quiet": True}
@@ -5890,6 +5896,7 @@ def pdf_generation(request, ordered_product):
             create_invoice_data(ordered_product)
             ordered_product.invoice.invoice_pdf.save("{}".format(filename),
                                                      ContentFile(response.rendered_content), save=True)
+            ordered_product.invoice.save()
         except Exception as e:
             logger.exception(e)
 
