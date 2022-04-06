@@ -4728,6 +4728,21 @@ class LoadLastMileInvoiceSerializer(serializers.ModelSerializer):
                 shipment.order.dispatch_center != shipment.current_shop:
             raise serializers.ValidationError(
                 f"Invoice {shipment} allowed to load into last mile trip from {shipment.order.dispatch_center}")
+        current_date = datetime.datetime.now().date()
+
+        if shipment.shipment_status == OrderedProduct.RESCHEDULED:
+            shipment_rescheduling = ShipmentRescheduling.objects.filter(
+                shipment=shipment, rescheduling_date__gt=current_date).last()
+            if shipment_rescheduling:
+                raise serializers.ValidationError(f"Invoice {shipment} is rescheduled for "
+                                                  f"{shipment_rescheduling.rescheduling_date}, can't load in this trip")
+
+        if shipment.shipment_status == OrderedProduct.NOT_ATTEMPT:
+            shipment_not_attempt = ShipmentNotAttempt.objects.filter(
+                shipment=shipment, created_at__date__gte=current_date).last()
+            if shipment_not_attempt:
+                raise serializers.ValidationError(f"Invoice {shipment} is marked as not attempt on "
+                                                  f"{shipment_not_attempt.created_at}, can't load in this trip")
 
         data['trip'] = trip
         data['shipment'] = shipment
