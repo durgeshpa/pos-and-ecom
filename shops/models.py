@@ -706,7 +706,7 @@ class DayBeatPlanning(models.Model):
         ("P4", "P4")
     )
     beat_plan = models.ForeignKey(BeatPlanning, related_name='beat_plan', null=True, blank=True,
-                                  on_delete=models.CASCADE, unique=True)
+                                  on_delete=models.CASCADE)
     shop_category = models.CharField(max_length=25, choices=shop_category_choice, default="P1")
     beat_plan_date = models.DateField(default=date.today)
     next_plan_date = models.DateField(default=date.today)
@@ -734,7 +734,7 @@ class ExecutiveFeedback(models.Model):
 
     )
     day_beat_plan = models.ForeignKey(DayBeatPlanning, related_name='day_beat_plan', null=True, blank=True,
-                                      on_delete=models.CASCADE)
+                                      on_delete=models.CASCADE,unique=True)
     executive_feedback = models.CharField(max_length=25, choices=executive_feedback_choice)
     feedback_date = models.DateField(null=True, blank=True)
     feedback_time = models.TimeField(null=True, blank=True)
