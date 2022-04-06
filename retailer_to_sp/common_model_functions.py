@@ -1,7 +1,7 @@
 import datetime
 import logging
 
-from retailer_to_sp.models import ShopCrate
+from retailer_to_sp.models import ShopCrate, OrderedProduct, Trip, Order
 
 today = datetime.datetime.today()
 
@@ -39,3 +39,17 @@ class ShopCrateCommonFunctions(object):
     def get_filtered_shop_crate(cls, **kwargs):
         map_data = ShopCrate.objects.filter(**kwargs)
         return map_data
+
+
+class OrderCommonFunction(object):
+
+    @classmethod
+    def update_order_status_by_last_mile_trip(cls, trip_instance):
+        shipments_ids = trip_instance.last_mile_trip_shipments_details.all().values_list('shipment__id', flat=True)
+        order_instances = Order.objects.filter(rt_order_order_product__id__in=shipments_ids)
+        if trip_instance.trip_status == Trip.READY:
+            order_instances.update(order_status=Order.READY_TO_DISPATCH)
+        if trip_instance.trip_status == Trip.STARTED:
+            order_instances.update(order_status=Order.DISPATCHED)
+        if trip_instance.trip_status == Trip.COMPLETED:
+            order_instances.update(order_status=Order.COMPLETED)
