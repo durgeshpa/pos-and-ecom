@@ -536,6 +536,7 @@ class ProductChangeFields(models.Model):
         ('offer_price', 'offer_price'),
         ('offer_start_date', 'Offer Start Date'),
         ('offer_end_date', 'Offer End Date'),
+        ('linked_product_id', 'Linked Product')
     )
     product_change = models.ForeignKey(ProductChange, related_name='price_change_cols', on_delete=models.DO_NOTHING)
     column_name = models.CharField(max_length=255, choices=COLUMN_CHOICES)
