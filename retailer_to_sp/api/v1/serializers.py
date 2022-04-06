@@ -16,7 +16,7 @@ from addresses.models import Address, Pincode, City
 from products.models import (Product, ProductPrice, ProductImage, Tax, ProductTaxMapping, ProductOption, Size, Color,
                              Fragrance, Flavor, Weight, PackageSize, ParentProductImage, SlabProductPrice, PriceSlab)
 from retailer_backend.utils import getStrToYearDate
-from retailer_to_sp.common_model_functions import ShopCrateCommonFunctions
+from retailer_to_sp.common_model_functions import ShopCrateCommonFunctions, OrderCommonFunction
 from retailer_to_sp.common_validators import validate_shipment_crates_list, validate_shipment_package_list
 from retailer_to_sp.models import (CartProductMapping, Cart, Order, OrderedProduct, Note, CustomerCare, Payment,
                                    Dispatch, Feedback, OrderedProductMapping as RetailerOrderedProductMapping,
@@ -3944,6 +3944,8 @@ class LastMileTripCrudSerializers(serializers.ModelSerializer):
         if validated_data['trip_status'] == Trip.CANCELLED:
             self.cancel_added_shipments_to_trip(trip_instance)
 
+        OrderCommonFunction.update_order_status_by_last_mile_trip(trip_instance)
+
         return trip_instance
 
 
@@ -4728,6 +4730,21 @@ class LoadLastMileInvoiceSerializer(serializers.ModelSerializer):
                 shipment.order.dispatch_center != shipment.current_shop:
             raise serializers.ValidationError(
                 f"Invoice {shipment} allowed to load into last mile trip from {shipment.order.dispatch_center}")
+        current_date = datetime.datetime.now().date()
+
+        if shipment.shipment_status == OrderedProduct.RESCHEDULED:
+            shipment_rescheduling = ShipmentRescheduling.objects.filter(
+                shipment=shipment, rescheduling_date__gt=current_date).last()
+            if shipment_rescheduling:
+                raise serializers.ValidationError(f"Invoice {shipment} is rescheduled for "
+                                                  f"{shipment_rescheduling.rescheduling_date}, can't load in this trip")
+
+        if shipment.shipment_status == OrderedProduct.NOT_ATTEMPT:
+            shipment_not_attempt = ShipmentNotAttempt.objects.filter(
+                shipment=shipment, created_at__date__gte=current_date).last()
+            if shipment_not_attempt:
+                raise serializers.ValidationError(f"Invoice {shipment} is marked as not attempt on "
+                                                  f"{shipment_not_attempt.created_at}, can't load in this trip")
 
         data['trip'] = trip
         data['shipment'] = shipment
