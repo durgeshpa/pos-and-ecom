@@ -618,11 +618,12 @@ def DownloadRetailerCatalogue(request, *args, **kwargs):
     writer = csv.writer(response)
     writer.writerow(
         ['product_id', 'shop_id', 'shop_name', 'product_sku', 'product_name', 'product_image', 'mrp', 'selling_price',
-         'linked_product_sku', 'product_ean_code', 'description', 'sku_type', 'parent_product_id', 'b2b_category',
-         'b2b_sub_category', 'b2c_category', 'b2c_sub_category', 'brand', 'sub_brand', 'status', 'quantity',
-         'discounted_sku', 'discounted_stock', 'discounted_price', 'product_pack_type', 'measurement_category',
-         'purchase_pack_size', 'available_for_online_orders', 'online_order_price', 'is_visible', 'offer_price',
-         'offer_start_date', 'offer_end_date', 'initial_purchase_value'])
+         'linked_product_sku', 'linked_product_image', 'product_ean_code', 'description', 'sku_type',
+         'parent_product_id', 'b2b_category', 'b2b_sub_category', 'b2c_category', 'b2c_sub_category', 'brand',
+         'sub_brand', 'status', 'quantity', 'discounted_sku', 'discounted_stock', 'discounted_price',
+         'product_pack_type', 'measurement_category', 'purchase_pack_size', 'available_for_online_orders',
+         'online_order_price', 'is_visible', 'offer_price', 'offer_start_date', 'offer_end_date',
+         'initial_purchase_value'])
 
     product_qs = RetailerProduct.objects.filter(~Q(sku_type=4), shop_id=int(shop_id), is_deleted=False)
     if product_qs.exists():
@@ -713,19 +714,22 @@ def DownloadRetailerCatalogue(request, *args, **kwargs):
                     if product['initial_purchase_value'] else 0
 
             product_image = None
-            if not retailer_images:
-                if product['linked_product__product_sku']:
-                    product_obj = Product.objects.get(product_sku=product['linked_product__product_sku'])
-                    product_images = products_image(product_obj)
-                    if product_images is not None:
-                        product_image = str(product_images)
-            else:
+            linked_product_image = None
+            if retailer_images:
                 product_image = ", ".join([x.image.url for x in retailer_images.all()])
+
+            if product['linked_product__product_sku']:
+                product_obj = Product.objects.get(product_sku=product['linked_product__product_sku'])
+                linked_product_images = products_image(product_obj)
+                if linked_product_images is not None:
+                    linked_product_image = str(linked_product_images)
+
                 # product_image = str(AWS_MEDIA_URL) + str(product['retailer_product_image__image'])
             writer.writerow(
                 [product['id'], product['shop'], product['shop__shop_name'], product['sku'], product['name'],
                  product_image,
                  product['mrp'], product['selling_price'], product['linked_product__product_sku'],
+                 linked_product_image,
                  product['product_ean_code'], product['description'],
                  RetailerProductCls.get_sku_type(product['sku_type']),
                  product['linked_product__parent_product__parent_id'],
