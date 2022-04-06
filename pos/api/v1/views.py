@@ -53,7 +53,7 @@ from .serializers import (BulkCreateUpdateRetailerProductsSerializer, PaymentTyp
                           GrnOrderGetSerializer, MeasurementCategorySerializer, ReturnGrnOrderSerializer,
                           GrnOrderGetListSerializer, PRNOrderSerializer, BulkProductUploadSerializers, ContectUs,
                           RetailerProductListSerializer, DownloadRetailerProductsCsvShopWiseSerializer, DownloadUploadRetailerProductsCsvSampleFileSerializer,
-                          CreateRetailerProductCsvSerializer)
+                          CreateRetailerProductCsvSerializer, LinkRetailerProductCsvSerializer, LinkRetailerProductsBulkUploadSerializer)
 from global_config.views import get_config
 from ...forms import RetailerProductsStockUpdateForm
 from ...views import stock_update
@@ -1889,27 +1889,31 @@ class BulkCreateUpdateRetailerProductsView(GenericAPIView):
         if serializer.is_valid():
             data_file = csv.DictReader(codecs.iterdecode(request.data['file'], 'utf-8', errors='ignore'))
             product_serializers = []
+            rw = 0
+            user = request.user
             for product_data in data_file:
+                rw += 1
                 if product_data.get('product_id'):
                     product_serializer = UpdateRetailerProductCsvSerializer(product_data.get('product'), 
-                                                                            data=product_data)
+                                                                            data=product_data, context={'user': user})
                 else:
-                    product_serializer = CreateRetailerProductCsvSerializer(data=product_data)
+                    product_serializer = CreateRetailerProductCsvSerializer(data=product_data, context={'user': user})
                 if product_serializer.is_valid():
                     product_serializers.append(product_serializer)
                 else:
-                    errors = [f"{error} :: {serializer.errors[error][0]}" for error in serializer.errors]
+                    errors = [f"Row {rw+1} :: {error} :: {product_serializer.errors[error][0]}" for error in product_serializer.errors]
                     errors = "\n".join(errors)
                     return api_response(errors)
             for product in product_serializers:
                 product.save()
+            return get_response("success", '', True)
         else:
             errors = [f"{error} :: {serializer.errors[error][0]}" for error in serializer.errors]
             errors = "\n".join(errors)
             return api_response(errors)
 
 
-class LinkRetailerProductsBulkUploadCsvSampleView(GenericAPIView):
+class LinkRetailerProductsBulkUploadCsvSampleView(GenericAPIView): # upload limit 300
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
     
@@ -1918,9 +1922,39 @@ class LinkRetailerProductsBulkUploadCsvSampleView(GenericAPIView):
         response = HttpResponse(content_type='text/csv')
         response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
         writer = csv.writer(
-            ['shop_id', 'product_sku', 'product_name', 'linked_product_sku', 'linked_product_name', 'status']
+            ['shop_id', 'retailer_product_sku', 'retailer_product_name', 'linked_product_sku', 'linked_product_name']
         )
         writer.writerow(
-            ['35323', '35323284D5FAB99A6', 'Fruit', 'AFGARFTOY00000001', 'Mango', 'linked']
+            ['35323', '35323284D5FAB99A6', 'Fruit', 'AFGARFTOY00000001', 'Mango']
         )
         return response
+
+
+class LinkRetailerProductBulkUploadView(GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    serializer_class = LinkRetailerProductsBulkUploadSerializer
+    
+    def post(self, request, *args, **kwargs):
+        serializer = self.serializer_class(data=request.data)
+        if serializer.is_valid():
+            data_file = csv.DictReader(codecs.iterdecode(request.data['file'], 'utf-8', errors='ignore'))
+            product_serializers = []
+            rw = 0
+            for product_data in data_file:
+                product_serializer = LinkRetailerProductCsvSerializer(product_data.get('product'),
+                                                                      data=product_data)
+                if product_serializer.is_valid():
+                    product_serializers.append(product_serializer)
+                else:
+                    errors = [f"Row {rw+1} :: {error} :: {product_serializer.errors[error][0]}" for error in product_serializer.errors]
+                    errors = "\n".join(errors)
+                    return api_response(errors)
+            for product in product_serializers:
+                product.save()
+            msg = "success"
+            return get_response(msg,'', True)
+        else:
+            errors = [f"{error} :: {serializer.errors[error][0]}" for error in serializer.errors]
+            errors = "\n".join(errors)
+            return api_response(errors)
