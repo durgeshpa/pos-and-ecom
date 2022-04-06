@@ -706,7 +706,7 @@ class DayBeatPlanning(models.Model):
         ("P4", "P4")
     )
     beat_plan = models.ForeignKey(BeatPlanning, related_name='beat_plan', null=True, blank=True,
-                                  on_delete=models.CASCADE)
+                                  on_delete=models.CASCADE, unique=True)
     shop_category = models.CharField(max_length=25, choices=shop_category_choice, default="P1")
     beat_plan_date = models.DateField(default=date.today)
     next_plan_date = models.DateField(default=date.today)
