@@ -16,7 +16,7 @@ from addresses.models import Address, Pincode, City
 from products.models import (Product, ProductPrice, ProductImage, Tax, ProductTaxMapping, ProductOption, Size, Color,
                              Fragrance, Flavor, Weight, PackageSize, ParentProductImage, SlabProductPrice, PriceSlab)
 from retailer_backend.utils import getStrToYearDate
-from retailer_to_sp.common_model_functions import ShopCrateCommonFunctions
+from retailer_to_sp.common_model_functions import ShopCrateCommonFunctions, OrderCommonFunction
 from retailer_to_sp.common_validators import validate_shipment_crates_list, validate_shipment_package_list
 from retailer_to_sp.models import (CartProductMapping, Cart, Order, OrderedProduct, Note, CustomerCare, Payment,
                                    Dispatch, Feedback, OrderedProductMapping as RetailerOrderedProductMapping,
@@ -3941,6 +3941,8 @@ class LastMileTripCrudSerializers(serializers.ModelSerializer):
 
         if validated_data['trip_status'] == Trip.CANCELLED:
             self.cancel_added_shipments_to_trip(trip_instance)
+
+        OrderCommonFunction.update_order_status_by_last_mile_trip(trip_instance)
 
         return trip_instance
 
