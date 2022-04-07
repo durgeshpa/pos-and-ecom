@@ -20,6 +20,9 @@ class FCMDevice(AbstractDevice):
 
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='user_fcm')
     is_active = models.BooleanField(verbose_name=("Is active?"), default=True)
+    # created_at = models.DateTimeField(auto_now_add=True)
+    # updated_at = models.DateTimeField(auto_now_add=True)
+
 
 class DateTime(models.Model):
 
