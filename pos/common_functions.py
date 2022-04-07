@@ -124,6 +124,7 @@ class RetailerProductCls(object):
                                 online_enabled=online_enabled, online_price=online_price,
                                 purchase_pack_size=purchase_pack_size, is_deleted=is_visible,
                                 initial_purchase_value=initial_purchase_value)
+        product = RetailerProduct.objects.filter(id=old_product.id).last()
         event_id = product.sku if not event_id else event_id
         ProductChangeLogs.product_update(product, old_product, user, event_type, event_id)
         return product
