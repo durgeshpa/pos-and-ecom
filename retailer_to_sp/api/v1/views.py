@@ -144,7 +144,7 @@ from fcm.utils import get_device_model
 from django.template.loader import render_to_string
 from datetime import datetime
 
-from ...utils import round_half_down
+from ...utils import round_half_down, get_fin_year_start_date
 
 Device = get_device_model()
 
@@ -5655,9 +5655,9 @@ def pdf_generation(request, ordered_product):
         license_number = getShopLicenseNumber(shop_name)
         # CIN
         cin_number = getShopCINNumber(shop_name)
-
+        fin_year_start_dt = get_fin_year_start_date()
         paid_amount = OrderedProduct.objects.filter(order__buyer_shop_id=buyer_shop_id,
-                                                    created_at__gte='2019-04-01') \
+                                                    created_at__gte=fin_year_start_dt) \
                                             .aggregate(paid_amount=RoundAmount(Sum(
                                                 F('rt_order_product_order_product_mapping__effective_price') *
                                                 F('rt_order_product_order_product_mapping__shipped_qty'),
