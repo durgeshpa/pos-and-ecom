@@ -23,6 +23,7 @@ from celery.task import task
 from django.http import JsonResponse
 from django.urls import reverse
 
+from retailer_to_sp.api.v1.views import pdf_generation
 from retailer_to_sp.common_model_functions import ShopCrateCommonFunctions
 from sp_to_gram.models import (
     OrderedProductReserved, OrderedProductMapping as SPOrderedProductMapping,
@@ -32,7 +33,8 @@ from retailer_to_sp.models import (CartProductMapping, Order, OrderedProduct, Or
                                    Shipment, populate_data_on_qc_pass, add_to_putaway_on_return,
                                    check_franchise_inventory_update, ShipmentNotAttempt, BASIC, ECOM,
                                    Shipment, populate_data_on_qc_pass, OrderedProductBatch, ShipmentPackaging,
-                                   ShipmentNotAttempt, LastMileTripShipmentMapping, LastMileTripShipmentPackages)
+                                   ShipmentNotAttempt, LastMileTripShipmentMapping, LastMileTripShipmentPackages,
+                                   Invoice)
 from products.models import Product
 from retailer_to_sp.forms import (
     OrderedProductForm, OrderedProductMappingShipmentForm,
@@ -61,6 +63,7 @@ from wms.views import shipment_out_inventory_change, shipment_reschedule_invento
 from pos.models import RetailerProduct
 from pos.common_functions import create_po_franchise
 from retailer_to_sp.common_function import getShopLicenseNumber, getShopCINNumber, getGSTINNumber, getShopPANNumber
+from zoho.models import ZohoInvoice
 
 logger = logging.getLogger('django')
 info_logger = logging.getLogger('file-info')
@@ -2089,3 +2092,13 @@ class SourceShopAutocomplete(autocomplete.Select2QuerySetView):
         if self.q:
             qs = qs.filter(shop_name__icontains=self.q)
         return qs
+
+
+def generate_e_invoice():
+    info_logger.info('generate_e_invoice| Started')
+    invoice_number_list = ZohoInvoice.objects.filter(e_invoice_pdf_generated=False, e_invoice_qr_raw_data__isnull=False) \
+        .values_list('invoice_number', flat=True)
+    info_logger.info(f'generate_e_invoice| Invoice Count {len(invoice_number_list)} ')
+    invoices = Invoice.objects.filter(invoice_no__in=invoice_number_list)
+    invoices.update(invoice_pdf=None)
+    info_logger.info('generate_e_invoice| Started')
