@@ -1191,8 +1191,8 @@ def pickup_entry_creation_with_cron():
                     if not pickup_entry_exists_for_order_zone(order.id, zone_id):
                         # Get user and update last_assigned_at of ZonePickerUserAssignmentMapping
                         picker_user_assigned = False
-                        if order.seller_shop.cutoff_time is None or \
-                                order.seller_shop.cutoff_time < datetime.now().time():
+                        if order.dispatch_center and (order.dispatch_center.cutoff_time is None or
+                                                      order.dispatch_center.cutoff_time < datetime.now().time()):
                             zone_picker_assigned_user = ZonePickerUserAssignmentMapping.objects.filter(
                                 user_enabled=True, zone_id=zone_id, last_assigned_at=None).last()
                             if not zone_picker_assigned_user:
