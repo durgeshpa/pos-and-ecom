@@ -1046,7 +1046,7 @@ class Order(models.Model):
         get_user_model(), related_name='rt_order_modified_user',
         null=True, blank=True, on_delete=models.DO_NOTHING
     )
-    estimate_delivery_time = models.IntegerField(null=True, blank=True)
+    estimate_delivery_time = models.CharField(max_length=50, null=True, blank=True)
     pick_list_pdf = models.FileField(upload_to='shop_photos/shop_name/documents/', null=True, blank=True)
     points_added = models.IntegerField(default=0, null=True)
     delivery_person = models.ForeignKey(UserWithName, null=True, on_delete=models.DO_NOTHING, verbose_name='Delivery Boy')
@@ -1907,7 +1907,7 @@ class OrderedProduct(models.Model):  # Shipment
 
     def total_returned_pieces(self):
         return self.rt_order_product_order_product_mapping.all() \
-            .aggregate(cnt=Sum(F('returned_qty'))).get('cnt')
+            .aggregate(cnt=Sum(F('returned_qty') + F('returned_damage_qty'))).get('cnt')
 
     def sum_amount_tax(self):
         return sum([item.product_tax_amount for item in self.rt_order_product_order_product_mapping.all()])

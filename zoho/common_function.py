@@ -2,8 +2,10 @@ import csv
 import logging
 from django.http import HttpResponse
 
+import logging
 from zoho.models import ZohoInvoice, ZohoInvoiceItem, ZohoCreditNoteItem, ZohoCreditNote
 from zoho.utils import get_invoice_and_items_dict, get_credit_note_and_items_dict
+error_logger = logging.getLogger('file-error')
 
 info_logger = logging.getLogger('file-info')
 error_logger = logging.getLogger('file-error')

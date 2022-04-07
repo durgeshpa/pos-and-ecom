@@ -97,10 +97,10 @@ def bulk_upload_zoho_customers_file_upload(request):
             except Exception as e:
                 error_logger.error(e)
         else:
-            return render(request, 'admin/zoho/bulk-upload-credit-note.html', {'form': form})
+            return render(request, 'admin/zoho/bulk_upload_customer.html', {'form': form})
     else:
         form = ZohoCustomerFileUploadForm()
-    return render(request, 'admin/zoho/bulk-upload-credit-note.html', {'form': form})
+    return render(request, 'admin/zoho/bulk_upload_customer.html', {'form': form})
 
 
 def pos_save_invoice_file(bulk_invoice_obj):

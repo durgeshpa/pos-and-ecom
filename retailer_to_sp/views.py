@@ -93,6 +93,7 @@ class ShipmentMergedBarcode(APIView):
             if not packaging.crate and packaging.packaging_details.exists():
                 quantity = str(packaging.packaging_details.last().quantity)
                 product_name = str(packaging.packaging_details.last().ordered_product.product.product_name)
+                product_name = (product_name[:30] + '..') if len(product_name) > 30 else product_name
                 data = {shipment_count: pck_type_r_id,
                         shipment.order.order_no: customer_city_pincode,
                         product_name: quantity,
@@ -1743,6 +1744,15 @@ class OrderCancellation(object):
 
         # reserved_qty_queryset.update(reserve_status=OrderedProductReserved.ORDER_CANCELLED)
 
+    def mark_trip_mapping_cancelled(self):
+        trip_shipment = LastMileTripShipmentMapping.objects.filter(
+            shipment=self.last_shipment, trip__trip_status=Trip.READY).last()
+        if trip_shipment:
+            all_mapped_packages = trip_shipment.last_mile_trip_shipment_mapped_packages.all()
+            all_mapped_packages.update(package_status=LastMileTripShipmentPackages.CANCELLED)
+            trip_shipment.shipment_status = LastMileTripShipmentMapping.CANCELLED
+            trip_shipment.save()
+
     def cancel(self):
         # check if order associated with any shipment
 
@@ -1760,8 +1770,7 @@ class OrderCancellation(object):
             # if invoice created but shipment is not added to trip
             # cancel order and generate credit note
             elif (self.last_shipment_status in
-                  [OrderedProduct.MOVED_TO_DISPATCH, OrderedProduct.RESCHEDULED, OrderedProduct.NOT_ATTEMPT] and
-                  not self.trip_status):
+                  [OrderedProduct.MOVED_TO_DISPATCH, OrderedProduct.RESCHEDULED, OrderedProduct.NOT_ATTEMPT]):
                 self.generate_credit_note(order_closed=self.order.order_closed)
                 # updating shipment status
                 # self.get_shipment_queryset().update(shipment_status='CANCELLED')
@@ -1772,7 +1781,10 @@ class OrderCancellation(object):
                 # remove shipment from trip
                 self.generate_credit_note(order_closed=self.order.order_closed)
                 # updating shipment status and remove trip
-                self.get_shipment_queryset().update(shipment_status='CANCELLED', trip=None)
+                # self.get_shipment_queryset().update(shipment_status='CANCELLED', trip=None)
+
+                # Mark All Last mile trip mappings as Cancelled
+                self.mark_trip_mapping_cancelled()
                 self.cancel_shipment()
             else:
                 # can't cancel the order

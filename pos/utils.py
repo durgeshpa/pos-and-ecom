@@ -406,6 +406,7 @@ def generate_csv_payment_report(payments):
     csv_writer = csv.writer(response)
     csv_writer.writerow(
         [   'Order No',
+            'Delivery Option',
             'Invoice No',
             'Invoice Date',
             'ORDER STATUS',
@@ -446,6 +447,7 @@ def generate_csv_payment_report(payments):
 
         row = []
         row.append(payment.order.order_no)
+        row.append(payment.order.get_delivery_option_display())
         row.append(getattr(payment.order.shipments()[0],'invoice','')  if payment.order.shipments() else '')
         row.append(payment.order.shipments()[0].created_at.strftime("%m/%d/%Y-%H:%M:%S") if payment.order.shipments() else '')
         row.append(payment.order.get_order_status_display())

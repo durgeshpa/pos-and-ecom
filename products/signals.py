@@ -136,6 +136,8 @@ def update_parent_product_elasticsearch(sender, instance=None, created=False, **
     elif instance.product_type == 'both':
         child_categories = [str(c.category) for c in instance.parent_product_pro_b2c_category.filter(status=True)]
         child_categories += [str(c.category) for c in instance.parent_product_pro_category.filter(status=True)]
+    else:
+        child_categories = []
     for child in child_skus:
         product_images = []
         if child.use_parent_image:
