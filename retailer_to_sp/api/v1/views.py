@@ -13,6 +13,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
 from django.core import validators
 from django.core.exceptions import ObjectDoesNotExist
+from django.db.models import F, Sum, Q, Case, When, Value, FloatField
 from django.core.files.base import ContentFile
 from django.db import transaction, models
 from django.db.models import F, Sum, Q, Count, Value, Case, When
@@ -30,7 +31,7 @@ from wkhtmltopdf.views import PDFTemplateResponse
 from accounts.api.v1.serializers import PosUserSerializer, PosShopUserSerializer
 from addresses.models import Address, City, Pincode
 from audit.views import BlockUnblockProduct
-from barCodeGenerator import barcodeGen
+from barCodeGenerator import barcodeGen, qrCodeGen
 from global_config.views import get_config, get_config_fofo_shops
 from shops.models import Shop, ParentRetailerMapping, ShopUserMapping, ShopMigrationMapp, PosShopUserMapping, FOFOConfig
 from brand.models import Brand
@@ -96,6 +97,7 @@ from wms.common_functions import OrderManagement, get_stock, is_product_not_elig
 from wms.common_validators import validate_id, validate_data_format, validate_data_days_date_request, validate_shipment
 from retailer_backend.settings import AWS_MEDIA_URL
 from wms.models import OrderReserveRelease, InventoryType, PosInventoryState, PosInventoryChange, Crate
+from zoho.models import ZohoInvoice
 
 from wms.views import shipment_not_attempt_inventory_change, shipment_reschedule_inventory_change
 from .serializers import (ProductsSearchSerializer, CartSerializer, OrderSerializer,
@@ -139,7 +141,7 @@ from fcm.utils import get_device_model
 from django.template.loader import render_to_string
 from datetime import datetime
 
-from ...utils import round_half_down
+from ...utils import round_half_down, get_fin_year_start_date
 
 Device = get_device_model()
 
@@ -5612,14 +5614,30 @@ def pdf_generation(request, ordered_product):
         ordered_product = ordered_product
 
     try:
-        if ordered_product.invoice.invoice_pdf.url:
+        if ordered_product.invoice.invoice_pdf.url and ordered_product.invoice.e_invoice_generated:
             pass
+        else:
+            raise
     except Exception as e:
         barcode = barcodeGen(ordered_product.invoice_no)
+        e_invoice_data = None
+        # Check if e-invoicing is done for this order
+        # and get e-invocing details
+        # details include QRCode, IRN, Ack No, Ack Date
+        zoho_invoice = ZohoInvoice.objects.filter(invoice_number=ordered_product.invoice_no).last()
+        if zoho_invoice and zoho_invoice.e_invoice_qr_raw_data:
+            try:
+                qrCode = qrCodeGen(ordered_product.invoice_no, zoho_invoice.e_invoice_qr_raw_data)
+                irn = zoho_invoice.e_invoice_reference_number
+                ack_no = zoho_invoice.e_invoice_ack_number
+                ack_date = zoho_invoice.e_invoice_ack_date
 
+                e_invoice_data = {'qrCode': qrCode, 'irn': irn, 'ack_no': ack_no, 'ack_date': ack_date}
+                filename = "{}-{}".format("e-invoice", filename)
+                ordered_product.invoice.e_invoice_generated=True
+            except Exception as e:
+                pass
         buyer_shop_id = ordered_product.order.buyer_shop_id
-        paid_amount = 0
-        invoice_details = OrderedProduct.objects.filter(order__buyer_shop_id=buyer_shop_id)
 
         # Licence
         shop_mapping = ParentRetailerMapping.objects.filter(
@@ -5631,19 +5649,13 @@ def pdf_generation(request, ordered_product):
         license_number = getShopLicenseNumber(shop_name)
         # CIN
         cin_number = getShopCINNumber(shop_name)
-
-        for invoice_amount in invoice_details:
-            date_time = invoice_amount.created_at
-            date = date_time.strftime("%d")
-            month = date_time.strftime("%m")
-            year = date_time.strftime("%Y")
-            # print(str(date) + " " + str(month) + " " + str(year) + " " + str(invoice_amount.invoice_amount) + " " + str(invoice_amount.shipment_status))
-            if int(month) > 2 and int(year) > 2019:
-                if invoice_amount.invoice_amount is None:
-                    paid_amount += 0
-                else:
-                    paid_amount += invoice_amount.invoice_amount
-        # print(paid_amount)
+        fin_year_start_dt = get_fin_year_start_date()
+        paid_amount = OrderedProduct.objects.filter(order__buyer_shop_id=buyer_shop_id,
+                                                    created_at__gte=fin_year_start_dt) \
+                                            .aggregate(paid_amount=RoundAmount(Sum(
+                                                F('rt_order_product_order_product_mapping__effective_price') *
+                                                F('rt_order_product_order_product_mapping__shipped_qty'),
+                                                output_field=FloatField())))['paid_amount']
 
         try:
             if ordered_product.order.buyer_shop.shop_timing:
@@ -5827,7 +5839,7 @@ def pdf_generation(request, ordered_product):
 
         total_tax_amount = ordered_product.sum_amount_tax()
 
-        if float(paid_amount) > 5000000:
+        if paid_amount and float(paid_amount) > 5000000:
             if buyer_shop_gistin == 'unregistered':
                 tcs_rate = 1
                 tcs_tax = total_amount * float(tcs_rate / 100)
@@ -5867,7 +5879,7 @@ def pdf_generation(request, ordered_product):
                 "shop_name_gram": shop_name_gram, "nick_name_gram": nick_name_gram,
                 "address_line1_gram": address_line1_gram, "city_gram": city_gram, "state_gram": state_gram,
                 "pincode_gram": pincode_gram, "cin": cin_number,
-                "hsn_list": list1, "license_number": license_number}
+                "hsn_list": list1, "license_number": license_number, "e_invoice_data": e_invoice_data}
 
         cmd_option = {"margin-top": 10, "zoom": 1, "javascript-delay": 1000, "footer-center": "[page]/[topage]",
                       "no-stop-slow-scripts": True, "quiet": True}
@@ -5878,6 +5890,7 @@ def pdf_generation(request, ordered_product):
             create_invoice_data(ordered_product)
             ordered_product.invoice.invoice_pdf.save("{}".format(filename),
                                                      ContentFile(response.rendered_content), save=True)
+            ordered_product.invoice.save()
         except Exception as e:
             logger.exception(e)
 
