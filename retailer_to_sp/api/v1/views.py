@@ -140,7 +140,6 @@ from .serializers import (ProductsSearchSerializer, CartSerializer, OrderSeriali
 from wms.services import check_whc_manager_coordinator_supervisor_qc_executive, shipment_search, \
     check_whc_manager_dispatch_executive, check_qc_dispatch_executive, check_dispatch_executive
 from fcm.utils import get_device_model
-from django.template.loader import render_to_string
 from datetime import datetime
 
 from ...utils import round_half_down, get_fin_year_start_date
@@ -5661,7 +5660,7 @@ def pdf_generation(request, ordered_product):
     # get prefix of file name
     file_prefix = PREFIX_INVOICE_FILE_NAME
     # get the file name along with with prefix name
-    filename = create_file_name(file_prefix, ordered_product)
+    filename = create_file_name(file_prefix, ordered_product, with_timestamp=True)
     # we will be changing based on shop name
     template_name = 'admin/invoice/invoice_sp.html'
     if type(request) is str:
@@ -5670,6 +5669,7 @@ def pdf_generation(request, ordered_product):
     else:
         request = request
         ordered_product = ordered_product
+
     if ordered_product.invoice and ordered_product.invoice.invoice_pdf and ordered_product.invoice.invoice_pdf.url:
             pass
     else:
@@ -5687,8 +5687,6 @@ def pdf_generation(request, ordered_product):
                 ack_date = zoho_invoice.e_invoice_ack_date
 
                 e_invoice_data = {'qrCode': qrCode, 'irn': irn, 'ack_no': ack_no, 'ack_date': ack_date}
-                filename = "{}-{}".format("e-invoice", filename)
-                ordered_product.invoice.e_invoice_generated=True
             except Exception as e:
                 pass
         buyer_shop_id = ordered_product.order.buyer_shop_id
@@ -5944,7 +5942,6 @@ def pdf_generation(request, ordered_product):
             create_invoice_data(ordered_product)
             ordered_product.invoice.invoice_pdf.save("{}".format(filename),
                                                      ContentFile(response.rendered_content), save=True)
-            ordered_product.invoice.save()
         except Exception as e:
             logger.exception(e)
 

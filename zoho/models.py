@@ -228,6 +228,7 @@ class ZohoInvoice(ZohoCommonFields):
     reason_for_issuing_debit_note = models.CharField(max_length=100, null=True, blank=True)
     e_commerce_operator_name = models.CharField(max_length=100, null=True, blank=True)
     e_commerce_operator_gstin = models.CharField(max_length=100, null=True, blank=True)
+    e_invoice_pdf_generated = models.BooleanField(default=False, null=True, blank=True)
 
     def __str__(self):
         return str(self.invoice_id) + str(self.invoice_number)
