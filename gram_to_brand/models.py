@@ -1,4 +1,5 @@
 import datetime
+import re
 from datetime import timedelta
 
 from django.contrib.auth import get_user_model
@@ -476,7 +477,9 @@ class GRNOrderProductMapping(models.Model):
     @property
     def po_product_quantity(self):
         return self.grn_order.order.ordered_cart.cart_list.filter(
-            cart_product=self.product).last().qty if self.product else ''
+            cart_product=self.product).last().qty if self.product \
+                and self.grn_order.order.ordered_cart.cart_list.filter(
+            cart_product=self.product).last() else ''
 
     @property
     def po_product_price(self):
@@ -549,6 +552,12 @@ class GRNOrderProductMapping(models.Model):
     def clean(self):
         super(GRNOrderProductMapping, self).clean()
         self.already_grn = self.delivered_qty
+
+        if not re.match("^\d+[.]?[\d]{0,2}$", str(self.po_product_price)):
+            raise ValidationError(f"{self.po_product_price} |' PO Product Price' can only be a numeric value.")
+        if not re.match("^\d+[.]?[\d]{0,2}$", str(self.product_invoice_price)):
+            raise ValidationError(f"{self.product_invoice_price} |' PO Invoice Price' can only be a numeric value.")
+
         if self.delivered_qty and float(self.po_product_price) != float(self.product_invoice_price):
             raise ValidationError(_("Po_Product_Price and Po_Invoice_Price are not similar"))
 
@@ -575,6 +584,8 @@ class GRNOrderProductMapping(models.Model):
             else:
                 expiry_date = datetime.datetime.strptime(str(self.expiry_date), '%Y-%m-%d').strftime('%d%m%y')
             self.barcode_id = str("2" + product_id + str(expiry_date))
+        self.product_amount = (self.product_invoice_price if self.product_invoice_price else 0) * \
+                              (self.product_invoice_qty if self.product_invoice_qty else 0)
         super(GRNOrderProductMapping, self).save(*args, **kwargs)
 
 

@@ -16,7 +16,7 @@ from addresses.models import Address, Pincode, City
 from products.models import (Product, ProductPrice, ProductImage, Tax, ProductTaxMapping, ProductOption, Size, Color,
                              Fragrance, Flavor, Weight, PackageSize, ParentProductImage, SlabProductPrice, PriceSlab)
 from retailer_backend.utils import getStrToYearDate
-from retailer_to_sp.common_model_functions import ShopCrateCommonFunctions
+from retailer_to_sp.common_model_functions import ShopCrateCommonFunctions, OrderCommonFunction
 from retailer_to_sp.common_validators import validate_shipment_crates_list, validate_shipment_package_list
 from retailer_to_sp.models import (CartProductMapping, Cart, Order, OrderedProduct, Note, CustomerCare, Payment,
                                    Dispatch, Feedback, OrderedProductMapping as RetailerOrderedProductMapping,
@@ -590,7 +590,7 @@ class OrderedProductSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = OrderedProduct
-        fields = ('order','invoice_no','invoice_link', 'shipment_status')
+        fields = ('order', 'invoice_no', 'invoice_link', 'shipment_status')
 
 
 # order serilizer
@@ -760,7 +760,7 @@ class OrderDetailSerializer(serializers.ModelSerializer):
     class Meta:
         model = Order
         fields = ('id', 'ordered_cart', 'order_no', 'shipping_address', 'total_mrp', 'total_discount_amount',
-                  'total_tax_amount', 'total_final_amount', 'order_status', 'received_by',
+                  'total_tax_amount', 'total_final_amount', 'order_status', 'received_by', 'shipment_status',
                   'created_at', 'modified_at', 'rt_order_order_product')
 
 
@@ -1975,6 +1975,8 @@ class ShipmentQCSerializer(serializers.ModelSerializer):
                     raise serializers.ValidationError(f'Invalid status | {shipment_status}-->{status} not allowed')
 
                 user = self.initial_data.pop('user')
+                if not shipment.qc_area:
+                    raise serializers.ValidationError("shipment doesn't have any QC Area Mapped")
                 if status in [OrderedProduct.QC_STARTED, OrderedProduct.READY_TO_SHIP] and \
                         not shipment.qc_area.qc_desk_areas.filter(desk_enabled=True, qc_executive=user).exists():
                     raise serializers.ValidationError("Logged in user is not allowed to perform QC for this shipment")
@@ -3831,6 +3833,12 @@ class LastMileTripCrudSerializers(serializers.ModelSerializer):
                         raise serializers.ValidationError(
                             "The trip can not start until and unless all shipments get loaded.")
 
+                    if trip_instance.last_mile_trip_shipments_details.filter(
+                            last_mile_trip_shipment_mapped_packages__package_status=LastMileTripShipmentPackages.MISSING_AT_LOADING)\
+                            .exists():
+                        raise serializers.ValidationError(
+                            "The trip can not start as some packages are missing.")
+
                 if trip_status == Trip.COMPLETED:
                     if 'closing_kms' in self.initial_data and self.initial_data['closing_kms']:
                         try:
@@ -3935,6 +3943,8 @@ class LastMileTripCrudSerializers(serializers.ModelSerializer):
 
         if validated_data['trip_status'] == Trip.CANCELLED:
             self.cancel_added_shipments_to_trip(trip_instance)
+
+        OrderCommonFunction.update_order_status_by_last_mile_trip(trip_instance)
 
         return trip_instance
 
@@ -4707,7 +4717,8 @@ class LoadLastMileInvoiceSerializer(serializers.ModelSerializer):
 
         if shipment.shipment_status not in [OrderedProduct.MOVED_TO_DISPATCH, OrderedProduct.RESCHEDULED,
                                             OrderedProduct.NOT_ATTEMPT]:
-            raise serializers.ValidationError(f"Invoice {shipment} not in a good state to load into this trip.")
+            raise serializers.ValidationError(f"The invoice {shipment} is in {shipment.get_shipment_status_display()} "
+                                              f"state, cannot load into this trip")
 
         if shipment.current_shop != trip.source_shop:
             raise serializers.ValidationError(
@@ -4719,6 +4730,21 @@ class LoadLastMileInvoiceSerializer(serializers.ModelSerializer):
                 shipment.order.dispatch_center != shipment.current_shop:
             raise serializers.ValidationError(
                 f"Invoice {shipment} allowed to load into last mile trip from {shipment.order.dispatch_center}")
+        current_date = datetime.datetime.now().date()
+
+        if shipment.shipment_status == OrderedProduct.RESCHEDULED:
+            shipment_rescheduling = ShipmentRescheduling.objects.filter(
+                shipment=shipment, rescheduling_date__gt=current_date).last()
+            if shipment_rescheduling:
+                raise serializers.ValidationError(f"Invoice {shipment} is rescheduled for "
+                                                  f"{shipment_rescheduling.rescheduling_date}, can't load in this trip")
+
+        if shipment.shipment_status == OrderedProduct.NOT_ATTEMPT:
+            shipment_not_attempt = ShipmentNotAttempt.objects.filter(
+                shipment=shipment, created_at__date__gte=current_date).last()
+            if shipment_not_attempt:
+                raise serializers.ValidationError(f"Invoice {shipment} is marked as not attempt on "
+                                                  f"{shipment_not_attempt.created_at}, can't load in this trip")
 
         data['trip'] = trip
         data['shipment'] = shipment

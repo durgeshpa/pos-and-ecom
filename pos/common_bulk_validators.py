@@ -126,7 +126,7 @@ def bulk_product_validation(products_csv, shop_id):
                 error_msg.append("Discounted Price should be greater than 0")
             elif decimal.Decimal(row['discounted_price']) >= decimal.Decimal(row['selling_price']):
                 error_msg.append("Discounted Price should be less than selling price")
-            elif int(row['discounted_stock']) < 0:
+            elif float(row['discounted_stock']) < 0:
                 error_msg.append("Invalid discounted stock")
 
         if 'available_for_online_orders' in row.keys() and str(row['available_for_online_orders']).lower() not in \

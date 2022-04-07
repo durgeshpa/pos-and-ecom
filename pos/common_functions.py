@@ -489,10 +489,11 @@ class RewardCls(object):
         days = datetime.datetime.today().day
         date = get_back_date(days)
 
-        uses_rewrd_point = RewardLog.objects.filter(reward_user=cart.buyer,
-            transaction_type__in=['order_debit', 'order_return_credit', 'order_cancel_credit'], modified_at__gte=date).\
+        uses_reward_point = RewardLog.objects.filter(reward_user=cart.buyer,
+                                                     transaction_type__in=['order_debit', 'order_return_credit',
+                                                                           'order_cancel_credit'], modified_at__gte=date).\
         aggregate(Sum('points'))
-        this_month_reward_point_used = abs(uses_rewrd_point['points__sum']) if uses_rewrd_point['points__sum'] else None
+        this_month_reward_point_used = abs(uses_reward_point['points__sum']) if uses_reward_point['points__sum'] else None
         max_redeem_points = GlobalConfig.objects.filter(key='max_redeem_points').last()
         max_month_limit = GlobalConfig.objects.filter(key='max_month_limit _redeem_point').last()
 
