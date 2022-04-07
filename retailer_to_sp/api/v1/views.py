@@ -8776,7 +8776,7 @@ class VerifyReturnShipmentProductsView(generics.GenericAPIView):
             self.queryset = self.queryset.filter(ordered_product__id=shipment_id)
 
         if product_ean_code:
-            self.queryset = self.queryset.filter(product__product_ean_code=product_ean_code)
+            self.queryset = self.queryset.filter(product__product_ean_code__startswith=product_ean_code)
 
         if batch_id:
             self.queryset = self.queryset.filter(rt_ordered_product_mapping__batch_id=batch_id)
@@ -10244,7 +10244,7 @@ class ShipmentPackageProductsView(generics.GenericAPIView):
 
         if product_ean_code:
             self.queryset = self.queryset.filter(
-                ordered_product__product__product_ean_code__icontains=product_ean_code)
+                ordered_product__product__product_ean_code__startswith=product_ean_code)
 
         if batch_id:
             self.queryset = self.queryset.filter(ordered_product__rt_ordered_product_mapping__batch_id=batch_id)
@@ -10589,7 +10589,7 @@ class VerifyBackwardTripItems(generics.GenericAPIView):
             self.queryset = self.queryset.filter(ordered_product__rt_ordered_product_mapping__batch_id=batch_id)
 
         if ean:
-            self.queryset = self.queryset.filter(ordered_product__product__product_ean_code__icontains=ean)
+            self.queryset = self.queryset.filter(ordered_product__product__product_ean_code__startswith=ean)
 
         return self.queryset.distinct('id')
 
