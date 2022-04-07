@@ -674,7 +674,7 @@ class PickupDetail(APIView):
     @check_picker
     def post(self, request):
         info_logger.info("Pick up detail POST API called.")
-        info_logger.info(f"PickupDetail | POST | request user {request.user}, data{request.data}" )
+        info_logger.info(f"PickupDetail | POST | request user {request.user}, data{request.data}")
         msg = {'is_success': False, 'message': 'Missing Required field.', 'data': None}
 
         order_no = request.data.get('order_no')
@@ -775,8 +775,8 @@ class PickupDetail(APIView):
                 for j, i in diction.items():
                     picking_details = PickupBinInventory.objects.filter(pickup__pickup_type_id=order_no,
                                                                         pickup__zone__picker_users=request.user,
-                                                                        bin__bin__bin_id=bin_id, pickup__sku__id=j)\
-                                                                .exclude(pickup__status='picking_cancelled')
+                                                                        bin__bin__bin_id=bin_id, pickup__sku__id=j) \
+                        .exclude(pickup__status='picking_cancelled')
                     if picking_details.count() == 0:
                         return Response({'is_success': False,
                                          'message': 'Picking details not found, please check the details entered.',
@@ -828,7 +828,7 @@ class PickupDetail(APIView):
                             CommonBinInventoryFunctions.deduct_to_be_picked_from_bin(pickup_quantity, bin_inv_obj)
 
                             CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
-                                warehouse, sku, inventory_type, state_to_be_picked, -1*pickup_quantity, tr_type, tr_id )
+                                warehouse, sku, inventory_type, state_to_be_picked, -1 * pickup_quantity, tr_type, tr_id)
 
                             CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
                                 warehouse, sku, inventory_type, state_total_available, -1 * pickup_quantity, tr_type, tr_id)
@@ -836,7 +836,8 @@ class PickupDetail(APIView):
                             CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
                                 warehouse, sku, inventory_type, state_picked, pickup_quantity, tr_type, tr_id)
 
-                            picking_details.update(pickup_quantity=pickup_quantity + pick_qty, last_picked_at=timezone.now(),
+                            picking_details.update(pickup_quantity=pickup_quantity + pick_qty,
+                                                   last_picked_at=timezone.now(),
                                                    remarks=remarks_text)
                             is_crate_applicable = False
                             if i['pickup_crates']['is_crate_applicable'] is True:
@@ -850,9 +851,9 @@ class PickupDetail(APIView):
                                 pickup__pickup_type_id=order_no, pickup__zone__picker_users=request.user,
                                 pickup__sku__id=j).exclude(pickup__status='picking_cancelled')
                             sum_total = sum([0 if i.pickup_quantity is None else i.pickup_quantity for i in pick_object])
-                            Pickup.objects.filter(pickup_type_id=order_no, sku__id=j, zone__picker_users=request.user)\
-                                          .exclude(status='picking_cancelled')\
-                                          .update(pickup_quantity=sum_total, is_crate_applicable=is_crate_applicable)
+                            Pickup.objects.filter(pickup_type_id=order_no, sku__id=j, zone__picker_users=request.user) \
+                                .exclude(status='picking_cancelled') \
+                                .update(pickup_quantity=sum_total, is_crate_applicable=is_crate_applicable)
 
                             info_logger.info("PickupDetail|POST|Picking Done for SKU-{}, Total Qty Picked-{}"
                                              .format(j, sum_total))
