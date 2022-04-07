@@ -2094,11 +2094,17 @@ class SourceShopAutocomplete(autocomplete.Select2QuerySetView):
         return qs
 
 
+@transaction.atomic
 def generate_e_invoice():
     info_logger.info('generate_e_invoice| Started')
-    invoice_number_list = ZohoInvoice.objects.filter(e_invoice_pdf_generated=False, e_invoice_qr_raw_data__isnull=False) \
-        .values_list('invoice_number', flat=True)
-    info_logger.info(f'generate_e_invoice| Invoice Count {len(invoice_number_list)} ')
-    invoices = Invoice.objects.filter(invoice_no__in=invoice_number_list)
-    invoices.update(invoice_pdf=None)
-    info_logger.info('generate_e_invoice| Started')
+    try:
+        zoho_invoices = ZohoInvoice.objects.filter(e_invoice_pdf_generated=False, e_invoice_qr_raw_data__isnull=False)
+        invoice_number_list = zoho_invoices.values_list('invoice_number', flat=True)
+        info_logger.info(f'generate_e_invoice| Invoice Count {len(invoice_number_list)} ')
+        invoices = Invoice.objects.filter(invoice_no__in=invoice_number_list)
+        invoices.update(invoice_pdf=None)
+        zoho_invoices.update(e_invoice_pdf_generated=True)
+        info_logger.info('generate_e_invoice| Completed')
+    except Exception as e:
+        info_logger.error(e)
+        info_logger.error('generate_e_invoice| Failed')
