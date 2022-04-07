@@ -81,7 +81,6 @@ class ZohoInvoiceCls:
             error_logger.error(f"ZohoInvoiceCls|create_zoho_credit_note|User {created_by}|Error {e}")
 
 
-
 def error_invoice_credit_note_csv_file(data_list, file_name):
     # Write error msg in csv sheet.
     filename = file_name

@@ -2256,7 +2256,7 @@ class ProductPriceUpload(View):
 
 class VendorAutocomplete(autocomplete.Select2QuerySetView):
     def get_queryset(self, *args, **kwargs):
-        qs = Vendor.objects.none
+        qs = Vendor.objects.all()
         if self.q:
             qs = Vendor.objects.filter(
                 Q(vendor_name__icontains=self.q)

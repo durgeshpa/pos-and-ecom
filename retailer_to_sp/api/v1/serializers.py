@@ -590,7 +590,7 @@ class OrderedProductSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = OrderedProduct
-        fields = ('order','invoice_no','invoice_link', 'shipment_status')
+        fields = ('order', 'invoice_no', 'invoice_link', 'shipment_status')
 
 # order serilizer
 class OrderSerializer(serializers.ModelSerializer):
@@ -759,7 +759,7 @@ class OrderDetailSerializer(serializers.ModelSerializer):
     class Meta:
         model = Order
         fields = ('id', 'ordered_cart', 'order_no', 'shipping_address', 'total_mrp', 'total_discount_amount',
-                  'total_tax_amount', 'total_final_amount', 'order_status', 'received_by',
+                  'total_tax_amount', 'total_final_amount', 'order_status', 'received_by', 'shipment_status',
                   'created_at', 'modified_at', 'rt_order_order_product')
 
 
@@ -1975,6 +1975,8 @@ class ShipmentQCSerializer(serializers.ModelSerializer):
                     raise serializers.ValidationError(f'Invalid status | {shipment_status}-->{status} not allowed')
 
                 user = self.initial_data.pop('user')
+                if not shipment.qc_area:
+                    raise serializers.ValidationError("shipment doesn't have any QC Area Mapped")
                 if status in [OrderedProduct.QC_STARTED, OrderedProduct.READY_TO_SHIP] and \
                         not shipment.qc_area.qc_desk_areas.filter(desk_enabled=True, qc_executive=user).exists():
                     raise serializers.ValidationError("Logged in user is not allowed to perform QC for this shipment")

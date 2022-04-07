@@ -392,6 +392,14 @@ class SearchProducts(APIView):
         category_ids = self.request.GET.get('category_ids')
         sub_category_ids = self.request.GET.get('sub_category_ids')
         filter_list = [{"term": {"is_deleted": False}}]
+        if int(self.request.GET.get('online_enabled', 0) ) == 1:
+            filter_list.append({"term": {"online_enabled": True}})
+            filter_list.append({"term": {"status": 'active'}})
+        if int(self.request.GET.get('offline', 0)) == 1:
+            filter_list.append({"term": {"online_enabled": False}})
+            filter_list.append({"term": {"status": 'active'}})
+        if int(self.request.GET.get('inactive', 0)) == 1:
+            filter_list.append({"term": {"status": 'deactivated'}})
 
         if app_type == '3':
             filter_list.append({"term": {"status": 'active'}})
@@ -433,10 +441,15 @@ class SearchProducts(APIView):
         if category_ids:
             category = category_ids.split(',')
             if app_type == '3':
-                category_filter = str(categorymodel.B2cCategory.objects.filter(id__in=category, status=True).last())
+                category = categorymodel.B2cCategory.objects.filter(id__in=category, status=True).last()
+                category_filter = str(category)
+                if category and category.b2c_cat_parent.exists():
+                    filter_list.append({"match": {"category": {"query": category_filter, "operator": "and"}}})
+                else:
+                    filter_list.append({"match_phrase": {"category": {"query": category_filter}}})
             else:
                 category_filter = str(categorymodel.Category.objects.filter(id__in=category, status=True).last())
-            filter_list.append({"match": {"category": {"query": category_filter, "operator": "and"}}})
+                filter_list.append({"match": {"category": {"query": category_filter, "operator": "and"}}})
 
         if sub_category_ids:
             #sub_category = sub_category_ids.split(',')
@@ -1006,8 +1019,8 @@ class AutoSuggest(APIView):
         index = "all_products"
         if shop_id:
             if Shop.objects.filter(id=shop_id).exists():
-                parent_mapping = ParentRetailerMapping.objects.get(retailer=shop_id, status=True)
-                if parent_mapping.parent.shop_type.shop_type == 'sp':
+                parent_mapping = ParentRetailerMapping.objects.filter(retailer=shop_id, status=True).last()
+                if parent_mapping and parent_mapping.parent.shop_type.shop_type == 'sp':
                     index = parent_mapping.parent.id
         products_list = es_search(index=index, body=body)
         p_list = []
@@ -1361,7 +1374,7 @@ class CartCentral(GenericAPIView):
         """
         serializer = GramMappedCartSerializer(GramMappedCart.objects.get(id=cart.id),
                                               context={'parent_mapping_id': seller_shop.id,
-                                                       'delivery_message': self.delivery_message()})
+                                                       'delivery_message': self.delivery_message(seller_shop.shop_type)})
         return serializer.data
 
     def get_serialize_process_basic(self, cart, next_offer):
@@ -1977,13 +1990,23 @@ class CartCheckout(APIView):
             return api_response("Invalid request")
         with transaction.atomic():
             # Refresh redeem reward
-            use_rewrd_this_month = RewardCls.checkout_redeem_points(cart, 0, self.request.GET.get('use_rewards', 1))
+            use_reward_this_month = RewardCls.checkout_redeem_points(cart, 0, self.request.GET.get('use_rewards', 1))
             # Get offers available now and apply coupon if applicable
             offers = BasicCartOffers.refresh_offers_checkout(cart, False, self.request.data.get('coupon_id'))
             data = self.serialize(cart)
+
             data['redeem_points_message'] = use_rewrd_this_month
-            delivery_time = get_config_fofo_shops(kwargs['shop'].id)
-            data['maximum_delivery_time'] = delivery_time.get('delivery_time',None)
+            time = datetime.now().strftime("%H:%M:%S")
+            time = datetime.strptime(time,"%H:%M:%S").time()
+            fofo_config = get_config_fofo_shops(kwargs['shop'].id)
+            delivery_time = str(fofo_config.get('delivery_time')) + " " + 'min' if fofo_config.get('delivery_time', None) else None
+
+            if fofo_config.get('open_time',None) and fofo_config.get('close_time',None) and not (
+                    fofo_config['open_time'] < time < fofo_config['close_time']):
+                delivery_time = "Your order will be deliverd tomorrow"
+
+            data['estimate_delivery_time'] = delivery_time
+
             if 'error' in offers:
                 return api_response(offers['error'], None, offers['code'])
             if offers['applied']:
@@ -2027,7 +2050,7 @@ class CartCheckout(APIView):
             redeem_points_message = RewardCls.checkout_redeem_points(cart, int(redeem_points))
             app_type = kwargs['app_type']
             data = self.serialize(cart, offers, app_type)
-            data.update({"redeem_points_message": redeem_points_message})
+            data.update({"redeem_points_message": redeem_points_message if redeem_points_message else ""})
 
             return api_response("Cart Checkout", data, status.HTTP_200_OK, True)
 
@@ -2046,14 +2069,22 @@ class CartCheckout(APIView):
             # Get Offers Applicable, Verify applied offers, Apply highest discount on cart if auto apply
             offers = BasicCartOffers.refresh_offers_checkout(cart, False, None)
             # Refresh redeem reward
-            use_rewrd_this_month = RewardCls.checkout_redeem_points(cart, 0, self.request.GET.get('use_rewards', 1))
+            use_reward_this_month = RewardCls.checkout_redeem_points(cart, 0, self.request.GET.get('use_rewards', 1))
             data = self.serialize(cart, offers)
             address = AddressCheckoutSerializer(cart.buyer.ecom_user_address.filter(default=True).last()).data
             data.update({'default_address': address})
             delivery_time = get_config_fofo_shops(kwargs['shop'])
-            data['maximum_delivery_time'] = delivery_time.get('delivery_time',None)
+            time = datetime.now().strftime("%H:%M:%S")
+            time = datetime.strptime(time,"%H:%M:%S").time()
+            fofo_config = get_config_fofo_shops(kwargs['shop'].id)
+            delivery_time = str(fofo_config.get('delivery_time')) + " "+ 'min' if fofo_config.get('delivery_time', None) else None
+
+            if fofo_config.get('open_time',None) and fofo_config.get('close_time',None) and not (
+                    fofo_config['open_time'] < time < fofo_config['close_time']):
+                delivery_time = "Your order will be deliverd tomorrow"
+            data['estimate_delivery_time'] = delivery_time
             data.update({'saving': round(data['total_mrp'] - data['amount_payable'], 2)})
-            data.update({"redeem_points_message": use_rewrd_this_month})
+            data.update({"redeem_points_message": use_reward_this_month if use_reward_this_month else ""})
             return api_response("Cart Checkout", data, status.HTTP_200_OK, True)
 
     def delete(self, request, *args, **kwargs):
@@ -2077,7 +2108,11 @@ class CartCheckout(APIView):
                                     cart_type='BASIC')
         except ObjectDoesNotExist:
             return api_response("Cart Does Not Exist / Already Closed")
-        RewardCls.checkout_redeem_points(cart, 0, self.request.GET.get('use_rewards', 1))
+        if self.request.GET.get('redeem_points'):
+            redeem_points = self.request.GET.get('redeem_points')
+            redeem_points = redeem_points if redeem_points else cart.redeem_points
+            # Refresh redeem reward
+            RewardCls.checkout_redeem_points(cart, int(redeem_points))
         cart_products = cart.rt_cart_list.all()
         cart_value = 0
         for product_map in cart_products:
@@ -3300,6 +3335,7 @@ class OrderCentral(APIView):
             For basic cart
         """
         shop = kwargs['shop']
+        self.shop = shop
         with transaction.atomic():
             # basic validations for inputs
             initial_validation = self.post_basic_validate(shop)
@@ -3334,6 +3370,7 @@ class OrderCentral(APIView):
             For ecom cart
         """
         shop = kwargs['shop']
+        self.shop = shop
         if not shop.online_inventory_enabled:
             return api_response("Franchise Shop Is Not Online Enabled!")
 
@@ -3347,10 +3384,9 @@ class OrderCentral(APIView):
         if address.pincode != shop.shop_name_address_mapping.filter(
                 address_type='shipping').last().pincode_link.pincode:
             return api_response("This Shop is not serviceable at your delivery address")
-        try:
-            cart = Cart.objects.filter(cart_type='ECOM', buyer=self.request.user, seller_shop=shop,
-                                       cart_status='active').last()
-        except ObjectDoesNotExist:
+        cart = Cart.objects.filter(cart_type='ECOM', buyer=self.request.user, seller_shop=shop,
+                                   cart_status='active').last()
+        if not cart:
             return api_response("Please add items to proceed to order")
 
         try:
@@ -3727,8 +3763,20 @@ class OrderCentral(APIView):
                 elif self.request.data.get('payment_status') == 'payment_failed':
                     order.order_status = Order.PAYMENT_FAILED
             order.delivery_option = delivery_option
-        obj = FOFOConfig.objects.filter(shop=order.seller_shop.id).last()
-        order.estimate_delivery_time = obj.delivery_time if obj else None
+            fofo_config = get_config_fofo_shops(shop)
+            time = datetime.now().strftime("%H:%M:%S")
+            time = datetime.strptime(time,"%H:%M:%S").time()
+            msg = fofo_config.get('delivery_time',None)
+            if msg :
+                msg = str(msg)+" "+"min"
+            if delivery_option and delivery_option == '1':
+                msg = None
+            if fofo_config.get('open_time',None) and fofo_config.get('close_time',None) and not (fofo_config['open_time']<time and fofo_config['close_time']>time):
+                msg = "Your order will be deliverd tomorrow"
+                if delivery_option and delivery_option == '1':
+                    msg = "Please pickup your order tommorow"
+
+            order.estimate_delivery_time = msg
         order.save()
 
         if address:
@@ -3884,9 +3932,10 @@ class OrderCentral(APIView):
             RewardCls.redeem_points_on_order(redeem_points, redeem_factor, order.buyer, self.request.user,
                                              order.order_no)
         # Loyalty points credit
-        shops_str = GlobalConfig.objects.get(key=app_type + '_loyalty_shop_ids').value
-        shops_str = str(shops_str) if shops_str else ''
-        if shops_str == 'all' or (shops_str and str(order.seller_shop.id) in shops_str.split(',')):
+        # shops_str = GlobalConfig.objects.get(key=app_type + '_loyalty_shop_ids').value
+        # shops_str = str(shops_str) if shops_str else ''
+        # if shops_str == 'all' or (shops_str and str(order.seller_shop.id) in shops_str.split(',')):
+        if self.shop.enable_loyalty_points:
             if ReferralCode.is_marketing_user(order.buyer):
                 order.points_added = order_loyalty_points_credit(order.order_amount, order.buyer.id, order.order_no,
                                                                  'order_credit', 'order_indirect_credit',
@@ -4596,19 +4645,21 @@ class OrderedItemCentralDashBoard(APIView):
 
         # Ordered Count
         total_ordered_final_amount = orders.aggregate(Sum('order_amount')).get('order_amount__sum')
+        total_ordered_final_amount = total_ordered_final_amount if total_ordered_final_amount else 0
         total_refund_amount = returns.aggregate(Sum('refund_amount')).get('refund_amount__sum')
+
         if total_refund_amount:
             total_ordered_final_amount -= float(total_refund_amount)
         # POS Ordered Count
         pos_total_ordered_final_amount = pos_orders.aggregate(Sum('order_amount')).get('order_amount__sum')
+        pos_total_ordered_final_amount = pos_total_ordered_final_amount if pos_total_ordered_final_amount else 0
         pos_total_refund_amount = pos_returns.aggregate(Sum('refund_amount')).get('refund_amount__sum')
         if pos_total_refund_amount:
             pos_total_ordered_final_amount -= float(pos_total_refund_amount)
 
         # ECOM Ordered Count
         ecom_total_ordered_final_amount = ecom_orders.aggregate(Sum('order_amount')).get('order_amount__sum')
-        if not ecom_total_ordered_final_amount:
-           ecom_total_ordered_final_amount = 0 
+        ecom_total_ordered_final_amount = ecom_total_ordered_final_amount if ecom_total_ordered_final_amount else 0
         ecom_total_refund_amount = ecom_returns.aggregate(Sum('refund_amount')).get('refund_amount__sum')
         if ecom_total_refund_amount:
             ecom_total_ordered_final_amount -= float(ecom_total_refund_amount)
@@ -5338,8 +5389,10 @@ class CartStockCheckView(APIView):
         day = datetime.today().date()
 
         fofo_config = get_config_fofo_shops(shop)
+        msg = 'Stock check completed'
         if fofo_config.get('open_time',None) and fofo_config.get('close_time',None) and not (fofo_config['open_time']<time and fofo_config['close_time']>time):
-            return api_response("Sorry for the inconvenience, order acceptable b/w {} to {}".format(fofo_config['open_time'], fofo_config['close_time']))
+            msg = "Your Order Will Pick Up Tomorrow"
+            #return api_response("Sorry for the inconvenience, order acceptable b/w {} to {}".format(fofo_config['open_time'], fofo_config['close_time']))
 
         start_off_day = fofo_config.get('working_off_start_date', None)
         end_off_day = fofo_config.get('working_off_end_date',start_off_day)
@@ -5368,7 +5421,7 @@ class CartStockCheckView(APIView):
                 return api_response("Few items in your cart are not available.", out_of_stock_items, status.HTTP_200_OK,
                                     False, {'error_code': error_code.OUT_OF_STOCK_ITEMS})
 
-        return api_response("Stock check completed", None, status.HTTP_200_OK, True)
+        return api_response(msg, None, status.HTTP_200_OK, True)
 
 
 class OrderReturnComplete(APIView):
@@ -5613,12 +5666,9 @@ def pdf_generation(request, ordered_product):
         request = request
         ordered_product = ordered_product
 
-    try:
-        if ordered_product.invoice.invoice_pdf.url and ordered_product.invoice.e_invoice_generated:
+    if ordered_product.invoice and ordered_product.invoice.invoice_pdf and ordered_product.invoice.invoice_pdf.url:
             pass
-        else:
-            raise
-    except Exception as e:
+    else:
         barcode = barcodeGen(ordered_product.invoice_no)
         e_invoice_data = None
         # Check if e-invoicing is done for this order
@@ -5906,36 +5956,33 @@ def pdf_generation_retailer(request, order_id, delay=True):
     ordered_product = order.rt_order_order_product.all()[0]
     filename = create_file_name(file_prefix, ordered_product)
     template_name = 'admin/invoice/invoice_retailer_3inch.html'
-    try:
-        # Don't create pdf if already created
-       # raise Exception("Sorry, no numbers below zero")
-        if ordered_product.invoice.invoice_pdf.url:
-            try:
-                phone_number, shop_name = order.buyer.phone_number, order.seller_shop.shop_name
-                media_url, file_name, manager = ordered_product.invoice.invoice_pdf.url, ordered_product.invoice.invoice_no, \
-                                                order.ordered_cart.seller_shop.pos_shop.filter(
-                                                    user_type='manager').last()
-                if delay:
-                    whatsapp_opt_in.delay(phone_number, shop_name, media_url, file_name)
-                    if manager and manager.user.email:
-                        send_invoice_pdf_email.delay(manager.user.email, shop_name, order.order_no, media_url,
-                                                     file_name, 'order')
-                    else:
-                        logger.exception("Email not present for Manager {}".format(str(manager)))
-                    # email task to send manager order invoice ^
+    # Don't create pdf if already created
+    if ordered_product.invoice and ordered_product.invoice.invoice_pdf and ordered_product.invoice.invoice_pdf.url:
+        try:
+            phone_number, shop_name = order.buyer.phone_number, order.seller_shop.shop_name
+            media_url, file_name, manager = ordered_product.invoice.invoice_pdf.url, ordered_product.invoice.invoice_no, \
+                                            order.ordered_cart.seller_shop.pos_shop.filter(
+                                                user_type='manager').last()
+            if delay:
+                whatsapp_opt_in.delay(phone_number, shop_name, media_url, file_name)
+                if manager and manager.user.email:
+                    send_invoice_pdf_email.delay(manager.user.email, shop_name, order.order_no, media_url,
+                                                 file_name, 'order')
                 else:
-                    if manager and manager.user.email:
-                        send_invoice_pdf_email(manager.user.email, shop_name, order.order_no, media_url, file_name,
-                                               'order')
-                    else:
-                        logger.exception("Email not present for Manager {}".format(str(manager)))
-                    return whatsapp_opt_in(phone_number, shop_name, media_url, file_name)
-            except Exception as e:
-                logger.exception("Retailer Invoice send error order {}".format(order.order_no))
-                logger.exception(e)
+                    logger.exception("Email not present for Manager {}".format(str(manager)))
+                # email task to send manager order invoice ^
+            else:
+                if manager and manager.user.email:
+                    send_invoice_pdf_email(manager.user.email, shop_name, order.order_no, media_url, file_name,
+                                           'order')
+                else:
+                    logger.exception("Email not present for Manager {}".format(str(manager)))
+            return whatsapp_opt_in(phone_number, shop_name, media_url, file_name)
+        except Exception as e:
+            logger.exception("Retailer Invoice send error order {}".format(order.order_no))
+            logger.exception(e)
 
-    except Exception as e:
-        logger.exception(e)
+    else:
         barcode = barcodeGen(ordered_product.invoice_no)
         # Products
         product_listing = []
@@ -6080,41 +6127,39 @@ def pdf_generation_return_retailer(request, order, ordered_product, order_return
     # template_name = 'admin/credit_note/credit_note_retailer.html'
     template_name = 'admin/credit_note/credit_retailer_3inch.html'
 
-    try:
-        # Don't create pdf if already created
-        if credit_note_instance.credit_note_pdf.url:
-            try:
-                order_number, order_status, phone_number = order.order_no, order.order_status, order.buyer.phone_number
-                refund_amount = order_return.refund_amount if order_return.refund_amount > 0 else 0
-                media_url, file_name = credit_note_instance.credit_note_pdf.url, ordered_product.invoice_no
-                manager = order.ordered_cart.seller_shop.pos_shop.filter(user_type='manager').last()
-                shop_name = order.ordered_cart.seller_shop.shop_name
-                if delay:
-                    whatsapp_order_refund.delay(order_number, order_status, phone_number, refund_amount, media_url,
-                                                file_name)
-                    if manager and manager.user.email:
-                        send_invoice_pdf_email.delay(manager.user.email, shop_name, order_number, media_url, file_name,
-                                                     'return')
-                    else:
-                        logger.exception("Email not present for Manager {}".format(str(manager)))
-                    # send mail to manager for return
+
+    # Don't create pdf if already created
+    if credit_note_instance and credit_note_instance.credit_note_pdf and credit_note_instance.credit_note_pdf.url:
+        try:
+            order_number, order_status, phone_number = order.order_no, order.order_status, order.buyer.phone_number
+            refund_amount = order_return.refund_amount if order_return.refund_amount > 0 else 0
+            media_url, file_name = credit_note_instance.credit_note_pdf.url, ordered_product.invoice_no
+            manager = order.ordered_cart.seller_shop.pos_shop.filter(user_type='manager').last()
+            shop_name = order.ordered_cart.seller_shop.shop_name
+            if delay:
+                whatsapp_order_refund.delay(order_number, order_status, phone_number, refund_amount, media_url,
+                                            file_name)
+                if manager and manager.user.email:
+                    send_invoice_pdf_email.delay(manager.user.email, shop_name, order_number, media_url, file_name,
+                                                 'return')
                 else:
-                    if manager and manager.user.email:
-                        send_invoice_pdf_email(manager.user.email, shop_name, order_number, media_url, file_name,
-                                               'return')
-                    else:
-                        logger.exception("Email not present for Manager {}".format(str(manager)))
-                    return whatsapp_order_refund(order_number, order_status, phone_number, refund_amount, media_url,
-                                                 file_name)
-                    # send mail to manager for return
-            except Exception as e:
-                logger.exception("Retailer Credit note send error order {} return {}".format(order.order_no,
-                                                                                             order_return.id))
-                logger.exception(e)
+                    logger.exception("Email not present for Manager {}".format(str(manager)))
+                # send mail to manager for return
+            else:
+                if manager and manager.user.email:
+                    send_invoice_pdf_email(manager.user.email, shop_name, order_number, media_url, file_name,
+                                           'return')
+                else:
+                    logger.exception("Email not present for Manager {}".format(str(manager)))
+                return whatsapp_order_refund(order_number, order_status, phone_number, refund_amount, media_url,
+                                                             file_name)
+                # send mail to manager for return
+        except Exception as e:
+            logger.exception("Retailer Credit note send error order {} return {}".format(order.order_no,
+                                                                                         order_return.id))
+            logger.exception(e)
 
-    except Exception as e:
-        logger.exception(e)
-
+    else:
         filename = create_file_name(file_prefix, credit_note_instance.credit_note_id)
         barcode = barcodeGen(credit_note_instance.credit_note_id)
         # Total Items
@@ -7546,6 +7591,11 @@ class ShipmentQCView(generics.GenericAPIView):
     @check_qc_dispatch_executive
     def put(self, request):
         """ PUT API for shipment update """
+
+        info_logger.info("PUT API for shipment update called.")
+        if not request.data.get('data').get('id'):
+            return get_response('please provide id to update shipment', False)
+
         modified_data = validate_data_format(self.request)
         if 'error' in modified_data:
             return get_response(modified_data['error'])

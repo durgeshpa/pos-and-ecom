@@ -276,6 +276,7 @@ class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
     resource_class = ShopResource
     form = ShopForm
     fields = ['shop_name', 'shop_owner', 'shop_type', 'status', 'pos_enabled', 'online_inventory_enabled',
+              'enable_loyalty_points',
               'latitude', 'longitude', 'approval_status', 'cutoff_time', 'disapproval_status_reason']
     actions = ["export_as_csv", "disable_shop", "download_status_report", "download_shop_routes"]
     inlines = [
