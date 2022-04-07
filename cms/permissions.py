@@ -1,3 +1,5 @@
+from rest_framework.permissions import BasePermission
+
 from cms.exceptions import NotAllowed
 import logging
 
@@ -46,3 +48,11 @@ def has_pages_status_change_permission(user):
 		info_logger.info(f"{user.phone_number} not authorized to change status of pages")
 		raise NotAllowed()
 	return True
+
+
+class IsCMSDesigner(BasePermission):
+    """
+    Allows access only to the users from CMS_DESIGNER_GROUP.
+    """
+    def has_permission(self, request, view):
+        return request.user and request.user.groups.filter(name=CMS_DESIGNER_GROUP).exists()

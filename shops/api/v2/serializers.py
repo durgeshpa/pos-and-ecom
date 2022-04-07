@@ -445,8 +445,9 @@ class ShopCrudSerializers(serializers.ModelSerializer):
         fields = ('id', 'shop_name', 'shop_code', 'shop_code_bulk', 'shop_code_discounted', 'warehouse_code',
                   'shop_owner', 'retiler_mapping', 'shop_name_address_mapping', 'approval_status', 'status',
                   'shop_type', 'related_users', 'shipping_address', 'created_at', 'imei_no', 'shop_name_photos',
-                  'shop_name_documents', 'shop_log', 'pos_enabled','shop_detail' ,'cutoff_time', 'dispatch_center_cities',
-                  'dispatch_center_pincodes', 'disapproval_status_reason')
+                  'shop_name_documents', 'shop_log', 'pos_enabled', 'shop_detail', 'cutoff_time',
+                  'dispatch_center_cities', 'dispatch_center_pincodes', 'disapproval_status_reason',
+                  'enable_loyalty_points')
 
     def validate(self, data):
 

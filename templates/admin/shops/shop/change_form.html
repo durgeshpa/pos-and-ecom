@@ -32,9 +32,11 @@
                 shop_type = $("#id_shop_type").children("option:selected").text();
                 if (shop_type == 'Franchise - foco' || shop_type == 'Franchise - fofo'){
                     $('.field-pos_enabled').removeClass('hidden');
+                    $('.field-enable_loyalty_points').removeClass('hidden');
                 }
                 else {
                     $('.field-pos_enabled').addClass('hidden');
+                    $('.field-enable_loyalty_points').addClass('hidden');
                     {#$('.field-latitude').addClass('hidden');#}
                     {#$('.field-longitude').addClass('hidden');#}
                     $('#id_pos_enabled').prop("checked", false);

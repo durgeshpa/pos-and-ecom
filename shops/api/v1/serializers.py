@@ -679,7 +679,7 @@ class FeedbackCreateSerializers(serializers.ModelSerializer):
     """
     Applied Sales Executive Feedback
     """
-    day_beat_plan = serializers.SlugRelatedField(queryset=DayBeatPlanning.objects.all(), slug_field='id', required=True)
+    #day_beat_plan = serializers.SlugRelatedField(queryset=DayBeatPlanning.objects.all(), slug_field='id', required=True)
     executive_feedback = serializers.CharField(required=True, max_length=1)
     feedback_date = serializers.DateField(required=True)
     latitude = serializers.DecimalField(decimal_places=15, max_digits=30, required=True)
@@ -761,7 +761,10 @@ class FeedbackCreateSerializers(serializers.ModelSerializer):
             return executive_feedback[0]
         else:
             validated_data['feedback_time'] = datetime.now().time()
-            return ExecutiveFeedback.objects.create(**validated_data)
+            feedback = ExecutiveFeedback(**validated_data)
+            feedback.save()
+            return feedback
+            #return ExecutiveFeedback.objects.create(**validated_data)
             
         # return False
 
