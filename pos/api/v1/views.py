@@ -1888,16 +1888,19 @@ class BulkCreateUpdateRetailerProductsView(GenericAPIView):
         serializer = self.serializer_class(data=request.data)
         if serializer.is_valid():
             data_file = csv.DictReader(codecs.iterdecode(request.data['file'], 'utf-8', errors='ignore'))
+            shop_id = request.data['shop']
             product_serializers = []
             rw = 0
             user = request.user
             for product_data in data_file:
                 rw += 1
                 if product_data.get('product_id'):
-                    product_serializer = UpdateRetailerProductCsvSerializer(product_data.get('product'), 
-                                                                            data=product_data, context={'user': user})
+                    product_serializer = UpdateRetailerProductCsvSerializer(product_data.get('product_id'), 
+                                                                            data=product_data, context={'user': user, 
+                                                                                                        'shop': shop_id})
                 else:
-                    product_serializer = CreateRetailerProductCsvSerializer(data=product_data, context={'user': user})
+                    product_serializer = CreateRetailerProductCsvSerializer(data=product_data, context={'user': user, 
+                                                                                                        'shop': shop_id})
                 if product_serializer.is_valid():
                     product_serializers.append(product_serializer)
                 else:
