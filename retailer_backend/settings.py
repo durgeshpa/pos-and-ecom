@@ -432,6 +432,7 @@ CRONJOBS = [
     ('0 2 * * *', 'ecom.cron.bestseller_product'),
     # ('0 * * * *', 'retailer_backend.cron.refresh_cron_es'),
     ('0 * * * *', 'retailer_to_sp.api.v1.views.refresh_cron_es'),
+    ('0 */1 * * *', 'retailer_to_sp.cron.generate_e_invoice_cron'),
     # ('*/10 * * * *', 'retailer_to_sp.cron.all_products_es_refresh'),
     ('*/5 * * * *', 'wms.cron.assign_putaway_users_to_new_putways'),
     ('0 6 * * *', 'shops.cron.get_feedback_valid'),
