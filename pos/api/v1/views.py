@@ -1716,6 +1716,21 @@ class RetailerProductListViewSet(mixins.ListModelMixin,
         serializer = self.serializer_class(retailer_products, many=True)
         msg = "success"
         return get_response(msg, serializer.data, True)
+    
+    def retrieve(self, request, pk):
+        if request.user.is_superuser:
+            qs = self.queryset.all()
+        else:
+            qs = self.queryset.filter(shop__pos_shop__user=request.user, 
+                                      shop__pos_shop__status=True)
+        try:
+            qs = qs.get(id=pk)
+            serializer = self.serializer_class(qs)
+            msg = 'success'
+            return get_response(msg, serializer.data, True)
+        except RetailerProduct.DoesNotExist:
+            error = 'Retailer Product not found.'
+            return api_response(error)
 
 
 class DownloadRetailerProductCsvShopWiseView(GenericAPIView):
