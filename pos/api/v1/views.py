@@ -55,7 +55,7 @@ from .serializers import (BulkCreateUpdateRetailerProductsSerializer, PaymentTyp
                           GrnOrderGetListSerializer, PRNOrderSerializer, BulkProductUploadSerializers, ContectUs,
                           RetailerProductListSerializer, DownloadRetailerProductsCsvShopWiseSerializer, DownloadUploadRetailerProductsCsvSampleFileSerializer,
                           CreateRetailerProductCsvSerializer, LinkRetailerProductCsvSerializer, LinkRetailerProductsBulkUploadSerializer,
-                          RetailerProductImageSerializer, RetailerProductImageBulkUploadSerializer)
+                          RetailerProductImageSerializer, RetailerProductImageBulkUploadSerializer, PosShopListSerializer)
 from global_config.views import get_config
 from ...forms import RetailerProductsStockUpdateForm
 from ...views import stock_update
@@ -2026,3 +2026,21 @@ class RetailerProductImageBulkUploadView(GenericAPIView):
         else:
             error = 'Please provide valid images.'
             return api_response(error)
+
+class PosShopListView(GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    serializer_class = PosShopListSerializer
+    pagination_class = SmallOffsetPagination
+    
+    def get(self, request, *args, **kawrgs):
+        search = self.request.query_params.get('search')
+        qs = Shop.objects.filter(shop_type__shop_type='f', status=True, approval_status=2, 
+                                 pos_enabled=True, pos_shop__status=True).distinct('id')
+        if search:
+            qs = qs.filter(Q(shop_name__icontains=search) | Q(shop_owner__phone_number__icontains=search))
+        qs = self.pagination_class().paginate_queryset(qs, request)
+        serializer = self.serializer_class(qs, many=True)
+        msg = 'success'
+        return get_response(msg, serializer.data, True)
+        
