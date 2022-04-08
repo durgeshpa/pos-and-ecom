@@ -362,7 +362,7 @@ class AuditEndView(APIView):
         audit.state = AUDIT_DETAIL_STATE_CHOICES.ENDED
         audit.save()
         update_audit_status_by_audit(audit.id)
-        create_audit_tickets.delay(audit.id)
+        create_audit_tickets(audit.id)
         return True
 
     def end_audit_for_bin(self, audit, audit_run, bin_id):

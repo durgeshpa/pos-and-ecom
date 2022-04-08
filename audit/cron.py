@@ -1,7 +1,8 @@
 import logging
 
-from audit.models import AUDIT_DETAIL_STATE_CHOICES, AuditProduct, AUDIT_PRODUCT_STATUS
-from audit.views import BlockUnblockProduct
+from audit.models import AUDIT_DETAIL_STATE_CHOICES, AuditProduct, AUDIT_PRODUCT_STATUS, AuditDetail, \
+    AUDIT_RUN_TYPE_CHOICES
+from audit.views import BlockUnblockProduct, create_audit_tickets_by_audit
 
 cron_logger = logging.getLogger('cron_log')
 
@@ -18,3 +19,14 @@ def release_products_from_audit():
         cron_logger.info('release_products_from_audit| product unblocked | audit {}, SKU {}'
                          .format(audit_product.audit_id, audit_product.sku_id))
     cron_logger.info('release_products_from_audit|completed')
+
+
+def create_audit_tickets_cron():
+    cron_logger.info('create_audit_tickets|started')
+    audit_id_list = AuditDetail.objects.filter(audit_run_type=AUDIT_RUN_TYPE_CHOICES.MANUAL,
+                                               state=AUDIT_DETAIL_STATE_CHOICES.FAIL).values_list('pk', flat=True)
+    cron_logger.info('create_audit_tickets|failed audit count {}'.format(len(audit_id_list)))
+    for audit_id in audit_id_list:
+        create_audit_tickets_by_audit(audit_id)
+        cron_logger.info('create_audit_tickets| audit ticket created | audit {}'.format(audit_id))
+    cron_logger.info('create_audit_tickets|completed')
