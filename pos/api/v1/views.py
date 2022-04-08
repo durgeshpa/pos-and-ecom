@@ -56,6 +56,7 @@ from .serializers import (PaymentTypeSerializer, RetailerProductCreateSerializer
 from global_config.views import get_config
 from ...forms import RetailerProductsStockUpdateForm
 from ...views import stock_update
+from global_config.models import GlobalConfig
 from pos.payU_payment import *
 
 info_logger = logging.getLogger('file-info')
@@ -1606,7 +1607,16 @@ class Contect_Us(APIView):
     authentication_classes = (authentication.TokenAuthentication,)
 
     def get(self, request, format=None):
-        data = {'phone_number':"989-989-9551",'email' :'partners@peppertap.in'}
+        phone_no = "989-989-9551"
+        obj = GlobalConfig.objects.filter(key='contect_us_pos_phone').last()
+        if obj:
+            phone_no = obj.value
+        email = "partners@peppertap.in"
+        obj = GlobalConfig.objects.filter(key='contect_us_pos_email').last()
+        if obj:
+            email = obj.value
+
+        data = {'phone_number': phone_no,'email' : email}
         serializer = ContectUs(data=data)
         if serializer.is_valid():
             return api_response('contct us details', serializer.data, status.HTTP_200_OK, True)
