@@ -99,6 +99,37 @@ class RetailerProductCls(object):
         return product
 
     @classmethod
+    def update_retailer_product(cls, product_id, shop_id, name, mrp, selling_price, linked_product_id, sku_type, description,
+                                product_ean_code, user, event_type, pack_type, measure_cat_id, event_id=None,
+                                product_status='active', offer_price=None, offer_sd=None, offer_ed=None,
+                                product_ref=None, online_enabled=True, online_price=None, purchase_pack_size=1,
+                                is_visible=False, initial_purchase_value=None, add_offer_price=False):
+        product_status = 'active' if product_status is None else product_status
+        try:
+            if online_enabled is True and float(online_price) == 0.0 and add_offer_price is True:
+                online_price = offer_price
+            elif online_enabled is True and float(online_price) == 0.0:
+                online_price = selling_price
+        except:
+            online_price = selling_price
+        product = RetailerProduct.objects.filter(id=product_id)
+        old_product = deepcopy(product.last())
+        product = product.update(name=name, linked_product_id=linked_product_id,
+                                mrp=mrp, sku_type=sku_type, selling_price=selling_price,
+                                offer_price=offer_price, offer_start_date=offer_sd,
+                                offer_end_date=offer_ed, description=description,
+                                product_ean_code=product_ean_code, status=product_status,
+                                product_ref=product_ref, product_pack_type=pack_type,
+                                measurement_category_id=measure_cat_id,
+                                online_enabled=online_enabled, online_price=online_price,
+                                purchase_pack_size=purchase_pack_size, is_deleted=is_visible,
+                                initial_purchase_value=initial_purchase_value)
+        product = RetailerProduct.objects.filter(id=old_product.id).last()
+        event_id = product.sku if not event_id else event_id
+        ProductChangeLogs.product_update(product, old_product, user, event_type, event_id)
+        return product
+    
+    @classmethod
     def create_images(cls, product, images):
         if images:
             count = 0
@@ -143,6 +174,16 @@ class RetailerProductCls(object):
         product.save()
         # Change logs
         ProductChangeLogs.product_update(product, old_product, user, event_type, event_id)
+    
+    @classmethod
+    def link_product(cls, retailer_product_id, linked_product_id, user, event_type, event_id):
+        product = RetailerProduct.objects.filter(id=retailer_product_id)
+        old_product = deepcopy(product.last())
+        product = product.update(linked_product_id=linked_product_id, 
+                                 sku_type=2)
+        event_id = product.sku if not event_id else event_id
+        ProductChangeLogs.product_link_update(product, old_product, user, event_type, event_id)
+        
 
     @classmethod
     def get_sku_type(cls, sku_type):
@@ -806,6 +847,17 @@ class ProductChangeLogs(object):
     def product_update(cls, product, old_instance, user, event_type, event_id):
         instance = RetailerProduct.objects.get(id=product.id)
         product_changes, product_change_cols = {}, ProductChangeFields.COLUMN_CHOICES
+        for product_change_col in product_change_cols:
+            old_value = getattr(old_instance, product_change_col[0])
+            new_value = getattr(instance, product_change_col[0])
+            if str(old_value) != str(new_value):
+                product_changes[product_change_col[0]] = [old_value, new_value]
+        ProductChangeLogs.create_product_log(instance, event_type, event_id, user, product_changes)
+    
+    @classmethod
+    def product_link_update(cls, product, old_instance, user, event_type, event_id):
+        instance = RetailerProduct.objects.get(id=product.id)
+        product_changes, product_change_cols = {}, (('linked_product_id', 'Linked Product'))
         for product_change_col in product_change_cols:
             old_value = getattr(old_instance, product_change_col[0])
             new_value = getattr(instance, product_change_col[0])

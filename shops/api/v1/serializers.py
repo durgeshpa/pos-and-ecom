@@ -679,7 +679,7 @@ class FeedbackCreateSerializers(serializers.ModelSerializer):
     """
     Applied Sales Executive Feedback
     """
-    day_beat_plan = serializers.SlugRelatedField(queryset=DayBeatPlanning.objects.all(), slug_field='id', required=True)
+    #day_beat_plan = serializers.SlugRelatedField(queryset=DayBeatPlanning.objects.all(), slug_field='id', required=True)
     executive_feedback = serializers.CharField(required=True, max_length=1)
     feedback_date = serializers.DateField(required=True)
     latitude = serializers.DecimalField(decimal_places=15, max_digits=30, required=True)
@@ -700,14 +700,14 @@ class FeedbackCreateSerializers(serializers.ModelSerializer):
         """
         # validated_data['feedback_date'] = datetime.today().strftime("%Y-%m-%d")
         # condition to check same reference of Day Beat Plan with same date is exist or not
-        executive_feedback = ExecutiveFeedback.objects.filter(day_beat_plan=validated_data['day_beat_plan'])
-        if executive_feedback.exists():
-            # create instance of Executive Feedback
-            executive_feedback.update(executive_feedback=validated_data['executive_feedback'],
-                                      feedback_date=validated_data['feedback_date'],
-                                      feedback_time=datetime.now().time(),
-                                      latitude=validated_data.get('latitude', None),
-                                      longitude=validated_data.get('longitude', None))
+        # executive_feedback = ExecutiveFeedback.objects.filter(day_beat_plan=validated_data['day_beat_plan'])
+        # if executive_feedback.exists():
+        #     # create instance of Executive Feedback
+        #     executive_feedback.update(executive_feedback=validated_data['executive_feedback'],
+        #                               feedback_date=validated_data['feedback_date'],
+        #                               feedback_time=datetime.now().time(),
+        #                               latitude=validated_data.get('latitude', None),
+        #                               longitude=validated_data.get('longitude', None))
 
             # condition to check if executive apply "Could Not Visit" for less than equal to 5 within the same date
             # then assign next visit date and beat plan date accordingly
@@ -758,12 +758,24 @@ class FeedbackCreateSerializers(serializers.ModelSerializer):
             #                                       temp_status=temp_status)
 
             # return executive feedback instance
-            return executive_feedback[0]
-        else:
-            validated_data['feedback_time'] = datetime.now().time()
-            return ExecutiveFeedback.objects.create(**validated_data)
+        #     return executive_feedback[0]
+        # else:
+        validated_data['feedback_time'] = datetime.now().time()
+        feedback = ExecutiveFeedback(**validated_data)
+        feedback.save()
+        return feedback
+            #return ExecutiveFeedback.objects.create(**validated_data)
             
         # return False
+        
+    def update(self, feedback, validated_data):
+        feedback.executive_feedback=validated_data.get('executive_feedback')
+        feedback.feedback_date=validated_data['feedback_date']
+        feedback.feedback_time=datetime.now().time()
+        feedback.latitude=validated_data.get('latitude', None)
+        feedback.longitude=validated_data.get('longitude', None)
+        feedback.save()
+        return feedback
 
 class ChoiceField(serializers.ChoiceField):
 

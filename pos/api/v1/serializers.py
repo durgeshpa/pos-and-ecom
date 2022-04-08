@@ -4,6 +4,8 @@ import datetime
 import calendar
 import re
 import math
+import codecs
+import csv
 
 from django.db.models.functions import Cast
 from django.urls import reverse
@@ -25,9 +27,9 @@ from pos.tasks import mail_to_vendor_on_po_creation, mail_to_vendor_on_order_ret
 from retailer_to_sp.models import CartProductMapping, Cart, Order, OrderReturn, ReturnItems, \
     OrderedProductMapping, OrderedProduct
 from accounts.api.v1.serializers import PosUserSerializer, PosShopUserSerializer
-from pos.common_functions import RewardCls, PosInventoryCls, RetailerProductCls, get_default_qty
+from pos.common_functions import RewardCls, PosInventoryCls, RetailerProductCls, get_default_qty, validate_data_format
 from pos.common_validators import get_validate_grn_order, get_validate_vendor
-from products.models import Product
+from products.models import ParentProduct, Product
 from retailer_backend.validators import ProductNameValidator
 from coupon.models import Coupon, CouponRuleSet, RuleSetProductMapping, DiscountValue
 from retailer_backend.utils import SmallOffsetPagination, isBlankRow
@@ -37,6 +39,7 @@ from marketing.models import ReferralCode
 from accounts.models import User
 from ecom.models import Address
 from ecom.api.v1.serializers import EcomOrderAddressSerializer, ShopInfoSerializer
+from global_config.views import get_config
 
 
 info_logger = logging.getLogger('file-info')
@@ -3973,7 +3976,7 @@ class RetailerProductListSerializer(serializers.ModelSerializer):
         
     class Meta:
         model = RetailerProduct
-        fields = ('shop', 'sku', 'name', 'mrp', 'selling_price', 'product_ean_code', 'image',
+        fields = ('id','shop', 'sku', 'name', 'mrp', 'selling_price', 'product_ean_code', 'image',
                 'linked_product', 'category', 'sub_category', 'b2c_category', 'b2c_sub_category',
                 'description', 'sku_type', 'status', 'product_pack_type', 'created_at', 'modified_at')
 
@@ -3981,5 +3984,381 @@ class RetailerProductListSerializer(serializers.ModelSerializer):
 class DownloadRetailerProductsCsvShopWiseSerializer(serializers.Serializer):
     shop = serializers.IntegerField()
 
+
 class DownloadUploadRetailerProductsCsvSampleFileSerializer(serializers.Serializer):
     shop = serializers.IntegerField()
+
+
+class BulkCreateUpdateRetailerProductsSerializer(serializers.Serializer):
+    file = serializers.FileField()
+    shop = serializers.IntegerField()
+    
+    def validate(self, data):
+        super(BulkCreateUpdateRetailerProductsSerializer, self).validate(data)
+        if not data['file'].name[-4:] in '.csv':
+            raise serializers.ValidationError(_('Sorry! Only csv file accepted.'))
+        return data
+
+class CreateRetailerProductCsvSerializer(serializers.Serializer):
+    shop_id = serializers.IntegerField(required=True)
+    product_name = serializers.CharField(max_length=255, validators=[ProductNameValidator])
+    mrp = serializers.DecimalField(max_digits=6, decimal_places=2, required=True, min_value=0.01)
+    selling_price = serializers.DecimalField(max_digits=6, decimal_places=2, required=True, min_value=0.01)
+    linked_product_sku = serializers.CharField(max_length=255, required=False, allow_blank=True, allow_null=True)
+    product_ean_code = serializers.CharField(required=False, default=None, max_length=100, allow_blank=True, allow_null=True)
+    description = serializers.CharField(allow_blank=True, validators=[ProductNameValidator], required=False, default='',
+                                        max_length=255, allow_null=True)
+    quantity = serializers.DecimalField(max_digits=10, decimal_places=3, required=False, default=0, min_value=0)
+    product_pack_type = serializers.ChoiceField(choices=['packet', 'loose'], default='packet')
+    measurement_category = serializers.CharField(required=False, default=None, allow_blank=True, allow_null=True)
+    purchase_pack_size = serializers.IntegerField(default=1)
+    available_for_online_orders = serializers.ChoiceField(choices=['yes', 'no', 'Yes', 'No'], required=False, default='yes', allow_null=True, allow_blank=True)
+    online_order_price = serializers.DecimalField(max_digits=6, decimal_places=2, required=False, min_value=0.00,
+                                                allow_null=True)
+    is_visible = serializers.ChoiceField(choices=['yes', 'no', 'Yes', 'No'], required=False, default='yes')
+    offer_price = serializers.DecimalField(max_digits=6, decimal_places=2, required=False, default=None, min_value=0.01, allow_null=True)
+    offer_start_date = serializers.DateField(required=False, default=None, allow_null=True)
+    offer_end_date = serializers.DateField(required=False, default=None, allow_null=True)
+    initial_purchase_value = serializers.DecimalField(max_digits=6, decimal_places=2, required=True, min_value=0.01)
+    status = serializers.ChoiceField(choices=['active', 'deactivated'], default='active')
+    
+    def to_internal_value(self, data):
+        for key in data:
+            if data[key] == '':
+                data[key] =  None
+        return super(CreateRetailerProductCsvSerializer, self).to_internal_value(data)
+    
+    def validate(self, data):
+        super(CreateRetailerProductCsvSerializer, self).validate(data)
+        shop_id = self.context.get('shop')
+        try:
+            shop = Shop.objects.get(id=shop_id)
+            data['shop_id'] = shop_id
+        except Shop.DoesNotExist:
+            raise serializers.ValidationError({'shop_id': f"Shop with {shop_id} does not exists."})
+        mrp, sp, ean = data['mrp'], data['selling_price'], data['product_ean_code']
+        if sp > mrp:
+            raise serializers.ValidationError({'selling_price': "Selling Price should be equal to OR less than MRP"})
+        if data.get('linked_product_sku'):
+            try:
+                linked_product = Product.objects.get(product_sku=data['linked_product_sku'])
+                data['linked_product_id'] = linked_product.id
+                data['sku_type'] = 2
+            except Product.DoesNotExist:
+                raise serializers.ValidationError({'linked_product_sku': f"Linked Product with SKU {data['linked_product_sku']} does not exists."})
+        else:
+            data['sku_type'] = 1
+            data['linked_product_id'] = None
+        if ean and RetailerProduct.objects.filter(shop=shop, 
+                                                  product_ean_code=ean, 
+                                                  mrp=mrp,
+                                                  is_deleted=False).exists():
+            raise serializers.ValidationError({'product_ean_code':"Product with same ean and mrp already exists in catalog."})
+        if data.get('product_pack_type') not in ('loose', 'packet'):
+            raise serializers.ValidationError({'product_type': "Valid choices are 'loose' or 'packet'."})
+        if data.get('product_pack_type') == 'loose'\
+            and not data.get('measurement_category'):
+                raise serializers.ValidationError({'measurement_category':f"Measurement Category is mandatory for loose type product."})
+            
+        if data['product_pack_type'] == 'loose':
+            try:
+                measurement_category = MeasurementCategory.objects.get(category=data['measurement_category'].lower())
+                data['measurement_category_id'] = measurement_category.id
+                MeasurementUnit.objects.get(category=measurement_category, default=True)
+            except:
+                raise serializers.ValidationError({'measurement_category':"Please provide a valid measurement category for Loose Product"})
+            data['purchase_pack_size'] = 1
+        else:
+            data['quantity'] = int(data['quantity'])
+            data['measurement_category_id']  = None
+        
+        if data.get('available_for_online_orders') and data['available_for_online_orders'].lower() in ('yes', 'Yes'):
+            if not data.get('online_order_price'):
+                raise serializers.ValidationError({'online_order_price':"Online Price should not be empty if product is available for online order"})
+            else:
+                if data['online_order_price'] > mrp:
+                    raise serializers.ValidationError({'online_order_price':"Online Price should be equal to OR less than MRP."})
+        offer_price, offer_sd, offer_ed = data['offer_price'], data['offer_start_date'], data['offer_end_date']
+        if offer_price is not None or offer_sd is not None or offer_ed is not None:
+            if offer_price and offer_price > sp:
+                raise serializers.ValidationError({'offer_price':"Offer Price should be equal to OR less than Selling Price"})
+
+            if offer_sd is None:
+                raise serializers.ValidationError({'offer_start_date':'Please provide offer start date'})
+            if offer_ed is None:
+                raise serializers.ValidationError({'offer_end_date':'Please provide offer end date'})
+            if offer_sd > offer_ed:
+                raise serializers.ValidationError({'offer_end_date':'Offer end date should be greater than or equal to offer start date'})
+            if offer_sd < datetime.date.today():
+                raise serializers.ValidationError({'offer_start_date':"Offer start date should be greater than or equal to today's date."})
+            data['add_offer_price'] = True
+        else:
+            data['add_offer_price'] = True
+        if data.get('available_for_online_orders') and data.get('available_for_online_orders').lower() in ['no', 'No']\
+        or not data.get('available_for_online_orders'):
+            data['available_for_online_orders'] = False
+            data['online_order_price'] = None
+        else:
+            data['available_for_online_orders'] = True
+        if data.get('is_visible') and data.get('is_visible').lower() in ['yes', 'Yes']:
+            data['is_visible'] = False
+        else:
+            data['is_visible'] = True
+        if data.get('status') not in ('active', 'deactivated'):
+            raise serializers.ValidationError({'status': "Valid choices are 'active' and 'deactivated'"})
+        data['user'] = self.context.get('user')
+        return data
+        
+    def create(self, validated_data):
+        product = RetailerProductCls.create_retailer_product(shop_id=validated_data['shop_id'], 
+                                                   name=validated_data['product_name'], 
+                                                   mrp=validated_data['mrp'], 
+                                                   selling_price=validated_data['selling_price'],
+                                                   linked_product_id=validated_data['linked_product_id'],
+                                                   sku_type=validated_data['sku_type'],
+                                                   description=validated_data['description'],
+                                                   product_ean_code=validated_data['product_ean_code'],
+                                                   user=validated_data['user'],  
+                                                   event_type='product_create',
+                                                   pack_type=validated_data['product_pack_type'],
+                                                   measure_cat_id=validated_data['measurement_category_id'],
+                                                   event_id=None,
+                                                   product_status=validated_data['status'],
+                                                   offer_price=validated_data['offer_price'],
+                                                   offer_sd=validated_data['offer_start_date'],
+                                                   offer_ed=validated_data['offer_end_date'],
+                                                   product_ref=None,
+                                                   online_enabled=validated_data['available_for_online_orders'],
+                                                   online_price=validated_data['online_order_price'],
+                                                   purchase_pack_size=validated_data['purchase_pack_size'],
+                                                   is_visible=validated_data['is_visible'],
+                                                   initial_purchase_value=validated_data['initial_purchase_value'],
+                                                   add_offer_price=validated_data['add_offer_price']
+        )
+        return product
+
+
+class UpdateRetailerProductCsvSerializer(serializers.Serializer):
+    shop_id = serializers.IntegerField(required=True)
+    product_id = serializers.IntegerField(required=True)
+    product_name = serializers.CharField(max_length=255, validators=[ProductNameValidator])
+    mrp = serializers.DecimalField(max_digits=6, decimal_places=2, required=True, min_value=0.01)
+    selling_price = serializers.DecimalField(max_digits=6, decimal_places=2, required=True, min_value=0.01)
+    linked_product_sku = serializers.CharField(max_length=255, required=False, allow_blank=True, allow_null=True)
+    product_ean_code = serializers.CharField(required=False, default=None, max_length=100, allow_blank=True, allow_null=True)
+    description = serializers.CharField(allow_blank=True, validators=[ProductNameValidator], required=False, default='',
+                                        max_length=255, allow_null=True)
+    quantity = serializers.DecimalField(max_digits=10, decimal_places=3, required=False, default=0, min_value=0)
+    product_pack_type = serializers.ChoiceField(choices=['packet', 'loose'], default='packet')
+    measurement_category = serializers.CharField(required=False, default=None, allow_blank=True, allow_null=True)
+    purchase_pack_size = serializers.IntegerField(default=1)
+    available_for_online_orders = serializers.ChoiceField(choices=['yes', 'no', 'Yes', 'No'], required=False, default='yes', allow_null=True, allow_blank=True)
+    online_order_price = serializers.DecimalField(max_digits=6, decimal_places=2, required=False, min_value=0.00,
+                                                allow_null=True)    
+    is_visible = serializers.ChoiceField(choices=['yes', 'no', 'Yes', 'No'], required=False, default='yes')
+    offer_price = serializers.DecimalField(max_digits=6, decimal_places=2, required=False, default=None, min_value=0.01, allow_null=True)
+    offer_start_date = serializers.DateField(required=False, default=None, allow_null=True)
+    offer_end_date = serializers.DateField(required=False, default=None, allow_null=True)
+    initial_purchase_value = serializers.DecimalField(max_digits=6, decimal_places=2, required=True, min_value=0.01)
+    status = serializers.ChoiceField(choices=['active', 'deactivated'], default='active')
+    
+    def to_internal_value(self, data):
+        for key in data:
+            if data[key] == '':
+                data[key] =  None
+        return super(UpdateRetailerProductCsvSerializer, self).to_internal_value(data)
+    
+    def validate(self, data):
+        super(UpdateRetailerProductCsvSerializer, self).validate(data)
+        shop_id = self.context.get('shop')
+        try:
+            shop = Shop.objects.get(id=shop_id)
+            data['shop_id'] = shop_id
+        except Shop.DoesNotExist:
+            raise serializers.ValidationError({'shop_id': f"Shop with {shop_id} does not exists."})
+        product_id = data['product_id']
+        product = RetailerProduct.objects.filter(id=product_id, 
+                                                 shop_id=shop).last()
+        if not product:
+            raise serializers.ValidationError({'product_id': f"Product with {data['product_id']} does not exists."})
+        if data.get('linked_product_sku'):
+            try:
+                linked_product = Product.objects.get(product_sku=data['linked_product_sku'])
+                data['linked_product_id'] = linked_product.id
+                data['sku_type'] = 2
+            except Product.DoesNotExist:
+                raise serializers.ValidationError({'linked_product_sku': f"Linked Product with SKU {data['linked_product_sku']} does not exists."})
+        else:
+            data['sku_type'] = 1
+            data['linked_product_id'] = None
+        sp = data['selling_price'] if data['selling_price'] else product.selling_price
+        ean = data['product_ean_code'] if data['product_ean_code'] else product.product_ean_code
+        mrp = data['mrp'] if data['mrp'] else product.mrp
+        
+        if sp > mrp:
+            raise serializers.ValidationError({'selling_price': "Selling Price should be equal to OR less than MRP"})
+        
+        if mrp != product.mrp:
+             if ean and RetailerProduct.objects.filter(sku_type=product.sku_type, shop=shop, product_ean_code=ean,
+                                                      mrp=mrp, is_deleted=False).exclude(id=product_id).exists():
+                raise serializers.ValidationError({'product_ean_code':"Product with same ean and mrp already exists in catalog."})
+        
+        if data.get('available_for_online_orders') and data['available_for_online_orders'].lower() in ('yes', 'Yes'):
+            if not data.get('online_order_price'):
+                raise serializers.ValidationError({'online_order_price':"Online Price should not be empty if product is available for online order"})
+            else:
+                if data['online_order_price'] > mrp:
+                    raise serializers.ValidationError({'online_order_price':"Online Price should be equal to OR less than MRP."})
+        
+        offer_price, offer_sd, offer_ed = data['offer_price'], data['offer_start_date'], data['offer_end_date']
+
+        if offer_price is not None or offer_sd is not None or offer_ed is not None:
+            if offer_price and offer_price > sp:
+                raise serializers.ValidationError({'offer_price':"Offer Price should be equal to OR less than Selling Price"})
+
+            if offer_sd is None:
+                raise serializers.ValidationError({'offer_start_date':'Please provide offer start date'})
+            if offer_ed is None:
+                raise serializers.ValidationError({'offer_end_date':'Please provide offer end date'})
+            if offer_sd > offer_ed:
+                raise serializers.ValidationError({'offer_end_date':'Offer end date should be greater than or equal to offer start date'})
+            if offer_sd < datetime.date.today():
+                raise serializers.ValidationError({'offer_start_date':"Offer start date should be greater than or equal to today's date."})
+            data['add_offer_price'] = True
+        else:
+            data['add_offer_price'] = False
+        if data.get('available_for_online_orders') and data.get('available_for_online_orders').lower() == 'no'\
+        or not data.get('available_for_online_orders'):
+            data['available_for_online_orders'] = False
+            data['online_order_price'] = None
+        else:
+            data['available_for_online_orders'] = True
+        if data.get('is_visible') and data.get('is_visible').lower() == 'yes':
+            data['is_visible'] = False
+        else:
+            data['is_visible'] = True
+        if data.get('product_pack_type') not in ('loose', 'packet'):
+            raise serializers.ValidationError({'product_type': "Valid choices are 'loose' or 'packet'."})
+        if data.get('product_pack_type') == 'loose' and product.product_pack_type != 'loose'\
+            and not data.get('measurement_category'):
+                raise serializers.ValidationError({'measurement_category':f"Measurement Category is mandatory for loose type product."})
+        
+        if data['product_pack_type'] == 'loose' and (product.product_pack_type != 'loose' or product.product_pack_type == 'loose'):
+            try:
+                measurement_category = MeasurementCategory.objects.get(category=data['measurement_category'].lower())
+                data['measurement_category_id'] = measurement_category.id
+                MeasurementUnit.objects.get(category=measurement_category, default=True)
+            except:
+                raise serializers.ValidationError({'measurement_category':"Please provide a valid measurement category for Loose Product"})
+            data['purchase_pack_size'] = 1
+        else:
+            data['measurement_category_id'] = None
+            data['quantity'] = int(data['quantity'])
+        if data.get('status') not in ('active', 'deactivated'):
+            raise serializers.ValidationError({'status': "Valid choices are 'active' and 'deactivated'"})
+        data['user'] = self.context.get('user')
+        return data
+    
+    def update(self, product_id, validated_data):
+        product = RetailerProductCls.update_retailer_product(product_id=product_id,
+                                                            shop_id=validated_data['shop_id'], 
+                                                            name=validated_data['product_name'], 
+                                                            mrp=validated_data['mrp'], 
+                                                            selling_price=validated_data['selling_price'],
+                                                            linked_product_id=validated_data['linked_product_id'],
+                                                            sku_type=validated_data['sku_type'],
+                                                            description=validated_data['description'],
+                                                            product_ean_code=validated_data['product_ean_code'],
+                                                            user=validated_data['user'],  
+                                                            event_type='product_create',
+                                                            pack_type=validated_data['product_pack_type'],
+                                                            measure_cat_id=validated_data['measurement_category_id'],
+                                                            event_id=None,
+                                                            product_status=validated_data['status'],
+                                                            offer_price=validated_data['offer_price'],
+                                                            offer_sd=validated_data['offer_start_date'],
+                                                            offer_ed=validated_data['offer_end_date'],
+                                                            product_ref=None,
+                                                            online_enabled=validated_data['available_for_online_orders'],
+                                                            online_price=validated_data['online_order_price'],
+                                                            purchase_pack_size=validated_data['purchase_pack_size'],
+                                                            is_visible=validated_data['is_visible'],
+                                                            initial_purchase_value=validated_data['initial_purchase_value'],
+                                                            add_offer_price=validated_data['add_offer_price'] 
+        )
+        return product
+
+
+class LinkRetailerProductsBulkUploadSerializer(serializers.Serializer):
+    file = serializers.FileField()
+    
+    def validate(self, data):
+        super(LinkRetailerProductsBulkUploadSerializer, self).validate(data)
+        if not data['file'].name[-4:] in '.csv':
+            raise serializers.ValidationError(_('Sorry! Only csv file accepted.'))
+        upload_limit = int(get_config('upload_limit', 500))
+        data_file = csv.DictReader(codecs.iterdecode(data['file'], 'utf-8', errors='ignore'))
+        if len(data_file) > upload_limit:
+            raise serializers.ValidationError(_(f'Sorry! Upload limit is {upload_limit}, Please divide the upload data accordingly.'))
+        return data
+
+
+class LinkRetailerProductCsvSerializer(serializers.Serializer):
+    shop_id = serializers.IntegerField(required=True)
+    retailer_product_sku = serializers.CharField(max_length=255, required=True)
+    retailer_product_name = serializers.CharField(max_length=255, validators=[ProductNameValidator])
+    linked_product_sku = serializers.CharField(max_length=255, required=True)
+    linked_product_name = serializers.CharField(max_length=255, validators=[ProductNameValidator])
+    
+    def validate(self, data):
+        super(LinkRetailerProductCsvSerializer, self).validate(data)
+        try:
+            shop = Shop.objects.get(id=data['shop_id'])
+        except Shop.DoesNotExist:
+            raise serializers.ValidationError({'shop_id':_(f"Shop with {data['shop_id']} does not exists.")})
+        product = RetailerProduct.objects.filter(shop=shop, 
+                                                 sku=data['related_product_sku']).last()
+        if not product:
+            raise serializers.ValidationError({'related_product_sku':_(f"Retailer Product {data['related_product_sku']} SKU does not exists.")})
+        else:
+            data['product'] = product
+        try:
+            data['linked_product_id'] = Product.objects.get(product_sku=data['linked_product_sku']).id
+        except Product.DoesNotExist:
+            raise serializers.ValidationError({'linked_product_sku':_(f"Linked Product {data['linked_product_sku']} SKU does not exists.")})
+        request = self.context.get('request')
+        if request:
+            data['user'] = request.user
+        else:
+            data['user'] = None
+        return data
+    
+    def update(self, product_id, validated_data):
+        product = RetailerProductCls.link_product(retailer_product_id=product_id,
+                                                  linked_product_id=validated_data['linked_product_id'], 
+                                                  event_type='link_product', 
+                                                  user=validated_data['user'])
+        return product
+
+
+class RetailerProductImageBulkUploadSerializer(serializers.Serializer):
+    images = serializers.ListField(child=serializers.ImageField(allow_empty_file=False,
+                                                               use_url=True), required=True)
+
+
+class RetailerProductImageSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = RetailerProductImage
+        fields = ('id', 'product', 'image_name', 'image')
+
+
+class PosShopListSerializer(serializers.ModelSerializer):
+    name = serializers.SerializerMethodField()
+    
+    def get_name(self, instance):
+        return str(instance)
+    
+    class Meta:
+        model = Shop
+        fields = ('id', 'name')
