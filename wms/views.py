@@ -1240,7 +1240,7 @@ def assign_picker_user_to_pickup_created_orders():
     current_time = datetime.now() - timedelta(minutes=1)
     start_time = datetime.now() - timedelta(days=3)
     picker_dash_ins = PickerDashboard.objects.filter(
-        picking_status="picking_pending", order_closed=False,
+        picking_status="picking_pending", order__order_closed=False,
         created_at__lt=current_time, created_at__gt=start_time).order_by('created_at')
     if picker_dash_ins.count() == 0:
         cron_logger.info("No pickup pending to assign picker user.")
