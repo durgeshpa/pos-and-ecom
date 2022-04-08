@@ -4339,3 +4339,17 @@ class LinkRetailerProductCsvSerializer(serializers.Serializer):
                                                   event_type='link_product', 
                                                   user=validated_data['user'])
         return product
+    
+class ImageFieldSerializer(serializers.Serializer):
+    image = serializers.ImageField()
+
+class RetailerProductImageBulkUploadSerializer(serializers.Serializer):
+    images = serializers.ListField(child=serializers.ImageField(allow_empty_file=False,
+                                                               use_url=True), required=True)
+
+
+class RetailerProductImageSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = RetailerProductImage
+        fields = ('id', 'product', 'image_name', 'image')
