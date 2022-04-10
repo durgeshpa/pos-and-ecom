@@ -944,7 +944,7 @@ def pickup_entry_exists_for_order_zone(order_id, zone_id):
 
 
 def assign_dispatch_center_to_order_by_pincode(order_id):
-    cron_logger.info(f"assign_dispatch_center_to_order_by_pincode|order id " + str(order_id))
+    cron_logger.info(f"assign_dispatch_center_to_order_by_pincode|order id {order_id}")
     try:
         order_ins = Order.objects.get(id=order_id)
         if not order_ins.dispatch_delivery and order_ins.dispatch_center is None:
@@ -957,10 +957,11 @@ def assign_dispatch_center_to_order_by_pincode(order_id):
                     order_ins.dispatch_delivery = True
                     order_ins.save()
                     cron_logger.info(f"assign_dispatch_center_to_order_by_pincode|Dispatch center assigned to "
-                                     f"order no {order_ins.order_no}")
+                                     f"order no {order_ins.order_no}|pincode {order_pincode}|"
+                                     f"dispatch_center {dispatch_center_map.dispatch_center}")
                 else:
                     cron_logger.info(f"assign_dispatch_center_to_order_by_pincode|No Dispatch center found "
-                                     f"mapped with pincode " + str(order_pincode.pincode))
+                                     f"mapped with pincode {order_pincode}|pincode {order_pincode}")
             else:
                 cron_logger.info(f"assign_dispatch_center_to_order_by_pincode|No pincode for order {order_ins}")
         else:
