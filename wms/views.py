@@ -944,6 +944,7 @@ def pickup_entry_exists_for_order_zone(order_id, zone_id):
 
 
 def assign_dispatch_center_to_order_by_pincode(order_id):
+    cron_logger.info(f"assign_dispatch_center_to_order_by_pincode|order id " + str(order_id))
     try:
         order_ins = Order.objects.get(id=order_id)
         if not order_ins.dispatch_delivery and order_ins.dispatch_center is None:
@@ -955,16 +956,19 @@ def assign_dispatch_center_to_order_by_pincode(order_id):
                     order_ins.dispatch_center = dispatch_center_map.dispatch_center
                     order_ins.dispatch_delivery = True
                     order_ins.save()
-                    info_logger.info("Dispatch center assigned to order no " + str(order_ins.order_no))
+                    cron_logger.info(f"assign_dispatch_center_to_order_by_pincode|Dispatch center assigned to "
+                                     f"order no {order_ins.order_no}")
                 else:
-                    info_logger.info("No Dispatch center found mapped with pincode " + str(order_pincode.pincode))
+                    cron_logger.info(f"assign_dispatch_center_to_order_by_pincode|No Dispatch center found "
+                                     f"mapped with pincode " + str(order_pincode.pincode))
             else:
-                info_logger.info("No pincode for order " + str(order_ins))
+                cron_logger.info(f"assign_dispatch_center_to_order_by_pincode|No pincode for order {order_ins}")
         else:
-            info_logger.info("Dispatch center already assigned to order no " + str(order_ins.order_no))
+            cron_logger.info(f"assign_dispatch_center_to_order_by_pincode|Dispatch center already assigned "
+                             f"to order no {order_ins.order_no}")
     except Exception as ex:
-        info_logger.error("Unable to assign_dispatch_center_to_order, No order found for order Id: " + str(order_id) +
-                          ", Error msg: " + str(ex))
+        cron_logger.error(f"assign_dispatch_center_to_order_by_pincode|Unable to assign_dispatch_center_to_order, "
+                          f"No order found for order Id: {order_id}, Error msg: {ex}")
 
 
 def mail_products_list_not_mapped_yet_to_any_zone():
