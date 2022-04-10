@@ -960,16 +960,17 @@ def assign_dispatch_center_to_order_by_pincode(order_id):
                                      f"order no {order_ins.order_no}|pincode {order_pincode}|"
                                      f"dispatch_center {dispatch_center_map.dispatch_center}")
                 else:
-                    cron_logger.info(f"assign_dispatch_center_to_order_by_pincode|No Dispatch center found "
-                                     f"mapped with pincode {order_pincode}|pincode {order_pincode}")
+                    cron_logger.info(f"assign_dispatch_center_to_order_by_pincode|order no {order_ins.order_no}|"
+                                     f"No Dispatch center found mapped with pincode {order_pincode}")
             else:
-                cron_logger.info(f"assign_dispatch_center_to_order_by_pincode|No pincode for order {order_ins}")
+                cron_logger.info(f"assign_dispatch_center_to_order_by_pincode|order no {order_ins.order_no}|"
+                                 f"No pincode found for order's shipping address.")
         else:
-            cron_logger.info(f"assign_dispatch_center_to_order_by_pincode|Dispatch center already assigned "
-                             f"to order no {order_ins.order_no}")
+            cron_logger.info(f"assign_dispatch_center_to_order_by_pincode|order no {order_ins.order_no}|"
+                             f"Order Already mapped with Dispatch center {order_ins.dispatch_center}.")
     except Exception as ex:
-        cron_logger.error(f"assign_dispatch_center_to_order_by_pincode|Unable to assign_dispatch_center_to_order, "
-                          f"No order found for order Id: {order_id}, Error msg: {ex}")
+        cron_logger.error(f"assign_dispatch_center_to_order_by_pincode|order Id: {order_id}|"
+                          f"Exception occurred|Error msg: {ex}")
 
 
 def mail_products_list_not_mapped_yet_to_any_zone():
