@@ -4296,9 +4296,9 @@ class LinkRetailerProductsBulkUploadSerializer(serializers.Serializer):
         super(LinkRetailerProductsBulkUploadSerializer, self).validate(data)
         if not data['file'].name[-4:] in '.csv':
             raise serializers.ValidationError(_('Sorry! Only csv file accepted.'))
-        upload_limit = int(get_config('upload_limit', 500))
+        upload_limit = int(get_config('upload_limit', 100))
         data_file = csv.DictReader(codecs.iterdecode(data['file'], 'utf-8', errors='ignore'))
-        if len(data_file) > upload_limit:
+        if len(list(data_file)) > upload_limit:
             raise serializers.ValidationError(_(f'Sorry! Upload limit is {upload_limit}, Please divide the upload data accordingly.'))
         return data
 
@@ -4317,9 +4317,9 @@ class LinkRetailerProductCsvSerializer(serializers.Serializer):
         except Shop.DoesNotExist:
             raise serializers.ValidationError({'shop_id':_(f"Shop with {data['shop_id']} does not exists.")})
         product = RetailerProduct.objects.filter(shop=shop, 
-                                                 sku=data['related_product_sku']).last()
+                                                 sku=data['retailer_product_sku']).last()
         if not product:
-            raise serializers.ValidationError({'related_product_sku':_(f"Retailer Product {data['related_product_sku']} SKU does not exists.")})
+            raise serializers.ValidationError({'retailer_product_sku':_(f"Retailer Product {data['retailer_product_sku']} SKU does not exists.")})
         else:
             data['product'] = product
         try:
@@ -4333,11 +4333,12 @@ class LinkRetailerProductCsvSerializer(serializers.Serializer):
             data['user'] = None
         return data
     
-    def update(self, product_id, validated_data):
-        product = RetailerProductCls.link_product(retailer_product_id=product_id,
+    def update(self, product_sku, validated_data):
+        product = RetailerProductCls.link_product(retailer_product_id=validated_data['product'].id,
                                                   linked_product_id=validated_data['linked_product_id'], 
                                                   event_type='link_product', 
-                                                  user=validated_data['user'])
+                                                  user=validated_data['user'], 
+                                                  event_id=None)
         return product
 
 

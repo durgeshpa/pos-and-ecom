@@ -1947,11 +1947,12 @@ class LinkRetailerProductsBulkUploadCsvSampleView(GenericAPIView): # upload limi
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
     
-    def post(self, request, *args, **kwargs):
+    def get(self, request, *args, **kwargs):
         filename = 'link_retailer_products_sample.csv'
         response = HttpResponse(content_type='text/csv')
         response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
-        writer = csv.writer(
+        writer = csv.writer(response)
+        writer.writerow(
             ['shop_id', 'retailer_product_sku', 'retailer_product_name', 'linked_product_sku', 'linked_product_name']
         )
         writer.writerow(
@@ -1972,7 +1973,7 @@ class LinkRetailerProductBulkUploadView(GenericAPIView):
             product_serializers = []
             rw = 0
             for product_data in data_file:
-                product_serializer = LinkRetailerProductCsvSerializer(product_data.get('product'),
+                product_serializer = LinkRetailerProductCsvSerializer(product_data.get('retailer_product_sku'),
                                                                       data=product_data)
                 if product_serializer.is_valid():
                     product_serializers.append(product_serializer)
@@ -1997,9 +1998,13 @@ class RetailerProductImageBulkUploadView(GenericAPIView):
     
     def post(self, request, *args, **kwargs):
         serializer = self.serializer_class(data=request.data)
-        rs = []
         if serializer.is_valid():
+            rs_dict = {}
+            rs = []
+            sc = 0
+            fa = 0
             images = request.data.getlist('images')
+            rs_dict['total'] = len(images)
             for image in images:
                 file_name = image.name.split('.')[0]
                 product_sku = file_name.split("_")[0]
@@ -2015,6 +2020,7 @@ class RetailerProductImageBulkUploadView(GenericAPIView):
                     if image_serializer.is_valid():
                         image_serializer.save()
                     update_es([product], product.shop_id)
+                    sc += 1
                     msg = {
                         'is_valid': True,
                         'name': image_serializer.data.get('image_name'),
@@ -2023,6 +2029,7 @@ class RetailerProductImageBulkUploadView(GenericAPIView):
                         'product_name': product.name
                     }
                 except:
+                    fa += 1
                     msg = {
                         'is_valid': False,
                         'name': file_name,
@@ -2032,10 +2039,14 @@ class RetailerProductImageBulkUploadView(GenericAPIView):
                     }
                 rs.append(msg)
             msg = "success"
-            return get_response(msg, rs, True)
+            rs_dict['success'] = sc
+            rs_dict['aborted'] = fa
+            rs_dict['results'] = rs
+            return get_response(msg, rs_dict, True)
         else:
             error = 'Please provide valid images.'
             return api_response(error)
+
 
 class PosShopListView(GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
