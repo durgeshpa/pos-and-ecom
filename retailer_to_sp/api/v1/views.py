@@ -3469,7 +3469,7 @@ class OrderCentral(APIView):
                                                 is_active=True).distinct('reg_id')
                 for device in devices:
                     registration_id = device.reg_id
-                    message_title = "PepperTap Store Order Alert !!"
+                    message_title = f"{shop.shop_name} - Order Alert !!"
                     message_body = "Hello, You received a new Order."
                     result = push_service.notify_single_device(registration_id=registration_id,
                                                                message_title=message_title,
