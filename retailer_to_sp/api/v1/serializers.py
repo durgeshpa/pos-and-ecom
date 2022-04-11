@@ -42,6 +42,7 @@ from wms.api.v2.serializers import QCDeskSerializer, QCAreaSerializer
 from wms.common_functions import release_picking_crates, send_update_to_qcdesk, get_expiry_date, create_in, \
     create_putaway
 from wms.models import Crate, WarehouseAssortment, Zone, InventoryType
+from ecom.models import Address as UserAddress
 
 User = get_user_model()
 
@@ -5230,3 +5231,28 @@ class BackwardTripQCSerializer(serializers.Serializer):
     def get_package_count(self, obj):
         return obj.count()
 
+
+class UserAddressSerializer(serializers.ModelSerializer):
+    city_name = serializers.CharField(required=False)
+    state_name = serializers.CharField(required=False)
+
+    class Meta:
+        model = UserAddress
+        fields = ('id', 'user', 'type', 'address', 'contact_name', 'contact_number', 'pincode', 'city_name',
+                  'state_name', 'default')
+
+
+class PosOrderUserSearchSerializer(serializers.ModelSerializer):
+    address = serializers.SerializerMethodField()
+    
+    def get_address(self, instance):
+        if not instance.ecom_user_address.exists():
+            return ''
+        elif instance.ecom_user_address.filter(type='Home').exists():
+            return UserAddressSerializer(instance.ecom_user_address.filter(type='Home').last()).data
+        else:
+            return UserAddressSerializer(instance.ecom_user_address.last())
+    
+    class Meta:
+        model = User
+        fields = ('id', 'first_name', 'last_name', 'address', 'phone_number')

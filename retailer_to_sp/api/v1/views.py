@@ -134,7 +134,7 @@ from .serializers import (ProductsSearchSerializer, CartSerializer, OrderSeriali
                           LastMileLoadVerifyPackageSerializer, RemoveLastMileInvoiceFromTripSerializer,
                           VerifyNotAttemptShipmentPackageSerializer, VerifyShipmentPackageSerializer,
                           DetailedShipmentPackageInfoSerializer, DetailedShipmentPackagingMappingInfoSerializer,
-                          VerifyBackwardTripItemsSerializer, BackwardTripQCSerializer
+                          VerifyBackwardTripItemsSerializer, BackwardTripQCSerializer, PosOrderUserSearchSerializer
                           )
 from wms.services import check_whc_manager_coordinator_supervisor_qc_executive, shipment_search, \
     check_whc_manager_dispatch_executive, check_qc_dispatch_executive, check_dispatch_executive
@@ -2183,7 +2183,7 @@ class CartCheckout(APIView):
             response['available_offers'] = offers['total_offers']
             if offers['spot_discount']:
                 response['spot_discount'] = offers['spot_discount']
-        response['key_p'] = str(config('PAYU_KEY'))
+        #response['key_p'] = str(config('PAYU_KEY'))
         return response
 
 
@@ -10614,3 +10614,24 @@ class BackwardTripQCView(generics.GenericAPIView):
                                              trip_shipment__trip=trip_instance,
                                              trip_shipment__shipment_status=DispatchTripShipmentMapping.UNLOADED_AT_DC)
         return self.queryset
+
+
+class PosOrderUserSearchView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    serializer_class = PosOrderUserSearchSerializer
+    
+    def get(self, request, *args, **kwargs):
+        search = self.request.query_params.get('search')
+        if search:
+            qs = User.objects.filter(Q(first_name__istartswith=search) | 
+                                    #  Q(last_name__icontains=search) | 
+                                     Q(phone_number__istartswith=search), 
+                                    #  is_ecom_user=True
+                                     )
+            serializer = self.serializer_class(qs, many=True)
+            msg = 'success'
+            return get_response(msg, serializer.data, True)
+        else:
+            msg = 'Search to get Buyers.'
+            return get_response(msg, '', True)
