@@ -2058,7 +2058,7 @@ class PosShopListView(GenericAPIView):
     pagination_class = SmallOffsetPagination
     
     def get(self, request, *args, **kawrgs):
-        search = self.request.query_params.get('search')
+        search = self.request.query_params.get('search_text')
         qs = Shop.objects.filter(shop_type__shop_type='f', status=True, approval_status=2, 
                                  pos_enabled=True, pos_shop__status=True).distinct('id')
         if search:
