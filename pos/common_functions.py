@@ -181,8 +181,10 @@ class RetailerProductCls(object):
         old_product = deepcopy(product.last())
         product = product.update(linked_product_id=linked_product_id, 
                                  sku_type=2)
+        product = RetailerProduct.objects.filter(id=old_product.id).last()
         event_id = product.sku if not event_id else event_id
         ProductChangeLogs.product_link_update(product, old_product, user, event_type, event_id)
+        return product
         
 
     @classmethod
@@ -857,12 +859,12 @@ class ProductChangeLogs(object):
     @classmethod
     def product_link_update(cls, product, old_instance, user, event_type, event_id):
         instance = RetailerProduct.objects.get(id=product.id)
-        product_changes, product_change_cols = {}, (('linked_product_id', 'Linked Product'))
+        product_changes, product_change_cols = {}, ['linked_product_id']
         for product_change_col in product_change_cols:
-            old_value = getattr(old_instance, product_change_col[0])
-            new_value = getattr(instance, product_change_col[0])
+            old_value = getattr(old_instance, product_change_col)
+            new_value = getattr(instance, product_change_col)
             if str(old_value) != str(new_value):
-                product_changes[product_change_col[0]] = [old_value, new_value]
+                product_changes[product_change_col] = [old_value, new_value]
         ProductChangeLogs.create_product_log(instance, event_type, event_id, user, product_changes)
 
     @classmethod
