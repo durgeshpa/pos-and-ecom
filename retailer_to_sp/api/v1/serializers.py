@@ -12,7 +12,7 @@ from rest_framework import serializers
 
 from accounts.models import UserWithName
 from pos.models import PaymentType
-from addresses.models import Address, Pincode, City
+from addresses.models import Address, Pincode, City, ShopRoute, Route
 from products.models import (Product, ProductPrice, ProductImage, Tax, ProductTaxMapping, ProductOption, Size, Color,
                              Fragrance, Flavor, Weight, PackageSize, ParentProductImage, SlabProductPrice, PriceSlab)
 from retailer_backend.utils import getStrToYearDate
@@ -2128,10 +2128,32 @@ class ShipmentPincodeFilterSerializer(serializers.ModelSerializer):
         fields = ('id', 'pincode', 'city')
 
 
+class RouteSerializer(serializers.ModelSerializer):
+    city = CitySerializer(read_only=True)
+
+    class Meta:
+        model = Route
+        fields = ('id', 'name', 'city')
+
+
+class ShopRouteBasicSerializers(serializers.ModelSerializer):
+    route = RouteSerializer(read_only=True)
+
+    class Meta:
+        model = ShopRoute
+        fields = ('id', 'route',)
+
+
 class ShipmentSerializerForDispatch(serializers.ModelSerializer):
+    shop_route = serializers.SerializerMethodField(read_only=True)
+
+    def get_shop_route(self, obj):
+        shop_routes = obj.order.buyer_shop.shop_routes.all() if obj and obj.order else None
+        return ShopRouteBasicSerializers(shop_routes, read_only=True, many=True).data
+
     class Meta:
         model = OrderedProduct
-        fields = ('id', 'invoice_no', 'order_no', 'shipment_status')
+        fields = ('id', 'invoice_no', 'order_no', 'shipment_status', 'shop_route')
 
 
 class DispatchItemDetailsSerializer(serializers.ModelSerializer):
