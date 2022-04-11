@@ -1703,7 +1703,7 @@ class RetailerProductListViewSet(mixins.ListModelMixin,
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
     serializer_class = RetailerProductListSerializer
-    queryset = RetailerProduct.objects.filter(~Q(sku_type=4))
+    queryset = RetailerProduct.objects.filter(~Q(sku_type=4)).order_by('-created_at')
     pagination_class = SmallOffsetPagination
     
     def list(self, request, *args, **kwargs):
