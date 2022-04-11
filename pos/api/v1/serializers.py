@@ -4327,10 +4327,7 @@ class LinkRetailerProductCsvSerializer(serializers.Serializer):
         except Product.DoesNotExist:
             raise serializers.ValidationError({'linked_product_sku':_(f"Linked Product {data['linked_product_sku']} SKU does not exists.")})
         request = self.context.get('request')
-        if request:
-            data['user'] = request.user
-        else:
-            data['user'] = None
+        data['user'] = self.context.get('user')
         return data
     
     def update(self, product_sku, validated_data):

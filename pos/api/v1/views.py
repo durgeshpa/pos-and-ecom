@@ -1697,7 +1697,8 @@ class RefundPayment(GenericAPIView):
         return api_response('refund request successful .....', response, status.HTTP_200_OK, True)
 
 
-class RetailerProductListViewSet(mixins.ListModelMixin, 
+class RetailerProductListViewSet(mixins.ListModelMixin,
+                                 mixins.UpdateModelMixin,
                                  viewsets.GenericViewSet):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
@@ -1969,12 +1970,14 @@ class LinkRetailerProductBulkUploadView(GenericAPIView):
     def post(self, request, *args, **kwargs):
         serializer = self.serializer_class(data=request.data)
         if serializer.is_valid():
+            user = request.user
             data_file = csv.DictReader(codecs.iterdecode(request.data['file'], 'utf-8', errors='ignore'))
             product_serializers = []
             rw = 0
             for product_data in data_file:
                 product_serializer = LinkRetailerProductCsvSerializer(product_data.get('retailer_product_sku'),
-                                                                      data=product_data)
+                                                                      data=product_data, 
+                                                                      context={'user': user})
                 if product_serializer.is_valid():
                     product_serializers.append(product_serializer)
                 else:
@@ -2064,4 +2067,3 @@ class PosShopListView(GenericAPIView):
         serializer = self.serializer_class(qs, many=True)
         msg = 'success'
         return get_response(msg, serializer.data, True)
-        
