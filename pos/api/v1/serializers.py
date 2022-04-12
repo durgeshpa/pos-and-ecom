@@ -791,9 +791,9 @@ class BasicOrderListSerializer(serializers.ModelSerializer):
     def get_gstn_no(obj):
         # GSTIN
         retailer_gstin_number = ""
-        gstin_no = obj.seller_shop.shop_name_documents.filter(shop_document_type='gstin')
+        gstin_no = obj.seller_shop.shop_name_documents.filter(shop_document_type='gstin').last()
         if gstin_no:
-            retailer_gstin_number = gstin_no.last().shop_document_number
+            retailer_gstin_number = gstin_no.shop_document_number
         return retailer_gstin_number
 
     def get_created_at(self, obj):
