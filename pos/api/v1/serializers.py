@@ -815,17 +815,12 @@ class BasicOrderListSerializer(serializers.ModelSerializer):
         """
             Get ordered product id
         """
-        ordered_product = None
-        order_product_mapping = OrderedProductMapping.objects.filter(ordered_product__order=obj, product_type=1)
-        if order_product_mapping.exists():
-            ordered_product = order_product_mapping.last().ordered_product.id
-        return ordered_product
+        order_product_mapping = OrderedProductMapping.objects.filter(ordered_product__order=obj, product_type=1).last()
+        return order_product_mapping.ordered_product.id if order_product_mapping else None
 
     def payment_data(self, obj):
         payment = obj.rt_payment_retailer_order.all()
-        if payment:
-            return PaymentSerializer(payment, many=True).data
-        return None
+        return PaymentSerializer(payment, many=True).data if payment else None
 
     def get_delivery_persons(self, obj):
 
@@ -2107,9 +2102,7 @@ class BasicOrderDetailSerializer(serializers.ModelSerializer):
 
     def payment_data(self, obj):
         payment = obj.rt_payment_retailer_order.all()
-        if payment:
-            return PaymentSerializer(payment, many=True).data
-        return None
+        return PaymentSerializer(payment, many=True).data if payment else None
 
     class Meta:
         model = Order
@@ -3557,9 +3550,7 @@ class PosEcomOrderDetailSerializer(serializers.ModelSerializer):
 
     def payment_data(self, obj):
         payment = obj.rt_payment_retailer_order.all()
-        if payment:
-            return PaymentSerializer(payment, many=True).data
-        return None
+        return PaymentSerializer(payment, many=True).data if payment else None
 
     def get_ordered_product(self, obj):
         """

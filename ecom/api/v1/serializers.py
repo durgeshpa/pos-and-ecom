@@ -240,9 +240,7 @@ class EcomOrderListSerializer(serializers.ModelSerializer):
 
     def payment_data(self, obj):
         order_payment = obj.rt_payment_retailer_order.all()
-        if order_payment:
-            return PaymentSerializer(order_payment, many=True).data
-        return None
+        return PaymentSerializer(order_payment, many=True).data if order_payment else None
 
     def get_delivery_persons(self, obj):
         if obj.order_status == "out_for_delivery":
