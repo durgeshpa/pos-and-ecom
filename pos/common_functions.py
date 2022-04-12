@@ -181,7 +181,8 @@ class RetailerProductCls(object):
         product = RetailerProduct.objects.filter(id=retailer_product_id)
         old_product = deepcopy(product.last())
         product = product.update(linked_product_id=linked_product_id, 
-                                 sku_type=2)
+                                 sku_type=2, 
+                                 modified_at=datetime.datetime.now())
         product = RetailerProduct.objects.filter(id=old_product.id).last()
         event_id = product.sku if not event_id else event_id
         ProductChangeLogs.product_link_update(product, old_product, user, event_type, event_id)
