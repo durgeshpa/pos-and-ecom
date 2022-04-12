@@ -769,7 +769,6 @@ class BasicOrderListSerializer(serializers.ModelSerializer):
     order_status = serializers.CharField(source='get_order_status_display')
     order_no = serializers.CharField()
     order_amount = serializers.ReadOnlyField()
-    created_at = serializers.SerializerMethodField()
     invoice_amount = serializers.SerializerMethodField()
     payment = serializers.SerializerMethodField('payment_data')
     delivery_persons = serializers.SerializerMethodField()
@@ -790,14 +789,8 @@ class BasicOrderListSerializer(serializers.ModelSerializer):
     @staticmethod
     def get_gstn_no(obj):
         # GSTIN
-        retailer_gstin_number = ""
         gstin_no = obj.seller_shop.shop_name_documents.filter(shop_document_type='gstin').last()
-        if gstin_no:
-            retailer_gstin_number = gstin_no.shop_document_number
-        return retailer_gstin_number
-
-    def get_created_at(self, obj):
-        return obj.created_at.strftime("%b %d, %Y %-I:%M %p")
+        return gstin_no.shop_document_number if gstin_no else ""
 
     def get_order_cancel_reson(self, obj):
         if obj.order_status == "CANCELLED":
@@ -835,6 +828,12 @@ class BasicOrderListSerializer(serializers.ModelSerializer):
                   'created_at', 'payment', 'invoice_amount', 'delivery_persons', 'ordered_product', 'rt_return_order',
                   'ordered_cart', 'seller_shop', 'gstn_no', 'invoice_no')
 
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        if representation['created_at']:
+            representation['created_at'] = instance.created_at.strftime("%b %d, %Y %-I:%M %p")
+        return representation
+
 
 class BasicCartListSerializer(serializers.ModelSerializer):
     """
@@ -842,11 +841,6 @@ class BasicCartListSerializer(serializers.ModelSerializer):
     """
     total_amount = serializers.SerializerMethodField('total_amount_dt')
     buyer = PosUserSerializer()
-    created_at = serializers.SerializerMethodField()
-
-    @staticmethod
-    def get_created_at(obj):
-        return obj.created_at.strftime("%b %d, %Y %-I:%M %p")
 
     @staticmethod
     def total_amount_dt(obj):
@@ -875,6 +869,12 @@ class BasicCartListSerializer(serializers.ModelSerializer):
     class Meta:
         model = Cart
         fields = ('id', 'cart_no', 'cart_status', 'total_amount', 'buyer', 'created_at')
+
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        if representation['created_at']:
+            representation['created_at'] = instance.created_at.strftime("%b %d, %Y %-I:%M %p")
+        return representation
 
 
 class OrderedDashBoardSerializer(serializers.Serializer):
