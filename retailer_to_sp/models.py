@@ -664,6 +664,26 @@ class BulkOrder(models.Model):
             else:
                 super(BulkOrder, self).clean(*args, **kwargs)
 
+    @property
+    def cart_offers(self):
+        if self.cart.cart_type != 'DISCOUNTED':
+            offer_list = self.cart.offers_applied()
+        else:
+            offer_list = []
+            for item in self.cart.rt_cart_list.all():
+                product_total = float(item.no_of_pieces) * float(item.item_effective_prices)
+                offer = {
+                    "coupon_type": "catalog",
+                    "type": "none",
+                    "available_type": "none",
+                    'item_id': item.cart_product_id,
+                    'product_subtotal': product_total,
+                    'discounted_product_subtotal': product_total
+                }
+                offer_list.append(offer)
+        return offer_list
+
+
     def save(self, *args, **kwargs):
         if self.pk is None:
             self.cart = Cart.objects.create(seller_shop=self.seller_shop, buyer_shop=self.buyer_shop,
@@ -723,7 +743,8 @@ def create_bulk_order(sender, instance=None, created=False, **kwargs):
                 info_logger.info(f"reserved_bulk_order:{reserved_args}")
                 OrderManagement.create_reserved_order(reserved_args)
                 info_logger.info("reserved_bulk_order_success")
-                instance.cart.offers = instance.cart.offers_applied()
+                instance.cart.offers = instance.cart_offers
+                instance.cart.save()
                 order, _ = Order.objects.get_or_create(ordered_cart=instance.cart)
                 order.ordered_cart = instance.cart
                 order.seller_shop = instance.seller_shop
