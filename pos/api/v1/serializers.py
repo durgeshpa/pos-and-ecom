@@ -783,24 +783,23 @@ class BasicOrderListSerializer(serializers.ModelSerializer):
 
     @staticmethod
     def get_invoice_no(obj):
-        if obj.rt_order_order_product.last():
-            return obj.rt_order_order_product.last().invoice_no
-        return None
+        # Invoice Number
+        invoice_number = obj.rt_order_order_product.last()
+        return invoice_number.invoice_no if invoice_number else None
 
     @staticmethod
     def get_gstn_no(obj):
         # GSTIN
         retailer_gstin_number = ""
-        if obj.seller_shop.shop_name_documents.filter(shop_document_type='gstin'):
-            retailer_gstin_number = obj.seller_shop.shop_name_documents.filter(
-                shop_document_type='gstin').last().shop_document_number
-
+        gstin_no = obj.seller_shop.shop_name_documents.filter(shop_document_type='gstin')
+        if gstin_no:
+            retailer_gstin_number = gstin_no.last().shop_document_number
         return retailer_gstin_number
 
     def get_created_at(self, obj):
         return obj.created_at.strftime("%b %d, %Y %-I:%M %p")
 
-    def get_order_cancel_reson(self,obj):
+    def get_order_cancel_reson(self, obj):
         if obj.order_status == "CANCELLED":
             return obj.get_cancellation_reason_display()
 
@@ -812,36 +811,34 @@ class BasicOrderListSerializer(serializers.ModelSerializer):
         if obj.delivery_option:
             return obj.get_delivery_option_display()
 
-
     def get_ordered_product(self, obj):
         """
             Get ordered product id
         """
-        if OrderedProductMapping.objects.filter(ordered_product__order=obj, product_type=1).exists():
-            ordered_product = OrderedProductMapping.objects.filter(ordered_product__order=obj, product_type=1).last().\
-            ordered_product.id
-            return ordered_product
-        return None
+        ordered_product = None
+        order_product_mapping = OrderedProductMapping.objects.filter(ordered_product__order=obj, product_type=1)
+        if order_product_mapping.exists():
+            ordered_product = order_product_mapping.last().ordered_product.id
+        return ordered_product
 
     def payment_data(self, obj):
-        return PaymentSerializer(obj.rt_payment_retailer_order.all(), many=True).data
+        payment = obj.rt_payment_retailer_order
+        if not payment.exists():
+            return None
+        return PaymentSerializer(payment.all(), many=True).data
 
     def get_delivery_persons(self, obj):
 
         if obj.order_status == "out_for_delivery":
             x = User.objects.filter(id=obj.delivery_person_id)[:1:]
-
             return {"name": x[0].first_name, "phone_number": x[0].phone_number}
-
-        #     return obj
-
         return None
 
     class Meta:
         model = Order
-        fields = ('id', 'order_status', 'delivery_option', 'order_cancel_reson', 'order_amount', 'order_no', 'buyer', 'created_at',
-                  'payment', 'invoice_amount', 'delivery_persons', 'ordered_product', 'rt_return_order', 'ordered_cart',
-                  'seller_shop', 'gstn_no', 'invoice_no')
+        fields = ('id', 'order_status', 'delivery_option', 'order_cancel_reson', 'order_amount', 'order_no', 'buyer',
+                  'created_at', 'payment', 'invoice_amount', 'delivery_persons', 'ordered_product', 'rt_return_order',
+                  'ordered_cart', 'seller_shop', 'gstn_no', 'invoice_no')
 
 
 class BasicCartListSerializer(serializers.ModelSerializer):
@@ -2109,9 +2106,10 @@ class BasicOrderDetailSerializer(serializers.ModelSerializer):
         return cart_offers
 
     def payment_data(self, obj):
-        if not obj.rt_payment_retailer_order.exists():
+        payment = obj.rt_payment_retailer_order
+        if not payment.exists():
             return None
-        return PaymentSerializer(obj.rt_payment_retailer_order.all(), many=True).data
+        return PaymentSerializer(payment.all(), many=True).data
 
     class Meta:
         model = Order
@@ -3558,9 +3556,10 @@ class PosEcomOrderDetailSerializer(serializers.ModelSerializer):
         return obj.delivery_person.first_name + ' - ' + obj.delivery_person.phone_number if obj.delivery_person else None
 
     def payment_data(self, obj):
-        if not obj.rt_payment_retailer_order.exists():
+        payment = obj.rt_payment_retailer_order
+        if not payment.exists():
             return None
-        return PaymentSerializer(obj.rt_payment_retailer_order.all(), many=True).data
+        return PaymentSerializer(payment.all(), many=True).data
 
     def get_ordered_product(self, obj):
         """

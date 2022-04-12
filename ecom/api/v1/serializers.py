@@ -239,9 +239,10 @@ class EcomOrderListSerializer(serializers.ModelSerializer):
         return obj.seller_shop.shop_name
 
     def payment_data(self, obj):
-        if not obj.rt_payment_retailer_order.exists():
-            return None
-        return PaymentSerializer(obj.rt_payment_retailer_order.all(), many=True).data
+        order_payment = obj.rt_payment_retailer_order
+        if order_payment.exists():
+            return PaymentSerializer(order_payment.all(), many=True).data
+        return None
 
     def get_delivery_persons(self, obj):
         if obj.order_status == "out_for_delivery":
@@ -249,14 +250,16 @@ class EcomOrderListSerializer(serializers.ModelSerializer):
             return {"name": delivery_person[0].first_name,
                     "phone_number": delivery_person[0].phone_number
                     }
+
     def get_delivery_option(self, obj):
         if obj.delivery_option:
             return obj.get_delivery_option_display()
 
     class Meta:
         model = Order
-        fields = ('id', 'order_status','order_cancel_reson', 'order_amount', 'total_items', 'order_no', 'created_at',
-                  'estimate_delivery_time', 'seller_shop', 'payment', 'delivery_persons', 'ordered_cart', 'delivery_option')
+        fields = ('id', 'order_status', 'order_cancel_reson', 'order_amount', 'total_items', 'order_no', 'created_at',
+                  'estimate_delivery_time', 'seller_shop', 'payment', 'delivery_persons', 'ordered_cart',
+                  'delivery_option')
 
 
 class EcomOrderProductDetailSerializer(serializers.ModelSerializer):
