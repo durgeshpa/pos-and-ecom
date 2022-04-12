@@ -3470,7 +3470,7 @@ class OrderCentral(APIView):
                 for device in devices:
                     registration_id = device.reg_id
                     message_title = f"{shop.shop_name} - Order Alert !!"
-                    message_body = "Hello, You received a new Order."
+                    message_body = f"Hello, You received a new Order of Rs {order.order_amount}."
                     result = push_service.notify_single_device(registration_id=registration_id,
                                                                message_title=message_title,
                                                                message_body=message_body)
@@ -4332,7 +4332,7 @@ class OrderListCentral(GenericAPIView):
                 qs = qs.filter(delivery_person=self.request.user)
             if order_status:
                 order_status_actual = ONLINE_ORDER_STATUS_MAP.get(int(order_status), None)
-                qs = qs.filter(order_status__in = order_status_actual) if order_status_actual else qs
+                qs = qs.filter(order_status__in=order_status_actual) if order_status_actual else qs
         else:
             return api_response("Invalid cart type")
         if search_text:

@@ -769,7 +769,6 @@ class BasicOrderListSerializer(serializers.ModelSerializer):
     order_status = serializers.CharField(source='get_order_status_display')
     order_no = serializers.CharField()
     order_amount = serializers.ReadOnlyField()
-    created_at = serializers.SerializerMethodField()
     invoice_amount = serializers.SerializerMethodField()
     payment = serializers.SerializerMethodField('payment_data')
     delivery_persons = serializers.SerializerMethodField()
@@ -783,24 +782,17 @@ class BasicOrderListSerializer(serializers.ModelSerializer):
 
     @staticmethod
     def get_invoice_no(obj):
-        if obj.rt_order_order_product.last():
-            return obj.rt_order_order_product.last().invoice_no
-        return None
+        # Invoice Number
+        invoice_number = obj.rt_order_order_product.last()
+        return invoice_number.invoice_no if invoice_number else None
 
     @staticmethod
     def get_gstn_no(obj):
         # GSTIN
-        retailer_gstin_number = ""
-        if obj.seller_shop.shop_name_documents.filter(shop_document_type='gstin'):
-            retailer_gstin_number = obj.seller_shop.shop_name_documents.filter(
-                shop_document_type='gstin').last().shop_document_number
+        gstin_no = obj.seller_shop.shop_name_documents.filter(shop_document_type='gstin').last()
+        return gstin_no.shop_document_number if gstin_no else ""
 
-        return retailer_gstin_number
-
-    def get_created_at(self, obj):
-        return obj.created_at.strftime("%b %d, %Y %-I:%M %p")
-
-    def get_order_cancel_reson(self,obj):
+    def get_order_cancel_reson(self, obj):
         if obj.order_status == "CANCELLED":
             return obj.get_cancellation_reason_display()
 
@@ -812,36 +804,35 @@ class BasicOrderListSerializer(serializers.ModelSerializer):
         if obj.delivery_option:
             return obj.get_delivery_option_display()
 
-
     def get_ordered_product(self, obj):
         """
             Get ordered product id
         """
-        if OrderedProductMapping.objects.filter(ordered_product__order=obj, product_type=1).exists():
-            ordered_product = OrderedProductMapping.objects.filter(ordered_product__order=obj, product_type=1).last().\
-            ordered_product.id
-            return ordered_product
-        return None
+        order_product_mapping = OrderedProductMapping.objects.filter(ordered_product__order=obj, product_type=1).last()
+        return order_product_mapping.ordered_product.id if order_product_mapping else None
 
     def payment_data(self, obj):
-        return PaymentSerializer(obj.rt_payment_retailer_order.all(), many=True).data
+        payment = obj.rt_payment_retailer_order.all()
+        return PaymentSerializer(payment, many=True).data if payment else None
 
     def get_delivery_persons(self, obj):
 
         if obj.order_status == "out_for_delivery":
             x = User.objects.filter(id=obj.delivery_person_id)[:1:]
-
             return {"name": x[0].first_name, "phone_number": x[0].phone_number}
-
-        #     return obj
-
         return None
 
     class Meta:
         model = Order
-        fields = ('id', 'order_status', 'delivery_option', 'order_cancel_reson', 'order_amount', 'order_no', 'buyer', 'created_at',
-                  'payment', 'invoice_amount', 'delivery_persons', 'ordered_product', 'rt_return_order', 'ordered_cart',
-                  'seller_shop', 'gstn_no', 'invoice_no')
+        fields = ('id', 'order_status', 'delivery_option', 'order_cancel_reson', 'order_amount', 'order_no', 'buyer',
+                  'created_at', 'payment', 'invoice_amount', 'delivery_persons', 'ordered_product', 'rt_return_order',
+                  'ordered_cart', 'seller_shop', 'gstn_no', 'invoice_no')
+
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        if representation['created_at']:
+            representation['created_at'] = instance.created_at.strftime("%b %d, %Y %-I:%M %p")
+        return representation
 
 
 class BasicCartListSerializer(serializers.ModelSerializer):
@@ -850,11 +841,6 @@ class BasicCartListSerializer(serializers.ModelSerializer):
     """
     total_amount = serializers.SerializerMethodField('total_amount_dt')
     buyer = PosUserSerializer()
-    created_at = serializers.SerializerMethodField()
-
-    @staticmethod
-    def get_created_at(obj):
-        return obj.created_at.strftime("%b %d, %Y %-I:%M %p")
 
     @staticmethod
     def total_amount_dt(obj):
@@ -883,6 +869,12 @@ class BasicCartListSerializer(serializers.ModelSerializer):
     class Meta:
         model = Cart
         fields = ('id', 'cart_no', 'cart_status', 'total_amount', 'buyer', 'created_at')
+
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        if representation['created_at']:
+            representation['created_at'] = instance.created_at.strftime("%b %d, %Y %-I:%M %p")
+        return representation
 
 
 class OrderedDashBoardSerializer(serializers.Serializer):
@@ -2109,9 +2101,8 @@ class BasicOrderDetailSerializer(serializers.ModelSerializer):
         return cart_offers
 
     def payment_data(self, obj):
-        if not obj.rt_payment_retailer_order.exists():
-            return None
-        return PaymentSerializer(obj.rt_payment_retailer_order.all(), many=True).data
+        payment = obj.rt_payment_retailer_order.all()
+        return PaymentSerializer(payment, many=True).data if payment else None
 
     class Meta:
         model = Order
@@ -3558,9 +3549,8 @@ class PosEcomOrderDetailSerializer(serializers.ModelSerializer):
         return obj.delivery_person.first_name + ' - ' + obj.delivery_person.phone_number if obj.delivery_person else None
 
     def payment_data(self, obj):
-        if not obj.rt_payment_retailer_order.exists():
-            return None
-        return PaymentSerializer(obj.rt_payment_retailer_order.all(), many=True).data
+        payment = obj.rt_payment_retailer_order.all()
+        return PaymentSerializer(payment, many=True).data if payment else None
 
     def get_ordered_product(self, obj):
         """
