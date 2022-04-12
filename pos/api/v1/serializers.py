@@ -822,10 +822,10 @@ class BasicOrderListSerializer(serializers.ModelSerializer):
         return ordered_product
 
     def payment_data(self, obj):
-        payment = obj.rt_payment_retailer_order
-        if not payment.exists():
-            return None
-        return PaymentSerializer(payment.all(), many=True).data
+        payment = obj.rt_payment_retailer_order.all()
+        if payment:
+            return PaymentSerializer(payment, many=True).data
+        return None
 
     def get_delivery_persons(self, obj):
 
@@ -2106,10 +2106,10 @@ class BasicOrderDetailSerializer(serializers.ModelSerializer):
         return cart_offers
 
     def payment_data(self, obj):
-        payment = obj.rt_payment_retailer_order
-        if not payment.exists():
-            return None
-        return PaymentSerializer(payment.all(), many=True).data
+        payment = obj.rt_payment_retailer_order.all()
+        if payment:
+            return PaymentSerializer(payment, many=True).data
+        return None
 
     class Meta:
         model = Order
@@ -3556,10 +3556,10 @@ class PosEcomOrderDetailSerializer(serializers.ModelSerializer):
         return obj.delivery_person.first_name + ' - ' + obj.delivery_person.phone_number if obj.delivery_person else None
 
     def payment_data(self, obj):
-        payment = obj.rt_payment_retailer_order
-        if not payment.exists():
-            return None
-        return PaymentSerializer(payment.all(), many=True).data
+        payment = obj.rt_payment_retailer_order.all()
+        if payment:
+            return PaymentSerializer(payment, many=True).data
+        return None
 
     def get_ordered_product(self, obj):
         """

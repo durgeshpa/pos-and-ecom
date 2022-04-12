@@ -239,9 +239,9 @@ class EcomOrderListSerializer(serializers.ModelSerializer):
         return obj.seller_shop.shop_name
 
     def payment_data(self, obj):
-        order_payment = obj.rt_payment_retailer_order
-        if order_payment.exists():
-            return PaymentSerializer(order_payment.all(), many=True).data
+        order_payment = obj.rt_payment_retailer_order.all()
+        if order_payment:
+            return PaymentSerializer(order_payment, many=True).data
         return None
 
     def get_delivery_persons(self, obj):
