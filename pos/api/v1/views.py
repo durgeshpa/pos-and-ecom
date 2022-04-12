@@ -35,6 +35,7 @@ from pos.common_functions import (RetailerProductCls, OffersCls, serializer_erro
 from pos.common_validators import compareList, validate_user_type_for_pos_shop, validate_id
 from pos.models import RetailerProduct, RetailerProductImage, ShopCustomerMap, Vendor, PosCart, PosGRNOrder, \
     PaymentType, PosReturnGRNOrder,Payment
+from pos.views import products_image
 from pos.services import grn_product_search, grn_return_search, non_grn_return_search
 from products.models import Product
 from retailer_backend.utils import SmallOffsetPagination, OffsetPaginationDefault50
@@ -1761,12 +1762,13 @@ class DownloadRetailerProductCsvShopWiseView(GenericAPIView):
             response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
             writer = csv.writer(response)
             writer.writerow(
-                ['product_id', 'shop_id', 'shop_name', 'product_sku', 'product_name', 'mrp', 'selling_price',
-                'linked_product_sku', 'product_ean_code', 'description', 'sku_type','parent_product_id', 'b2b_category',
-                'b2b_sub_category', 'b2c_category', 'b2c_sub_category', 'brand', 'sub_brand', 'status', 'quantity',
-                'discounted_sku', 'discounted_stock', 'discounted_price', 'product_pack_type', 'measurement_category',
-                'purchase_pack_size', 'available_for_online_orders', 'online_order_price', 'is_visible', 'offer_price',
-                'offer_start_date', 'offer_end_date', 'initial_purchase_value'])
+            ['product_id', 'shop_id', 'shop_name', 'product_sku', 'product_name', 'product_image', 'mrp', 'selling_price',
+            'linked_product_sku', 'linked_product_image', 'product_ean_code', 'description', 'sku_type',
+            'parent_product_id', 'b2b_category', 'b2b_sub_category', 'b2c_category', 'b2c_sub_category', 'brand',
+            'sub_brand', 'status', 'quantity', 'discounted_sku', 'discounted_stock', 'discounted_price',
+            'product_pack_type', 'measurement_category', 'purchase_pack_size', 'available_for_online_orders',
+            'online_order_price', 'is_visible', 'offer_price', 'offer_start_date', 'offer_end_date',
+            'initial_purchase_value'])
 
             product_qs = RetailerProduct.objects.filter(~Q(sku_type=4), shop_id=int(shop_id), is_deleted=False)
             if product_qs.exists():
@@ -1781,6 +1783,7 @@ class DownloadRetailerProductCsvShopWiseView(GenericAPIView):
                     .prefetch_related('linked_product__parent_product__parent_product_pro_b2c_category__category__category_parent') \
                     .select_related('measurement_category')\
                     .values('id', 'shop', 'shop__shop_name', 'sku', 'name', 'mrp', 'selling_price', 'product_pack_type',
+                            'retailer_product_image__image',
                             'purchase_pack_size',
                             'measurement_category__category',
                             'linked_product__product_sku',
@@ -1808,6 +1811,7 @@ class DownloadRetailerProductCsvShopWiseView(GenericAPIView):
                 inventory_data = {i.product_id: i.quantity for i in inventory}
                 is_visible = 'False'
                 for product_id, product in product_dict.items():
+                    retailer_images = RetailerProductImage.objects.filter(product=product['id'])
                     category = product[
                         'linked_product__parent_product__parent_product_pro_category__category__category_parent__category_name']
                     sub_category = product[
@@ -1854,13 +1858,28 @@ class DownloadRetailerProductCsvShopWiseView(GenericAPIView):
                         initial_purchase_value = product['initial_purchase_value'] \
                             if product['initial_purchase_value'] else 0
 
+                    product_image = None
+                    linked_product_image = None
+                    if retailer_images:
+                        product_image = ", ".join([x.image.url for x in retailer_images.all()])
+
+                    if product['linked_product__product_sku']:
+                        product_obj = Product.objects.get(product_sku=product['linked_product__product_sku'])
+                        linked_product_images = products_image(product_obj)
+                        if linked_product_images is not None:
+                            linked_product_image = str(linked_product_images)
+
+                        # product_image = str(AWS_MEDIA_URL) + str(product['retailer_product_image__image'])
                     writer.writerow(
                         [product['id'], product['shop'], product['shop__shop_name'], product['sku'], product['name'],
+                        product_image,
                         product['mrp'], product['selling_price'], product['linked_product__product_sku'],
+                        linked_product_image,
                         product['product_ean_code'], product['description'],
                         RetailerProductCls.get_sku_type(product['sku_type']),
                         product['linked_product__parent_product__parent_id'],
-                        category, sub_category, b2c_category, b2c_sub_category, brand, sub_brand, product['status'], inventory_data.get(product_id, 0),
+                        category, sub_category, b2c_category, b2c_sub_category, brand, sub_brand, product['status'],
+                        inventory_data.get(product_id, 0),
                         product['discounted_product__sku'], discounted_stock, discounted_price, product['product_pack_type'],
                         measurement_category, product['purchase_pack_size'], online_enabled,
                         product['online_price'], is_visible, product['offer_price'], product['offer_start_date'],
