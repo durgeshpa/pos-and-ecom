@@ -9,8 +9,7 @@ CARD_TYPE_CHOICES = [
     ('product', 'Product'),
     ('category', 'Category'),
     ('brand', 'Brand'),
-    ('text', 'Text'),
-    ('lp', 'Landing Page')
+    ('text', 'Text')
 ]
 
 LISTING_SUBTYPE_CHOICE = Choices(
