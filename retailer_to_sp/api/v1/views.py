@@ -135,7 +135,7 @@ from .serializers import (ProductsSearchSerializer, CartSerializer, OrderSeriali
                           LastMileLoadVerifyPackageSerializer, RemoveLastMileInvoiceFromTripSerializer,
                           VerifyNotAttemptShipmentPackageSerializer, VerifyShipmentPackageSerializer,
                           DetailedShipmentPackageInfoSerializer, DetailedShipmentPackagingMappingInfoSerializer,
-                          VerifyBackwardTripItemsSerializer, BackwardTripQCSerializer
+                          VerifyBackwardTripItemsSerializer, BackwardTripQCSerializer, PosOrderUserSearchSerializer
                           )
 from wms.services import check_whc_manager_coordinator_supervisor_qc_executive, shipment_search, \
     check_whc_manager_dispatch_executive, check_qc_dispatch_executive, check_dispatch_executive
@@ -3469,8 +3469,8 @@ class OrderCentral(APIView):
                                                 is_active=True).distinct('reg_id')
                 for device in devices:
                     registration_id = device.reg_id
-                    message_title = "PepperTap Store Order Alert !!"
-                    message_body = "Hello, You received a new Order."
+                    message_title = f"{shop.shop_name} - Order Alert !!"
+                    message_body = f"Hello, You received a new Order of Rs {order.order_amount}."
                     result = push_service.notify_single_device(registration_id=registration_id,
                                                                message_title=message_title,
                                                                message_body=message_body)
@@ -4332,7 +4332,7 @@ class OrderListCentral(GenericAPIView):
                 qs = qs.filter(delivery_person=self.request.user)
             if order_status:
                 order_status_actual = ONLINE_ORDER_STATUS_MAP.get(int(order_status), None)
-                qs = qs.filter(order_status__in = order_status_actual) if order_status_actual else qs
+                qs = qs.filter(order_status__in=order_status_actual) if order_status_actual else qs
         else:
             return api_response("Invalid cart type")
         if search_text:
@@ -10622,3 +10622,24 @@ class BackwardTripQCView(generics.GenericAPIView):
                                              trip_shipment__trip=trip_instance,
                                              trip_shipment__shipment_status=DispatchTripShipmentMapping.UNLOADED_AT_DC)
         return self.queryset
+
+
+class PosOrderUserSearchView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    serializer_class = PosOrderUserSearchSerializer
+    
+    def get(self, request, *args, **kwargs):
+        search = self.request.query_params.get('search')
+        if search:
+            qs = User.objects.filter(Q(first_name__istartswith=search) | 
+                                    #  Q(last_name__icontains=search) | 
+                                     Q(phone_number__istartswith=search), 
+                                    #  is_ecom_user=True
+                                     )
+            serializer = self.serializer_class(qs, many=True)
+            msg = 'success'
+            return get_response(msg, serializer.data, True)
+        else:
+            msg = 'Search to get Buyers.'
+            return get_response(msg, '', True)

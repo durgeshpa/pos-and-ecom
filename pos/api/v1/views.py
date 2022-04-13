@@ -27,6 +27,7 @@ from coupon.models import CouponRuleSet, RuleSetProductMapping, DiscountValue, C
 from pos.models import (RetailerProduct, RetailerProductImage, ShopCustomerMap, Vendor, PosCart, PosGRNOrder,
                         PaymentType, MeasurementCategory, PosReturnGRNOrder, BulkRetailerProduct, Payment,
                         PosCartProductMapping)
+from pos.tasks import update_es
 from pos.common_functions import (RetailerProductCls, OffersCls, serializer_error, api_response, PosInventoryCls,
                                   check_pos_shop, ProductChangeLogs, pos_check_permission_delivery_person,
                                   pos_check_permission, check_return_status, pos_check_user_permission)
@@ -34,28 +35,32 @@ from pos.common_functions import (RetailerProductCls, OffersCls, serializer_erro
 from pos.common_validators import compareList, validate_user_type_for_pos_shop, validate_id
 from pos.models import RetailerProduct, RetailerProductImage, ShopCustomerMap, Vendor, PosCart, PosGRNOrder, \
     PaymentType, PosReturnGRNOrder,Payment
+from pos.views import products_image
 from pos.services import grn_product_search, grn_return_search, non_grn_return_search
 from products.models import Product
 from retailer_backend.utils import SmallOffsetPagination, OffsetPaginationDefault50
 from retailer_to_sp.models import OrderedProduct, Order, OrderReturn
 from shops.models import Shop
 from wms.models import PosInventoryChange, PosInventoryState, PosInventory
-from .serializers import (PaymentTypeSerializer, RetailerProductCreateSerializer, RetailerProductUpdateSerializer,
+from .serializers import (BulkCreateUpdateRetailerProductsSerializer, PaymentTypeSerializer, RetailerProductCreateSerializer, RetailerProductUpdateSerializer,
                           RetailerProductResponseSerializer, CouponOfferSerializer, FreeProductOfferSerializer,
                           ComboOfferSerializer, CouponOfferUpdateSerializer, ComboOfferUpdateSerializer,
                           CouponListSerializer, FreeProductOfferUpdateSerializer, OfferCreateSerializer,
                           OfferUpdateSerializer, CouponGetSerializer, OfferGetSerializer, ImageFileSerializer,
                           InventoryReportSerializer, InventoryLogReportSerializer, SalesReportResponseSerializer,
                           SalesReportSerializer, CustomerReportSerializer, CustomerReportResponseSerializer,
-                          CustomerReportDetailResponseSerializer, VendorSerializer, VendorListSerializer,
+                          CustomerReportDetailResponseSerializer, UpdateRetailerProductCsvSerializer, VendorSerializer, VendorListSerializer,
                           POSerializer, POGetSerializer, POProductInfoSerializer, POListSerializer,
                           PosGrnOrderCreateSerializer, PosGrnOrderUpdateSerializer, GrnListSerializer,
                           GrnOrderGetSerializer, MeasurementCategorySerializer, ReturnGrnOrderSerializer,
                           GrnOrderGetListSerializer, PRNOrderSerializer, BulkProductUploadSerializers, ContectUs,
-                          RetailerProductListSerializer, DownloadRetailerProductsCsvShopWiseSerializer, DownloadUploadRetailerProductsCsvSampleFileSerializer)
+                          RetailerProductListSerializer, DownloadRetailerProductsCsvShopWiseSerializer, DownloadUploadRetailerProductsCsvSampleFileSerializer,
+                          CreateRetailerProductCsvSerializer, LinkRetailerProductCsvSerializer, LinkRetailerProductsBulkUploadSerializer,
+                          RetailerProductImageSerializer, RetailerProductImageBulkUploadSerializer, PosShopListSerializer)
 from global_config.views import get_config
 from ...forms import RetailerProductsStockUpdateForm
 from ...views import stock_update
+from global_config.models import GlobalConfig
 from pos.payU_payment import *
 
 info_logger = logging.getLogger('file-info')
@@ -1606,7 +1611,16 @@ class Contect_Us(APIView):
     authentication_classes = (authentication.TokenAuthentication,)
 
     def get(self, request, format=None):
-        data = {'phone_number':"989-989-9551",'email' :'partners@peppertap.in'}
+        phone_no = "989-989-9551"
+        obj = GlobalConfig.objects.filter(key='contect_us_pos_phone').last()
+        if obj:
+            phone_no = obj.value
+        email = "partners@peppertap.in"
+        obj = GlobalConfig.objects.filter(key='contect_us_pos_email').last()
+        if obj:
+            email = obj.value
+
+        data = {'phone_number': phone_no,'email' : email}
         serializer = ContectUs(data=data)
         if serializer.is_valid():
             return api_response('contct us details', serializer.data, status.HTTP_200_OK, True)
@@ -1684,12 +1698,13 @@ class RefundPayment(GenericAPIView):
         return api_response('refund request successful .....', response, status.HTTP_200_OK, True)
 
 
-class RetailerProductListViewSet(mixins.ListModelMixin, 
+class RetailerProductListViewSet(mixins.ListModelMixin,
+                                 mixins.UpdateModelMixin,
                                  viewsets.GenericViewSet):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
     serializer_class = RetailerProductListSerializer
-    queryset = RetailerProduct.objects.filter(~Q(sku_type=4))
+    queryset = RetailerProduct.objects.filter(~Q(sku_type=4)).order_by('-created_at')
     pagination_class = SmallOffsetPagination
     
     def list(self, request, *args, **kwargs):
@@ -1715,6 +1730,21 @@ class RetailerProductListViewSet(mixins.ListModelMixin,
         serializer = self.serializer_class(retailer_products, many=True)
         msg = "success"
         return get_response(msg, serializer.data, True)
+    
+    def retrieve(self, request, pk):
+        if request.user.is_superuser:
+            qs = self.queryset.all()
+        else:
+            qs = self.queryset.filter(shop__pos_shop__user=request.user, 
+                                      shop__pos_shop__status=True)
+        try:
+            qs = qs.get(id=pk)
+            serializer = self.serializer_class(qs)
+            msg = 'success'
+            return get_response(msg, serializer.data, True)
+        except RetailerProduct.DoesNotExist:
+            error = 'Retailer Product not found.'
+            return api_response(error)
 
 
 class DownloadRetailerProductCsvShopWiseView(GenericAPIView):
@@ -1732,12 +1762,13 @@ class DownloadRetailerProductCsvShopWiseView(GenericAPIView):
             response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
             writer = csv.writer(response)
             writer.writerow(
-                ['product_id', 'shop_id', 'shop_name', 'product_sku', 'product_name', 'mrp', 'selling_price',
-                'linked_product_sku', 'product_ean_code', 'description', 'sku_type','parent_product_id', 'b2b_category',
-                'b2b_sub_category', 'b2c_category', 'b2c_sub_category', 'brand', 'sub_brand', 'status', 'quantity',
-                'discounted_sku', 'discounted_stock', 'discounted_price', 'product_pack_type', 'measurement_category',
-                'purchase_pack_size', 'available_for_online_orders', 'online_order_price', 'is_visible', 'offer_price',
-                'offer_start_date', 'offer_end_date', 'initial_purchase_value'])
+            ['product_id', 'shop_id', 'shop_name', 'product_sku', 'product_name', 'product_image', 'mrp', 'selling_price',
+            'linked_product_sku', 'linked_product_image', 'product_ean_code', 'description', 'sku_type',
+            'parent_product_id', 'b2b_category', 'b2b_sub_category', 'b2c_category', 'b2c_sub_category', 'brand',
+            'sub_brand', 'status', 'quantity', 'discounted_sku', 'discounted_stock', 'discounted_price',
+            'product_pack_type', 'measurement_category', 'purchase_pack_size', 'available_for_online_orders',
+            'online_order_price', 'is_visible', 'offer_price', 'offer_start_date', 'offer_end_date',
+            'initial_purchase_value'])
 
             product_qs = RetailerProduct.objects.filter(~Q(sku_type=4), shop_id=int(shop_id), is_deleted=False)
             if product_qs.exists():
@@ -1752,6 +1783,7 @@ class DownloadRetailerProductCsvShopWiseView(GenericAPIView):
                     .prefetch_related('linked_product__parent_product__parent_product_pro_b2c_category__category__category_parent') \
                     .select_related('measurement_category')\
                     .values('id', 'shop', 'shop__shop_name', 'sku', 'name', 'mrp', 'selling_price', 'product_pack_type',
+                            'retailer_product_image__image',
                             'purchase_pack_size',
                             'measurement_category__category',
                             'linked_product__product_sku',
@@ -1779,6 +1811,7 @@ class DownloadRetailerProductCsvShopWiseView(GenericAPIView):
                 inventory_data = {i.product_id: i.quantity for i in inventory}
                 is_visible = 'False'
                 for product_id, product in product_dict.items():
+                    retailer_images = RetailerProductImage.objects.filter(product=product['id'])
                     category = product[
                         'linked_product__parent_product__parent_product_pro_category__category__category_parent__category_name']
                     sub_category = product[
@@ -1825,13 +1858,28 @@ class DownloadRetailerProductCsvShopWiseView(GenericAPIView):
                         initial_purchase_value = product['initial_purchase_value'] \
                             if product['initial_purchase_value'] else 0
 
+                    product_image = None
+                    linked_product_image = None
+                    if retailer_images:
+                        product_image = ", ".join([x.image.url for x in retailer_images.all()])
+
+                    if product['linked_product__product_sku']:
+                        product_obj = Product.objects.get(product_sku=product['linked_product__product_sku'])
+                        linked_product_images = products_image(product_obj)
+                        if linked_product_images is not None:
+                            linked_product_image = str(linked_product_images)
+
+                        # product_image = str(AWS_MEDIA_URL) + str(product['retailer_product_image__image'])
                     writer.writerow(
                         [product['id'], product['shop'], product['shop__shop_name'], product['sku'], product['name'],
+                        product_image,
                         product['mrp'], product['selling_price'], product['linked_product__product_sku'],
+                        linked_product_image,
                         product['product_ean_code'], product['description'],
                         RetailerProductCls.get_sku_type(product['sku_type']),
                         product['linked_product__parent_product__parent_id'],
-                        category, sub_category, b2c_category, b2c_sub_category, brand, sub_brand, product['status'], inventory_data.get(product_id, 0),
+                        category, sub_category, b2c_category, b2c_sub_category, brand, sub_brand, product['status'],
+                        inventory_data.get(product_id, 0),
                         product['discounted_product__sku'], discounted_stock, discounted_price, product['product_pack_type'],
                         measurement_category, product['purchase_pack_size'], online_enabled,
                         product['online_price'], is_visible, product['offer_price'], product['offer_start_date'],
@@ -1876,4 +1924,165 @@ class DownloadUploadRetailerProductsCsvSampleFileView(GenericAPIView):
             errors = [f"{error} :: {serializer.errors[error][0]}" for error in serializer.errors]
             errors = "\n".join(errors)
             return api_response(errors)
-            
+
+
+class BulkCreateUpdateRetailerProductsView(GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    serializer_class = BulkCreateUpdateRetailerProductsSerializer
+    
+    def post(self, request, *args, **kwargs):
+        serializer = self.serializer_class(data=request.data)
+        if serializer.is_valid():
+            data_file = csv.DictReader(codecs.iterdecode(request.data['file'], 'utf-8', errors='ignore'))
+            shop_id = request.data['shop']
+            product_serializers = []
+            rw = 0
+            user = request.user
+            for product_data in data_file:
+                rw += 1
+                if product_data.get('product_id'):
+                    product_serializer = UpdateRetailerProductCsvSerializer(product_data.get('product_id'), 
+                                                                            data=product_data, context={'user': user, 
+                                                                                                        'shop': shop_id})
+                else:
+                    product_serializer = CreateRetailerProductCsvSerializer(data=product_data, context={'user': user, 
+                                                                                                        'shop': shop_id})
+                if product_serializer.is_valid():
+                    product_serializers.append(product_serializer)
+                else:
+                    errors = [f"Row {rw+1} :: {error} :: {product_serializer.errors[error][0]}" for error in product_serializer.errors]
+                    errors = "\n".join(errors)
+                    return api_response(errors)
+            for product in product_serializers:
+                product.save()
+            return get_response("success", '', True)
+        else:
+            errors = [f"{error} :: {serializer.errors[error][0]}" for error in serializer.errors]
+            errors = "\n".join(errors)
+            return api_response(errors)
+
+
+class LinkRetailerProductsBulkUploadCsvSampleView(GenericAPIView): # upload limit 300
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    
+    def get(self, request, *args, **kwargs):
+        filename = 'link_retailer_products_sample.csv'
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
+        writer = csv.writer(response)
+        writer.writerow(
+            ['shop_id', 'retailer_product_sku', 'retailer_product_name', 'linked_product_sku', 'linked_product_name']
+        )
+        writer.writerow(
+            ['35323', '35323284D5FAB99A6', 'Fruit', 'AFGARFTOY00000001', 'Mango']
+        )
+        return response
+
+
+class LinkRetailerProductBulkUploadView(GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    serializer_class = LinkRetailerProductsBulkUploadSerializer
+    
+    def post(self, request, *args, **kwargs):
+        serializer = self.serializer_class(data=request.data)
+        if serializer.is_valid():
+            user = request.user
+            data_file = csv.DictReader(codecs.iterdecode(request.data['file'], 'utf-8', errors='ignore'))
+            product_serializers = []
+            rw = 0
+            for product_data in data_file:
+                product_serializer = LinkRetailerProductCsvSerializer(product_data.get('retailer_product_sku'),
+                                                                      data=product_data, 
+                                                                      context={'user': user})
+                if product_serializer.is_valid():
+                    product_serializers.append(product_serializer)
+                else:
+                    errors = [f"Row {rw+1} :: {error} :: {product_serializer.errors[error][0]}" for error in product_serializer.errors]
+                    errors = "\n".join(errors)
+                    return api_response(errors)
+            for product in product_serializers:
+                product.save()
+            msg = "success"
+            return get_response(msg,'', True)
+        else:
+            errors = [f"{error} :: {serializer.errors[error][0]}" for error in serializer.errors]
+            errors = "\n".join(errors)
+            return api_response(errors)
+
+
+class RetailerProductImageBulkUploadView(GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    serializer_class = RetailerProductImageBulkUploadSerializer
+    
+    def post(self, request, *args, **kwargs):
+        serializer = self.serializer_class(data=request.data)
+        if serializer.is_valid():
+            rs_dict = {}
+            rs = []
+            sc = 0
+            fa = 0
+            images = request.data.getlist('images')
+            rs_dict['total'] = len(images)
+            for image in images:
+                file_name = image.name.split('.')[0]
+                product_sku = file_name.split("_")[0]
+                try:
+                    product = RetailerProduct.objects.get(sku=product_sku)
+                    image_serializer = RetailerProductImageSerializer(
+                        data={
+                            'product': product.id,
+                            'image_name': file_name,
+                            'image': image
+                        }
+                    )
+                    if image_serializer.is_valid():
+                        image_serializer.save()
+                    update_es([product], product.shop_id)
+                    sc += 1
+                    msg = {
+                        'is_valid': True,
+                        'name': image_serializer.data.get('image_name'),
+                        'url': image_serializer.data.get('image'),
+                        'product_sku': product.sku,
+                        'product_name': product.name
+                    }
+                except:
+                    fa += 1
+                    msg = {
+                        'is_valid': False,
+                        'name': file_name,
+                        'url': '###',
+                        'product_sku': 'Wrong SKU {}'.format(product_sku),
+                        'product_name': 'No RetailerProduct found with SKU ID <b>{}</b>'.format(product_sku),
+                    }
+                rs.append(msg)
+            msg = "success"
+            rs_dict['success'] = sc
+            rs_dict['aborted'] = fa
+            rs_dict['results'] = rs
+            return get_response(msg, rs_dict, True)
+        else:
+            error = 'Please provide valid images.'
+            return api_response(error)
+
+
+class PosShopListView(GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    serializer_class = PosShopListSerializer
+    pagination_class = SmallOffsetPagination
+    
+    def get(self, request, *args, **kawrgs):
+        search = self.request.query_params.get('search_text')
+        qs = Shop.objects.filter(shop_type__shop_type='f', status=True, approval_status=2, 
+                                 pos_enabled=True, pos_shop__status=True).distinct('id')
+        if search:
+            qs = qs.filter(Q(shop_name__icontains=search) | Q(shop_owner__phone_number__icontains=search))
+        qs = self.pagination_class().paginate_queryset(qs, request)
+        serializer = self.serializer_class(qs, many=True)
+        msg = 'success'
+        return get_response(msg, serializer.data, True)
