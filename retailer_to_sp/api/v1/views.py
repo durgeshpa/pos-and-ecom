@@ -3470,7 +3470,7 @@ class OrderCentral(APIView):
                 for device in devices:
                     registration_id = device.reg_id
                     message_title = f"{shop.shop_name} - Order Alert !!"
-                    message_body = f"Hello, You received a new Order of Rs {order.order_amount}."
+                    message_body = f"Hello, You received a new Order of Rs {int(order.order_amount)}"
                     result = push_service.notify_single_device(registration_id=registration_id,
                                                                message_title=message_title,
                                                                message_body=message_body)
