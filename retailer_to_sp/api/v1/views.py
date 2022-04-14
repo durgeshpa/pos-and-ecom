@@ -9423,7 +9423,7 @@ class LoadVerifyPackageView(generics.GenericAPIView):
         validated_trip = validate_trip_user(modified_data['trip_id'], request.user)
         if 'error' in validated_trip:
             return get_response(validated_trip['error'])
-        serializer = self.serializer_class(data=modified_data)
+        serializer = self.serializer_class(data=modified_data, context={'current_user': request.user})
         if serializer.is_valid():
             serializer.save(created_by=request.user)
             info_logger.info("Package loaded Successfully.")
@@ -10498,7 +10498,7 @@ class LastMileLoadVerifyPackageView(generics.GenericAPIView):
         validated_trip = validate_last_mile_trip_user(modified_data['trip_id'], request.user)
         if 'error' in validated_trip:
             return get_response(validated_trip['error'])
-        serializer = self.serializer_class(data=modified_data)
+        serializer = self.serializer_class(data=modified_data, context={'current_user': request.user})
         if serializer.is_valid():
             serializer.save(created_by=request.user)
             info_logger.info("Package loaded Successfully.")
