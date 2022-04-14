@@ -402,7 +402,7 @@ CRONJOBS = [
     ('*/10 * * * *', 'retailer_backend.cron.po_status_change_exceeds_validity_date'),
     ('30 21 * * *', 'shops.api.v1.views.set_shop_map_cron', '>>/tmp/shops'),
     ('*/1 * * * *', 'wms.views.release_blocking_with_cron', '>>/tmp/release.log'),
-    ('0 8 * * *', 'wms.views.assign_picker_user_to_pickup_created_orders', '>>/tmp/picking'),
+    ('45 18 * * *', 'wms.views.assign_picker_user_to_pickup_created_orders', '>>/tmp/picking'),
     ('*/10 * * * *', 'wms.views.pickup_entry_creation_with_cron', '>>/tmp/picking'),
     # ('0 10 * * *', 'wms.views.mail_products_list_not_mapped_yet_to_any_zone', '>>/tmp/picking'),
     ('30 2 * * *', 'retailer_backend.cron.sync_es_products'),
@@ -432,14 +432,17 @@ CRONJOBS = [
     ('0 2 * * *', 'ecom.cron.bestseller_product'),
     # ('0 * * * *', 'retailer_backend.cron.refresh_cron_es'),
     ('0 * * * *', 'retailer_to_sp.api.v1.views.refresh_cron_es'),
+    ('0 */1 * * *', 'retailer_to_sp.cron.generate_e_invoice_cron'),
     # ('*/10 * * * *', 'retailer_to_sp.cron.all_products_es_refresh'),
     ('*/5 * * * *', 'wms.cron.assign_putaway_users_to_new_putways'),
     ('0 6 * * *', 'shops.cron.get_feedback_valid'),
     ('30 21 * * *', 'shops.tasks.cancel_beat_plan'),
     ('*/30 * * * *', 'wms.scripts.populate_to_be_picked_qty.populate_to_be_picked_quantity_by_cron'),
     ('0 */6 * * *', 'wms.scripts.release_stucked_qc_areas.release_stucked_qc_areas_by_cron'),
+    ('0 12 * * *', 'wms.scripts.map_order_to_dispatch_center.map_order_to_dispatch_center_by_cron'),
     ('0 */12 * * *', 'products.cron.pending_for_approval_products_csv_report'),
     ('0 */24 * * *', 'gram_to_brand.cron.po_tax_change_csv_report'),
+    ('0 */1 * * *', 'shops.scripts.remove_duplicate_data.remove_duplicate_feedbacks'),
 ]
 
 INTERNAL_IPS = ['127.0.0.1', 'localhost']

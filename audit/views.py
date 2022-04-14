@@ -604,7 +604,7 @@ def update_audit_status_by_audit(audit_id):
     audit.state = audit_state
     audit.save()
 
-
+@transaction.atomic
 def create_audit_tickets_by_audit(audit_id):
     audit = AuditDetail.objects.filter(id=audit_id).last()
     if audit.state != AUDIT_DETAIL_STATE_CHOICES.FAIL:
@@ -629,8 +629,8 @@ def create_audit_tickets_by_audit(audit_id):
 
             AuditTicketManual.objects.create(warehouse=audit_run.warehouse,
                                              audit_run=audit_run, bin=i.bin, sku=i.sku, batch_id=i.batch_id,
-                                             qty_normal_system=agg_qty['n_sys'],
-                                             qty_normal_actual=agg_qty['n_phy'],
+                                             qty_normal_system=0 if agg_qty['n_sys'] is None else agg_qty['n_sys'],
+                                             qty_normal_actual=0 if agg_qty['n_phy'] is None else agg_qty['n_phy'],
                                              qty_damaged_system=0 if agg_qty['d_sys'] is None else agg_qty['d_sys'],
                                              qty_damaged_actual=0 if agg_qty['d_phy'] is None else agg_qty['d_phy'],
                                              qty_expired_system=0 if agg_qty['e_sys'] is None else agg_qty['e_sys'],

@@ -31,11 +31,12 @@ window.addEventListener("load", function() {
 
 
 function hide_show_fofo_config(){
-    if ($("#id_shop_type").val() == "6"|| ($("#id_shop_type").val() == "5" && $("#id_online_inventory_enabled").prop('checked') == true)){
-        django.jQuery(".field-enable_loyalty_points").show();
+    if ($("#id_shop_type").val() == "" && $("#id_online_inventory_enabled").prop('checked') == true){
+
+        django.jQuery("#fofo_shop-group").show();
     }
     else {
-        django.jQuery(".field-enable_loyalty_points").hide();
+            django.jQuery("#fofo_shop-group").hide();
     }
 
     if ($("#id_shop_type").val() == "6" && $("#id_online_inventory_enabled").prop('checked') == true){

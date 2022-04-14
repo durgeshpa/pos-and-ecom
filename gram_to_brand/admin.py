@@ -189,7 +189,7 @@ class CartAdmin(admin.ModelAdmin):
     }
 
     def get_readonly_fields(self, request, obj=None):
-        return 'po_status'
+        return ('po_status',)
 
     def get_form(self, request, obj=None, **kwargs):
         defaults = {}
@@ -412,18 +412,22 @@ class GRNOrderAdmin(admin.ModelAdmin):
         returned_qty_totalsum = GRNOrderProductMapping.objects.filter(grn_order__order=obj.order).aggregate(
             returned_qty_totalsum=Sum('returned_qty'))['returned_qty_totalsum']
         for product_price_map in obj.order.ordered_cart.cart_list.values('cart_product', 'no_of_pieces'):
+            if grn_list_map[product_price_map['cart_product']][0] == 0 and \
+                    grn_list_map[product_price_map['cart_product']][1] == 0:
+                flag = Cart.PARTIAL_DELIVERED
+                break
 
             if returned_qty_totalsum > 0:
-                flag = 'PDLC'
+                flag = Cart.PARTIAL_DELIVERED_CLOSE
                 if grn_list_map[product_price_map['cart_product']][0] == 0 and \
                         grn_list_map[product_price_map['cart_product']][1] >= 0:
-                    flag = 'PARR'
+                    flag = Cart.PARTIAL_RETURN
                 elif grn_list_map[product_price_map['cart_product']][0] + \
                         grn_list_map[product_price_map['cart_product']][1] != product_price_map['no_of_pieces']:
-                    flag = 'PDLV'
+                    flag = Cart.PARTIAL_DELIVERED
                     break
             elif grn_list_map[product_price_map['cart_product']][0] != product_price_map['no_of_pieces']:
-                flag = 'PDLV'
+                flag = Cart.PARTIAL_DELIVERED
                 break
 
         for product_price_map in obj.order.ordered_cart.cart_list.values('cart_product', 'no_of_pieces',

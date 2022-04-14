@@ -72,15 +72,28 @@ def merge_pdf_files(file_path_list, merge_pdf_name):
         error_logger.exception(e)
 
 
-def create_file_name(file_prefix, unique_id):
+def create_file_name(file_prefix, unique_id, **kwargs):
     """
 
-    :param file_prefix: append the prefix according to object
-    :param unique_id: unique id
-    :return: file name
+        :param file_prefix: append the prefix according to object
+        :param unique_id: unique id
+        :param file_extention: file type extention without '.'. Default is pdf
+        :param with_timestamp: filename to include current timestamp Default is False
+        :return: file name
     """
-    # return unique name of pdf file
-    return file_prefix + str(unique_id) + '.pdf'
+    file_name = file_prefix + str(unique_id)
+
+    file_extention = 'pdf'
+
+    if kwargs.get('file_extention'):
+        file_extention = kwargs.get('file_extention')
+
+    if kwargs.get('with_timestamp'):
+        file_name = file_name + "_" + str(datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S"))
+
+    file_name = file_name + "." + file_extention
+
+    return file_name
 
 
 def create_merge_pdf_name(prefix_file_name, pdf_created_date):
@@ -317,3 +330,4 @@ def whatsapp_order_refund(order_number, order_status, phone_number, refund_amoun
     except Exception as e:
         error_logger.error(e)
         return False
+

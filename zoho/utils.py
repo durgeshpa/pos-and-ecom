@@ -2,6 +2,8 @@ from django.core.exceptions import ValidationError
 
 from zoho.models import ZohoInvoice, ZohoInvoiceItem, ZohoCreditNote, ZohoCreditNoteItem
 
+zoho_id_fields = ['invoice_id', 'customer_id', 'branch_id', 'product_id', 'e-invoice_ack_number', 'tax_id',
+                     'creditnotes_id', 'tax1_id']
 
 def get_field_name_by_file_field_name(file_field_name):
     return str(file_field_name).strip().lower().replace(' ', '_').replace('(', '_').replace(')', ''). \

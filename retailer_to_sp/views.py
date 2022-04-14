@@ -23,6 +23,7 @@ from celery.task import task
 from django.http import JsonResponse
 from django.urls import reverse
 
+from retailer_to_sp.api.v1.views import pdf_generation
 from retailer_to_sp.common_model_functions import ShopCrateCommonFunctions
 from sp_to_gram.models import (
     OrderedProductReserved, OrderedProductMapping as SPOrderedProductMapping,
@@ -30,7 +31,8 @@ from sp_to_gram.models import (
 from retailer_to_sp.models import (CartProductMapping, Order, OrderedProduct, OrderedProductMapping, Note, Trip,
                                    Dispatch, ShipmentRescheduling, PickerDashboard, update_full_part_order_status,
                                    Shipment, populate_data_on_qc_pass, OrderedProductBatch, ShipmentPackaging,
-                                   ShipmentNotAttempt, LastMileTripShipmentMapping, LastMileTripShipmentPackages)
+                                   ShipmentNotAttempt, LastMileTripShipmentMapping, LastMileTripShipmentPackages,
+                                   Invoice)
 from products.models import Product
 from retailer_to_sp.forms import (
     OrderedProductForm, OrderedProductMappingShipmentForm,
@@ -59,6 +61,7 @@ from wms.views import shipment_out_inventory_change, shipment_reschedule_invento
 from pos.models import RetailerProduct
 from pos.common_functions import create_po_franchise
 from retailer_to_sp.common_function import getShopLicenseNumber, getShopCINNumber, getGSTINNumber, getShopPANNumber
+from zoho.models import ZohoInvoice
 
 logger = logging.getLogger('django')
 info_logger = logging.getLogger('file-info')
@@ -1744,6 +1747,15 @@ class OrderCancellation(object):
 
         # reserved_qty_queryset.update(reserve_status=OrderedProductReserved.ORDER_CANCELLED)
 
+    def mark_trip_mapping_cancelled(self):
+        trip_shipment = LastMileTripShipmentMapping.objects.filter(
+            shipment=self.last_shipment, trip__trip_status=Trip.READY).last()
+        if trip_shipment:
+            all_mapped_packages = trip_shipment.last_mile_trip_shipment_mapped_packages.all()
+            all_mapped_packages.update(package_status=LastMileTripShipmentPackages.CANCELLED)
+            trip_shipment.shipment_status = LastMileTripShipmentMapping.CANCELLED
+            trip_shipment.save()
+
     def cancel(self):
         # check if order associated with any shipment
 
@@ -1761,8 +1773,7 @@ class OrderCancellation(object):
             # if invoice created but shipment is not added to trip
             # cancel order and generate credit note
             elif (self.last_shipment_status in
-                  [OrderedProduct.MOVED_TO_DISPATCH, OrderedProduct.RESCHEDULED, OrderedProduct.NOT_ATTEMPT] and
-                  not self.trip_status):
+                  [OrderedProduct.MOVED_TO_DISPATCH, OrderedProduct.RESCHEDULED, OrderedProduct.NOT_ATTEMPT]):
                 self.generate_credit_note(order_closed=self.order.order_closed)
                 # updating shipment status
                 # self.get_shipment_queryset().update(shipment_status='CANCELLED')
@@ -1773,7 +1784,10 @@ class OrderCancellation(object):
                 # remove shipment from trip
                 self.generate_credit_note(order_closed=self.order.order_closed)
                 # updating shipment status and remove trip
-                self.get_shipment_queryset().update(shipment_status='CANCELLED', trip=None)
+                # self.get_shipment_queryset().update(shipment_status='CANCELLED', trip=None)
+
+                # Mark All Last mile trip mappings as Cancelled
+                self.mark_trip_mapping_cancelled()
                 self.cancel_shipment()
             else:
                 # can't cancel the order
@@ -2075,3 +2089,20 @@ class SourceShopAutocomplete(autocomplete.Select2QuerySetView):
         if self.q:
             qs = qs.filter(shop_name__icontains=self.q)
         return qs
+
+
+@transaction.atomic
+def generate_e_invoice():
+    info_logger.info('generate_e_invoice| Started')
+    try:
+        zoho_invoices = ZohoInvoice.objects.filter(e_invoice_status='Pushed', e_invoice_pdf_generated=False,
+                                                   e_invoice_qr_raw_data__isnull=False)
+        invoice_number_list = zoho_invoices.values_list('invoice_number', flat=True)
+        info_logger.info(f'generate_e_invoice| Invoice Count {len(invoice_number_list)} ')
+        invoices = Invoice.objects.filter(invoice_no__in=invoice_number_list)
+        invoices.update(invoice_pdf=None)
+        zoho_invoices.update(e_invoice_pdf_generated=True)
+        info_logger.info('generate_e_invoice| Completed')
+    except Exception as e:
+        info_logger.error(e)
+        info_logger.error('generate_e_invoice| Failed')

@@ -100,7 +100,7 @@ class CardItemSerializer(serializers.ModelSerializer):
     class Meta:
         model = CardItem
         # fields = "__all__"
-        exclude = ('card_data',)
+        exclude = ('card_data', 'created_at', 'updated_at', 'action', 'created_by', 'updated_by')
 
     
     def create(self, validated_data):
@@ -174,20 +174,23 @@ class CardDataSerializer(serializers.ModelSerializer):
             app_id = data.get("app_id")
             try:
                 app = Application.objects.get(id=app_id)
+                data['app'] = app
             except:
                 raise NotFound(detail=ERROR_MESSAGES["APP_ID_NOT_FOUND"].format(app_id))
 
             if data.get('category_subtype'):
                 category = Category.objects.get(id = data['category_subtype'])
-                new_card = Card.objects.create(app=app,name=data["name"], type=data["type"], category_subtype = category)
+                data['category_subtype'] = category
+                # new_card = Card.objects.create(app=app,name=data["name"], type=data["type"], category_subtype = category)
             elif data.get('brand_subtype'):
                 brand = Brand.objects.get(id = data['brand_subtype'])
-                new_card = Card.objects.create(app=app,name=data["name"], type=data["type"], brand_subtype = brand)
-            elif data.get('sub_type'):
-                new_card = Card.objects.create(app=app,name=data["name"], type=data["type"], sub_type=data['sub_type'])
-            else:
-                new_card = Card.objects.create(app=app,name=data["name"], type=data["type"])
-            
+                data['brand_subtype'] = brand
+                # new_card = Card.objects.create(app=app,name=data["name"], type=data["type"], brand_subtype = brand)
+            # elif data.get('sub_type'):
+            #     new_card = Card.objects.create(app=app,name=data["name"], type=data["type"], sub_type=data['sub_type'])
+            # else:
+            #     new_card = Card.objects.create(app=app,name=data["name"], type=data["type"])
+            new_card = Card.objects.create(**data)
             CardVersion.objects.create(version_number=1,
                                                             card=new_card,
                                                             card_data=new_card_data,
