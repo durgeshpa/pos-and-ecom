@@ -98,7 +98,6 @@ class Seller_SHOP(SimpleListFilter):
         else:
             return queryset
 
-
 class EcomOrderProductAdmin(admin.ModelAdmin):
     search_fields = ('order_no', 'rt_order_order_product__invoice__invoice_no')
     list_per_page = 10

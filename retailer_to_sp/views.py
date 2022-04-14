@@ -30,6 +30,8 @@ from sp_to_gram.models import (
     OrderedProduct as SPOrderedProduct)
 from retailer_to_sp.models import (CartProductMapping, Order, OrderedProduct, OrderedProductMapping, Note, Trip,
                                    Dispatch, ShipmentRescheduling, PickerDashboard, update_full_part_order_status,
+                                   Shipment, populate_data_on_qc_pass, add_to_putaway_on_return,
+                                   check_franchise_inventory_update, ShipmentNotAttempt, BASIC, ECOM,
                                    Shipment, populate_data_on_qc_pass, OrderedProductBatch, ShipmentPackaging,
                                    ShipmentNotAttempt, LastMileTripShipmentMapping, LastMileTripShipmentPackages,
                                    Invoice)
@@ -89,7 +91,8 @@ class ShipmentMergedBarcode(APIView):
             else:
                 pck_type_r_id = str(packaging.packaging_type)
             customer_city_pincode = str(shipment.order.city) + " / " + str(shipment.order.pincode)
-            route = "N/A"
+            route = str(shipment.order.buyer_shop.shop_routes.last().route.name) if \
+                shipment.order.buyer_shop and shipment.order.buyer_shop.shop_routes.exists() else "N/A"
             dispatch_center = str(shipment.order.dispatch_center.pk) if \
                 shipment.order.dispatch_center else str(shipment.order.seller_shop.pk)
             shipment_count = str(str(cnt + 1) + " / " + str(pack_cnt))
