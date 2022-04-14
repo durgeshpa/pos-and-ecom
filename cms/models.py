@@ -86,7 +86,7 @@ class CardItem(BaseTimestampUserModel):
     """Card Item Model"""
     card_data = models.ForeignKey(CardData, on_delete=models.CASCADE, related_name="items")
     image = models.ImageField(upload_to="cards/items/images", null=True, blank=True)
-    content_id = models.PositiveSmallIntegerField()
+    content_id = models.PositiveIntegerField()
     content = models.TextField(null=True, blank=True)
     action = models.URLField(blank=True, null=True)
     priority = models.IntegerField(default=1)
