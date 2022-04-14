@@ -13,6 +13,8 @@ from retailer_backend.utils import SmallOffsetPagination
 from retailer_to_sp.models import Order
 from pos.models import ShopCustomerMap
 from global_config.views import get_config
+from global_config.models import GlobalConfig
+
 
 from ecom.utils import (check_ecom_user, nearby_shops, validate_address_id, check_ecom_user_shop,
                         get_categories_with_products, get_b2c_categories_with_products)
@@ -300,7 +302,16 @@ class UserShopView(APIView):
 class Contect_Us(APIView):
     authentication_classes = (TokenAuthentication,)
     def get(self, request, format=None):
-        data = {'phone_number':"999-010-5700",'email' :'care@peppertap.in'}
+        phone_no = "999-010-5700"
+        obj = GlobalConfig.objects.filter(key='contect_us_ecom_phone').last()
+        if obj:
+            phone_no = obj.value
+        email = "care@peppertap.in"
+        obj = GlobalConfig.objects.filter(key='contect_us_ecom_email').last()
+        if obj:
+            email = obj.value
+
+        data = {'phone_number': phone_no,'email' : email}
         serializer = ContectUs(data=data)
         if serializer.is_valid():
             return api_response('contct us details',serializer.data,status.HTTP_200_OK, True)

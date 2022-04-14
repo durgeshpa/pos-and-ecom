@@ -16,6 +16,7 @@ from django.http import HttpResponse
 from django.db.models import Sum, F, FloatField, OuterRef, Subquery, Q
 
 from common.constants import APRIL, ONE
+from global_config.views import get_config
 from marketing.sms import SendSms
 from products.models import Product, TaxGroup
 from retailer_backend.messages import NOTIFICATIONS
@@ -586,6 +587,12 @@ def get_tax_data(tax_json, invoice, TaxGroup):
     return tax_data
 
 
+def split_string(string_to_split, length):
+    import textwrap
+    lines = textwrap.wrap(string_to_split, length, break_long_words=False)
+    return lines
+
+
 def create_e_invoice_data_excel(queryset, OrderedProduct, RoundAmount, ShopDocument):
     queryset = queryset.select_related('shipment__order__buyer_shop', 'shipment__order__shipping_address__state')\
         .prefetch_related('shipment__rt_order_product_order_product_mapping',
@@ -641,6 +648,9 @@ def create_e_invoice_data_excel(queryset, OrderedProduct, RoundAmount, ShopDocum
         tcs_data = get_tcs_data(invoice, invoice.buyer_shop_id, shop_gstin, OrderedProduct, RoundAmount)
         for item in invoice.shipment.rt_order_product_order_product_mapping.all():
             tax_data = get_tax_data(item.product_tax_json, invoice, TaxGroup)
+            address_line_max_length = get_config('ZOHO_ADDRESS_LINE_MAX_LENGTH', 99)
+            shipping_address = split_string(invoice.shipping_address, address_line_max_length)
+            billing_address = split_string(invoice.billing_address, address_line_max_length)
             writer.writerow([
                 invoice.invoice_no,
                 '',
@@ -690,14 +700,14 @@ def create_e_invoice_data_excel(queryset, OrderedProduct, RoundAmount, ShopDocum
                 '',
                 '',
                 '',
-                invoice.billing_address,
-                '',
+                billing_address[0] if len(billing_address) > 0 else None,
+                billing_address[1] if len(billing_address) > 1 else None,
                 invoice.billing_city,
                 invoice.billing_state,
                 'India',
                 invoice.billing_pincode,
-                invoice.shipping_address,
-                '',
+                shipping_address[0] if len(shipping_address) > 0 else None,
+                shipping_address[1] if len(shipping_address) > 1 else None,
                 invoice.shipping_city,
                 invoice.shipping_state,
                 'India',

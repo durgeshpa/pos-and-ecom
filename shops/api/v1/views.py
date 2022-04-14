@@ -1106,8 +1106,13 @@ class DayBeatPlan(viewsets.ModelViewSet):
             day_beat_plan = DayBeatPlanning.objects.filter(id=request.POST['day_beat_plan'],
                                                            next_plan_date=request.POST['feedback_date'])
             if day_beat_plan:
-                serializer = FeedbackCreateSerializers(
-                    data=request.data, context={'request': request})
+                executive_feedback = ExecutiveFeedback.objects.filter(day_beat_plan_id=request.POST['day_beat_plan'])
+                if not executive_feedback:
+                    serializer = FeedbackCreateSerializers(
+                        data=request.data, context={'request': request})
+                else:
+                    serializer = FeedbackCreateSerializers(executive_feedback.last(),
+                        data=request.data, context={'request': request})
                 if serializer.is_valid():
                     result = serializer.save()
                     if result:

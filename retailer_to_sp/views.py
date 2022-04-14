@@ -2098,7 +2098,8 @@ class SourceShopAutocomplete(autocomplete.Select2QuerySetView):
 def generate_e_invoice():
     info_logger.info('generate_e_invoice| Started')
     try:
-        zoho_invoices = ZohoInvoice.objects.filter(e_invoice_pdf_generated=False, e_invoice_qr_raw_data__isnull=False)
+        zoho_invoices = ZohoInvoice.objects.filter(e_invoice_status='Pushed', e_invoice_pdf_generated=False,
+                                                   e_invoice_qr_raw_data__isnull=False)
         invoice_number_list = zoho_invoices.values_list('invoice_number', flat=True)
         info_logger.info(f'generate_e_invoice| Invoice Count {len(invoice_number_list)} ')
         invoices = Invoice.objects.filter(invoice_no__in=invoice_number_list)

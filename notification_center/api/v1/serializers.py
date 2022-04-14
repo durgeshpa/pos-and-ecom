@@ -11,7 +11,7 @@ Device = get_device_model()
 class DeviceSerializer(serializers.ModelSerializer):
     class Meta:
         model = Device
-        fields = ('dev_id','reg_id','name','is_active', 'user')
+        fields = ('id', 'dev_id', 'reg_id', 'name', 'is_active', 'user')
         extra_kwargs = {'user':{'required':False}}
         ref_name="NotificationDivice"
         
@@ -19,6 +19,20 @@ class DeviceSerializer(serializers.ModelSerializer):
     #     return {"user": self.kwargs['user']}
 
     def create(self, validated_data):
+        user = self.context['request'].user
+        # if not user.is_anonymous():
+        #     name = user.first_name if first_name!="" else user.phone_number
+
+        dev_id = validated_data.get('dev_id', None)
+        reg_id = validated_data.get('reg_id', None)
+        name = validated_data.get('name', None)
+
+        device, created = Device.objects.update_or_create(
+            dev_id=dev_id,
+            defaults={'user': user, 'reg_id':reg_id, 'name':name})
+        return device
+
+    def update(self, instance, validated_data):
         user = self.context['request'].user
         # if not user.is_anonymous():
         #     name = user.first_name if first_name!="" else user.phone_number

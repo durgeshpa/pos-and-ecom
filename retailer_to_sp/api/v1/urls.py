@@ -27,8 +27,8 @@ from .views import (ProductsList, SearchProducts, CartCentral, CartCheckout, Ord
                     ShipmentPackageProductsView, RemoveInvoiceFromTripView, DispatchCenterCrateView,
                     DispatchCenterShipmentPackageView, LoadLastMileInvoiceView, LastMileTripSummaryView,
                     LastMileLoadVerifyPackageView, RemoveLastMileInvoiceFromTripView,
-                    VerifyNotAttemptShipmentPackagesView, VerifyBackwardTripItems, BackwardTripQCView, VehicleDriverList
-                    )
+                    VerifyNotAttemptShipmentPackagesView, VerifyBackwardTripItems, BackwardTripQCView, VehicleDriverList,
+                    PosOrderUserSearchView)
 
 from retailer_backend.cron import sync_es_products_api
 router = routers.DefaultRouter()
@@ -44,6 +44,7 @@ urlpatterns = [
     url(r'^cart/(?P<pk>\d+)/$', CartCentral.as_view()),
     url(r'^cart/user/(?P<pk>\d+)/$', CartUserView.as_view()),
     url('^user/$', UserView.as_view()),
+    
     # CART CHECKOUT
     url('^cart/checkout/$', CartCheckout.as_view()),
     url(r'^cart/checkout/(?P<pk>\d+)/$', CartCheckout.as_view()),
@@ -162,8 +163,7 @@ urlpatterns = [
     url('shipment-package-products/', ShipmentPackageProductsView.as_view(), name='shipment_package_products'),
     url('bck-trip-verify-items/', VerifyBackwardTripItems.as_view()),
     url('bck-trip-qc-packages/', BackwardTripQCView.as_view()),
-    url('update-order-payment-status/', OrderPaymentStatusChangeView.as_view(), name='update_order_payment_status'),
-    url(r'^order-status-choice/$', OrderStatusChoicesList.as_view()),
+    url('pos-user-search/', PosOrderUserSearchView.as_view(), name='pos-user-search')
 ]
 
 urlpatterns += router.urls

@@ -33,6 +33,7 @@ from addresses.models import Address, City, Pincode
 from audit.views import BlockUnblockProduct
 from barCodeGenerator import barcodeGen, qrCodeGen
 from global_config.views import get_config, get_config_fofo_shops
+from pos.payU_payment import send_request_refund
 from shops.models import Shop, ParentRetailerMapping, ShopUserMapping, ShopMigrationMapp, PosShopUserMapping, FOFOConfig
 from brand.models import Brand
 from categories import models as categorymodel
@@ -127,7 +128,7 @@ from .serializers import (ProductsSearchSerializer, CartSerializer, OrderSeriali
                           LastMileLoadVerifyPackageSerializer, RemoveLastMileInvoiceFromTripSerializer,
                           VerifyNotAttemptShipmentPackageSerializer, VerifyShipmentPackageSerializer,
                           DetailedShipmentPackageInfoSerializer, DetailedShipmentPackagingMappingInfoSerializer,
-                          VerifyBackwardTripItemsSerializer, BackwardTripQCSerializer, OrderPaymentStatusChangeSerializers
+                          VerifyBackwardTripItemsSerializer, BackwardTripQCSerializer, PosOrderUserSearchSerializer
                           )
 
 from ...common_validators import validate_shipment_dispatch_item, validate_trip_user, \
@@ -3466,8 +3467,8 @@ class OrderCentral(APIView):
                                                 is_active=True).distinct('reg_id')
                 for device in devices:
                     registration_id = device.reg_id
-                    message_title = "PepperTap Store Order Alert !!"
-                    message_body = "Hello, You received a new Order."
+                    message_title = f"{shop.shop_name} - Order Alert !!"
+                    message_body = f"Hello, You received a new Order of Rs {int(order.order_amount)}"
                     result = push_service.notify_single_device(registration_id=registration_id,
                                                                message_title=message_title,
                                                                message_body=message_body)
@@ -10688,17 +10689,22 @@ class BackwardTripQCView(generics.GenericAPIView):
         return self.queryset
 
 
-class OrderStatusChoicesList(GenericAPIView):
+class PosOrderUserSearchView(generics.GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
-
-    def get(self, request):
-        '''
-        API to get payment mode choices list
-        '''
-        fields = ['id', 'value']
-        data = [dict(zip(fields, d)) for d in [(Order.PAYMENT_PENDING, "Payment Pending"),
-                                               (Order.PAYMENT_FAILED, "Payment Failed"),
-                                               (Order.PAYMENT_APPROVED, "Payment Approved"),
-                                               (Order.PAYMENT_COD, "Payment COD")]]
-        return api_response('', data, status.HTTP_200_OK, True)
+    serializer_class = PosOrderUserSearchSerializer
+    
+    def get(self, request, *args, **kwargs):
+        search = self.request.query_params.get('search')
+        if search:
+            qs = User.objects.filter(Q(first_name__istartswith=search) | 
+                                    #  Q(last_name__icontains=search) | 
+                                     Q(phone_number__istartswith=search), 
+                                    #  is_ecom_user=True
+                                     )
+            serializer = self.serializer_class(qs, many=True)
+            msg = 'success'
+            return get_response(msg, serializer.data, True)
+        else:
+            msg = 'Search to get Buyers.'
+            return get_response(msg, '', True)
