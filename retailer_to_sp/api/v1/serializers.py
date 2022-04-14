@@ -3487,6 +3487,7 @@ class LoadVerifyPackageSerializer(serializers.ModelSerializer):
         data['trip_shipment_mapping']['shipment'] = package.shipment
         data['trip_shipment_mapping']['shipment_status'] = DispatchTripShipmentMapping.LOADING_FOR_DC
         data['trip_shipment_mapping']['shipment_health'] = shipment_health
+        data['trip_shipment_mapping']['loaded_by'] = current_user
 
         data['trip_package_mapping'] = {}
         data['trip_package_mapping']['trip_shipment'] = trip_shipment
@@ -4959,6 +4960,7 @@ class LastMileLoadVerifyPackageSerializer(serializers.ModelSerializer):
         data['trip_shipment_mapping']['shipment'] = package.shipment
         data['trip_shipment_mapping']['shipment_status'] = LastMileTripShipmentMapping.LOADING_FOR_DC
         data['trip_shipment_mapping']['shipment_health'] = shipment_health
+        data['trip_shipment_mapping']['loaded_by'] = current_user
 
         data['trip_package_mapping'] = {}
         data['trip_package_mapping']['trip_shipment'] = trip_shipment
