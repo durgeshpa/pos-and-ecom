@@ -4870,14 +4870,14 @@ class LoadLastMileInvoiceSerializer(serializers.ModelSerializer):
 
         if shipment.current_shop != trip.source_shop:
             raise serializers.ValidationError(
-                f"Invoice {shipment} not present at {trip.source_shop}, unable to load this invoice to this trip")
+                f"Invoice {shipment} does not belong to {trip.source_shop}.")
         elif shipment.current_shop.shop_type.shop_type == 'sp' and shipment.order.dispatch_center:
             raise serializers.ValidationError(
-                f"Invoice {shipment} allowed to load into dispatch trip from {shipment.current_shop}")
+                f"Invoice {shipment} does not belong to warehouse {trip.source_shop}.")
         elif shipment.current_shop.shop_type.shop_type == 'dc' and \
                 shipment.order.dispatch_center != shipment.current_shop:
             raise serializers.ValidationError(
-                f"Invoice {shipment} allowed to load into last mile trip from {shipment.order.dispatch_center}")
+                f"Invoice {shipment} does not belong to dispatch center {trip.source_shop}.")
         current_date = datetime.datetime.now().date()
 
         if shipment.shipment_status == OrderedProduct.RESCHEDULED:
