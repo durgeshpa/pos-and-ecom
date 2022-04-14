@@ -3377,6 +3377,8 @@ class LoadVerifyPackageSerializer(serializers.ModelSerializer):
 
     def validate(self, data):
         # Validate request data
+        current_user = self.context.get('current_user')
+
         if 'id' in self.initial_data:
             raise serializers.ValidationError('Updating package is not allowed')
         if 'trip_id' not in self.initial_data or not self.initial_data['trip_id']:
@@ -3456,9 +3458,9 @@ class LoadVerifyPackageSerializer(serializers.ModelSerializer):
 
         trip_shipment = None
         if DispatchTripShipmentMapping.objects.filter(
-                trip=trip, shipment_status=DispatchTripShipmentMapping.LOADING_FOR_DC).exists():
+                trip=trip, loaded_by=current_user, shipment_status=DispatchTripShipmentMapping.LOADING_FOR_DC).exists():
             trip_shipment = DispatchTripShipmentMapping.objects.filter(
-                trip=trip, shipment_status=DispatchTripShipmentMapping.LOADING_FOR_DC).last()
+                trip=trip, loaded_by=current_user, shipment_status=DispatchTripShipmentMapping.LOADING_FOR_DC).last()
             current_invoice_being_loaded = trip_shipment.shipment
             if current_invoice_being_loaded != package.shipment:
                 raise serializers.ValidationError(f"Please scan the remaining box in invoice no."
@@ -4875,6 +4877,8 @@ class LastMileLoadVerifyPackageSerializer(serializers.ModelSerializer):
 
     def validate(self, data):
         # Validate request data
+        current_user = self.context.get('current_user')
+
         if 'id' in self.initial_data:
             raise serializers.ValidationError('Updating package is not allowed')
         if 'trip_id' not in self.initial_data or not self.initial_data['trip_id']:
@@ -4929,7 +4933,7 @@ class LastMileLoadVerifyPackageSerializer(serializers.ModelSerializer):
 
         elif trip_shipment.shipment_status == LastMileTripShipmentMapping.TO_BE_LOADED:
             trip_shipment_running = LastMileTripShipmentMapping.objects.filter(
-                trip=trip, shipment_status=LastMileTripShipmentMapping.LOADING_FOR_DC).last()
+                trip=trip, loaded_by=current_user, shipment_status=LastMileTripShipmentMapping.LOADING_FOR_DC).last()
             if trip_shipment_running:
                 raise serializers.ValidationError(f"Please scan the remaining box in invoice no."
                                                   f" {trip_shipment_running.shipment.invoice_no}")
