@@ -1417,6 +1417,21 @@ class ShopRouteUploadSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ShopRoute
+        fields = ('file',)
+
+    def validate(self, data):
+        if not data['file'].name[-4:] in '.csv':
+            raise serializers.ValidationError(
+                _('Sorry! Only csv file accepted.'))
+        csv_file_data = csv.reader(codecs.iterdecode(data['file'], 'utf-8', errors='ignore'))
+        # Checking, whether csv file is empty or not!
+        if csv_file_data:
+            read_shop_route_file(csv_file_data)
+        else:
+            raise serializers.ValidationError(
+                "CSV File cannot be empty.Please add some data to upload it!")
+
+        return data
 
     @transaction.atomic
     def create(self, validated_data):
