@@ -13,7 +13,7 @@ from retailer_backend.utils import SmallOffsetPagination
 from .serializers import CardDataSerializer, CardSerializer, ApplicationSerializer, ApplicationDataSerializer, \
     PageSerializer, PageDetailSerializer, CardItemSerializer, PageLatestDetailSerializer, CategorySerializer, \
     SubCategorySerializer, BrandSerializer, SubBrandSerializer, LandingPageSerializer, PageFunctionSerializer
-from ...choices import CARD_TYPE_CHOICES, LANDING_PAGE_TYPE_CHOICE, LISTING_SUBTYPE_CHOICE
+from ...choices import CARD_TYPE_CHOICES, LANDING_PAGE_TYPE_CHOICE, LISTING_SUBTYPE_CHOICE, IMAGE_TYPE_CHOICE
 from ...models import Application, Card, CardVersion, Page, PageVersion, CardItem, ApplicationPage, LandingPage, \
     Functions
 from ...utils import api_response, get_response, serializer_error
@@ -850,4 +850,14 @@ class LandingPageSubTypeList(GenericAPIView):
     def get(self, request):
         fields = ['id', 'value']
         data = [dict(zip(fields, d)) for d in LISTING_SUBTYPE_CHOICE]
+        return get_response('', data, True)
+
+
+class ImageTypeList(GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+
+    def get(self, request):
+        fields = ['id', 'value']
+        data = [dict(zip(fields, d)) for d in IMAGE_TYPE_CHOICE]
         return get_response('', data, True)

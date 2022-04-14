@@ -44,3 +44,8 @@ LANDING_PAGE_TYPE_CHOICE = Choices(
 FUNTION_TYPE_CHOICE = Choices(
     (1, PRODUCT, 'Product'), (2, CATEGORY, 'Category'), (3, BRAND, 'Brand')
 )
+
+# Image Type Choices
+IMAGE_TYPE_CHOICE = Choices(
+    (1, PRODUCT, 'Product'), (2, CATEGORY, 'Category'), (3, BRAND, 'Brand')
+)
