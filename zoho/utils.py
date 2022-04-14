@@ -21,7 +21,6 @@ def get_csv_file_data_as_dict(csv_file, csv_file_headers):
         for ele in row:
             if '#' in ele:
                 raise ValidationError(f"Row {row_num} | column can not contain '#' ")
-            ele = cast_field_value(csv_file_headers[count], ele)
             csv_dict[csv_file_headers[count]] = ele
             count += 1
         uploaded_data_by_user_list.append(csv_dict)
@@ -54,21 +53,3 @@ def get_credit_note_and_items_dict(data_row):
         if field_name in items_fields:
             credit_note_items_kwargs[field_name] = value
     return credit_note_kwargs, credit_note_items_kwargs
-
-
-def cast_field_value(header_field, e):
-    """
-    Formats the field value from scientific number to number if its present in zoho id fields
-
-    Input:
-        header_field : field name
-        e : field value
-
-    """
-    if header_field in zoho_id_fields:
-        try:
-            e = float(e)
-            e = "{:.0f}".format(e)
-        except Exception as e:
-            pass
-    return e

@@ -8,7 +8,8 @@ from .views import ParentProductView, ParentProductExportAsCSVView, HSNListView,
     BuyerShopListView, CityListView, PinCodeListView, SlabProductPriceView, ProductPriceStatusListView, \
     DisapproveSelectedProductPriceView, ProductSlabPriceExportAsCSVView, ProductListView, DiscountProductView, \
     DiscountProductListForManualPriceView, B2cCategoryListView, HSNExportAsCSVUploadView, \
-    ParentProductsTaxStatusChoicesView, ParentProductApprovalView, HSNExportAsCSVSampleDownloadView
+    ParentProductsTaxStatusChoicesView, ParentProductApprovalView, HSNExportAsCSVSampleDownloadView, \
+    BulkParentProductApprovalView
 
 urlpatterns = [
     url(r'^parent-product/', ParentProductView.as_view(), name='parent-product'),
@@ -58,5 +59,6 @@ urlpatterns = [
     url(r'^discounted-product-list/', DiscountProductListForManualPriceView.as_view(), name='discounted-product-list'),
     url(r'^parent-product-tax-status-list/', ParentProductsTaxStatusChoicesView.as_view(), name='tax-status-list'),
     url(r'^parent-product-approval/', ParentProductApprovalView.as_view(), name='parent-product-approval'),
+    url(r'^bulk-parent-product-approval/', BulkParentProductApprovalView.as_view(), name='bulk-parent-product-approval'),
 
 ]

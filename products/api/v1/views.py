@@ -12,7 +12,7 @@ from rest_framework.generics import GenericAPIView, CreateAPIView, UpdateAPIView
 from rest_framework.permissions import AllowAny
 
 from products.models import ParentProduct as ParentProducts, ProductHSN, ProductCapping as ProductCappings, \
-    ProductVendorMapping, Product as ChildProduct, Tax, Weight, ProductPrice
+    ProductVendorMapping, Product as ChildProduct, Tax, Weight, ProductPrice, ParentProduct
 from categories.models import Category, B2cCategory
 from brand.models import Brand, Vendor
 from shops.models import Shop
@@ -1645,3 +1645,50 @@ class ParentProductApprovalView(GenericAPIView):
             self.queryset = self.queryset.filter(
                 parent_product_pro_category__category__id=category)
         return self.queryset.distinct()
+
+
+class BulkParentProductApprovalView(GenericAPIView):
+    """
+        Update Parent Product
+    """
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    queryset = ParentProducts.objects.filter(tax_status__in=[ParentProducts.PENDING, ParentProducts.DECLINED])\
+        .select_related('parent_brand', 'product_hsn', 'updated_by')\
+        .prefetch_related('parent_product_pro_tax', 'parent_product_log', 'parent_product_pro_tax__tax', ) \
+        .only('id', 'parent_id', 'name', 'product_type', 'updated_by', 'status', 'parent_brand__brand_name',
+              'parent_brand__brand_code', 'updated_at', 'product_hsn__product_hsn_code', 'tax_status', 'tax_remark')\
+        .order_by('-id')
+    serializer_class = ParentProductApprovalSerializers
+
+    @can_approve_product_tax
+    def put(self, request):
+        """ PUT API to Approve Parent Product Tax """
+
+        info_logger.info("Bulk Parent Product PUT api called.")
+        if not request.data.get('parent_product_ids'):
+            return get_response('please select parent product', False)
+        non_approved = []
+        try:
+            for id in request.data.get('parent_product_ids'):
+                # validations for input id
+                id_instance = validate_id(self.queryset, int(id))
+                if 'error' in id_instance:
+                    return get_response(id_instance['error'])
+                parent_product_instance = id_instance['data'].last()
+
+                serializer = self.serializer_class(instance=parent_product_instance,
+                                                   data={'id': int(id), 'tax_status': ParentProduct.APPROVED})
+                if serializer.is_valid():
+                    serializer.save(updated_by=request.user)
+                    info_logger.info("Parent Product Updated Successfully.")
+                else:
+                    non_approved.append(id)
+        except Exception as e:
+            error_logger.error(e)
+            return get_response(f'please provide a valid tax id {id}', False)
+        if non_approved:
+            return get_response('Some products were not approved, kindly try to update individually to see error', False)
+        else:
+            return get_response('All selected products approved', True)
+

@@ -8,7 +8,9 @@ from .views import (PosProductView, CouponOfferCreation, InventoryReport, SalesR
                     GetGrnOrderListView, ReturnStatusListView, MeasurementCategoryView, StockUpdateReasonListView,
                     PRNwithoutGRNView, CreateBulkProductView, UpdateInventoryStockView, Contect_Us, PaymentStatusList,
                     EcomPaymentTypeDetailView, PaymentModeChoicesList, RefundPayment, RetailerProductListViewSet,
-                    DownloadRetailerProductCsvShopWiseView, DownloadUploadRetailerProductsCsvSampleFileView)
+                    DownloadRetailerProductCsvShopWiseView, DownloadUploadRetailerProductsCsvSampleFileView, 
+                    BulkCreateUpdateRetailerProductsView, LinkRetailerProductsBulkUploadCsvSampleView, LinkRetailerProductBulkUploadView,
+                    RetailerProductImageBulkUploadView, PosShopListView)
 
 router = DefaultRouter()
 
@@ -59,7 +61,12 @@ urlpatterns = [
     url(r'^payment-mode-choice/$', PaymentModeChoicesList.as_view()),
     url(r'^payment-refund/$', RefundPayment.as_view(), name='payment-refund'),
     url(r'^download-retailer-products-csv/$', DownloadRetailerProductCsvShopWiseView.as_view(), name='download-retailer-products-csv'),
-    url(r'^download-upload-retailer-products-sample-file/$', DownloadUploadRetailerProductsCsvSampleFileView.as_view(), name='download-upload-retailer-products-sample-file')
+    url(r'^download-upload-retailer-products-sample-file/$', DownloadUploadRetailerProductsCsvSampleFileView.as_view(), name='download-upload-retailer-products-sample-file'),
+    url(r'^create-update-bulk-retailer-products/$', BulkCreateUpdateRetailerProductsView.as_view(), name='create-update-bulk-retailer-products-file'),
+    url(r'^link-retailer-products-sample-file/$', LinkRetailerProductsBulkUploadCsvSampleView.as_view(), name='link-retailer-products-sample-file'),
+    url(r'^link-retailer-products-bulk-upload/$', LinkRetailerProductBulkUploadView.as_view(), name='link-retailer-products-bulk-upload'),
+    url(r'^upload-retailer-product-images/$', RetailerProductImageBulkUploadView.as_view(), name='upload-retailer-product-images'),
+    url(r'^shop-list/$', PosShopListView.as_view(), name='shop-list')
 ]
 
 urlpatterns += router.urls

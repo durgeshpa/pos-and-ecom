@@ -944,6 +944,7 @@ def pickup_entry_exists_for_order_zone(order_id, zone_id):
 
 
 def assign_dispatch_center_to_order_by_pincode(order_id):
+    cron_logger.info(f"assign_dispatch_center_to_order_by_pincode|order id {order_id}")
     try:
         order_ins = Order.objects.get(id=order_id)
         if not order_ins.dispatch_delivery and order_ins.dispatch_center is None:
@@ -955,16 +956,21 @@ def assign_dispatch_center_to_order_by_pincode(order_id):
                     order_ins.dispatch_center = dispatch_center_map.dispatch_center
                     order_ins.dispatch_delivery = True
                     order_ins.save()
-                    info_logger.info("Dispatch center assigned to order no " + str(order_ins.order_no))
+                    cron_logger.info(f"assign_dispatch_center_to_order_by_pincode|Dispatch center assigned to "
+                                     f"order no {order_ins.order_no}|pincode {order_pincode}|"
+                                     f"dispatch_center {dispatch_center_map.dispatch_center}")
                 else:
-                    info_logger.info("No Dispatch center found mapped with pincode " + str(order_pincode.pincode))
+                    cron_logger.info(f"assign_dispatch_center_to_order_by_pincode|order no {order_ins.order_no}|"
+                                     f"No Dispatch center found mapped with pincode {order_pincode}")
             else:
-                info_logger.info("No pincode for order " + str(order_ins))
+                cron_logger.info(f"assign_dispatch_center_to_order_by_pincode|order no {order_ins.order_no}|"
+                                 f"No pincode found for order's shipping address.")
         else:
-            info_logger.info("Dispatch center already assigned to order no " + str(order_ins.order_no))
+            cron_logger.info(f"assign_dispatch_center_to_order_by_pincode|order no {order_ins.order_no}|"
+                             f"Order Already mapped with Dispatch center {order_ins.dispatch_center}.")
     except Exception as ex:
-        info_logger.error("Unable to assign_dispatch_center_to_order, No order found for order Id: " + str(order_id) +
-                          ", Error msg: " + str(ex))
+        cron_logger.error(f"assign_dispatch_center_to_order_by_pincode|order Id: {order_id}|"
+                          f"Exception occurred|Error msg: {ex}")
 
 
 def mail_products_list_not_mapped_yet_to_any_zone():
@@ -1062,6 +1068,7 @@ def pickup_entry_creation_with_cron():
 
     for order in order_obj:
         try:
+            assign_dispatch_center_to_order_by_pincode(order.pk)
             with transaction.atomic():
                 order.order_status = Order.PICKING_ASSIGNED
                 pincode = "00"
@@ -1191,8 +1198,12 @@ def pickup_entry_creation_with_cron():
                     if not pickup_entry_exists_for_order_zone(order.id, zone_id):
                         # Get user and update last_assigned_at of ZonePickerUserAssignmentMapping
                         picker_user_assigned = False
-                        if order.seller_shop.cutoff_time is None or \
-                                order.seller_shop.cutoff_time < datetime.now().time():
+                        order_dispatch_center = Order.objects.get(id=order.pk).dispatch_center
+                        if order_dispatch_center:
+                            order.dispatch_center = order_dispatch_center
+                            order.dispatch_delivery = True
+                        if not order_dispatch_center or order_dispatch_center.cutoff_time is None or \
+                                order_dispatch_center.cutoff_time > datetime.now().time():
                             zone_picker_assigned_user = ZonePickerUserAssignmentMapping.objects.filter(
                                 user_enabled=True, zone_id=zone_id, last_assigned_at=None).last()
                             if not zone_picker_assigned_user:
@@ -1222,7 +1233,6 @@ def pickup_entry_creation_with_cron():
                 info_logger.info("pickup_entry_creation_with_cron | " + str(order.order_no) + " | " +
                                  str(order.order_status))
                 order.save()
-                assign_dispatch_center_to_order_by_pincode(order.pk)
                 cron_logger.info('pickup entry created for order {}'.format(order.order_no))
         except Exception as e:
             cron_logger.info('Exception while creating pickup for order {}'.format(order.order_no))
@@ -1239,7 +1249,7 @@ def assign_picker_user_to_pickup_created_orders():
     current_time = datetime.now() - timedelta(minutes=1)
     start_time = datetime.now() - timedelta(days=3)
     picker_dash_ins = PickerDashboard.objects.filter(
-        picking_status="picking_pending", order_closed=False,
+        picking_status="picking_pending", order__order_closed=False,
         created_at__lt=current_time, created_at__gt=start_time).order_by('created_at')
     if picker_dash_ins.count() == 0:
         cron_logger.info("No pickup pending to assign picker user.")

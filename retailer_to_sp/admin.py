@@ -1079,6 +1079,7 @@ class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
                     'trip_id', 'shipment_status_reason', 'delivery_date', 'cn_amount', 'cash_collected',
                     'picking_status', 'picklist_id', 'picklist_refreshed_at', 'picker_boy', 'zone', 'qc_area',
                     'qc_desk', 'qc_executive', 'pickup_completed_at', 'picking_completion_time', 'create_purchase_order'
+                    , 'dispatch_delivery', 'dispatch_center'
                     )
 
     readonly_fields = ('payment_mode', 'paid_amount', 'total_paid_amount',
@@ -1090,7 +1091,7 @@ class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
     list_filter = [PhoneNumberFilter, SKUFilter,  GFCodeFilter,  ProductNameFilter, SellerShopFilter, BuyerShopFilter,
                    OrderNoSearch, OrderInvoiceSearch, Pincode, ('order_status', ChoiceDropdownFilter),
                    ('shipping_address__city', RelatedDropdownFilter), OrderZoneFilter, OrderQCAreaFilter,
-                   ('created_at', DateTimeRangeFilter)]
+                   'dispatch_delivery', ('created_at', DateTimeRangeFilter)]
 
     class Media:
         js = ('admin/js/picker.js', )

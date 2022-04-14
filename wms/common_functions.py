@@ -10,6 +10,7 @@ from celery.task import task
 from decouple import config
 # django imports
 from django import forms
+from django.core.exceptions import ValidationError
 
 from django.db import transaction
 from django.db.models import Sum, Q
@@ -244,20 +245,25 @@ class CommonBinInventoryFunctions(object):
     @classmethod
     def deduct_to_be_picked_from_bin(cls, qty_picked, bin_inv_obj):
         obj = BinInventory.objects.select_for_update().get(pk=bin_inv_obj.id)
+        if obj.to_be_picked_qty - qty_picked < 0:
+            raise ValidationError('Qty needs to be revised, Please try after some time.')
         obj.to_be_picked_qty = obj.to_be_picked_qty - qty_picked
         obj.save()
 
     @classmethod
     def add_to_be_picked_to_bin(cls, qty, bin_inv_obj):
         obj = BinInventory.objects.select_for_update().get(pk=bin_inv_obj.id)
+        if obj.to_be_picked_qty + qty < 0:
+            raise ValidationError('Qty needs to be revised, Please try after some time.')
         obj.to_be_picked_qty = obj.to_be_picked_qty + qty
         obj.save()
-
 
     @classmethod
     @transaction.atomic
     def move_to_to_be_picked(cls, qty, bin_inv_obj):
         obj = BinInventory.objects.select_for_update().get(pk=bin_inv_obj.id)
+        if (obj.to_be_picked_qty + qty < 0) or (obj.quantity - qty < 0):
+            raise ValidationError('Qty needs to be revised, Please try after some time.')
         obj.to_be_picked_qty = obj.to_be_picked_qty + qty
         obj.quantity = obj.quantity - qty
         obj.save()
