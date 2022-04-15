@@ -1,4 +1,6 @@
+
 import barcode
+import qrcode
 from barcode.writer import ImageWriter
 import base64
 from os import path
@@ -6,6 +8,16 @@ from os import path
 from django.http import HttpResponse
 from wkhtmltopdf.views import PDFTemplateResponse
 
+
+
+def qrCodeGen(file_name, strVal):
+    image_path = "qrcode_temp/" + file_name + ".png"
+    if not path.exists(image_path):
+        img = qrcode.make(strVal)
+        fullname = img.save(image_path)
+    with open(image_path, 'rb') as fp:
+        ret_str = base64.b64encode(fp.read()).decode('ascii')
+    return ret_str
 
 def barcodeGen(strVal):
     strVal.isdecimal()

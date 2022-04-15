@@ -764,10 +764,7 @@ class FeedbackCreateSerializers(serializers.ModelSerializer):
         feedback = ExecutiveFeedback(**validated_data)
         feedback.save()
         return feedback
-            #return ExecutiveFeedback.objects.create(**validated_data)
-            
-        # return False
-        
+
     def update(self, feedback, validated_data):
         feedback.executive_feedback=validated_data.get('executive_feedback')
         feedback.feedback_date=validated_data['feedback_date']

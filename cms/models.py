@@ -5,7 +5,7 @@ from django.contrib.auth import get_user_model
 from brand.models import Brand
 from categories.models import Category
 from cms.choices import CARD_TYPE_CHOICES, SCROLL_CHOICES, STATUS_CHOICES, PAGE_STATE_CHOICES, LANDING_PAGE_TYPE_CHOICE, \
-    LISTING_SUBTYPE_CHOICE, FUNTION_TYPE_CHOICE
+    LISTING_SUBTYPE_CHOICE, FUNTION_TYPE_CHOICE, IMAGE_TYPE_CHOICE
 from products.models import Product
 
 
@@ -54,10 +54,10 @@ class Card(BaseTimestampUserModel):
     name = models.CharField(max_length=255)
     type = models.CharField(max_length=10, choices=CARD_TYPE_CHOICES)
     sub_type = models.PositiveSmallIntegerField(choices=LISTING_SUBTYPE_CHOICE, default=LISTING_SUBTYPE_CHOICE.LIST)
+    image_data_type = models.PositiveSmallIntegerField(choices=IMAGE_TYPE_CHOICE, null=True, blank=True)
     app = models.ForeignKey(Application, on_delete=models.CASCADE, related_name="cards")
     category_subtype = models.ForeignKey(Category, on_delete=models.CASCADE, related_name='cms_cartegory_subtype', null=True, blank=True)
     brand_subtype = models.ForeignKey(Brand, on_delete=models.CASCADE, related_name='cms_brand_subtype', null=True, blank=True)
-
 
     def __str__(self):
         return f"{self.name} - {self.type}"
@@ -86,6 +86,7 @@ class CardItem(BaseTimestampUserModel):
     """Card Item Model"""
     card_data = models.ForeignKey(CardData, on_delete=models.CASCADE, related_name="items")
     image = models.ImageField(upload_to="cards/items/images", null=True, blank=True)
+    content_id = models.PositiveSmallIntegerField()
     content = models.TextField(null=True, blank=True)
     action = models.URLField(blank=True, null=True)
     priority = models.IntegerField(default=1)

@@ -44,13 +44,33 @@ table tr td,th,h4,span,address{
             		</div>
 				</div>
 
+
+				{% if e_invoice_data %}
+					<div class="col-md-6" >
+						<table class="table no-border">
+							<tr>
+							<td><img src="data:image/png;base64,{{e_invoice_data.qrCode}}" height="130px"></td>
+							<td>
+								IRN <strong>{{e_invoice_data.irn}}</strong><br/>
+								Ack No <strong>{{e_invoice_data.ack_no}}</strong><br/>
+								Ack Date <strong>{{e_invoice_data.ack_date}}</strong>
+							</td>
+							<td>
+								<img src="data:image/png;base64,{{barcode}}" height="130px">
+							</td>
+							</tr>
+						</table>
+					</div>
+				{% else %}
+
 				<div class="col-md-6" >
 					<div class="barcode">
-						<div class="pull-right">Invoice No:<img src="data:image/png;base64,{{barcode}}" height="130px">
+						<div class="pull-right"><img src="data:image/png;base64,{{barcode}}" height="130px"></div>
 					</div>
 				</div>
 
-    		</div>
+				{% endif %}
+
 		</div>
             <div class="col-md-12">
 				<div class="table">

@@ -181,7 +181,7 @@ def payment_reconsilation_():
 
 def payment_reconsilation_per_ten_minutes():
     cron_logger.info('cron_per 10 minutes payment_reconsilation start..........................')
-    time_threshold = datetime.datetime.now() - datetime.timedelta(minutes=60)
+    time_threshold = datetime.datetime.now() - datetime.timedelta(days=2)
     objects = Payment.objects.filter(order__ordered_cart__cart_type='ECOM', created_at__gt=time_threshold)
     for obj in objects:
         try:
@@ -192,8 +192,8 @@ def payment_reconsilation_per_ten_minutes():
 
 
 def payment_reconsilation_per_24_hours():
-    cron_logger.info('cron_per 24 minutes payment_reconsilation start..........................')
-    time_threshold = datetime.datetime.now() - datetime.timedelta(hours=24)
+    cron_logger.info('cron_per 12 pm  payment_reconsilation start..........................')
+    time_threshold = datetime.datetime.now() - datetime.timedelta(days=3)
     objects = Payment.objects.filter(order__ordered_cart__cart_type='ECOM', created_at__gt=time_threshold)
     for obj in objects:
         try:

@@ -292,7 +292,9 @@ class PaymentAdmin(admin.ModelAdmin):
     #     return None
 
     def invoice_amount(self, obj):
-        if obj and obj.payment_status not in [Payment.PAYMENT_PENDING, Payment.PAYMENT_FAILED, 'payment_not_found']:
+        payment_types = PaymentType.objects.filter(type__in=['cod', 'cash'])
+        if obj and (obj.payment_type in payment_types or
+                    obj.payment_status not in [Payment.PAYMENT_PENDING, Payment.PAYMENT_FAILED, 'payment_not_found']):
             if obj.order.order_app_type == Order.POS_WALKIN:
                 return obj.amount
             elif obj.order.order_app_type == Order.POS_ECOMM and obj.payment_type.type == 'cod' \

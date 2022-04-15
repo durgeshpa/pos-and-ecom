@@ -9,6 +9,7 @@ ZIP_FILE_NAME = 'Bulk_Invoice.zip'
 ZERO = 0
 FIFTY = 50
 FIVE = 5
+ONE = 1
 
 # Version Number
 Version = 'v1'
@@ -45,3 +46,5 @@ BULK_CREATE_NO_OF_RECORDS = 500
 GF_SHOPS = [33877]
 ADDISTRO_SHOPS = [599]
 PO_VALIDITY_IN_DAYS=7
+
+APRIL = 4

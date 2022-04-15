@@ -7,7 +7,7 @@ from django.http import HttpResponse
 
 from retailer_to_sp.models import ReturnItems, RoundAmount, Invoice, Order
 from retailer_to_sp.utils import round_half_down
-from .models import PAYMENT_MODE_POS, RetailerProduct, Payment
+from .models import PAYMENT_MODE_POS, RetailerProduct, Payment, PaymentType
 from .views import get_product_details, get_tax_details
 
 
@@ -432,8 +432,9 @@ def generate_csv_payment_report(payments):
     rows = []
     for payment in payments:
         inv_amt = None
-        if payment and payment.payment_status not in [Payment.PAYMENT_PENDING, Payment.PAYMENT_FAILED,
-                                                      'payment_not_found']:
+        payment_types = PaymentType.objects.filter(type__in=['cod', 'cash'])
+        if payment and (payment.payment_type in payment_types or
+                        payment.payment_status not in [Payment.PAYMENT_PENDING, Payment.PAYMENT_FAILED, 'payment_not_found']):
             if payment.order.order_app_type == Order.POS_WALKIN:
                 inv_amt = payment.amount
             elif payment.order.order_app_type == Order.POS_ECOMM and payment.payment_type.type == 'cod' \
