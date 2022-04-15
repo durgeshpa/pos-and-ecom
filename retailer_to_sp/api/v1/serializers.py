@@ -3468,7 +3468,10 @@ class LoadVerifyPackageSerializer(serializers.ModelSerializer):
         elif DispatchTripShipmentMapping.objects.filter(
                 ~Q(loaded_by=current_user), trip=trip, shipment=package.shipment,
                 shipment_status=DispatchTripShipmentMapping.LOADING_FOR_DC).exists():
-            raise serializers.ValidationError(f"Invoice {package.shipment} already in loading by another user")
+            loaded_by = DispatchTripShipmentMapping.objects.filter(
+                ~Q(loaded_by=current_user), trip=trip, shipment=package.shipment,
+                shipment_status=DispatchTripShipmentMapping.LOADING_FOR_DC).last().loaded_by
+            raise serializers.ValidationError(f"Invoice {package.shipment} is currently scanned by {loaded_by}")
 
         status = DispatchTripShipmentPackages.LOADED
         if self.initial_data['status'] == PACKAGE_VERIFY_CHOICES.DAMAGED:
@@ -4945,7 +4948,10 @@ class LastMileLoadVerifyPackageSerializer(serializers.ModelSerializer):
         elif LastMileTripShipmentMapping.objects.filter(
                 ~Q(loaded_by=current_user), trip=trip, shipment=package.shipment,
                 shipment_status=LastMileTripShipmentMapping.LOADING_FOR_DC).exists():
-            raise serializers.ValidationError(f"Invoice {package.shipment} already in loading by another user")
+            loaded_by = LastMileTripShipmentMapping.objects.filter(
+                ~Q(loaded_by=current_user), trip=trip, shipment=package.shipment,
+                shipment_status=LastMileTripShipmentMapping.LOADING_FOR_DC).last().loaded_by
+            raise serializers.ValidationError(f"Invoice {package.shipment} is currently scanned by {loaded_by}")
 
         status = LastMileTripShipmentPackages.LOADED
         if self.initial_data['status'] == PACKAGE_VERIFY_CHOICES.DAMAGED:
