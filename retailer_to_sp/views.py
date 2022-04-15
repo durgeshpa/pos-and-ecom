@@ -32,7 +32,7 @@ from retailer_to_sp.models import (CartProductMapping, Order, OrderedProduct, Or
                                    Dispatch, ShipmentRescheduling, PickerDashboard, update_full_part_order_status,
                                    Shipment, populate_data_on_qc_pass, OrderedProductBatch, ShipmentPackaging,
                                    ShipmentNotAttempt, LastMileTripShipmentMapping, LastMileTripShipmentPackages,
-                                   Invoice)
+                                   Invoice, DispatchTripShipmentMapping, DispatchTrip, DispatchTripShipmentPackages)
 from products.models import Product
 from retailer_to_sp.forms import (
     OrderedProductForm, OrderedProductMappingShipmentForm,
@@ -1756,6 +1756,15 @@ class OrderCancellation(object):
             trip_shipment.shipment_status = LastMileTripShipmentMapping.CANCELLED
             trip_shipment.save()
 
+    def mark_dispatch_trip_mapping_cancelled(self):
+        trip_shipment = DispatchTripShipmentMapping.objects.filter(
+            shipment=self.last_shipment, trip__trip_status=DispatchTrip.NEW).last()
+        if trip_shipment:
+            all_mapped_packages = trip_shipment.trip_shipment_mapped_packages.all()
+            all_mapped_packages.update(package_status=DispatchTripShipmentPackages.CANCELLED)
+            trip_shipment.shipment_status = DispatchTripShipmentMapping.CANCELLED
+            trip_shipment.save()
+
     def cancel(self):
         # check if order associated with any shipment
 
@@ -1788,6 +1797,8 @@ class OrderCancellation(object):
 
                 # Mark All Last mile trip mappings as Cancelled
                 self.mark_trip_mapping_cancelled()
+                # Mark All Dispatch mile trip mappings as Cancelled
+                self.mark_dispatch_trip_mapping_cancelled()
                 self.cancel_shipment()
             else:
                 # can't cancel the order
