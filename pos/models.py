@@ -841,3 +841,32 @@ class PaymentStatusUpdateByCron(models.Model):
     class Meta:
         verbose_name = 'cron log order status'
 
+
+class PosStoreRewardMapping(models.Model):
+    """
+        pos store reward mapping
+       configration at store level.
+    """
+    CHOICES = (('active', 'Active'),
+                ('deactive', 'Deactive'))
+
+
+    shop = models.ForeignKey(Shop, on_delete=models.CASCADE, unique=True,)
+    status = models.CharField(max_length=20, choices=CHOICES, default='deactive')
+    min_order_value = models.DecimalField(max_digits=10, decimal_places=2,
+                                          default=199, validators=[MinValueValidator(199)],
+                                          blank=True, null=True)
+    point_add_pos_order = models.IntegerField(null=True, blank=True)
+    point_add_ecom_order = models.IntegerField(null=True, blank=True)
+    max_redeem_point_ecom = models.IntegerField(null=True, blank=True)
+    max_redeem_point_pos = models.IntegerField(null=True, blank=True)
+    value_of_each_point = models.DecimalField(max_digits=10, decimal_places=2,
+                                              blank=True, null=True)
+    first_order_redeem_point = models.IntegerField(null=True, blank=True)
+    second_order_redeem_point = models.IntegerField(null=True, blank=True)
+    max_monthly_points_added = models.IntegerField(null=True, blank=True)
+    max_monthly_points_redeemed = models.IntegerField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
+    class Meta:
+        verbose_name = "POS Store Reward Mapping"

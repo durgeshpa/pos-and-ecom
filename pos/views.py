@@ -1700,3 +1700,14 @@ def products_list_status(request, product_status_info):
     info_logger.info(f"[pos/views.py: products_list_status] - CSV for products_list_status has been "
                      f"successfully downloaded with response [{response}]")
     return response
+
+class PosStoreRewardMappingAutocomplete(autocomplete.Select2QuerySetView):
+    """
+    Shop Filter for Retailer and Franchise Shops
+    """
+
+    def get_queryset(self, *args, **kwargs):
+        qs = Shop.objects.filter(Q(shop_type__shop_sub_type__retailer_type_name__in=["foco","fofo"]))
+        if self.q:
+            qs = qs.filter(Q(shop_type__shop_sub_type__retailer_type_name__in=["foco","fofo"]),shop_name__icontains=self.q)
+        return qs

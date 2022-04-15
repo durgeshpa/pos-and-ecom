@@ -4,11 +4,13 @@ from pos import views
 from pos.api.v1.views import UpdateInventoryStockView
 from pos.views import RetailerProductShopAutocomplete, DownloadPurchaseOrder, RetailerProductAutocomplete, \
     InventoryRetailerProductAutocomplete, RetailerOrderReturnCreditNoteView, RetailerOrderProductInvoiceView, \
-    products_list_status, RetailerProductStockDownload, RetailerCatalogueSampleFile
+    products_list_status, RetailerProductStockDownload, RetailerCatalogueSampleFile, PosStoreRewardMappingAutocomplete
 
 from pos.filters import PosShopAutocomplete, NonPosShopAutocomplete
 
 urlpatterns = [
+    url(r'^pos_store_reward_mapping_autocomplete/', PosStoreRewardMappingAutocomplete.as_view(),
+        name='pos_store_reward_mapping_autocomplete'),
     url(r'^retailer-product-autocomplete/', RetailerProductShopAutocomplete.as_view(),
         name='retailer-product-autocomplete'),
     url(r'^discounted-product-autocomplete/', RetailerProductAutocomplete.as_view(),

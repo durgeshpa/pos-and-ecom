@@ -30,7 +30,7 @@ from .models import (RetailerProduct, RetailerProductImage, Payment, ShopCustome
                      RetailerCartProductMapping, RetailerOrderReturn, RetailerReturnItems, InventoryPos,
                      InventoryChangePos, InventoryStatePos, MeasurementCategory, MeasurementUnit, PosReturnGRNOrder,
                      PosReturnItems, RetailerOrderedReport, BulkRetailerProduct,
-                     RetailerOrderCancel, PaymentStatusUpdateByCron)
+                     RetailerOrderCancel, PaymentStatusUpdateByCron, PosStoreRewardMapping)
 from .views import upload_retailer_products_list, download_retailer_products_list_form_view, \
     DownloadRetailerCatalogue, RetailerCatalogueSampleFile, RetailerProductMultiImageUpload, DownloadPurchaseOrder, \
     download_discounted_products_form_view, download_discounted_products, \
@@ -46,7 +46,7 @@ from .filters import ShopFilter, ProductInvEanSearch, ProductEanSearch
 from .utils import (create_order_data_excel, create_order_return_excel, create_cancel_order_csv ,\
     generate_prn_csv_report, generate_csv_payment_report, download_grn_cvs)
 from .forms import RetailerProductsForm, DiscountedRetailerProductsForm, PosInventoryChangeCSVDownloadForm,\
-    MeasurementUnitFormSet
+    MeasurementUnitFormSet, PosStoreRewardMappingForm
 from retailer_to_sp.models import Order
 
 class ExportCsvMixin:
@@ -1313,8 +1313,98 @@ class PaymentStatusUpdateBYCronAdmin(admin.ModelAdmin):
 
     class Media:
         pass
+class ShopFilter(AutocompleteFilter):
+    title = 'Shop'
+    field_name = 'shop'
+    autocomplete_url = 'pos_store_reward_mapping_autocomplete'
 
 
+class InputFilter(admin.SimpleListFilter):
+    template = 'admin/shops/input_filter.html'
+
+    def lookups(self, request, model_admin):
+        # Dummy, required to show the filter.
+        return ((),)
+    def choices(self, changelist):
+        # Grab only the "all" option.
+        all_choice = next(super().choices(changelist))
+        all_choice['query_parts'] = (
+            (k, v)
+            for k, v in changelist.get_filters_params().items()
+            if k != self.parameter_name
+        )
+        yield all_choice
+
+
+class CityFilter(InputFilter):
+    """custom filter by city field that
+       field is shop property
+    """
+    parameter_name = 'city'
+    title = _('City')
+
+    def queryset(self, request, queryset):
+        if self.value() is not None:
+            city = self.value()
+            shop_id = []
+            for obj in queryset:
+                if str(obj.shop.city_name).startswith(city):
+                    shop_id.append(obj.shop.id)
+            return queryset.filter(shop__id__in=shop_id)
+
+
+        return queryset
+
+class ByPincodeFilter(InputFilter):
+    """custom filter by Pincode field that
+       field is shop property
+    """
+    parameter_name = 'pincode'
+    title = _('Pincode')
+
+    def queryset(self, request, queryset):
+        if self.value() is not None:
+            pincode = self.value()
+            shop_id = []
+            for obj in queryset:
+                if str(obj.shop.get_shop_pin_code).startswith(pincode):
+                    shop_id.append(obj.shop.id)
+            return queryset.filter(shop__id__in=shop_id)
+
+
+        return queryset
+
+class PosStoreRewardMappingAdmin(admin.ModelAdmin):
+    """ reward configartion details on shop lavel"""
+    form =  PosStoreRewardMappingForm
+    list_display = ('shop', 'shop_name', 'city', 'pin_code', 'status')
+    fields = ('shop', 'status', 'min_order_value', 'point_add_pos_order',
+              'point_add_ecom_order', 'max_redeem_point_ecom', 'max_redeem_point_pos',
+              'value_of_each_point', 'first_order_redeem_point', 'second_order_redeem_point',
+              'max_monthly_points_added', 'max_monthly_points_redeemed')
+    search_fields = ['shop__shop_name']
+    list_filter = (ShopFilter,'status','shop__shop_type__shop_sub_type__retailer_type_name',
+                   CityFilter, ByPincodeFilter
+                   )
+
+    @staticmethod
+    def shop_name(obj):
+        return obj.shop.shop_name
+
+    @staticmethod
+    def city(obj):
+        return obj.shop.city_name
+
+    @staticmethod
+    def pin_code(obj):
+        return obj.shop.get_shop_pin_code
+
+
+    class Media:
+        pass
+
+
+admin.site.register(PosStoreRewardMapping, PosStoreRewardMappingAdmin)
 admin.site.register(PaymentStatusUpdateByCron, PaymentStatusUpdateBYCronAdmin)
 admin.site.register(RetailerProduct, RetailerProductAdmin)
 admin.site.register(DiscountedRetailerProduct, DiscountedRetailerProductAdmin)
