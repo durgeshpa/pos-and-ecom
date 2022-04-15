@@ -1749,7 +1749,7 @@ class OrderCancellation(object):
 
     def mark_trip_mapping_cancelled(self):
         trip_shipment = LastMileTripShipmentMapping.objects.filter(
-            shipment=self.last_shipment, trip__trip_status=Trip.READY).last()
+            shipment=self.last_shipment_id, trip__trip_status=Trip.READY).last()
         if trip_shipment:
             all_mapped_packages = trip_shipment.last_mile_trip_shipment_mapped_packages.all()
             all_mapped_packages.update(package_status=LastMileTripShipmentPackages.CANCELLED)
@@ -1758,7 +1758,7 @@ class OrderCancellation(object):
 
     def mark_dispatch_trip_mapping_cancelled(self):
         trip_shipment = DispatchTripShipmentMapping.objects.filter(
-            shipment=self.last_shipment, trip__trip_status=DispatchTrip.NEW).last()
+            shipment=self.last_shipment_id, trip__trip_status=DispatchTrip.NEW).last()
         if trip_shipment:
             all_mapped_packages = trip_shipment.trip_shipment_mapped_packages.all()
             all_mapped_packages.update(package_status=DispatchTripShipmentPackages.CANCELLED)
