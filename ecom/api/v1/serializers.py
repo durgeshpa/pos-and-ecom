@@ -619,3 +619,18 @@ class Parent_Product_Serilizer(serializers.ModelSerializer):
     class Meta:
         model = RetailerProduct
         fields = ('id', 'name','parent_product_discription' ,'mrp', 'online_price', 'off_percentage', 'image')
+
+
+class PastPurchasedProductSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Shop
+        fields = ('id', 'shop_name')
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        product = self.context.get('product')
+        data['products'] = ProductSerializer(product, many = True).data
+        user = self.context.get('user')
+        data['user'] = AccountSerializer(user).data
+        return data
+

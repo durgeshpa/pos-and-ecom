@@ -47,6 +47,7 @@ class Functions(BaseTimestampUserModel):
     type = models.PositiveIntegerField(choices=FUNTION_TYPE_CHOICE)
     url = models.CharField(max_length=200)
     required_params = ArrayField(models.CharField(max_length=200), null=True, blank=True)
+    required_headers = ArrayField(models.CharField(max_length=200), null=True, blank=True)
 
 
 class Card(BaseTimestampUserModel):
@@ -86,7 +87,7 @@ class CardItem(BaseTimestampUserModel):
     """Card Item Model"""
     card_data = models.ForeignKey(CardData, on_delete=models.CASCADE, related_name="items")
     image = models.ImageField(upload_to="cards/items/images", null=True, blank=True)
-    content_id = models.PositiveIntegerField()
+    content_id = models.PositiveIntegerField(null=True, blank=True)
     content = models.TextField(null=True, blank=True)
     action = models.URLField(blank=True, null=True)
     priority = models.IntegerField(default=1)
@@ -163,6 +164,7 @@ class LandingPage(BaseTimestampUserModel):
     banner_image = models.ImageField(upload_to="cards/items/images", null=True, blank=True)
     page_function = models.ForeignKey(Functions, on_delete=models.CASCADE, null=True, related_name='function_pages')
     params = JSONField(null=True)
+
 
 
 class LandingPageProducts(BaseTimestampUserModel):
