@@ -4,6 +4,7 @@ from rest_framework.authentication import TokenAuthentication
 from rest_framework.generics import ListAPIView
 from rest_framework import status
 
+from accounts.models import User
 from categories.models import Category, B2cCategory
 from marketing.models import RewardPoint
 from shops.models import Shop
@@ -20,9 +21,9 @@ from ecom.utils import (check_ecom_user, nearby_shops, validate_address_id, chec
                         get_categories_with_products, get_b2c_categories_with_products)
 from ecom.models import Address, Tag
 from .serializers import (AccountSerializer, RewardsSerializer, TagSerializer, UserLocationSerializer, ShopSerializer,
-                          AddressSerializer, CategorySerializer, B2cCategorySerializer, SubCategorySerializer, 
+                          AddressSerializer, CategorySerializer, B2cCategorySerializer, SubCategorySerializer,
                           B2cSubCategorySerializer, TagProductSerializer, Parent_Product_Serilizer,
-                          ShopInfoSerializer)
+                          ShopInfoSerializer, ReferAndEarnSerializer)
 
 from pos.api.v1.serializers import ContectUs
 
@@ -50,8 +51,23 @@ class RewardsView(APIView):
         """
         All Reward Credited/Used Details For User
         """
-        serializer = self.serializer_class(
-            RewardPoint.objects.filter(reward_user=self.request.user).select_related('reward_user').last())
+        serializer = self.serializer_class(RewardPoint.objects.filter(reward_user=self.request.user).
+                                           select_related('reward_user').last())
+        return api_response("", serializer.data, status.HTTP_200_OK, True)
+
+
+class ReferAndEarnView(APIView):
+    serializer_class = ReferAndEarnSerializer
+    permission_classes = (IsAuthenticated,)
+    authentication_classes = (TokenAuthentication,)
+
+    @check_ecom_user
+    def get(self, request, *args, **kwargs):
+        """
+        All Reward Credited on user refer
+        """
+        serializer = self.serializer_class(User.objects.filter(id=self.request.user.id).
+                                           prefetch_related('referral_by_user', 'referral_code_user').last())
         return api_response("", serializer.data, status.HTTP_200_OK, True)
 
 
