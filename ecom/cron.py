@@ -4,7 +4,7 @@ import datetime
 from django.db.models import Count, F, Case, When, IntegerField, Q
 
 # app imports
-from .models import Tag, TagProductMapping
+from .models import Tag, TagProductMapping, UserPastPurchases
 from pos.models import RetailerProduct, InventoryChangePos
 from pos.common_functions import PosInventoryCls
 from wms.models import PosInventoryState
@@ -23,7 +23,8 @@ def update_tag(tag, tag_product, start, product, count):
     try:
         while product.count() > start and count < 6:
             if count < (tag_product.count()):
-                TagProductMapping.objects.filter(id = tag_product[count].id).update(product = product[start], modified_at = datetime.datetime.now())
+                TagProductMapping.objects.filter(id = tag_product[count].id)\
+                                         .update(product = product[start], modified_at = datetime.datetime.now())
             else:
                 TagProductMapping.objects.create(tag = tag, product = product[start])
             count += 1
@@ -63,7 +64,7 @@ def bestseller_product():
                 best_seller_tag = tag.get(key='best-seller')
                 count = 0
                 tag_product = TagProductMapping.objects.filter(product__shop = shop, tag = best_seller_tag).order_by('-created_at')
-                
+
                 # Get online order product
                 online_order = Order.objects.filter(ordered_cart__cart_type='ECOM', created_at__gte = from_date, seller_shop=shop)
                 online_ordered_product = CartProductMapping.objects.filter(cart__order_id__in = online_order.values_list('order_no'))
@@ -97,7 +98,7 @@ def bestseller_product():
                         cron_logger.info('Successfully Added offline best seller product for shop')
                     else:
                         cron_logger.info('No offline best seller product for shop')
-                    
+
                 # add random product in case of no online and offline order
                 if count < 6:
                     exclude_product_id = product.values('id') | rem_offline_product.values('id')
@@ -114,10 +115,10 @@ def bestseller_product():
             except Exception as e:
                 cron_logger.error(e)
                 cron_logger.error('Stopped Mapping Best Seller Product for shop {}'.format(shop))
-            
+
             #Mapping Best Deals Product
             cron_logger.info('Started Mapping Best Deal Product for shop {}'.format(shop))
-            try:  
+            try:
                 count = 0
                 best_deal_tag = tag.get(key='best-deals')
                 product = RetailerProduct.objects.exclude(sku_type = 4).filter(online_enabled=True, status = 'active', shop = shop, is_deleted=False)
@@ -160,6 +161,42 @@ def bestseller_product():
             except Exception as e:
                 cron_logger.error(e)
                 cron_logger.error('Stopped Mapping Freshly Arrived Product for shop {}'.format(shop))
+
     except Exception as e:
         cron_logger.error(e)
         cron_logger.error('Cron for tag product mapping stopped')
+
+
+def past_purchases():
+    try:
+        cron_logger.info('past_purchases Started')
+        # last 15 days
+        days = get_config('ECOM_BESTSELLER_DAYS')
+        from_date = datetime.datetime.today() - datetime.timedelta(days=days)
+        try:
+            # Get order product
+            past_orders = Order.objects.filter(ordered_cart__cart_type__in=['BASIC', 'ECOM'], created_at__gte=from_date,
+                                               seller_shop__shop_type__shop_type='f', seller_shop__status=True,
+                                               seller_shop__approval_status=2, seller_shop__pos_enabled=True)
+            cron_logger.info(f"Order Count {past_orders.count()}")
+            for order in past_orders:
+                past_ordered_product = order.ordered_cart.rt_cart_list.all()
+                cron_logger.info(f"Order{order.order_no} |  Product Count {past_ordered_product.count()}")
+
+                products_purchased = RetailerProduct.objects.filter(rt_cart_retailer_product__in=past_ordered_product,
+                                                                    status='active', is_deleted=False, online_enabled=True)
+                # Inventory Check and exclude product whose inventory is not available
+                products_purchased = check_inventory(products_purchased)
+                # Update Tagged Product
+                if products_purchased.exists():
+                    for p in products_purchased:
+                        UserPastPurchases.objects.update_or_create(user=order.buyer, shop=order.seller_shop, product=p,
+                                                                   defaults={'last_purchased_at':order.created_at})
+        except Exception as e:
+            cron_logger.info("past_purchases | Failed")
+            cron_logger.error(e)
+        cron_logger.info("past_purchases | Completed")
+
+    except Exception as e:
+        cron_logger.error(e)
+        cron_logger.error('Cron for past purchases stopped')
