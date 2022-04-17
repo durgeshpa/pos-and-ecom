@@ -106,9 +106,6 @@ class ReferAndEarnSerializer(serializers.ModelSerializer):
         model = User
         fields = ('id', 'first_name', 'last_name', 'phone_number', 'referral_code_user', 'email', 'referral_by_user',)
 
-    def get_total_referrer_reward_points(self, obj):
-        pass
-
     def to_representation(self, instance):
         response = super().to_representation(instance)
         if response['referral_code_user']:
