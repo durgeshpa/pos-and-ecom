@@ -1380,8 +1380,9 @@ class PosStoreRewardMappingAdmin(admin.ModelAdmin):
     """ reward configartion details on shop lavel"""
     form =  PosStoreRewardMappingForm
     list_display = ('shop', 'shop_name', 'city', 'pin_code', 'status')
-    fields = ('shop', 'status', 'min_order_value', 'point_add_pos_order',
-              'point_add_ecom_order', 'max_redeem_point_ecom', 'max_redeem_point_pos',
+    fields = ('shop', 'status', 'min_order_value','is_point_add_pos_order', 'point_add_pos_order',
+              'is_point_add_ecom_order', 'point_add_ecom_order', 'is_max_redeem_point_ecom',
+              'max_redeem_point_ecom', 'is_max_redeem_point_pos', 'max_redeem_point_pos',
               'value_of_each_point', 'first_order_redeem_point', 'second_order_redeem_point',
               'max_monthly_points_added', 'max_monthly_points_redeemed')
     search_fields = ['shop__shop_name']

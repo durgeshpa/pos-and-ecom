@@ -856,10 +856,19 @@ class PosStoreRewardMapping(models.Model):
     min_order_value = models.DecimalField(max_digits=10, decimal_places=2,
                                           default=199, validators=[MinValueValidator(199)],
                                           blank=True, null=True)
+
+    is_point_add_pos_order = models.BooleanField(default=True)
     point_add_pos_order = models.IntegerField(null=True, blank=True)
+
+    is_point_add_ecom_order = models.BooleanField(default=True)
     point_add_ecom_order = models.IntegerField(null=True, blank=True)
+
+    is_max_redeem_point_ecom = models.BooleanField(default=True)
     max_redeem_point_ecom = models.IntegerField(null=True, blank=True)
+
+    is_max_redeem_point_pos = models.BooleanField(default=True)
     max_redeem_point_pos = models.IntegerField(null=True, blank=True)
+
     value_of_each_point = models.DecimalField(max_digits=10, decimal_places=2,
                                               blank=True, null=True)
     first_order_redeem_point = models.IntegerField(null=True, blank=True)
