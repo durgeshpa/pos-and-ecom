@@ -545,7 +545,7 @@ class PageFunctionSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Functions
-        fields = ('id', 'type', 'name', 'url', 'required_params')
+        fields = ('id', 'type', 'name', 'url', 'required_params', 'required_headers')
 
 
     def validate(self, data):
@@ -558,12 +558,15 @@ class PageFunctionSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("'url' | This is required")
         elif self.initial_data.get('required_params') and not isinstance(self.initial_data['required_params'], list):
             raise serializers.ValidationError("'required_params' | Only list type is supported")
+        elif self.initial_data.get('required_headers') and not isinstance(self.initial_data['required_headers'], list):
+            raise serializers.ValidationError("'required_headers' | Only list type is supported")
         elif Functions.objects.filter(type=self.initial_data['type'], name=self.initial_data['name'].strip()).exists():
             raise serializers.ValidationError(f"Function already exists")
         data['name'] = self.initial_data['name'].strip()
         data['type'] = self.initial_data['type']
         data['url'] = self.initial_data['url'].strip()
         data['required_params'] = self.initial_data['required_params']
+        data['required_headers'] = self.initial_data['required_headers']
 
         return data
 
