@@ -13,7 +13,7 @@ from global_config.common_function import get_global_config
 from retailer_backend.messages import *
 from global_config.models import GlobalConfig
 from accounts.models import User
-
+from shops.models import Shop
 from .sms import SendSms
 from .utils import has_gf_employee_permission, shop_obj_related_owner
 
@@ -279,6 +279,7 @@ class RewardLog(models.Model):
         ('purchase_reward', 'Hdpos Sales - Purchase Credit'),
     )
     user = models.ForeignKey(MLMUser, on_delete=models.CASCADE, null=True, blank=True)
+    shop = models.ForeignKey(Shop, on_delete=models.DO_NOTHING, null =True, blank=True)
     reward_user = models.ForeignKey(User, related_name='reward_log_user', on_delete=models.CASCADE, null=True, blank=True)
     transaction_type = models.CharField(max_length=25, null=True, blank=True, choices=TRANSACTION_CHOICES)
     transaction_id = models.CharField(max_length=25, null=True, blank=True)
