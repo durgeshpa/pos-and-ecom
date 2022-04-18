@@ -62,7 +62,7 @@ from pos.api.v1.serializers import (BasicCartSerializer, BasicCartListSerializer
                                     RetailerProductResponseSerializer, PosShopUserMappingListSerializer,
                                     PaymentTypeSerializer, PosEcomOrderDetailSerializer,
                                     RetailerOrderedDashBoardSerializer, PosEcomShopSerializer)
-
+from pos.payU_payment import send_request_refund
 from pos.common_functions import (api_response, delete_cart_mapping, ORDER_STATUS_MAP, RetailerProductCls,
                                   update_customer_pos_cart, PosInventoryCls, RewardCls, serializer_error,
                                   check_pos_shop, PosAddToCart, PosCartCls, ONLINE_ORDER_STATUS_MAP,
@@ -3079,6 +3079,13 @@ class OrderCentral(APIView):
                     return api_response("Invalid Order update")
                 order.order_status = order_status
                 order.last_modified_by = self.request.user
+                if order_status == Order.DELIVERED:
+                    shop = kwargs['shop']
+                    if shop.enable_loyalty_points: ## credit point on order delivery complete
+                        if ReferralCode.is_marketing_user(order.buyer):
+                            order.points_added = order_loyalty_points_credit(order.order_amount, order.buyer.id, order.order_no,
+                                                                            'order_credit', 'order_indirect_credit',
+                                                                            self.request.user.id, order.seller_shop.id)
                 order.save()
                 try:
                     shipment = OrderedProduct.objects.filter(order=order).last()
@@ -3478,7 +3485,11 @@ class OrderCentral(APIView):
                     info_logger.info(result)
             except Exception as e:
                 info_logger.info(e)
-            return api_response('Ordered Successfully!', BasicOrderListSerializer(Order.objects.get(id=order.id)).data,
+            if shop.enable_loyalty_points:
+                msg = 'Ordered Successfully, Reward points will be credited after delivery!'
+            else:
+                msg = 'Ordered Successfully!'
+            return api_response(msg, BasicOrderListSerializer(Order.objects.get(id=order.id)).data,
                                 status.HTTP_200_OK, True)
 
     def get_retail_validate(self):
@@ -3939,12 +3950,6 @@ class OrderCentral(APIView):
         # shops_str = GlobalConfig.objects.get(key=app_type + '_loyalty_shop_ids').value
         # shops_str = str(shops_str) if shops_str else ''
         # if shops_str == 'all' or (shops_str and str(order.seller_shop.id) in shops_str.split(',')):
-        if self.shop.enable_loyalty_points:
-            if ReferralCode.is_marketing_user(order.buyer):
-                order.points_added = order_loyalty_points_credit(order.order_amount, order.buyer.id, order.order_no,
-                                                                 'order_credit', 'order_indirect_credit',
-                                                                 self.request.user.id, order.seller_shop.id)
-                order.save()
         # Add free products
         offers = order.ordered_cart.offers
         product_qty_map = {}
@@ -4437,6 +4442,7 @@ class OrderedItemCentralDashBoard(APIView):
         """
         # products for shop
         products = RetailerProduct.objects.filter(shop=shop)
+        ecom_products = products.filter(online_enabled=True)
 
         # orders for shop
         orders = Order.objects.prefetch_related('rt_return_order').filter(seller_shop=shop).exclude(
@@ -4492,6 +4498,7 @@ class OrderedItemCentralDashBoard(APIView):
         today_date = datetime.today()
         if filters == 1:  # today
             products = products.filter(created_at__date=today_date)
+            ecom_products = ecom_products.filter(created_at__date=today_date)
             # orders
             orders = orders.filter(created_at__date=today_date)
             pos_orders = pos_orders.filter(created_at__date=today_date)
@@ -4515,6 +4522,7 @@ class OrderedItemCentralDashBoard(APIView):
         elif filters == 2:  # yesterday
             yesterday = today_date - timedelta(days=1)
             products = products.filter(created_at__date=yesterday)
+            ecom_products = ecom_products.filter(created_at__date=yesterday)
             # orders
             orders = orders.filter(created_at__date=yesterday)
             pos_orders = pos_orders.filter(created_at__date=yesterday)
@@ -4537,6 +4545,7 @@ class OrderedItemCentralDashBoard(APIView):
 
         elif filters == 3:  # this week
             products = products.filter(created_at__week=today_date.isocalendar()[1])
+            ecom_products = ecom_products.filter(created_at__week=today_date.isocalendar()[1])
             # orders
             orders = orders.filter(created_at__week=today_date.isocalendar()[1])
             pos_orders = pos_orders.filter(created_at__week=today_date.isocalendar()[1])
@@ -4560,6 +4569,7 @@ class OrderedItemCentralDashBoard(APIView):
         elif filters == 4:  # last week
             last_week = today_date - timedelta(weeks=1)
             products = products.filter(created_at__week=last_week.isocalendar()[1])
+            ecom_products = ecom_products.filter(created_at__week=last_week.isocalendar()[1])
             # orders
             orders = orders.filter(created_at__week=last_week.isocalendar()[1])
             pos_orders = pos_orders.filter(created_at__week=last_week.isocalendar()[1])
@@ -4582,6 +4592,7 @@ class OrderedItemCentralDashBoard(APIView):
 
         elif filters == 5:  # this month
             products = products.filter(created_at__month=today_date.month)
+            ecom_products = ecom_products.filter(created_at__month=today_date.month)
             # orders
             orders = orders.filter(created_at__month=today_date.month)
             pos_orders = pos_orders.filter(created_at__month=today_date.month)
@@ -4605,6 +4616,7 @@ class OrderedItemCentralDashBoard(APIView):
         elif filters == 6:  # last month
             last_month = today_date - timedelta(days=30)
             products = products.filter(created_at__month=last_month.month)
+            ecom_products = ecom_products.filter(created_at__month=last_month.month)
             # orders
             orders = orders.filter(created_at__month=last_month.month)
             pos_orders = pos_orders.filter(created_at__month=last_month.month)
@@ -4627,6 +4639,7 @@ class OrderedItemCentralDashBoard(APIView):
 
         elif filters == 7:  # this year
             products = products.filter(created_at__year=today_date.year)
+            ecom_products = ecom_products.filter(created_at__year=today_date.year)
             # orders
             orders = orders.filter(created_at__year=today_date.year)
             pos_orders = pos_orders.filter(created_at__year=today_date.year)
@@ -4691,6 +4704,7 @@ class OrderedItemCentralDashBoard(APIView):
         total_invoices_final_amount = pos_total_invoices_final_amount + ecom_total_invoices_final_amount
         # counts of order for shop_id with total_ordered_final_amount, total_invoices_final_amount  & products
         products_count = products.count()
+        ecom_products_count = ecom_products.count()
 
         order_count = orders.count()
         invoice_count = invoices.count()
@@ -4702,12 +4716,13 @@ class OrderedItemCentralDashBoard(APIView):
         pos_invoice_count = pos_invoices.count()
 
         overview = [{"shop_name": shop.shop_name, "orders": order_count, "products": products_count,
-                     "revenue": total_ordered_final_amount, "ecom_order_count": ecom_order_count,
-                     "pos_order_count": pos_order_count, "ecom_revenue": ecom_total_ordered_final_amount,
-                     "pos_revenue": pos_total_ordered_final_amount, "invoices": invoice_count,
-                     "ecom_invoice_count": ecom_invoice_count, "pos_invoice_count": pos_invoice_count,
-                     "invoice_revenue": total_invoices_final_amount, "ecom_invoice_revenue":
-                         ecom_total_invoices_final_amount, "pos_invoice_revenue": pos_total_invoices_final_amount}]
+                     "ecom_products": ecom_products_count, "revenue": total_ordered_final_amount,
+                     "ecom_order_count": ecom_order_count, "pos_order_count": pos_order_count,
+                     "ecom_revenue": ecom_total_ordered_final_amount, "pos_revenue": pos_total_ordered_final_amount,
+                     "invoices": invoice_count, "ecom_invoice_count": ecom_invoice_count,
+                     "pos_invoice_count": pos_invoice_count, "invoice_revenue": total_invoices_final_amount,
+                     "ecom_invoice_revenue": ecom_total_invoices_final_amount,
+                     "pos_invoice_revenue": pos_total_invoices_final_amount}]
         return overview
 
     def get_retail_order_overview(self):

@@ -9,6 +9,7 @@ from django.contrib.auth import get_user_model
 from django.utils.safestring import mark_safe
 from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
+
 from otp.sms import SendSms
 import datetime, re
 from django.core.exceptions import ValidationError
@@ -717,6 +718,7 @@ class DayBeatPlanning(models.Model):
     status = models.BooleanField(default=True)
     is_active = models.BooleanField(default=True)
 
+
 class ExecutiveFeedback(models.Model):
     """
     This model is used for to store day wise beat plan for sales executive
@@ -820,6 +822,7 @@ class FOFOConfigurations(models.Model):
             ("has_fofo_config_operations", "Has update FOFO config operations"),
         )
 
+
 class FOFOConfig(models.Model):
     # SUN = 'SUN'
     # MON = 'MON'
@@ -852,3 +855,4 @@ class FOFOConfig(models.Model):
         permissions = (
             ("has_fofo_config_operations_shop", "Has update FOFO  shop config operations"),
         )
+

@@ -7,7 +7,7 @@ from django.db.models import Sum
 from accounts.models import User
 from addresses.models import Pincode
 from categories.models import Category, B2cCategory
-from marketing.models import ReferralCode, RewardPoint, RewardLog
+from marketing.models import ReferralCode, RewardPoint, RewardLog, Referral
 from shops.models import Shop, FOFOConfig
 from retailer_to_sp.models import Order, OrderedProductMapping, CartProductMapping
 from pos.models import RetailerProduct, Payment, PaymentType
@@ -63,6 +63,60 @@ class RewardsSerializer(serializers.ModelSerializer):
         model = RewardPoint
         fields = ('phone', 'email', 'referral_code', 'redeemable_points', 'redeemable_discount', 'direct_earned',
                   'indirect_earned', 'points_used', 'welcome_points')
+
+
+class UserSerializers(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ('id', 'first_name', 'last_name', 'phone_number', 'email')
+
+
+class ReferedUserSerializers(serializers.ModelSerializer):
+    """
+    Loyalty Points detail for a user
+    """
+    referral_to_user = UserSerializers(read_only=True)
+
+    class Meta:
+        model = Referral
+        fields = ('referral_to_user', 'referrer_reward_points', 'referee_reward_points', 'user_linked_type')
+
+    def to_representation(self, instance):
+        response = super().to_representation(instance)
+        if response['user_linked_type']:
+            response['user_linked_type'] = instance.get_user_linked_type_display()
+        return response
+
+
+class ReferralCodeSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = ReferralCode
+        fields = ('referral_code',)
+
+
+class ReferAndEarnSerializer(serializers.ModelSerializer):
+    """
+    Loyalty Points detail for a user
+    """
+    referral_code_user = ReferralCodeSerializer(read_only=True)
+    referral_by_user = ReferedUserSerializers(many=True, read_only=True)
+
+    class Meta:
+        model = User
+        fields = ('id', 'first_name', 'last_name', 'phone_number', 'referral_code_user', 'email', 'referral_by_user',)
+
+    def to_representation(self, instance):
+        response = super().to_representation(instance)
+        if response['referral_code_user']:
+            response['referral_code'] = response['referral_code_user']['referral_code']
+            response.pop('referral_code_user')
+        if response['referral_by_user']:
+            referrer_reward_points_data = 0
+            for referrer_reward_points in response['referral_by_user']:
+                referrer_reward_points_data += referrer_reward_points['referrer_reward_points']
+                response['total_referrer_reward_points'] = referrer_reward_points_data
+        return response
 
 
 class UserLocationSerializer(serializers.Serializer):
