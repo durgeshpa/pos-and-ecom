@@ -3565,7 +3565,7 @@ class PosEcomOrderDetailSerializer(serializers.ModelSerializer):
     class Meta:
         model = Order
         fields = ('id', 'order_no', 'creation_date', 'order_status', 'items', 'order_summary', 'return_summary',
-                  'invoice_summary', 'ordered_product', 'invoice_amount', 'address', 'order_update',
+                  'invoice_summary', 'ordered_product', 'invoice_amount', 'address', 'order_update', 'points_added',
                   'estimate_delivery_time', 'delivery_person', 'delivery_option', 'order_status_display', 'order_cancel_reson',
                   'payment', 'ordered_cart')
 
