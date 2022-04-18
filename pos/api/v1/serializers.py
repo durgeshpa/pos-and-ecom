@@ -891,6 +891,7 @@ class OrderedDashBoardSerializer(serializers.Serializer):
     ecom_invoice_count = serializers.IntegerField()
     registered_users = serializers.IntegerField(required=False)
     products = serializers.IntegerField(required=False)
+    ecom_products = serializers.IntegerField(required=False)
     revenue = serializers.DecimalField(max_digits=9, decimal_places=2, required=False)
     invoice_revenue = serializers.DecimalField(max_digits=9, decimal_places=2, required=False)
     pos_revenue = serializers.DecimalField(max_digits=9, decimal_places=2, required=False)
@@ -980,6 +981,7 @@ class BasicOrderProductDetailSerializer(serializers.ModelSerializer):
     qty = serializers.SerializerMethodField()
     rt_return_ordered_product = ReturnItemsSerializer(many=True)
     qty_unit = serializers.SerializerMethodField()
+    picked_qty = serializers.SerializerMethodField()
 
     def get_qty(self, obj):
         """
@@ -1010,6 +1012,12 @@ class BasicOrderProductDetailSerializer(serializers.ModelSerializer):
         else:
             return None
 
+    def get_picked_qty(self, obj):
+        """
+            qty purchased
+        """
+        return obj.shipped_qty
+
     def get_product_subtotal(self, obj):
         """
             Received amount for product
@@ -1025,7 +1033,7 @@ class BasicOrderProductDetailSerializer(serializers.ModelSerializer):
     class Meta:
         model = OrderedProductMapping
         fields = ('ordered_product', 'retailer_product', 'selling_price', 'qty', 'qty_unit', 'product_subtotal',
-                  'rt_return_ordered_product')
+                  'rt_return_ordered_product', 'picked_qty')
 
 
 class BasicOrderSerializer(serializers.ModelSerializer):
@@ -3326,8 +3334,8 @@ class PosEcomOrderProductDetailSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = CartProductMapping
-        fields = ('retailer_product', 'selling_price', 'qty', 'picked_qty', 'product_subtotal', 'product_invoice_subtotal',
-                  'rt_return_ordered_product')
+        fields = ('retailer_product', 'selling_price', 'qty', 'picked_qty', 'product_subtotal',
+                  'product_invoice_subtotal', 'rt_return_ordered_product')
 
 
 class PosEcomOrderDetailSerializer(serializers.ModelSerializer):
