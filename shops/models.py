@@ -718,6 +718,7 @@ class DayBeatPlanning(models.Model):
     status = models.BooleanField(default=True)
     is_active = models.BooleanField(default=True)
 
+
 class ExecutiveFeedback(models.Model):
     """
     This model is used for to store day wise beat plan for sales executive
