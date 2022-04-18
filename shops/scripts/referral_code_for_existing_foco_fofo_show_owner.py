@@ -49,8 +49,9 @@ def assign_referral_code_to_gf_employees():
         for cnt, gf_user in enumerate(gf_users):
             if not ReferralCode.objects.filter(user=gf_user).exists():
                 rf_code_obj = ReferralCode.generate_user_referral_code(gf_user, gf_user)
-                info_logger.info(f"{cnt + 1} | Referral Code: {rf_code_obj.referral_code} of User {gf_user} ")
-                print(f"{cnt + 1} | Referral Code: {rf_code_obj.referral_code} of User {gf_user} ")
+                print(rf_code_obj)
+                info_logger.info(f"{cnt + 1} | Referral Code: {rf_code_obj} of User {gf_user} ")
+                print(f"{cnt + 1} | Referral Code: {rf_code_obj} of User {gf_user} ")
             else:
                 info_logger.info(f"{cnt + 1} | Referral Code of User {gf_user} already exists ")
                 print(f"{cnt + 1} | Referral Code of User {gf_user} already exists ")
