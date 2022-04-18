@@ -754,10 +754,11 @@ def trip_planning_change(request, pk):
 
                     if selected_shipment_ids:
                         selected_shipment_list = selected_shipment_ids.split(',')
+                        selected_shipments = Dispatch.objects.filter(
+                            ~Q(shipment_status=OrderedProduct.CANCELLED), ~Q(order__order_status=Order.CANCELLED),
+                            pk__in=selected_shipment_list)
                         create_update_last_mile_trip_shipment_mapping(
-                            trip_instance.pk, selected_shipment_list, request.user)
-                        selected_shipments = Dispatch.objects.filter(~Q(shipment_status='CANCELLED'),
-                                                                     pk__in=selected_shipment_list)
+                            trip_instance.pk, selected_shipments.values_list('id', flat=True), request.user)
 
                         shipment_out_inventory_change(selected_shipments, TRIP_SHIPMENT_STATUS_MAP[current_trip_status])
                         if current_trip_status not in ['COMPLETED', 'CLOSED']:
