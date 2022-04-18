@@ -9,11 +9,12 @@ from rest_framework.views import APIView
 from rest_framework.generics import GenericAPIView, UpdateAPIView, CreateAPIView
 from .serializers import (ShopOwnerNameListSerializer, ShopNameListSerializer,
                             ShopTypeListSerializers, RewardConfigShopSerializers,
-                            RewardConfigListShopSerializers)
-from .services import shop_owner_search, shop_name_search, shop_type_search, shop_search
+                            RewardConfigListShopSerializers, ShopRewardConfigKeySerilizer)
+from .services import shop_owner_search, shop_name_search, shop_type_search, shop_search, shop_reward_config_key_search
 import logging
 from shops.common_validators import validate_shop_owner_id, ShopType
-from pos.models import PosStoreRewardMapping
+from pos.models import (PosStoreRewardMapping, ShopRewardConfig, ShopConfigKey, ShopRewardConfigration,
+                        ShopConfigKey,)
 from pos.common_functions import  serializer_error
 logger = logging.getLogger('pos-api-v2')
 
@@ -116,7 +117,7 @@ class ShopTypeListView(GenericAPIView):
 class RewardConfigShopListView(GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
-    queryset = PosStoreRewardMapping.objects.order_by('-id')
+    queryset = ShopRewardConfig.objects.order_by('-id')
     serializer_class = RewardConfigListShopSerializers # ShopCrudSerializers
 
     def get(self, request):
@@ -170,12 +171,17 @@ class RewardConfigShopListView(GenericAPIView):
             self.queryset = self.queryset.filter(status=status)
 
         return self.queryset.distinct('id')
-
+def create_or_update(id,data):
+    data_list = data
+    for data in data_list:
+        instance, created = ShopRewardConfigration.objects.update_or_create(
+            shop_config=id, key_id=data['key_id'], defaults={'value': data['value']})
+        instance.save()
 
 class RewardConfigShopCrudView(GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
-    queryset = PosStoreRewardMapping.objects.order_by('-id')
+    queryset = ShopRewardConfig.objects.order_by('-id')
     serializer_class = RewardConfigShopSerializers # ShopCrudSerializers
 
     def get(self, request):
@@ -204,10 +210,17 @@ class RewardConfigShopCrudView(GenericAPIView):
 
         info_logger.info("RewardConfig POST api called.")
         #modified_data = validate_data_format(self.request)
-
-        serializer = self.serializer_class(data=request.data)
+        data = request.data
+        shop_config = data.pop('shop_config')
+        serializer = self.serializer_class(data=data)
         if serializer.is_valid():
-            serializer.save()
+            obj = serializer.save()
+            try:
+                create_or_update(obj, shop_config)
+            except Exception as e:
+                return get_response(str(e), False)
+
+
             info_logger.info("RewardConfig Created Successfully.")
             return get_response('RewardConfig Created Successfully.', serializer.data)
         return get_response(serializer_error(serializer), False)
@@ -226,10 +239,15 @@ class RewardConfigShopCrudView(GenericAPIView):
         if error:
             return get_response(error)
         shop_instance = self.queryset.last()
-
+        data = modified_data.get('shop_config')
         serializer = self.serializer_class(instance=shop_instance, data=modified_data, context={'request':request})
         if serializer.is_valid():
+            try:
+                create_or_update(modified_data['id'], data)
+            except Exception as e:
+                return get_response(str(e), False)
             serializer.save()
+            #create_or_update(modified_data['id'], data)
             info_logger.info("RewardConfig Updated Successfully.")
             return get_response('RewardConfig Updated Successfully.', serializer.data)
         return get_response(serializer_error(serializer), False)
@@ -247,7 +265,7 @@ class RewardConfigShopCrudView(GenericAPIView):
                     shop_id.delete()
                 except:
                     return get_response(f'can not delete shop | {shop_id.shop_name} | getting used', False)
-        except ObjectDoesNotExist as e:
+        except Exception as e:
             error_logger.error(e)
             return get_response(f'please provide a valid shop id {s_id}', False)
         return get_response('shop were deleted successfully!', True)
@@ -283,3 +301,20 @@ class RewardConfigShopCrudView(GenericAPIView):
             self.queryset = self.queryset.filter(status=status)
 
         return self.queryset.distinct('id')
+
+class ShopRewardConfigKeys(GenericAPIView):
+    """SHOP Type .."""
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    queryset = ShopConfigKey.objects.all()
+    serializer_class = ShopRewardConfigKeySerilizer
+
+    def get(self, request):
+        """ GET Shop Type List """
+        search_text = self.request.GET.get('search_text')
+        if search_text:
+            self.queryset = shop_reward_config_key_search(self.queryset, search_text)
+        shop_type = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        serializer = self.serializer_class(shop_type, many=True)
+        msg = "" if shop_type else "no shop found"
+        return get_response(msg, serializer.data, True)
