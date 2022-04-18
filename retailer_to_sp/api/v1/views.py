@@ -3484,7 +3484,11 @@ class OrderCentral(APIView):
                     info_logger.info(result)
             except Exception as e:
                 info_logger.info(e)
-            return api_response('Ordered Successfully!', BasicOrderListSerializer(Order.objects.get(id=order.id)).data,
+            if shop.enable_loyalty_points:
+                msg = 'Ordered Successfully, Reward points will be credited after delivery!'
+            else:
+                msg = 'Ordered Successfully!'
+            return api_response(msg, BasicOrderListSerializer(Order.objects.get(id=order.id)).data,
                                 status.HTTP_200_OK, True)
 
     def get_retail_validate(self):
