@@ -62,7 +62,7 @@ from pos.api.v1.serializers import (BasicCartSerializer, BasicCartListSerializer
                                     RetailerProductResponseSerializer, PosShopUserMappingListSerializer,
                                     PaymentTypeSerializer, PosEcomOrderDetailSerializer,
                                     RetailerOrderedDashBoardSerializer, PosEcomShopSerializer)
-
+from pos.payU_payment import send_request_refund
 from pos.common_functions import (api_response, delete_cart_mapping, ORDER_STATUS_MAP, RetailerProductCls,
                                   update_customer_pos_cart, PosInventoryCls, RewardCls, serializer_error,
                                   check_pos_shop, PosAddToCart, PosCartCls, ONLINE_ORDER_STATUS_MAP,
@@ -3079,6 +3079,13 @@ class OrderCentral(APIView):
                     return api_response("Invalid Order update")
                 order.order_status = order_status
                 order.last_modified_by = self.request.user
+                if order_status == Order.DELIVERED:
+                    shop = kwargs['shop']
+                    if shop.enable_loyalty_points: ## credit point on order delivery complete
+                        if ReferralCode.is_marketing_user(order.buyer):
+                            order.points_added = order_loyalty_points_credit(order.order_amount, order.buyer.id, order.order_no,
+                                                                            'order_credit', 'order_indirect_credit',
+                                                                            self.request.user.id, order.seller_shop.id)
                 order.save()
                 try:
                     shipment = OrderedProduct.objects.filter(order=order).last()
@@ -3939,12 +3946,6 @@ class OrderCentral(APIView):
         # shops_str = GlobalConfig.objects.get(key=app_type + '_loyalty_shop_ids').value
         # shops_str = str(shops_str) if shops_str else ''
         # if shops_str == 'all' or (shops_str and str(order.seller_shop.id) in shops_str.split(',')):
-        if self.shop.enable_loyalty_points:
-            if ReferralCode.is_marketing_user(order.buyer):
-                order.points_added = order_loyalty_points_credit(order.order_amount, order.buyer.id, order.order_no,
-                                                                 'order_credit', 'order_indirect_credit',
-                                                                 self.request.user.id, order.seller_shop.id)
-                order.save()
         # Add free products
         offers = order.ordered_cart.offers
         product_qty_map = {}
