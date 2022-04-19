@@ -4197,6 +4197,13 @@ class VerifyReturnShipmentProductsSerializer(serializers.ModelSerializer):
         movement_type = self.get_movement_type(shipment_map_instance.ordered_product)
         if ShipmentPackagingMapping.objects.filter(ordered_product=shipment_map_instance,
                                                    shipment_packaging__movement_type=movement_type).exists():
+            crates_to_free = ShipmentPackagingMapping.objects.filter(
+                ordered_product=shipment_map_instance, shipment_packaging__movement_type=movement_type,
+                shipment_packaging__packaging_type=ShipmentPackaging.CRATE).\
+                values_list('shipment_packaging__crate__id', flat=True)
+            for crate in crates_to_free:
+                ShopCrateCommonFunctions.mark_crate_available(
+                    shipment_map_instance.ordered_product.current_shop.id, crate)
             shipment_packaging_ids = list(ShipmentPackagingMapping.objects.filter(
                 ordered_product=shipment_map_instance, shipment_packaging__movement_type=movement_type) \
                                           .values_list('shipment_packaging_id', flat=True))
