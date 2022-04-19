@@ -21,6 +21,7 @@ from global_config.models import GlobalConfig
 from ecom.utils import (check_ecom_user, nearby_shops, validate_address_id, check_ecom_user_shop,
                         get_categories_with_products, get_b2c_categories_with_products)
 from ecom.models import Address, Tag, ShopUserLocationMappedLog
+from shops.models import Shop
 from .serializers import (AccountSerializer, RewardsSerializer, TagSerializer, UserLocationSerializer, ShopSerializer,
                           AddressSerializer, CategorySerializer, B2cCategorySerializer, SubCategorySerializer,
                           B2cSubCategorySerializer, TagProductSerializer, Parent_Product_Serilizer,
@@ -328,6 +329,18 @@ class UserShopView(APIView):
         if data:
             is_success, message = True, "Shop Found"
         return api_response(message, data, status.HTTP_200_OK, is_success)
+
+    def post(self, request, *args, **kwargs):
+        if not self.request.GET.get('shop_id'):
+            return api_response("please provide shop", "", status.HTTP_406_NOT_ACCEPTABLE, False)
+        shop_id = self.request.GET.get('shop_id')
+        try:
+            shop = Shop.objects.get(id=int(shop_id))
+        except:
+            info_logger.error(f"shop not found for shop id {shop_id}")
+            return api_response("Invalid shop has been selected", "", status.HTTP_406_NOT_ACCEPTABLE, False)
+        create_shop_user_mapping(shop, self.request.user)
+        return api_response("shop has been changed successfully", "", status.HTTP_406_NOT_ACCEPTABLE, True)
 
 
 class Contect_Us(APIView):
