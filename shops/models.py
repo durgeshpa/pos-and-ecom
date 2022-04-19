@@ -854,8 +854,8 @@ class FOFOConfig(models.Model):
     delivery_redius = models.DecimalField(max_digits=8, decimal_places=1, blank=True, null=True, help_text="Insert value in meters")
     min_order_value = models.DecimalField(max_digits=10, decimal_places=2, default=199,validators=[MinValueValidator(199)], blank=True, null=True)
     delivery_time = models.IntegerField(blank=True, null=True, help_text="Insert value in minutes")
+
     class Meta:
         permissions = (
             ("has_fofo_config_operations_shop", "Has update FOFO  shop config operations"),
         )
-
