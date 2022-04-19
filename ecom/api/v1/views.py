@@ -336,11 +336,11 @@ class UserShopView(APIView):
         shop_id = self.request.GET.get('shop_id')
         try:
             shop = Shop.objects.get(id=int(shop_id))
-            create_shop_user_mapping(shop, self.request.user)
-            return api_response("shop has been changed successfully", "", status.HTTP_406_NOT_ACCEPTABLE, True)
         except:
             info_logger.error(f"shop not found for shop id {shop_id}")
-        return api_response("Invalid shop has been selected", "", status.HTTP_406_NOT_ACCEPTABLE, False)
+            return api_response("Invalid shop has been selected", "", status.HTTP_406_NOT_ACCEPTABLE, False)
+        create_shop_user_mapping(shop, self.request.user)
+        return api_response("shop has been changed successfully", "", status.HTTP_406_NOT_ACCEPTABLE, True)
 
 
 class Contect_Us(APIView):
