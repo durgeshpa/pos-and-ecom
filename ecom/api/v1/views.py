@@ -1,5 +1,5 @@
 import datetime
-
+import logging
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.authentication import TokenAuthentication
@@ -9,7 +9,6 @@ from rest_framework import status
 from accounts.models import User
 from categories.models import Category, B2cCategory
 from marketing.models import RewardPoint
-from shops.models import Shop
 from pos.common_functions import serializer_error, api_response
 from pos.models import RetailerProduct
 from retailer_backend.utils import SmallOffsetPagination
@@ -21,7 +20,7 @@ from global_config.models import GlobalConfig
 
 from ecom.utils import (check_ecom_user, nearby_shops, validate_address_id, check_ecom_user_shop,
                         get_categories_with_products, get_b2c_categories_with_products)
-from ecom.models import Address, Tag
+from ecom.models import Address, Tag, ShopUserLocationMappedLog
 from .serializers import (AccountSerializer, RewardsSerializer, TagSerializer, UserLocationSerializer, ShopSerializer,
                           AddressSerializer, CategorySerializer, B2cCategorySerializer, SubCategorySerializer,
                           B2cSubCategorySerializer, TagProductSerializer, Parent_Product_Serilizer,
@@ -29,6 +28,12 @@ from .serializers import (AccountSerializer, RewardsSerializer, TagSerializer, U
 
 
 from pos.api.v1.serializers import ContectUs
+
+# Get an instance of a logger
+info_logger = logging.getLogger('file-info')
+error_logger = logging.getLogger('file-error')
+debug_logger = logging.getLogger('file-debug')
+
 
 class AccountView(APIView):
     serializer_class = AccountSerializer
@@ -106,6 +111,13 @@ class ShopView(APIView):
             data = serializer.data
             radius = get_config('pos_ecom_delivery_radius', 10)
             shop = nearby_shops(data['latitude'], data['longitude'], radius)
+            if shop:
+                shop_user_log = ShopUserLocationMappedLog.objects.filter(user=self.request.user).last()
+                if not shop_user_log or shop_user_log.shop != shop:
+                    ShopUserLocationMappedLog.objects.create(shop=shop, user=self.request.user)
+                    info_logger.info(f"shop_from_location | ShopUserLocationMappedLog | created | "
+                                     f"shop {shop} | user {self.request.user}.")
+
             return self.serialize(shop) if shop else api_response('No shop found!')
         else:
             return api_response(serializer_error(serializer))
