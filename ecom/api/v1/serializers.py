@@ -7,6 +7,7 @@ from django.db.models import Sum
 from accounts.models import User
 from addresses.models import Pincode
 from categories.models import Category, B2cCategory
+from global_config.common_function import get_global_config
 from marketing.models import ReferralCode, RewardPoint, RewardLog, Referral
 from shops.models import Shop, FOFOConfig
 from retailer_to_sp.models import Order, OrderedProductMapping, CartProductMapping
@@ -116,6 +117,8 @@ class ReferAndEarnSerializer(serializers.ModelSerializer):
             for referrer_reward_points in response['referral_by_user']:
                 referrer_reward_points_data += referrer_reward_points['referrer_reward_points']
                 response['total_referrer_reward_points'] = referrer_reward_points_data
+                response['referee_points_to_be_added_on_signup'] = \
+                    int(get_global_config('referee_points_to_be_added_on_signup', 10))
         return response
 
 
