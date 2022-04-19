@@ -30,6 +30,8 @@ from .serializers import (AccountSerializer, RewardsSerializer, TagSerializer, U
 from pos.api.v1.serializers import ContectUs
 
 # Get an instance of a logger
+from ...common_function import create_shop_user_mapping
+
 info_logger = logging.getLogger('file-info')
 error_logger = logging.getLogger('file-error')
 debug_logger = logging.getLogger('file-debug')
@@ -94,12 +96,14 @@ class ShopView(APIView):
                                          ordered_cart__cart_type__in=['BASIC', 'ECOM'],
                                          seller_shop__online_inventory_enabled=True).order_by('id').last()
             if order:
+                create_shop_user_mapping(order.seller_shop, self.request.user)
                 return self.serialize(order.seller_shop)
 
             # check mapped pos shop
             shop_map = ShopCustomerMap.objects.filter(user=self.request.user,
                                                       shop__online_inventory_enabled=True).last()
             if shop_map:
+                create_shop_user_mapping(shop_map.shop, self.request.user)
                 return self.serialize(shop_map.shop)
 
             return api_response('No shop found!')
@@ -112,12 +116,7 @@ class ShopView(APIView):
             radius = get_config('pos_ecom_delivery_radius', 10)
             shop = nearby_shops(data['latitude'], data['longitude'], radius)
             if shop:
-                shop_user_log = ShopUserLocationMappedLog.objects.filter(user=self.request.user).last()
-                if not shop_user_log or shop_user_log.shop != shop:
-                    ShopUserLocationMappedLog.objects.create(shop=shop, user=self.request.user)
-                    info_logger.info(f"shop_from_location | ShopUserLocationMappedLog | created | "
-                                     f"shop {shop} | user {self.request.user}.")
-
+                create_shop_user_mapping(shop, self.request.user)
             return self.serialize(shop) if shop else api_response('No shop found!')
         else:
             return api_response(serializer_error(serializer))
