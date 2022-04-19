@@ -1,5 +1,5 @@
 import datetime
-
+import logging
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.authentication import TokenAuthentication
@@ -28,6 +28,12 @@ from .serializers import (AccountSerializer, RewardsSerializer, TagSerializer, U
 
 
 from pos.api.v1.serializers import ContectUs
+
+# Get an instance of a logger
+info_logger = logging.getLogger('file-info')
+error_logger = logging.getLogger('file-error')
+debug_logger = logging.getLogger('file-debug')
+
 
 class AccountView(APIView):
     serializer_class = AccountSerializer
@@ -109,6 +115,8 @@ class ShopView(APIView):
                 shop_user_log = ShopUserLocationMappedLog.objects.filter(user=self.request.user).last()
                 if not shop_user_log or shop_user_log.shop != shop:
                     ShopUserLocationMappedLog.objects.create(shop=shop, user=self.request.user)
+                    info_logger.info(f"shop_from_location | ShopUserLocationMappedLog | created | "
+                                     f"shop {shop} | user {self.request.user}.")
 
             return self.serialize(shop) if shop else api_response('No shop found!')
         else:
