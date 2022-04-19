@@ -112,13 +112,13 @@ class ReferAndEarnSerializer(serializers.ModelSerializer):
         if response['referral_code_user']:
             response['referral_code'] = response['referral_code_user']['referral_code']
             response.pop('referral_code_user')
+        response['referee_points_to_be_added_on_signup'] = \
+            int(get_global_config('referee_points_to_be_added_on_signup', 10))
         if response['referral_by_user']:
             referrer_reward_points_data = 0
             for referrer_reward_points in response['referral_by_user']:
                 referrer_reward_points_data += referrer_reward_points['referrer_reward_points']
                 response['total_referrer_reward_points'] = referrer_reward_points_data
-                response['referee_points_to_be_added_on_signup'] = \
-                    int(get_global_config('referee_points_to_be_added_on_signup', 10))
         return response
 
 
