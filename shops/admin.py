@@ -757,7 +757,7 @@ class FOFOConfigCategoryAdmin(admin.ModelAdmin):
 
 
 class FOFOConfigSubCategoryAdmin(admin.ModelAdmin):
-    fields = ('name', 'category', 'type')
+    fields = ('name', 'type')
 
     def has_add_permission(self, request, obj=None):
         if request.user.is_superuser or request.user.has_perm('shops.has_fofo_config_operations'):

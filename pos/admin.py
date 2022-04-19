@@ -29,8 +29,8 @@ from .models import (RetailerProduct, RetailerProductImage, Payment, ShopCustome
                      RetailerCouponRuleSet, RetailerRuleSetProductMapping, RetailerOrderedProductMapping, RetailerCart,
                      RetailerCartProductMapping, RetailerOrderReturn, RetailerReturnItems, InventoryPos,
                      InventoryChangePos, InventoryStatePos, MeasurementCategory, MeasurementUnit, PosReturnGRNOrder,
-                     PosReturnItems, RetailerOrderedReport, BulkRetailerProduct,
-                     RetailerOrderCancel, PaymentStatusUpdateByCron, PosStoreRewardMapping, ShopRewardConfig, ShopConfigKey)
+                     PosReturnItems, RetailerOrderedReport, BulkRetailerProduct,PosStoreRewardMappings,
+                     RetailerOrderCancel, PaymentStatusUpdateByCron,)
 from .views import upload_retailer_products_list, download_retailer_products_list_form_view, \
     DownloadRetailerCatalogue, RetailerCatalogueSampleFile, RetailerProductMultiImageUpload, DownloadPurchaseOrder, \
     download_discounted_products_form_view, download_discounted_products, \
@@ -46,9 +46,9 @@ from .filters import ShopFilter, ProductInvEanSearch, ProductEanSearch
 from .utils import (create_order_data_excel, create_order_return_excel, create_cancel_order_csv ,\
     generate_prn_csv_report, generate_csv_payment_report, download_grn_cvs)
 from .forms import RetailerProductsForm, DiscountedRetailerProductsForm, PosInventoryChangeCSVDownloadForm,\
-    MeasurementUnitFormSet, PosStoreRewardMappingForm, StoreRewardMappingForm
+    MeasurementUnitFormSet
 from retailer_to_sp.models import Order
-
+from shops.admin import FOFOConfigurationsInline
 class ExportCsvMixin:
 
     def export_as_csv(self, request, queryset):
@@ -1317,7 +1317,7 @@ class PaymentStatusUpdateBYCronAdmin(admin.ModelAdmin):
         pass
 class ShopFilter(AutocompleteFilter):
     title = 'Shop'
-    field_name = 'shop'
+    field_name = 'shop_name'
     autocomplete_url = 'pos_store_reward_mapping_autocomplete'
 
 
@@ -1350,9 +1350,9 @@ class CityFilter(InputFilter):
             city = self.value()
             shop_id = []
             for obj in queryset:
-                if str(obj.shop.city_name).startswith(city):
-                    shop_id.append(obj.shop.id)
-            return queryset.filter(shop__id__in=shop_id)
+                if str(obj.city_name).startswith(city):
+                    shop_id.append(obj.id)
+            return queryset.filter(id__in=shop_id)
 
 
         return queryset
@@ -1369,77 +1369,36 @@ class ByPincodeFilter(InputFilter):
             pincode = self.value()
             shop_id = []
             for obj in queryset:
-                if str(obj.shop.get_shop_pin_code).startswith(pincode):
-                    shop_id.append(obj.shop.id)
-            return queryset.filter(shop__id__in=shop_id)
+                if str(obj.get_shop_pin_code).startswith(pincode):
+                    shop_id.append(obj.id)
+            return queryset.filter(id__in=shop_id)
 
 
         return queryset
 
-class PosStoreRewardMappingAdmin(admin.ModelAdmin):
-    """ reward configartion details on shop lavel"""
-    form =  PosStoreRewardMappingForm
-    list_display = ('shop', 'shop_name', 'city', 'pin_code', 'status')
-    fields = ('shop', 'status', 'min_order_value','is_point_add_pos_order', 'point_add_pos_order',
-              'is_point_add_ecom_order', 'point_add_ecom_order', 'is_max_redeem_point_ecom',
-              'max_redeem_point_ecom', 'is_max_redeem_point_pos', 'max_redeem_point_pos',
-              'value_of_each_point', 'first_order_redeem_point', 'second_order_redeem_point',
-              'max_monthly_points_added', 'max_monthly_points_redeemed')
-    search_fields = ['shop__shop_name']
-    list_filter = (ShopFilter,'status','shop__shop_type__shop_sub_type__retailer_type_name',
-                   CityFilter, ByPincodeFilter
+
+class PosStoreRewardMappingsAdmin(admin.ModelAdmin):
+    inlines = [FOFOConfigurationsInline]
+    fields = ['status_reward_configuration', 'shop_name']
+    search_fields = ['shop_name']
+    readonly_fields = ('shop_name',)
+    list_filter = ('status','shop_type__shop_sub_type__retailer_type_name',
+                   CityFilter, ByPincodeFilter, 'status_reward_configuration',
                    )
-
-    @staticmethod
-    def shop_name(obj):
-        return obj.shop.shop_name
-
-    @staticmethod
-    def city(obj):
-        return obj.shop.city_name
-
-    @staticmethod
-    def pin_code(obj):
-        return obj.shop.get_shop_pin_code
-
-
+    def get_queryset(self ,request):
+        qs = super(PosStoreRewardMappingsAdmin, self).get_queryset(request)
+        
+        return qs.filter(Q(shop_type__shop_sub_type__retailer_type_name__in=["foco", "fofo"]))
     class Media:
         pass
-#from admin import ReverseModelAdmin
-class ShopConfigKeyAdmin(admin.ModelAdmin):
 
-    list_display = ('key', 'type')
-from .models import ShopRewardConfigration
-class ShopConfigKeyInlineAdmin(admin.TabularInline):
-    model = ShopRewardConfigration
-    extra = 0
-
-class StoreRewardMappingAdmin(admin.ModelAdmin):
-    form =  StoreRewardMappingForm
-    list_display = ('shop', 'shop_name', 'city', 'pin_code')
-    inlines = [ShopConfigKeyInlineAdmin]
-    search_fields = ['shop__shop_name']
-    list_filter = (ShopFilter,'status','shop__shop_type__shop_sub_type__retailer_type_name',
-                   CityFilter, ByPincodeFilter
-                   )
-    @staticmethod
-    def shop_name(obj):
-        return obj.shop.shop_name
-
-    @staticmethod
-    def city(obj):
-        return obj.shop.city_name
-
-    @staticmethod
-    def pin_code(obj):
-        return obj.shop.get_shop_pin_code
+    def has_delete_permission(self, request,  obj=None):
+        return False
+    def has_add_permission(self, request,  obj=None):
+        return False
 
 
-    class Media:
-        pass
-admin.site.register(ShopConfigKey, ShopConfigKeyAdmin)
-admin.site.register(ShopRewardConfig, StoreRewardMappingAdmin)
-#admin.site.register(PosStoreRewardMapping, PosStoreRewardMappingAdmin)
+admin.site.register(PosStoreRewardMappings, PosStoreRewardMappingsAdmin)
 admin.site.register(PaymentStatusUpdateByCron, PaymentStatusUpdateBYCronAdmin)
 admin.site.register(RetailerProduct, RetailerProductAdmin)
 admin.site.register(DiscountedRetailerProduct, DiscountedRetailerProductAdmin)

@@ -16,7 +16,7 @@ from pos.models import RetailerProduct, RetailerProductImage, DiscountedRetailer
 from products.models import Product
 from shops.models import Shop
 from wms.models import PosInventory, PosInventoryState
-from .models import PosStoreRewardMapping, ShopRewardConfig
+#from .models import PosStoreRewardMapping, ShopRewardConfig
 
 class RetailerProductsForm(forms.ModelForm):
     linked_product = forms.ModelChoiceField(
@@ -482,23 +482,5 @@ class RetailerPurchaseReportForm(forms.Form):
         widget=autocomplete.ModelSelect2(url='pos-shop-autocomplete', ),
     )
 
-class PosStoreRewardMappingForm(forms.ModelForm):
-    shop = forms.ModelChoiceField(
-                                  queryset=Shop.objects.filter(Q(shop_type__shop_sub_type__retailer_type_name__in=["foco","fofo"]))
-                                  ,widget=autocomplete.ModelSelect2(url='pos_store_reward_mapping_autocomplete', ))
-    class Meta:
-        model = PosStoreRewardMapping
-        fields = ('shop', 'status', 'min_order_value', 'point_add_pos_order',
-              'point_add_ecom_order', 'max_redeem_point_ecom', 'max_redeem_point_pos',
-              'value_of_each_point', 'first_order_redeem_point', 'second_order_redeem_point',
-              'max_monthly_points_added', 'max_monthly_points_redeemed')
 
 
-
-class StoreRewardMappingForm(forms.ModelForm):
-    shop = forms.ModelChoiceField(
-                                  queryset=Shop.objects.filter(Q(shop_type__shop_sub_type__retailer_type_name__in=["foco","fofo"]))
-                                  ,widget=autocomplete.ModelSelect2(url='pos_store_reward_mapping_autocomplete', ))
-    class Meta:
-        model = ShopRewardConfig
-        fields = ('__all__')
