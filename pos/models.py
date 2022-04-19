@@ -23,6 +23,9 @@ from retailer_to_sp.models import (OrderReturn, OrderedProduct, ReturnItems, Car
                                    OrderedProductMapping, Order)
 from shops.models import Shop
 from wms.models import PosInventory, PosInventoryState, PosInventoryChange
+from shops.fields import CaseInsensitiveCharField
+from django.contrib.postgres.fields import JSONField
+
 
 PAYMENT_MODE_POS = (
     ('cash', 'Cash Payment'),
@@ -878,4 +881,64 @@ class PosStoreRewardMapping(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
     class Meta:
+        verbose_name = "POS Store Reward Mappings"
+
+
+
+
+
+class ShopConfigKey(models.Model):
+    """
+    Master model for FOFO configuration sub-category
+    """
+    FIELD_TYPE_CHOICES = (
+        ("str", "String"),
+        ("int", "Integer"),
+        ("float", "Float"),
+        ("bool", "Boolean"),
+    )
+    #category = models.ForeignKey(FOFOConfigCategory, related_name='fofo_category_details', on_delete=models.CASCADE)
+    key = CaseInsensitiveCharField(max_length=125, unique=True)
+    type = models.CharField(max_length=20, choices=FIELD_TYPE_CHOICES, default='int')
+
+    def __str__(self):
+        return str(self.key)
+
+class ShopRewardConfig(models.Model):
+    """
+        Master model for FOFO configuration
+    """
+    CHOICES = (('active', 'Active'),
+                ('deactive', 'Deactive'))
+    shop = models.ForeignKey(Shop, related_name='shop_reward_config', on_delete=models.CASCADE, unique=True)
+    status = models.CharField(max_length=20, choices=CHOICES, default='deactive')
+    class Meta:
         verbose_name = "POS Store Reward Mapping"
+
+
+class ShopRewardConfigration(models.Model):
+    shop_config = models.ForeignKey(ShopRewardConfig, related_name="shop_reward_mapping", on_delete=models.CASCADE)
+    key = models.ForeignKey(ShopConfigKey, related_name='shop_config_key', on_delete=models.DO_NOTHING,)
+    value = JSONField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ('shop_config', 'key',)
+
+    def clean(self):
+        if self.value and self.value.__class__.__name__ == 'JSONString':
+            self.value = str(self.value)
+        if self.value and self.value.__class__.__name__ != self.key.type:
+            raise ValidationError('value {} can only be {} type'.format(self.value, self.key.get_type_display()))
+
+    def save(self, *args, **kwargs):
+        if self.value and self.value.__class__.__name__ == 'JSONString':
+            self.value = str(self.value)
+        if self.value and self.value.__class__.__name__ != self.key.type:
+            raise Exception('{} value {} can only be {} type'.format(self.key, self.value, self.key.get_type_display()))
+
+        super(ShopRewardConfigration, self).save(*args, **kwargs)
+
+    def __str__(self):
+        return str(self.shop_config)

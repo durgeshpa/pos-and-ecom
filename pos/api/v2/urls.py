@@ -4,7 +4,7 @@ from rest_framework import routers
 
 from .views import (ShopOwnerNameListView, ShopNameListView,
                     ShopTypeListView, RewardConfigShopListView,
-                    RewardConfigShopCrudView)
+                    RewardConfigShopCrudView, ShopRewardConfigKeys)
 from shops.api.v2.views import CityView, StateView, PinCodeView
 router = routers.DefaultRouter()
 """
@@ -21,6 +21,8 @@ urlpatterns = [
     url(r'^shop-city/', CityView.as_view(), name='fofo-foco-shop-city'),
     url(r'^shop-state/', StateView.as_view(), name='fofo-foco-shop-state'),
     url(r'^shop-pincode/', PinCodeView.as_view(), name='fofo-foco-shop-pincode'),
+    url(r'^shop-reward-config-key/', ShopRewardConfigKeys.as_view(), name='shop-reward-config-key' ),
+    url(r'^reward-config-shop-bulk-update', RewardConfigShopCrudView.as_view()),
     ]
 
 urlpatterns += router.urls
