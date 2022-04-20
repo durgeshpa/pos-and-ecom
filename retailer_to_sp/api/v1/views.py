@@ -5966,14 +5966,14 @@ def pdf_generation_retailer(request, order_id, delay=True):
                     send_invoice_pdf_email.delay(manager.user.email, shop_name, order.order_no, media_url,
                                                  file_name, 'order')
                 else:
-                    logger.exception("Email not present for Manager {}".format(str(manager)))
+                    info_logger.error("Email not present for Manager {}".format(str(manager)))
                 # email task to send manager order invoice ^
             else:
                 if manager and manager.user.email:
                     send_invoice_pdf_email(manager.user.email, shop_name, order.order_no, media_url, file_name,
                                            'order')
                 else:
-                    logger.exception("Email not present for Manager {}".format(str(manager)))
+                    info_logger.error("Email not present for Manager {}".format(str(manager)))
             return whatsapp_opt_in(phone_number, shop_name, media_url, file_name)
         except Exception as e:
             logger.exception("Retailer Invoice send error order {}".format(order.order_no))
@@ -6104,13 +6104,13 @@ def pdf_generation_retailer(request, order_id, delay=True):
                     send_invoice_pdf_email.delay(manager.user.email, shop_name, order.order_no, media_url, file_name,
                                                  'order')
                 else:
-                    logger.exception("Email not present for Manager {}".format(str(manager)))
+                    info_logger.error("Email not present for Manager {}".format(str(manager)))
                 # send email
             else:
                 if manager and manager.user.email:
                     send_invoice_pdf_email(manager.user.email, shop_name, order.order_no, media_url, file_name, 'order')
                 else:
-                    logger.exception("Email not present for Manager {}".format(str(manager)))
+                    info_logger.error("Email not present for Manager {}".format(str(manager)))
                 if request.data.get("is_whatsapp", True):
                     return whatsapp_opt_in(phone_number, shop_name, media_url, file_name)
         except Exception as e:
@@ -6140,14 +6140,14 @@ def pdf_generation_return_retailer(request, order, ordered_product, order_return
                     send_invoice_pdf_email.delay(manager.user.email, shop_name, order_number, media_url, file_name,
                                                  'return')
                 else:
-                    logger.exception("Email not present for Manager {}".format(str(manager)))
+                    info_logger.error("Email not present for Manager {}".format(str(manager)))
                 # send mail to manager for return
             else:
                 if manager and manager.user.email:
                     send_invoice_pdf_email(manager.user.email, shop_name, order_number, media_url, file_name,
                                            'return')
                 else:
-                    logger.exception("Email not present for Manager {}".format(str(manager)))
+                    info_logger.error("Email not present for Manager {}".format(str(manager)))
                 return whatsapp_order_refund(order_number, order_status, phone_number, refund_amount, media_url,
                                                              file_name)
                 # send mail to manager for return
@@ -6292,17 +6292,17 @@ def pdf_generation_return_retailer(request, order, ordered_product, order_return
                     send_invoice_pdf_email.delay(manager.user.email, shop_name, order_number, media_url, file_name,
                                                  'return')
                 else:
-                    logger.exception("Email not present for Manager {}".format(str(manager)))
+                    info_logger.error("Email not present for Manager {}".format(str(manager)))
                 # send order return mail to
             else:
                 if manager and manager.user.email:
                     send_invoice_pdf_email(manager.user.email, shop_name, order_number, media_url, file_name, 'return')
                 else:
-                    logger.exception("Email not present for Manager {}".format(str(manager)))
+                    info_logger.error("Email not present for Manager {}".format(str(manager)))
                 # send mail to manager
                 if request.data.get("is_whatsapp", False):
                     return whatsapp_order_refund(order_number, order_status, phone_number, refund_amount, media_url,
-                                             file_name)
+                                                 file_name)
         except Exception as e:
             logger.exception("Retailer Credit note save and send error order {} return {}".format(order.order_no,
                                                                                                   order_return.id))
