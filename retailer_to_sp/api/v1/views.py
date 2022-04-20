@@ -3394,66 +3394,66 @@ class OrderCentral(APIView):
         if address.pincode != shop.shop_name_address_mapping.filter(
                 address_type='shipping').last().pincode_link.pincode:
             return api_response("This Shop is not serviceable at your delivery address")
-        cart = Cart.objects.filter(cart_type='ECOM', buyer=self.request.user, seller_shop=shop,
-                                   cart_status='active').last()
-        if not cart:
-            return api_response("Please add items to proceed to order")
+        with transaction.atomic():
+            cart = Cart.objects.filter(cart_type='ECOM', buyer=self.request.user, seller_shop=shop,
+                                       cart_status='active').last()
+            if not cart:
+                return api_response("Please add items to proceed to order")
 
-        try:
-            payment_type_id = PaymentType.objects.get(id=self.request.data.get('payment_type', 4)).id
-        except:
-            return api_response("Invalid Payment Method")
+            try:
+                payment_type_id = PaymentType.objects.get(id=self.request.data.get('payment_type', 4)).id
+            except:
+                return api_response("Invalid Payment Method")
 
-        if not payment_type_id == 4:
-            if not self.request.data.get('payment_status'):
-                return api_response("Please provide online payment status.")
-            if not any(self.request.data.get('payment_status') in i for i in PosPayment.PAYMENT_STATUS):
-                return api_response("Please provide valid online payment status")
+            if not payment_type_id == 4:
+                if not self.request.data.get('payment_status'):
+                    return api_response("Please provide online payment status.")
+                if not any(self.request.data.get('payment_status') in i for i in PosPayment.PAYMENT_STATUS):
+                    return api_response("Please provide valid online payment status")
 
-        # Minimum Order Value
-        # order_config = GlobalConfig.objects.filter(key='ecom_minimum_order_amount').last()
-        # order_config = get_config_fofo_shop('Minimum order value', shop.id)
-        fofo_config = get_config_fofo_shops(shop)
-        order_config = fofo_config.get('min_order_value',None)
-        order_config = order_config if order_config else GlobalConfig.objects.filter(key='ecom_minimum_order_amount').last().value
-        if order_config is not None:
-            order_amount = cart.order_amount_after_discount
-            if order_amount < order_config:
-                return api_response(
-                    "A minimum total purchase amount of {} is required to checkout.".format(order_config),
-                    None, status.HTTP_200_OK, False)
+            # Minimum Order Value
+            # order_config = GlobalConfig.objects.filter(key='ecom_minimum_order_amount').last()
+            # order_config = get_config_fofo_shop('Minimum order value', shop.id)
+            fofo_config = get_config_fofo_shops(shop)
+            order_config = fofo_config.get('min_order_value',None)
+            order_config = order_config if order_config else GlobalConfig.objects.filter(key='ecom_minimum_order_amount').last().value
+            if order_config is not None:
+                order_amount = cart.order_amount_after_discount
+                if order_amount < order_config:
+                    return api_response(
+                        "A minimum total purchase amount of {} is required to checkout.".format(order_config),
+                        None, status.HTTP_200_OK, False)
 
-        # Check day order count
-        order_config = GlobalConfig.objects.filter(key='ecom_order_count').last()
-        if order_config.value is not None:
-            order_count = Order.objects.filter(ecom_address_order__isnull=False, created_at__date=datetime.today(),
-                                               seller_shop=shop).exclude(order_status='CANCELLED').distinct().count()
-            if order_count >= order_config.value:
-                return api_response('Because of the current surge in orders, we are not taking any more orders for '
-                                    'today. We will start taking orders again tomorrow. We regret the inconvenience '
-                                    'caused to you')
+            # Check day order count
+            order_config = GlobalConfig.objects.filter(key='ecom_order_count').last()
+            if order_config.value is not None:
+                order_count = Order.objects.filter(ecom_address_order__isnull=False, created_at__date=datetime.today(),
+                                                   seller_shop=shop).exclude(order_status='CANCELLED').distinct().count()
+                if order_count >= order_config.value:
+                    return api_response('Because of the current surge in orders, we are not taking any more orders for '
+                                        'today. We will start taking orders again tomorrow. We regret the inconvenience '
+                                        'caused to you')
 
-        # check inventory
-        cart_products = cart.rt_cart_list.all()
-        cart_products = PosCartCls.refresh_prices(cart_products)
-        if shop.online_inventory_enabled:
-            out_of_stock_items = PosCartCls.out_of_stock_items(cart_products,
-                                                               self.request.data.get("remove_unavailable"))
-            if out_of_stock_items:
-                return api_response("Few items in your cart are not available.", out_of_stock_items, status.HTTP_200_OK,
+            # check inventory
+            cart_products = cart.rt_cart_list.all()
+            cart_products = PosCartCls.refresh_prices(cart_products)
+            if shop.online_inventory_enabled:
+                out_of_stock_items = PosCartCls.out_of_stock_items(cart_products,
+                                                                   self.request.data.get("remove_unavailable"))
+                if out_of_stock_items:
+                    return api_response("Few items in your cart are not available.", out_of_stock_items, status.HTTP_200_OK,
+                                        False, {'error_code': error_code.OUT_OF_STOCK_ITEMS})
+
+            if not CartProductMapping.objects.filter(cart=cart).exists():
+                return api_response("No items added to cart yet")
+
+            # check for product is_deleted
+            deleted_product = PosCartCls.product_deleled(cart_products, self.request.data.get("remove_deleted"))
+            if deleted_product:
+                return api_response("Few items in your cart are not available.", deleted_product, status.HTTP_200_OK,
                                     False, {'error_code': error_code.OUT_OF_STOCK_ITEMS})
 
-        if not CartProductMapping.objects.filter(cart=cart).exists():
-            return api_response("No items added to cart yet")
-
-        # check for product is_deleted
-        deleted_product = PosCartCls.product_deleled(cart_products, self.request.data.get("remove_deleted"))
-        if deleted_product:
-            return api_response("Few items in your cart are not available.", deleted_product, status.HTTP_200_OK,
-                                False, {'error_code': error_code.OUT_OF_STOCK_ITEMS})
-
-        delivery_option = request.data.get('delivery_option', None)
-        with transaction.atomic():
+            delivery_option = request.data.get('delivery_option', None)
             # Update Cart To Ordered
             self.update_cart_ecom(cart)
             # Refresh redeem reward
