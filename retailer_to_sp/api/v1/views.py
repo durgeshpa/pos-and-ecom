@@ -3782,10 +3782,10 @@ class OrderCentral(APIView):
         order.save()
 
         if address:
-            EcomOrderAddress.objects.create(order=order, address=address.address, contact_name=address.contact_name,
-                                            contact_number=address.contact_number, latitude=address.latitude,
-                                            longitude=address.longitude, pincode=address.pincode,
-                                            state=address.state, city=address.city)
+            EcomOrderAddress.objects.get_or_create(order=order, address=address.address, contact_name=address.contact_name,
+                                                    contact_number=address.contact_number, latitude=address.latitude,
+                                                    longitude=address.longitude, pincode=address.pincode,
+                                                    state=address.state, city=address.city)
         return order
 
     def update_ordered_reserve_sp(self, cart, parent_mapping, order):
