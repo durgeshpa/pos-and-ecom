@@ -7553,7 +7553,7 @@ class ProcessShipmentView(generics.GenericAPIView):
         ean_code = self.request.GET.get('ean_code')
 
         '''Filters using shipment_id & batch_id'''
-        if shipment_id and int(shipment_id):
+        if shipment_id:
             self.queryset = self.queryset.filter(ordered_product__id=shipment_id)
 
         if batch_id:
