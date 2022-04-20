@@ -23,6 +23,7 @@ class UserSerializer(serializers.ModelSerializer):
             'user_photo': {'required': True},
         }
         read_only_fields = ('phone_number',)
+        ref_name = 'User Serializer v1'
 
 
 class UserDocumentSerializer(serializers.ModelSerializer):

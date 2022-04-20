@@ -268,6 +268,7 @@ class CitySerializer(serializers.ModelSerializer):
     class Meta:
         model = City
         fields = '__all__'
+        ref_name = "AddressCity v2"
 
 
 class AddressSerializer(serializers.ModelSerializer):
