@@ -1,13 +1,20 @@
+from admin_auto_filters.filters import AutocompleteFilter
 from django.contrib import admin
 
 from import_export.admin import ImportExportModelAdmin
 
 from .models import (
     Country, State, City, Address, Area, InvoiceCityMapping, Pincode, DispatchCenterCityMapping,
-    DispatchCenterPincodeMapping
+    DispatchCenterPincodeMapping, Route
 )
 from .forms import AddressForm, StateForm
 from .resources import PincodeResource
+from .views import RouteAutocomplete
+
+
+class CityFilter(AutocompleteFilter):
+    title = 'City'
+    field_name = 'city'
 
 
 class StateAdmin(admin.ModelAdmin):
@@ -26,8 +33,31 @@ class PincodeAdmin(ImportExportModelAdmin):
     resource_class = PincodeResource
 
 
+class RouteInlineAdmin(admin.TabularInline):
+    model = Route
+    fields = ('city', 'name')
+    extra = 1
+
+
 class CityAdmin(admin.ModelAdmin):
+    list_display = ('city_name', 'state', 'routes',)
     search_fields = ('city_name',)
+    inlines = [RouteInlineAdmin]
+
+    def routes(self, obj):
+        return ", ".join(obj.city_routes.values_list('name', flat=True))
+
+    def get_urls(self):
+        from django.conf.urls import url
+        urls = super(CityAdmin, self).get_urls()
+        urls = [
+           url(
+               r'^route-autocomplete/$',
+               self.admin_site.admin_view(RouteAutocomplete.as_view()),
+               name="route_autocomplete"
+           ),
+        ] + urls
+        return urls
 
 
 class AddressAdmin(admin.ModelAdmin):
@@ -70,6 +100,13 @@ class DispatchCenterPincodeMappingAdmin(admin.ModelAdmin):
         return False
 
 
+class RouteAdmin(admin.ModelAdmin):
+    fields = ('city', 'name')
+    list_display = ('city', 'name')
+    list_filter = (CityFilter,)
+    search_fields = ('city__city_name', 'name')
+
+
 admin.site.register(Country)
 admin.site.register(Area)
 admin.site.register(City, CityAdmin)
@@ -79,4 +116,5 @@ admin.site.register(InvoiceCityMapping, InvoiceCityMappingAdmin)
 admin.site.register(DispatchCenterCityMapping, DispatchCenterCityMappingAdmin)
 admin.site.register(DispatchCenterPincodeMapping, DispatchCenterPincodeMappingAdmin)
 admin.site.register(Pincode, PincodeAdmin)
+admin.site.register(Route, RouteAdmin)
 

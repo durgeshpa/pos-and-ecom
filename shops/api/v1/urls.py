@@ -2,16 +2,15 @@ from rest_framework import routers
 from django.conf.urls import url
 from django.urls import path
 
-from shops.api.v1.views import (PosShopUserMappingView, RetailerTypeView, ShopListView, ShopTypeView,
-                                ShopView, ShopPhotoView, ShopDocumentView, FavouriteProductView,
-                                FavouriteProductListView, UserTypeListView, UserDocumentChoices,
-                                ShopDocumentChoices, SellerShopFilterView, DispatchCenterFilterView,
-                                RetailerShopFilterView, FOFOConfigurationsView, FOFOConfigCategoryView,
-                                FOFOConfigSubCategoryView, FOFOListView)
-from shops.api.v1.views import (RetailerTypeView, ShopTypeView,ShopView, ShopPhotoView, ShopDocumentView, ShopTimingView,
-        TeamListView, SellerShopView, SellerShopOrder, SellerShopProfile, SalesPerformanceView,
-        SellerShopListView, CheckUser, CheckAppVersion, StatusChangedAfterAmountCollected, SalesPerformanceUserView,
-        ShopRequestBrandViewSet, FavouriteProductView, FavouriteProductListView, DayBeatPlan, ExecutiveReport, set_shop_map_cron)
+from shops.api.v1.views import (
+    RetailerTypeView, ShopTypeView,ShopView, ShopPhotoView, ShopDocumentView, ShopTimingView,
+    TeamListView, SellerShopView, SellerShopOrder, SellerShopProfile, SalesPerformanceView,
+    SellerShopListView, CheckUser, CheckAppVersion, StatusChangedAfterAmountCollected, SalesPerformanceUserView,
+    ShopRequestBrandViewSet, FavouriteProductView, FavouriteProductListView, DayBeatPlan, ExecutiveReport, set_shop_map_cron,
+    UserTypeListView, SellerShopFilterView, DispatchCenterFilterView, RetailerShopFilterView, UserDocumentChoices,
+    ShopDocumentChoices, FOFOConfigurationsView, FOFOConfigCategoryView, FOFOConfigSubCategoryView, FOFOListView,
+    ShopListView, PosShopUserMappingView)
+
 from addresses.api.v1.views import AddressView, DefaultAddressView, AddressDetail, SellerShopAddress
 
 router = routers.DefaultRouter()

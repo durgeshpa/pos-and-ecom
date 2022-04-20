@@ -9,7 +9,7 @@ from django.core.management.base import BaseCommand
 from django.db.models import Q
 from products.models import ParentProduct, ParentProductCategory, Product, Tax, ProductPrice
 from products.models import ParentProductTaxMapping, ProductTaxMapping, ProductHSN
-from products.forms import UploadParentProductAdminForm
+from products.forms import UploadminForm
 from brand.models import Brand
 from categories.models import Category
 

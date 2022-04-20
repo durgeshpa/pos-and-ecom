@@ -320,7 +320,6 @@ class ParentProductSerializers(serializers.ModelSerializer):
                 b2c_category_val = get_validate_categories(self.initial_data['parent_product_pro_b2c_category'], True)
                 if 'error' in b2c_category_val:
                     raise serializers.ValidationError(_(b2c_category_val["error"]))
-
         tax_val = get_validate_tax(self.initial_data['parent_product_pro_tax'])
         if 'error' in tax_val:
             raise serializers.ValidationError(_(tax_val["error"]))

@@ -360,7 +360,6 @@ class Contect_Us(APIView):
         if serializer.is_valid():
             return api_response('contct us details',serializer.data,status.HTTP_200_OK, True)
 
-
 class ParentProductDetails(APIView):
     """
     retailer product details with parent product discriptions .....

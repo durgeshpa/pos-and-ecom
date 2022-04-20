@@ -9,9 +9,6 @@ from datetime import datetime, timedelta
 from decimal import Decimal
 from hashlib import sha512
 from operator import itemgetter
-
-import requests
-from decouple import config
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
 from django.core import validators
@@ -23,7 +20,6 @@ from django.db.models import F, Sum, Q, Count, Value, Case, When
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from django.shortcuts import render
-from elasticsearch import Elasticsearch
 from num2words import num2words
 from rest_framework import status, generics, permissions, authentication
 from rest_framework.generics import GenericAPIView
@@ -51,6 +47,7 @@ from ecom.api.v1.serializers import EcomOrderListSerializer, EcomShipmentSeriali
 from ecom.models import Address as EcomAddress, EcomOrderAddress
 from ecom.utils import check_ecom_user_shop, check_ecom_user
 from global_config.models import GlobalConfig
+from global_config.views import get_config_fofo_shop
 from gram_to_brand.models import (GRNOrderProductMapping, OrderedProductReserved as GramOrderedProductReserved,
                                   PickList)
 from marketing.models import ReferralCode
@@ -103,11 +100,6 @@ from retailer_backend.settings import AWS_MEDIA_URL
 from wms.models import OrderReserveRelease, InventoryType, PosInventoryState, PosInventoryChange, Crate
 from zoho.models import ZohoInvoice
 
-from ...common_validators import validate_shipment_dispatch_item, validate_trip_user, \
-    get_shipment_by_crate_id, get_shipment_by_shipment_label, validate_shipment_id, validate_trip_shipment, \
-    validate_trip, validate_shipment_label, validate_trip_shipment_package, check_user_can_plan_trip, \
-    validate_last_mile_trip_user
-
 from wms.views import shipment_not_attempt_inventory_change, shipment_reschedule_inventory_change
 from .serializers import (ProductsSearchSerializer, CartSerializer, OrderSerializer,
                           CustomerCareSerializer, OrderNumberSerializer, GramPaymentCodSerializer,
@@ -138,8 +130,14 @@ from .serializers import (ProductsSearchSerializer, CartSerializer, OrderSeriali
                           DetailedShipmentPackageInfoSerializer, DetailedShipmentPackagingMappingInfoSerializer,
                           VerifyBackwardTripItemsSerializer, BackwardTripQCSerializer, PosOrderUserSearchSerializer
                           )
+
+from ...common_validators import validate_shipment_dispatch_item, validate_trip_user, \
+    get_shipment_by_crate_id, get_shipment_by_shipment_label, validate_shipment_id, validate_trip_shipment, \
+    validate_trip, validate_shipment_label, validate_trip_shipment_package, check_user_can_plan_trip, \
+    validate_last_mile_trip_user
 from wms.services import check_whc_manager_coordinator_supervisor_qc_executive, shipment_search, \
     check_whc_manager_dispatch_executive, check_qc_dispatch_executive, check_dispatch_executive
+from pos.payU_payment import *
 from fcm.utils import get_device_model
 from datetime import datetime
 
@@ -3243,7 +3241,6 @@ class OrderCentral(APIView):
             elif order.ordered_cart.cart_type == 'ECOM':
                 return api_response('Order', self.get_serialize_process_pos_ecom(order), status.HTTP_200_OK, True,
                                     extra_params={"key_p": str(config('PAYU_KEY'))})
-
         return api_response("Order not found")
 
     @check_ecom_user
@@ -3628,7 +3625,6 @@ class OrderCentral(APIView):
                 payment_method['payment_status'] = None
             if "payment_mode" not in payment_method:
                 payment_method['payment_mode'] = None
-
         if not cash_only:
             if round(amount) != round(cart.order_amount):
                 return {'error': "Total payment amount should be equal to order amount"}
@@ -4667,7 +4663,6 @@ class OrderedItemCentralDashBoard(APIView):
 
         if total_refund_amount:
             total_ordered_final_amount -= float(total_refund_amount)
-
         # POS Ordered Count
         pos_total_ordered_final_amount = pos_orders.aggregate(Sum('order_amount')).get('order_amount__sum')
         pos_total_ordered_final_amount = pos_total_ordered_final_amount if pos_total_ordered_final_amount else 0
@@ -9443,7 +9438,7 @@ class LoadVerifyPackageView(generics.GenericAPIView):
         validated_trip = validate_trip_user(modified_data['trip_id'], request.user)
         if 'error' in validated_trip:
             return get_response(validated_trip['error'])
-        serializer = self.serializer_class(data=modified_data)
+        serializer = self.serializer_class(data=modified_data, context={'current_user': request.user})
         if serializer.is_valid():
             serializer.save(created_by=request.user)
             info_logger.info("Package loaded Successfully.")
@@ -10041,9 +10036,6 @@ class LastMileTripStatusList(generics.GenericAPIView):
     permission_classes = (AllowAny,)
 
     def get(self, request):
-        '''
-        API to get shipment package rejection reason list
-        '''
         fields = ['id', 'value']
         data = [dict(zip(fields, d)) for d in Trip.TRIP_STATUS]
         msg = ""
@@ -10521,7 +10513,7 @@ class LastMileLoadVerifyPackageView(generics.GenericAPIView):
         validated_trip = validate_last_mile_trip_user(modified_data['trip_id'], request.user)
         if 'error' in validated_trip:
             return get_response(validated_trip['error'])
-        serializer = self.serializer_class(data=modified_data)
+        serializer = self.serializer_class(data=modified_data, context={'current_user': request.user})
         if serializer.is_valid():
             serializer.save(created_by=request.user)
             info_logger.info("Package loaded Successfully.")

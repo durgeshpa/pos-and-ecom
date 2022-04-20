@@ -30,9 +30,11 @@ from sp_to_gram.models import (
     OrderedProduct as SPOrderedProduct)
 from retailer_to_sp.models import (CartProductMapping, Order, OrderedProduct, OrderedProductMapping, Note, Trip,
                                    Dispatch, ShipmentRescheduling, PickerDashboard, update_full_part_order_status,
+                                   Shipment, populate_data_on_qc_pass, add_to_putaway_on_return,
+                                   check_franchise_inventory_update, ShipmentNotAttempt, BASIC, ECOM,
                                    Shipment, populate_data_on_qc_pass, OrderedProductBatch, ShipmentPackaging,
                                    ShipmentNotAttempt, LastMileTripShipmentMapping, LastMileTripShipmentPackages,
-                                   Invoice)
+                                   Invoice, DispatchTripShipmentMapping, DispatchTrip, DispatchTripShipmentPackages)
 from products.models import Product
 from retailer_to_sp.forms import (
     OrderedProductForm, OrderedProductMappingShipmentForm,
@@ -89,7 +91,8 @@ class ShipmentMergedBarcode(APIView):
             else:
                 pck_type_r_id = str(packaging.packaging_type)
             customer_city_pincode = str(shipment.order.city) + " / " + str(shipment.order.pincode)
-            route = "N/A"
+            route = str(shipment.order.buyer_shop.shop_routes.last().route.name) if \
+                shipment.order.buyer_shop and shipment.order.buyer_shop.shop_routes.exists() else "N/A"
             dispatch_center = str(shipment.order.dispatch_center.pk) if \
                 shipment.order.dispatch_center else str(shipment.order.seller_shop.pk)
             shipment_count = str(str(cnt + 1) + " / " + str(pack_cnt))
@@ -754,10 +757,11 @@ def trip_planning_change(request, pk):
 
                     if selected_shipment_ids:
                         selected_shipment_list = selected_shipment_ids.split(',')
+                        selected_shipments = Dispatch.objects.filter(
+                            ~Q(shipment_status=OrderedProduct.CANCELLED), ~Q(order__order_status=Order.CANCELLED),
+                            pk__in=selected_shipment_list)
                         create_update_last_mile_trip_shipment_mapping(
-                            trip_instance.pk, selected_shipment_list, request.user)
-                        selected_shipments = Dispatch.objects.filter(~Q(shipment_status='CANCELLED'),
-                                                                     pk__in=selected_shipment_list)
+                            trip_instance.pk, selected_shipments.values_list('id', flat=True), request.user)
 
                         shipment_out_inventory_change(selected_shipments, TRIP_SHIPMENT_STATUS_MAP[current_trip_status])
                         if current_trip_status not in ['COMPLETED', 'CLOSED']:
@@ -888,6 +892,8 @@ class LoadDispatches(APIView):
             dispatches = dispatches.filter(order__dispatch_center__isnull=True)
 
         if dispatches and commercial:
+            dispatches = dispatches.exclude(shipment_status__in=[OrderedProduct.NOT_ATTEMPT,
+                                            OrderedProduct.RESCHEDULED])
             serializer = CommercialShipmentSerializer(dispatches, many=True)
             msg = {'is_success': True,
                    'message': None,
@@ -1749,11 +1755,20 @@ class OrderCancellation(object):
 
     def mark_trip_mapping_cancelled(self):
         trip_shipment = LastMileTripShipmentMapping.objects.filter(
-            shipment=self.last_shipment, trip__trip_status=Trip.READY).last()
+            shipment=self.last_shipment_id, trip__trip_status=Trip.READY).last()
         if trip_shipment:
             all_mapped_packages = trip_shipment.last_mile_trip_shipment_mapped_packages.all()
             all_mapped_packages.update(package_status=LastMileTripShipmentPackages.CANCELLED)
             trip_shipment.shipment_status = LastMileTripShipmentMapping.CANCELLED
+            trip_shipment.save()
+
+    def mark_dispatch_trip_mapping_cancelled(self):
+        trip_shipment = DispatchTripShipmentMapping.objects.filter(
+            shipment=self.last_shipment_id, trip__trip_status=DispatchTrip.NEW).last()
+        if trip_shipment:
+            all_mapped_packages = trip_shipment.trip_shipment_mapped_packages.all()
+            all_mapped_packages.update(package_status=DispatchTripShipmentPackages.CANCELLED)
+            trip_shipment.shipment_status = DispatchTripShipmentMapping.CANCELLED
             trip_shipment.save()
 
     def cancel(self):
@@ -1788,6 +1803,8 @@ class OrderCancellation(object):
 
                 # Mark All Last mile trip mappings as Cancelled
                 self.mark_trip_mapping_cancelled()
+                # Mark All Dispatch mile trip mappings as Cancelled
+                self.mark_dispatch_trip_mapping_cancelled()
                 self.cancel_shipment()
             else:
                 # can't cancel the order
