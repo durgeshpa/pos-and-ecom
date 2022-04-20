@@ -9,6 +9,7 @@ from datetime import datetime, timedelta
 from decimal import Decimal
 from hashlib import sha512
 from operator import itemgetter
+
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
 from django.core import validators
@@ -38,8 +39,7 @@ from shops.models import Shop, ParentRetailerMapping, ShopUserMapping, ShopMigra
 from brand.models import Brand
 from categories import models as categorymodel
 from common.common_utils import (create_file_name, single_pdf_file, create_merge_pdf_name, merge_pdf_files,
-                                 create_invoice_data, whatsapp_opt_in, whatsapp_order_cancel, whatsapp_order_refund, 
-                                 whatsapp_order_delivered)
+                                 create_invoice_data, whatsapp_opt_in, whatsapp_order_cancel, whatsapp_order_refund)
 from common.constants import PREFIX_CREDIT_NOTE_FILE_NAME, ZERO, PREFIX_INVOICE_FILE_NAME, INVOICE_DOWNLOAD_ZIP_NAME
 from common.data_wrapper_view import DataWrapperViewSet
 from coupon.models import Coupon, CusotmerCouponUsage
@@ -60,7 +60,7 @@ from pos.api.v1.serializers import (BasicCartSerializer, BasicCartListSerializer
                                     RetailerProductResponseSerializer, PosShopUserMappingListSerializer,
                                     PaymentTypeSerializer, PosEcomOrderDetailSerializer,
                                     RetailerOrderedDashBoardSerializer, PosEcomShopSerializer)
-from pos.payU_payment import send_request_refund
+
 from pos.common_functions import (api_response, delete_cart_mapping, ORDER_STATUS_MAP, RetailerProductCls,
                                   update_customer_pos_cart, PosInventoryCls, RewardCls, serializer_error,
                                   check_pos_shop, PosAddToCart, PosCartCls, ONLINE_ORDER_STATUS_MAP,
@@ -3078,16 +3078,7 @@ class OrderCentral(APIView):
                     return api_response("Invalid Order update")
                 order.order_status = order_status
                 order.last_modified_by = self.request.user
-                if order_status == Order.DELIVERED:
-                    shop = kwargs['shop']
-                    if shop.enable_loyalty_points: ## credit point on order delivery complete
-                        if ReferralCode.is_marketing_user(order.buyer):
-                            order.points_added = order_loyalty_points_credit(order.order_amount, order.buyer.id, order.order_no,
-                                                                            'order_credit', 'order_indirect_credit',
-                                                                            self.request.user.id, order.seller_shop.id)
                 order.save()
-                if order_status == Order.DELIVERED:
-                    whatsapp_order_delivered(order.order_no, shop.shop_name, order.buyer.phone_number, order.points_added, shop.enable_loyalty_points)
                 try:
                     shipment = OrderedProduct.objects.filter(order=order).last()
                     shipment.shipment_status = order_status
@@ -3374,6 +3365,7 @@ class OrderCentral(APIView):
                                 status.HTTP_200_OK, True)
 
     @check_pos_shop
+    @transaction.atomic
     def post_ecom_order(self, request, *args, **kwargs):
         """
             Place Order
@@ -3394,103 +3386,99 @@ class OrderCentral(APIView):
         if address.pincode != shop.shop_name_address_mapping.filter(
                 address_type='shipping').last().pincode_link.pincode:
             return api_response("This Shop is not serviceable at your delivery address")
-        with transaction.atomic():
-            cart = Cart.objects.filter(cart_type='ECOM', buyer=self.request.user, seller_shop=shop,
-                                       cart_status='active').last()
-            if not cart:
-                return api_response("Please add items to proceed to order")
 
-            try:
-                payment_type_id = PaymentType.objects.get(id=self.request.data.get('payment_type', 4)).id
-            except:
-                return api_response("Invalid Payment Method")
+        cart = Cart.objects.filter(cart_type='ECOM', buyer=self.request.user, seller_shop=shop,
+                                   cart_status='active').last()
+        if not cart:
+            return api_response("Please add items to proceed to order")
 
-            if not payment_type_id == 4:
-                if not self.request.data.get('payment_status'):
-                    return api_response("Please provide online payment status.")
-                if not any(self.request.data.get('payment_status') in i for i in PosPayment.PAYMENT_STATUS):
-                    return api_response("Please provide valid online payment status")
+        try:
+            payment_type_id = PaymentType.objects.get(id=self.request.data.get('payment_type', 4)).id
+        except:
+            return api_response("Invalid Payment Method")
 
-            # Minimum Order Value
-            # order_config = GlobalConfig.objects.filter(key='ecom_minimum_order_amount').last()
-            # order_config = get_config_fofo_shop('Minimum order value', shop.id)
-            fofo_config = get_config_fofo_shops(shop)
-            order_config = fofo_config.get('min_order_value',None)
-            order_config = order_config if order_config else GlobalConfig.objects.filter(key='ecom_minimum_order_amount').last().value
-            if order_config is not None:
-                order_amount = cart.order_amount_after_discount
-                if order_amount < order_config:
-                    return api_response(
-                        "A minimum total purchase amount of {} is required to checkout.".format(order_config),
-                        None, status.HTTP_200_OK, False)
+        if not payment_type_id == 4:
+            if not self.request.data.get('payment_status'):
+                return api_response("Please provide online payment status.")
+            if not any(self.request.data.get('payment_status') in i for i in PosPayment.PAYMENT_STATUS):
+                return api_response("Please provide valid online payment status")
 
-            # Check day order count
-            order_config = GlobalConfig.objects.filter(key='ecom_order_count').last()
-            if order_config.value is not None:
-                order_count = Order.objects.filter(ecom_address_order__isnull=False, created_at__date=datetime.today(),
-                                                   seller_shop=shop).exclude(order_status='CANCELLED').distinct().count()
-                if order_count >= order_config.value:
-                    return api_response('Because of the current surge in orders, we are not taking any more orders for '
-                                        'today. We will start taking orders again tomorrow. We regret the inconvenience '
-                                        'caused to you')
+        # Minimum Order Value
+        # order_config = GlobalConfig.objects.filter(key='ecom_minimum_order_amount').last()
+        # order_config = get_config_fofo_shop('Minimum order value', shop.id)
+        fofo_config = get_config_fofo_shops(shop)
+        order_config = fofo_config.get('min_order_value',None)
+        order_config = order_config if order_config else GlobalConfig.objects.filter(key='ecom_minimum_order_amount').last().value
+        if order_config is not None:
+            order_amount = cart.order_amount_after_discount
+            if order_amount < order_config:
+                return api_response(
+                    "A minimum total purchase amount of {} is required to checkout.".format(order_config),
+                    None, status.HTTP_200_OK, False)
 
-            # check inventory
-            cart_products = cart.rt_cart_list.all()
-            cart_products = PosCartCls.refresh_prices(cart_products)
-            if shop.online_inventory_enabled:
-                out_of_stock_items = PosCartCls.out_of_stock_items(cart_products,
-                                                                   self.request.data.get("remove_unavailable"))
-                if out_of_stock_items:
-                    return api_response("Few items in your cart are not available.", out_of_stock_items, status.HTTP_200_OK,
-                                        False, {'error_code': error_code.OUT_OF_STOCK_ITEMS})
+        # Check day order count
+        order_config = GlobalConfig.objects.filter(key='ecom_order_count').last()
+        if order_config.value is not None:
+            order_count = Order.objects.filter(ecom_address_order__isnull=False, created_at__date=datetime.today(),
+                                               seller_shop=shop).exclude(order_status='CANCELLED').distinct().count()
+            if order_count >= order_config.value:
+                return api_response('Because of the current surge in orders, we are not taking any more orders for '
+                                    'today. We will start taking orders again tomorrow. We regret the inconvenience '
+                                    'caused to you')
 
-            if not CartProductMapping.objects.filter(cart=cart).exists():
-                return api_response("No items added to cart yet")
-
-            # check for product is_deleted
-            deleted_product = PosCartCls.product_deleled(cart_products, self.request.data.get("remove_deleted"))
-            if deleted_product:
-                return api_response("Few items in your cart are not available.", deleted_product, status.HTTP_200_OK,
+        # check inventory
+        cart_products = cart.rt_cart_list.all()
+        cart_products = PosCartCls.refresh_prices(cart_products)
+        if shop.online_inventory_enabled:
+            out_of_stock_items = PosCartCls.out_of_stock_items(cart_products,
+                                                               self.request.data.get("remove_unavailable"))
+            if out_of_stock_items:
+                return api_response("Few items in your cart are not available.", out_of_stock_items, status.HTTP_200_OK,
                                     False, {'error_code': error_code.OUT_OF_STOCK_ITEMS})
 
-            delivery_option = request.data.get('delivery_option', None)
-            # Update Cart To Ordered
-            self.update_cart_ecom(cart)
-            # Refresh redeem reward
-            RewardCls.checkout_redeem_points(cart, cart.redeem_points)
-            order = self.create_basic_order(cart, shop, address, payment_type_id, delivery_option)
-            payments = [
-                {
-                    "payment_type": payment_type_id,
-                    "amount": round(order.order_amount),
-                    "transaction_id": "",
-                    "payment_status": self.request.data.get('payment_status', None),
-                    "payment_mode": self.request.data.get('payment_mode', None)
-                }
-            ]
-            self.auto_process_order(order, payments, 'ecom')
-            self.auto_process_ecom_order(order)
-            try:
-                from pyfcm import FCMNotification
-                push_service = FCMNotification(api_key=config('FCM_SERVER_KEY'))
-                devices = Device.objects.filter(user__in=shop.pos_shop.all().values('user__id'),
-                                                is_active=True).distinct('reg_id')
-                for device in devices:
-                    registration_id = device.reg_id
-                    message_title = f"{shop.shop_name} - Order Alert !!"
-                    message_body = f"Hello, You received a new Order of Rs {int(order.order_amount)}"
-                    result = push_service.notify_single_device(registration_id=registration_id,
-                                                               message_title=message_title,
-                                                               message_body=message_body)
-                    info_logger.info(result)
-            except Exception as e:
-                info_logger.info(e)
-            if shop.enable_loyalty_points:
-                msg = 'Ordered Successfully, Reward points will be credited after delivery!'
-            else:
-                msg = 'Ordered Successfully!'
-            return api_response(msg, BasicOrderListSerializer(Order.objects.get(id=order.id)).data,
-                                status.HTTP_200_OK, True)
+        if not CartProductMapping.objects.filter(cart=cart).exists():
+            return api_response("No items added to cart yet")
+
+        # check for product is_deleted
+        deleted_product = PosCartCls.product_deleled(cart_products, self.request.data.get("remove_deleted"))
+        if deleted_product:
+            return api_response("Few items in your cart are not available.", deleted_product, status.HTTP_200_OK,
+                                False, {'error_code': error_code.OUT_OF_STOCK_ITEMS})
+
+        delivery_option = request.data.get('delivery_option', None)
+        # Update Cart To Ordered
+        self.update_cart_ecom(cart)
+        # Refresh redeem reward
+        RewardCls.checkout_redeem_points(cart, cart.redeem_points)
+        order = self.create_basic_order(cart, shop, address, payment_type_id, delivery_option)
+        payments = [
+            {
+                "payment_type": payment_type_id,
+                "amount": round(order.order_amount),
+                "transaction_id": "",
+                "payment_status": self.request.data.get('payment_status', None),
+                "payment_mode": self.request.data.get('payment_mode', None)
+            }
+        ]
+        self.auto_process_order(order, payments, 'ecom')
+        self.auto_process_ecom_order(order)
+        try:
+            from pyfcm import FCMNotification
+            push_service = FCMNotification(api_key=config('FCM_SERVER_KEY'))
+            devices = Device.objects.filter(user__in=shop.pos_shop.all().values('user__id'),
+                                            is_active=True).distinct('reg_id')
+            for device in devices:
+                registration_id = device.reg_id
+                message_title = f"{shop.shop_name} - Order Alert !!"
+                message_body = f"Hello, You received a new Order of Rs {int(order.order_amount)}"
+                result = push_service.notify_single_device(registration_id=registration_id,
+                                                           message_title=message_title,
+                                                           message_body=message_body)
+                info_logger.info(result)
+        except Exception as e:
+            info_logger.info(e)
+        return api_response('Ordered Successfully!', BasicOrderListSerializer(Order.objects.get(id=order.id)).data,
+                            status.HTTP_200_OK, True)
 
     def get_retail_validate(self):
         """
@@ -3949,6 +3937,12 @@ class OrderCentral(APIView):
         # shops_str = GlobalConfig.objects.get(key=app_type + '_loyalty_shop_ids').value
         # shops_str = str(shops_str) if shops_str else ''
         # if shops_str == 'all' or (shops_str and str(order.seller_shop.id) in shops_str.split(',')):
+        if self.shop.enable_loyalty_points:
+            if ReferralCode.is_marketing_user(order.buyer):
+                order.points_added = order_loyalty_points_credit(order.order_amount, order.buyer.id, order.order_no,
+                                                                 'order_credit', 'order_indirect_credit',
+                                                                 self.request.user.id, order.seller_shop.id)
+                order.save()
         # Add free products
         offers = order.ordered_cart.offers
         product_qty_map = {}
@@ -4441,7 +4435,6 @@ class OrderedItemCentralDashBoard(APIView):
         """
         # products for shop
         products = RetailerProduct.objects.filter(shop=shop)
-        ecom_products = products.filter(online_enabled=True)
 
         # orders for shop
         orders = Order.objects.prefetch_related('rt_return_order').filter(seller_shop=shop).exclude(
@@ -4497,7 +4490,6 @@ class OrderedItemCentralDashBoard(APIView):
         today_date = datetime.today()
         if filters == 1:  # today
             products = products.filter(created_at__date=today_date)
-            ecom_products = ecom_products.filter(created_at__date=today_date)
             # orders
             orders = orders.filter(created_at__date=today_date)
             pos_orders = pos_orders.filter(created_at__date=today_date)
@@ -4521,7 +4513,6 @@ class OrderedItemCentralDashBoard(APIView):
         elif filters == 2:  # yesterday
             yesterday = today_date - timedelta(days=1)
             products = products.filter(created_at__date=yesterday)
-            ecom_products = ecom_products.filter(created_at__date=yesterday)
             # orders
             orders = orders.filter(created_at__date=yesterday)
             pos_orders = pos_orders.filter(created_at__date=yesterday)
@@ -4544,7 +4535,6 @@ class OrderedItemCentralDashBoard(APIView):
 
         elif filters == 3:  # this week
             products = products.filter(created_at__week=today_date.isocalendar()[1])
-            ecom_products = ecom_products.filter(created_at__week=today_date.isocalendar()[1])
             # orders
             orders = orders.filter(created_at__week=today_date.isocalendar()[1])
             pos_orders = pos_orders.filter(created_at__week=today_date.isocalendar()[1])
@@ -4568,7 +4558,6 @@ class OrderedItemCentralDashBoard(APIView):
         elif filters == 4:  # last week
             last_week = today_date - timedelta(weeks=1)
             products = products.filter(created_at__week=last_week.isocalendar()[1])
-            ecom_products = ecom_products.filter(created_at__week=last_week.isocalendar()[1])
             # orders
             orders = orders.filter(created_at__week=last_week.isocalendar()[1])
             pos_orders = pos_orders.filter(created_at__week=last_week.isocalendar()[1])
@@ -4591,7 +4580,6 @@ class OrderedItemCentralDashBoard(APIView):
 
         elif filters == 5:  # this month
             products = products.filter(created_at__month=today_date.month)
-            ecom_products = ecom_products.filter(created_at__month=today_date.month)
             # orders
             orders = orders.filter(created_at__month=today_date.month)
             pos_orders = pos_orders.filter(created_at__month=today_date.month)
@@ -4615,7 +4603,6 @@ class OrderedItemCentralDashBoard(APIView):
         elif filters == 6:  # last month
             last_month = today_date - timedelta(days=30)
             products = products.filter(created_at__month=last_month.month)
-            ecom_products = ecom_products.filter(created_at__month=last_month.month)
             # orders
             orders = orders.filter(created_at__month=last_month.month)
             pos_orders = pos_orders.filter(created_at__month=last_month.month)
@@ -4638,7 +4625,6 @@ class OrderedItemCentralDashBoard(APIView):
 
         elif filters == 7:  # this year
             products = products.filter(created_at__year=today_date.year)
-            ecom_products = ecom_products.filter(created_at__year=today_date.year)
             # orders
             orders = orders.filter(created_at__year=today_date.year)
             pos_orders = pos_orders.filter(created_at__year=today_date.year)
@@ -4702,7 +4688,6 @@ class OrderedItemCentralDashBoard(APIView):
         total_invoices_final_amount = pos_total_invoices_final_amount + ecom_total_invoices_final_amount
         # counts of order for shop_id with total_ordered_final_amount, total_invoices_final_amount  & products
         products_count = products.count()
-        ecom_products_count = ecom_products.count()
 
         order_count = orders.count()
         invoice_count = invoices.count()
@@ -4714,13 +4699,12 @@ class OrderedItemCentralDashBoard(APIView):
         pos_invoice_count = pos_invoices.count()
 
         overview = [{"shop_name": shop.shop_name, "orders": order_count, "products": products_count,
-                     "ecom_products": ecom_products_count, "revenue": total_ordered_final_amount,
-                     "ecom_order_count": ecom_order_count, "pos_order_count": pos_order_count,
-                     "ecom_revenue": ecom_total_ordered_final_amount, "pos_revenue": pos_total_ordered_final_amount,
-                     "invoices": invoice_count, "ecom_invoice_count": ecom_invoice_count,
-                     "pos_invoice_count": pos_invoice_count, "invoice_revenue": total_invoices_final_amount,
-                     "ecom_invoice_revenue": ecom_total_invoices_final_amount,
-                     "pos_invoice_revenue": pos_total_invoices_final_amount}]
+                     "revenue": total_ordered_final_amount, "ecom_order_count": ecom_order_count,
+                     "pos_order_count": pos_order_count, "ecom_revenue": ecom_total_ordered_final_amount,
+                     "pos_revenue": pos_total_ordered_final_amount, "invoices": invoice_count,
+                     "ecom_invoice_count": ecom_invoice_count, "pos_invoice_count": pos_invoice_count,
+                     "invoice_revenue": total_invoices_final_amount, "ecom_invoice_revenue":
+                         ecom_total_invoices_final_amount, "pos_invoice_revenue": pos_total_invoices_final_amount}]
         return overview
 
     def get_retail_order_overview(self):
@@ -7510,9 +7494,6 @@ class ProcessShipmentView(generics.GenericAPIView):
 
         else:
             """ Get Process Shipment for specific Shipment and batch Id """
-
-            if request.GET.get('shipment_id') and not re.match("^\d+$", str(request.GET.get('shipment_id'))):
-                return get_response('please provide valid shipment_id', False)
             if not request.GET.get('shipment_id') or not (request.GET.get('batch_id') or request.GET.get('ean_code')):
                 return get_response('please provide id / shipment_id & batch_id to get shipment product detail', False)
             process_shipments_data = self.filter_shipment_data()
