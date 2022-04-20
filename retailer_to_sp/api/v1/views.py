@@ -7510,6 +7510,9 @@ class ProcessShipmentView(generics.GenericAPIView):
 
         else:
             """ Get Process Shipment for specific Shipment and batch Id """
+
+            if request.GET.get('shipment_id') and not re.match("^\d+$", str(request.GET.get('shipment_id'))):
+                return get_response('please provide valid shipment_id', False)
             if not request.GET.get('shipment_id') or not (request.GET.get('batch_id') or request.GET.get('ean_code')):
                 return get_response('please provide id / shipment_id & batch_id to get shipment product detail', False)
             process_shipments_data = self.filter_shipment_data()
@@ -7550,7 +7553,7 @@ class ProcessShipmentView(generics.GenericAPIView):
         ean_code = self.request.GET.get('ean_code')
 
         '''Filters using shipment_id & batch_id'''
-        if shipment_id:
+        if shipment_id and int(shipment_id):
             self.queryset = self.queryset.filter(ordered_product__id=shipment_id)
 
         if batch_id:
