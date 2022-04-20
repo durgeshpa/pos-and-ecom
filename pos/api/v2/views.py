@@ -2,7 +2,7 @@ from django.db.models import Q, Sum, F
 from retailer_backend.utils import SmallOffsetPagination
 from rest_framework import authentication
 from rest_framework.permissions import AllowAny
-from shops.models import Shop
+from shops.models import Shop, FOFOConfigurations, FOFOConfigSubCategory
 from django.http import HttpResponse
 from products.common_function import get_response, serializer_error
 from rest_framework.views import APIView
@@ -13,8 +13,8 @@ from .serializers import (ShopOwnerNameListSerializer, ShopNameListSerializer,
 from .services import shop_owner_search, shop_name_search, shop_type_search, shop_search, shop_reward_config_key_search
 import logging
 from shops.common_validators import validate_shop_owner_id, ShopType
-from pos.models import (PosStoreRewardMapping, ShopRewardConfig, ShopConfigKey, ShopRewardConfigration,
-                        ShopConfigKey,)
+from pos.models import (
+                        PosStoreRewardMappings)
 from pos.common_functions import  serializer_error
 logger = logging.getLogger('pos-api-v2')
 
@@ -117,7 +117,7 @@ class ShopTypeListView(GenericAPIView):
 class RewardConfigShopListView(GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
-    queryset = ShopRewardConfig.objects.order_by('-id')
+    queryset = PosStoreRewardMappings.objects.filter(Q(shop_type__shop_sub_type__retailer_type_name__in=["foco", "fofo"])).order_by('-id')
     serializer_class = RewardConfigListShopSerializers # ShopCrudSerializers
 
     def get(self, request):
@@ -154,18 +154,18 @@ class RewardConfigShopListView(GenericAPIView):
 
         '''Filters using shop_type, shop_owner, pin_code, city, status, approval_status'''
         if shop:
-            self.queryset = self.queryset.filter(shop=shop)
+            self.queryset = self.queryset.filter(id=shop)
         if shop_type:
-            self.queryset = self.queryset.filter(shop__shop_type__id=shop_type)
+            self.queryset = self.queryset.filter(shop_type__id=shop_type)
 
         if shop_owner:
-            self.queryset = self.queryset.filter(shop__shop_owner__id=shop_owner)
+            self.queryset = self.queryset.filter(shop_owner__id=shop_owner)
 
         if pin_code:
-            self.queryset = self.queryset.filter(shop__shop_name_address_mapping__pincode_link__id=pin_code)
+            self.queryset = self.queryset.filter(shop_name_address_mapping__pincode_link__id=pin_code)
 
         if city:
-            self.queryset = self.queryset.filter(shop__shop_name_address_mapping__city__id=city)
+            self.queryset = self.queryset.filter(shop_name_address_mapping__city__id=city)
 
         if status:
             self.queryset = self.queryset.filter(status=status)
@@ -174,14 +174,14 @@ class RewardConfigShopListView(GenericAPIView):
 def create_or_update(id,data):
     data_list = data
     for data in data_list:
-        instance, created = ShopRewardConfigration.objects.update_or_create(
-            shop_config=id, key_id=data['key_id'], defaults={'value': data['value']})
+        instance, created = FOFOConfigurations.objects.update_or_create(
+            shop=id, key_id=data['key_id'], defaults={'value': data['value']})
         instance.save()
 
 class RewardConfigShopCrudView(GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
-    queryset = ShopRewardConfig.objects.order_by('-id')
+    queryset = PosStoreRewardMappings.objects.filter(Q(shop_type__shop_sub_type__retailer_type_name__in=["foco", "fofo"])).order_by('-id')
     serializer_class = RewardConfigShopSerializers # ShopCrudSerializers
 
     def get(self, request):
@@ -205,25 +205,6 @@ class RewardConfigShopCrudView(GenericAPIView):
         msg = f"total count {shop_total_count}" if shops_data else "no shop found"
         return get_response(msg, serializer.data, True)
 
-    def post(self, request):
-        """ POST API for Shop Creation with Image """
-
-        info_logger.info("RewardConfig POST api called.")
-        #modified_data = validate_data_format(self.request)
-        data = request.data
-        shop_config = data.pop('shop_config')
-        serializer = self.serializer_class(data=data)
-        if serializer.is_valid():
-            obj = serializer.save()
-            try:
-                create_or_update(obj, shop_config)
-            except Exception as e:
-                return get_response(str(e), False)
-
-
-            info_logger.info("RewardConfig Created Successfully.")
-            return get_response('RewardConfig Created Successfully.', serializer.data)
-        return get_response(serializer_error(serializer), False)
 
     def put(self, request):
         """ PUT API for Shop Updation with Image """
@@ -243,7 +224,7 @@ class RewardConfigShopCrudView(GenericAPIView):
         serializer = self.serializer_class(instance=shop_instance, data=modified_data, context={'request':request})
         if serializer.is_valid():
             try:
-                create_or_update(modified_data['id'], data)
+                create_or_update(shop_instance, data)
             except Exception as e:
                 return get_response(str(e), False)
             serializer.save()
@@ -284,18 +265,18 @@ class RewardConfigShopCrudView(GenericAPIView):
 
         '''Filters using shop_type, shop_owner, pin_code, city, status, approval_status'''
         if shop:
-            self.queryset = self.queryset.filter(shop=shop)
+            self.queryset = self.queryset.filter(id=shop)
         if shop_type:
-            self.queryset = self.queryset.filter(shop__shop_type__id=shop_type)
+            self.queryset = self.queryset.filter(shop_type__id=shop_type)
 
         if shop_owner:
-            self.queryset = self.queryset.filter(shop__shop_owner__id=shop_owner)
+            self.queryset = self.queryset.filter(shop_owner__id=shop_owner)
 
         if pin_code:
-            self.queryset = self.queryset.filter(shop__shop_name_address_mapping__pincode_link__id=pin_code)
+            self.queryset = self.queryset.filter(shop_name_address_mapping__pincode_link__id=pin_code)
 
         if city:
-            self.queryset = self.queryset.filter(shop__shop_name_address_mapping__city__id=city)
+            self.queryset = self.queryset.filter(shop_name_address_mapping__city__id=city)
 
         if status:
             self.queryset = self.queryset.filter(status=status)
@@ -306,7 +287,7 @@ class ShopRewardConfigKeys(GenericAPIView):
     """SHOP Type .."""
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
-    queryset = ShopConfigKey.objects.all()
+    queryset = FOFOConfigSubCategory.objects.all()
     serializer_class = ShopRewardConfigKeySerilizer
 
     def get(self, request):

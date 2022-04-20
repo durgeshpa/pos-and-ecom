@@ -110,6 +110,8 @@ class Shop(models.Model):
         (FREQUENT_CANCELLATION_HOLD_AND_RETURN_OF_ORDERS, 'Frequent Cancellation, Return And Holds Of Orders'),
         (MOBILE_NUMBER_LOST_CLOSED_CHANGED, 'Mobile Number Changed'),
     )
+    Choices = (('active', 'Active'),
+                ('deactive', 'Deactive'))
     shop_name = models.CharField(max_length=255)
     shop_owner = models.ForeignKey(get_user_model(), related_name='shop_owner_shop', on_delete=models.CASCADE)
     shop_type = models.ForeignKey(ShopType, related_name='shop_type_shop', on_delete=models.CASCADE)
@@ -139,6 +141,7 @@ class Shop(models.Model):
     online_inventory_enabled = models.BooleanField(default=True, verbose_name='Online Inventory Enabled')
     cutoff_time = models.TimeField(null=True, blank=True)
     dynamic_beat = models.BooleanField(default=False)
+    status_reward_configuration = models.CharField(max_length=20, choices=Choices, default='deactive')
 
     # last_order_at = models.DateTimeField(auto_now_add=True)
     # last_login_at = models.DateTimeField(auto_now_add=True)
@@ -784,7 +787,7 @@ class FOFOConfigSubCategory(models.Model):
         ("float", "Float"),
         ("bool", "Boolean"),
     )
-    category = models.ForeignKey(FOFOConfigCategory, related_name='fofo_category_details', on_delete=models.CASCADE)
+    category = models.ForeignKey(FOFOConfigCategory, related_name='fofo_category_details', on_delete=models.CASCADE,null=True)
     name = CaseInsensitiveCharField(max_length=125)
     type = models.CharField(max_length=20, choices=FIELD_TYPE_CHOICES, default='int')
 

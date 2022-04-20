@@ -1,6 +1,5 @@
-from shops.models import Shop, RetailerType, ShopType
-from pos.models import (PosStoreRewardMapping, ShopRewardConfig, ShopRewardConfigration,
-                        ShopConfigKey, ShopConfigKey)
+from shops.models import Shop, RetailerType, ShopType, FOFOConfigurations, FOFOConfigSubCategory
+from pos.models import (PosStoreRewardMappings)
 from rest_framework import serializers
 from django.db import transaction
 
@@ -88,31 +87,31 @@ class RewardConfigListShopSerializers(serializers.ModelSerializer):
     shop_name = serializers.SerializerMethodField()
     city = serializers.SerializerMethodField()
     class Meta:
-        model = ShopRewardConfig
-        fields = ('id','shop', 'shop_name', 'city', 'pin_code', 'status')
+        model = PosStoreRewardMappings
+        fields = ('id', 'shop_name', 'city', 'pin_code', 'status')
 
     def get_pin_code(self, obj):
-        return obj.shop.get_shop_pin_code
+        return obj.get_shop_pin_code
 
     def get_shop_name(self, obj):
-        return obj.shop.shop_name
+        return obj.shop_name
 
     def get_city(self, obj):
-        return obj.shop.city_name
+        return obj.city_name
 
 
 class ShopConfigSerializers(serializers.ModelSerializer):
     key_id = serializers.SerializerMethodField()
     key_name = serializers.SerializerMethodField()
     class Meta:
-        model = ShopRewardConfigration
-        fields = ('key_id','key_name','value')
+        model = FOFOConfigurations
+        fields = ('id','key_id','key_name','value')
 
     def get_key_id(self, obj):
         return obj.key.id
 
     def get_key_name(self, obj):
-        return obj.key.key
+        return obj.key.name
 
 
 
@@ -122,8 +121,8 @@ class ShopConfigSerializers(serializers.ModelSerializer):
 class RewardConfigShopSerializers(serializers.ModelSerializer):
     shop_config = serializers.SerializerMethodField()#ShopConfigSerializers(many=True)
     class Meta:
-        model = ShopRewardConfig
-        fields = ('id', 'shop','status', 'shop_config')
+        model = PosStoreRewardMappings
+        fields = ('id', 'shop_name','status_reward_configuration', 'shop_config')
         """('id','shop', 'status', 'min_order_value',
             'is_point_add_pos_order', 'point_add_pos_order', 'is_point_add_ecom_order',
             'point_add_ecom_order', 'is_point_add_ecom_order',
@@ -131,7 +130,7 @@ class RewardConfigShopSerializers(serializers.ModelSerializer):
             'value_of_each_point', 'first_order_redeem_point', 'second_order_redeem_point',
             'max_monthly_points_added', 'max_monthly_points_redeemed')"""
     def get_shop_config(self,obj):
-        query = ShopRewardConfigration.objects.filter(shop_config=obj.id)
+        query = FOFOConfigurations.objects.filter(shop=obj)
         return ShopConfigSerializers(query, many=True).data
 
     def validate(self, data):
@@ -163,6 +162,11 @@ class RewardConfigShopSerializers(serializers.ModelSerializer):
 
 class ShopRewardConfigKeySerilizer(serializers.ModelSerializer):
     """ShopRewardConfigKeySerilizer"""
+    key_id = serializers.SerializerMethodField()
     class Meta:
-        model = ShopConfigKey
-        fields = ('id' ,'key')
+        model = FOFOConfigSubCategory
+        fields = ('key_id' ,'name')
+
+    def get_key_id(self,obj):
+        return obj.id
+

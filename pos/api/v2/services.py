@@ -35,5 +35,5 @@ def shop_search(queryset, search_text):
 
 def shop_reward_config_key_search(queryset, search_text):
     """shop_reward_config_key_search"""
-    queryset = queryset.filter(Q(key__icontains=search_text))
+    queryset = queryset.filter(Q(name__icontains=search_text))
     return  queryset
