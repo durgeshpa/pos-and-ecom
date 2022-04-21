@@ -608,9 +608,9 @@ class PageVersionDetailView(APIView):
     serializer_class = PageLatestDetailSerializer
     permission_classes = (AllowAny,)
 
-    def get(self, request, id, format = None):
+    def get(self, request, id, *args, **kwargs):
         """Get Data of Latest Version"""
-
+        shop_id = kwargs.get('shop', None)
         try:
             page_key = f"latest_page_{id}"
             # cached_page = cache.get(page_key, None)
@@ -633,7 +633,7 @@ class PageVersionDetailView(APIView):
             }
             return Response(message)
         latest_page_version = PageVersion.objects.get(version_no = latest_page_version_no, page = page)
-        serializer = self.serializer_class(page, context = {'version': latest_page_version})
+        serializer = self.serializer_class(page, context = {'version': latest_page_version, 'shop_id': shop_id})
         message = {
             "is_success": True,
             "message": "OK",
@@ -758,14 +758,15 @@ class LandingPageView(generics.GenericAPIView):
     queryset = LandingPage.objects.order_by('-id')
     serializer_class = LandingPageSerializer
 
-    def get(self, request):
+
+    def get(self, request, *args, **kwargs):
         if request.GET.get('id'):
             landing_pages = LandingPage.objects.filter(id=request.GET.get('id'))
         else:
             self.queryset = self.filter_landing_pages()
             landing_pages = SmallOffsetPagination().paginate_queryset(self.queryset, request)
-
-        serializer = self.serializer_class(landing_pages, many=True, context={'request':request})
+        shop_id = kwargs.get('shop', None)
+        serializer = self.serializer_class(landing_pages, many=True, context={'request':request, 'shop_id': shop_id})
         msg = "" if landing_pages else "no landing page found"
         return get_response(msg, serializer.data, True)
 
