@@ -132,7 +132,10 @@ class EcomOrderProductAdmin(admin.ModelAdmin):
         return obj.ordered_cart.subtotal
 
     def offer_discount(self, obj):
-        return obj.ordered_cart.offer_discount
+        try:
+            return obj.ordered_cart.offer_discount
+        except:
+            return float(0)
 
     def reward_discount(self, obj):
         return obj.ordered_cart.redeem_points_value
