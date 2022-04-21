@@ -273,8 +273,8 @@ class TagProductView(APIView):
         is_success, data = False, []
         if products.count() >= 3:
             products = self.pagination_class().paginate_queryset(products, self.request)
-            # serializer = TagProductSerializer(tag, context={'product': products})
-            serializer = RetailerProductSerializer(products, many=True)
+            serializer = TagProductSerializer(tag, context={'product': products})
+            # serializer = RetailerProductSerializer(products, many=True)
             is_success, data = True, serializer.data
         return api_response('Tag Found', data, status.HTTP_200_OK, is_success)
 
