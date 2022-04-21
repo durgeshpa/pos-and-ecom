@@ -117,7 +117,7 @@ class CardItemSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = CardItem
-        fields = ('card_data', 'created_at', 'updated_at', 'created_by', 'updated_by')
+        exclude = ('card_data', 'created_at', 'updated_at', 'created_by', 'updated_by')
 
     
     def create(self, validated_data):
