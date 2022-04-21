@@ -3372,7 +3372,6 @@ class OrderCentral(APIView):
             For ecom cart
         """
         shop = kwargs['shop']
-        self.shop = shop
         if not shop.online_inventory_enabled:
             return api_response("Franchise Shop Is Not Online Enabled!")
 
@@ -3389,6 +3388,7 @@ class OrderCentral(APIView):
 
         cart = Cart.objects.filter(cart_type='ECOM', buyer=self.request.user, seller_shop=shop,
                                    cart_status='active').last()
+
         if not cart:
             return api_response("Please add items to proceed to order")
 
@@ -3447,7 +3447,9 @@ class OrderCentral(APIView):
 
         delivery_option = request.data.get('delivery_option', None)
         # Update Cart To Ordered
-        self.update_cart_ecom(cart)
+        get_response = self.update_cart_ecom(cart, shop)
+        if get_response:
+            return api_response(get_response)
         # Refresh redeem reward
         RewardCls.checkout_redeem_points(cart, cart.redeem_points)
         order = self.create_basic_order(cart, shop, address, payment_type_id, delivery_option)
@@ -3704,12 +3706,17 @@ class OrderCentral(APIView):
         cart.last_modified_by = self.request.user
         cart.save()
 
-    def update_cart_ecom(self, cart):
+    def update_cart_ecom(self, cart, shop):
         """
             Place order
             Update cart to ordered
             For ecom cart
         """
+        cart = Cart.objects.filter(cart_type='ECOM', buyer=self.request.user, seller_shop=shop,
+                                         cart_status='active').last()
+
+        if not cart:
+            return "Please add items to proceed to order"
         cart.cart_status = 'ordered'
         cart.last_modified_by = self.request.user
         cart.save()
