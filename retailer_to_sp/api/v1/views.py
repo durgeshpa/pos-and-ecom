@@ -3447,15 +3447,12 @@ class OrderCentral(APIView):
 
         delivery_option = request.data.get('delivery_option', None)
         # Update Cart To Ordered
-
-        # Refresh redeem reward
-        RewardCls.checkout_redeem_points(cart, cart.redeem_points)
-        order = self.create_basic_order(cart, shop, address, payment_type_id, delivery_option)
-        if type(order) is str:
-            return api_response(order)
         get_response = self.update_cart_ecom(self.shop, cart)
         if get_response:
             return api_response(get_response)
+        # Refresh redeem reward
+        RewardCls.checkout_redeem_points(cart, cart.redeem_points)
+        order = self.create_basic_order(cart, shop, address, payment_type_id, delivery_option)
         payments = [
             {
                 "payment_type": payment_type_id,
@@ -3709,17 +3706,17 @@ class OrderCentral(APIView):
         cart.last_modified_by = self.request.user
         cart.save()
 
-    def update_cart_ecom(self, shop, cart):
+    def update_cart_ecom(self, seller_shop, cart):
         """
             Place order
             Update cart to ordered
             For ecom cart
         """
-        # cart = Cart.objects.filter(cart_type='ECOM', buyer=self.request.user, seller_shop=shop,
-        #                                  cart_status='active').last()
-        #
-        # if not cart:
-        #     return "Please add items to proceed to order"
+        updated_cart = Cart.objects.filter(cart_type='ECOM', buyer=self.request.user, seller_shop=seller_shop,
+                                           cart_status='active').last()
+
+        if not updated_cart:
+            return "Please add items to proceed to order"
         cart.cart_status = 'ordered'
         cart.last_modified_by = self.request.user
         cart.save()
@@ -3760,47 +3757,43 @@ class OrderCentral(APIView):
         return order
 
     def create_basic_order(self, cart, shop, address=None, payment_id=None, delivery_option=None):
-        cart = Cart.objects.filter(id=cart.id).last()
-        if cart.cart_status == 'active':
-            user = self.request.user
-            order, _ = Order.objects.get_or_create(last_modified_by=user, ordered_by=user, ordered_cart=cart)
-            order.buyer = cart.buyer
-            order.seller_shop = shop
-            order.received_by = cart.buyer
-            order.order_app_type = Order.POS_ECOMM if cart.cart_type == 'ECOM' else Order.POS_WALKIN
-            # order.total_tax_amount = float(self.request.data.get('total_tax_amount', 0))
-            order.order_status = Order.ORDERED
-            if cart.cart_type == 'ECOM':
-                if payment_id and str(PaymentType.objects.get(id=payment_id).type).lower() != 'cod':
-                    if self.request.data.get('payment_status') == 'payment_pending':
-                        order.order_status = Order.PAYMENT_PENDING
-                    elif self.request.data.get('payment_status') == 'payment_failed':
-                        order.order_status = Order.PAYMENT_FAILED
-                order.delivery_option = delivery_option
-                fofo_config = get_config_fofo_shops(shop)
-                time = datetime.now().strftime("%H:%M:%S")
-                time = datetime.strptime(time,"%H:%M:%S").time()
-                msg = fofo_config.get('delivery_time',None)
-                if msg :
-                    msg = str(msg)+" "+"min"
+        user = self.request.user
+        order, _ = Order.objects.get_or_create(last_modified_by=user, ordered_by=user, ordered_cart=cart)
+        order.buyer = cart.buyer
+        order.seller_shop = shop
+        order.received_by = cart.buyer
+        order.order_app_type = Order.POS_ECOMM if cart.cart_type == 'ECOM' else Order.POS_WALKIN
+        # order.total_tax_amount = float(self.request.data.get('total_tax_amount', 0))
+        order.order_status = Order.ORDERED
+        if cart.cart_type == 'ECOM':
+            if payment_id and str(PaymentType.objects.get(id=payment_id).type).lower() != 'cod':
+                if self.request.data.get('payment_status') == 'payment_pending':
+                    order.order_status = Order.PAYMENT_PENDING
+                elif self.request.data.get('payment_status') == 'payment_failed':
+                    order.order_status = Order.PAYMENT_FAILED
+            order.delivery_option = delivery_option
+            fofo_config = get_config_fofo_shops(shop)
+            time = datetime.now().strftime("%H:%M:%S")
+            time = datetime.strptime(time,"%H:%M:%S").time()
+            msg = fofo_config.get('delivery_time',None)
+            if msg :
+                msg = str(msg)+" "+"min"
+            if delivery_option and delivery_option == '1':
+                msg = None
+            if fofo_config.get('open_time',None) and fofo_config.get('close_time',None) and not (fofo_config['open_time']<time and fofo_config['close_time']>time):
+                msg = "Your order will be deliverd tomorrow"
                 if delivery_option and delivery_option == '1':
-                    msg = None
-                if fofo_config.get('open_time',None) and fofo_config.get('close_time',None) and not (fofo_config['open_time']<time and fofo_config['close_time']>time):
-                    msg = "Your order will be deliverd tomorrow"
-                    if delivery_option and delivery_option == '1':
-                        msg = "Please pickup your order tommorow"
+                    msg = "Please pickup your order tommorow"
 
-                order.estimate_delivery_time = msg
-            order.save()
+            order.estimate_delivery_time = msg
+        order.save()
 
-            if address:
-                EcomOrderAddress.objects.get_or_create(order=order, address=address.address, contact_name=address.contact_name,
-                                                        contact_number=address.contact_number, latitude=address.latitude,
-                                                        longitude=address.longitude, pincode=address.pincode,
-                                                        state=address.state, city=address.city)
-            return order
-        else:
-            return "Duplicate Cart"
+        if address:
+            EcomOrderAddress.objects.get_or_create(order=order, address=address.address, contact_name=address.contact_name,
+                                                    contact_number=address.contact_number, latitude=address.latitude,
+                                                    longitude=address.longitude, pincode=address.pincode,
+                                                    state=address.state, city=address.city)
+        return order
 
     def update_ordered_reserve_sp(self, cart, parent_mapping, order):
         """
