@@ -9,6 +9,7 @@ from datetime import datetime, timedelta
 from decimal import Decimal
 from hashlib import sha512
 from operator import itemgetter
+
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
 from django.core import validators
@@ -3364,6 +3365,7 @@ class OrderCentral(APIView):
                                 status.HTTP_200_OK, True)
 
     @check_pos_shop
+    @transaction.atomic
     def post_ecom_order(self, request, *args, **kwargs):
         """
             Place Order
@@ -3384,6 +3386,7 @@ class OrderCentral(APIView):
         if address.pincode != shop.shop_name_address_mapping.filter(
                 address_type='shipping').last().pincode_link.pincode:
             return api_response("This Shop is not serviceable at your delivery address")
+
         cart = Cart.objects.filter(cart_type='ECOM', buyer=self.request.user, seller_shop=shop,
                                    cart_status='active').last()
         if not cart:
@@ -3443,40 +3446,39 @@ class OrderCentral(APIView):
                                 False, {'error_code': error_code.OUT_OF_STOCK_ITEMS})
 
         delivery_option = request.data.get('delivery_option', None)
-        with transaction.atomic():
-            # Update Cart To Ordered
-            self.update_cart_ecom(cart)
-            # Refresh redeem reward
-            RewardCls.checkout_redeem_points(cart, cart.redeem_points)
-            order = self.create_basic_order(cart, shop, address, payment_type_id, delivery_option)
-            payments = [
-                {
-                    "payment_type": payment_type_id,
-                    "amount": round(order.order_amount),
-                    "transaction_id": "",
-                    "payment_status": self.request.data.get('payment_status', None),
-                    "payment_mode": self.request.data.get('payment_mode', None)
-                }
-            ]
-            self.auto_process_order(order, payments, 'ecom')
-            self.auto_process_ecom_order(order)
-            try:
-                from pyfcm import FCMNotification
-                push_service = FCMNotification(api_key=config('FCM_SERVER_KEY'))
-                devices = Device.objects.filter(user__in=shop.pos_shop.all().values('user__id'),
-                                                is_active=True).distinct('reg_id')
-                for device in devices:
-                    registration_id = device.reg_id
-                    message_title = f"{shop.shop_name} - Order Alert !!"
-                    message_body = f"Hello, You received a new Order of Rs {int(order.order_amount)}"
-                    result = push_service.notify_single_device(registration_id=registration_id,
-                                                               message_title=message_title,
-                                                               message_body=message_body)
-                    info_logger.info(result)
-            except Exception as e:
-                info_logger.info(e)
-            return api_response('Ordered Successfully!', BasicOrderListSerializer(Order.objects.get(id=order.id)).data,
-                                status.HTTP_200_OK, True)
+        # Update Cart To Ordered
+        self.update_cart_ecom(cart)
+        # Refresh redeem reward
+        RewardCls.checkout_redeem_points(cart, cart.redeem_points)
+        order = self.create_basic_order(cart, shop, address, payment_type_id, delivery_option)
+        payments = [
+            {
+                "payment_type": payment_type_id,
+                "amount": round(order.order_amount),
+                "transaction_id": "",
+                "payment_status": self.request.data.get('payment_status', None),
+                "payment_mode": self.request.data.get('payment_mode', None)
+            }
+        ]
+        self.auto_process_order(order, payments, 'ecom')
+        self.auto_process_ecom_order(order)
+        try:
+            from pyfcm import FCMNotification
+            push_service = FCMNotification(api_key=config('FCM_SERVER_KEY'))
+            devices = Device.objects.filter(user__in=shop.pos_shop.all().values('user__id'),
+                                            is_active=True).distinct('reg_id')
+            for device in devices:
+                registration_id = device.reg_id
+                message_title = f"{shop.shop_name} - Order Alert !!"
+                message_body = f"Hello, You received a new Order of Rs {int(order.order_amount)}"
+                result = push_service.notify_single_device(registration_id=registration_id,
+                                                           message_title=message_title,
+                                                           message_body=message_body)
+                info_logger.info(result)
+        except Exception as e:
+            info_logger.info(e)
+        return api_response('Ordered Successfully!', BasicOrderListSerializer(Order.objects.get(id=order.id)).data,
+                            status.HTTP_200_OK, True)
 
     def get_retail_validate(self):
         """
@@ -3780,10 +3782,10 @@ class OrderCentral(APIView):
         order.save()
 
         if address:
-            EcomOrderAddress.objects.create(order=order, address=address.address, contact_name=address.contact_name,
-                                            contact_number=address.contact_number, latitude=address.latitude,
-                                            longitude=address.longitude, pincode=address.pincode,
-                                            state=address.state, city=address.city)
+            EcomOrderAddress.objects.get_or_create(order=order, address=address.address, contact_name=address.contact_name,
+                                                    contact_number=address.contact_number, latitude=address.latitude,
+                                                    longitude=address.longitude, pincode=address.pincode,
+                                                    state=address.state, city=address.city)
         return order
 
     def update_ordered_reserve_sp(self, cart, parent_mapping, order):
@@ -9423,7 +9425,7 @@ class LoadVerifyPackageView(generics.GenericAPIView):
         validated_trip = validate_trip_user(modified_data['trip_id'], request.user)
         if 'error' in validated_trip:
             return get_response(validated_trip['error'])
-        serializer = self.serializer_class(data=modified_data)
+        serializer = self.serializer_class(data=modified_data, context={'current_user': request.user})
         if serializer.is_valid():
             serializer.save(created_by=request.user)
             info_logger.info("Package loaded Successfully.")
@@ -10498,7 +10500,7 @@ class LastMileLoadVerifyPackageView(generics.GenericAPIView):
         validated_trip = validate_last_mile_trip_user(modified_data['trip_id'], request.user)
         if 'error' in validated_trip:
             return get_response(validated_trip['error'])
-        serializer = self.serializer_class(data=modified_data)
+        serializer = self.serializer_class(data=modified_data, context={'current_user': request.user})
         if serializer.is_valid():
             serializer.save(created_by=request.user)
             info_logger.info("Package loaded Successfully.")

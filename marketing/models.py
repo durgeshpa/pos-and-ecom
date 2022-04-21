@@ -9,11 +9,13 @@ from django.db import models, transaction
 from django.core.validators import RegexValidator
 from django.core.exceptions import ObjectDoesNotExist
 
+from global_config.common_function import get_global_config
 from retailer_backend.messages import *
 from global_config.models import GlobalConfig
 from accounts.models import User
-
+from shops.models import Shop
 from .sms import SendSms
+from .utils import has_gf_employee_permission, shop_obj_related_owner
 
 logger = logging.getLogger(__name__)
 info_logger = logging.getLogger('file-info')
@@ -67,7 +69,10 @@ class ReferralCode(models.Model):
                 user_referral_code = ReferralCode.generate_user_referral_code(user, added_by)
                 if used_referral_code:
                     Referral.store_parent_referral_user(used_referral_code, user_referral_code)
-                RewardPoint.welcome_reward(user, used_referral_code, added_by)
+                if user.is_ecom_user:
+                    RewardPoint.welcome_reward_ecom(user, used_referral_code, added_by)
+                else:
+                    RewardPoint.welcome_reward(user, used_referral_code, added_by)
 
     @classmethod
     def is_marketing_user(cls, user):
@@ -83,6 +88,10 @@ class ReferralCode(models.Model):
 
     class Meta:
         verbose_name = "   User"
+
+        permissions = (
+            ("has_gf_employee_permission", "Has GF Employee Permission"),
+        )
 
 
 class Profile(models.Model):
@@ -101,10 +110,21 @@ class Referral(models.Model):
     """
     Parent - Child Referral Mapping
     """
+    USER_LINK_CHOICES = (
+        ('DIGITAL_MARKETING', 'Digital Marketing'),
+        ('MARKETING', 'Marketing'),
+        ('FIELD_EXECUTIVE', 'Field Executive'),
+        ('SHOP_OWNERS', 'Shop Owners'),
+        ('PEPPER_TAP_CUSTOMER', 'PepperTap Customer'),
+    )
+
     referral_by = models.ForeignKey(MLMUser, related_name="referral_by", on_delete=models.CASCADE, null=True, blank=True)
     referral_to = models.ForeignKey(MLMUser, related_name="referral_to", on_delete=models.CASCADE, null=True, blank=True)
     referral_by_user = models.ForeignKey(User, related_name="referral_by_user", on_delete=models.CASCADE, null=True, blank=True)
     referral_to_user = models.ForeignKey(User, related_name="referral_to_user", on_delete=models.CASCADE, null=True, blank=True)
+    referrer_reward_points = models.PositiveIntegerField(default=0)
+    referee_reward_points = models.PositiveIntegerField(default=0)
+    user_linked_type = models.CharField(max_length=20, choices=USER_LINK_CHOICES, null=True, blank=True)
     user_count_considered = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
@@ -117,7 +137,32 @@ class Referral(models.Model):
         parent_ref_obj = ReferralCode.objects.filter(referral_code=parent_referral_code).last()
         child_ref_obj = ReferralCode.objects.filter(referral_code=child_referral_code).last()
         if parent_ref_obj and child_ref_obj and not Referral.objects.filter(referral_to_user=child_ref_obj.user).exists():
-            Referral.objects.create(referral_to_user=child_ref_obj.user, referral_by_user=parent_ref_obj.user)
+            ref_obj = Referral.objects.create(referral_to_user=child_ref_obj.user, referral_by_user=parent_ref_obj.user)
+
+        if child_ref_obj.user.is_ecom_user:
+            shop_owner_obj = shop_obj_related_owner(parent_ref_obj.user)
+            if shop_owner_obj:
+                referrer_points = int(get_global_config('referrer_points_to_be_added_on_signup', 10))
+                ref_obj.user_linked_type = 'SHOP_OWNERS'
+
+            elif has_gf_employee_permission(parent_ref_obj.user):
+                referrer_points = int(get_global_config('referrer_points_to_be_added_on_signup', 10))
+                if parent_ref_obj.user.groups.filter(name='Field Executive').exists():
+                    ref_obj.user_linked_type = 'FIELD_EXECUTIVE'
+                elif parent_ref_obj.user.groups.filter(name='Digital Marketing').exists():
+                    ref_obj.user_linked_type = 'DIGITAL_MARKETING'
+                elif parent_ref_obj.user.groups.filter(name='Marketing').exists():
+                    ref_obj.user_linked_type = 'MARKETING'
+                else:
+                    ref_obj.user_linked_type = 'PEPPER_TAP_CUSTOMER'
+            else:
+                referrer_points = int(get_global_config('non_customer_points_to_be_added_on_signup', 10))
+                ref_obj.user_linked_type = 'PEPPER_TAP_CUSTOMER'
+
+            ref_obj.referrer_reward_points = referrer_points
+            ref_obj.referee_reward_points = int(get_global_config('referee_points_to_be_added_on_signup', 10))
+
+            ref_obj.save()
 
 
 class RewardPoint(models.Model):
@@ -174,6 +219,34 @@ class RewardPoint(models.Model):
                                % (points, int(points / used_reward_factor), referral_code),mask='PEPTAB')
         message.send()
 
+    @staticmethod
+    def welcome_reward_ecom(user, referred=None, changed_by=None):
+        """
+            Reward On User Registration from ECOM APP
+        """
+        # Check existing user
+        if RewardPoint.objects.filter(reward_user=user).exists():
+            return False
+        # Get Welcome Reward Points From Config
+        points = int(get_global_config('referee_points_to_be_added_on_signup', 10))
+        # Create Reward Point And Log
+        with transaction.atomic():
+            reward_obj, created = RewardPoint.objects.get_or_create(reward_user=user)
+            reward_obj.direct_earned += points
+            reward_obj.save()
+            RewardLog.objects.create(reward_user=user, transaction_type='welcome_reward', transaction_id=user.id,
+                                     points=points, changed_by=changed_by)
+        # Send SMS To User For Discount That Can be Availed Using Welcome Rewards credited
+        used_reward_factor = int(get_global_config('value_of_each_point', 4))
+        referral_code_obj = ReferralCode.objects.filter(user=user).last()
+        referral_code = referral_code_obj.referral_code if referral_code_obj else ''
+        message = SendSms(phone=user.phone_number,
+                          body="Welcome to PepperTap SuperMart, %s reward points are added to your account. "
+                               "Use these points to get discounts on your next purchases. "
+                               "Login and share your referral code:%s with friends and win more points"
+                               % (points, referral_code), mask='PEPTAB')
+        message.send()
+
     @property
     def redeemable_points(self):
         return max(self.direct_earned + self.indirect_earned - self.points_used, 0)
@@ -206,6 +279,7 @@ class RewardLog(models.Model):
         ('purchase_reward', 'Hdpos Sales - Purchase Credit'),
     )
     user = models.ForeignKey(MLMUser, on_delete=models.CASCADE, null=True, blank=True)
+    shop = models.ForeignKey(Shop, on_delete=models.DO_NOTHING, null =True, blank=True)
     reward_user = models.ForeignKey(User, related_name='reward_log_user', on_delete=models.CASCADE, null=True, blank=True)
     transaction_type = models.CharField(max_length=25, null=True, blank=True, choices=TRANSACTION_CHOICES)
     transaction_id = models.CharField(max_length=25, null=True, blank=True)

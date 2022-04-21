@@ -23,6 +23,9 @@ from retailer_to_sp.models import (OrderReturn, OrderedProduct, ReturnItems, Car
                                    OrderedProductMapping, Order)
 from shops.models import Shop
 from wms.models import PosInventory, PosInventoryState, PosInventoryChange
+from shops.fields import CaseInsensitiveCharField
+from django.contrib.postgres.fields import JSONField
+
 
 PAYMENT_MODE_POS = (
     ('cash', 'Cash Payment'),
@@ -841,3 +844,6 @@ class PaymentStatusUpdateByCron(models.Model):
     class Meta:
         verbose_name = 'cron log order status'
 
+class PosStoreRewardMappings(Shop):
+    class Meta:
+        proxy = True

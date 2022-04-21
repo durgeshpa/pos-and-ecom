@@ -7,10 +7,12 @@ from django.urls import reverse
 
 
 from marketing.filters import PosBuyerFilter
+from pos.filters import ShopFilter
 from retailer_to_sp.admin import OrderIDFilter, SellerShopFilter
 from retailer_to_sp.models import Order
 
-from .models import Address, Tag, TagProductMapping, EcomCart, EcomCartProductMapping, EcomOrderedProductMapping, EcomOrderedProduct
+from .models import Address, Tag, TagProductMapping, EcomCart, EcomCartProductMapping, EcomOrderedProductMapping, \
+    EcomOrderedProduct, ShopUserLocationMappedLog
 from ecom.utils import generate_ecom_order_csv_report
 from .forms import TagProductForm
 from ecom.views import DownloadEcomOrderInvoiceView
@@ -288,5 +290,30 @@ class EcommerceTripAdmin(admin.ModelAdmin):
         return False
 
 
+class ShopUserLocationMappedLogAdmin(admin.ModelAdmin):
+    fields = ('shop', 'user', 'modified_at', )
+    list_display = ('shop', 'user', 'modified_at', )
+    list_filter = [ShopFilter, ('modified_at', DateRangeFilter)]
+    search_fields = ('user__phone_number', 'user__first_name', 'user__last_name',)
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    class Media:
+        pass
+
+
 admin.site.register(EcomOrderedProduct, EcomOrderProductAdmin)
 admin.site.register(EcomCart, EcomCartAdmin)
+admin.site.register(ShopUserLocationMappedLog, ShopUserLocationMappedLogAdmin)
+
+
+
+
+

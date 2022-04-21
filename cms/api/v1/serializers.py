@@ -11,7 +11,7 @@ from global_config.views import get_config
 from pos.models import RetailerProduct
 from products.models import Product
 from retailer_backend.common_function import isBlank
-from ...choices import LANDING_PAGE_TYPE_CHOICE, LISTING_SUBTYPE_CHOICE, FUNTION_TYPE_CHOICE, CARD_TYPE_CHOICES, \
+from ...choices import LANDING_PAGE_TYPE_CHOICE, LISTING_SUBTYPE_CHOICE, FUNTION_TYPE_CHOICE, \
     CARD_TYPE_PRODUCT, CARD_TYPE_CAREGORY, CARD_TYPE_BRAND
 from ...models import CardData, Card, CardVersion, CardItem, Application, Page, PageCard, PageVersion, ApplicationPage, \
     LandingPage, Functions, LandingPageProducts
@@ -322,6 +322,54 @@ class PageApplicationSerializer(serializers.ModelSerializer):
         fields = ('id', 'name',) 
 
 
+class PageFunctionSerializer(serializers.ModelSerializer):
+    type = ChoicesSerializer(choices=FUNTION_TYPE_CHOICE)
+
+    class Meta:
+        model = Functions
+        fields = ('id', 'type', 'name', 'url', 'required_params', 'required_headers')
+
+    def validate(self, data):
+
+        if 'name' not in self.initial_data or isBlank(self.initial_data['name']):
+            raise serializers.ValidationError("'name' | This is required")
+        elif 'type' not in self.initial_data and self.initial_data.get('type'):
+            raise serializers.ValidationError("'type' | This is required")
+        elif 'url'not in self.initial_data or isBlank(self.initial_data.get('url')):
+            raise serializers.ValidationError("'url' | This is required")
+        elif self.initial_data.get('required_params') and not isinstance(self.initial_data['required_params'], list):
+            raise serializers.ValidationError("'required_params' | Only list type is supported")
+        elif self.initial_data.get('required_headers') and not isinstance(self.initial_data['required_headers'], list):
+            raise serializers.ValidationError("'required_headers' | Only list type is supported")
+        elif Functions.objects.filter(type=self.initial_data['type'], name=self.initial_data['name'].strip()).exists():
+            raise serializers.ValidationError(f"Function already exists")
+        data['name'] = self.initial_data['name'].strip()
+        data['type'] = self.initial_data['type']
+        data['url'] = self.initial_data['url'].strip()
+        data['required_params'] = self.initial_data['required_params']
+        data['required_headers'] = self.initial_data['required_headers']
+
+        return data
+
+    @transaction.atomic
+    def create(self, validated_data):
+        try:
+            function = Functions.objects.create(**validated_data)
+        except Exception as e:
+            error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
+            raise serializers.ValidationError(error)
+        return function
+
+    @transaction.atomic
+    def update(self, instance, validated_data):
+        try:
+            function = super().update(instance, validated_data)
+        except Exception as e:
+            error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
+            raise serializers.ValidationError(error)
+        return function
+
+
 class PageCardDataSerializer(serializers.ModelSerializer):
     """Serializer for CardData of PageVersion"""
     items = serializers.SerializerMethodField()
@@ -329,6 +377,8 @@ class PageCardDataSerializer(serializers.ModelSerializer):
     image = Base64ImageField(
         max_length=None, use_url=True,required=False
     )
+    card_function = PageFunctionSerializer(read_only=True)
+
     class Meta:
         model = CardData
         fields = '__all__'
@@ -350,10 +400,10 @@ class PageCardDataSerializer(serializers.ModelSerializer):
 
 class PageCardSerializer(serializers.ModelSerializer):
     """ Serializer for Page Card Mapping"""
-    
+
     class Meta:
         model = PageCard
-        fields = ('card_pos', 'card_priority',)
+        fields = ('card_pos', 'card_priority')
         depth = 1
 
     def to_representation(self, instance):
@@ -578,54 +628,6 @@ class SubBrandSerializer(serializers.ModelSerializer):
         fields = ('brand_name', 'id', 'banner_image')
 
 
-class PageFunctionSerializer(serializers.ModelSerializer):
-    type = ChoicesSerializer(choices=FUNTION_TYPE_CHOICE)
-
-    class Meta:
-        model = Functions
-        fields = ('id', 'type', 'name', 'url', 'required_params', 'required_headers')
-
-
-    def validate(self, data):
-
-        if 'name' not in self.initial_data or isBlank(self.initial_data['name']):
-            raise serializers.ValidationError("'name' | This is required")
-        elif 'type' not in self.initial_data and self.initial_data.get('type'):
-            raise serializers.ValidationError("'type' | This is required")
-        elif 'url'not in self.initial_data or isBlank(self.initial_data.get('url')):
-            raise serializers.ValidationError("'url' | This is required")
-        elif self.initial_data.get('required_params') and not isinstance(self.initial_data['required_params'], list):
-            raise serializers.ValidationError("'required_params' | Only list type is supported")
-        elif self.initial_data.get('required_headers') and not isinstance(self.initial_data['required_headers'], list):
-            raise serializers.ValidationError("'required_headers' | Only list type is supported")
-        elif Functions.objects.filter(type=self.initial_data['type'], name=self.initial_data['name'].strip()).exists():
-            raise serializers.ValidationError(f"Function already exists")
-        data['name'] = self.initial_data['name'].strip()
-        data['type'] = self.initial_data['type']
-        data['url'] = self.initial_data['url'].strip()
-        data['required_params'] = self.initial_data['required_params']
-        data['required_headers'] = self.initial_data['required_headers']
-
-        return data
-
-    @transaction.atomic
-    def create(self, validated_data):
-        try:
-            function = Functions.objects.create(**validated_data)
-        except Exception as e:
-            error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
-            raise serializers.ValidationError(error)
-        return function
-
-    @transaction.atomic
-    def update(self, instance, validated_data):
-        try:
-            function = super().update(instance, validated_data)
-        except Exception as e:
-            error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
-            raise serializers.ValidationError(error)
-        return function
-
 class ProductImageSerializer(serializers.Serializer):
 
     class Meta:
@@ -727,6 +729,7 @@ class LandingPageProductSerializer(serializers.ModelSerializer):
     class Meta:
         model = LandingPageProducts
         fields = ('product',)
+
 
 class LandingPageSerializer(serializers.ModelSerializer):
     app = ApplicationSerializer(read_only=True)

@@ -2,8 +2,7 @@ from django.shortcuts import render
 
 # Create your views here.
 from global_config.models import GlobalConfig
-from shops.models import FOFOConfigurations,FOFOConfig, Shop
-
+from shops.models import FOFOConfigurations, FOFOConfig, Shop
 
 
 def get_config(key, default_value=None):
