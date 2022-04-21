@@ -3447,14 +3447,15 @@ class OrderCentral(APIView):
 
         delivery_option = request.data.get('delivery_option', None)
         # Update Cart To Ordered
-        get_response = self.update_cart_ecom(self.shop)
-        if get_response:
-            return api_response(get_response)
+
         # Refresh redeem reward
         RewardCls.checkout_redeem_points(cart, cart.redeem_points)
         order = self.create_basic_order(cart, shop, address, payment_type_id, delivery_option)
         if type(order) is str:
             return api_response(order)
+        get_response = self.update_cart_ecom(self.shop)
+        if get_response:
+            return api_response(get_response)
         payments = [
             {
                 "payment_type": payment_type_id,
