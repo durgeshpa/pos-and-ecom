@@ -892,6 +892,8 @@ class LoadDispatches(APIView):
             dispatches = dispatches.filter(order__dispatch_center__isnull=True)
 
         if dispatches and commercial:
+            dispatches = dispatches.exclude(shipment_status__in=[OrderedProduct.NOT_ATTEMPT,
+                                            OrderedProduct.RESCHEDULED])
             serializer = CommercialShipmentSerializer(dispatches, many=True)
             msg = {'is_success': True,
                    'message': None,

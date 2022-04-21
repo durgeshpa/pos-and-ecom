@@ -5,13 +5,12 @@ from django.utils.text import slugify
 
 from retailer_backend.validators import (AddressNameValidator, MobileNumberValidator, PinCodeValidator)
 from accounts.models import User
-from retailer_to_sp.models import Order
 from pos.models import RetailerProduct, PosTrip
 from addresses.models import City, State, Pincode
 from ecom.managers import EcomTripModelManager
 
 from retailer_to_sp.models import Cart, OrderedProduct, OrderedProductMapping, CartProductMapping, Order
-
+from shops.models import Shop
 
 
 class Address(models.Model):
@@ -141,3 +140,12 @@ class EcomTrip(PosTrip):
 
     class Meta:
         proxy = True
+
+
+class UserPastPurchases(models.Model):
+    user = models.ForeignKey(User, related_name='user_purchases', on_delete=models.DO_NOTHING)
+    shop = models.ForeignKey(Shop, related_name='products_sold', on_delete=models.DO_NOTHING)
+    product = models.ForeignKey(RetailerProduct, related_name='products_sold', on_delete=models.DO_NOTHING)
+    last_purchased_at = models.DateTimeField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)

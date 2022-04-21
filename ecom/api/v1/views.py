@@ -1,3 +1,5 @@
+import datetime
+
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.authentication import TokenAuthentication
@@ -20,9 +22,9 @@ from ecom.utils import (check_ecom_user, nearby_shops, validate_address_id, chec
                         get_categories_with_products, get_b2c_categories_with_products)
 from ecom.models import Address, Tag
 from .serializers import (AccountSerializer, RewardsSerializer, TagSerializer, UserLocationSerializer, ShopSerializer,
-                          AddressSerializer, CategorySerializer, B2cCategorySerializer, SubCategorySerializer, 
+                          AddressSerializer, CategorySerializer, B2cCategorySerializer, SubCategorySerializer,
                           B2cSubCategorySerializer, TagProductSerializer, Parent_Product_Serilizer,
-                          ShopInfoSerializer)
+                          ShopInfoSerializer, PastPurchasedProductSerializer, RetailerProductSerializer)
 
 from pos.api.v1.serializers import ContectUs
 
@@ -272,6 +274,7 @@ class TagProductView(APIView):
         if products.count() >= 3:
             products = self.pagination_class().paginate_queryset(products, self.request)
             serializer = TagProductSerializer(tag, context={'product': products})
+            # serializer = RetailerProductSerializer(products, many=True)
             is_success, data = True, serializer.data
         return api_response('Tag Found', data, status.HTTP_200_OK, is_success)
 
@@ -330,3 +333,26 @@ class ParentProductDetails(APIView):
         serializer = RetailerProduct.objects.filter(id=pk, shop=shop, is_deleted=False, online_enabled=True)
         serializer = self.serializer_class(serializer, many=True)
         return api_response('products information',serializer.data,status.HTTP_200_OK, True)
+
+class PastPurchasedProducts(APIView):
+    """
+    API to get the products purchased by a user
+    """
+
+    authentication_classes = (TokenAuthentication,)
+    serializer_class = PastPurchasedProductSerializer
+    pagination_class = SmallOffsetPagination
+
+    @check_ecom_user_shop
+    def get(self, request, *args, **kwargs):
+        '''
+        Get retailer products purchase by a user for specific shop
+        '''
+        shop = kwargs['shop']
+        products = RetailerProduct.objects.filter(products_sold__user=request.user, products_sold__shop=shop,
+                                                  is_deleted=False, online_enabled=True)
+        products = self.pagination_class().paginate_queryset(products, self.request)
+        serializer = PastPurchasedProductSerializer(shop, context={'user':request.user, 'shop': shop, 'product': products})
+        is_success, data = True, serializer.data
+        return api_response('Tag Found', data, status.HTTP_200_OK, is_success)
+
