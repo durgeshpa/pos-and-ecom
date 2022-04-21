@@ -3453,7 +3453,7 @@ class OrderCentral(APIView):
         order = self.create_basic_order(cart, shop, address, payment_type_id, delivery_option)
         if type(order) is str:
             return api_response(order)
-        get_response = self.update_cart_ecom(self.shop)
+        get_response = self.update_cart_ecom(self.shop, cart)
         if get_response:
             return api_response(get_response)
         payments = [
@@ -3709,17 +3709,17 @@ class OrderCentral(APIView):
         cart.last_modified_by = self.request.user
         cart.save()
 
-    def update_cart_ecom(self, shop):
+    def update_cart_ecom(self, shop, cart):
         """
             Place order
             Update cart to ordered
             For ecom cart
         """
-        cart = Cart.objects.filter(cart_type='ECOM', buyer=self.request.user, seller_shop=shop,
-                                         cart_status='active').last()
-
-        if not cart:
-            return "Please add items to proceed to order"
+        # cart = Cart.objects.filter(cart_type='ECOM', buyer=self.request.user, seller_shop=shop,
+        #                                  cart_status='active').last()
+        #
+        # if not cart:
+        #     return "Please add items to proceed to order"
         cart.cart_status = 'ordered'
         cart.last_modified_by = self.request.user
         cart.save()
