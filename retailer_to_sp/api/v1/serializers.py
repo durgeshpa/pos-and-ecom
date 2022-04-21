@@ -3399,6 +3399,8 @@ class LoadVerifyPackageSerializer(serializers.ModelSerializer):
 
     def validate(self, data):
         # Validate request data
+        current_user = self.context.get('current_user')
+
         if 'id' in self.initial_data:
             raise serializers.ValidationError('Updating package is not allowed')
         if 'trip_id' not in self.initial_data or not self.initial_data['trip_id']:
@@ -3478,13 +3480,20 @@ class LoadVerifyPackageSerializer(serializers.ModelSerializer):
 
         trip_shipment = None
         if DispatchTripShipmentMapping.objects.filter(
-                trip=trip, shipment_status=DispatchTripShipmentMapping.LOADING_FOR_DC).exists():
+                trip=trip, loaded_by=current_user, shipment_status=DispatchTripShipmentMapping.LOADING_FOR_DC).exists():
             trip_shipment = DispatchTripShipmentMapping.objects.filter(
-                trip=trip, shipment_status=DispatchTripShipmentMapping.LOADING_FOR_DC).last()
+                trip=trip, loaded_by=current_user, shipment_status=DispatchTripShipmentMapping.LOADING_FOR_DC).last()
             current_invoice_being_loaded = trip_shipment.shipment
             if current_invoice_being_loaded != package.shipment:
                 raise serializers.ValidationError(f"Please scan the remaining box in invoice no."
                                                   f" {current_invoice_being_loaded.invoice_no}")
+        elif DispatchTripShipmentMapping.objects.filter(
+                ~Q(loaded_by=current_user), trip=trip, shipment=package.shipment,
+                shipment_status=DispatchTripShipmentMapping.LOADING_FOR_DC).exists():
+            loaded_by = DispatchTripShipmentMapping.objects.filter(
+                ~Q(loaded_by=current_user), trip=trip, shipment=package.shipment,
+                shipment_status=DispatchTripShipmentMapping.LOADING_FOR_DC).last().loaded_by
+            raise serializers.ValidationError(f"Invoice {package.shipment} is currently scanned by {loaded_by}")
 
         status = DispatchTripShipmentPackages.LOADED
         if self.initial_data['status'] == PACKAGE_VERIFY_CHOICES.DAMAGED:
@@ -3507,6 +3516,7 @@ class LoadVerifyPackageSerializer(serializers.ModelSerializer):
         data['trip_shipment_mapping']['shipment'] = package.shipment
         data['trip_shipment_mapping']['shipment_status'] = DispatchTripShipmentMapping.LOADING_FOR_DC
         data['trip_shipment_mapping']['shipment_health'] = shipment_health
+        data['trip_shipment_mapping']['loaded_by'] = current_user
 
         data['trip_package_mapping'] = {}
         data['trip_package_mapping']['trip_shipment'] = trip_shipment
@@ -5023,6 +5033,8 @@ class LastMileLoadVerifyPackageSerializer(serializers.ModelSerializer):
 
     def validate(self, data):
         # Validate request data
+        current_user = self.context.get('current_user')
+
         if 'id' in self.initial_data:
             raise serializers.ValidationError('Updating package is not allowed')
         if 'trip_id' not in self.initial_data or not self.initial_data['trip_id']:
@@ -5077,10 +5089,17 @@ class LastMileLoadVerifyPackageSerializer(serializers.ModelSerializer):
 
         elif trip_shipment.shipment_status == LastMileTripShipmentMapping.TO_BE_LOADED:
             trip_shipment_running = LastMileTripShipmentMapping.objects.filter(
-                trip=trip, shipment_status=LastMileTripShipmentMapping.LOADING_FOR_DC).last()
+                trip=trip, loaded_by=current_user, shipment_status=LastMileTripShipmentMapping.LOADING_FOR_DC).last()
             if trip_shipment_running:
                 raise serializers.ValidationError(f"Please scan the remaining box in invoice no."
                                                   f" {trip_shipment_running.shipment.invoice_no}")
+        elif LastMileTripShipmentMapping.objects.filter(
+                ~Q(loaded_by=current_user), trip=trip, shipment=package.shipment,
+                shipment_status=LastMileTripShipmentMapping.LOADING_FOR_DC).exists():
+            loaded_by = LastMileTripShipmentMapping.objects.filter(
+                ~Q(loaded_by=current_user), trip=trip, shipment=package.shipment,
+                shipment_status=LastMileTripShipmentMapping.LOADING_FOR_DC).last().loaded_by
+            raise serializers.ValidationError(f"Invoice {package.shipment} is currently scanned by {loaded_by}")
 
         status = LastMileTripShipmentPackages.LOADED
         if self.initial_data['status'] == PACKAGE_VERIFY_CHOICES.DAMAGED:
@@ -5103,6 +5122,7 @@ class LastMileLoadVerifyPackageSerializer(serializers.ModelSerializer):
         data['trip_shipment_mapping']['shipment'] = package.shipment
         data['trip_shipment_mapping']['shipment_status'] = LastMileTripShipmentMapping.LOADING_FOR_DC
         data['trip_shipment_mapping']['shipment_health'] = shipment_health
+        data['trip_shipment_mapping']['loaded_by'] = current_user
 
         data['trip_package_mapping'] = {}
         data['trip_package_mapping']['trip_shipment'] = trip_shipment
@@ -5121,6 +5141,7 @@ class LastMileLoadVerifyPackageSerializer(serializers.ModelSerializer):
             else:
                 trip_shipment.shipment_status = validated_data['trip_shipment_mapping']['shipment_status']
                 trip_shipment.shipment_health = validated_data['trip_shipment_mapping']['shipment_health']
+                trip_shipment.loaded_by = validated_data['trip_shipment_mapping']['loaded_by']
                 trip_shipment.save()
             validated_data['trip_package_mapping']['trip_shipment'] = trip_shipment
             trip_package_mapping = LastMileTripShipmentPackages.objects.create(**validated_data['trip_package_mapping'])

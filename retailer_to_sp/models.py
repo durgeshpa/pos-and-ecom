@@ -3716,6 +3716,8 @@ class DispatchTripShipmentMapping(BaseTimestampUserModel):
     shipment = models.ForeignKey(OrderedProduct, related_name='trip_shipment', on_delete=models.DO_NOTHING)
     shipment_status = models.CharField(max_length=100, choices=SHIPMENT_STATUS)
     shipment_health = models.CharField(max_length=100, choices=SHIPMENT_HEALTH)
+    loaded_by = models.ForeignKey(User, related_name='dc_shipments_loaded',
+                                  null=True, blank=True, on_delete=models.CASCADE)
 
 
 class DispatchTripShipmentPackages(BaseTimestampUserModel):
@@ -3776,6 +3778,8 @@ class LastMileTripShipmentMapping(BaseTimestampUserModel):
     shipment = models.ForeignKey(OrderedProduct, related_name='last_mile_trip_shipment', on_delete=models.DO_NOTHING)
     shipment_status = models.CharField(max_length=100, choices=SHIPMENT_STATUS)
     shipment_health = models.CharField(max_length=100, null=True, blank=True, choices=SHIPMENT_HEALTH)
+    loaded_by = models.ForeignKey(User, related_name='last_shipments_loaded',
+                                  null=True, blank=True, on_delete=models.CASCADE)
 
 
 class LastMileTripShipmentPackages(BaseTimestampUserModel):
