@@ -3452,36 +3452,37 @@ class OrderCentral(APIView):
         if get_response:
             return api_response(get_response)
         # Refresh redeem reward
-        RewardCls.checkout_redeem_points(cart, cart.redeem_points)
-        order = self.create_basic_order(cart, shop, address, payment_type_id, delivery_option)
-        payments = [
-            {
-                "payment_type": payment_type_id,
-                "amount": round(order.order_amount),
-                "transaction_id": "",
-                "payment_status": self.request.data.get('payment_status', None),
-                "payment_mode": self.request.data.get('payment_mode', None)
-            }
-        ]
-        self.auto_process_order(order, payments, 'ecom')
-        self.auto_process_ecom_order(order)
-        try:
-            from pyfcm import FCMNotification
-            push_service = FCMNotification(api_key=config('FCM_SERVER_KEY'))
-            devices = Device.objects.filter(user__in=shop.pos_shop.all().values('user__id'),
-                                            is_active=True).distinct('reg_id')
-            for device in devices:
-                registration_id = device.reg_id
-                message_title = f"{shop.shop_name} - Order Alert !!"
-                message_body = f"Hello, You received a new Order of Rs {int(order.order_amount)}"
-                result = push_service.notify_single_device(registration_id=registration_id,
-                                                           message_title=message_title,
-                                                           message_body=message_body)
-                info_logger.info(result)
-        except Exception as e:
-            info_logger.info(e)
-        return api_response('Ordered Successfully!', BasicOrderListSerializer(Order.objects.get(id=order.id)).data,
-                            status.HTTP_200_OK, True)
+        else:
+            RewardCls.checkout_redeem_points(cart, cart.redeem_points)
+            order = self.create_basic_order(cart, shop, address, payment_type_id, delivery_option)
+            payments = [
+                {
+                    "payment_type": payment_type_id,
+                    "amount": round(order.order_amount),
+                    "transaction_id": "",
+                    "payment_status": self.request.data.get('payment_status', None),
+                    "payment_mode": self.request.data.get('payment_mode', None)
+                }
+            ]
+            self.auto_process_order(order, payments, 'ecom')
+            self.auto_process_ecom_order(order)
+            try:
+                from pyfcm import FCMNotification
+                push_service = FCMNotification(api_key=config('FCM_SERVER_KEY'))
+                devices = Device.objects.filter(user__in=shop.pos_shop.all().values('user__id'),
+                                                is_active=True).distinct('reg_id')
+                for device in devices:
+                    registration_id = device.reg_id
+                    message_title = f"{shop.shop_name} - Order Alert !!"
+                    message_body = f"Hello, You received a new Order of Rs {int(order.order_amount)}"
+                    result = push_service.notify_single_device(registration_id=registration_id,
+                                                               message_title=message_title,
+                                                               message_body=message_body)
+                    info_logger.info(result)
+            except Exception as e:
+                info_logger.info(e)
+            return api_response('Ordered Successfully!', BasicOrderListSerializer(Order.objects.get(id=order.id)).data,
+                                status.HTTP_200_OK, True)
 
     def get_retail_validate(self):
         """
