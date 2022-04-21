@@ -90,9 +90,9 @@ class CardItemSerializer(serializers.ModelSerializer):
     image = Base64ImageField(
         max_length=None, use_url=True,required=False, allow_null = True
     )
-    content = serializers.SerializerMethodField()
+    item_content = serializers.SerializerMethodField()
 
-    def get_content(self, obj):
+    def get_item_content(self, obj):
         if not self.context.get('card', None):
             return obj.content
         card = self.context['card']
@@ -106,6 +106,7 @@ class CardItemSerializer(serializers.ModelSerializer):
         except Exception as e:
             info_logger.error(e)
             info_logger.error(f"CardItemSerializer | get_content | Failed to create content for CardItem {obj.id}")
+        return obj.content
     
 
     def to_internal_value(self, data):
@@ -116,8 +117,8 @@ class CardItemSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = CardItem
-        exclude = ('card_data', 'created_at', 'updated_at', 'created_by', 'updated_by')
-
+        fields = ('id', 'image', 'content_id', 'content', 'item_content', 'action', 'priority', 'row', 'subcategory',
+                  'subbrand')
     
     def create(self, validated_data):
         card_id = self.context.get("card_id")
