@@ -3372,6 +3372,7 @@ class OrderCentral(APIView):
             For ecom cart
         """
         shop = kwargs['shop']
+        self.shop = shop
         if not shop.online_inventory_enabled:
             return api_response("Franchise Shop Is Not Online Enabled!")
 
@@ -3447,7 +3448,7 @@ class OrderCentral(APIView):
 
         delivery_option = request.data.get('delivery_option', None)
         # Update Cart To Ordered
-        get_response = self.update_cart_ecom(cart, shop)
+        get_response = self.update_cart_ecom(self.shop)
         if get_response:
             return api_response(get_response)
         # Refresh redeem reward
@@ -3706,7 +3707,7 @@ class OrderCentral(APIView):
         cart.last_modified_by = self.request.user
         cart.save()
 
-    def update_cart_ecom(self, cart, shop):
+    def update_cart_ecom(self, shop):
         """
             Place order
             Update cart to ordered
