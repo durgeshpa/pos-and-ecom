@@ -760,7 +760,7 @@ class LandingPageView(generics.GenericAPIView):
 
     def get(self, request):
         if request.GET.get('id'):
-            landing_pages = LandingPage.objects.filter(app=request.GET.get('app'), id=request.GET.get('id'))
+            landing_pages = LandingPage.objects.filter(id=request.GET.get('id'))
         else:
             self.queryset = self.filter_landing_pages()
             landing_pages = SmallOffsetPagination().paginate_queryset(self.queryset, request)

@@ -3,6 +3,7 @@ from io import StringIO
 import csv
 
 from admin_auto_filters.filters import AutocompleteFilter
+from dal_admin_filters import AutocompleteFilter as DalAutocompleteFilter
 from daterange_filter.filter import DateRangeFilter
 from django.contrib.admin.options import StackedInline
 from rangefilter.filter import DateTimeRangeFilter
@@ -177,6 +178,12 @@ class ChildParentIDFilter(AutocompleteFilter):
 
     def get_autocomplete_url(self, request, model_admin):
         return reverse('admin:parent-product-list-filter-autocomplete')
+
+
+class ParentProductFilter(DalAutocompleteFilter):
+    title = 'Parent Product (ID or Name)'  # display title
+    field_name = 'parent_product'  # name of the foreign key field
+    autocomplete_url = 'parent-product-filter-autocomplete'
 
 
 class ParentBrandFilter(AutocompleteFilter):
@@ -1148,7 +1155,7 @@ class ProductAdmin(admin.ModelAdmin, ExportCsvMixin):
     ]
 
     search_fields = ['product_name', 'id']
-    list_filter = [CategorySearch, ProductBrandSearch, ProductSearch, ChildParentIDFilter, 'status', ProductEanSearch]
+    list_filter = [CategorySearch, ProductBrandSearch, ProductSearch, ParentProductFilter, 'status', ProductEanSearch]
     list_per_page = 50
 
     inlines = [ProductImageAdmin, ProductSourceMappingAdmin, ProductPackingMappingAdmin,
@@ -1262,6 +1269,9 @@ class ProductAdmin(admin.ModelAdmin, ExportCsvMixin):
         for inv in bin_inv:
             inv.weight = inv.quantity * obj.weight_value
             inv.save()
+
+    class Media:
+        pass
 
 
 class MRPSearch(InputFilter):
@@ -2028,7 +2038,7 @@ class DiscountedProductsAdmin(admin.ModelAdmin, ExportCsvMixin):
     readonly_fields = ('product_sku', 'product_name', 'parent_product', 'reason_for_child_sku', 'product_name',
                        'product_ean_code', 'product_mrp', 'status')
 
-    list_filter = [ProductSearch, ChildParentIDFilter]
+    list_filter = [ProductSearch, ParentProductFilter]
 
     search_fields = ['product_name', 'id']
 
@@ -2116,6 +2126,9 @@ class DiscountedProductsAdmin(admin.ModelAdmin, ExportCsvMixin):
                 name='parent-product-list-filter-autocomplete',
             ),]
         return urls
+
+    class Media:
+        pass
 
 
 class GroupTaxMappingInline(admin.TabularInline):
