@@ -613,11 +613,11 @@ class PageVersionDetailView(APIView):
 
         try:
             page_key = f"latest_page_{id}"
-            cached_page = cache.get(page_key, None)
-            if(cached_page):
-                return Response(cached_page, status=status.HTTP_200_OK)
-            else:
-                page = Page.objects.get(id = id)
+            # cached_page = cache.get(page_key, None)
+            # if(cached_page):
+            #     return Response(cached_page, status=status.HTTP_200_OK)
+            # else:
+            page = Page.objects.get(id = id)
         except Exception:
             message = {
                 "is_success": False,

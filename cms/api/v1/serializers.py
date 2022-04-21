@@ -10,7 +10,8 @@ from rest_framework.exceptions import NotFound, ValidationError
 from global_config.views import get_config
 from products.models import Product
 from retailer_backend.common_function import isBlank
-from ...choices import LANDING_PAGE_TYPE_CHOICE, LISTING_SUBTYPE_CHOICE, FUNTION_TYPE_CHOICE, CARD_TYPE_CHOICES
+from ...choices import LANDING_PAGE_TYPE_CHOICE, LISTING_SUBTYPE_CHOICE, FUNTION_TYPE_CHOICE, \
+    CARD_TYPE_PRODUCT, CARD_TYPE_CAREGORY, CARD_TYPE_BRAND
 from ...models import CardData, Card, CardVersion, CardItem, Application, Page, PageCard, PageVersion, ApplicationPage, \
     LandingPage, Functions, LandingPageProducts
 from cms.messages import VALIDATION_ERROR_MESSAGES, ERROR_MESSAGES
@@ -89,6 +90,22 @@ class CardItemSerializer(serializers.ModelSerializer):
     image = Base64ImageField(
         max_length=None, use_url=True,required=False, allow_null = True
     )
+    content = serializers.SerializerMethodField()
+
+    def get_content(self, obj):
+        if not self.context.get('card', None):
+            return obj.content
+        card = self.context['card']
+        try:
+            if card.type == CARD_TYPE_PRODUCT:
+                return ProductSerializer(Product.objects.get(id=obj.content_id)).data
+            elif card.type == CARD_TYPE_CAREGORY:
+                return CategorySerializer(Category.objects.get(id=obj.content_id)).data
+            elif card.type == CARD_TYPE_BRAND:
+                return BrandSerializer(Brand.objects.get(id=obj.content_id)).data
+        except Exception as e:
+            info_logger.error(e)
+            info_logger.error(f"CardItemSerializer | get_content | Failed to create content for CardItem {obj.id}")
     
 
     def to_internal_value(self, data):
@@ -99,8 +116,7 @@ class CardItemSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = CardItem
-        # fields = "__all__"
-        exclude = ('card_data', 'created_at', 'updated_at', 'action', 'created_by', 'updated_by')
+        exclude = ('card_data', 'created_at', 'updated_at', 'created_by', 'updated_by')
 
     
     def create(self, validated_data):
@@ -116,6 +132,23 @@ class CardItemSerializer(serializers.ModelSerializer):
             **validated_data
         )
         return new_card_item
+
+
+def make_cms_item_redirect_url(request, card_type, image_data_type):
+    switcher = {
+        "product" : "/product/api/v1/child-product/?product_type=0&id=",
+        "category" : "/category/api/v1/category/?id=",
+        "brand" : "/brand/api/v1/brand/?id=",
+        "image" : {
+            1 : "/product/api/v1/child-product/?product_type=0&id=",
+            2 : "/retailer/sp/api/v1/GRN/search/?categories=",
+            3 : "/retailer/sp/api/v1/GRN/search/?brands=",
+            4 : "/cms/api/v1/landing-pages/?id="
+        }
+    }
+    if not isinstance(switcher.get(card_type), str):
+        return switcher.get(card_type).get(image_data_type)
+    return switcher.get(card_type)
 
 
 class CardDataSerializer(serializers.ModelSerializer):
@@ -146,12 +179,6 @@ class CardDataSerializer(serializers.ModelSerializer):
         request = self.context.get("request")
         data = request.data
         items = validated_data.pop("items")
-        new_card_data = CardData.objects.create(**validated_data)
-        for item in items:
-            CardItem.objects.create(card_data=new_card_data,**item)
-
-        
-        
         card = None
         card_id = data.get("card_id")
 
@@ -161,14 +188,21 @@ class CardDataSerializer(serializers.ModelSerializer):
             except:
                 raise NotFound(detail=ERROR_MESSAGES["CARD_ID_NOT_FOUND"].format(card_id))
 
+        new_card_data = CardData.objects.create(**validated_data)
+        # redirect_url_base = make_cms_item_redirect_url(request, card.card_type, card.image_data_type)
+        # for item in items:
+        #     item['action_url'] = request.build_absolute_uri(redirect_url_base + str(item['content_id']))
+        #     CardItem.objects.create(card_data=new_card_data,**item)
+
+        
+        
+
         if card:
             latest_version = card.versions.all().order_by('-version_number').first().version_number + 1
             CardVersion.objects.create(version_number=latest_version,
                                                             card=card,
                                                             card_data=new_card_data,
                                                             )
-            # card.name=data["name"]
-            # card.save()
             info_logger.info(f"Create New Card Version version-{latest_version} for card  id-{card.id}, name-{card.name}")
         else:
             app_id = data.get("app_id")
@@ -181,22 +215,21 @@ class CardDataSerializer(serializers.ModelSerializer):
             if data.get('category_subtype'):
                 category = Category.objects.get(id = data['category_subtype'])
                 data['category_subtype'] = category
-                # new_card = Card.objects.create(app=app,name=data["name"], type=data["type"], category_subtype = category)
             elif data.get('brand_subtype'):
                 brand = Brand.objects.get(id = data['brand_subtype'])
                 data['brand_subtype'] = brand
-                # new_card = Card.objects.create(app=app,name=data["name"], type=data["type"], brand_subtype = brand)
-            # elif data.get('sub_type'):
-            #     new_card = Card.objects.create(app=app,name=data["name"], type=data["type"], sub_type=data['sub_type'])
-            # else:
-            #     new_card = Card.objects.create(app=app,name=data["name"], type=data["type"])
-            new_card = Card.objects.create(**data)
+            card = Card.objects.create(**data)
             CardVersion.objects.create(version_number=1,
-                                                            card=new_card,
+                                                            card=card,
                                                             card_data=new_card_data,
                                                             )
-            info_logger.info(f"Created New Card with ID {new_card.id}")
-        
+            info_logger.info(f"Created New Card with ID {card.id}")
+
+        redirect_url_base = make_cms_item_redirect_url(request, card.type, card.image_data_type)
+        for item in items:
+            item['action'] = request.build_absolute_uri(redirect_url_base + str(item['content_id']))
+            CardItem.objects.create(card_data=new_card_data,**item)
+
         return new_card_data
     
     # def update(self, instance, validated_data):
@@ -339,8 +372,8 @@ class PageFunctionSerializer(serializers.ModelSerializer):
 
 class PageCardDataSerializer(serializers.ModelSerializer):
     """Serializer for CardData of PageVersion"""
-
-    items = CardItemSerializer(many=True, required=False)
+    items = serializers.SerializerMethodField()
+    # items = CardItemSerializer(many=True, required=False)
     image = Base64ImageField(
         max_length=None, use_url=True,required=False
     )
@@ -350,6 +383,9 @@ class PageCardDataSerializer(serializers.ModelSerializer):
         model = CardData
         fields = '__all__'
 
+    def get_items(self, obj):
+        return CardItemSerializer(obj.items, many=True, context=self.context).data
+
     def to_representation(self, instance):
         """ Add card_id to data """
         data = super().to_representation(instance)
@@ -358,7 +394,7 @@ class PageCardDataSerializer(serializers.ModelSerializer):
         data['card_name'] = card_version.card.name
         data['card_type'] = card_version.card.type
         data['card_sub_type'] = card_version.card.get_sub_type_display()
-      
+        data['image_data_type'] = card_version.card.get_image_data_type_display()
         return data
 
 
@@ -373,7 +409,7 @@ class PageCardSerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         data = super().to_representation(instance)
         card_version=CardVersion.objects.filter(card = instance.card_version.card).last()
-        data['card_data'] = PageCardDataSerializer(card_version.card_data).data
+        data['card_data'] = PageCardDataSerializer(card_version.card_data, context={'card':card_version.card}).data
         return data
 
 
@@ -592,10 +628,101 @@ class SubBrandSerializer(serializers.ModelSerializer):
         fields = ('brand_name', 'id', 'banner_image')
 
 
+class ProductImageSerializer(serializers.Serializer):
+
+    class Meta:
+        fields = ('image_name', 'image_url')
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        data['image_name'] = instance.image_name
+        data['image_url'] = instance.image.url
+        return data
+
+
 class ProductSerializer(serializers.ModelSerializer):
+    product_images = serializers.SerializerMethodField()
+    # name = serializers.SerializerMethodField(source='product_name')
+    # ean = serializers.SerializerMethodField(source='product_ean_code')
+    # mrp = serializers.SerializerMethodField(source='product_mrp')
+    category = serializers.SerializerMethodField()
+    brand = serializers.SerializerMethodField()
+    online_price = serializers.SerializerMethodField()
+    brand_id = serializers.SerializerMethodField()
+    category_id = serializers.SerializerMethodField()
+    sub_category = serializers.SerializerMethodField()
+    sub_category_id = serializers.SerializerMethodField()
+
     class Meta:
         model = Product
-        fields = ('id', 'product_sku', 'product_name', 'product_mrp',)
+        fields = ('id', 'online_price', 'product_images', 'category', 'category_id', 'brand', 'brand_id',
+                  'sub_category', 'sub_category_id')
+
+    def get_product_images(self, obj):
+        images = obj.product_pro_image.all()
+        if not images:
+            parent_product = obj.parent_product
+            if parent_product:
+                images = parent_product.parent_product_pro_image.all()
+        return ProductImageSerializer(images, many=True).data
+
+    def get_brand(self, obj):
+        try:
+            brand = str(obj.product_brand)
+            return brand if brand else ''
+        except:
+            return ''
+
+    def get_category(self, obj):
+        try:
+            category = [str(c.category) for c in
+                        obj.parent_product.parent_product_pro_b2c_category.filter(status=True)]
+            return category if category else ''
+        except:
+            return ''
+
+
+    def get_brand_id(self, obj):
+        try:
+            brand_id = str(obj.product_brand.id)
+            return brand_id if brand_id else ''
+        except:
+            return ''
+
+    def get_category_id(self, obj):
+        try:
+            category_id = [str(c.category_id) for c in
+                           obj.parent_product.parent_product_pro_b2c_category.filter(status=True)]
+            return category_id if category_id else ''
+        except:
+            return ''
+
+    def get_sub_category(self, obj):
+        try:
+            category = [str(c.category) for c in
+                        obj.parent_product.parent_product_pro_b2c_category.filter(status=True)]
+            return category if category else ''
+        except:
+            return ''
+
+    def get_sub_category_id(self, obj):
+        try:
+            category_id = [str(c.category_id) for c in
+                           obj.parent_product.parent_product_pro_b2c_category.filter(status=True)]
+            return category_id if category_id else ''
+        except:
+            return ''
+
+    def get_online_price(self, obj):
+        return None
+
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        data['name'] = instance.product_name
+        data['ean'] = instance.product_ean_code
+        data['mrp'] = instance.product_mrp
+        return data
 
 
 class LandingPageProductSerializer(serializers.ModelSerializer):

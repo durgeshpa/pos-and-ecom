@@ -24,7 +24,7 @@ from ecom.models import Address, Tag
 from .serializers import (AccountSerializer, RewardsSerializer, TagSerializer, UserLocationSerializer, ShopSerializer,
                           AddressSerializer, CategorySerializer, B2cCategorySerializer, SubCategorySerializer,
                           B2cSubCategorySerializer, TagProductSerializer, Parent_Product_Serilizer,
-                          ShopInfoSerializer, PastPurchasedProductSerializer)
+                          ShopInfoSerializer, PastPurchasedProductSerializer, RetailerProductSerializer)
 
 from pos.api.v1.serializers import ContectUs
 
@@ -273,7 +273,8 @@ class TagProductView(APIView):
         is_success, data = False, []
         if products.count() >= 3:
             products = self.pagination_class().paginate_queryset(products, self.request)
-            serializer = TagProductSerializer(tag, context={'product': products})
+            # serializer = TagProductSerializer(tag, context={'product': products})
+            serializer = RetailerProductSerializer(products, many=True)
             is_success, data = True, serializer.data
         return api_response('Tag Found', data, status.HTTP_200_OK, is_success)
 
