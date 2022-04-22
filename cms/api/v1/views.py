@@ -514,7 +514,8 @@ class PageDetailView(APIView):
 
     def get(self, request, id, format = None):
         """Get page specific details"""
-        
+
+        request.META['HTTP_X_FORWARDED_PROTO'] = 'https'
         query_params = request.query_params
         try:
             page = Page.objects.get(id = id)
@@ -610,6 +611,7 @@ class PageVersionDetailView(APIView):
 
     def get(self, request, id, *args, **kwargs):
         """Get Data of Latest Version"""
+        request.META['HTTP_X_FORWARDED_PROTO'] = 'https'
         shop_id = kwargs.get('shop', None)
         try:
             page_key = f"latest_page_{id}"
@@ -754,7 +756,7 @@ class PageFunctionView(generics.GenericAPIView):
 class LandingPageView(generics.GenericAPIView):
 
     authentication_classes = (authentication.TokenAuthentication,)
-    permission_classes = (permissions.IsAuthenticated, IsCMSDesigner)
+    permission_classes = (permissions.IsAuthenticated)
     queryset = LandingPage.objects.order_by('-id')
     serializer_class = LandingPageSerializer
 
