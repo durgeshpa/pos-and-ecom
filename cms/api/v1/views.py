@@ -756,7 +756,7 @@ class PageFunctionView(generics.GenericAPIView):
 class LandingPageView(generics.GenericAPIView):
 
     authentication_classes = (authentication.TokenAuthentication,)
-    permission_classes = (permissions.IsAuthenticated)
+    permission_classes = (permissions.IsAuthenticated, )
     queryset = LandingPage.objects.order_by('-id')
     serializer_class = LandingPageSerializer
 
