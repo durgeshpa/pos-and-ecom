@@ -39,7 +39,8 @@ from shops.models import Shop, ParentRetailerMapping, ShopUserMapping, ShopMigra
 from brand.models import Brand
 from categories import models as categorymodel
 from common.common_utils import (create_file_name, single_pdf_file, create_merge_pdf_name, merge_pdf_files,
-                                 create_invoice_data, whatsapp_opt_in, whatsapp_order_cancel, whatsapp_order_refund)
+                                 create_invoice_data, whatsapp_opt_in, whatsapp_order_cancel, whatsapp_order_refund, 
+                                 whatsapp_order_delivered)
 from common.constants import PREFIX_CREDIT_NOTE_FILE_NAME, ZERO, PREFIX_INVOICE_FILE_NAME, INVOICE_DOWNLOAD_ZIP_NAME
 from common.data_wrapper_view import DataWrapperViewSet
 from coupon.models import Coupon, CusotmerCouponUsage
@@ -60,7 +61,6 @@ from pos.api.v1.serializers import (BasicCartSerializer, BasicCartListSerializer
                                     RetailerProductResponseSerializer, PosShopUserMappingListSerializer,
                                     PaymentTypeSerializer, PosEcomOrderDetailSerializer,
                                     RetailerOrderedDashBoardSerializer, PosEcomShopSerializer)
-
 from pos.common_functions import (api_response, delete_cart_mapping, ORDER_STATUS_MAP, RetailerProductCls,
                                   update_customer_pos_cart, PosInventoryCls, RewardCls, serializer_error,
                                   check_pos_shop, PosAddToCart, PosCartCls, ONLINE_ORDER_STATUS_MAP,
@@ -3078,7 +3078,16 @@ class OrderCentral(APIView):
                     return api_response("Invalid Order update")
                 order.order_status = order_status
                 order.last_modified_by = self.request.user
+                if order_status == Order.DELIVERED:
+                    shop = kwargs['shop']
+                    if shop.enable_loyalty_points: ## credit point on order delivery complete
+                        if ReferralCode.is_marketing_user(order.buyer):
+                            order.points_added = order_loyalty_points_credit(order.order_amount, order.buyer.id, order.order_no,
+                                                                            'order_credit', 'order_indirect_credit',
+                                                                            self.request.user.id, order.seller_shop.id)
                 order.save()
+                if order_status == Order.DELIVERED:
+                    whatsapp_order_delivered(order.order_no, shop.shop_name, order.buyer.phone_number, order.points_added, shop.enable_loyalty_points)
                 try:
                     shipment = OrderedProduct.objects.filter(order=order).last()
                     shipment.shipment_status = order_status
@@ -3481,8 +3490,12 @@ class OrderCentral(APIView):
                     info_logger.info(result)
             except Exception as e:
                 info_logger.info(e)
-            return api_response('Ordered Successfully!', BasicOrderListSerializer(Order.objects.get(id=order.id)).data,
-                                status.HTTP_200_OK, True)
+            if shop.enable_loyalty_points:
+                msg = 'Ordered Successfully, Reward points will be credited after delivery!'
+            else:
+                msg = 'Ordered Successfully!'
+            return api_response(msg, BasicOrderListSerializer(Order.objects.get(id=order.id)).data,
+                                 status.HTTP_200_OK, True)
 
     def get_retail_validate(self):
         """
@@ -3946,12 +3959,6 @@ class OrderCentral(APIView):
         # shops_str = GlobalConfig.objects.get(key=app_type + '_loyalty_shop_ids').value
         # shops_str = str(shops_str) if shops_str else ''
         # if shops_str == 'all' or (shops_str and str(order.seller_shop.id) in shops_str.split(',')):
-        if self.shop.enable_loyalty_points:
-            if ReferralCode.is_marketing_user(order.buyer):
-                order.points_added = order_loyalty_points_credit(order.order_amount, order.buyer.id, order.order_no,
-                                                                 'order_credit', 'order_indirect_credit',
-                                                                 self.request.user.id, order.seller_shop.id)
-                order.save()
         # Add free products
         offers = order.ordered_cart.offers
         product_qty_map = {}
