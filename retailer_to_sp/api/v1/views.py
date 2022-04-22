@@ -438,7 +438,7 @@ class SearchProducts(APIView):
                 for word in tokens:
                     keyword += "*" + word + "* "
                 keyword = keyword.strip()
-                query_string = {"query": "*" + keyword + "*", "fields": ["name"], "minimum_should_match": 2}
+                query_string = {"query": "*" + keyword + "*", "fields": ["category","sub_category","brand","name"], "minimum_should_match": 2}
         if category_ids:
             category = category_ids.split(',')
             if app_type == '3':
