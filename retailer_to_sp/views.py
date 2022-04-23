@@ -2034,6 +2034,7 @@ def create_shipment(sender, instance=None, created=False, **kwargs):
 
 @transaction.atomic
 def create_order_shipment(order_instance):
+
     info_logger.info(f"create_order_shipment|order no{order_instance.order_no}")
     if OrderedProduct.objects.filter(order=order_instance).exists():
         info_logger.info(f"create_order_shipment|shipment already created for {order_instance.order_no}")

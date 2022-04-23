@@ -17,11 +17,12 @@ from django.utils.safestring import mark_safe
 from django.utils.translation import ugettext_lazy as _
 from django.utils.html import format_html_join, format_html
 from model_utils import Choices
-from django.core.validators import MinValueValidator
+from django.core.validators import MinValueValidator, MaxValueValidator
 
 from celery.task import task
 from accounts.middlewares import get_current_user
 from retailer_backend import common_function as CommonFunction
+from retailer_backend.validators import PercentageValidator
 from .bulk_order_clean import bulk_order_validation
 from .common_function import reserved_args_json_data
 from .utils import (order_invoices, order_shipment_status, order_shipment_amount, order_shipment_details_util,
@@ -2076,6 +2077,9 @@ class OrderedProduct(models.Model):  # Shipment
 class Invoice(models.Model):
     invoice_no = models.CharField(max_length=255, unique=True, db_index=True)
     shipment = models.OneToOneField(OrderedProduct, related_name='invoice', on_delete=models.DO_NOTHING)
+    invoice_amount = models.PositiveIntegerField()
+    tcs_percent = models.PositiveSmallIntegerField(validators=[PercentageValidator,], default=0)
+    tcs_amount = models.PositiveIntegerField(default=0)
     invoice_pdf = models.FileField(upload_to='shop_photos/shop_name/documents/', null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True, null=True)
     modified_at = models.DateTimeField(auto_now=True, null=True)
@@ -3860,3 +3864,16 @@ class ENoteData(Note):
         proxy = True
         verbose_name = 'e-note'
         verbose_name_plural = 'e-notes'
+
+
+class BuyerPurchaseData(models.Model):
+    seller_shop = models.ForeignKey(Shop, related_name='shop_sale', on_delete=models.DO_NOTHING)
+    buyer = models.ForeignKey(Shop, related_name='buyer_purchase', on_delete=models.DO_NOTHING)
+    fin_year = models.PositiveSmallIntegerField(validators=[MinValueValidator(2019),
+                                                            MaxValueValidator(datetime.datetime.now().year)])
+    total_purchase = models.PositiveIntegerField(default=0)
+    is_tcs_applicable = models.BooleanField(default=False)
+    tcs_applicable_after = models.DateField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
+
