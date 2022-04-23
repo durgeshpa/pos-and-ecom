@@ -10635,10 +10635,10 @@ class PosOrderUserSearchView(generics.GenericAPIView):
     def get(self, request, *args, **kwargs):
         search = self.request.query_params.get('search')
         if search:
-            qs = User.objects.filter(Q(first_name__istartswith=search) | 
-                                    #  Q(last_name__icontains=search) | 
-                                     Q(phone_number__istartswith=search), 
-                                    #  is_ecom_user=True
+            qs = User.objects.filter(Q(first_name__istartswith=search) |
+                                    #  Q(last_name__icontains=search) |
+                                     Q(phone_number__istartswith=search),
+                                     #  is_ecom_user=True
                                      )
             serializer = self.serializer_class(qs, many=True)
             msg = 'success'
