@@ -199,7 +199,7 @@ def update_es(products, shop_id):
         es.index(index=create_es_index('rp-{}'.format(shop_id)), id=params['id'], body=params)
 
 
-def order_loyalty_points_credit(amount, user_id, tid, t_type_b, t_type_i, changed_by=None, shop_id=None):
+def order_loyalty_points_credit(amount, user_id, tid, t_type_b, t_type_i, changed_by=None, shop=None,app_type="POS"):
     """
         Loyalty points to buyer, user who referred buyer and ancestor referrers of user who referred buyer
     """
@@ -210,7 +210,7 @@ def order_loyalty_points_credit(amount, user_id, tid, t_type_b, t_type_i, change
             if changed_by:
                 changed_by = User.objects.get(id=changed_by)
             # Buyer Rewards
-            points_credit = RewardCls.order_buyer_points(amount, user, tid, t_type_b, changed_by)
+            points_credit = RewardCls.order_buyer_points(amount, user, tid, t_type_b, changed_by, shop, app_type)
 
             # Reward Referrer Direct and Indirect
             referral_obj = Referral.objects.filter(referral_to_user=user).last()

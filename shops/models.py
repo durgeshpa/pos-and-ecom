@@ -141,7 +141,7 @@ class Shop(models.Model):
     online_inventory_enabled = models.BooleanField(default=True, verbose_name='Online Inventory Enabled')
     cutoff_time = models.TimeField(null=True, blank=True)
     dynamic_beat = models.BooleanField(default=False)
-    status_reward_configuration = models.CharField(max_length=20, choices=Choices, default='deactive')
+    #status_reward_configuration = models.CharField(max_length=20, choices=Choices, default='deactive')
 
     # last_order_at = models.DateTimeField(auto_now_add=True)
     # last_login_at = models.DateTimeField(auto_now_add=True)
@@ -787,7 +787,7 @@ class FOFOConfigSubCategory(models.Model):
         ("float", "Float"),
         ("bool", "Boolean"),
     )
-    category = models.ForeignKey(FOFOConfigCategory, related_name='fofo_category_details', on_delete=models.CASCADE,null=True)
+    category = models.ForeignKey(FOFOConfigCategory, related_name='fofo_category_details', on_delete=models.CASCADE,null=True, blank=True)
     name = CaseInsensitiveCharField(max_length=125)
     type = models.CharField(max_length=20, choices=FIELD_TYPE_CHOICES, default='int')
 
@@ -795,8 +795,10 @@ class FOFOConfigSubCategory(models.Model):
         unique_together = ('category', 'name',)
 
     def __str__(self):
-        return str(self.category) + " - " + str(self.name)
+        if self.category:
+            return str(self.category) + " - " + str(self.name)
 
+        return str(" ".join(str(self.name).split('_')))
 
 class FOFOConfigurations(models.Model):
     """
@@ -814,11 +816,15 @@ class FOFOConfigurations(models.Model):
     def clean(self):
         if self.value and self.value.__class__.__name__ == 'JSONString':
             self.value = str(self.value)
+        if self.value == "true":
+            self.value = True
+        if self.value == "false":
+            self.value = False
         if self.value and self.value.__class__.__name__ != self.key.type:
             raise ValidationError('value {} can only be {} type'.format(self.value, self.key.get_type_display()))
 
     def __str__(self):
-        return str(self.key)
+        return str(" ".join(str(self.key).split('_')))
 
     class Meta:
         permissions = (

@@ -1379,11 +1379,11 @@ class ByPincodeFilter(InputFilter):
 
 class PosStoreRewardMappingsAdmin(admin.ModelAdmin):
     inlines = [FOFOConfigurationsInline]
-    fields = ['status_reward_configuration', 'shop_name']
+    fields = ['enable_loyalty_points', 'shop_name']
     search_fields = ['shop_name']
     readonly_fields = ('shop_name',)
     list_filter = ('status','shop_type__shop_sub_type__retailer_type_name',
-                   CityFilter, ByPincodeFilter, 'status_reward_configuration',
+                   CityFilter, ByPincodeFilter, 'enable_loyalty_points',
                    )
     def get_queryset(self ,request):
         qs = super(PosStoreRewardMappingsAdmin, self).get_queryset(request)
