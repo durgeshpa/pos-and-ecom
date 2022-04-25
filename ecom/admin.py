@@ -100,10 +100,11 @@ class Seller_SHOP(SimpleListFilter):
         else:
             return queryset
 
+
 class EcomOrderProductAdmin(admin.ModelAdmin):
     search_fields = ('order_no', 'rt_order_order_product__invoice__invoice_no')
     list_per_page = 10
-    list_display = ('order_no', 'order_status', 'buyer_address', 'invoice_no', 'download_invoice', 'created_at')
+    list_display = ('order_no', 'order_status', 'buyer_address', 'invoice_no', 'download_invoice', 'created_at',)
 
     actions = ['download_order_reports']
 
@@ -113,7 +114,7 @@ class EcomOrderProductAdmin(admin.ModelAdmin):
 
         (_('Order Details'), {
             'fields': ('id', 'order_no', 'invoice_no', 'order_status', 'order_cancellation_reason', 'buyer',
-                       'buyer_address')}),
+                       'buyer_address', 'delivered_at')}),
 
         (_('Amount Details'), {
             'fields': ('sub_total', 'offer_discount', 'reward_discount', 'order_amount')}),
@@ -150,6 +151,9 @@ class EcomOrderProductAdmin(admin.ModelAdmin):
 
     def order_no(self, obj):
         return obj.order_no
+
+    def delivered_at(self, obj):
+        return obj.delivered_at
 
     def download_invoice(self, obj):
         try:
