@@ -123,7 +123,7 @@ def generate_ecom_order_csv_report(queryset):
     response['Content-Disposition'] = 'attachement; filename="{}"'.format(filename)
     csv_writer = csv.writer(response)
     csv_writer.writerow([
-        'Order No', 'Invoice No', 'Order Status', 'Order Created At', 'Seller Shop ID',
+        'Order No', 'Invoice No', 'Order Status', 'Order Created At', 'Order Delivered At', 'Seller Shop ID',
         'Seller Shop Name', 'Seller Shop Owner Id', 'Seller Shop Owner Name', 'Mobile No.(Seller Shop)',
         'Seller Shop Type', 'Buyer Id', 'Buyer Name', 'Mobile No(Buyer)', 'Purchased Product Id',
         'Purchased Product SKU', 'Purchased Product Name', 'Purchased Product Ean Code', 'B2B Category',
@@ -134,8 +134,10 @@ def generate_ecom_order_csv_report(queryset):
         'Redeemed Points', 'Redeemed Points Value'
     ])
     orders = queryset \
-        .prefetch_related('order', 'invoice','pos_trips', 'order__ordered_cart__seller_shop', 'order__ordered_cart__seller_shop__shop_owner',
-                          'order__ordered_cart__seller_shop__shop_type__shop_sub_type', 'order__buyer', 'rt_order_product_order_product_mapping',
+        .prefetch_related('order', 'invoice','pos_trips', 'order__ordered_cart__seller_shop',
+                          'order__ordered_cart__seller_shop__shop_owner',
+                          'order__ordered_cart__seller_shop__shop_type__shop_sub_type', 'order__buyer',
+                          'rt_order_product_order_product_mapping',
                           'rt_order_product_order_product_mapping__retailer_product',
                           'rt_order_product_order_product_mapping__retailer_product__linked_product',
                           'rt_order_product_order_product_mapping__retailer_product__linked_product__parent_product',
@@ -148,9 +150,11 @@ def generate_ecom_order_csv_report(queryset):
                           'rt_payment_retailer_order__payment_type', 'ordered_cart', 'ordered_cart__rt_cart_list'
                           )\
         .annotate(
-            purchased_subtotal=RoundAmount(Sum(F('ordered_cart__rt_cart_list__qty') * F('ordered_cart__rt_cart_list__selling_price'),output_field=FloatField())),
+            purchased_subtotal=RoundAmount(Sum(F('ordered_cart__rt_cart_list__qty') *
+                                               F('ordered_cart__rt_cart_list__selling_price'),output_field=FloatField())),
             ) \
-        .values('id', 'order_no', 'rt_order_order_product__invoice__invoice_no', 'order_status', 'created_at', 'ordered_cart__seller_shop__id', 'ordered_cart__seller_shop__shop_name',
+        .values('id', 'order_no', 'rt_order_order_product__invoice__invoice_no', 'order_status', 'created_at',
+                'ordered_cart__seller_shop__id', 'ordered_cart__seller_shop__shop_name', 'delivered_at',
                 'ordered_cart__seller_shop__shop_owner__id', 'ordered_cart__seller_shop__shop_owner__first_name',
                 'ordered_cart__seller_shop__shop_owner__phone_number',
                 'ordered_cart__seller_shop__shop_type__shop_sub_type__retailer_type_name',
@@ -245,11 +249,15 @@ def generate_ecom_order_csv_report(queryset):
             price_value="{:.2f}".format(order.get('rt_order_order_product__rt_order_product_order_product_mapping__delivered_qty')*order.get('rt_order_order_product__rt_order_product_order_product_mapping__selling_price'))
         except:
             price_value=float(0.0)
+        delivered_at = None
+        if order.get('delivered_at'):
+            delivered_at = order.get('delivered_at').strftime('%m/%d/%Y-%H-%M-%S')
         csv_writer.writerow([
             order.get('order_no'),
             order.get('rt_order_order_product__invoice__invoice_no'),
             str(order.get('order_status')).capitalize(),
             order.get('created_at').strftime('%m/%d/%Y-%H-%M-%S'),
+            delivered_at,
             order.get('ordered_cart__seller_shop__id'),
             order.get('ordered_cart__seller_shop__shop_name'),
             order.get('ordered_cart__seller_shop__shop_owner__id'),
