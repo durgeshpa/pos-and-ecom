@@ -17,8 +17,8 @@ from .models import (
     ShopPhoto, ShopDocument, ShopInvoicePattern, ShopUserMapping,
     ShopRequestBrand, SalesAppVersion, ShopTiming, FavouriteProduct, BeatPlanning, DayBeatPlanning, ExecutiveFeedback,
     ShopStatusLog, FOFOConfigCategory, FOFOConfigSubCategory, FOFOConfigurations, FOFOConfig)
-from addresses.models import Address, DispatchCenterCityMapping, DispatchCenterPincodeMapping
-from addresses.forms import AddressForm
+from addresses.models import Address, DispatchCenterCityMapping, DispatchCenterPincodeMapping, ShopRoute
+from addresses.forms import AddressForm, ShopRouteForm
 from .forms import (ParentRetailerMappingForm, PosShopUserMappingForm, ShopParentRetailerMappingForm,
                     ShopForm, RequiredInlineFormSet, BeatPlanningAdminForm,
                     AddressInlineFormSet, ShopUserMappingForm, ShopTimingForm, DispatchCenterCityMappingInlineFormSet,
@@ -173,6 +173,16 @@ class ShopInvoicePatternAdmin(admin.TabularInline):
     fields = ('pattern', 'status')
 
 
+class ShopRouteInlineAdmin(admin.TabularInline):
+    model = ShopRoute
+    form = ShopRouteForm
+    max_num = 1
+    fields = ('city', 'route',)
+
+    def city(self, obj):
+        return obj.route.city
+
+
 class AddressAdmin(admin.TabularInline):
     model = Address
     formset = AddressInlineFormSet
@@ -268,10 +278,10 @@ class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
     fields = ['shop_name', 'shop_owner', 'shop_type', 'status', 'pos_enabled', 'online_inventory_enabled',
               'enable_loyalty_points',
               'latitude', 'longitude', 'approval_status', 'cutoff_time', 'disapproval_status_reason']
-    actions = ["export_as_csv", "disable_shop", "download_status_report"]
+    actions = ["export_as_csv", "disable_shop", "download_status_report", "download_shop_routes"]
     inlines = [
         ShopPhotosAdmin, ShopDocumentsAdmin, AddressAdmin, DispatchCenterCityAdmin, DispatchCenterPincodeAdmin,
-        ShopInvoicePatternAdmin, ShopParentRetailerMapping, ShopStatusAdmin
+        ShopRouteInlineAdmin, ShopInvoicePatternAdmin, ShopParentRetailerMapping, ShopStatusAdmin
     ]
     list_display = (
         'shop_name', 'get_shop_shipping_address', 'get_shop_pin_code', 'get_shop_parent',"working_off_start_date", 'working_off_end_date',
@@ -290,7 +300,8 @@ class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
 
     def changeform_view(self, request, object_id, form_url='', extra_context=None):
         self.inlines = [ShopPhotosAdmin, ShopDocumentsAdmin, AddressAdmin, ShopInvoicePatternAdmin,
-                        DispatchCenterCityAdmin, DispatchCenterPincodeAdmin, ShopParentRetailerMapping, ShopStatusAdmin]
+                        DispatchCenterCityAdmin, DispatchCenterPincodeAdmin, ShopRouteInlineAdmin, 
+                        ShopParentRetailerMapping, ShopStatusAdmin]
         if request.user.is_superuser or request.user.has_perm('shops.has_fofo_config_operations'):
             self.inlines.append(FOFOConfigurationsInline)
         if request.user.is_superuser or request.user.has_perm('shops.has_fofo_config_operations_shop'):
@@ -426,6 +437,23 @@ class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
         for s_id in queryset:
             data = ShopStatusLog.objects.values_list(
                 'shop__id', 'shop__shop_name', 'reason', 'changed_at', 'user__id', 'user__first_name') \
+                .filter(shop=s_id)
+            for obj in data:
+                writer.writerow(list(obj))
+        return response
+
+    def download_shop_routes(self, request, queryset):
+
+        field_names = ['shop_id', 'shop_name', 'city_id', 'city_name', 'route_id', 'route']
+        meta = self.model._meta
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename={}.csv'.format(meta)
+
+        writer = csv.writer(response)
+        writer.writerow(field_names)
+        for s_id in queryset:
+            data = ShopRoute.objects.values_list(
+                'shop__id', 'shop__shop_name', 'route__city_id', 'route__city__city_name', 'route_id', 'route__name') \
                 .filter(shop=s_id)
             for obj in data:
                 writer.writerow(list(obj))

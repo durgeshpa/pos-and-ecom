@@ -18,6 +18,7 @@ class ShopOwnerNameListSerializer(serializers.ModelSerializer):
         model = Shop
         fields = ('shop_owner_id', 'first_name',
                   'last_name', 'phone_number', 'email',)
+        ref_name = "Shop Owner Name List Serializer v1"
 
     def get_user_id(self, obj):
         return obj.shop_owner.id if obj.shop_owner else None
@@ -65,12 +66,14 @@ class RetailerTypeSerializer(serializers.ModelSerializer):
     class Meta:
         model = RetailerType
         fields = ('id', 'retailer_type_name')
+        ref_name = "RetailerTypeSerializer v1"
 
 class ShopTypeListSerializers(serializers.ModelSerializer):
     shop_sub_type = RetailerTypeSerializer(read_only=True)
 
     class Meta:
         model = ShopType
+        ref_name = "ShopTypeListSerializers v1"
         fields = ('id', 'shop_type', 'shop_sub_type')
 
     def to_representation(self, instance):

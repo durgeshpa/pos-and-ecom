@@ -191,3 +191,12 @@ def shop_sub_category_search(queryset, search_text):
     '''
     queryset = queryset.filter(Q(category__name__icontains=search_text) | Q(name__icontains=search_text))
     return queryset
+
+
+def shop_route_search(queryset, search_text):
+    '''
+    search using shop_name, route city name & route name based on criteria that matches
+    '''
+    queryset = queryset.filter(Q(shop__shop_name__icontains=search_text) | Q(
+        route__name__icontains=search_text) | Q(route__city__city_name__icontains=search_text))
+    return queryset

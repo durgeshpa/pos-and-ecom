@@ -25,8 +25,7 @@ from shops.models import Shop
 from .serializers import (AccountSerializer, RewardsSerializer, TagSerializer, UserLocationSerializer, ShopSerializer,
                           AddressSerializer, CategorySerializer, B2cCategorySerializer, SubCategorySerializer,
                           B2cSubCategorySerializer, TagProductSerializer, Parent_Product_Serilizer,
-                          ShopInfoSerializer, PastPurchasedProductSerializer, ReferAndEarnSerializer)
-
+                          ShopInfoSerializer, PastPurchasedProductSerializer, ReferAndEarnSerializer, RetailerProductSerializer)
 
 from pos.api.v1.serializers import ContectUs
 
@@ -302,7 +301,8 @@ class TagProductView(APIView):
         is_success, data = False, []
         if products.count() >= 3:
             products = self.pagination_class().paginate_queryset(products, self.request)
-            serializer = TagProductSerializer(tag, context={'product': products})
+            # serializer = TagProductSerializer(tag, context={'product': products})
+            serializer = RetailerProductSerializer(products, many=True)
             is_success, data = True, serializer.data
         return api_response('Tag Found', data, status.HTTP_200_OK, is_success)
 
@@ -340,7 +340,7 @@ class UserShopView(APIView):
             info_logger.error(f"shop not found for shop id {shop_id}")
             return api_response("Invalid shop has been selected", "", status.HTTP_406_NOT_ACCEPTABLE, False)
         create_shop_user_mapping(shop, self.request.user)
-        return api_response("shop has been changed successfully", "", status.HTTP_406_NOT_ACCEPTABLE, True)
+        return api_response("shop has been changed successfully", "", status.HTTP_200_OK, True)
 
 
 class Contect_Us(APIView):
@@ -359,7 +359,6 @@ class Contect_Us(APIView):
         serializer = ContectUs(data=data)
         if serializer.is_valid():
             return api_response('contct us details',serializer.data,status.HTTP_200_OK, True)
-
 
 class ParentProductDetails(APIView):
     """

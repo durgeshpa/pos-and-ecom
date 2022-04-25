@@ -10,8 +10,6 @@ from decimal import Decimal
 from hashlib import sha512
 from operator import itemgetter
 
-import requests
-from decouple import config
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
 from django.core import validators
@@ -23,7 +21,6 @@ from django.db.models import F, Sum, Q, Count, Value, Case, When
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from django.shortcuts import render
-from elasticsearch import Elasticsearch
 from num2words import num2words
 from rest_framework import status, generics, permissions, authentication
 from rest_framework.generics import GenericAPIView
@@ -42,7 +39,8 @@ from shops.models import Shop, ParentRetailerMapping, ShopUserMapping, ShopMigra
 from brand.models import Brand
 from categories import models as categorymodel
 from common.common_utils import (create_file_name, single_pdf_file, create_merge_pdf_name, merge_pdf_files,
-                                 create_invoice_data, whatsapp_opt_in, whatsapp_order_cancel, whatsapp_order_refund)
+                                 create_invoice_data, whatsapp_opt_in, whatsapp_order_cancel, whatsapp_order_refund, 
+                                 whatsapp_order_delivered)
 from common.constants import PREFIX_CREDIT_NOTE_FILE_NAME, ZERO, PREFIX_INVOICE_FILE_NAME, INVOICE_DOWNLOAD_ZIP_NAME
 from common.data_wrapper_view import DataWrapperViewSet
 from coupon.models import Coupon, CusotmerCouponUsage
@@ -51,6 +49,7 @@ from ecom.api.v1.serializers import EcomOrderListSerializer, EcomShipmentSeriali
 from ecom.models import Address as EcomAddress, EcomOrderAddress
 from ecom.utils import check_ecom_user_shop, check_ecom_user
 from global_config.models import GlobalConfig
+from global_config.views import get_config_fofo_shop
 from gram_to_brand.models import (GRNOrderProductMapping, OrderedProductReserved as GramOrderedProductReserved,
                                   PickList)
 from marketing.models import ReferralCode
@@ -62,7 +61,6 @@ from pos.api.v1.serializers import (BasicCartSerializer, BasicCartListSerializer
                                     RetailerProductResponseSerializer, PosShopUserMappingListSerializer,
                                     PaymentTypeSerializer, PosEcomOrderDetailSerializer,
                                     RetailerOrderedDashBoardSerializer, PosEcomShopSerializer)
-from pos.payU_payment import send_request_refund
 from pos.common_functions import (api_response, delete_cart_mapping, ORDER_STATUS_MAP, RetailerProductCls,
                                   update_customer_pos_cart, PosInventoryCls, RewardCls, serializer_error,
                                   check_pos_shop, PosAddToCart, PosCartCls, ONLINE_ORDER_STATUS_MAP,
@@ -103,11 +101,6 @@ from retailer_backend.settings import AWS_MEDIA_URL
 from wms.models import OrderReserveRelease, InventoryType, PosInventoryState, PosInventoryChange, Crate
 from zoho.models import ZohoInvoice
 
-from ...common_validators import validate_shipment_dispatch_item, validate_trip_user, \
-    get_shipment_by_crate_id, get_shipment_by_shipment_label, validate_shipment_id, validate_trip_shipment, \
-    validate_trip, validate_shipment_label, validate_trip_shipment_package, check_user_can_plan_trip, \
-    validate_last_mile_trip_user
-
 from wms.views import shipment_not_attempt_inventory_change, shipment_reschedule_inventory_change
 from .serializers import (ProductsSearchSerializer, CartSerializer, OrderSerializer,
                           CustomerCareSerializer, OrderNumberSerializer, GramPaymentCodSerializer,
@@ -138,8 +131,14 @@ from .serializers import (ProductsSearchSerializer, CartSerializer, OrderSeriali
                           DetailedShipmentPackageInfoSerializer, DetailedShipmentPackagingMappingInfoSerializer,
                           VerifyBackwardTripItemsSerializer, BackwardTripQCSerializer, PosOrderUserSearchSerializer
                           )
+
+from ...common_validators import validate_shipment_dispatch_item, validate_trip_user, \
+    get_shipment_by_crate_id, get_shipment_by_shipment_label, validate_shipment_id, validate_trip_shipment, \
+    validate_trip, validate_shipment_label, validate_trip_shipment_package, check_user_can_plan_trip, \
+    validate_last_mile_trip_user
 from wms.services import check_whc_manager_coordinator_supervisor_qc_executive, shipment_search, \
     check_whc_manager_dispatch_executive, check_qc_dispatch_executive, check_dispatch_executive
+from pos.payU_payment import *
 from fcm.utils import get_device_model
 from datetime import datetime
 
@@ -439,7 +438,7 @@ class SearchProducts(APIView):
                 for word in tokens:
                     keyword += "*" + word + "* "
                 keyword = keyword.strip()
-                query_string = {"query": "*" + keyword + "*", "fields": ["name"], "minimum_should_match": 2}
+                query_string = {"query": "*" + keyword + "*", "fields": ["category","sub_category","brand","name"], "minimum_should_match": 2}
         if category_ids:
             category = category_ids.split(',')
             if app_type == '3':
@@ -3087,6 +3086,8 @@ class OrderCentral(APIView):
                                                                             'order_credit', 'order_indirect_credit',
                                                                             self.request.user.id, order.seller_shop, app_type="ECOM")
                 order.save()
+                if order_status == Order.DELIVERED:
+                    whatsapp_order_delivered(order.order_no, shop.shop_name, order.buyer.phone_number, order.points_added, shop.enable_loyalty_points)
                 try:
                     shipment = OrderedProduct.objects.filter(order=order).last()
                     shipment.shipment_status = order_status
@@ -3243,7 +3244,6 @@ class OrderCentral(APIView):
             elif order.ordered_cart.cart_type == 'ECOM':
                 return api_response('Order', self.get_serialize_process_pos_ecom(order), status.HTTP_200_OK, True,
                                     extra_params={"key_p": str(config('PAYU_KEY'))})
-
         return api_response("Order not found")
 
     @check_ecom_user
@@ -3374,6 +3374,7 @@ class OrderCentral(APIView):
                                 status.HTTP_200_OK, True)
 
     @check_pos_shop
+    @transaction.atomic
     def post_ecom_order(self, request, *args, **kwargs):
         """
             Place Order
@@ -3394,8 +3395,10 @@ class OrderCentral(APIView):
         if address.pincode != shop.shop_name_address_mapping.filter(
                 address_type='shipping').last().pincode_link.pincode:
             return api_response("This Shop is not serviceable at your delivery address")
+
         cart = Cart.objects.filter(cart_type='ECOM', buyer=self.request.user, seller_shop=shop,
                                    cart_status='active').last()
+
         if not cart:
             return api_response("Please add items to proceed to order")
 
@@ -3454,11 +3457,15 @@ class OrderCentral(APIView):
                                 False, {'error_code': error_code.OUT_OF_STOCK_ITEMS})
 
         delivery_option = request.data.get('delivery_option', None)
-        with transaction.atomic():
-            # Update Cart To Ordered
-            self.update_cart_ecom(cart)
-            # Refresh redeem reward
-            RewardCls.checkout_redeem_points(cart, cart.redeem_points,shop)
+
+        # Update Cart To Ordered
+        get_response = self.update_cart_ecom(self.shop, cart)
+        if get_response:
+            return api_response(get_response)
+        # Refresh redeem reward
+        else:
+            RewardCls.checkout_redeem_points(cart, cart.redeem_points, shop)
+
             order = self.create_basic_order(cart, shop, address, payment_type_id, delivery_option)
             payments = [
                 {
@@ -3491,7 +3498,7 @@ class OrderCentral(APIView):
             else:
                 msg = 'Ordered Successfully!'
             return api_response(msg, BasicOrderListSerializer(Order.objects.get(id=order.id)).data,
-                                status.HTTP_200_OK, True)
+                                 status.HTTP_200_OK, True)
 
     def get_retail_validate(self):
         """
@@ -3629,7 +3636,6 @@ class OrderCentral(APIView):
                 payment_method['payment_status'] = None
             if "payment_mode" not in payment_method:
                 payment_method['payment_mode'] = None
-
         if not cash_only:
             if round(amount) != round(cart.order_amount):
                 return {'error': "Total payment amount should be equal to order amount"}
@@ -3718,12 +3724,17 @@ class OrderCentral(APIView):
         cart.last_modified_by = self.request.user
         cart.save()
 
-    def update_cart_ecom(self, cart):
+    def update_cart_ecom(self, seller_shop, cart):
         """
             Place order
             Update cart to ordered
             For ecom cart
         """
+        updated_cart = Cart.objects.filter(cart_type='ECOM', buyer=self.request.user, seller_shop=seller_shop,
+                                           cart_status='active').last()
+
+        if not updated_cart:
+            return "Please add items to proceed to order"
         cart.cart_status = 'ordered'
         cart.last_modified_by = self.request.user
         cart.save()
@@ -3796,10 +3807,10 @@ class OrderCentral(APIView):
         order.save()
 
         if address:
-            EcomOrderAddress.objects.create(order=order, address=address.address, contact_name=address.contact_name,
-                                            contact_number=address.contact_number, latitude=address.latitude,
-                                            longitude=address.longitude, pincode=address.pincode,
-                                            state=address.state, city=address.city)
+            EcomOrderAddress.objects.get_or_create(order=order, address=address.address, contact_name=address.contact_name,
+                                                    contact_number=address.contact_number, latitude=address.latitude,
+                                                    longitude=address.longitude, pincode=address.pincode,
+                                                    state=address.state, city=address.city)
         return order
 
     def update_ordered_reserve_sp(self, cart, parent_mapping, order):
@@ -4443,7 +4454,6 @@ class OrderedItemCentralDashBoard(APIView):
         """
         # products for shop
         products = RetailerProduct.objects.filter(shop=shop)
-        ecom_products = products.filter(online_enabled=True)
 
         # orders for shop
         orders = Order.objects.prefetch_related('rt_return_order').filter(seller_shop=shop).exclude(
@@ -4499,7 +4509,6 @@ class OrderedItemCentralDashBoard(APIView):
         today_date = datetime.today()
         if filters == 1:  # today
             products = products.filter(created_at__date=today_date)
-            ecom_products = ecom_products.filter(created_at__date=today_date)
             # orders
             orders = orders.filter(created_at__date=today_date)
             pos_orders = pos_orders.filter(created_at__date=today_date)
@@ -4523,7 +4532,6 @@ class OrderedItemCentralDashBoard(APIView):
         elif filters == 2:  # yesterday
             yesterday = today_date - timedelta(days=1)
             products = products.filter(created_at__date=yesterday)
-            ecom_products = ecom_products.filter(created_at__date=yesterday)
             # orders
             orders = orders.filter(created_at__date=yesterday)
             pos_orders = pos_orders.filter(created_at__date=yesterday)
@@ -4546,7 +4554,6 @@ class OrderedItemCentralDashBoard(APIView):
 
         elif filters == 3:  # this week
             products = products.filter(created_at__week=today_date.isocalendar()[1])
-            ecom_products = ecom_products.filter(created_at__week=today_date.isocalendar()[1])
             # orders
             orders = orders.filter(created_at__week=today_date.isocalendar()[1])
             pos_orders = pos_orders.filter(created_at__week=today_date.isocalendar()[1])
@@ -4570,7 +4577,6 @@ class OrderedItemCentralDashBoard(APIView):
         elif filters == 4:  # last week
             last_week = today_date - timedelta(weeks=1)
             products = products.filter(created_at__week=last_week.isocalendar()[1])
-            ecom_products = ecom_products.filter(created_at__week=last_week.isocalendar()[1])
             # orders
             orders = orders.filter(created_at__week=last_week.isocalendar()[1])
             pos_orders = pos_orders.filter(created_at__week=last_week.isocalendar()[1])
@@ -4593,7 +4599,6 @@ class OrderedItemCentralDashBoard(APIView):
 
         elif filters == 5:  # this month
             products = products.filter(created_at__month=today_date.month)
-            ecom_products = ecom_products.filter(created_at__month=today_date.month)
             # orders
             orders = orders.filter(created_at__month=today_date.month)
             pos_orders = pos_orders.filter(created_at__month=today_date.month)
@@ -4617,7 +4622,6 @@ class OrderedItemCentralDashBoard(APIView):
         elif filters == 6:  # last month
             last_month = today_date - timedelta(days=30)
             products = products.filter(created_at__month=last_month.month)
-            ecom_products = ecom_products.filter(created_at__month=last_month.month)
             # orders
             orders = orders.filter(created_at__month=last_month.month)
             pos_orders = pos_orders.filter(created_at__month=last_month.month)
@@ -4640,7 +4644,6 @@ class OrderedItemCentralDashBoard(APIView):
 
         elif filters == 7:  # this year
             products = products.filter(created_at__year=today_date.year)
-            ecom_products = ecom_products.filter(created_at__year=today_date.year)
             # orders
             orders = orders.filter(created_at__year=today_date.year)
             pos_orders = pos_orders.filter(created_at__year=today_date.year)
@@ -4668,7 +4671,6 @@ class OrderedItemCentralDashBoard(APIView):
 
         if total_refund_amount:
             total_ordered_final_amount -= float(total_refund_amount)
-
         # POS Ordered Count
         pos_total_ordered_final_amount = pos_orders.aggregate(Sum('order_amount')).get('order_amount__sum')
         pos_total_ordered_final_amount = pos_total_ordered_final_amount if pos_total_ordered_final_amount else 0
@@ -4705,7 +4707,6 @@ class OrderedItemCentralDashBoard(APIView):
         total_invoices_final_amount = pos_total_invoices_final_amount + ecom_total_invoices_final_amount
         # counts of order for shop_id with total_ordered_final_amount, total_invoices_final_amount  & products
         products_count = products.count()
-        ecom_products_count = ecom_products.count()
 
         order_count = orders.count()
         invoice_count = invoices.count()
@@ -4717,13 +4718,12 @@ class OrderedItemCentralDashBoard(APIView):
         pos_invoice_count = pos_invoices.count()
 
         overview = [{"shop_name": shop.shop_name, "orders": order_count, "products": products_count,
-                     "ecom_products": ecom_products_count, "revenue": total_ordered_final_amount,
-                     "ecom_order_count": ecom_order_count, "pos_order_count": pos_order_count,
-                     "ecom_revenue": ecom_total_ordered_final_amount, "pos_revenue": pos_total_ordered_final_amount,
-                     "invoices": invoice_count, "ecom_invoice_count": ecom_invoice_count,
-                     "pos_invoice_count": pos_invoice_count, "invoice_revenue": total_invoices_final_amount,
-                     "ecom_invoice_revenue": ecom_total_invoices_final_amount,
-                     "pos_invoice_revenue": pos_total_invoices_final_amount}]
+                     "revenue": total_ordered_final_amount, "ecom_order_count": ecom_order_count,
+                     "pos_order_count": pos_order_count, "ecom_revenue": ecom_total_ordered_final_amount,
+                     "pos_revenue": pos_total_ordered_final_amount, "invoices": invoice_count,
+                     "ecom_invoice_count": ecom_invoice_count, "pos_invoice_count": pos_invoice_count,
+                     "invoice_revenue": total_invoices_final_amount, "ecom_invoice_revenue":
+                         ecom_total_invoices_final_amount, "pos_invoice_revenue": pos_total_invoices_final_amount}]
         return overview
 
     def get_retail_order_overview(self):
@@ -5989,14 +5989,14 @@ def pdf_generation_retailer(request, order_id, delay=True):
                     send_invoice_pdf_email.delay(manager.user.email, shop_name, order.order_no, media_url,
                                                  file_name, 'order')
                 else:
-                    logger.exception("Email not present for Manager {}".format(str(manager)))
+                    info_logger.error("Email not present for Manager {}".format(str(manager)))
                 # email task to send manager order invoice ^
             else:
                 if manager and manager.user.email:
                     send_invoice_pdf_email(manager.user.email, shop_name, order.order_no, media_url, file_name,
                                            'order')
                 else:
-                    logger.exception("Email not present for Manager {}".format(str(manager)))
+                    info_logger.error("Email not present for Manager {}".format(str(manager)))
             return whatsapp_opt_in(phone_number, shop_name, media_url, file_name)
         except Exception as e:
             logger.exception("Retailer Invoice send error order {}".format(order.order_no))
@@ -6127,13 +6127,13 @@ def pdf_generation_retailer(request, order_id, delay=True):
                     send_invoice_pdf_email.delay(manager.user.email, shop_name, order.order_no, media_url, file_name,
                                                  'order')
                 else:
-                    logger.exception("Email not present for Manager {}".format(str(manager)))
+                    info_logger.error("Email not present for Manager {}".format(str(manager)))
                 # send email
             else:
                 if manager and manager.user.email:
                     send_invoice_pdf_email(manager.user.email, shop_name, order.order_no, media_url, file_name, 'order')
                 else:
-                    logger.exception("Email not present for Manager {}".format(str(manager)))
+                    info_logger.error("Email not present for Manager {}".format(str(manager)))
                 if request.data.get("is_whatsapp", True):
                     return whatsapp_opt_in(phone_number, shop_name, media_url, file_name)
         except Exception as e:
@@ -6163,14 +6163,14 @@ def pdf_generation_return_retailer(request, order, ordered_product, order_return
                     send_invoice_pdf_email.delay(manager.user.email, shop_name, order_number, media_url, file_name,
                                                  'return')
                 else:
-                    logger.exception("Email not present for Manager {}".format(str(manager)))
+                    info_logger.error("Email not present for Manager {}".format(str(manager)))
                 # send mail to manager for return
             else:
                 if manager and manager.user.email:
                     send_invoice_pdf_email(manager.user.email, shop_name, order_number, media_url, file_name,
                                            'return')
                 else:
-                    logger.exception("Email not present for Manager {}".format(str(manager)))
+                    info_logger.error("Email not present for Manager {}".format(str(manager)))
                 return whatsapp_order_refund(order_number, order_status, phone_number, refund_amount, media_url,
                                                              file_name)
                 # send mail to manager for return
@@ -6315,17 +6315,17 @@ def pdf_generation_return_retailer(request, order, ordered_product, order_return
                     send_invoice_pdf_email.delay(manager.user.email, shop_name, order_number, media_url, file_name,
                                                  'return')
                 else:
-                    logger.exception("Email not present for Manager {}".format(str(manager)))
+                    info_logger.error("Email not present for Manager {}".format(str(manager)))
                 # send order return mail to
             else:
                 if manager and manager.user.email:
                     send_invoice_pdf_email(manager.user.email, shop_name, order_number, media_url, file_name, 'return')
                 else:
-                    logger.exception("Email not present for Manager {}".format(str(manager)))
+                    info_logger.error("Email not present for Manager {}".format(str(manager)))
                 # send mail to manager
                 if request.data.get("is_whatsapp", False):
                     return whatsapp_order_refund(order_number, order_status, phone_number, refund_amount, media_url,
-                                             file_name)
+                                                 file_name)
         except Exception as e:
             logger.exception("Retailer Credit note save and send error order {} return {}".format(order.order_no,
                                                                                                   order_return.id))
@@ -9446,7 +9446,7 @@ class LoadVerifyPackageView(generics.GenericAPIView):
         validated_trip = validate_trip_user(modified_data['trip_id'], request.user)
         if 'error' in validated_trip:
             return get_response(validated_trip['error'])
-        serializer = self.serializer_class(data=modified_data)
+        serializer = self.serializer_class(data=modified_data, context={'current_user': request.user})
         if serializer.is_valid():
             serializer.save(created_by=request.user)
             info_logger.info("Package loaded Successfully.")
@@ -10044,9 +10044,6 @@ class LastMileTripStatusList(generics.GenericAPIView):
     permission_classes = (AllowAny,)
 
     def get(self, request):
-        '''
-        API to get shipment package rejection reason list
-        '''
         fields = ['id', 'value']
         data = [dict(zip(fields, d)) for d in Trip.TRIP_STATUS]
         msg = ""
@@ -10524,7 +10521,7 @@ class LastMileLoadVerifyPackageView(generics.GenericAPIView):
         validated_trip = validate_last_mile_trip_user(modified_data['trip_id'], request.user)
         if 'error' in validated_trip:
             return get_response(validated_trip['error'])
-        serializer = self.serializer_class(data=modified_data)
+        serializer = self.serializer_class(data=modified_data, context={'current_user': request.user})
         if serializer.is_valid():
             serializer.save(created_by=request.user)
             info_logger.info("Package loaded Successfully.")

@@ -4,6 +4,7 @@ from model_utils import Choices
 
 LIST, FUNCTION = 'LIST', 'FUNCTION'
 
+CARD_TYPE_PRODUCT, CARD_TYPE_CAREGORY, CARD_TYPE_BRAND, CARD_TYPE_IMAGE = 'product', 'category', 'brand', 'image'
 CARD_TYPE_CHOICES = [
     ('image', 'Image'),
     ('product', 'Product'),

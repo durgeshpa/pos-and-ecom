@@ -10,13 +10,15 @@ from django.http import HttpResponse
 
 from rest_framework import serializers
 
+from addresses.common_functions import ShopRouteCommonFunction
+from addresses.common_validators import read_shop_route_file
 from retailer_backend.validators import PinCodeValidator
 
 from shops.models import (BeatPlanning, RetailerType, ShopType, Shop, ShopPhoto,
                           ShopDocument, ShopInvoicePattern, ShopUserMapping, SHOP_TYPE_CHOICES, ParentRetailerMapping,
                           DayBeatPlanning, ShopStatusLog)
 from addresses.models import Address, City, Pincode, State, address_type_choices, DispatchCenterPincodeMapping, \
-    DispatchCenterCityMapping
+    DispatchCenterCityMapping, ShopRoute, Route
 
 from shops.common_validators import get_validate_approval_status, get_validate_existing_shop_photos, \
     get_validate_favourite_products, get_validate_related_users, get_validate_shop_address, get_validate_shop_documents, \
@@ -268,6 +270,7 @@ class CitySerializer(serializers.ModelSerializer):
     class Meta:
         model = City
         fields = '__all__'
+        ref_name = "AddressCity v2"
 
 
 class AddressSerializer(serializers.ModelSerializer):
@@ -418,6 +421,21 @@ class AddressDataSerializers(serializers.ModelSerializer):
                   'pincode_link', 'state', 'city', 'address_type')
 
 
+class RouteSerializer(serializers.ModelSerializer):
+    city = CityDataSerializers(read_only=True)
+
+    class Meta:
+        model = Route
+        fields = ('id', 'name', 'city')
+
+
+class ShopRouteBasicSerializers(serializers.ModelSerializer):
+    route = RouteSerializer(read_only=True)
+
+    class Meta:
+        model = ShopRoute
+        fields = ('id', 'route',)
+
 class ShopStatusLogModelSerializer(serializers.ModelSerializer):
     user = UserSerializers(read_only=True)
     class Meta:
@@ -438,6 +456,7 @@ class ShopCrudSerializers(serializers.ModelSerializer):
     shop_name_documents = ShopDocumentDataSerializers(read_only=True, many=True)
     dispatch_center_cities = DispatchCenterCityMappingDataSerializers(read_only=True, many=True)
     dispatch_center_pincodes = DispatchCenterPincodeMappingDataSerializers(read_only=True, many=True)
+    shop_routes = ShopRouteBasicSerializers(read_only=True, many=True)
     shop_detail = ShopStatusLogModelSerializer(many=True, read_only=True)
 
     class Meta:
@@ -445,9 +464,8 @@ class ShopCrudSerializers(serializers.ModelSerializer):
         fields = ('id', 'shop_name', 'shop_code', 'shop_code_bulk', 'shop_code_discounted', 'warehouse_code',
                   'shop_owner', 'retiler_mapping', 'shop_name_address_mapping', 'approval_status', 'status',
                   'shop_type', 'related_users', 'shipping_address', 'created_at', 'imei_no', 'shop_name_photos',
-                  'shop_name_documents', 'shop_log', 'pos_enabled', 'shop_detail', 'cutoff_time',
-                  'dispatch_center_cities', 'dispatch_center_pincodes', 'disapproval_status_reason',
-                  'enable_loyalty_points')
+                  'shop_name_documents', 'shop_log', 'pos_enabled','shop_detail' ,'cutoff_time', 'dispatch_center_cities',
+                  'dispatch_center_pincodes', 'disapproval_status_reason', 'shop_routes', 'enable_loyalty_points')
 
     def validate(self, data):
 
@@ -1014,13 +1032,14 @@ class BulkUpdateShopSampleCSVSerializer(serializers.ModelSerializer):
             'shop_name__shop_owner__phone_number', 'shop_name__status', 'id', 'nick_name',
             'address_line1', 'address_contact_name', 'address_contact_number',
             'pincode_link__pincode', 'state__state_name', 'city__city_name', 'address_type',
-            'shop_name__imei_no', 'shop_name__retiler_mapping__parent__shop_name', 'shop_name__created_at') \
+            'shop_name__imei_no', 'shop_name__retiler_mapping__parent__shop_name', 'shop_name__created_at',
+            'shop_name__shop_routes__route__city__city_name', 'shop_name__shop_routes__route__name') \
             .filter(shop_name__id__in=validated_data['shop_id_list'])
 
         meta = Shop._meta
         field_names = ['shop_id', 'shop_name', 'shop_type', 'shop_owner', 'shop_activated', 'address_id',
                        'nick_name', 'address', 'contact_person', 'contact_number', 'pincode', 'state',
-                       'city', 'address_type', 'imei_no', 'parent_shop_name', 'shop_created_at']
+                       'city', 'address_type', 'imei_no', 'parent_shop_name', 'shop_created_at', 'route_city', 'route']
 
         response = HttpResponse(content_type='text/csv')
         response['Content-Disposition'] = 'attachment; filename={}.csv'.format(
@@ -1317,6 +1336,114 @@ class DownloadShopStatusCSVSerializer(serializers.ModelSerializer):
             for obj in data:
                 writer.writerow(list(obj))
         return response
+
+
+class RouteSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Route
+        fields = ('id', 'name')
+
+
+class ShopRouteCrudSerializers(serializers.ModelSerializer):
+    shop = ShopBasicSerializer(read_only=True)
+    route = RouteSerializer(read_only=True)
+
+    class Meta:
+        model = ShopRoute
+        fields = ('id', 'shop', 'route',)
+
+    def validate(self, data):
+
+        shop_route_id = self.instance.id if self.instance else None
+
+        if 'shop' in self.initial_data and self.initial_data['shop']:
+            validated_shop = validate_shop(self.initial_data['shop'])
+            if 'error' in validated_shop:
+                raise serializers.ValidationError(validated_shop["error"])
+            shop_instance = validated_shop['data']
+            data['shop'] = shop_instance
+        else:
+            raise serializers.ValidationError(f"'shop' | This is mandatory.")
+
+        if 'route' in self.initial_data and self.initial_data['route']:
+            try:
+                route_instance = Route.objects.get(id=int(self.initial_data['route']))
+            except:
+                raise serializers.ValidationError(f"{self.initial_data['route']} | Route not found.")
+            data['route'] = route_instance
+        else:
+            raise serializers.ValidationError(f"'route' | This is mandatory.")
+
+        if 'id' in self.initial_data and self.initial_data['id']:
+            shop_route = ShopRoute.objects.filter(id=self.initial_data['id']).last()
+            if not shop_route:
+                raise serializers.ValidationError(f"'id' | {self.initial_data['id']} Invalid Shop Route.")
+            if shop_route.shop != shop_instance:
+                raise serializers.ValidationError(f"Shop updation is not allowed.")
+        else:
+            if ShopRoute.objects.filter(shop=shop_instance).exists():
+                raise serializers.ValidationError(f"Shop route already exist for {shop_instance}")
+
+        return data
+
+    @transaction.atomic
+    def create(self, validated_data):
+        """create a new Shop Route"""
+        try:
+            shop_route_instance = ShopRoute.objects.create(**validated_data)
+        except Exception as e:
+            error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
+            raise serializers.ValidationError(error)
+        return shop_route_instance
+
+    @transaction.atomic
+    def update(self, instance, validated_data):
+        """ This method is used to update an instance of the Shop Route's attribute. """
+        try:
+            # call super to save modified instance along with the validated data
+            shop_route_instance = super().update(instance, validated_data)
+        except Exception as e:
+            error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
+            raise serializers.ValidationError(error)
+
+        return shop_route_instance
+
+
+class ShopRouteUploadSerializer(serializers.ModelSerializer):
+    file = serializers.FileField(
+        label='Upload Shop Route', required=True, write_only=True)
+
+    def __init__(self, *args, **kwargs):
+        super(ShopRouteUploadSerializer, self).__init__(*args, **kwargs)  # call the super()
+
+    class Meta:
+        model = ShopRoute
+        fields = ('file',)
+
+    def validate(self, data):
+        if not data['file'].name[-4:] in '.csv':
+            raise serializers.ValidationError(
+                _('Sorry! Only csv file accepted.'))
+        csv_file_data = csv.reader(codecs.iterdecode(data['file'], 'utf-8', errors='ignore'))
+        # Checking, whether csv file is empty or not!
+        if csv_file_data:
+            read_shop_route_file(csv_file_data)
+        else:
+            raise serializers.ValidationError(
+                "CSV File cannot be empty.Please add some data to upload it!")
+
+        return data
+
+    @transaction.atomic
+    def create(self, validated_data):
+        try:
+            ShopRouteCommonFunction.create_shop_route(validated_data)
+        except Exception as e:
+            error = {'message': ",".join(e.args) if len(
+                e.args) > 0 else 'Unknown Error'}
+            raise serializers.ValidationError(error)
+
+        return validated_data
 
 
 class BulkUpdateShopStatusSerializer(serializers.ModelSerializer):

@@ -46,7 +46,7 @@ def get_feedback_valid():
             shop_lat = feedback.day_beat_plan.shop.latitude
             shop_lng = feedback.day_beat_plan.shop.longitude
             if not feedback_lng or not feedback_lat or not shop_lat or not shop_lng:
-                pass;
+                pass
             else:
                 d = distance((shop_lat, shop_lng), (feedback_lat, feedback_lng))
                 d=round(d,3)

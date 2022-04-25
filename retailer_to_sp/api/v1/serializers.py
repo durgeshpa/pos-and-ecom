@@ -12,7 +12,7 @@ from rest_framework import serializers
 
 from accounts.models import UserWithName
 from pos.models import PaymentType
-from addresses.models import Address, Pincode, City
+from addresses.models import Address, Pincode, City, ShopRoute, Route
 from products.models import (Product, ProductPrice, ProductImage, Tax, ProductTaxMapping, ProductOption, Size, Color,
                              Fragrance, Flavor, Weight, PackageSize, ParentProductImage, SlabProductPrice, PriceSlab)
 from retailer_backend.utils import getStrToYearDate
@@ -60,6 +60,7 @@ class ChoicesSerializer(serializers.ChoiceField):
 class PickerDashboardSerializer(serializers.ModelSerializer):
     class Meta:
         model = PickerDashboard
+        ref_name = "PickerDashboardSerializer v1"
         fields = '__all__'
 
 
@@ -592,7 +593,6 @@ class OrderedProductSerializer(serializers.ModelSerializer):
     class Meta:
         model = OrderedProduct
         fields = ('order', 'invoice_no', 'invoice_link', 'shipment_status')
-
 
 # order serilizer
 class OrderSerializer(serializers.ModelSerializer):
@@ -1540,6 +1540,7 @@ class OrderedProductBatchSerializer(serializers.ModelSerializer):
 class CrateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Crate
+        ref_name  = "CrateSerializer v1"
         fields = ('id', 'crate_id')
 
 
@@ -1894,7 +1895,8 @@ class ShipmentQCSerializer(serializers.ModelSerializer):
     status = serializers.SerializerMethodField()
 
     def get_qc_desk(self, obj):
-        return QCDeskSerializer(obj.qc_area.qc_desk_areas.filter(desk_enabled=True).last() if obj.qc_area else None).data
+        return QCDeskSerializer(
+            obj.qc_area.qc_desk_areas.filter(desk_enabled=True).last()).data if obj.qc_area else None
 
     def get_created_date(self, obj):
         return obj.created_at.strftime("%d/%b/%y %H:%M")
@@ -2122,7 +2124,7 @@ class CitySerializer(serializers.ModelSerializer):
     class Meta:
         model = City
         fields = ('id', 'city_name')
-
+        ref_name = "AddressCity v1"
 
 class ShipmentPincodeFilterSerializer(serializers.ModelSerializer):
     city = CitySerializer()
@@ -2132,10 +2134,32 @@ class ShipmentPincodeFilterSerializer(serializers.ModelSerializer):
         fields = ('id', 'pincode', 'city')
 
 
+class RouteSerializer(serializers.ModelSerializer):
+    city = CitySerializer(read_only=True)
+
+    class Meta:
+        model = Route
+        fields = ('id', 'name', 'city')
+
+
+class ShopRouteBasicSerializers(serializers.ModelSerializer):
+    route = RouteSerializer(read_only=True)
+
+    class Meta:
+        model = ShopRoute
+        fields = ('id', 'route',)
+
+
 class ShipmentSerializerForDispatch(serializers.ModelSerializer):
+    shop_route = serializers.SerializerMethodField(read_only=True)
+
+    def get_shop_route(self, obj):
+        shop_routes = obj.order.buyer_shop.shop_routes.all() if obj and obj.order else None
+        return ShopRouteBasicSerializers(shop_routes, read_only=True, many=True).data
+
     class Meta:
         model = OrderedProduct
-        fields = ('id', 'invoice_no', 'order_no', 'shipment_status')
+        fields = ('id', 'invoice_no', 'order_no', 'shipment_status', 'shop_route')
 
 
 class DispatchItemDetailsSerializer(serializers.ModelSerializer):
@@ -2247,6 +2271,7 @@ class DispatchDashboardSerializer(serializers.Serializer):
 class UserSerializers(serializers.ModelSerializer):
     class Meta:
         model = User
+        ref_name = " UserSerializers rp v1"
         fields = ('id', 'first_name', 'last_name', 'phone_number',)
 
 
@@ -3112,6 +3137,9 @@ class SummarySerializer(serializers.Serializer):
 
     weight = serializers.IntegerField()
 
+    class Meta:
+        ref_name = "SummarySerializer v1"
+
 
 class TripSummarySerializer(serializers.Serializer):
     trip_data = SummarySerializer(read_only=True)
@@ -3377,6 +3405,8 @@ class LoadVerifyPackageSerializer(serializers.ModelSerializer):
 
     def validate(self, data):
         # Validate request data
+        current_user = self.context.get('current_user')
+
         if 'id' in self.initial_data:
             raise serializers.ValidationError('Updating package is not allowed')
         if 'trip_id' not in self.initial_data or not self.initial_data['trip_id']:
@@ -3456,13 +3486,20 @@ class LoadVerifyPackageSerializer(serializers.ModelSerializer):
 
         trip_shipment = None
         if DispatchTripShipmentMapping.objects.filter(
-                trip=trip, shipment_status=DispatchTripShipmentMapping.LOADING_FOR_DC).exists():
+                trip=trip, loaded_by=current_user, shipment_status=DispatchTripShipmentMapping.LOADING_FOR_DC).exists():
             trip_shipment = DispatchTripShipmentMapping.objects.filter(
-                trip=trip, shipment_status=DispatchTripShipmentMapping.LOADING_FOR_DC).last()
+                trip=trip, loaded_by=current_user, shipment_status=DispatchTripShipmentMapping.LOADING_FOR_DC).last()
             current_invoice_being_loaded = trip_shipment.shipment
             if current_invoice_being_loaded != package.shipment:
                 raise serializers.ValidationError(f"Please scan the remaining box in invoice no."
                                                   f" {current_invoice_being_loaded.invoice_no}")
+        elif DispatchTripShipmentMapping.objects.filter(
+                ~Q(loaded_by=current_user), trip=trip, shipment=package.shipment,
+                shipment_status=DispatchTripShipmentMapping.LOADING_FOR_DC).exists():
+            loaded_by = DispatchTripShipmentMapping.objects.filter(
+                ~Q(loaded_by=current_user), trip=trip, shipment=package.shipment,
+                shipment_status=DispatchTripShipmentMapping.LOADING_FOR_DC).last().loaded_by
+            raise serializers.ValidationError(f"Invoice {package.shipment} is currently scanned by {loaded_by}")
 
         status = DispatchTripShipmentPackages.LOADED
         if self.initial_data['status'] == PACKAGE_VERIFY_CHOICES.DAMAGED:
@@ -3485,6 +3522,7 @@ class LoadVerifyPackageSerializer(serializers.ModelSerializer):
         data['trip_shipment_mapping']['shipment'] = package.shipment
         data['trip_shipment_mapping']['shipment_status'] = DispatchTripShipmentMapping.LOADING_FOR_DC
         data['trip_shipment_mapping']['shipment_health'] = shipment_health
+        data['trip_shipment_mapping']['loaded_by'] = current_user
 
         data['trip_package_mapping'] = {}
         data['trip_package_mapping']['trip_shipment'] = trip_shipment
@@ -4364,7 +4402,6 @@ class LastMileTripStatusChangeSerializers(serializers.ModelSerializer):
                   'last_mile_trip_shipments_details', 'created_at', 'modified_at')
 
     def validate(self, data):
-
         if 'id' in self.initial_data and self.initial_data['id']:
             if Trip.objects.filter(id=self.initial_data['id']).exists():
                 trip_instance = Trip.objects.filter(id=self.initial_data['id']).last()
@@ -4420,6 +4457,7 @@ class LastMileTripStatusChangeSerializers(serializers.ModelSerializer):
 
         return data
 
+
     @transaction.atomic
     def update(self, instance, validated_data):
         """Update Last Mile Trip"""
@@ -4430,6 +4468,132 @@ class LastMileTripStatusChangeSerializers(serializers.ModelSerializer):
             raise serializers.ValidationError(error)
 
         return trip_instance
+
+
+class OrderPaymentStatusChangeSerializers(serializers.ModelSerializer):
+    seller_shop = ShopSerializer(read_only=True)
+
+    class Meta:
+        model = Order
+        fields = ('id', 'order_no', 'seller_shop', 'order_status', 'received_by', 'created_at', 'modified_at')
+
+    def validate(self, data):
+        if 'id' in self.initial_data and self.initial_data['id']:
+            if Order.objects.filter(id=self.initial_data['id'],
+                                    ordered_cart__cart_type='ECOM').exists():
+                order_instance = Order.objects.filter(id=self.initial_data['id']).last()
+            else:
+                raise serializers.ValidationError(f"Order not found for Id {self.initial_data['id']}.")
+
+        else:
+            raise serializers.ValidationError("'id' | This is mandatory")
+
+
+        if 'order_no' in self.initial_data and self.initial_data['order_no']:
+            order_no = self.initial_data['order_no']
+            if order_instance.order_no != order_no:
+                raise Exception("'order_no' | Invalid order_no for selected order.")
+
+        if 'order_status' not in self.initial_data and not self.initial_data['order_status']:
+            raise serializers.ValidationError("'order_status' | This is mandatory.")
+        order_status = self.initial_data['order_status']
+
+        if order_instance.order_status not in [Order.PAYMENT_PENDING, Order.PAYMENT_FAILED] or \
+                order_instance.order_status == order_status:
+            raise serializers.ValidationError(f"Order status can't update")
+
+        if self.context.get('app-type', None) == 3 and order_instance.order_status == Order.PAYMENT_PENDING and \
+                order_status not in [Order.PAYMENT_FAILED, Order.PAYMENT_APPROVED, Order.PAYMENT_COD]:
+            raise serializers.ValidationError(f"Please Provide valid Payment status")
+
+        elif self.context.get('app-type', None) == 2 and order_instance.order_status == Order.PAYMENT_PENDING and \
+                order_status != Order.PAYMENT_COD:
+            raise serializers.ValidationError(f"Please Provide valid Payment status")
+
+        if 'payment_id' not in self.initial_data and not self.initial_data['payment_id']:
+            raise serializers.ValidationError("'payment_id' | This is mandatory.")
+
+        if PosPayment.objects.filter(id=self.initial_data['payment_id']).exists():
+            payment_instance = PosPayment.objects.filter(id=self.initial_data['payment_id']).last()
+        else:
+            raise serializers.ValidationError(f"Payment not found for Id {self.initial_data['id']}.")
+
+        if payment_instance.order != order_instance:
+            raise serializers.ValidationError(f"Invalid payment {payment_instance} for the order {order_instance}")
+
+        if order_status == Order.PAYMENT_COD and order_instance.order_app_type == Order.POS_WALKIN:
+            payment_type_instance = PaymentType.objects.filter(type="cash", app='pos').last()
+
+        elif order_status == Order.PAYMENT_COD and order_instance.order_app_type == Order.POS_ECOMM:
+            payment_type_instance = PaymentType.objects.filter(type="cod", app='ecom').last()
+        else:
+            if 'payment_type_id' not in self.initial_data or not self.initial_data['payment_type_id']:
+                raise serializers.ValidationError("'payment_type_id' | This is mandatory")
+            payment_type_instance = PaymentType.objects.filter(id=int(self.initial_data['payment_type_id'])).last()
+            if not payment_type_instance:
+                raise serializers.ValidationError(f"'payment_type_id' | "
+                                                  f"{self.initial_data['payment_type_id']} not found.")
+
+            if order_instance.order_app_type == Order.POS_WALKIN:
+                if payment_type_instance.app != 'pos':
+                    raise serializers.ValidationError(f"'payment_type_id' | Invalid choice "
+                                                      f"{self.initial_data['payment_type_id']}.")
+            if order_instance.order_app_type == Order.POS_ECOMM:
+                if payment_type_instance.app != 'ecom':
+                    raise serializers.ValidationError(f"'payment_type_id' | Invalid choice "
+                                                      f"{self.initial_data['payment_type_id']}.")
+
+        transaction_id = ""
+        if 'transaction_id' in self.initial_data and self.initial_data['transaction_id']:
+            transaction_id = self.initial_data['transaction_id']
+
+        payment_status = None
+        payment_mode = None
+        if order_status == Order.PAYMENT_FAILED:
+            payment_status = PosPayment.PAYMENT_FAILED
+            data['order_status'] = Order.PAYMENT_FAILED
+        elif order_status == Order.PAYMENT_COD:
+            data['order_status'] = Order.ORDERED
+        elif order_status == 'PAYMENT_APPROVED':
+            if payment_type_instance.type == 'online':
+                if 'payment_mode' not in self.initial_data or not self.initial_data['payment_mode']:
+                    raise serializers.ValidationError("'payment_mode' | This is mandatory")
+                if not any(self.initial_data['payment_mode'] in i for i in PosPayment.MODE_CHOICES):
+                    raise serializers.ValidationError(f"'payment_mode' | Invalid choice "
+                                                      f"{self.initial_data['payment_mode']}.")
+                payment_mode = self.initial_data['payment_mode']
+            payment_status = PosPayment.PAYMENT_APPROVED
+            data['order_status'] = Order.ORDERED
+
+        data['payment_instance'] = payment_instance
+        data['payment'] = {}
+        data['payment']['order'] = order_instance
+        data['payment']['payment_type'] = payment_type_instance
+        data['payment']['payment_status'] = payment_status
+        data['payment']['payment_mode'] = payment_mode
+        data['payment']['transaction_id'] = transaction_id
+        return data
+
+
+    def update(self, instance, validated_data):
+        """Update Order"""
+        payment_instance = validated_data.pop("payment_instance", None)
+        payment_obj = validated_data.pop("payment", None)
+        try:
+            order_instance = super().update(instance, validated_data)
+        except Exception as e:
+            error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
+            raise serializers.ValidationError(error)
+
+        if payment_instance:
+            payment_instance.order = payment_obj['order']
+            payment_instance.payment_type = payment_obj['payment_type']
+            payment_instance.payment_status = payment_obj['payment_status']
+            payment_instance.payment_mode = payment_obj['payment_mode']
+            payment_instance.transaction_id = payment_obj['transaction_id']
+            payment_instance.save()
+
+        return order_instance
 
 
 class PackagesUnderTripSerializer(serializers.ModelSerializer):
@@ -4723,14 +4887,14 @@ class LoadLastMileInvoiceSerializer(serializers.ModelSerializer):
 
         if shipment.current_shop != trip.source_shop:
             raise serializers.ValidationError(
-                f"Invoice {shipment} not present at {trip.source_shop}, unable to load this invoice to this trip")
+                f"Invoice {shipment} does not belong to {trip.source_shop}.")
         elif shipment.current_shop.shop_type.shop_type == 'sp' and shipment.order.dispatch_center:
             raise serializers.ValidationError(
-                f"Invoice {shipment} allowed to load into dispatch trip from {shipment.current_shop}")
+                f"Invoice {shipment} does not belong to warehouse {trip.source_shop}.")
         elif shipment.current_shop.shop_type.shop_type == 'dc' and \
                 shipment.order.dispatch_center != shipment.current_shop:
             raise serializers.ValidationError(
-                f"Invoice {shipment} allowed to load into last mile trip from {shipment.order.dispatch_center}")
+                f"Invoice {shipment} does not belong to dispatch center {trip.source_shop}.")
         current_date = datetime.datetime.now().date()
 
         if shipment.shipment_status == OrderedProduct.RESCHEDULED:
@@ -4875,6 +5039,8 @@ class LastMileLoadVerifyPackageSerializer(serializers.ModelSerializer):
 
     def validate(self, data):
         # Validate request data
+        current_user = self.context.get('current_user')
+
         if 'id' in self.initial_data:
             raise serializers.ValidationError('Updating package is not allowed')
         if 'trip_id' not in self.initial_data or not self.initial_data['trip_id']:
@@ -4929,10 +5095,17 @@ class LastMileLoadVerifyPackageSerializer(serializers.ModelSerializer):
 
         elif trip_shipment.shipment_status == LastMileTripShipmentMapping.TO_BE_LOADED:
             trip_shipment_running = LastMileTripShipmentMapping.objects.filter(
-                trip=trip, shipment_status=LastMileTripShipmentMapping.LOADING_FOR_DC).last()
+                trip=trip, loaded_by=current_user, shipment_status=LastMileTripShipmentMapping.LOADING_FOR_DC).last()
             if trip_shipment_running:
                 raise serializers.ValidationError(f"Please scan the remaining box in invoice no."
                                                   f" {trip_shipment_running.shipment.invoice_no}")
+        elif LastMileTripShipmentMapping.objects.filter(
+                ~Q(loaded_by=current_user), trip=trip, shipment=package.shipment,
+                shipment_status=LastMileTripShipmentMapping.LOADING_FOR_DC).exists():
+            loaded_by = LastMileTripShipmentMapping.objects.filter(
+                ~Q(loaded_by=current_user), trip=trip, shipment=package.shipment,
+                shipment_status=LastMileTripShipmentMapping.LOADING_FOR_DC).last().loaded_by
+            raise serializers.ValidationError(f"Invoice {package.shipment} is currently scanned by {loaded_by}")
 
         status = LastMileTripShipmentPackages.LOADED
         if self.initial_data['status'] == PACKAGE_VERIFY_CHOICES.DAMAGED:
@@ -4955,6 +5128,7 @@ class LastMileLoadVerifyPackageSerializer(serializers.ModelSerializer):
         data['trip_shipment_mapping']['shipment'] = package.shipment
         data['trip_shipment_mapping']['shipment_status'] = LastMileTripShipmentMapping.LOADING_FOR_DC
         data['trip_shipment_mapping']['shipment_health'] = shipment_health
+        data['trip_shipment_mapping']['loaded_by'] = current_user
 
         data['trip_package_mapping'] = {}
         data['trip_package_mapping']['trip_shipment'] = trip_shipment
@@ -4973,6 +5147,7 @@ class LastMileLoadVerifyPackageSerializer(serializers.ModelSerializer):
             else:
                 trip_shipment.shipment_status = validated_data['trip_shipment_mapping']['shipment_status']
                 trip_shipment.shipment_health = validated_data['trip_shipment_mapping']['shipment_health']
+                trip_shipment.loaded_by = validated_data['trip_shipment_mapping']['loaded_by']
                 trip_shipment.save()
             validated_data['trip_package_mapping']['trip_shipment'] = trip_shipment
             trip_package_mapping = LastMileTripShipmentPackages.objects.create(**validated_data['trip_package_mapping'])
@@ -5012,132 +5187,6 @@ class LastMileLoadVerifyPackageSerializer(serializers.ModelSerializer):
                 trip_shipment.shipment_status = LastMileTripShipmentMapping.LOADED_FOR_DC
                 trip_shipment.save()
 
-
-
-class OrderPaymentStatusChangeSerializers(serializers.ModelSerializer):
-    seller_shop = ShopSerializer(read_only=True)
-
-    class Meta:
-        model = Order
-        fields = ('id', 'order_no', 'seller_shop', 'order_status', 'received_by', 'created_at', 'modified_at')
-
-    def validate(self, data):
-
-        if 'id' in self.initial_data and self.initial_data['id']:
-            if Order.objects.filter(id=self.initial_data['id'],
-                                    ordered_cart__cart_type='ECOM').exists():
-                order_instance = Order.objects.filter(id=self.initial_data['id']).last()
-            else:
-                raise serializers.ValidationError(f"Order not found for Id {self.initial_data['id']}.")
-        else:
-            raise serializers.ValidationError("'id' | This is mandatory")
-
-        if 'order_no' in self.initial_data and self.initial_data['order_no']:
-            order_no = self.initial_data['order_no']
-            if order_instance.order_no != order_no:
-                raise Exception("'order_no' | Invalid order_no for selected order.")
-
-        if 'order_status' not in self.initial_data and not self.initial_data['order_status']:
-            raise serializers.ValidationError("'order_status' | This is mandatory.")
-        order_status = self.initial_data['order_status']
-
-        if order_instance.order_status not in [Order.PAYMENT_PENDING, Order.PAYMENT_FAILED] or \
-                order_instance.order_status == order_status:
-            raise serializers.ValidationError(f"Order status can't update")
-
-        if self.context.get('app-type', None) == 3 and order_instance.order_status == Order.PAYMENT_PENDING and \
-                order_status not in [Order.PAYMENT_FAILED, Order.PAYMENT_APPROVED, Order.PAYMENT_COD]:
-            raise serializers.ValidationError(f"Please Provide valid Payment status")
-
-        elif self.context.get('app-type', None) == 2 and order_instance.order_status == Order.PAYMENT_PENDING and \
-                order_status != Order.PAYMENT_COD:
-            raise serializers.ValidationError(f"Please Provide valid Payment status")
-
-        if 'payment_id' not in self.initial_data and not self.initial_data['payment_id']:
-            raise serializers.ValidationError("'payment_id' | This is mandatory.")
-
-        if PosPayment.objects.filter(id=self.initial_data['payment_id']).exists():
-            payment_instance = PosPayment.objects.filter(id=self.initial_data['payment_id']).last()
-        else:
-            raise serializers.ValidationError(f"Payment not found for Id {self.initial_data['id']}.")
-
-        if payment_instance.order != order_instance:
-            raise serializers.ValidationError(f"Invalid payment {payment_instance} for the order {order_instance}")
-
-        if order_status == Order.PAYMENT_COD and order_instance.order_app_type == Order.POS_WALKIN:
-            payment_type_instance = PaymentType.objects.filter(type="cash", app='pos').last()
-
-        elif order_status == Order.PAYMENT_COD and order_instance.order_app_type == Order.POS_ECOMM:
-            payment_type_instance = PaymentType.objects.filter(type="cod", app='ecom').last()
-        else:
-            if 'payment_type_id' not in self.initial_data or not self.initial_data['payment_type_id']:
-                raise serializers.ValidationError("'payment_type_id' | This is mandatory")
-            payment_type_instance = PaymentType.objects.filter(id=int(self.initial_data['payment_type_id'])).last()
-            if not payment_type_instance:
-                raise serializers.ValidationError(f"'payment_type_id' | "
-                                                  f"{self.initial_data['payment_type_id']} not found.")
-
-            if order_instance.order_app_type == Order.POS_WALKIN:
-                if payment_type_instance.app != 'pos':
-                    raise serializers.ValidationError(f"'payment_type_id' | Invalid choice "
-                                                      f"{self.initial_data['payment_type_id']}.")
-            if order_instance.order_app_type == Order.POS_ECOMM:
-                if payment_type_instance.app != 'ecom':
-                    raise serializers.ValidationError(f"'payment_type_id' | Invalid choice "
-                                                      f"{self.initial_data['payment_type_id']}.")
-
-        transaction_id = ""
-        if 'transaction_id' in self.initial_data and self.initial_data['transaction_id']:
-            transaction_id = self.initial_data['transaction_id']
-
-        payment_status = None
-        payment_mode = None
-        if order_status == Order.PAYMENT_FAILED:
-            payment_status = PosPayment.PAYMENT_FAILED
-            data['order_status'] = Order.PAYMENT_FAILED
-        elif order_status == Order.PAYMENT_COD:
-            data['order_status'] = Order.ORDERED
-        elif order_status == 'PAYMENT_APPROVED':
-            if payment_type_instance.type == 'online':
-                if 'payment_mode' not in self.initial_data or not self.initial_data['payment_mode']:
-                    raise serializers.ValidationError("'payment_mode' | This is mandatory")
-                if not any(self.initial_data['payment_mode'] in i for i in PosPayment.MODE_CHOICES):
-                    raise serializers.ValidationError(f"'payment_mode' | Invalid choice "
-                                                      f"{self.initial_data['payment_mode']}.")
-                payment_mode = self.initial_data['payment_mode']
-            payment_status = PosPayment.PAYMENT_APPROVED
-            data['order_status'] = Order.ORDERED
-
-        data['payment_instance'] = payment_instance
-        data['payment'] = {}
-        data['payment']['order'] = order_instance
-        data['payment']['payment_type'] = payment_type_instance
-        data['payment']['payment_status'] = payment_status
-        data['payment']['payment_mode'] = payment_mode
-        data['payment']['transaction_id'] = transaction_id
-
-        return data
-
-    @transaction.atomic
-    def update(self, instance, validated_data):
-        """Update Order"""
-        payment_instance = validated_data.pop("payment_instance", None)
-        payment_obj = validated_data.pop("payment", None)
-        try:
-            order_instance = super().update(instance, validated_data)
-        except Exception as e:
-            error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
-            raise serializers.ValidationError(error)
-
-        if payment_instance:
-            payment_instance.order = payment_obj['order']
-            payment_instance.payment_type = payment_obj['payment_type']
-            payment_instance.payment_status = payment_obj['payment_status']
-            payment_instance.payment_mode = payment_obj['payment_mode']
-            payment_instance.transaction_id = payment_obj['transaction_id']
-            payment_instance.save()
-
-        return order_instance
 
 class VerifyBackwardTripItemsSerializer(serializers.ModelSerializer):
     product_details = serializers.SerializerMethodField()

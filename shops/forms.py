@@ -4,8 +4,8 @@ from django import forms
 
 from .common_validators import get_validate_approval_status_change_reason
 from .models import ParentRetailerMapping, PosShopUserMapping, Shop, ShopType, ShopUserMapping, ShopTiming, \
-    BeatPlanning, ShopStatusLog, FOFOConfigurations
-from addresses.models import Address, City, DispatchCenterCityMapping, DispatchCenterPincodeMapping, Pincode
+    BeatPlanning, ShopStatusLog, FOFOConfigurations, FOFOConfig
+from addresses.models import Address, State, City, DispatchCenterCityMapping, DispatchCenterPincodeMapping, Pincode
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
 from django.core.validators import RegexValidator
@@ -14,8 +14,6 @@ import csv
 import codecs
 from products.models import Product, ProductPrice
 import re
-from .models import Shop, FOFOConfig
-from addresses.models import State
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group, Permission
 from retailer_backend.messages import VALIDATION_ERROR_MESSAGES
@@ -679,4 +677,3 @@ class FOFOShopConfigForm(forms.ModelForm):
     class Meta:
         model = FOFOConfigurations
         fields = ('shop', 'key', 'value')
-

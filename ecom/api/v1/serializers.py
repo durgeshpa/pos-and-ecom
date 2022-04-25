@@ -426,6 +426,18 @@ class TagSerializer(serializers.ModelSerializer):
         fields = ('id', 'key', 'name', 'position')
 
 
+class ProductImageSerializer(serializers.Serializer):
+
+    class Meta:
+        fields = ('image_name', 'image_url')
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        data['image_name'] = instance.image_name
+        data['image_url'] = instance.image.url
+        return data
+
+
 class ProductSerializer(serializers.ModelSerializer):
     """
     Serializer to get product details
@@ -691,3 +703,28 @@ class PastPurchasedProductSerializer(serializers.ModelSerializer):
         data['user'] = AccountSerializer(user).data
         return data
 
+class RetailerProductSerializer(ProductSerializer):
+    product_images = serializers.SerializerMethodField()
+
+    class Meta:
+        model = RetailerProduct
+        fields = ('id', 'name', 'mrp', 'online_price', 'product_images', 'category', 'category_id', 'brand', 'brand_id',
+                  'sub_category', 'sub_category_id')
+
+    def get_product_images(self, obj):
+        retailer_images = obj.retailer_product_image.all()
+        if not retailer_images.exists():
+            linked_product = obj.linked_product
+            if linked_product:
+                retailer_images = linked_product.product_pro_image.all()
+                if not retailer_images:
+                    parent_product = obj.linked_product.parent_product
+                    if parent_product:
+                        retailer_images = parent_product.parent_product_pro_image.all()
+        return ProductImageSerializer(retailer_images, many=True).data
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        data['pack_size'] = instance.purchase_pack_size
+        data['ean'] = instance.product_ean_code
+        return data

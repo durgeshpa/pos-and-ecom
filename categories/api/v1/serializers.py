@@ -203,7 +203,7 @@ class B2cSubCategorySerializers(serializers.ModelSerializer):
 class B2cCategoryCrudSerializers(serializers.ModelSerializer):
     b2c_cat_parent = B2cSubCategorySerializers(many=True, read_only=True)
     category_parent = B2cParentCategorySerializers(read_only=True)
-    category_slug = serializers.SlugField(required=False, allow_null=True, allow_blank=True)
+    category_slug = serializers.CharField(required=False, allow_null=True, allow_blank=True)
     updated_by = UserSerializers(write_only=True, required=False)
     category_log = LogSerializers(many=True, read_only=True)
 

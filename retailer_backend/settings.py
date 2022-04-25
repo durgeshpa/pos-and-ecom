@@ -612,13 +612,13 @@ LOGGING = {
 }
 SWAGGER_SETTINGS = {
    'USE_SESSION_AUTH': True,
-    # 'SECURITY_DEFINITIONS': {
-    #         'api_key': {
-    #             'type': 'apiKey',
-    #             'in': 'header',
-    #             'name': 'Authorization'
-    #         }
-    #     },
+    'SECURITY_DEFINITIONS': {
+            'api_key': {
+                'type': 'apiKey',
+                'in': 'header',
+                'name': 'Authorization'
+            }
+        },
 
 }
 # Email Configuration
