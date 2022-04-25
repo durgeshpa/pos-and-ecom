@@ -1995,7 +1995,7 @@ class CartCheckout(APIView):
             offers = BasicCartOffers.refresh_offers_checkout(cart, False, self.request.data.get('coupon_id'))
             data = self.serialize(cart)
 
-            data['redeem_points_message'] = use_rewrd_this_month
+            data['redeem_points_message'] = use_reward_this_month
             time = datetime.now().strftime("%H:%M:%S")
             time = datetime.strptime(time,"%H:%M:%S").time()
             fofo_config = get_config_fofo_shops(kwargs['shop'].id)
