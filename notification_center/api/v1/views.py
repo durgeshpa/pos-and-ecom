@@ -37,7 +37,7 @@ class DeviceViewSet(viewsets.ModelViewSet):
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
-        if serializer.is_valid(raise_exception=True):
+        if serializer.is_valid():
             self.perform_create(serializer)
             msg = {'is_success': True, 'message': None, 'response_data': serializer.data}
         else:
