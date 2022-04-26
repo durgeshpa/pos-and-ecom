@@ -5325,7 +5325,7 @@ class PosOrderUserSearchSerializer(serializers.ModelSerializer):
         elif instance.ecom_user_address.filter(type='Home').exists():
             return UserAddressSerializer(instance.ecom_user_address.filter(type='Home').last()).data
         else:
-            return UserAddressSerializer(instance.ecom_user_address.last())
+            return UserAddressSerializer(instance.ecom_user_address.last()).data
     
     class Meta:
         model = User

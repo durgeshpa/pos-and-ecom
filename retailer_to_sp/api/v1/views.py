@@ -1995,7 +1995,7 @@ class CartCheckout(APIView):
             offers = BasicCartOffers.refresh_offers_checkout(cart, False, self.request.data.get('coupon_id'))
             data = self.serialize(cart)
 
-            data['redeem_points_message'] = use_rewrd_this_month
+            data['redeem_points_message'] = use_reward_this_month
             time = datetime.now().strftime("%H:%M:%S")
             time = datetime.strptime(time,"%H:%M:%S").time()
             fofo_config = get_config_fofo_shops(kwargs['shop'].id)
@@ -3364,6 +3364,7 @@ class OrderCentral(APIView):
                                 status.HTTP_200_OK, True)
 
     @check_pos_shop
+    @transaction.atomic
     def post_ecom_order(self, request, *args, **kwargs):
         """
             Place Order
@@ -3443,40 +3444,41 @@ class OrderCentral(APIView):
                                 False, {'error_code': error_code.OUT_OF_STOCK_ITEMS})
 
         delivery_option = request.data.get('delivery_option', None)
-        with transaction.atomic():
-            # Update Cart To Ordered
-            self.update_cart_ecom(cart)
-            # Refresh redeem reward
-            RewardCls.checkout_redeem_points(cart, cart.redeem_points)
-            order = self.create_basic_order(cart, shop, address, payment_type_id, delivery_option)
-            payments = [
-                {
-                    "payment_type": payment_type_id,
-                    "amount": round(order.order_amount),
-                    "transaction_id": "",
-                    "payment_status": self.request.data.get('payment_status', None),
-                    "payment_mode": self.request.data.get('payment_mode', None)
-                }
-            ]
-            self.auto_process_order(order, payments, 'ecom')
-            self.auto_process_ecom_order(order)
-            try:
-                from pyfcm import FCMNotification
-                push_service = FCMNotification(api_key=config('FCM_SERVER_KEY'))
-                devices = Device.objects.filter(user__in=shop.pos_shop.all().values('user__id'),
-                                                is_active=True).distinct('reg_id')
-                for device in devices:
-                    registration_id = device.reg_id
-                    message_title = f"{shop.shop_name} - Order Alert !!"
-                    message_body = f"Hello, You received a new Order of Rs {int(order.order_amount)}"
-                    result = push_service.notify_single_device(registration_id=registration_id,
-                                                               message_title=message_title,
-                                                               message_body=message_body)
-                    info_logger.info(result)
-            except Exception as e:
-                info_logger.info(e)
-            return api_response('Ordered Successfully!', BasicOrderListSerializer(Order.objects.get(id=order.id)).data,
-                                status.HTTP_200_OK, True)
+        # Update Cart To Ordered
+        get_response = self.update_cart_ecom(self.shop, cart)
+        if get_response:
+            return api_response(get_response)
+        # Refresh redeem reward
+        RewardCls.checkout_redeem_points(cart, cart.redeem_points)
+        order = self.create_basic_order(cart, shop, address, payment_type_id, delivery_option)
+        payments = [
+            {
+                "payment_type": payment_type_id,
+                "amount": round(order.order_amount),
+                "transaction_id": "",
+                "payment_status": self.request.data.get('payment_status', None),
+                "payment_mode": self.request.data.get('payment_mode', None)
+            }
+        ]
+        self.auto_process_order(order, payments, 'ecom')
+        self.auto_process_ecom_order(order)
+        try:
+            from pyfcm import FCMNotification
+            push_service = FCMNotification(api_key=config('FCM_SERVER_KEY'))
+            devices = Device.objects.filter(user__in=shop.pos_shop.all().values('user__id'),
+                                            is_active=True).distinct('reg_id')
+            for device in devices:
+                registration_id = device.reg_id
+                message_title = f"{shop.shop_name} - Order Alert !!"
+                message_body = f"Hello, You received a new Order of Rs {int(order.order_amount)}"
+                result = push_service.notify_single_device(registration_id=registration_id,
+                                                           message_title=message_title,
+                                                           message_body=message_body)
+                info_logger.info(result)
+        except Exception as e:
+            info_logger.info(e)
+        return api_response('Ordered Successfully!', BasicOrderListSerializer(Order.objects.get(id=order.id)).data,
+                            status.HTTP_200_OK, True)
 
     def get_retail_validate(self):
         """
@@ -3702,12 +3704,17 @@ class OrderCentral(APIView):
         cart.last_modified_by = self.request.user
         cart.save()
 
-    def update_cart_ecom(self, cart):
+    def update_cart_ecom(self, seller_shop, cart):
         """
             Place order
             Update cart to ordered
             For ecom cart
         """
+        updated_cart = Cart.objects.filter(cart_type='ECOM', buyer=self.request.user, seller_shop=seller_shop,
+                                           cart_status='active').last()
+
+        if not updated_cart:
+            return "Please add items to proceed to order"
         cart.cart_status = 'ordered'
         cart.last_modified_by = self.request.user
         cart.save()
@@ -5966,14 +5973,14 @@ def pdf_generation_retailer(request, order_id, delay=True):
                     send_invoice_pdf_email.delay(manager.user.email, shop_name, order.order_no, media_url,
                                                  file_name, 'order')
                 else:
-                    logger.exception("Email not present for Manager {}".format(str(manager)))
+                    info_logger.error("Email not present for Manager {}".format(str(manager)))
                 # email task to send manager order invoice ^
             else:
                 if manager and manager.user.email:
                     send_invoice_pdf_email(manager.user.email, shop_name, order.order_no, media_url, file_name,
                                            'order')
                 else:
-                    logger.exception("Email not present for Manager {}".format(str(manager)))
+                    info_logger.error("Email not present for Manager {}".format(str(manager)))
             return whatsapp_opt_in(phone_number, shop_name, media_url, file_name)
         except Exception as e:
             logger.exception("Retailer Invoice send error order {}".format(order.order_no))
@@ -6104,13 +6111,13 @@ def pdf_generation_retailer(request, order_id, delay=True):
                     send_invoice_pdf_email.delay(manager.user.email, shop_name, order.order_no, media_url, file_name,
                                                  'order')
                 else:
-                    logger.exception("Email not present for Manager {}".format(str(manager)))
+                    info_logger.error("Email not present for Manager {}".format(str(manager)))
                 # send email
             else:
                 if manager and manager.user.email:
                     send_invoice_pdf_email(manager.user.email, shop_name, order.order_no, media_url, file_name, 'order')
                 else:
-                    logger.exception("Email not present for Manager {}".format(str(manager)))
+                    info_logger.error("Email not present for Manager {}".format(str(manager)))
                 if request.data.get("is_whatsapp", True):
                     return whatsapp_opt_in(phone_number, shop_name, media_url, file_name)
         except Exception as e:
@@ -6140,14 +6147,14 @@ def pdf_generation_return_retailer(request, order, ordered_product, order_return
                     send_invoice_pdf_email.delay(manager.user.email, shop_name, order_number, media_url, file_name,
                                                  'return')
                 else:
-                    logger.exception("Email not present for Manager {}".format(str(manager)))
+                    info_logger.error("Email not present for Manager {}".format(str(manager)))
                 # send mail to manager for return
             else:
                 if manager and manager.user.email:
                     send_invoice_pdf_email(manager.user.email, shop_name, order_number, media_url, file_name,
                                            'return')
                 else:
-                    logger.exception("Email not present for Manager {}".format(str(manager)))
+                    info_logger.error("Email not present for Manager {}".format(str(manager)))
                 return whatsapp_order_refund(order_number, order_status, phone_number, refund_amount, media_url,
                                                              file_name)
                 # send mail to manager for return
@@ -6292,17 +6299,17 @@ def pdf_generation_return_retailer(request, order, ordered_product, order_return
                     send_invoice_pdf_email.delay(manager.user.email, shop_name, order_number, media_url, file_name,
                                                  'return')
                 else:
-                    logger.exception("Email not present for Manager {}".format(str(manager)))
+                    info_logger.error("Email not present for Manager {}".format(str(manager)))
                 # send order return mail to
             else:
                 if manager and manager.user.email:
                     send_invoice_pdf_email(manager.user.email, shop_name, order_number, media_url, file_name, 'return')
                 else:
-                    logger.exception("Email not present for Manager {}".format(str(manager)))
+                    info_logger.error("Email not present for Manager {}".format(str(manager)))
                 # send mail to manager
                 if request.data.get("is_whatsapp", False):
                     return whatsapp_order_refund(order_number, order_status, phone_number, refund_amount, media_url,
-                                             file_name)
+                                                 file_name)
         except Exception as e:
             logger.exception("Retailer Credit note save and send error order {} return {}".format(order.order_no,
                                                                                                   order_return.id))
@@ -7492,6 +7499,9 @@ class ProcessShipmentView(generics.GenericAPIView):
 
         else:
             """ Get Process Shipment for specific Shipment and batch Id """
+
+            if request.GET.get('shipment_id') and not re.match("^\d+$", str(request.GET.get('shipment_id'))):
+                return get_response('please provide valid shipment_id', False)
             if not request.GET.get('shipment_id') or not (request.GET.get('batch_id') or request.GET.get('ean_code')):
                 return get_response('please provide id / shipment_id & batch_id to get shipment product detail', False)
             process_shipments_data = self.filter_shipment_data()
@@ -10625,10 +10635,10 @@ class PosOrderUserSearchView(generics.GenericAPIView):
     def get(self, request, *args, **kwargs):
         search = self.request.query_params.get('search')
         if search:
-            qs = User.objects.filter(Q(first_name__istartswith=search) | 
-                                    #  Q(last_name__icontains=search) | 
-                                     Q(phone_number__istartswith=search), 
-                                    #  is_ecom_user=True
+            qs = User.objects.filter(Q(first_name__istartswith=search) |
+                                    #  Q(last_name__icontains=search) |
+                                     Q(phone_number__istartswith=search),
+                                     #  is_ecom_user=True
                                      )
             serializer = self.serializer_class(qs, many=True)
             msg = 'success'

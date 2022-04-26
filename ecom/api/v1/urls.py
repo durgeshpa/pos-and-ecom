@@ -2,7 +2,8 @@ from django.conf.urls import url
 
 from .views import AccountView, RewardsView, ShopView, AddressView, AddressListView, \
     CategoriesView, SubCategoriesView, TagView, TagProductView, UserShopView \
-    , Contect_Us, ParentProductDetails, B2cCategoriesView, B2cSubCategoriesView, PastPurchasedProducts
+    , Contect_Us, ParentProductDetails, B2cCategoriesView, B2cSubCategoriesView, PastPurchasedProducts, \
+    ProductFunctionView
 
 urlpatterns = [
     url(r'^shop/', ShopView.as_view(), name='ecom-shop'),
@@ -17,6 +18,7 @@ urlpatterns = [
     url(r'^b2c-sub-categories/', B2cSubCategoriesView.as_view(), name='ecom-shop-b2c-subcategories'),
     url(r'^tags/', TagView.as_view(), name='ecom-tag'),
     url(r'^tag-product/(?P<pk>\d+)/$', TagProductView.as_view(), name='ecom-tag-product'),
+    url(r'^product-function/(?P<pk>\d+)/$', ProductFunctionView.as_view(), name='product-function'),
     url(r'^shop-user-mapping/$', UserShopView.as_view(), name='shop-user-mapping'),
     url(r'^contect_us_details/', Contect_Us.as_view(), name='contect_us_ecom'),
     url(r'^parent_product/(?P<pk>\d+)/$', ParentProductDetails.as_view(),name='parent_product_discription'),
