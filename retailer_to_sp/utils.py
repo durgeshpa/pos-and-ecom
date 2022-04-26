@@ -252,7 +252,7 @@ def order_cash_to_be_collected(shipments):
 def order_cn_amount(shipments):
 	return format_html_join(
 		"", "{}<br><br>",
-		((s.credit_note.aggregate(Sum('amount')).get('amount__sum') if s.credit_note.exists() else '',) for s in shipments)
+		((s.credit_note.aggregate(Sum('note_total')).get('note_total__sum') if s.credit_note.exists() else '',) for s in shipments)
 	)
 
 def order_damaged_amount(shipments):
