@@ -3079,7 +3079,6 @@ class OrderCentral(APIView):
                 order.order_status = order_status
                 order.last_modified_by = self.request.user
                 if order_status == Order.DELIVERED:
-                    order.delivered_at = datetime.now()
                     shop = kwargs['shop']
                     if shop.enable_loyalty_points: ## credit point on order delivery complete
                         if ReferralCode.is_marketing_user(order.buyer):

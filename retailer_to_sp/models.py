@@ -1076,7 +1076,6 @@ class Order(models.Model):
                                         on_delete=models.DO_NOTHING)
     delivery_option = models.CharField(max_length=50, choices=DELIVERY_CHOICE, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
-    delivered_at = models.DateTimeField(null=True, blank=True, editable=False)
     modified_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):

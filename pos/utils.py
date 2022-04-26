@@ -405,7 +405,9 @@ def generate_csv_payment_report(payments):
     response["Content-Disposition"] = 'attachement; filename="{}"'.format(filename)
     csv_writer = csv.writer(response)
     csv_writer.writerow(
-        [   'Order No',
+        [
+            'Order No',
+            'Order Created At',
             'Delivery Option',
             'Invoice No',
             'Invoice Date',
@@ -426,7 +428,10 @@ def generate_csv_payment_report(payments):
             'Invoice Amount',
             'PAID BY',
             'PROCCESSED BY',
-            'PAID AT'
+            'PAID AT',
+            'PickUp Time',
+            'Delivery Start Time',
+            'Delivery End Time'
         ]
     )
     rows = []
@@ -434,7 +439,8 @@ def generate_csv_payment_report(payments):
         inv_amt = None
         payment_types = PaymentType.objects.filter(type__in=['cod', 'cash'])
         if payment and (payment.payment_type in payment_types or
-                        payment.payment_status not in [Payment.PAYMENT_PENDING, Payment.PAYMENT_FAILED, 'payment_not_found']):
+                        payment.payment_status not in [Payment.PAYMENT_PENDING, Payment.PAYMENT_FAILED,
+                                                       'payment_not_found']):
             if payment.order.order_app_type == Order.POS_WALKIN:
                 inv_amt = payment.amount
             elif payment.order.order_app_type == Order.POS_ECOMM and payment.payment_type.type == 'cod' \
@@ -448,6 +454,7 @@ def generate_csv_payment_report(payments):
 
         row = []
         row.append(payment.order.order_no)
+        row.append(payment.order.created_at.strftime('%m/%d/%Y-%H-%M-%S'))
         row.append(payment.order.get_delivery_option_display())
         row.append(getattr(payment.order.shipments()[0],'invoice','')  if payment.order.shipments() else '')
         row.append(payment.order.shipments()[0].created_at.strftime("%m/%d/%Y-%H:%M:%S") if payment.order.shipments() else '')
@@ -488,11 +495,23 @@ def generate_csv_payment_report(payments):
         row.append(payment.paid_by)
         row.append(payment.processed_by)
         row.append(payment.created_at.strftime("%m/%d/%Y-%H:%M:%S"))
+        if payment.order.rt_order_order_product.last().rt_order_product_order_product_mapping.last():
+            pickup_time = payment.order.rt_order_order_product.last().rt_order_product_order_product_mapping.last().\
+                created_at.strftime('%m/%d/%Y-%H-%M-%S') if payment.order.rt_order_order_product.last().rt_order_product_order_product_mapping.last().\
+                created_at.strftime('%m/%d/%Y-%H-%M-%S') else ''
+            row.append(pickup_time)
+
+        if payment.order.rt_order_order_product.last().pos_trips.last():
+            trip_start_at = payment.order.rt_order_order_product.last().pos_trips.last().\
+                trip_start_at.strftime('%m/%d/%Y-%H-%M-%S') if payment.order.rt_order_order_product.last().pos_trips.last().\
+                trip_start_at.strftime('%m/%d/%Y-%H-%M-%S') else ''
+            row.append(trip_start_at)
+
+            trip_end_at = payment.order.rt_order_order_product.last().pos_trips.last().\
+                trip_end_at.strftime('%m/%d/%Y-%H-%M-%S') if payment.order.rt_order_order_product.last().pos_trips.last().\
+                trip_end_at.strftime('%m/%d/%Y-%H-%M-%S') else ''
+            row.append(trip_end_at)
         rows.append(row)
-
-
-
-
 
     # rows = [
     #     [
