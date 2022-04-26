@@ -114,7 +114,7 @@ class EcomOrderProductAdmin(admin.ModelAdmin):
 
         (_('Order Details'), {
             'fields': ('id', 'order_no', 'invoice_no', 'order_status', 'order_cancellation_reason', 'buyer',
-                       'buyer_address', 'delivered_at')}),
+                       'buyer_address', )}),
 
         (_('Amount Details'), {
             'fields': ('sub_total', 'offer_discount', 'reward_discount', 'order_amount')}),
@@ -151,9 +151,6 @@ class EcomOrderProductAdmin(admin.ModelAdmin):
 
     def order_no(self, obj):
         return obj.order_no
-
-    def delivered_at(self, obj):
-        return obj.delivered_at
 
     def download_invoice(self, obj):
         try:
