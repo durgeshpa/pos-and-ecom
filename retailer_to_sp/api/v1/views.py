@@ -5742,8 +5742,6 @@ def pdf_generation(request, ordered_product):
         gst_tax_list = []
         cess_tax_list = []
         surcharge_tax_list = []
-        tcs_rate = 0
-        tcs_tax = 0
         sum_qty = 0
         igst = sum(gst_tax_list)
         cgst = (sum(gst_tax_list)) / 2
@@ -5883,19 +5881,10 @@ def pdf_generation(request, ordered_product):
                 sum(gst_tax_list)) / 2, sum(
                 cess_tax_list), sum(surcharge_tax_list)
 
-        total_amount = ordered_product.invoice_amount
-
+        total_amount = ordered_product.invoice.invoice_sub_total
+        tcs_rate = ordered_product.invoice.tcs_percent
+        tcs_tax = round(ordered_product.invoice.tcs_amount, 2)
         total_tax_amount = ordered_product.sum_amount_tax()
-
-        if paid_amount and float(paid_amount) > 5000000:
-            if buyer_shop_gistin == 'unregistered':
-                tcs_rate = 1
-                tcs_tax = total_amount * float(tcs_rate / 100)
-            else:
-                tcs_rate = 0.1
-                tcs_tax = total_amount * float(tcs_rate / 100)
-
-        tcs_tax = round(tcs_tax, 2)
         try:
             product_special_cess = round(m.total_product_cess_amount)
         except:
@@ -6363,8 +6352,8 @@ class DownloadCreditNoteDiscounted(APIView):
         sum_qty, sum_amount, tax_inline, sum_basic_amount, product_tax_amount, total_product_tax_amount = 0, 0, 0, 0, 0, 0
         taxes_list, gst_tax_list, cess_tax_list, surcharge_tax_list = [], [], [], []
         igst, cgst, sgst, cess, surcharge = 0, 0, 0, 0, 0
-        tcs_rate = 0
-        tcs_tax = 0
+        tcs_rate = credit_note.shipment.invoice.tcs_percent
+        tcs_tax = credit_note.tcs_amount
         list1 = []
         for z in credit_note.shipment.order.seller_shop.shop_name_address_mapping.all():
             pan_no = 'AAHCG4891M' if z.shop_name == 'GFDN SERVICES PVT LTD (NOIDA)' or z.shop_name == 'GFDN SERVICES PVT LTD (DELHI)' else '---'

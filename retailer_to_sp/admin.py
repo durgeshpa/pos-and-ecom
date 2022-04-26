@@ -1941,11 +1941,11 @@ class CommercialAdmin(ExportCsvMixin, admin.ModelAdmin):
 
 
 class NoteAdmin(admin.ModelAdmin):
-    list_display = ('credit_note_id', 'shipment', 'shop', 'note_amount', 'download_credit_note', 'created_at')
-    fields = ('credit_note_id', 'shop', 'shipment', 'note_type', 'note_amount',
+    list_display = ('credit_note_id', 'shipment', 'shop', 'note_total', 'download_credit_note', 'created_at')
+    fields = ('credit_note_id', 'shop', 'shipment', 'note_type', 'note_total',
               'invoice_no', 'status')
     readonly_fields = ('credit_note_id', 'shop', 'shipment', 'note_type',
-                       'note_amount', 'invoice_no', 'status')
+                       'note_amount', 'tcs_amount', 'note_amount', 'invoice_no', 'status')
     list_filter = [('created_at', DateTimeRangeFilter), ShipmentSearch, CreditNoteSearch, ShopSearch]
 
     search_fields = ('credit_note_id', 'shop__shop_name', 'shipment__invoice__invoice_no')
@@ -2188,7 +2188,7 @@ class InvoiceAdmin(admin.ModelAdmin):
         js = ('admin/js/picker.js',)
 
     def get_invoice_amount(self, obj):
-        return "%s %s" % (u'\u20B9', str(obj.invoice_amount))
+        return "%s %s" % (u'\u20B9', str(obj.invoice_total))
     get_invoice_amount.short_description = "Invoice Amount"
 
     def get_shipment(self, obj):
@@ -2251,7 +2251,7 @@ class InvoiceAdmin(admin.ModelAdmin):
         shipment_payments = ShipmentPayment.objects.filter(shipment__invoice__id=OuterRef('pk')).order_by().values('shipment__invoice__id')
         shipment_paid_amount = shipment_payments.annotate(sum=Sum('paid_amount')).values('sum')
         credit_notes = Note.objects.filter(shipment__invoice__id=OuterRef('pk')).order_by().values('shipment__invoice__id')
-        credit_notes_amount = credit_notes.annotate(sum=Sum('amount')).values('sum')
+        credit_notes_amount = credit_notes.annotate(sum=Sum('note_total')).values('sum')
         qs = qs.annotate(
             get_order=F('shipment__order__order_no'), shipment_status=F('shipment__shipment_status'),
             trip_no=F('shipment__trip__dispatch_no'), trip_status=F('shipment__trip__trip_status'),

@@ -190,8 +190,8 @@ class DownloadCreditNote(APIView):
         sum_qty, sum_basic_amount, sum_amount, tax_inline, total_product_tax_amount = 0, 0, 0, 0, 0
         taxes_list, gst_tax_list, cess_tax_list, surcharge_tax_list = [], [], [], []
         igst, cgst, sgst, cess, surcharge = 0, 0, 0, 0, 0
-        tcs_rate = 0
-        tcs_tax = 0
+        tcs_rate = credit_note.shipment.invoice.tcs_percent
+        tcs_tax = credit_note.tcs_amount
         taxes_list = []
         gst_tax_list = []
         cess_tax_list = []
@@ -325,15 +325,7 @@ class DownloadCreditNote(APIView):
                 igst, cgst, sgst, cess, surcharge = sum(gst_tax_list), (sum(gst_tax_list)) / 2, (sum(gst_tax_list)) / 2, sum(cess_tax_list), sum(surcharge_tax_list)
 
         total_amount = sum_amount
-        # if float(total_amount) + float(paid_amount) > 5000000:
-        #     if gstinn2 == 'Unregistered':
-        #         tcs_rate = 1
-        #         tcs_tax = total_amount * decimal.Decimal(tcs_rate / 100)
-        #     else:
-        #         tcs_rate = 0.075
-        #         tcs_tax = total_amount * decimal.Decimal(tcs_rate / 100)
 
-        tcs_tax = round(tcs_tax, 2)
         sum_amount = sum_amount
         amount = total_amount
         total_amount = total_amount + tcs_tax
@@ -1724,7 +1716,7 @@ class OrderCancellation(object):
         credit_note = Note.objects.create(shop_id=self.seller_shop_id,
                                           credit_note_id=note_id,
                                           shipment_id=self.last_shipment_id,
-                                          amount=0, status=True)
+                                          amount=0, note_total=0, status=True)
         # creating SP GRN
         credit_grn = SPOrderedProduct.objects.create(credit_note=credit_note)
 
@@ -1740,6 +1732,9 @@ class OrderCancellation(object):
 
         # update credit note amount
         credit_note.amount = credit_amount
+        tcs_percent = self.last_shipment_instance.invoice.tcs_percent / 100
+        credit_note.tcs_amount = credit_amount * tcs_percent
+        credit_note.note_total = credit_amount * (1 + tcs_percent)
         credit_note.save()
 
     def update_sp_qty_from_cart_or_shipment(self):
