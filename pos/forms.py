@@ -484,3 +484,64 @@ class RetailerPurchaseReportForm(forms.Form):
 
 
 
+class ShopRewardUploadForm(forms.Form):
+    """
+        Select shop for create or update reward configration django
+    """
+    file = forms.FileField()
+
+    def clean_file(self):
+        """
+            FileField validation Check if file ends with only .csv
+        """
+        if self.cleaned_data.get('file'):
+
+            if not self.cleaned_data['file'].name[-4:] in '.csv':
+                raise forms.ValidationError("Please upload only CSV File")
+        file = self.cleaned_data['file']
+        reader = csv.DictReader(codecs.iterdecode(file, 'utf-8'))
+        error = []
+        row_num = 1
+        count = 0
+        lis = []
+        for row in reader:
+            shop = Shop.objects.filter(id=row.get('shop_id'))
+            row_num +=1
+            for key in row:
+                if key == "shop_id" and not row[key]:
+                    lis.append(f"{key} is required fields |error at row no {row_num}")
+                    
+                if key == "Minimum_Order_Value" and not row[key]:
+                    lis.append(f"{key} is required fields |error at row no {row_num}")
+                elif key == "Minimum_Order_Value" and  int(row[key]) <199:
+                    lis.append(f"{key} should be greater than 199 |error at row no {row_num}")
+
+                if key == "Is_Enable_Point_Redeemed_Ecom" and row[key] == True and not row['Max_Point_Redeemed_Ecom']:
+                    lis.append(f"'Max_Point_Redeemed_Ecom is required fields|error at row no {row_num}")
+                if key == "Is_Enable_Point_Redeemed_Pos" and row[key] == True and not row['Max_Point_Redeemed_Pos']:
+                    lis.append(f"Max_Point_Redeemed_Pos is required fields|error at row no {row_num}")
+                if key == "Is_Enable_Point_Added_Pos_Order" and row[key] == True and not row['Percentage_Point_Added_Pos_Order_Amount']:
+                    lis.append(f"Percentage_Point_Added_Pos_Order_Amount is required fields|error at row no {row_num}")
+                if key == "Is_Enable_Point_Added_Ecom_Order" and row[key] == True and not row['Percentage_Point_Added_Ecom_Order_Amount']:
+                    lis.append(f"Percentage_Point_Added_Ecom_Order_Amount is required fields|error at row no {row_num}")
+                if key == "Max_Monthly_Points_Redeemed" and not row[key]:
+                    lis.append(f"{key} is required fields |error at row no {row_num}")
+                if key == "Point_Redeemed_Second_Order" and not row[key]:
+                    lis.append(f"{key} is required fields |error at row no {row_num}")
+                if key == "Point_Redeemed_First_Order" and not row[key]:
+                    lis.append(f"{key} is required fields |error at row no {row_num}")
+                if key == "Percentage_Value_Of_Each_Point" and not row[key]:
+                    lis.append(f"{key} is required fields |error at row no {row_num}")
+                if key == "enable_loyalty_points" and not row[key]:
+                    lis.append(f"{key} is required fields |error at row no {row_num}")
+
+                
+            if len(lis) >= 1:
+                raise forms.ValidationError(lis)
+
+
+
+
+
+        return self.cleaned_data['file']
+    
