@@ -763,23 +763,6 @@ class BulkRetailerProduct(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
-    # def uploaded_product_list_status(self, error_dict):
-    #     product_upload_status_info = []
-    #     info_logger.info(f"[pos:models.py:BulkRetailerProduct]-uploaded_product_list_status function called")
-    #     error_dict[str('bulk_no')] = str(self.bulk_no)
-    #     product_upload_status_info.extend([error_dict])
-    #
-    #     status = "Bulk Product Creation"
-    #     url = f"""<h2 style="color:blue;"><a href="%s" target="_blank">
-    #     Download {status} List Status</a></h2>""" % \
-    #           (
-    #               reverse(
-    #                   'admin:products-list-status',
-    #                   args=(product_upload_status_info)
-    #               )
-    #           )
-    #     return url
-
     def save(self, *args, **kwargs):
         if self.pk is None:
             current_date = datetime.datetime.now().strftime("%d%m%Y")
