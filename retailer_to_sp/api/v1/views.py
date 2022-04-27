@@ -9437,7 +9437,11 @@ class LoadVerifyPackageView(generics.GenericAPIView):
         if serializer.is_valid():
             serializer.save(created_by=request.user)
             info_logger.info("Package loaded Successfully.")
-            return get_response('Package loaded successfully!', serializer.data)
+            # return get_response('Package loaded successfully!', serializer.data)
+            packaging_data = ShipmentPackaging.objects.get(id=modified_data['package_id'])
+            return get_response('Package loaded successfully!', ShipmentPackageSerializer(
+                ShipmentPackaging.objects.filter(
+                    shipment=packaging_data.shipment, movement_type=packaging_data.movement_type), many=True).data)
         return get_response(serializer_error(serializer), False)
 
 
