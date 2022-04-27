@@ -495,22 +495,24 @@ def generate_csv_payment_report(payments):
         row.append(payment.paid_by)
         row.append(payment.processed_by)
         row.append(payment.created_at.strftime("%m/%d/%Y-%H:%M:%S"))
-        if payment.order.rt_order_order_product.last().rt_order_product_order_product_mapping.last():
-            pickup_time = payment.order.rt_order_order_product.last().rt_order_product_order_product_mapping.last().\
-                created_at.strftime('%m/%d/%Y-%H-%M-%S') if payment.order.rt_order_order_product.last().rt_order_product_order_product_mapping.last().\
-                created_at.strftime('%m/%d/%Y-%H-%M-%S') else ''
-            row.append(pickup_time)
+        if payment.order.rt_order_order_product.last():
+            if payment.order.rt_order_order_product.last().rt_order_product_order_product_mapping.last():
+                pickup_time = payment.order.rt_order_order_product.last().rt_order_product_order_product_mapping.last().\
+                    created_at.strftime('%m/%d/%Y-%H-%M-%S') if payment.order.rt_order_order_product.last().\
+                    rt_order_product_order_product_mapping.last().\
+                    created_at.strftime('%m/%d/%Y-%H-%M-%S') else ''
+                row.append(pickup_time)
 
-        if payment.order.rt_order_order_product.last().pos_trips.last():
-            trip_start_at = payment.order.rt_order_order_product.last().pos_trips.last().\
-                trip_start_at.strftime('%m/%d/%Y-%H-%M-%S') if payment.order.rt_order_order_product.last().pos_trips.last().\
-                trip_start_at.strftime('%m/%d/%Y-%H-%M-%S') else ''
-            row.append(trip_start_at)
+            if payment.order.rt_order_order_product.last().pos_trips.last():
+                trip_start_at = payment.order.rt_order_order_product.last().pos_trips.last().\
+                    trip_start_at.strftime('%m/%d/%Y-%H-%M-%S') if payment.order.rt_order_order_product.last().pos_trips.last().\
+                    trip_start_at.strftime('%m/%d/%Y-%H-%M-%S') else ''
+                row.append(trip_start_at)
 
-            trip_end_at = payment.order.rt_order_order_product.last().pos_trips.last().\
-                trip_end_at.strftime('%m/%d/%Y-%H-%M-%S') if payment.order.rt_order_order_product.last().pos_trips.last().\
-                trip_end_at.strftime('%m/%d/%Y-%H-%M-%S') else ''
-            row.append(trip_end_at)
+                trip_end_at = payment.order.rt_order_order_product.last().pos_trips.last().\
+                    trip_end_at.strftime('%m/%d/%Y-%H-%M-%S') if payment.order.rt_order_order_product.last().pos_trips.last().\
+                    trip_end_at.strftime('%m/%d/%Y-%H-%M-%S') else ''
+                row.append(trip_end_at)
         rows.append(row)
 
     # rows = [
