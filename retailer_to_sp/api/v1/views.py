@@ -17,7 +17,7 @@ from django.core.exceptions import ObjectDoesNotExist
 from django.db.models import F, Sum, Q, Case, When, Value, FloatField
 from django.core.files.base import ContentFile
 from django.db import transaction, models
-from django.db.models import F, Sum, Q, Count, Value, Case, When
+from django.db.models import F, Sum, Q, Count, Value, Case, When, Subquery
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from django.shortcuts import render
@@ -10641,13 +10641,17 @@ class PosOrderUserSearchView(generics.GenericAPIView):
     serializer_class = PosOrderUserSearchSerializer
     
     def get(self, request, *args, **kwargs):
-        search = self.request.query_params.get('search')
+        search = request.query_params.get('search')
+        shop_id = request.META.get('HTTP_SHOP_ID')
         if search:
-            qs = User.objects.filter(Q(first_name__istartswith=search) | 
-                                    #  Q(last_name__icontains=search) | 
-                                     Q(phone_number__istartswith=search), 
-                                    #  is_ecom_user=True
-                                     )
+            orders = Order.objects.filter(seller_shop_id=shop_id)
+            users = User.objects.filter(id__in=Subquery(orders.values('buyer_id')))
+            if search.isnumeric() and len(search) >= 5:
+                qs = users.filter(phone_number__istartswith=search)
+            elif len(search) >= 3:
+                qs = users.filter(first_name__istartswith=search)
+            else:
+                qs = None
             serializer = self.serializer_class(qs, many=True)
             msg = 'success'
             return get_response(msg, serializer.data, True)
