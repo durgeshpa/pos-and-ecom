@@ -293,6 +293,10 @@ def get_tcs_data(shipment_instance):
     Calculates TCS tax if applicable
     Updates Total Buyer purchase in the current financial year
     '''
+    if hasattr(shipment_instance, 'invoice'):
+        return shipment_instance.invoice.is_tcs_applicable, shipment_instance.invoice.tcs_amount, \
+               shipment_instance.invoice.tcs_percent
+
     invoice_amount = shipment_instance.invoice_amount
     is_tcs_applicable = False
     tcs_percent = 0
