@@ -3855,7 +3855,7 @@ class ENoteData(Note):
 
 class BuyerPurchaseData(models.Model):
     seller_shop = models.ForeignKey(Shop, related_name='shop_sale', on_delete=models.DO_NOTHING)
-    buyer = models.ForeignKey(Shop, related_name='buyer_purchase', on_delete=models.DO_NOTHING)
+    buyer_shop = models.ForeignKey(Shop, related_name='buyer_purchase', on_delete=models.DO_NOTHING)
     fin_year = models.PositiveSmallIntegerField(validators=[MinValueValidator(2019),
                                                             MaxValueValidator(datetime.datetime.now().year)])
     total_purchase = models.FloatField(default=0)

@@ -539,21 +539,7 @@ def get_shop_gstin(shop_id, ShopDocument):
 
 def get_tcs_data(invoice, buyer_shop_id, buyer_shop_gstin, OrderedProduct, RoundAmount):
     tcs_data = {'tcs_rate': 0, 'tcs_tax': 0, 'nature_of_collection': '', 'tcs_payable': ''}
-
-    cache_key = 'TCS_RATE_CACHE_KEY'+'_'+str(buyer_shop_id)
-    tcs_rate = cache.get(cache_key)
-    if tcs_rate is None:
-        tcs_rate = 0
-        paid_amount = OrderedProduct.objects.filter(order__buyer_shop_id=invoice.buyer_shop_id,
-                                                    created_at__gte=get_fin_year_start_date())\
-                .aggregate(paid_amount=RoundAmount(Sum(
-                    F('rt_order_product_order_product_mapping__effective_price') *
-                    F('rt_order_product_order_product_mapping__shipped_qty'),
-                    output_field=FloatField())))['paid_amount']
-        if paid_amount and paid_amount > 5000000:
-            tcs_rate = 1 if buyer_shop_gstin == 'unregistered' else 0.1
-        cache.set(cache_key, tcs_rate)
-
+    tcs_rate = invoice.tcs_percent
     tcs_data['tcs_rate'] = tcs_rate
     if tcs_rate > 0:
         tcs_data['tcs_tax'] = round(float(invoice.invoice_amount) * float(tcs_data['tcs_rate'] / 100), 2)
