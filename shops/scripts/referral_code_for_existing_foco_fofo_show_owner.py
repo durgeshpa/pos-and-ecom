@@ -4,7 +4,7 @@ import traceback
 
 # app imports
 from accounts.models import User
-from marketing.models import ReferralCode
+from marketing.models import ReferralCode, RewardPoint
 from shops.models import Shop
 
 # Logger
@@ -33,6 +33,7 @@ def assign_referral_code_to_shop_owner():
                                  f" Shop Name--> {shop_owner.shop_name}")
                 print(f"{cnt + 1} | Referral Code: {rf_code_obj} of User {shop_owner.shop_owner} "
                       f" Shop Name--> {shop_owner.shop_name}")
+                RewardPoint.objects.get_or_create(user=shop_owner.shop_owner)
             else:
                 info_logger.info(f"{cnt + 1} | Referral Code of User {shop_owner.shop_owner} already exists ")
                 print(f"{cnt + 1} | Referral Code of User {shop_owner.shop_owner} already exists ")
@@ -52,6 +53,7 @@ def assign_referral_code_to_gf_employees():
                 print(rf_code_obj)
                 info_logger.info(f"{cnt + 1} | Referral Code: {rf_code_obj} of User {gf_user} ")
                 print(f"{cnt + 1} | Referral Code: {rf_code_obj} of User {gf_user} ")
+                RewardPoint.objects.get_or_create(user=gf_user)
             else:
                 info_logger.info(f"{cnt + 1} | Referral Code of User {gf_user} already exists ")
                 print(f"{cnt + 1} | Referral Code of User {gf_user} already exists ")
