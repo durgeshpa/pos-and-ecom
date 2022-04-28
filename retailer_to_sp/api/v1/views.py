@@ -1821,7 +1821,8 @@ class UserView(APIView):
             return api_response("Please enter a valid phone number")
 
         data, msg = [], 'Customer Does Not Exists'
-        customer = User.objects.filter(phone_number=phone_no).last()
+        orders = Order.objects.filter(seller_shop=kwargs['shop'])
+        customer = User.objects.filter(id__in=Subquery(orders.values('buyer_id'))).filter(phone_number=phone_no).last()
         if customer:
             data, msg = PosUserSerializer(customer).data, 'Customer Detail Success'
         return api_response(msg, data, status.HTTP_200_OK, True)
