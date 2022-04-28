@@ -1339,10 +1339,11 @@ class PutawayActionSerializer(PutawayItemsCrudSerializer):
 
                     bin = Bin.objects.filter(bin_id=item['bin'], warehouse=putaway_instance.warehouse,
                                              zone=zone, is_active=True).last()
-                    if BinInventory.objects.filter(~Q(batch_id=putaway_instance.batch_id), warehouse=putaway_instance.warehouse,
-                                                bin=bin, sku=putaway_instance.sku, quantity__gt=0).exists():
-                        raise serializers.ValidationError(f"Invalid bin {item['bin']}| This product with different expiry date "
-                                                          f"already present in bin")
+                    if BinInventory.objects.filter(
+                            ~Q(batch_id=putaway_instance.batch_id), warehouse=putaway_instance.warehouse, bin=bin,
+                            sku=putaway_instance.sku).filter(Q(quantity__gt=0) | Q(to_be_picked_qty__gt=0)).exists():
+                        raise serializers.ValidationError(f"Invalid bin {item['bin']}| This product with different "
+                                                          f"expiry date already present in bin")
                     if bin:
                         item['bin'] = bin
                     else:
