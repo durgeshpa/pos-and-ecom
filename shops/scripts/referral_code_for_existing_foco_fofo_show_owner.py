@@ -37,8 +37,11 @@ def assign_referral_code_to_shop_owner():
                 if created:
                     print("reward_points dashbored created for shop owner")
             else:
-                info_logger.info(f"{cnt + 1} | Referral Code of User {shop_owner.shop_owner} already exists ")
-                print(f"{cnt + 1} | Referral Code of User {shop_owner.shop_owner} already exists ")
+                user_ref_code = ReferralCode.objects.filter(user=shop_owner.shop_owner).last()
+                info_logger.info(f"{cnt + 1} | Referral Code: {user_ref_code.referral_code} of User "
+                                 f"{shop_owner.shop_owner} already exists ")
+                print(f"{cnt + 1} | Referral Code: {user_ref_code.referral_code} of User "
+                                 f"{shop_owner.shop_owner} already exists ")
 
         info_logger.info('assign_referral_code_to_shop_owner | completed')
     except Exception as e:
@@ -48,20 +51,22 @@ def assign_referral_code_to_shop_owner():
 
 def assign_referral_code_to_gf_employees():
     try:
+        print("gram factory users")
         info_logger.info('assign_referral_code_to_gf_employees |started')
         gf_users = User.objects.filter(groups__name__in=['Field Executive', 'Digital Marketing', 'Marketing'])
         for cnt, gf_user in enumerate(gf_users):
             if not ReferralCode.objects.filter(user=gf_user).exists():
                 rf_code_obj = ReferralCode.generate_user_referral_code(gf_user, gf_user)
-                print(rf_code_obj)
                 info_logger.info(f"{cnt + 1} | Referral Code: {rf_code_obj} of User {gf_user} ")
                 print(f"{cnt + 1} | Referral Code: {rf_code_obj} of User {gf_user} ")
                 reward_points, created = RewardPoint.objects.get_or_create(reward_user=gf_user)
                 if created:
                     print("reward_points dashbored created for gf_user")
             else:
-                info_logger.info(f"{cnt + 1} | Referral Code of User {gf_user} already exists ")
-                print(f"{cnt + 1} | Referral Code of User {gf_user} already exists ")
+                user_ref_code = ReferralCode.objects.filter(user=gf_user).last()
+                info_logger.info(f"{cnt + 1} | Referral Code: {user_ref_code.referral_code} of User "
+                                 f"{gf_user} already exists ")
+                print(f"{cnt + 1} | Referral Code: {user_ref_code.referral_code} of User " f"{gf_user} already exists ")
         info_logger.info('assign_referral_code_to_gf_employees | completed')
     except Exception as e:
         info_logger.error(f"assign_referral_code_to_gf_employees | error | {e}")
