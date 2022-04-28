@@ -3862,3 +3862,6 @@ class BuyerPurchaseData(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
+    class Meta:
+        verbose_name = 'Buyer Purchase'
+        verbose_name_plural = 'Buyer Purchase'

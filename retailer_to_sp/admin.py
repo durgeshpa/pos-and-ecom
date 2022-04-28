@@ -2142,7 +2142,8 @@ class InvoiceAdmin(admin.ModelAdmin):
         ('created_at', InvoiceCreatedAt),
         ('shipment__trip__starts_at', DeliveryStartsAt),
         ('shipment__trip__completed_at', DeliveryCompletedAt),
-        ('shipment__order__created_at', OrderCreatedAt))
+        ('shipment__order__created_at', OrderCreatedAt),
+        'is_tcs_applicable')
 
     def invoice_data_excel_action(self, request, queryset):
         return create_invoice_data_excel(request, queryset, RoundAmount,
@@ -2189,7 +2190,7 @@ class InvoiceAdmin(admin.ModelAdmin):
         js = ('admin/js/picker.js',)
 
     def get_invoice_amount(self, obj):
-        return "%s %s" % (u'\u20B9', str(obj.invoice_total))
+        return "%s %s" % (u'\u20B9', str(round(obj.invoice_total,2)))
     get_invoice_amount.short_description = "Invoice Amount"
 
     def get_shipment(self, obj):
