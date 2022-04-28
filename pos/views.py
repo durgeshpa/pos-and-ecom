@@ -25,7 +25,7 @@ from dateutil.relativedelta import relativedelta
 from django.db.models import Q, Sum, F
 
 from django.http import HttpResponse, JsonResponse, response, Http404, FileResponse, HttpResponseBadRequest
-from django.shortcuts import render, get_object_or_404
+from django.shortcuts import render, get_object_or_404, redirect
 from django.db import transaction
 from django.contrib import messages
 
@@ -37,6 +37,9 @@ from rest_framework.response import Response
 from rest_framework import status
 from wkhtmltopdf.views import PDFTemplateResponse
 
+from pos.common_bulk_functions import generate_csv_file_by_data_list_with_filename
+from pos.common_bulk_validators import bulk_product_validation, \
+    bulk_product_validation_with_error_list_and_validated_data
 from pos.common_functions import RetailerProductCls, PosInventoryCls, ProductChangeLogs
 from pos.models import RetailerProduct, RetailerProductImage, PosCart, DiscountedRetailerProduct, \
     MeasurementCategory, RetailerOrderedReport, Payment, RetailerOrderedProduct, RetailerOrderReturn, \
@@ -542,28 +545,23 @@ def upload_retailer_products_list(request):
             return render(request, 'admin/pos/retailerproductscsvupload.html', {'form': form})
 
         if form.is_valid():
+            info_logger.info("Data validation has been successfully done.")
+            try:
+                products_csv_file = form.cleaned_data['products_csv']
+                products_csv_file_obj = BulkRetailerProduct.objects.create(
+                    products_csv=products_csv_file, seller_shop=form.cleaned_data['seller_shop'],
+                    uploaded_by=form.cleaned_data['uploaded_by'])
+                response = pos_save_products_csv_file(products_csv_file_obj)
+                info_logger.info("Products File uploaded")
+                if isinstance(response, HttpResponse):
+                    return response
+                return render(request, 'admin/pos/retailerproductscsvupload.html',
+                              {'form': form,
+                               'success': 'Products Created/Updated Successfully!', })
+            except Exception as e:
+                error_logger.error(e)
+            return redirect('/admin/pos/retailerproduct/retailer_products_csv_upload')
 
-            # product_status = request.POST.get('catalogue_product_status')
-            # reader = csv.reader(codecs.iterdecode(request.FILES.get('file'), 'utf-8', errors='ignore'))
-            # header = next(reader, None)
-            # uploaded_data_by_user_list = []
-            # csv_dict = {}
-            # count = 0
-            # for id, row in enumerate(reader):
-            #     for ele in row:
-            #         csv_dict[header[count]] = ele
-            #         count += 1
-            #     uploaded_data_by_user_list.append(csv_dict)
-            #     csv_dict = {}
-            #     count = 0
-            # # if product_status == 'create_products':
-            # bulk_create_update_products(request, shop_id, form, uploaded_data_by_user_list)
-            # else:
-            #     bulk_create_update_products(request, shop_id, form, uploaded_data_by_user_list)
-
-            return render(request, 'admin/pos/retailerproductscsvupload.html',
-                          {'form': form,
-                           'success': 'Products Created/Updated Successfully!', })
     else:
         form = RetailerProductsCSVUploadForm()
         return render(
@@ -571,6 +569,20 @@ def upload_retailer_products_list(request):
             'admin/pos/retailerproductscsvupload.html',
             {'form': form}
         )
+
+
+def pos_save_products_csv_file(bulk_invoice_obj):
+    response_file = None
+    if bulk_invoice_obj:
+        if bulk_invoice_obj.products_csv:
+            error_list, validated_rows = bulk_product_validation_with_error_list_and_validated_data(
+                bulk_invoice_obj.products_csv, bulk_invoice_obj.seller_shop.pk)
+            if validated_rows:
+                bulk_create_update_validated_products(
+                    bulk_invoice_obj.uploaded_by, bulk_invoice_obj.seller_shop.pk, validated_rows)
+            if len(error_list) > 1:
+                response_file = generate_csv_file_by_data_list_with_filename(error_list, 'products_error.csv')
+    return response_file
 
 
 def retailer_products_list(product):
@@ -1704,3 +1716,15 @@ def products_list_status(request, product_status_info):
     info_logger.info(f"[pos/views.py: products_list_status] - CSV for products_list_status has been "
                      f"successfully downloaded with response [{response}]")
     return response
+
+
+class PosStoreRewardMappingAutocomplete(autocomplete.Select2QuerySetView):
+    """
+    Shop Filter for Retailer and Franchise Shops
+    """
+
+    def get_queryset(self, *args, **kwargs):
+        qs = Shop.objects.filter(Q(shop_type__shop_sub_type__retailer_type_name__in=["foco","fofo"]))
+        if self.q:
+            qs = qs.filter(Q(shop_type__shop_sub_type__retailer_type_name__in=["foco","fofo"]),shop_name__icontains=self.q)
+        return qs

@@ -23,6 +23,9 @@ from retailer_to_sp.models import (OrderReturn, OrderedProduct, ReturnItems, Car
                                    OrderedProductMapping, Order)
 from shops.models import Shop
 from wms.models import PosInventory, PosInventoryState, PosInventoryChange
+from shops.fields import CaseInsensitiveCharField
+from django.contrib.postgres.fields import JSONField
+
 
 PAYMENT_MODE_POS = (
     ('cash', 'Cash Payment'),
@@ -760,36 +763,6 @@ class BulkRetailerProduct(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
-    def uploaded_product_list_status(self, error_dict):
-        product_upload_status_info = []
-        info_logger.info(f"[pos:models.py:BulkRetailerProduct]-uploaded_product_list_status function called")
-        error_dict[str('bulk_no')] = str(self.bulk_no)
-        product_upload_status_info.extend([error_dict])
-
-        status = "Bulk Product Creation"
-        url = f"""<h2 style="color:blue;"><a href="%s" target="_blank">
-        Download {status} List Status</a></h2>""" % \
-              (
-                  reverse(
-                      'admin:products-list-status',
-                      args=(product_upload_status_info)
-                  )
-              )
-        return url
-
-    def clean(self, *args, **kwargs):
-        if self.products_csv:
-            self.save()
-            error_dict, validated_rows = bulk_product_validation(self.products_csv, self.seller_shop.pk)
-            bulk_create_update_validated_products(self.uploaded_by, self.seller_shop.pk, validated_rows)
-            if len(error_dict) > 0:
-                error_logger.info(f"Product can't create/update for some rows: {error_dict}")
-                raise ValidationError(mark_safe(f"Product can't create/update for some rows, Please click the "
-                                                f"below Link for seeing the status"
-                                                f"{self.uploaded_product_list_status(error_dict)}"))
-        else:
-            super(BulkRetailerProduct, self).clean(*args, **kwargs)
-
     def save(self, *args, **kwargs):
         if self.pk is None:
             current_date = datetime.datetime.now().strftime("%d%m%Y")
@@ -803,6 +776,7 @@ class BulkRetailerProduct(models.Model):
             self.bulk_no = starts_with + str(last_number).zfill(3)
             self.uploaded_by = self.uploaded_by
             super().save(*args, **kwargs)
+
 
 class PaymentStatusUpdateByCron(models.Model):
     """payment update by cron log model ..."""
@@ -841,3 +815,7 @@ class PaymentStatusUpdateByCron(models.Model):
     class Meta:
         verbose_name = 'cron log order status'
 
+
+class PosStoreRewardMappings(Shop):
+    class Meta:
+        proxy = True

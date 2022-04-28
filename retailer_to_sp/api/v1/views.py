@@ -9,6 +9,7 @@ from datetime import datetime, timedelta
 from decimal import Decimal
 from hashlib import sha512
 from operator import itemgetter
+
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
 from django.core import validators
@@ -16,7 +17,7 @@ from django.core.exceptions import ObjectDoesNotExist
 from django.db.models import F, Sum, Q, Case, When, Value, FloatField
 from django.core.files.base import ContentFile
 from django.db import transaction, models
-from django.db.models import F, Sum, Q, Count, Value, Case, When
+from django.db.models import F, Sum, Q, Count, Value, Case, When, Subquery
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from django.shortcuts import render
@@ -38,7 +39,8 @@ from shops.models import Shop, ParentRetailerMapping, ShopUserMapping, ShopMigra
 from brand.models import Brand
 from categories import models as categorymodel
 from common.common_utils import (create_file_name, single_pdf_file, create_merge_pdf_name, merge_pdf_files,
-                                 create_invoice_data, whatsapp_opt_in, whatsapp_order_cancel, whatsapp_order_refund)
+                                 create_invoice_data, whatsapp_opt_in, whatsapp_order_cancel, whatsapp_order_refund, 
+                                 whatsapp_order_delivered)
 from common.constants import PREFIX_CREDIT_NOTE_FILE_NAME, ZERO, PREFIX_INVOICE_FILE_NAME, INVOICE_DOWNLOAD_ZIP_NAME
 from common.data_wrapper_view import DataWrapperViewSet
 from coupon.models import Coupon, CusotmerCouponUsage
@@ -59,7 +61,6 @@ from pos.api.v1.serializers import (BasicCartSerializer, BasicCartListSerializer
                                     RetailerProductResponseSerializer, PosShopUserMappingListSerializer,
                                     PaymentTypeSerializer, PosEcomOrderDetailSerializer,
                                     RetailerOrderedDashBoardSerializer, PosEcomShopSerializer)
-
 from pos.common_functions import (api_response, delete_cart_mapping, ORDER_STATUS_MAP, RetailerProductCls,
                                   update_customer_pos_cart, PosInventoryCls, RewardCls, serializer_error,
                                   check_pos_shop, PosAddToCart, PosCartCls, ONLINE_ORDER_STATUS_MAP,
@@ -437,7 +438,7 @@ class SearchProducts(APIView):
                 for word in tokens:
                     keyword += "*" + word + "* "
                 keyword = keyword.strip()
-                query_string = {"query": "*" + keyword + "*", "fields": ["name"], "minimum_should_match": 2}
+                query_string = {"query": "*" + keyword + "*", "fields": ["category","sub_category","brand","name"], "minimum_should_match": 2}
         if category_ids:
             category = category_ids.split(',')
             if app_type == '3':
@@ -1820,7 +1821,8 @@ class UserView(APIView):
             return api_response("Please enter a valid phone number")
 
         data, msg = [], 'Customer Does Not Exists'
-        customer = User.objects.filter(phone_number=phone_no).last()
+        orders = Order.objects.filter(seller_shop=kwargs['shop'])
+        customer = User.objects.filter(id__in=Subquery(orders.values('buyer_id'))).filter(phone_number=phone_no).last()
         if customer:
             data, msg = PosUserSerializer(customer).data, 'Customer Detail Success'
         return api_response(msg, data, status.HTTP_200_OK, True)
@@ -3077,7 +3079,16 @@ class OrderCentral(APIView):
                     return api_response("Invalid Order update")
                 order.order_status = order_status
                 order.last_modified_by = self.request.user
+                if order_status == Order.DELIVERED:
+                    shop = kwargs['shop']
+                    if shop.enable_loyalty_points: ## credit point on order delivery complete
+                        if ReferralCode.is_marketing_user(order.buyer):
+                            order.points_added = order_loyalty_points_credit(order.order_amount, order.buyer.id, order.order_no,
+                                                                            'order_credit', 'order_indirect_credit',
+                                                                            self.request.user.id, order.seller_shop.id)
                 order.save()
+                if order_status == Order.DELIVERED:
+                    whatsapp_order_delivered(order.order_no, shop.shop_name, order.buyer.phone_number, order.points_added, shop.enable_loyalty_points)
                 try:
                     shipment = OrderedProduct.objects.filter(order=order).last()
                     shipment.shipment_status = order_status
@@ -3385,8 +3396,10 @@ class OrderCentral(APIView):
         if address.pincode != shop.shop_name_address_mapping.filter(
                 address_type='shipping').last().pincode_link.pincode:
             return api_response("This Shop is not serviceable at your delivery address")
+
         cart = Cart.objects.filter(cart_type='ECOM', buyer=self.request.user, seller_shop=shop,
                                    cart_status='active').last()
+
         if not cart:
             return api_response("Please add items to proceed to order")
 
@@ -3449,36 +3462,41 @@ class OrderCentral(APIView):
         if get_response:
             return api_response(get_response)
         # Refresh redeem reward
-        RewardCls.checkout_redeem_points(cart, cart.redeem_points)
-        order = self.create_basic_order(cart, shop, address, payment_type_id, delivery_option)
-        payments = [
-            {
-                "payment_type": payment_type_id,
-                "amount": round(order.order_amount),
-                "transaction_id": "",
-                "payment_status": self.request.data.get('payment_status', None),
-                "payment_mode": self.request.data.get('payment_mode', None)
-            }
-        ]
-        self.auto_process_order(order, payments, 'ecom')
-        self.auto_process_ecom_order(order)
-        try:
-            from pyfcm import FCMNotification
-            push_service = FCMNotification(api_key=config('FCM_SERVER_KEY'))
-            devices = Device.objects.filter(user__in=shop.pos_shop.all().values('user__id'),
-                                            is_active=True).distinct('reg_id')
-            for device in devices:
-                registration_id = device.reg_id
-                message_title = f"{shop.shop_name} - Order Alert !!"
-                message_body = f"Hello, You received a new Order of Rs {int(order.order_amount)}"
-                result = push_service.notify_single_device(registration_id=registration_id,
-                                                           message_title=message_title,
-                                                           message_body=message_body)
-                info_logger.info(result)
-        except Exception as e:
-            info_logger.info(e)
-        return api_response('Ordered Successfully!', BasicOrderListSerializer(Order.objects.get(id=order.id)).data,
-                            status.HTTP_200_OK, True)
+        else:
+            RewardCls.checkout_redeem_points(cart, cart.redeem_points)
+            order = self.create_basic_order(cart, shop, address, payment_type_id, delivery_option)
+            payments = [
+                {
+                    "payment_type": payment_type_id,
+                    "amount": round(order.order_amount),
+                    "transaction_id": "",
+                    "payment_status": self.request.data.get('payment_status', None),
+                    "payment_mode": self.request.data.get('payment_mode', None)
+                }
+            ]
+            self.auto_process_order(order, payments, 'ecom')
+            self.auto_process_ecom_order(order)
+            try:
+                from pyfcm import FCMNotification
+                push_service = FCMNotification(api_key=config('FCM_SERVER_KEY'))
+                devices = Device.objects.filter(user__in=shop.pos_shop.all().values('user__id'),
+                                                is_active=True).distinct('reg_id')
+                for device in devices:
+                    registration_id = device.reg_id
+                    message_title = f"{shop.shop_name} - Order Alert !!"
+                    message_body = f"Hello, You received a new Order of Rs {int(order.order_amount)}"
+                    result = push_service.notify_single_device(registration_id=registration_id,
+                                                               message_title=message_title,
+                                                               message_body=message_body)
+                    info_logger.info(result)
+            except Exception as e:
+                info_logger.info(e)
+            if shop.enable_loyalty_points:
+                msg = 'Ordered Successfully, Reward points will be credited after delivery!'
+            else:
+                msg = 'Ordered Successfully!'
+            return api_response(msg, BasicOrderListSerializer(Order.objects.get(id=order.id)).data,
+                                 status.HTTP_200_OK, True)
 
     def get_retail_validate(self):
         """
@@ -3787,10 +3805,10 @@ class OrderCentral(APIView):
         order.save()
 
         if address:
-            EcomOrderAddress.objects.create(order=order, address=address.address, contact_name=address.contact_name,
-                                            contact_number=address.contact_number, latitude=address.latitude,
-                                            longitude=address.longitude, pincode=address.pincode,
-                                            state=address.state, city=address.city)
+            EcomOrderAddress.objects.get_or_create(order=order, address=address.address, contact_name=address.contact_name,
+                                                    contact_number=address.contact_number, latitude=address.latitude,
+                                                    longitude=address.longitude, pincode=address.pincode,
+                                                    state=address.state, city=address.city)
         return order
 
     def update_ordered_reserve_sp(self, cart, parent_mapping, order):
@@ -3942,12 +3960,6 @@ class OrderCentral(APIView):
         # shops_str = GlobalConfig.objects.get(key=app_type + '_loyalty_shop_ids').value
         # shops_str = str(shops_str) if shops_str else ''
         # if shops_str == 'all' or (shops_str and str(order.seller_shop.id) in shops_str.split(',')):
-        if self.shop.enable_loyalty_points:
-            if ReferralCode.is_marketing_user(order.buyer):
-                order.points_added = order_loyalty_points_credit(order.order_amount, order.buyer.id, order.order_no,
-                                                                 'order_credit', 'order_indirect_credit',
-                                                                 self.request.user.id, order.seller_shop.id)
-                order.save()
         # Add free products
         offers = order.ordered_cart.offers
         product_qty_map = {}
@@ -4440,6 +4452,7 @@ class OrderedItemCentralDashBoard(APIView):
         """
         # products for shop
         products = RetailerProduct.objects.filter(shop=shop)
+        ecom_products = products.filter(online_enabled=True)
 
         # orders for shop
         orders = Order.objects.prefetch_related('rt_return_order').filter(seller_shop=shop).exclude(
@@ -4495,6 +4508,7 @@ class OrderedItemCentralDashBoard(APIView):
         today_date = datetime.today()
         if filters == 1:  # today
             products = products.filter(created_at__date=today_date)
+            ecom_products = ecom_products.filter(created_at__date=today_date)
             # orders
             orders = orders.filter(created_at__date=today_date)
             pos_orders = pos_orders.filter(created_at__date=today_date)
@@ -4518,6 +4532,7 @@ class OrderedItemCentralDashBoard(APIView):
         elif filters == 2:  # yesterday
             yesterday = today_date - timedelta(days=1)
             products = products.filter(created_at__date=yesterday)
+            ecom_products = ecom_products.filter(created_at__date=yesterday)
             # orders
             orders = orders.filter(created_at__date=yesterday)
             pos_orders = pos_orders.filter(created_at__date=yesterday)
@@ -4540,6 +4555,7 @@ class OrderedItemCentralDashBoard(APIView):
 
         elif filters == 3:  # this week
             products = products.filter(created_at__week=today_date.isocalendar()[1])
+            ecom_products = ecom_products.filter(created_at__week=today_date.isocalendar()[1])
             # orders
             orders = orders.filter(created_at__week=today_date.isocalendar()[1])
             pos_orders = pos_orders.filter(created_at__week=today_date.isocalendar()[1])
@@ -4563,6 +4579,7 @@ class OrderedItemCentralDashBoard(APIView):
         elif filters == 4:  # last week
             last_week = today_date - timedelta(weeks=1)
             products = products.filter(created_at__week=last_week.isocalendar()[1])
+            ecom_products = ecom_products.filter(created_at__week=last_week.isocalendar()[1])
             # orders
             orders = orders.filter(created_at__week=last_week.isocalendar()[1])
             pos_orders = pos_orders.filter(created_at__week=last_week.isocalendar()[1])
@@ -4585,6 +4602,7 @@ class OrderedItemCentralDashBoard(APIView):
 
         elif filters == 5:  # this month
             products = products.filter(created_at__month=today_date.month)
+            ecom_products = ecom_products.filter(created_at__month=today_date.month)
             # orders
             orders = orders.filter(created_at__month=today_date.month)
             pos_orders = pos_orders.filter(created_at__month=today_date.month)
@@ -4608,6 +4626,7 @@ class OrderedItemCentralDashBoard(APIView):
         elif filters == 6:  # last month
             last_month = today_date - timedelta(days=30)
             products = products.filter(created_at__month=last_month.month)
+            ecom_products = ecom_products.filter(created_at__month=last_month.month)
             # orders
             orders = orders.filter(created_at__month=last_month.month)
             pos_orders = pos_orders.filter(created_at__month=last_month.month)
@@ -4630,6 +4649,7 @@ class OrderedItemCentralDashBoard(APIView):
 
         elif filters == 7:  # this year
             products = products.filter(created_at__year=today_date.year)
+            ecom_products = ecom_products.filter(created_at__year=today_date.year)
             # orders
             orders = orders.filter(created_at__year=today_date.year)
             pos_orders = pos_orders.filter(created_at__year=today_date.year)
@@ -4693,6 +4713,7 @@ class OrderedItemCentralDashBoard(APIView):
         total_invoices_final_amount = pos_total_invoices_final_amount + ecom_total_invoices_final_amount
         # counts of order for shop_id with total_ordered_final_amount, total_invoices_final_amount  & products
         products_count = products.count()
+        ecom_products_count = ecom_products.count()
 
         order_count = orders.count()
         invoice_count = invoices.count()
@@ -4704,12 +4725,13 @@ class OrderedItemCentralDashBoard(APIView):
         pos_invoice_count = pos_invoices.count()
 
         overview = [{"shop_name": shop.shop_name, "orders": order_count, "products": products_count,
-                     "revenue": total_ordered_final_amount, "ecom_order_count": ecom_order_count,
-                     "pos_order_count": pos_order_count, "ecom_revenue": ecom_total_ordered_final_amount,
-                     "pos_revenue": pos_total_ordered_final_amount, "invoices": invoice_count,
-                     "ecom_invoice_count": ecom_invoice_count, "pos_invoice_count": pos_invoice_count,
-                     "invoice_revenue": total_invoices_final_amount, "ecom_invoice_revenue":
-                         ecom_total_invoices_final_amount, "pos_invoice_revenue": pos_total_invoices_final_amount}]
+                     "ecom_products": ecom_products_count, "revenue": total_ordered_final_amount,
+                     "ecom_order_count": ecom_order_count, "pos_order_count": pos_order_count,
+                     "ecom_revenue": ecom_total_ordered_final_amount, "pos_revenue": pos_total_ordered_final_amount,
+                     "invoices": invoice_count, "ecom_invoice_count": ecom_invoice_count,
+                     "pos_invoice_count": pos_invoice_count, "invoice_revenue": total_invoices_final_amount,
+                     "ecom_invoice_revenue": ecom_total_invoices_final_amount,
+                     "pos_invoice_revenue": pos_total_invoices_final_amount}]
         return overview
 
     def get_retail_order_overview(self):
@@ -10633,13 +10655,17 @@ class PosOrderUserSearchView(generics.GenericAPIView):
     serializer_class = PosOrderUserSearchSerializer
     
     def get(self, request, *args, **kwargs):
-        search = self.request.query_params.get('search')
+        search = request.query_params.get('search')
+        shop_id = request.META.get('HTTP_SHOP_ID')
         if search:
-            qs = User.objects.filter(Q(first_name__istartswith=search) |
-                                    #  Q(last_name__icontains=search) |
-                                     Q(phone_number__istartswith=search),
-                                     #  is_ecom_user=True
-                                     )
+            orders = Order.objects.filter(seller_shop_id=shop_id)
+            users = User.objects.filter(id__in=Subquery(orders.values('buyer_id')))
+            if search.isnumeric() and len(search) >= 5:
+                qs = users.filter(phone_number__istartswith=search)
+            elif len(search) >= 3:
+                qs = users.filter(first_name__istartswith=search)
+            else:
+                qs = None
             serializer = self.serializer_class(qs, many=True)
             msg = 'success'
             return get_response(msg, serializer.data, True)
