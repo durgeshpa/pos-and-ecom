@@ -463,7 +463,7 @@ def create_invoice_data_excel(request, queryset, RoundAmount, ShipmentPayment,
             order_date=F('shipment__order__created_at'), order_status=F('shipment__order__order_status'),
             trip_started_at=F('shipment__trip__starts_at'), trip_completed_at=F('shipment__trip__completed_at'),
             shipment_paid_amount=Subquery(shipment_paid_amount),
-            cn_amount=F('shipment__credit_note__amount'))\
+            cn_amount=F('shipment__credit_note__note_total'))\
         .values(
             'invoice_no', 'created_at', 'invoice_sub_total', 'tcs_percent', 'tcs_amount',  'invoice_total',
             'shipment_status', 'get_order', 'order_date', 'order_status', 'trip_no', 'trip_status', 'trip_started_at',
@@ -476,7 +476,7 @@ def create_invoice_data_excel(request, queryset, RoundAmount, ShipmentPayment,
             invoice.get('invoice_sub_total'),
             invoice.get('tcs_percent'),
             invoice.get('tcs_amount'),
-            invoice.get('invoice_total'),
+            round(invoice.get('invoice_total'), 2),
             shipment_status_dict.get(invoice.get('shipment_status'), invoice.get('shipment_status')),
             invoice.get('get_order'),
             invoice.get('order_date'),
