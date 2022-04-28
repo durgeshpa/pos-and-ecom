@@ -1121,10 +1121,6 @@ def pickup_entry_creation_with_cron():
                         warehouse, obj.sku, inventory_type, state_ordered, -1 * order_product.no_of_pieces,
                         tr_type, tr_id)
 
-                    CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
-                        warehouse, obj.sku, inventory_type, state_to_be_picked, order_product.no_of_pieces,
-                        tr_type, tr_id)
-
                     cron_logger.info('pickup entry created for order {}, order_product {}, inventory_type {}'
                                      .format(order.id, order_product.cart_product, inventory_type))
 
@@ -1190,6 +1186,10 @@ def pickup_entry_creation_with_cron():
                             warehouse, obj.sku, batch_id, bin_inv.bin, inventory_type, inventory_type, tr_type,
                             tr_id, already_picked)
 
+
+                    CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
+                        warehouse, obj.sku, inventory_type, state_to_be_picked, total_to_be_picked,
+                        tr_type, tr_id)
                 if Order.objects.filter(id=order.id).filter(~Q(order_status='ordered')).exists():
                     raise ValidationError(f"{order.id}|{order.order_no}|Picklist already generated.")
 
