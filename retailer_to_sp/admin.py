@@ -56,14 +56,14 @@ from .models import (Cart, CartProductMapping, Commercial, CustomerCare, Dispatc
                      ShipmentProductMapping, Trip, ShipmentRescheduling, Feedback, PickerDashboard, Invoice,
                      ResponseComment, BulkOrder, RoundAmount, OrderedProductBatch, DeliveryData, PickerPerformanceData,
                      ShipmentPackaging, ShipmentPackagingMapping, ShipmentNotAttempt, ShopCrate,
-                     PickerUserAssignmentLog, EInvoiceData, ENoteData)
+                     PickerUserAssignmentLog, EInvoiceData, ENoteData, BuyerPurchaseData)
 from .resources import OrderResource
 from .signals import ReservedOrder
 from .utils import (GetPcsFromQty, add_cart_user, create_order_from_cart, create_order_data_excel,
                     create_invoice_data_excel, create_e_invoice_data_excel, create_e_note_data_excel)
 from .filters import (InvoiceAdminOrderFilter, InvoiceAdminTripFilter, InvoiceCreatedAt, DeliveryStartsAt,
                       DeliveryCompletedAt, OrderCreatedAt, EInvoiceAdminBuyerFilter, EInvoiceStatusFilter,
-                      ENoteAdminInvoiceFilter)
+                      ENoteAdminInvoiceFilter, BuyerTotalPurchaseFilter)
 from .tasks import update_order_status_picker_reserve_qty
 from payments.models import OrderPayment, ShipmentPayment
 from retailer_backend.messages import ERROR_MESSAGES
@@ -2111,14 +2111,15 @@ class FeedbackAdmin(admin.ModelAdmin):
 
 class InvoiceAdmin(admin.ModelAdmin):
     actions = ['invoice_data_excel_action', 'download_bulk_invoice']
-    list_display = ('invoice_no', 'created_at', 'get_invoice_amount', 'get_shipment_status',
-                    'get_order', 'get_order_date', 'get_order_status', 'get_shipment',
+    list_display = ('invoice_no', 'created_at', 'invoice_sub_total', 'tcs_percent', 'tcs_amount', 'get_invoice_amount',
+                    'get_shipment_status', 'get_order', 'get_order_date', 'get_order_status', 'get_shipment',
                     'get_trip_no', 'get_trip_status', 'get_trip_started_at',
-                    'get_trip_completed_at', 'get_paid_amount', 'get_cn_amount')
+                    'get_trip_completed_at', 'get_paid_amount', 'get_cn_amount', 'is_tcs_applicable')
     list_per_page = FIFTY
     fieldsets = (
         ('Invoice', {
-            'fields': (('invoice_no', 'get_invoice_amount'), ('created_at', 'invoice_pdf'))
+            'fields': (('invoice_no', 'invoice_sub_total', 'tcs_amount', 'get_invoice_amount'),
+                       ('created_at', 'invoice_pdf'))
         }),
         ('Shipment', {
             'classes': ('extrapretty',),
@@ -2748,6 +2749,15 @@ class ENoteAdmin(admin.ModelAdmin):
     def has_delete_permission(self, request, obj=None):
         return False
 
+@admin.register(BuyerPurchaseData)
+class BuyerPurchaseDataAdmin(admin.ModelAdmin):
+
+    class Media:
+        pass
+
+    list_per_page = FIFTY
+    list_display = ('seller_shop', 'buyer_shop', 'fin_year', 'total_purchase')
+    list_filter = (SellerShopFilter, BuyerShopFilter, 'fin_year', BuyerTotalPurchaseFilter)
 
 admin.site.register(Cart, CartAdmin)
 admin.site.register(BulkOrder, BulkOrderAdmin)

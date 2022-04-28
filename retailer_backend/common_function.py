@@ -58,12 +58,12 @@ def getShopMapping(shop_id):
         return None
 
 
-def get_financial_year():
+def get_financial_year(year_format='%y'):
     current_month = datetime.date.today().strftime('%m')
-    current_year = datetime.date.today().strftime('%y')
+    current_year = datetime.date.today().strftime(year_format)
 
     if int(current_month) < 4:
-        current_year = str(int(datetime.date.today().strftime('%y')) - 1)
+        current_year = str(int(datetime.date.today().strftime(year_format)) - 1)
     return current_year
 
 
@@ -299,15 +299,15 @@ def get_tcs_data(shipment_instance):
     tcs_amount = 0
     total_purchase = invoice_amount
     purchase_data = BuyerPurchaseData.objects.filter(seller_shop_id=shipment_instance.order.seller_shop_id,
-                                                     buyer_id=shipment_instance.order.buyer_shop_id,
-                                                     fin_year=get_financial_year()).last()
+                                                     buyer_shop_id=shipment_instance.order.buyer_shop_id,
+                                                     fin_year=get_financial_year('%Y')).last()
     if purchase_data:
         total_purchase += purchase_data.total_purchase
     BuyerPurchaseData.objects.update_or_create(seller_shop_id=shipment_instance.order.seller_shop_id,
-                                               buyer_id=shipment_instance.order.buyer_shop_id,
-                                               fin_year=get_financial_year(),
+                                               buyer_shop_id=shipment_instance.order.buyer_shop_id,
+                                               fin_year=get_financial_year('%Y'),
                                                defaults={'total_purchase': total_purchase})
-    if total_purchase > get_config('TCS_B2B_APPLICABLE_AMT', 5000000):
+    if total_purchase >= get_config('TCS_B2B_APPLICABLE_AMT', 5000000):
         is_tcs_applicable = True
         buyer_shop_document = ShopDocument.objects.filter(shop_name_id=shipment_instance.order.buyer_shop_id,
                                                           shop_document_type=ShopDocument.GSTIN).last()

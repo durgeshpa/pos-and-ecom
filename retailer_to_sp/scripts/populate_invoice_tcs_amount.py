@@ -3,9 +3,11 @@ import datetime
 from django.db.models import Sum, F, FloatField, Q
 
 from common.constants import APRIL, ONE
+from global_config.views import get_config
 from retailer_to_sp.models import Invoice, RoundAmount, BuyerPurchaseData, Note
 from shops.models import ShopDocument
 
+tcs_applicable_amt = get_config('TCS_B2B_APPLICABLE_AMT', 5000000)
 
 def run():
     # populate_invoice_amount()
@@ -41,17 +43,17 @@ def populate_buyer_purchase_data():
         print(total_purchase)
         for data in total_purchase:
             tcs_applicable = False
-            if data['total_purchase'] > 5000000:
+            if data['total_purchase'] >= tcs_applicable_amt:
                 tcs_applicable=True
             BuyerPurchaseData.objects.create(seller_shop_id=data['shipment__order__seller_shop_id'],
-                                             buyer_id=data['shipment__order__buyer_shop_id'],
+                                             buyer_shop_id=data['shipment__order__buyer_shop_id'],
                                              fin_year=start_year, total_purchase=data['total_purchase'],
                                              is_tcs_applicable=tcs_applicable)
         start_year += 1
 
 
 def populate_tcs_amount():
-    buyer_data = BuyerPurchaseData.objects.filter(total_purchase__gte=5000000)
+    buyer_data = BuyerPurchaseData.objects.filter(total_purchase__gte=tcs_applicable_amt)
     for data in buyer_data:
         is_buyer_gstin_available = ShopDocument.objects.filter(shop_name_id=data.buyer_id,
                                                           shop_document_type=ShopDocument.GSTIN).exists()
@@ -66,7 +68,7 @@ def populate_tcs_amount():
                                           created_at__lte=next_fin_year_start_date).order_by('-created_at')
         total_purchase = data.total_purchase
         for i in invoices:
-            if total_purchase >= 5000000:
+            if total_purchase >= tcs_applicable_amt:
                 i.is_tcs_applicable = True
                 i.tcs_percent = tcs_percent
                 i.tcs_amount = i.invoice_sub_total*tcs_percent/100
