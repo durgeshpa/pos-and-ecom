@@ -448,7 +448,7 @@ def create_invoice_data_excel(request, queryset, RoundAmount, ShipmentPayment,
     response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
     writer = csv.writer(response)
     writer.writerow([
-        'Invoice No.', 'Created At', 'Invoice Amount',
+        'Invoice No.', 'Created At', 'Invoice Sub Total', 'TCS Percent', 'TCS Amount', 'Invoice Amount',
         'Shipment Status', 'Order No.', 'Order Date', 'Order Status',
         'Trip No.', 'Trip Status', 'Delivery Started At',
         'Delivery Completed At', 'Paid Amount', 'CN Amount'])
@@ -463,22 +463,20 @@ def create_invoice_data_excel(request, queryset, RoundAmount, ShipmentPayment,
             order_date=F('shipment__order__created_at'), order_status=F('shipment__order__order_status'),
             trip_started_at=F('shipment__trip__starts_at'), trip_completed_at=F('shipment__trip__completed_at'),
             shipment_paid_amount=Subquery(shipment_paid_amount),
-            cn_amount=F('shipment__credit_note__amount'),
-            invoice_amount=RoundAmount(Sum(
-                F('shipment__rt_order_product_order_product_mapping__effective_price') *
-                F('shipment__rt_order_product_order_product_mapping__shipped_qty'),
-                output_field=FloatField())))\
+            cn_amount=F('shipment__credit_note__amount'))\
         .values(
-            'invoice_no', 'created_at', 'invoice_amount', 'shipment_status',
-            'get_order', 'order_date', 'order_status', 'trip_no',
-            'trip_status', 'trip_started_at', 'trip_completed_at',
-            'shipment_paid_amount', 'cn_amount'
+            'invoice_no', 'created_at', 'invoice_sub_total', 'tcs_percent', 'tcs_amount',  'invoice_total',
+            'shipment_status', 'get_order', 'order_date', 'order_status', 'trip_no', 'trip_status', 'trip_started_at',
+            'trip_completed_at', 'shipment_paid_amount', 'cn_amount'
         )
     for invoice in invoices.iterator():
         writer.writerow([
             invoice.get('invoice_no'),
             invoice.get('created_at'),
-            invoice.get('invoice_amount'),
+            invoice.get('invoice_sub_total'),
+            invoice.get('tcs_percent'),
+            invoice.get('tcs_amount'),
+            invoice.get('invoice_total'),
             shipment_status_dict.get(invoice.get('shipment_status'), invoice.get('shipment_status')),
             invoice.get('get_order'),
             invoice.get('order_date'),

@@ -10,7 +10,7 @@ from shops.models import ShopDocument
 tcs_applicable_amt = get_config('TCS_B2B_APPLICABLE_AMT', 5000000)
 
 def run():
-    # populate_invoice_amount()
+    populate_invoice_amount()
     populate_buyer_purchase_data()
     populate_tcs_amount()
     populate_credit_note_tcs()
@@ -24,7 +24,8 @@ def populate_invoice_amount():
     for i in invoices:
         print(i)
         if i['invoice_amount']:
-            Invoice.objects.filter(pk=i['id']).update(invoice_sub_total=i['invoice_amount'])
+            Invoice.objects.filter(pk=i['id']).update(invoice_sub_total=i['invoice_amount'],
+                                                      invoice_total=i['invoice_amount'])
 
 
 def populate_buyer_purchase_data():
