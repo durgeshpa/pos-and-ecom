@@ -10,7 +10,7 @@ from rest_framework.response import Response
 from rest_framework import status
 
 from global_config.views import get_config_fofo_shop
-from shops.models import Shop
+from shops.models import Shop, FOFOConfig
 from wms.models import PosInventory, PosInventoryState
 from retailer_to_sp.models import RoundAmount, OrderedProduct, Order
 from .models import Address
@@ -72,10 +72,15 @@ def nearby_shops(lat, lng, radius=10, limit=10):
 
     queryset = Shop.objects.raw(query)
     for shop in queryset:
-        shop_radius = get_config_fofo_shop('Delivery radius', shop.id)
+        obj = FOFOConfig.objects.filter(shop=shop).last()
+        shop_radius = 0
+        if obj:
+            shop_radius = obj.delivery_redius
+        # shop_radius = FOFOConfig.objects.filter(shop=shop) # get_config_fofo_shop('Delivery radius', shop.id)
         if not shop_radius:
-            shop_radius = get_config_fofo_shop('Delivery radius')
-        if shop_radius and float(shop.distance) < float(shop_radius):
+            obj = FOFOConfig.objects.filter(shop__shop_name__iexact="default fofo shop").last()
+            shop_radius = obj.delivery_redius
+        if shop_radius and float(shop.distance*1000) < float(shop_radius): #float(shop.distance*1000) convert km to mtrs
             return shop
     return None
 
