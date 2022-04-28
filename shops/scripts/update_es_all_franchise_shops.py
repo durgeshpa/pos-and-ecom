@@ -17,7 +17,7 @@ def refreshEsRetailerAllFranchiseShops():
     try:
         info_logger.info("-------------Refresh ES started for all Franchise stores--------------")
         shops = Shop.objects.filter(shop_type__shop_type='f', status=True, approval_status=2, pos_enabled=True)
-        info_logger.info("Shops :: {}", shops)
+        info_logger.info("Shops Total :: {}", shops.count())
         print("Shops :: ", shops)
         for shop in shops:
             info_logger.info("ES refersh started for Shop :: {}, id :: {}".format(shop.shop_name, shop.id))
