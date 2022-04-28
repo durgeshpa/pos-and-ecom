@@ -3859,7 +3859,6 @@ class BuyerPurchaseData(models.Model):
     fin_year = models.PositiveSmallIntegerField(validators=[MinValueValidator(2019),
                                                             MaxValueValidator(datetime.datetime.now().year)])
     total_purchase = models.FloatField(default=0)
-    is_tcs_applicable = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
