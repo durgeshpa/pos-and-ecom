@@ -836,9 +836,9 @@ class PickupDetail(APIView):
                             CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
                                 warehouse, sku, inventory_type, state_picked, pickup_quantity, tr_type, tr_id)
 
-                            picking_details.update(pickup_quantity=pickup_quantity + pick_qty,
-                                                   last_picked_at=timezone.now(),
-                                                   remarks=remarks_text)
+                            picking_details.filter(quantity__gte=pickup_quantity + pick_qty).\
+                                update(pickup_quantity=pickup_quantity + pick_qty,
+                                       last_picked_at=timezone.now(), remarks=remarks_text)
                             is_crate_applicable = False
                             if i['pickup_crates']['is_crate_applicable'] is True:
                                 is_crate_applicable = True
