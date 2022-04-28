@@ -33,10 +33,13 @@ def assign_referral_code_to_shop_owner():
                                  f" Shop Name--> {shop_owner.shop_name}")
                 print(f"{cnt + 1} | Referral Code: {rf_code_obj} of User {shop_owner.shop_owner} "
                       f" Shop Name--> {shop_owner.shop_name}")
-                RewardPoint.objects.get_or_create(user=shop_owner.shop_owner)
+                reward_points, created = RewardPoint.objects.get_or_create(reward_user=shop_owner.shop_owner)
+                if created:
+                    print("reward_points dashbored created for shop owner")
             else:
                 info_logger.info(f"{cnt + 1} | Referral Code of User {shop_owner.shop_owner} already exists ")
                 print(f"{cnt + 1} | Referral Code of User {shop_owner.shop_owner} already exists ")
+
         info_logger.info('assign_referral_code_to_shop_owner | completed')
     except Exception as e:
         info_logger.error(f"assign_referral_code_to_shop_owner | error | {e}")
@@ -53,7 +56,9 @@ def assign_referral_code_to_gf_employees():
                 print(rf_code_obj)
                 info_logger.info(f"{cnt + 1} | Referral Code: {rf_code_obj} of User {gf_user} ")
                 print(f"{cnt + 1} | Referral Code: {rf_code_obj} of User {gf_user} ")
-                RewardPoint.objects.get_or_create(user=gf_user)
+                reward_points, created = RewardPoint.objects.get_or_create(reward_user=gf_user)
+                if created:
+                    print("reward_points dashbored created for gf_user")
             else:
                 info_logger.info(f"{cnt + 1} | Referral Code of User {gf_user} already exists ")
                 print(f"{cnt + 1} | Referral Code of User {gf_user} already exists ")
