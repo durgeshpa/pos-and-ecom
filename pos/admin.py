@@ -1405,7 +1405,6 @@ class PosStoreRewardMappingsAdmin(admin.ModelAdmin):
 
     def get_urls(self):
         urls = super(PosStoreRewardMappingsAdmin, self).get_urls()
-        #/home/amit/env/test5/qa4/retailer-backend/templates/admin/pos/download_shop_reward_configuration.html
         urls = [
                    url(r'^upload_bulk_reward_configuration/',
                        self.admin_site.admin_view(download_retailer_products_list_form_view),
