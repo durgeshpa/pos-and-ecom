@@ -1447,7 +1447,7 @@ class Trip(models.Model):
     @property
     def trip_amount(self):
         return self.last_mile_trip_shipments_details.filter(~Q(shipment_status='CANCELLED')) \
-            .annotate(invoice_amount=F('shipment__invoice__invoice_total')) \
+            .annotate(invoice_amount=RoundAmount(F('shipment__invoice__invoice_total'))) \
             .aggregate(trip_amount=Sum(F('invoice_amount'), output_field=FloatField())).get('trip_amount')
 
     @property
@@ -1796,7 +1796,7 @@ class OrderedProduct(models.Model):  # Shipment
     @property
     def invoice_amount(self):
         if hasattr(self, 'invoice'):
-            return self.invoice.invoice_total
+            return round(self.invoice.invoice_total)
 
         return self.rt_order_product_order_product_mapping.all() \
             .aggregate(
@@ -2088,7 +2088,7 @@ class Invoice(models.Model):
     
     @property
     def invoice_amount(self):
-        return self.invoice_total
+        return round(self.invoice_total)
 
     @property
     def is_igst_applicable(self):
@@ -3612,7 +3612,7 @@ class DispatchTrip(BaseTimestampUserModel):
     @property
     def trip_amount(self):
         return self.shipments_details.filter(~Q(shipment_status='CANCELLED')) \
-            .annotate(invoice_amount=F('shipment__invoice__invoice_total')) \
+            .annotate(invoice_amount=RoundAmount(F('shipment__invoice__invoice_total')))\
             .aggregate(trip_amount=Sum(F('invoice_amount'), output_field=FloatField())).get('trip_amount')
 
     @property
