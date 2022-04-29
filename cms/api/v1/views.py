@@ -16,7 +16,7 @@ from .serializers import CardDataSerializer, CardSerializer, ApplicationSerializ
 from ...choices import CARD_TYPE_CHOICES, LANDING_PAGE_TYPE_CHOICE, LISTING_SUBTYPE_CHOICE, IMAGE_TYPE_CHOICE
 from ...models import Application, Card, CardVersion, Page, PageVersion, CardItem, ApplicationPage, LandingPage, \
     Functions
-from ...utils import api_response, get_response, serializer_error
+from ...utils import api_response, get_response, serializer_error, check_shop
 
 from .pagination import PaginationHandlerMixin
 from rest_framework.pagination import LimitOffsetPagination
@@ -609,6 +609,7 @@ class PageVersionDetailView(APIView):
     serializer_class = PageLatestDetailSerializer
     permission_classes = (AllowAny,)
 
+    @check_shop
     def get(self, request, id, *args, **kwargs):
         """Get Data of Latest Version"""
         request.META['HTTP_X_FORWARDED_PROTO'] = 'https'
@@ -760,7 +761,7 @@ class LandingPageView(generics.GenericAPIView):
     queryset = LandingPage.objects.order_by('-id')
     serializer_class = LandingPageSerializer
 
-
+    @check_shop
     def get(self, request, *args, **kwargs):
         if request.GET.get('id'):
             landing_pages = LandingPage.objects.filter(id=request.GET.get('id'))

@@ -1912,7 +1912,7 @@ class OrderedProduct(models.Model):  # Shipment
             for item in self.rt_order_product_order_product_mapping.all():
                 effective_price = item.effective_price if item.effective_price else 0
                 cash_to_be_collected = cash_to_be_collected + (item.delivered_qty * effective_price)
-            return round(float(cash_to_be_collected) * (1+tcs_rate), 2)
+            return round(float(cash_to_be_collected) * (1+tcs_rate))
         else:
             invoice_amount = self.rt_order_product_order_product_mapping.all() \
                 .aggregate(
@@ -1922,7 +1922,7 @@ class OrderedProduct(models.Model):  # Shipment
                 .aggregate(cn_amt=RoundAmount(Sum((F('discounted_price') * (F('shipped_qty') - F('delivered_qty')))), output_field=FloatField()))\
                 .get('cn_amt')
             if self.invoice_amount:
-                return round(float(invoice_amount - credit_note_amount) * (1+tcs_rate), 2)
+                return round(float(invoice_amount - credit_note_amount) * (1+tcs_rate))
             else:
                 return 0
 
