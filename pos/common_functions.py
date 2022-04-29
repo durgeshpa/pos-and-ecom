@@ -611,15 +611,15 @@ class RewardCls(object):
         #     value =
         #     points = int(float(amount) *value/100)
         # else:
-        msg = None
+        key = None
         if app_type == "ECOM" and get_config_fofo_shop("Is_Enable_Point_Added_Ecom_Order", shop.id):
-            msg = "Percentage_Point_Added_Ecom_Order_Amount"
+            key = "Percentage_Point_Added_Ecom_Order_Amount"
         elif app_type == "POS" and get_config_fofo_shop("Is_Enable_Point_Added_Pos_Order", shop.id):
-            msg = "Percentage_Point_Added_Pos_Order_Amount"
+            key = "Percentage_Point_Added_Pos_Order_Amount"
 
         points = 0
-        if msg:
-            points = RewardCls.get_loyalty_points(amount, msg, Shop)
+        if key:
+            points = RewardCls.get_loyalty_points(amount, key, Shop)
 
         # check maximum point redeem add in a month by shop
         days = datetime.datetime.today().day
