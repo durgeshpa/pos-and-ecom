@@ -139,40 +139,29 @@ def create_invoice_data(ordered_product):
     try:
         if ordered_product.order.ordered_cart.cart_type == 'AUTO':
             if ordered_product.shipment_status == "MOVED_TO_DISPATCH":
-                CommonFunction.generate_invoice_number(
-                    'invoice_no', ordered_product.pk,
-                    ordered_product.order.seller_shop.shop_name_address_mapping.filter(address_type='billing').last().pk,
-                    ordered_product.invoice_amount)
+                CommonFunction.generate_invoice_number(ordered_product,
+                    ordered_product.order.seller_shop.shop_name_address_mapping.filter(address_type='billing').last().pk)
         elif ordered_product.order.ordered_cart.cart_type == 'BASIC':
             if ordered_product.shipment_status == "FULLY_DELIVERED_AND_VERIFIED":
-                CommonFunction.generate_invoice_number(
-                    'invoice_no', ordered_product.pk,
-                    ordered_product.order.seller_shop.shop_name_address_mapping.filter(address_type='billing').last().pk,
-                    ordered_product.invoice_amount)
+                CommonFunction.generate_invoice_number(ordered_product,
+                    ordered_product.order.seller_shop.shop_name_address_mapping.filter(address_type='billing').last().pk)
         elif ordered_product.order.ordered_cart.cart_type == 'ECOM':
             if ordered_product.shipment_status == "MOVED_TO_DISPATCH":
-                CommonFunction.generate_invoice_number(
-                    'invoice_no', ordered_product.pk,
+                CommonFunction.generate_invoice_number(ordered_product,
                     ordered_product.order.seller_shop.shop_name_address_mapping.filter(address_type='billing').last().pk,
-                    ordered_product.invoice_amount, "EV")
+                                                       "EV")
         elif ordered_product.order.ordered_cart.cart_type == 'RETAIL':
             if ordered_product.shipment_status == "MOVED_TO_DISPATCH":
-                CommonFunction.generate_invoice_number(
-                    'invoice_no', ordered_product.pk,
-                    ordered_product.order.seller_shop.shop_name_address_mapping.filter(address_type='billing').last().pk,
-                    ordered_product.invoice_amount)
+                CommonFunction.generate_invoice_number(ordered_product,
+                    ordered_product.order.seller_shop.shop_name_address_mapping.filter(address_type='billing').last().pk)
         elif ordered_product.order.ordered_cart.cart_type == 'DISCOUNTED':
             if ordered_product.shipment_status == "MOVED_TO_DISPATCH":
-                CommonFunction.generate_invoice_number_discounted_order(
-                    'invoice_no', ordered_product.pk,
-                    ordered_product.order.seller_shop.shop_name_address_mapping.filter(address_type='billing').last().pk,
-                    ordered_product.invoice_amount)
+                CommonFunction.generate_invoice_number_discounted_order(ordered_product,
+                    ordered_product.order.seller_shop.shop_name_address_mapping.filter(address_type='billing').last().pk)
         elif ordered_product.order.ordered_cart.cart_type == 'BULK':
             if ordered_product.shipment_status == "MOVED_TO_DISPATCH":
-                CommonFunction.generate_invoice_number_bulk_order(
-                    'invoice_no', ordered_product.pk,
-                    ordered_product.order.seller_shop.shop_name_address_mapping.filter(address_type='billing').last().pk,
-                    ordered_product.invoice_amount)
+                CommonFunction.generate_invoice_number_bulk_order(ordered_product,
+                    ordered_product.order.seller_shop.shop_name_address_mapping.filter(address_type='billing').last().pk)
 
         if ordered_product.no_of_crates is None:
             ordered_product.no_of_crates = 0
