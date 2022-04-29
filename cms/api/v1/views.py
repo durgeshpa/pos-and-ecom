@@ -104,6 +104,8 @@ class CardView(APIView, PaginationHandlerMixin):
         """Create a new card"""
         has_cards_create_permission(request.user)
         info_logger.info("CardView POST API called.")
+
+        request.META['HTTP_X_FORWARDED_PROTO'] = 'https'
         data = request.data
         card_data = data.pop("card_data")
         serializer = CardDataSerializer(data=card_data, context={'request': request})

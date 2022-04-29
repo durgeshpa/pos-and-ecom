@@ -52,7 +52,7 @@ def check_shop(view_func):
         try:
             shop = Shop.objects.get(id=request.META.get('HTTP_SHOP_ID', None), status=True, approval_status=2)
         except:
-            return api_response("Shop not available!")
+            shop = None
         kwargs['shop'] = shop
         kwargs['app_type'] = request.META.get('HTTP_APP_TYPE', None)
         return view_func(self, request, *args, **kwargs)
