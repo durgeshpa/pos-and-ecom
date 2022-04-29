@@ -301,8 +301,8 @@ class TagProductView(APIView):
         is_success, data = False, []
         if products.count() >= 3:
             products = self.pagination_class().paginate_queryset(products, self.request)
-            # serializer = TagProductSerializer(tag, context={'product': products})
-            serializer = RetailerProductSerializer(products, many=True)
+            serializer = TagProductSerializer(tag, context={'product': products})
+            # serializer = RetailerProductSerializer(products, many=True)
             is_success, data = True, serializer.data
         return api_response('Tag Found', data, status.HTTP_200_OK, is_success)
 
@@ -392,8 +392,33 @@ class PastPurchasedProducts(APIView):
         shop = kwargs['shop']
         products = RetailerProduct.objects.filter(products_sold__user=request.user, products_sold__shop=shop,
                                                   is_deleted=False, online_enabled=True)
+        count = products.count()
         products = self.pagination_class().paginate_queryset(products, self.request)
-        serializer = PastPurchasedProductSerializer(shop, context={'user':request.user, 'shop': shop, 'product': products})
-        is_success, data = True, serializer.data
-        return api_response('Tag Found', data, status.HTTP_200_OK, is_success)
+        serializer = RetailerProductSerializer(products, many=True)
+        is_success, data, msg = True, serializer.data, f"{count} record/s found"
+        return api_response(msg, data, status.HTTP_200_OK, is_success)
 
+
+class ProductFunctionView(APIView):
+    """
+    Get Product by tag id
+    """
+    permission_classes = (IsAuthenticated,)
+    authentication_classes = (TokenAuthentication,)
+    pagination_class = SmallOffsetPagination
+
+    @check_ecom_user_shop
+    def get(self, request, pk, *args, **kwargs):
+        try:
+            tag = Tag.objects.get(id=pk)
+        except:
+            return api_response('Invalid Tag Id')
+        shop = kwargs['shop']
+        products = RetailerProduct.objects.filter(product_tag_ecom__tag=tag, shop=shop, is_deleted=False, online_enabled=True)
+        is_success, data = False, []
+        if products.count() >= 3:
+            products = self.pagination_class().paginate_queryset(products, self.request)
+            # serializer = TagProductSerializer(tag, context={'product': products})
+            serializer = RetailerProductSerializer(products, many=True)
+            is_success, data = True, serializer.data
+        return api_response('Tag Found', data, status.HTTP_200_OK, is_success)
