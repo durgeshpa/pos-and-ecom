@@ -29,8 +29,8 @@ from .models import (RetailerProduct, RetailerProductImage, Payment, ShopCustome
                      RetailerCouponRuleSet, RetailerRuleSetProductMapping, RetailerOrderedProductMapping, RetailerCart,
                      RetailerCartProductMapping, RetailerOrderReturn, RetailerReturnItems, InventoryPos,
                      InventoryChangePos, InventoryStatePos, MeasurementCategory, MeasurementUnit, PosReturnGRNOrder,
-                     PosReturnItems, RetailerOrderedReport, BulkRetailerProduct,
-                     RetailerOrderCancel, PaymentStatusUpdateByCron)
+                     PosReturnItems, RetailerOrderedReport, BulkRetailerProduct,PosStoreRewardMappings,
+                     RetailerOrderCancel, PaymentStatusUpdateByCron,)
 from .views import upload_retailer_products_list, download_retailer_products_list_form_view, \
     DownloadRetailerCatalogue, RetailerCatalogueSampleFile, RetailerProductMultiImageUpload, DownloadPurchaseOrder, \
     download_discounted_products_form_view, download_discounted_products, \
@@ -48,7 +48,7 @@ from .utils import (create_order_data_excel, create_order_return_excel, create_c
 from .forms import RetailerProductsForm, DiscountedRetailerProductsForm, PosInventoryChangeCSVDownloadForm,\
     MeasurementUnitFormSet
 from retailer_to_sp.models import Order
-
+from shops.admin import FOFOConfigurationsInline
 class ExportCsvMixin:
 
     def export_as_csv(self, request, queryset):
@@ -117,10 +117,12 @@ class RetailerProductAdmin(admin.ModelAdmin):
                     'description', 'sku_type', 'status', 'product_pack_type', 'created_at', 'modified_at')
     fields = ('shop', 'linked_product', 'sku', 'name', 'mrp', 'selling_price', 'product_ean_code',
               'description', 'sku_type', 'status', 'is_deleted', 'purchase_pack_size', 'initial_purchase_value',
-              'online_enabled', 'online_price', 'created_at', 'modified_at','product_pack_type','measurement_category')
+              'online_enabled', 'online_price', 'created_at', 'modified_at', 'product_pack_type', 'measurement_category',
+              'offer_price', 'offer_start_date', 'offer_end_date')
     readonly_fields = ('shop', 'sku', 'product_ean_code',
                        'purchase_pack_size', 'online_enabled', 'online_price', 'name', 'created_at',
-                       'sku_type', 'mrp', 'modified_at', 'description', 'initial_purchase_value')
+                       'sku_type', 'mrp', 'modified_at', 'description', 'initial_purchase_value',
+                       'offer_price', 'offer_start_date', 'offer_end_date')
 
     def b2c_cat_sub_cat(self, obj):
         if obj.linked_product and obj.linked_product.parent_product.parent_product_pro_b2c_category.exists():
@@ -1315,8 +1317,90 @@ class PaymentStatusUpdateBYCronAdmin(admin.ModelAdmin):
 
     class Media:
         pass
+class ShopFilter(AutocompleteFilter):
+    title = 'Shop'
+    field_name = 'shop_name'
+    autocomplete_url = 'pos_store_reward_mapping_autocomplete'
 
 
+class InputFilter(admin.SimpleListFilter):
+    template = 'admin/shops/input_filter.html'
+
+    def lookups(self, request, model_admin):
+        # Dummy, required to show the filter.
+        return ((),)
+    def choices(self, changelist):
+        # Grab only the "all" option.
+        all_choice = next(super().choices(changelist))
+        all_choice['query_parts'] = (
+            (k, v)
+            for k, v in changelist.get_filters_params().items()
+            if k != self.parameter_name
+        )
+        yield all_choice
+
+
+class CityFilter(InputFilter):
+    """custom filter by city field that
+       field is shop property
+    """
+    parameter_name = 'city'
+    title = _('City')
+
+    def queryset(self, request, queryset):
+        if self.value() is not None:
+            city = self.value()
+            shop_id = []
+            for obj in queryset:
+                if str(obj.city_name).startswith(city):
+                    shop_id.append(obj.id)
+            return queryset.filter(id__in=shop_id)
+
+
+        return queryset
+
+class ByPincodeFilter(InputFilter):
+    """custom filter by Pincode field that
+       field is shop property
+    """
+    parameter_name = 'pincode'
+    title = _('Pincode')
+
+    def queryset(self, request, queryset):
+        if self.value() is not None:
+            pincode = self.value()
+            shop_id = []
+            for obj in queryset:
+                if str(obj.get_shop_pin_code).startswith(pincode):
+                    shop_id.append(obj.id)
+            return queryset.filter(id__in=shop_id)
+
+
+        return queryset
+
+
+class PosStoreRewardMappingsAdmin(admin.ModelAdmin):
+    inlines = [FOFOConfigurationsInline]
+    fields = ['status_reward_configuration', 'shop_name']
+    search_fields = ['shop_name']
+    readonly_fields = ('shop_name',)
+    list_filter = ('status','shop_type__shop_sub_type__retailer_type_name',
+                   CityFilter, ByPincodeFilter, 'status_reward_configuration',
+                   )
+    def get_queryset(self ,request):
+        qs = super(PosStoreRewardMappingsAdmin, self).get_queryset(request)
+        
+        return qs.filter(Q(shop_type__shop_sub_type__retailer_type_name__in=["foco", "fofo"]))
+    class Media:
+        pass
+
+    def has_delete_permission(self, request,  obj=None):
+        return False
+    def has_add_permission(self, request,  obj=None):
+        return False
+
+
+admin.site.register(PosStoreRewardMappings, PosStoreRewardMappingsAdmin)
 admin.site.register(PaymentStatusUpdateByCron, PaymentStatusUpdateBYCronAdmin)
 admin.site.register(RetailerProduct, RetailerProductAdmin)
 admin.site.register(DiscountedRetailerProduct, DiscountedRetailerProductAdmin)

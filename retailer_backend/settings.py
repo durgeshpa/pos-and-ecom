@@ -568,6 +568,11 @@ LOGGING = {
             'level': 'INFO',
             'propagate': True,
         },
+        'elastic_log': {
+            'handlers': ['elastic_log_file'],
+            'level': 'INFO',
+            'propagate': True,
+        },
    },
    'handlers': {
        # 'file-debug': {
@@ -598,6 +603,12 @@ LOGGING = {
              'filename': '/var/log/retailer-backend/scheduled_jobs.log',
              'formatter': 'verbose'
          },
+        'elastic_log_file': {
+            'level': 'INFO',
+            'class': 'logging.FileHandler',
+            'filename': '/var/log/retailer-backend/elastic_search.log',
+            'formatter': 'verbose'
+        },
 
     },
     'formatters': {
@@ -612,13 +623,13 @@ LOGGING = {
 }
 SWAGGER_SETTINGS = {
    'USE_SESSION_AUTH': True,
-    # 'SECURITY_DEFINITIONS': {
-    #         'api_key': {
-    #             'type': 'apiKey',
-    #             'in': 'header',
-    #             'name': 'Authorization'
-    #         }
-    #     },
+    'SECURITY_DEFINITIONS': {
+            'api_key': {
+                'type': 'apiKey',
+                'in': 'header',
+                'name': 'Authorization'
+            }
+        },
 
 }
 # Email Configuration

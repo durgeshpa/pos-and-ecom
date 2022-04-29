@@ -1095,6 +1095,18 @@ class ParentProductAutocomplete(autocomplete.Select2QuerySetView):
         return qs
 
 
+class ParentProductFilter(autocomplete.Select2QuerySetView):
+    def get_queryset(self, *args, **kwargs):
+        if not self.request.user.is_authenticated:
+            return ParentProduct.objects.none()
+
+        qs = ParentProduct.objects.all().order_by('name')
+
+        if self.q:
+            qs = qs.filter(Q(name__icontains=self.q) | Q(parent_id__icontains=self.q))
+        return qs
+
+
 class ProductAutocomplete(autocomplete.Select2QuerySetView):
     def get_queryset(self):
         qs = Product.objects.all()

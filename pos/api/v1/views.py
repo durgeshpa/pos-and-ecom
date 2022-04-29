@@ -284,22 +284,27 @@ class PosProductView(GenericAPIView):
         return p_data
 
     def validate_update(self, shop_id):
-        success_msg = 'Product has been updated successfully!'
         # Validate product data
         try:
             p_data = json.loads(self.request.data["data"])
         except (KeyError, ValueError):
             return {'error': "Invalid Data Format"}, "error_msg"
         if 'product_name' not in p_data:
+            updated_fields = []
             if 'selling_price' in p_data:
-                success_msg = 'Price has been updated successfully!'
-            elif 'status' in p_data:
-                if p_data['status'] == 'active':
-                    success_msg = 'Product has been activated successfully!'
-                else:
-                    success_msg = 'Product has been deactivated successfully.'
-            elif 'stock_qty' in p_data:
-                success_msg = 'Quantity has been updated successfully!'
+                updated_fields.append('Price')
+            if 'status' in p_data:
+                updated_fields.append('Status')
+            if 'stock_qty' in p_data:
+                updated_fields.append('Quantity')
+
+            if len(updated_fields) > 1:
+                success_msg = ', '.join(updated_fields[:-1]) + \
+                              f' and {updated_fields[-1]} has been updated successfully!'
+            elif len(updated_fields) == 1:
+                success_msg = ', '.join(updated_fields) + ' has been updated successfully!'
+            else:
+                success_msg = 'Product has been updated successfully!'
         # Update product data with shop id and images
         p_data['shop_id'] = shop_id
         if self.request.FILES.getlist('images'):

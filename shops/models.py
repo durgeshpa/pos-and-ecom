@@ -9,6 +9,7 @@ from django.contrib.auth import get_user_model
 from django.utils.safestring import mark_safe
 from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
+
 from otp.sms import SendSms
 import datetime, re
 from django.core.exceptions import ValidationError
@@ -109,6 +110,8 @@ class Shop(models.Model):
         (FREQUENT_CANCELLATION_HOLD_AND_RETURN_OF_ORDERS, 'Frequent Cancellation, Return And Holds Of Orders'),
         (MOBILE_NUMBER_LOST_CLOSED_CHANGED, 'Mobile Number Changed'),
     )
+    Choices = (('active', 'Active'),
+                ('deactive', 'Deactive'))
     shop_name = models.CharField(max_length=255)
     shop_owner = models.ForeignKey(get_user_model(), related_name='shop_owner_shop', on_delete=models.CASCADE)
     shop_type = models.ForeignKey(ShopType, related_name='shop_type_shop', on_delete=models.CASCADE)
@@ -138,6 +141,7 @@ class Shop(models.Model):
     online_inventory_enabled = models.BooleanField(default=True, verbose_name='Online Inventory Enabled')
     cutoff_time = models.TimeField(null=True, blank=True)
     dynamic_beat = models.BooleanField(default=False)
+    status_reward_configuration = models.CharField(max_length=20, choices=Choices, default='deactive')
 
     # last_order_at = models.DateTimeField(auto_now_add=True)
     # last_login_at = models.DateTimeField(auto_now_add=True)
@@ -717,6 +721,7 @@ class DayBeatPlanning(models.Model):
     status = models.BooleanField(default=True)
     is_active = models.BooleanField(default=True)
 
+
 class ExecutiveFeedback(models.Model):
     """
     This model is used for to store day wise beat plan for sales executive
@@ -782,7 +787,7 @@ class FOFOConfigSubCategory(models.Model):
         ("float", "Float"),
         ("bool", "Boolean"),
     )
-    category = models.ForeignKey(FOFOConfigCategory, related_name='fofo_category_details', on_delete=models.CASCADE)
+    category = models.ForeignKey(FOFOConfigCategory, related_name='fofo_category_details', on_delete=models.CASCADE,null=True)
     name = CaseInsensitiveCharField(max_length=125)
     type = models.CharField(max_length=20, choices=FIELD_TYPE_CHOICES, default='int')
 
@@ -820,6 +825,7 @@ class FOFOConfigurations(models.Model):
             ("has_fofo_config_operations", "Has update FOFO config operations"),
         )
 
+
 class FOFOConfig(models.Model):
     # SUN = 'SUN'
     # MON = 'MON'
@@ -848,6 +854,7 @@ class FOFOConfig(models.Model):
     delivery_redius = models.DecimalField(max_digits=8, decimal_places=1, blank=True, null=True, help_text="Insert value in meters")
     min_order_value = models.DecimalField(max_digits=10, decimal_places=2, default=199,validators=[MinValueValidator(199)], blank=True, null=True)
     delivery_time = models.IntegerField(blank=True, null=True, help_text="Insert value in minutes")
+
     class Meta:
         permissions = (
             ("has_fofo_config_operations_shop", "Has update FOFO  shop config operations"),
