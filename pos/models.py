@@ -66,6 +66,13 @@ class RetailerProduct(models.Model):
         ('active', 'Active'),
         ('deactivated', 'Deactivated'),
     )
+    ONLINE_DISABLED_CHOICES = (
+        ('out_of_stock', 'Out of Stock'),
+        ('pricing_mismatch', 'Pricing Mismatch'),
+        ('expired', 'Expired'),
+        ('damaged', 'Damaged'),
+        ('wrong_pickup', 'Wrong Pickup'),
+    )
     shop = models.ForeignKey(Shop, related_name='retailer_product', on_delete=models.CASCADE)
     sku = models.CharField(max_length=255, blank=False, unique=True)
     name = models.CharField(max_length=255, validators=[ProductNameValidator])
@@ -90,6 +97,7 @@ class RetailerProduct(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
     online_enabled = models.BooleanField(default=True)
+    online_disabled_status = models.IntegerField(choices=ONLINE_DISABLED_CHOICES, max_length=50, null=True, blank=True)
     is_deleted = models.BooleanField(default=False)
     online_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
 
