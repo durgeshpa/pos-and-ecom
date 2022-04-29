@@ -39,7 +39,8 @@ from .views import upload_retailer_products_list, download_retailer_products_lis
     update_retailer_product_stock, RetailerOrderedReportView, RetailerOrderedReportFormView, RetailerReturnReportFormView, \
     RetailerOrderProductInvoiceView, \
     RetailerOrderReturnCreditNoteView, posinventorychange_data_excel, RetailerPurchaseReportView, \
-    RetailerPurchaseReportFormView, products_list_status, RetailerReturnReportView
+    RetailerPurchaseReportFormView, products_list_status, RetailerReturnReportView, download_reward_configuration,\
+    download_reward_configuration_sample_view, download_reward_configuration_csv_selected_shop
 from retailer_to_sp.models import Order, RoundAmount
 from shops.models import Shop
 from .filters import ShopFilter, ProductInvEanSearch, ProductEanSearch
@@ -1380,13 +1381,16 @@ class ByPincodeFilter(InputFilter):
 
 
 class PosStoreRewardMappingsAdmin(admin.ModelAdmin):
+    change_list_template = 'admin/pos/pos_reward_mapping_list_change.html'
     inlines = [FOFOConfigurationsInline]
-    fields = ['status_reward_configuration', 'shop_name']
+    fields = ['enable_loyalty_points', 'shop_name']
     search_fields = ['shop_name']
     readonly_fields = ('shop_name',)
     list_filter = ('status','shop_type__shop_sub_type__retailer_type_name',
-                   CityFilter, ByPincodeFilter, 'status_reward_configuration',
+                   CityFilter, ByPincodeFilter, 'enable_loyalty_points',
                    )
+    actions = ["download_reward_configuration_csv"]
+
     def get_queryset(self ,request):
         qs = super(PosStoreRewardMappingsAdmin, self).get_queryset(request)
         
@@ -1398,6 +1402,28 @@ class PosStoreRewardMappingsAdmin(admin.ModelAdmin):
         return False
     def has_add_permission(self, request,  obj=None):
         return False
+
+    def get_urls(self):
+        urls = super(PosStoreRewardMappingsAdmin, self).get_urls()
+        #/home/amit/env/test5/qa4/retailer-backend/templates/admin/pos/download_shop_reward_configuration.html
+        urls = [
+                   url(r'^upload_bulk_reward_configuration/',
+                       self.admin_site.admin_view(download_retailer_products_list_form_view),
+                       name="upload_bulk_reward_configuration"),
+
+                   url(r'^download_reward_configuration_sample/',
+                       self.admin_site.admin_view(download_reward_configuration_sample_view),
+                       name="download_reward_configuration_sample/"),
+
+                   url(r'^download_reward_configuration/',
+                       self.admin_site.admin_view(download_reward_configuration),
+                       name="download_reward_configuration"),
+               ] + urls
+        return urls
+    def download_reward_configuration_csv(self, request, queryset):
+        return download_reward_configuration_csv_selected_shop(self, request, queryset)
+
+
 
 
 admin.site.register(PosStoreRewardMappings, PosStoreRewardMappingsAdmin)

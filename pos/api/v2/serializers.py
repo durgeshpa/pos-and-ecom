@@ -122,7 +122,7 @@ class RewardConfigShopSerializers(serializers.ModelSerializer):
     shop_config = serializers.SerializerMethodField()#ShopConfigSerializers(many=True)
     class Meta:
         model = PosStoreRewardMappings
-        fields = ('id', 'shop_name','status_reward_configuration', 'shop_config')
+        fields = ('id', 'shop_name','enable_loyalty_points', 'shop_config')
         """('id','shop', 'status', 'min_order_value',
             'is_point_add_pos_order', 'point_add_pos_order', 'is_point_add_ecom_order',
             'point_add_ecom_order', 'is_point_add_ecom_order',

@@ -46,11 +46,11 @@ from pos.models import RetailerProduct, RetailerProductImage, PosCart, Discounte
     PosCartProductMapping, BulkRetailerProduct
 from pos.forms import RetailerProductsCSVDownloadForm, RetailerProductsCSVUploadForm, RetailerProductMultiImageForm, \
     PosInventoryChangeCSVDownloadForm, RetailerProductsStockUpdateForm, RetailerOrderedReportForm, \
-    RetailerPurchaseReportForm
+    RetailerPurchaseReportForm, ShopRewardUploadForm
 from pos.tasks import generate_pdf_data, update_es
 from products.models import Product, ParentProductCategory
 from products.utils import parent_product_categories
-from shops.models import Shop, PosShopUserMapping
+from shops.models import Shop, PosShopUserMapping, FOFOConfigSubCategory, FOFOConfigurations
 from retailer_to_sp.models import OrderReturn, OrderedProduct, CreditNote, OrderedProductMapping, RoundAmount, Order
 from wms.models import PosInventory, PosInventoryState, PosInventoryChange
 from retailer_backend.settings import AWS_MEDIA_URL
@@ -84,6 +84,18 @@ class RetailerProductShopAutocomplete(autocomplete.Select2QuerySetView):
         if self.q:
             qs = qs.filter(shop_name__icontains=self.q)
         return qs
+
+
+def download_reward_configuration(request):
+    """
+    Products Catalogue Download View
+    """
+    form = RetailerProductsCSVDownloadForm()
+    return render(
+        request,
+        'admin/pos/download_shop_reward_configuration.html',
+        {'form': form}
+    )
 
 
 def download_retailer_products_list_form_view(request):
@@ -1728,3 +1740,104 @@ class PosStoreRewardMappingAutocomplete(autocomplete.Select2QuerySetView):
         if self.q:
             qs = qs.filter(Q(shop_type__shop_sub_type__retailer_type_name__in=["foco","fofo"]),shop_name__icontains=self.q)
         return qs
+def download_reward_configuration_csv_selected_shop(self, request, queryset):
+    filename = "bulk_shop_reward_configration_sample_file.csv"
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
+    writer = csv.writer(response)
+    writer.writerow(
+        ["shop_id","enable_loyalty_points", "Minimum_Order_Value", "Max_Monthly_Points_Redeemed", "Percentage_Point_Added_Ecom_Order_Amount",
+        "Percentage_Point_Added_Pos_Order_Amount", "Is_Enable_Point_Redeemed_Ecom", "Is_Enable_Point_Added_Pos_Order",
+        "Is_Enable_Point_Added_Ecom_Order", "Max_Monthly_Points_Added", "Point_Redeemed_Second_Order", "Point_Redeemed_First_Order",
+        "Percentage_Value_Of_Each_Point", "Max_Point_Redeemed_Pos", "Is_Enable_Point_Redeemed_Pos", "Max_Point_Redeemed_Ecom",])
+    for shop in queryset:
+        shop_reward = shop.fofo_shop.select_related()
+        data = {'shop_id': shop.id}
+        data["enable_loyalty_points"] = shop.enable_loyalty_points
+        if shop_reward.exists():
+            for obj in shop_reward:
+                data[obj.key.name] = obj.value
+        writer.writerow([data.get('shop_id'), data.get('enable_loyalty_points'), data.get('Minimum_Order_Value'), data.get('Max_Monthly_Points_Redeemed'),
+            data.get('Percentage_Point_Added_Ecom_Order_Amount'), data.get('Percentage_Point_Added_Pos_Order_Amount'),
+            data.get("Is_Enable_Point_Redeemed_Ecom"), data.get("Is_Enable_Point_Added_Pos_Order"),
+            data.get("Is_Enable_Point_Added_Ecom_Order"), data.get("Max_Monthly_Points_Added"), data.get("Point_Redeemed_Second_Order"),
+            data.get("Point_Redeemed_First_Order"), data.get("Percentage_Value_Of_Each_Point"), data.get("Max_Point_Redeemed_Pos"),
+            data.get("Is_Enable_Point_Redeemed_Pos"), data.get("Max_Point_Redeemed_Ecom")])
+    return response
+
+
+def download_reward_configuration_sample_view(request, *args, **kwargs):
+    shop_id = request.GET['shop_id'] if request.GET.get('shop_id') else request.META.get('HTTP_SHOP_ID', None)
+    shop = Shop.objects.filter(id=shop_id).last()
+    filename = "shop_reward_configration_sample_file.csv"
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
+    writer = csv.writer(response)
+    writer.writerow(
+        ["shop_id","enable_loyalty_points", "Minimum_Order_Value", "Max_Monthly_Points_Redeemed", "Percentage_Point_Added_Ecom_Order_Amount",
+        "Percentage_Point_Added_Pos_Order_Amount", "Is_Enable_Point_Redeemed_Ecom", "Is_Enable_Point_Added_Pos_Order",
+        "Is_Enable_Point_Added_Ecom_Order", "Max_Monthly_Points_Added", "Point_Redeemed_Second_Order", "Point_Redeemed_First_Order",
+        "Percentage_Value_Of_Each_Point", "Max_Point_Redeemed_Pos", "Is_Enable_Point_Redeemed_Pos", "Max_Point_Redeemed_Ecom",])
+    shop_reward = shop.fofo_shop.select_related()
+    data = {'shop_id': shop.id}
+    data["enable_loyalty_points"] = shop.enable_loyalty_points
+    if shop_reward.exists():
+        for obj in shop_reward:
+            data[obj.key.name] = obj.value
+    writer.writerow([data.get('shop_id'), data.get('enable_loyalty_points'), data.get('Minimum_Order_Value'), data.get('Max_Monthly_Points_Redeemed'),
+        data.get('Percentage_Point_Added_Ecom_Order_Amount'), data.get('Percentage_Point_Added_Pos_Order_Amount'),
+        data.get("Is_Enable_Point_Redeemed_Ecom"), data.get("Is_Enable_Point_Added_Pos_Order"),
+        data.get("Is_Enable_Point_Added_Ecom_Order"), data.get("Max_Monthly_Points_Added"), data.get("Point_Redeemed_Second_Order"),
+        data.get("Point_Redeemed_First_Order"), data.get("Percentage_Value_Of_Each_Point"), data.get("Max_Point_Redeemed_Pos"),
+        data.get("Is_Enable_Point_Redeemed_Pos"), data.get("Max_Point_Redeemed_Ecom")])
+    return response
+
+
+def bulk_reward_file_upload(request, file):
+    reader = csv.DictReader(codecs.iterdecode(file, 'utf-8'))
+    error = []
+    row_no = 1
+    count = 0
+    filename = "zoho_customers_file_upload.csv"
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
+    writer = csv.writer(response)
+    for row in reader:
+        shop = Shop.objects.filter(id=row.get('shop_id'))
+        for key in row:
+            if key != "shop_id" and key != "enable_loyalty_points":
+                obj = FOFOConfigSubCategory.objects.filter(name=key).last()
+                if obj:
+                    instance, created = FOFOConfigurations.objects.update_or_create(shop=shop.last(), key_id=obj.id, defaults={'value': row.get(key)})
+                    instance.save()
+        enable_loyalty_points = row.get('enable_loyalty_points', False)
+        shop.update(enable_loyalty_points=enable_loyalty_points.capitalize())
+
+        
+
+
+def upload_retailer_products_list(request):
+    """
+    Products Catalogue Upload View
+    """
+    shop_id = request.POST.get('shop')
+    if request.method == 'POST':
+        form = ShopRewardUploadForm(request.POST, request.FILES)
+
+        if form.errors:
+            return render(request, 'admin/pos/reward_configraution_upload.html', {'form': form})
+
+        if form.is_valid():
+            credit_note_file = form.cleaned_data['file']
+            info_logger.info("bulk reward_configraution_upload")
+            response = bulk_reward_file_upload(request, credit_note_file)
+            return render(request, 'admin/pos/reward_configraution_upload.html',
+                          {'form': form,
+                           'success': 'Products Created/Updated Successfully!', })
+    else:
+        form = ShopRewardUploadForm()
+        return render(
+            request,
+            'admin/pos/reward_configraution_upload.html',
+            {'form': form}
+        )
