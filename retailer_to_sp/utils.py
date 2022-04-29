@@ -252,7 +252,7 @@ def order_cash_to_be_collected(shipments):
 def order_cn_amount(shipments):
 	return format_html_join(
 		"", "{}<br><br>",
-		((s.credit_note.aggregate(Sum('amount')).get('amount__sum') if s.credit_note.exists() else '',) for s in shipments)
+		((s.credit_note.aggregate(Sum('note_total')).get('note_total__sum') if s.credit_note.exists() else '',) for s in shipments)
 	)
 
 def order_damaged_amount(shipments):
@@ -448,7 +448,7 @@ def create_invoice_data_excel(request, queryset, RoundAmount, ShipmentPayment,
     response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
     writer = csv.writer(response)
     writer.writerow([
-        'Invoice No.', 'Created At', 'Invoice Amount',
+        'Invoice No.', 'Created At', 'Invoice Sub Total', 'TCS Percent', 'TCS Amount', 'Invoice Amount',
         'Shipment Status', 'Order No.', 'Order Date', 'Order Status',
         'Trip No.', 'Trip Status', 'Delivery Started At',
         'Delivery Completed At', 'Paid Amount', 'CN Amount'])
@@ -463,22 +463,20 @@ def create_invoice_data_excel(request, queryset, RoundAmount, ShipmentPayment,
             order_date=F('shipment__order__created_at'), order_status=F('shipment__order__order_status'),
             trip_started_at=F('shipment__trip__starts_at'), trip_completed_at=F('shipment__trip__completed_at'),
             shipment_paid_amount=Subquery(shipment_paid_amount),
-            cn_amount=F('shipment__credit_note__amount'),
-            invoice_amount=RoundAmount(Sum(
-                F('shipment__rt_order_product_order_product_mapping__effective_price') *
-                F('shipment__rt_order_product_order_product_mapping__shipped_qty'),
-                output_field=FloatField())))\
+            cn_amount=F('shipment__credit_note__note_total'))\
         .values(
-            'invoice_no', 'created_at', 'invoice_amount', 'shipment_status',
-            'get_order', 'order_date', 'order_status', 'trip_no',
-            'trip_status', 'trip_started_at', 'trip_completed_at',
-            'shipment_paid_amount', 'cn_amount'
+            'invoice_no', 'created_at', 'invoice_sub_total', 'tcs_percent', 'tcs_amount',  'invoice_total',
+            'shipment_status', 'get_order', 'order_date', 'order_status', 'trip_no', 'trip_status', 'trip_started_at',
+            'trip_completed_at', 'shipment_paid_amount', 'cn_amount'
         )
     for invoice in invoices.iterator():
         writer.writerow([
             invoice.get('invoice_no'),
             invoice.get('created_at'),
-            invoice.get('invoice_amount'),
+            invoice.get('invoice_sub_total'),
+            invoice.get('tcs_percent'),
+            invoice.get('tcs_amount'),
+            round(invoice.get('invoice_total'), 2),
             shipment_status_dict.get(invoice.get('shipment_status'), invoice.get('shipment_status')),
             invoice.get('get_order'),
             invoice.get('order_date'),
@@ -539,21 +537,7 @@ def get_shop_gstin(shop_id, ShopDocument):
 
 def get_tcs_data(invoice, buyer_shop_id, buyer_shop_gstin, OrderedProduct, RoundAmount):
     tcs_data = {'tcs_rate': 0, 'tcs_tax': 0, 'nature_of_collection': '', 'tcs_payable': ''}
-
-    cache_key = 'TCS_RATE_CACHE_KEY'+'_'+str(buyer_shop_id)
-    tcs_rate = cache.get(cache_key)
-    if tcs_rate is None:
-        tcs_rate = 0
-        paid_amount = OrderedProduct.objects.filter(order__buyer_shop_id=invoice.buyer_shop_id,
-                                                    created_at__gte=get_fin_year_start_date())\
-                .aggregate(paid_amount=RoundAmount(Sum(
-                    F('rt_order_product_order_product_mapping__effective_price') *
-                    F('rt_order_product_order_product_mapping__shipped_qty'),
-                    output_field=FloatField())))['paid_amount']
-        if paid_amount and paid_amount > 5000000:
-            tcs_rate = 1 if buyer_shop_gstin == 'unregistered' else 0.1
-        cache.set(cache_key, tcs_rate)
-
+    tcs_rate = invoice.tcs_percent
     tcs_data['tcs_rate'] = tcs_rate
     if tcs_rate > 0:
         tcs_data['tcs_tax'] = round(float(invoice.invoice_amount) * float(tcs_data['tcs_rate'] / 100), 2)
