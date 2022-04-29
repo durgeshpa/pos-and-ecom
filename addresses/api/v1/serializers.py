@@ -52,6 +52,7 @@ class AddressSerializer(serializers.ModelSerializer):
     class Meta:
         model = Address
         fields = '__all__'
+        ref_name = "Address v1"
         extra_kwargs = {
             'city': {'required': True},
             'state': {'required': True},

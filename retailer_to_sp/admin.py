@@ -710,6 +710,7 @@ class SellerShopFilter(AutocompleteFilter):
     field_name = 'seller_shop'
     autocomplete_url = 'seller-shop-autocomplete'
 
+
 class BuyerShopFilter(AutocompleteFilter):
     title = 'Buyer Shop'
     field_name = 'buyer_shop'

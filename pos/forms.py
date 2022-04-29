@@ -16,7 +16,7 @@ from pos.models import RetailerProduct, RetailerProductImage, DiscountedRetailer
 from products.models import Product
 from shops.models import Shop
 from wms.models import PosInventory, PosInventoryState
-
+#from .models import PosStoreRewardMapping, ShopRewardConfig
 
 class RetailerProductsForm(forms.ModelForm):
     linked_product = forms.ModelChoiceField(
@@ -481,3 +481,6 @@ class RetailerPurchaseReportForm(forms.Form):
                                      pos_enabled=True, pos_shop__status=True),
         widget=autocomplete.ModelSelect2(url='pos-shop-autocomplete', ),
     )
+
+
+

@@ -155,6 +155,12 @@ def update_es(products, shop_id):
             initial_purchase_value = product.initial_purchase_value \
                 if product.initial_purchase_value else 0
 
+        # Converting to string format
+        category = ",".join(category)
+        category_id = ",".join(category_id)
+        sub_category = ",".join(sub_category)
+        sub_category_id = ",".join(sub_category_id)
+
         params = {
             'id': product.id,
             'name': product.name,

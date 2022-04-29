@@ -1,3 +1,4 @@
+from django.db import transaction
 from requests.exceptions import HTTPError
 
 from django.http import HttpRequest
@@ -325,6 +326,10 @@ class EcomRegisterSerializer(serializers.Serializer):
         return get_adapter().clean_password(password)
 
     def validate(self, data):
+        existing_user = UserModel.objects.filter(phone_number=data['username']).last()
+        if existing_user and 'referral_code' in self.initial_data and self.initial_data['referral_code'] is not None:
+            raise serializers.ValidationError("You are already registered Please login.")
+
         if data['password1'] != data['password2']:
             raise serializers.ValidationError(_("The two password fields didn't match."))
         user_otp = PhoneOTP.objects.filter(phone_number=data['username']).last()
@@ -352,6 +357,14 @@ class EcomRegisterSerializer(serializers.Serializer):
         data['is_ecom_user'] = True
         return data
 
+    @staticmethod
+    def validate_referral_code(value):
+        if value:
+            user_ref_code = ReferralCode.objects.filter(referral_code=value).last()
+            if not user_ref_code:
+                raise serializers.ValidationError(VALIDATION_ERROR_MESSAGES['Referral_code'])
+        return value
+
     def get_cleaned_data(self):
         return {
             'username': self.validated_data.get('username', ''),
@@ -364,17 +377,18 @@ class EcomRegisterSerializer(serializers.Serializer):
         }
 
     def save(self, request):
-        if not UserModel.objects.filter(phone_number=self.validated_data.get('username', '')).exists():
-            adapter = get_adapter()
-            user = adapter.new_user(request)
-            self.cleaned_data = self.get_cleaned_data()
-            adapter.save_user(request, user, self)
-            setup_user_email(request, user, [])
-        else:
-            self.set_password_form.save()
-            user = UserModel.objects.filter(phone_number=self.validated_data.get('username', '')).last()
-            user.first_name = self.validated_data.get('first_name', '')
-        user.is_ecom_user = True
-        user.save()
-        ReferralCode.register_user_for_mlm(user, user, self.validated_data.get('referral_code', ''))
-        return user
+        with transaction.atomic():
+            if not UserModel.objects.filter(phone_number=self.validated_data.get('username', '')).exists():
+                adapter = get_adapter()
+                user = adapter.new_user(request)
+                self.cleaned_data = self.get_cleaned_data()
+                adapter.save_user(request, user, self)
+                setup_user_email(request, user, [])
+            else:
+                self.set_password_form.save()
+                user = UserModel.objects.filter(phone_number=self.validated_data.get('username', '')).last()
+                user.first_name = self.validated_data.get('first_name', '')
+            user.is_ecom_user = True
+            user.save()
+            ReferralCode.register_user_for_mlm(user, user, self.validated_data.get('referral_code', ''))
+            return user

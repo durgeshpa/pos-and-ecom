@@ -320,3 +320,26 @@ def whatsapp_order_refund(order_number, order_status, phone_number, refund_amoun
         error_logger.error(e)
         return False
 
+
+@task()
+def whatsapp_order_delivered(order_number, shop_name, phone_number, points, credit):
+    try:
+        if phone_number == '9999999999':
+            return False
+        api_end_point = WHATSAPP_API_ENDPOINT
+        whatsapp_user_id = WHATSAPP_API_USERID
+        whatsapp_user_password = WHATSAPP_API_PASSWORD
+        if credit:
+            msg = urlencode({"msg":"Hi! Your Order no "+order_number+" is successfully delivered, "+str(points)+" reward points are credited in your account. Please shop again at "+shop_name+"."})
+        else:
+            msg = urlencode({"msg":"Hi! Your Order no "+order_number+" is successfully delivered. Please shop again at "+shop_name+"."})
+        data_string = "method=SendMessage&format=json&password=" + whatsapp_user_password + "&send_to=" + phone_number +" +&v=1.1&auth_scheme=plain&&msg_type=HSM&" + msg
+        order_delivered_api = api_end_point + "userid=" + whatsapp_user_id + '&' + data_string
+        response = requests.get(order_delivered_api)
+        if json.loads(response.text)['response']['status'] == 'success':
+            return True
+        else:
+            return False
+    except Exception as e:
+        error_logger.error(e)
+        return False

@@ -60,6 +60,7 @@ class ChoicesSerializer(serializers.ChoiceField):
 class PickerDashboardSerializer(serializers.ModelSerializer):
     class Meta:
         model = PickerDashboard
+        ref_name = "PickerDashboardSerializer v1"
         fields = '__all__'
 
 
@@ -1539,6 +1540,7 @@ class OrderedProductBatchSerializer(serializers.ModelSerializer):
 class CrateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Crate
+        ref_name  = "CrateSerializer v1"
         fields = ('id', 'crate_id')
 
 
@@ -2122,7 +2124,7 @@ class CitySerializer(serializers.ModelSerializer):
     class Meta:
         model = City
         fields = ('id', 'city_name')
-
+        ref_name = "AddressCity v1"
 
 class ShipmentPincodeFilterSerializer(serializers.ModelSerializer):
     city = CitySerializer()
@@ -2269,6 +2271,7 @@ class DispatchDashboardSerializer(serializers.Serializer):
 class UserSerializers(serializers.ModelSerializer):
     class Meta:
         model = User
+        ref_name = " UserSerializers rp v1"
         fields = ('id', 'first_name', 'last_name', 'phone_number',)
 
 
@@ -3133,6 +3136,9 @@ class SummarySerializer(serializers.Serializer):
     remaining_empty_crate = serializers.IntegerField()
 
     weight = serializers.IntegerField()
+
+    class Meta:
+        ref_name = "SummarySerializer v1"
 
 
 class TripSummarySerializer(serializers.Serializer):
