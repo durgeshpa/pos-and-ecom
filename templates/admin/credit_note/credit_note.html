@@ -181,6 +181,36 @@
                                 </tr>
                                     {% endfor %}
             					{% endif %}
+								<tr>
+									<td></td>
+									<td></td>
+									<td></td>
+									<td></td>
+									<td></td>
+                  					<td></td>
+									<td></td>
+									<td></td>
+									<td></td>
+								  	<td></td>
+    								<td></td>
+									<td class="thick-line text-center">TCS Rate</td>
+									<td class="thick-line text-right">{{tcs_rate}} %</td>
+    							</tr>
+								<tr>
+									<td></td>
+									<td></td>
+									<td><strong></strong></td>
+									<td></td>
+									<td></td>
+                  					<td></td>
+									<td></td>
+									<td></td>
+									<td></td>
+									<td></td>
+									<td></td>
+    								<td class="no-line text-center">TCS Value</td>
+									<td class="no-line text-right">₹{{ tcs_tax| floatformat:2 | intcomma }}/-</td>
+    							</tr>
     							<tr>
 									<td></td>
 									<td></td>
@@ -194,7 +224,7 @@
 								  	<td class="thick-line text-center"><strong></strong></td>
     								<td class="thick-line"></td>
     								<td class="thick-line text-center"><strong>Total</strong></td>
-									<td class="thick-line text-right"><strong>₹{{ sum_amount| floatformat:2 | intcomma }}/-</strong></td>
+									<td class="thick-line text-right"><strong>₹{{ total_amount| floatformat:2 | intcomma }}/-</strong></td>
     							</tr>
 
 								{% if shop.shipment.order.seller_shop.shop_name_address_mapping.all == shop.shipment.order.shipping_address %}

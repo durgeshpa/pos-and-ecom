@@ -4,7 +4,9 @@ from django.core.exceptions import ObjectDoesNotExist
 from django.core.mail import EmailMessage
 
 from common.constants import BULK_CREATE_NO_OF_RECORDS
-from shops.models import Shop,ParentRetailerMapping
+from global_config.views import get_config
+from retailer_to_sp.models import BuyerPurchaseData
+from shops.models import Shop, ParentRetailerMapping, ShopDocument
 from addresses.models import Address
 from rest_framework import status
 from addresses.models import InvoiceCityMapping
@@ -56,12 +58,12 @@ def getShopMapping(shop_id):
         return None
 
 
-def get_financial_year():
+def get_financial_year(year_format='%y'):
     current_month = datetime.date.today().strftime('%m')
-    current_year = datetime.date.today().strftime('%y')
+    current_year = datetime.date.today().strftime(year_format)
 
     if int(current_month) < 4:
-        current_year = str(int(datetime.date.today().strftime('%y')) - 1)
+        current_year = str(int(datetime.date.today().strftime(year_format)) - 1)
     return current_year
 
 
@@ -270,32 +272,86 @@ def repackaging_no_pattern(model, field, instance_id, address):
     return common_pattern(model, field, instance_id, address, "RP")
 
 
+def create_invoice(shipment_instance):
+    '''
+    Creates the invoice for the given OrderedProduct instance
+    '''
+    invoice_sub_total = shipment_instance.invoice_amount
+
+    is_tcs_applicable, tcs_amount, tcs_percent = get_tcs_data(shipment_instance)
+    invoice_total = invoice_sub_total + tcs_amount
+    return RetailerToSPModels.Invoice.objects.get_or_create(shipment_id=shipment_instance.id,
+                                                            defaults={'invoice_sub_total': invoice_sub_total,
+                                                                      'is_tcs_applicable': is_tcs_applicable,
+                                                                      'tcs_percent': tcs_percent,
+                                                                      'tcs_amount': tcs_amount,
+                                                                      'invoice_total': invoice_total})
+
+
+def get_tcs_data(shipment_instance):
+    '''
+    Calculates TCS tax if applicable
+    Updates Total Buyer purchase in the current financial year
+    '''
+    is_tcs_applicable, tcs_amount, tcs_percent = False, 0, 0
+
+    if hasattr(shipment_instance, 'invoice'):
+        is_tcs_applicable = shipment_instance.invoice.is_tcs_applicable
+        tcs_percent = shipment_instance.invoice.tcs_percent
+        tcs_amount = shipment_instance.invoice.tcs_amount
+
+    elif shipment_instance.order.seller_shop_id in get_config('active_wh_list'):
+        invoice_amount = shipment_instance.invoice_amount
+        total_purchase = invoice_amount
+        purchase_data = BuyerPurchaseData.objects.filter(seller_shop_id=shipment_instance.order.seller_shop_id,
+                                                         buyer_shop_id=shipment_instance.order.buyer_shop_id,
+                                                         fin_year=get_financial_year('%Y')).last()
+        if purchase_data:
+            total_purchase += purchase_data.total_purchase
+        BuyerPurchaseData.objects.update_or_create(seller_shop_id=shipment_instance.order.seller_shop_id,
+                                                   buyer_shop_id=shipment_instance.order.buyer_shop_id,
+                                                   fin_year=get_financial_year('%Y'),
+                                                   defaults={'total_purchase': total_purchase})
+        if total_purchase >= get_config('TCS_B2B_APPLICABLE_AMT', 5000000):
+            is_tcs_applicable = True
+            buyer_shop_document = ShopDocument.objects.filter(shop_name_id=shipment_instance.order.buyer_shop_id,
+                                                              shop_document_type=ShopDocument.GSTIN).last()
+            is_buyer_gst_available = True if buyer_shop_document else False
+            tcs_percent = 0.75 if is_buyer_gst_available else 1
+            tcs_amount = invoice_amount * tcs_percent / 100
+    return is_tcs_applicable, tcs_amount, tcs_percent
+
+
 @task
-def generate_invoice_number(field, instance_id, address, invoice_amount, const="IV"):
-    instance, created = RetailerToSPModels.Invoice.objects.get_or_create(shipment_id=instance_id)
+def generate_invoice_number(shipment_instance, address, const="IV", field='invoice_no'):
+    shipment_id = shipment_instance.id
+    instance, created = create_invoice(shipment_instance)
     if created:
-        invoice_no = common_pattern(RetailerToSPModels.Invoice, field, instance_id, address, const, is_invoice=True)
+        invoice_no = common_pattern(RetailerToSPModels.Invoice, field, shipment_id, address, const, is_invoice=True)
         while RetailerToSPModels.Invoice.objects.filter(invoice_no=invoice_no).exists():
-            invoice_no = common_pattern(RetailerToSPModels.Invoice, field, instance_id, address, const, is_invoice=True)
+            invoice_no = common_pattern(RetailerToSPModels.Invoice, field, shipment_id, address, const, is_invoice=True)
         instance.invoice_no = invoice_no
         instance.save()
 
 
+
 @task
-def generate_invoice_number_discounted_order(field, instance_id, address, invoice_amount):
-    instance, created = RetailerToSPModels.Invoice.objects.get_or_create(shipment_id=instance_id)
+def generate_invoice_number_discounted_order(shipment_instance, address, field='invoice_no'):
+    shipment_id = shipment_instance.id
+    instance, created = create_invoice(shipment_instance)
     if created:
-        invoice_no = common_pattern_discounted(RetailerToSPModels.Invoice, field, instance_id, address, "IV",
+        invoice_no = common_pattern_discounted(RetailerToSPModels.Invoice, field, shipment_id, address, "IV",
                                                is_invoice=True)
         instance.invoice_no = invoice_no
         instance.save()
 
 
 @task
-def generate_invoice_number_bulk_order(field, instance_id, address, invoice_amount):
-    instance, created = RetailerToSPModels.Invoice.objects.get_or_create(shipment_id=instance_id)
+def generate_invoice_number_bulk_order(shipment_instance, address, field='invoice_no'):
+    shipment_id = shipment_instance.id
+    instance, created = create_invoice(shipment_instance)
     if created:
-        invoice_no = common_pattern_bulk(RetailerToSPModels.Invoice, field, instance_id, address, "IV", is_invoice=True)
+        invoice_no = common_pattern_bulk(RetailerToSPModels.Invoice, field, shipment_id, address, "IV", is_invoice=True)
         instance.invoice_no = invoice_no
         instance.save()
 

@@ -3,6 +3,7 @@ import urllib
 from datetime import datetime
 
 from django.db import transaction
+from django.db.models import OuterRef, Exists
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
 from rest_framework.exceptions import NotFound, ValidationError
@@ -12,7 +13,8 @@ from pos.models import RetailerProduct
 from products.models import Product
 from retailer_backend.common_function import isBlank
 from ...choices import LANDING_PAGE_TYPE_CHOICE, LISTING_SUBTYPE_CHOICE, FUNTION_TYPE_CHOICE, \
-    CARD_TYPE_PRODUCT, CARD_TYPE_CAREGORY, CARD_TYPE_BRAND
+    CARD_TYPE_PRODUCT, CARD_TYPE_CAREGORY, CARD_TYPE_BRAND, CARD_TYPE_IMAGE, IMAGE_TYPE_CHOICE, LIST
+from ...common_functions import check_inventory
 from ...models import CardData, Card, CardVersion, CardItem, Application, Page, PageCard, PageVersion, ApplicationPage, \
     LandingPage, Functions, LandingPageProducts
 from cms.messages import VALIDATION_ERROR_MESSAGES, ERROR_MESSAGES
@@ -91,9 +93,9 @@ class CardItemSerializer(serializers.ModelSerializer):
     image = Base64ImageField(
         max_length=None, use_url=True,required=False, allow_null = True
     )
-    content = serializers.SerializerMethodField()
+    item_content = serializers.SerializerMethodField()
 
-    def get_content(self, obj):
+    def get_item_content(self, obj):
         if not self.context.get('card', None):
             return obj.content
         card = self.context['card']
@@ -107,6 +109,7 @@ class CardItemSerializer(serializers.ModelSerializer):
         except Exception as e:
             info_logger.error(e)
             info_logger.error(f"CardItemSerializer | get_content | Failed to create content for CardItem {obj.id}")
+        return obj.content
     
 
     def to_internal_value(self, data):
@@ -117,8 +120,8 @@ class CardItemSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = CardItem
-        exclude = ('card_data', 'created_at', 'updated_at', 'created_by', 'updated_by')
-
+        fields = ('id', 'image', 'content_id', 'content', 'item_content', 'action', 'priority', 'row', 'subcategory',
+                  'subbrand')
     
     def create(self, validated_data):
         card_id = self.context.get("card_id")
@@ -142,8 +145,8 @@ def make_cms_item_redirect_url(request, card_type, image_data_type):
         "brand" : "/brand/api/v1/brand/?id=",
         "image" : {
             1 : "/product/api/v1/child-product/?product_type=0&id=",
-            2 : "/retailer/sp/api/v1/GRN/search/?categories=",
-            3 : "/retailer/sp/api/v1/GRN/search/?brands=",
+            2 : "/retailer/sp/api/v1/GRN/search/?index_type=3&search_type=1&&categories=",
+            3 : "/retailer/sp/api/v1/GRN/search/?index_type=3&search_type=1&brands=",
             4 : "/cms/api/v1/landing-pages/?id="
         }
     }
@@ -329,6 +332,7 @@ class PageFunctionSerializer(serializers.ModelSerializer):
         model = Functions
         fields = ('id', 'type', 'name', 'url', 'required_params', 'required_headers')
 
+
     def validate(self, data):
 
         if 'name' not in self.initial_data or isBlank(self.initial_data['name']):
@@ -384,6 +388,15 @@ class PageCardDataSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
     def get_items(self, obj):
+        shop_id = self.context.get('shop_id', None)
+        card = self.context.get('card', None)
+        if shop_id and card and ((card.type == CARD_TYPE_PRODUCT and card.sub_type == LISTING_SUBTYPE_CHOICE.LIST)
+                            or (card.type == CARD_TYPE_IMAGE and card.image_data_type == IMAGE_TYPE_CHOICE.PRODUCT)):
+            sub_query = RetailerProduct.objects.filter(linked_product_id=OuterRef('content_id'), shop_id=shop_id,
+                                                       is_deleted=False, online_enabled=True)
+            items = check_inventory(obj.items.annotate(retailer_product_exists=Exists(sub_query))
+                                   .filter(retailer_product_exists=True))
+            return CardItemSerializer(items, many=True, context=self.context).data
         return CardItemSerializer(obj.items, many=True, context=self.context).data
 
     def to_representation(self, instance):
@@ -409,7 +422,8 @@ class PageCardSerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         data = super().to_representation(instance)
         card_version=CardVersion.objects.filter(card = instance.card_version.card).last()
-        data['card_data'] = PageCardDataSerializer(card_version.card_data, context={'card':card_version.card}).data
+        self.context['card'] = card_version.card
+        data['card_data'] = PageCardDataSerializer(card_version.card_data, context=self.context).data
         return data
 
 
@@ -426,7 +440,7 @@ class PageVersionDetailSerializer(serializers.ModelSerializer):
         """custom serializer to get Page Card Mapping"""
 
         page_card = PageCard.objects.filter(page_version__id = self.instance.id)
-        cards = PageCardSerializer(page_card, many = True)
+        cards = PageCardSerializer(page_card, many = True, context=self.context)
         return cards.data
 
 
@@ -573,7 +587,7 @@ class PageLatestDetailSerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         data =  super().to_representation(instance)
-        data['latest_version'] = PageVersionDetailSerializer(self.context.get('version')).data
+        data['latest_version'] = PageVersionDetailSerializer(self.context.pop('version'), context=self.context).data
         apps = ApplicationPage.objects.get(page__id = instance.id).app
         data['applications'] = PageApplicationSerializer(apps).data
         return data
@@ -639,11 +653,9 @@ class ProductImageSerializer(serializers.Serializer):
         data['image_url'] = instance.image.url
         return data
 
+
 class ProductSerializer(serializers.ModelSerializer):
     product_images = serializers.SerializerMethodField()
-    # name = serializers.SerializerMethodField(source='product_name')
-    # ean = serializers.SerializerMethodField(source='product_ean_code')
-    # mrp = serializers.SerializerMethodField(source='product_mrp')
     category = serializers.SerializerMethodField()
     brand = serializers.SerializerMethodField()
     online_price = serializers.SerializerMethodField()
@@ -713,6 +725,10 @@ class ProductSerializer(serializers.ModelSerializer):
             return ''
 
     def get_online_price(self, obj):
+        retailer_product = RetailerProduct.objects.filter(linked_product_id=obj.id, status='active',
+                                                        online_enabled=True)
+        if retailer_product.exists():
+            return retailer_product.last().online_price
         return None
 
 
@@ -726,6 +742,7 @@ class ProductSerializer(serializers.ModelSerializer):
 
 class LandingPageProductSerializer(serializers.ModelSerializer):
     product = ProductSerializer()
+
     class Meta:
         model = LandingPageProducts
         fields = ('product',)
@@ -739,13 +756,23 @@ class LandingPageSerializer(serializers.ModelSerializer):
     page_action_url = serializers.SerializerMethodField()
     page_link = serializers.SerializerMethodField()
     banner_image = Base64ImageField(max_length=None, use_url=True, required=False, allow_null=True)
-    landing_page_products = LandingPageProductSerializer(many=True, read_only=True)
+    landing_page_products = serializers.SerializerMethodField()
 
     def to_internal_value(self, data):
         banner_image = data.get('banner_image', None)
         if banner_image == '':
             data.pop('banner_image')
         return super(LandingPageSerializer, self).to_internal_value(data)
+
+    def get_landing_page_products(self, obj):
+        shop_id = self.context.get('shop_id', None)
+        items = obj.landing_page_products
+        if shop_id:
+            sub_query = RetailerProduct.objects.filter(linked_product_id=OuterRef('product_id'), shop_id=shop_id,
+                                                       is_deleted=False, online_enabled=True)
+            items = check_inventory(obj.landing_page_products.annotate(retailer_product_exists=Exists(sub_query))
+                                                                   .filter(retailer_product_exists=True))
+        return LandingPageProductSerializer(items, many=True).data
 
     def get_page_action_url(self, obj):
         if obj.page_function:
@@ -756,6 +783,7 @@ class LandingPageSerializer(serializers.ModelSerializer):
     def get_page_link(self, obj):
         request = self.context.get('request')
         if request:
+            request.META['HTTP_X_FORWARDED_PROTO'] = 'https'
             return request.build_absolute_uri('/cms/api/v1/landing-pages/?id='+str(obj.id))
 
     class Meta:

@@ -506,12 +506,12 @@ def generate_csv_payment_report(payments):
             if payment.order.rt_order_order_product.last().pos_trips.last():
                 trip_start_at = payment.order.rt_order_order_product.last().pos_trips.last().\
                     trip_start_at.strftime('%m/%d/%Y-%H-%M-%S') if payment.order.rt_order_order_product.last().pos_trips.last().\
-                    trip_start_at.strftime('%m/%d/%Y-%H-%M-%S') else ''
+                    trip_start_at else ''
                 row.append(trip_start_at)
 
                 trip_end_at = payment.order.rt_order_order_product.last().pos_trips.last().\
                     trip_end_at.strftime('%m/%d/%Y-%H-%M-%S') if payment.order.rt_order_order_product.last().pos_trips.last().\
-                    trip_end_at.strftime('%m/%d/%Y-%H-%M-%S') else ''
+                    trip_end_at else ''
                 row.append(trip_end_at)
         rows.append(row)
 

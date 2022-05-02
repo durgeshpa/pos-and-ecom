@@ -88,7 +88,7 @@ from retailer_to_sp.models import (Cart, CartProductMapping, CreditNote, Order, 
                                    DispatchTripShipmentPackages, LastMileTripShipmentMapping, PACKAGE_VERIFY_CHOICES,
                                    DispatchTripCrateMapping, ShipmentPackagingMapping, TRIP_TYPE_CHOICE, ShopCrate,
                                    LastMileTripShipmentPackages, ShipmentNotAttempt, RoundAmount)
-from retailer_to_sp.tasks import send_invoice_pdf_email
+from retailer_to_sp.tasks import send_invoice_pdf_email, insert_search_term
 from shops.api.v1.serializers import ShopBasicSerializer
 from sp_to_gram.models import OrderedProductReserved
 from sp_to_gram.tasks import es_search, upload_shop_stock, upload_all_products_in_es
@@ -152,7 +152,7 @@ logger = logging.getLogger('django')
 
 info_logger = logging.getLogger('file-info')
 error_logger = logging.getLogger('file-error')
-
+elastic_logger = logging.getLogger('elastic_log')
 
 def distance(shop_location, order_location):
     """
@@ -317,6 +317,7 @@ class SearchProducts(APIView):
         """
         index_type = request.GET.get('index_type', '1')
         # GramFactory Catalogue
+        elastic_logger.info("Elastic search starts, index type:: {}".format(index_type))
         if index_type == '1':
             return self.gf_search()
         # Retailer Shop Catalogue
@@ -337,6 +338,7 @@ class SearchProducts(APIView):
         app_type = kwargs['app_type']
         search_type = self.request.GET.get('search_type', '1')
         # Exact Search
+        elastic_logger.info("Shop id :: {}, App type :: {}, Search type :: {}".format(shop_id, app_type, search_type))
         if search_type == '1':
             results = self.rp_exact_search(shop_id)
         # Normal Search
@@ -355,6 +357,8 @@ class SearchProducts(APIView):
         """
         ean_code = self.request.GET.get('ean_code')
         output_type = self.request.GET.get('output_type', '1')
+        elastic_logger.info("EAN code :: {}, Output type :: {}".format(ean_code, output_type))
+
         filter_list = [{"term": {"is_deleted": False}}]
 
         # if int(self.request.GET.get('include_discounted', '1')) == 0:
@@ -370,6 +374,7 @@ class SearchProducts(APIView):
         if self.request.GET.get('product_pack_type') in ['loose', 'packet']:
             filter_list.append({"term": {"product_pack_type": self.request.GET.get('product_pack_type')}})
 
+        elastic_logger.info("Filter list :: {}".format(filter_list))
         must_not = dict()
         if int(self.request.GET.get('ean_not_available', '0')) == 1:
             must_not = {"exists": {"field": "ean"}}
@@ -392,6 +397,10 @@ class SearchProducts(APIView):
         output_type = self.request.GET.get('output_type', '1')
         category_ids = self.request.GET.get('category_ids')
         sub_category_ids = self.request.GET.get('sub_category_ids')
+        elastic_logger.info(
+            "Keyword :: {}, Output type :: {}, Category :: {}, Sub-category :: {}".format(keyword, output_type,
+                                                                                          category_ids,
+                                                                                          sub_category_ids))
         filter_list = [{"term": {"is_deleted": False}}]
         if int(self.request.GET.get('online_enabled', 0) ) == 1:
             filter_list.append({"term": {"online_enabled": True}})
@@ -433,6 +442,8 @@ class SearchProducts(APIView):
             if keyword.isnumeric():
                 query_string = {"query": keyword + "*", "fields": ["ean"]}
             else:
+                # Insert into DB asynchronously
+                insert_search_term.delay(keyword)
                 tokens = keyword.split()
                 keyword = ""
                 for word in tokens:
@@ -456,6 +467,9 @@ class SearchProducts(APIView):
             #sub_category = sub_category_ids.split(',')
             #sub_category_filter = str(categorymodel.Category.objects.filter(id__in=sub_category, status=True).last())
             filter_list.append({"term": {"sub_category": sub_category_ids}})
+
+        elastic_logger.info("Filter list :: {}".format(filter_list))
+        elastic_logger.info("Query string :: {}".format(query_string))
 
         if filter_list and query_string:
             body['query'] = {"bool": {"must": {"query_string": query_string}, "filter": filter_list}}
@@ -541,6 +555,7 @@ class SearchProducts(APIView):
         if sort_by == 'combo_available':
             sort_order = 'desc'
         body["sort"] = {sort_by: sort_order}
+        elastic_logger.info("Body :: {}".format(body))
         p_list = []
         cart_check = False
         # Ecom Cart
@@ -582,6 +597,7 @@ class SearchProducts(APIView):
                     p_list.append(p["_source"])
             except Exception as e:
                 error_logger.error(e)
+        elastic_logger.info("Product list :: {}".format(p_list))
         return p_list
 
     @staticmethod
@@ -1821,7 +1837,8 @@ class UserView(APIView):
             return api_response("Please enter a valid phone number")
 
         data, msg = [], 'Customer Does Not Exists'
-        customer = User.objects.filter(phone_number=phone_no).last()
+        orders = Order.objects.filter(seller_shop=kwargs['shop'])
+        customer = User.objects.filter(id__in=Subquery(orders.values('buyer_id'))).filter(phone_number=phone_no).last()
         if customer:
             data, msg = PosUserSerializer(customer).data, 'Customer Detail Success'
         return api_response(msg, data, status.HTTP_200_OK, True)
@@ -4454,6 +4471,7 @@ class OrderedItemCentralDashBoard(APIView):
         """
         # products for shop
         products = RetailerProduct.objects.filter(shop=shop)
+        ecom_products = products.filter(online_enabled=True)
 
         # orders for shop
         orders = Order.objects.prefetch_related('rt_return_order').filter(seller_shop=shop).exclude(
@@ -4509,6 +4527,7 @@ class OrderedItemCentralDashBoard(APIView):
         today_date = datetime.today()
         if filters == 1:  # today
             products = products.filter(created_at__date=today_date)
+            ecom_products = ecom_products.filter(created_at__date=today_date)
             # orders
             orders = orders.filter(created_at__date=today_date)
             pos_orders = pos_orders.filter(created_at__date=today_date)
@@ -4532,6 +4551,7 @@ class OrderedItemCentralDashBoard(APIView):
         elif filters == 2:  # yesterday
             yesterday = today_date - timedelta(days=1)
             products = products.filter(created_at__date=yesterday)
+            ecom_products = ecom_products.filter(created_at__date=yesterday)
             # orders
             orders = orders.filter(created_at__date=yesterday)
             pos_orders = pos_orders.filter(created_at__date=yesterday)
@@ -4554,6 +4574,7 @@ class OrderedItemCentralDashBoard(APIView):
 
         elif filters == 3:  # this week
             products = products.filter(created_at__week=today_date.isocalendar()[1])
+            ecom_products = ecom_products.filter(created_at__week=today_date.isocalendar()[1])
             # orders
             orders = orders.filter(created_at__week=today_date.isocalendar()[1])
             pos_orders = pos_orders.filter(created_at__week=today_date.isocalendar()[1])
@@ -4577,6 +4598,7 @@ class OrderedItemCentralDashBoard(APIView):
         elif filters == 4:  # last week
             last_week = today_date - timedelta(weeks=1)
             products = products.filter(created_at__week=last_week.isocalendar()[1])
+            ecom_products = ecom_products.filter(created_at__week=last_week.isocalendar()[1])
             # orders
             orders = orders.filter(created_at__week=last_week.isocalendar()[1])
             pos_orders = pos_orders.filter(created_at__week=last_week.isocalendar()[1])
@@ -4599,6 +4621,7 @@ class OrderedItemCentralDashBoard(APIView):
 
         elif filters == 5:  # this month
             products = products.filter(created_at__month=today_date.month)
+            ecom_products = ecom_products.filter(created_at__month=today_date.month)
             # orders
             orders = orders.filter(created_at__month=today_date.month)
             pos_orders = pos_orders.filter(created_at__month=today_date.month)
@@ -4622,6 +4645,7 @@ class OrderedItemCentralDashBoard(APIView):
         elif filters == 6:  # last month
             last_month = today_date - timedelta(days=30)
             products = products.filter(created_at__month=last_month.month)
+            ecom_products = ecom_products.filter(created_at__month=last_month.month)
             # orders
             orders = orders.filter(created_at__month=last_month.month)
             pos_orders = pos_orders.filter(created_at__month=last_month.month)
@@ -4644,6 +4668,7 @@ class OrderedItemCentralDashBoard(APIView):
 
         elif filters == 7:  # this year
             products = products.filter(created_at__year=today_date.year)
+            ecom_products = ecom_products.filter(created_at__year=today_date.year)
             # orders
             orders = orders.filter(created_at__year=today_date.year)
             pos_orders = pos_orders.filter(created_at__year=today_date.year)
@@ -4707,6 +4732,7 @@ class OrderedItemCentralDashBoard(APIView):
         total_invoices_final_amount = pos_total_invoices_final_amount + ecom_total_invoices_final_amount
         # counts of order for shop_id with total_ordered_final_amount, total_invoices_final_amount  & products
         products_count = products.count()
+        ecom_products_count = ecom_products.count()
 
         order_count = orders.count()
         invoice_count = invoices.count()
@@ -4718,12 +4744,13 @@ class OrderedItemCentralDashBoard(APIView):
         pos_invoice_count = pos_invoices.count()
 
         overview = [{"shop_name": shop.shop_name, "orders": order_count, "products": products_count,
-                     "revenue": total_ordered_final_amount, "ecom_order_count": ecom_order_count,
-                     "pos_order_count": pos_order_count, "ecom_revenue": ecom_total_ordered_final_amount,
-                     "pos_revenue": pos_total_ordered_final_amount, "invoices": invoice_count,
-                     "ecom_invoice_count": ecom_invoice_count, "pos_invoice_count": pos_invoice_count,
-                     "invoice_revenue": total_invoices_final_amount, "ecom_invoice_revenue":
-                         ecom_total_invoices_final_amount, "pos_invoice_revenue": pos_total_invoices_final_amount}]
+                     "ecom_products": ecom_products_count, "revenue": total_ordered_final_amount,
+                     "ecom_order_count": ecom_order_count, "pos_order_count": pos_order_count,
+                     "ecom_revenue": ecom_total_ordered_final_amount, "pos_revenue": pos_total_ordered_final_amount,
+                     "invoices": invoice_count, "ecom_invoice_count": ecom_invoice_count,
+                     "pos_invoice_count": pos_invoice_count, "invoice_revenue": total_invoices_final_amount,
+                     "ecom_invoice_revenue": ecom_total_invoices_final_amount,
+                     "pos_invoice_revenue": pos_total_invoices_final_amount}]
         return overview
 
     def get_retail_order_overview(self):
@@ -5765,8 +5792,6 @@ def pdf_generation(request, ordered_product):
         gst_tax_list = []
         cess_tax_list = []
         surcharge_tax_list = []
-        tcs_rate = 0
-        tcs_tax = 0
         sum_qty = 0
         igst = sum(gst_tax_list)
         cgst = (sum(gst_tax_list)) / 2
@@ -5906,19 +5931,10 @@ def pdf_generation(request, ordered_product):
                 sum(gst_tax_list)) / 2, sum(
                 cess_tax_list), sum(surcharge_tax_list)
 
-        total_amount = ordered_product.invoice_amount
-
+        total_amount = ordered_product.invoice.invoice_sub_total
+        tcs_rate = ordered_product.invoice.tcs_percent
+        tcs_tax = round(ordered_product.invoice.tcs_amount, 2)
         total_tax_amount = ordered_product.sum_amount_tax()
-
-        if paid_amount and float(paid_amount) > 5000000:
-            if buyer_shop_gistin == 'unregistered':
-                tcs_rate = 1
-                tcs_tax = total_amount * float(tcs_rate / 100)
-            else:
-                tcs_rate = 0.1
-                tcs_tax = total_amount * float(tcs_rate / 100)
-
-        tcs_tax = round(tcs_tax, 2)
         try:
             product_special_cess = round(m.total_product_cess_amount)
         except:
@@ -6386,8 +6402,8 @@ class DownloadCreditNoteDiscounted(APIView):
         sum_qty, sum_amount, tax_inline, sum_basic_amount, product_tax_amount, total_product_tax_amount = 0, 0, 0, 0, 0, 0
         taxes_list, gst_tax_list, cess_tax_list, surcharge_tax_list = [], [], [], []
         igst, cgst, sgst, cess, surcharge = 0, 0, 0, 0, 0
-        tcs_rate = 0
-        tcs_tax = 0
+        tcs_rate = credit_note.shipment.invoice.tcs_percent
+        tcs_tax = credit_note.tcs_amount
         list1 = []
         for z in credit_note.shipment.order.seller_shop.shop_name_address_mapping.all():
             pan_no = 'AAHCG4891M' if z.shop_name == 'GFDN SERVICES PVT LTD (NOIDA)' or z.shop_name == 'GFDN SERVICES PVT LTD (DELHI)' else '---'
@@ -7515,6 +7531,9 @@ class ProcessShipmentView(generics.GenericAPIView):
 
         else:
             """ Get Process Shipment for specific Shipment and batch Id """
+
+            if request.GET.get('shipment_id') and not re.match("^\d+$", str(request.GET.get('shipment_id'))):
+                return get_response('please provide valid shipment_id', False)
             if not request.GET.get('shipment_id') or not (request.GET.get('batch_id') or request.GET.get('ean_code')):
                 return get_response('please provide id / shipment_id & batch_id to get shipment product detail', False)
             process_shipments_data = self.filter_shipment_data()

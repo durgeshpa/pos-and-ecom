@@ -568,6 +568,11 @@ LOGGING = {
             'level': 'INFO',
             'propagate': True,
         },
+        'elastic_log': {
+            'handlers': ['elastic_log_file'],
+            'level': 'INFO',
+            'propagate': True,
+        },
    },
    'handlers': {
        # 'file-debug': {
@@ -598,6 +603,12 @@ LOGGING = {
              'filename': '/var/log/retailer-backend/scheduled_jobs.log',
              'formatter': 'verbose'
          },
+        'elastic_log_file': {
+            'level': 'INFO',
+            'class': 'logging.FileHandler',
+            'filename': '/var/log/retailer-backend/elastic_search.log',
+            'formatter': 'verbose'
+        },
 
     },
     'formatters': {
@@ -641,6 +652,7 @@ AWS_MEDIA_URL = config('AWS_MEDIA_URL')
 LOGIN_URL = 'rest_framework:login'
 LOGOUT_URL = 'rest_framework:logout'
 
+USE_X_FORWARDED_HOST = True
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 environment = config('ENVIRONMENT')
@@ -657,3 +669,7 @@ DRF_API_LOGGER_DATABASE = config('DRF_API_LOGGER_DATABASE')
 DRF_API_LOGGER_EXCLUDE_KEYS = ['password', 'token', 'access', 'refresh']
 DRF_API_LOGGER_SLOW_API_ABOVE = 200
 DRF_API_LOGGER_TIMEDELTA = 330
+
+
+
+

@@ -22,6 +22,7 @@ from django.contrib.postgres.fields import JSONField
 from categories.models import BaseTimeModel, BaseTimestampUserStatusModel
 from .fields import CaseInsensitiveCharField
 from django.core.validators import MinValueValidator
+from django.contrib.postgres.fields import ArrayField
 # from analytics.post_save_signal import get_retailer_report
 
 Product = 'products.product'
@@ -738,8 +739,11 @@ class ExecutiveFeedback(models.Model):
         (9, "Already ordered today")
 
     )
-    day_beat_plan = models.ForeignKey(DayBeatPlanning, related_name='day_beat_plan', null=True, blank=True,
-                                      on_delete=models.CASCADE, unique=True)
+    day_beat_plan = models.ForeignKey(DayBeatPlanning,
+                                      related_name='day_beat_plan',
+                                      null=True, blank=True,
+                                      on_delete=models.CASCADE,
+                                      unique=True)
     executive_feedback = models.CharField(max_length=25, choices=executive_feedback_choice)
     feedback_date = models.DateField(null=True, blank=True)
     feedback_time = models.TimeField(null=True, blank=True)
@@ -876,3 +880,18 @@ class FOFOConfig(models.Model):
         permissions = (
             ("has_fofo_config_operations_shop", "Has update FOFO  shop config operations"),
         )
+
+
+class ShopFcmTopic(models.Model):
+    shop = models.ForeignKey(Shop, on_delete=models.CASCADE, related_name='fcm_topics', unique=True)
+    topic_name = models.CharField(max_length=200)
+    registration_ids = ArrayField(models.CharField(max_length=200))
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
+    
+    def __str__(self) -> str:
+        return f"{self.shop} >> {self.topic_name} >> {len(self.registration_ids)}"
+    
+    class Meta:
+        verbose_name = 'Shop Fcm Topic'
+        verbose_name_plural = 'Shop Fcm Topics'
