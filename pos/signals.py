@@ -70,6 +70,20 @@ def update_product_status_on_inventory_update(sender, instance=None, created=Fal
         instance.product.save()
 
 
+@receiver(post_save, sender=PosInventory)
+def update_product_online_disabled_status_on_inventory_update(sender, instance=None, created=False, **kwargs):
+    """
+        update product status on inventory update
+    """
+    if instance.product.online_enabled is False and instance.product.online_disabled_status \
+            in [RetailerProduct.ONLINE_DISABLED_CHOICES] and \
+            instance.inventory_state.inventory_state == PosInventoryState.AVAILABLE:
+        if instance.quantity > 0:
+            instance.product.online_enabled = True
+            instance.product.online_disabled_status = None
+            instance.product.save()
+
+
 @receiver(post_save, sender=PosCart)
 def generate_po_no(sender, instance=None, created=False, update_fields=None, **kwargs):
     """
