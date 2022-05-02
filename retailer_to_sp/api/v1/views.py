@@ -88,7 +88,7 @@ from retailer_to_sp.models import (Cart, CartProductMapping, CreditNote, Order, 
                                    DispatchTripShipmentPackages, LastMileTripShipmentMapping, PACKAGE_VERIFY_CHOICES,
                                    DispatchTripCrateMapping, ShipmentPackagingMapping, TRIP_TYPE_CHOICE, ShopCrate,
                                    LastMileTripShipmentPackages, ShipmentNotAttempt, RoundAmount)
-from retailer_to_sp.tasks import send_invoice_pdf_email
+from retailer_to_sp.tasks import send_invoice_pdf_email, insert_search_term
 from shops.api.v1.serializers import ShopBasicSerializer
 from sp_to_gram.models import OrderedProductReserved
 from sp_to_gram.tasks import es_search, upload_shop_stock, upload_all_products_in_es
@@ -152,7 +152,7 @@ logger = logging.getLogger('django')
 
 info_logger = logging.getLogger('file-info')
 error_logger = logging.getLogger('file-error')
-
+elastic_logger = logging.getLogger('elastic_log')
 
 def distance(shop_location, order_location):
     """
@@ -317,6 +317,7 @@ class SearchProducts(APIView):
         """
         index_type = request.GET.get('index_type', '1')
         # GramFactory Catalogue
+        elastic_logger.info("Elastic search starts, index type:: {}".format(index_type))
         if index_type == '1':
             return self.gf_search()
         # Retailer Shop Catalogue
@@ -337,6 +338,7 @@ class SearchProducts(APIView):
         app_type = kwargs['app_type']
         search_type = self.request.GET.get('search_type', '1')
         # Exact Search
+        elastic_logger.info("Shop id :: {}, App type :: {}, Search type :: {}".format(shop_id, app_type, search_type))
         if search_type == '1':
             results = self.rp_exact_search(shop_id)
         # Normal Search
@@ -355,6 +357,8 @@ class SearchProducts(APIView):
         """
         ean_code = self.request.GET.get('ean_code')
         output_type = self.request.GET.get('output_type', '1')
+        elastic_logger.info("EAN code :: {}, Output type :: {}".format(ean_code, output_type))
+
         filter_list = [{"term": {"is_deleted": False}}]
 
         # if int(self.request.GET.get('include_discounted', '1')) == 0:
@@ -370,6 +374,7 @@ class SearchProducts(APIView):
         if self.request.GET.get('product_pack_type') in ['loose', 'packet']:
             filter_list.append({"term": {"product_pack_type": self.request.GET.get('product_pack_type')}})
 
+        elastic_logger.info("Filter list :: {}".format(filter_list))
         must_not = dict()
         if int(self.request.GET.get('ean_not_available', '0')) == 1:
             must_not = {"exists": {"field": "ean"}}
@@ -392,6 +397,10 @@ class SearchProducts(APIView):
         output_type = self.request.GET.get('output_type', '1')
         category_ids = self.request.GET.get('category_ids')
         sub_category_ids = self.request.GET.get('sub_category_ids')
+        elastic_logger.info(
+            "Keyword :: {}, Output type :: {}, Category :: {}, Sub-category :: {}".format(keyword, output_type,
+                                                                                          category_ids,
+                                                                                          sub_category_ids))
         filter_list = [{"term": {"is_deleted": False}}]
         if int(self.request.GET.get('online_enabled', 0) ) == 1:
             filter_list.append({"term": {"online_enabled": True}})
@@ -433,6 +442,8 @@ class SearchProducts(APIView):
             if keyword.isnumeric():
                 query_string = {"query": keyword + "*", "fields": ["ean"]}
             else:
+                # Insert into DB asynchronously
+                insert_search_term.delay(keyword)
                 tokens = keyword.split()
                 keyword = ""
                 for word in tokens:
@@ -456,6 +467,9 @@ class SearchProducts(APIView):
             #sub_category = sub_category_ids.split(',')
             #sub_category_filter = str(categorymodel.Category.objects.filter(id__in=sub_category, status=True).last())
             filter_list.append({"term": {"sub_category": sub_category_ids}})
+
+        elastic_logger.info("Filter list :: {}".format(filter_list))
+        elastic_logger.info("Query string :: {}".format(query_string))
 
         if filter_list and query_string:
             body['query'] = {"bool": {"must": {"query_string": query_string}, "filter": filter_list}}
@@ -541,6 +555,7 @@ class SearchProducts(APIView):
         if sort_by == 'combo_available':
             sort_order = 'desc'
         body["sort"] = {sort_by: sort_order}
+        elastic_logger.info("Body :: {}".format(body))
         p_list = []
         cart_check = False
         # Ecom Cart
@@ -582,6 +597,7 @@ class SearchProducts(APIView):
                     p_list.append(p["_source"])
             except Exception as e:
                 error_logger.error(e)
+        elastic_logger.info("Product list :: {}".format(p_list))
         return p_list
 
     @staticmethod

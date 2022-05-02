@@ -3858,3 +3858,10 @@ class ENoteData(Note):
         proxy = True
         verbose_name = 'e-note'
         verbose_name_plural = 'e-notes'
+
+
+class SearchKeywordLog(models.Model):
+    search_term = models.CharField(max_length=100,null=True)
+    search_frequency = models.IntegerField()
+    def __str__(self):
+        return self.search_term
