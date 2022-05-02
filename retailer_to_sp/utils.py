@@ -759,7 +759,7 @@ def create_e_note_data_excel(queryset, OrderedProduct, RoundAmount, ShopDocument
                 'business_gst',
                 'TCS',
                 tcs_data['tcs_rate'],
-                tcs_data['tcs_tax'],
+                note.tcs_amount,
                 tcs_data['nature_of_collection'],
                 shop_gstin,
                 note.state_code_txt,
