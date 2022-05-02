@@ -535,7 +535,7 @@ def get_shop_gstin(shop_id, ShopDocument):
     return gstin
 
 
-def get_tcs_data(invoice, buyer_shop_id, buyer_shop_gstin, OrderedProduct, RoundAmount):
+def get_tcs_data(invoice):
     tcs_data = {'tcs_rate': 0, 'tcs_tax': 0, 'nature_of_collection': '', 'tcs_payable': ''}
     tcs_rate = invoice.tcs_percent
     tcs_data['tcs_rate'] = tcs_rate
@@ -629,7 +629,7 @@ def create_e_invoice_data_excel(queryset, OrderedProduct, RoundAmount, ShopDocum
         shop_gstin = get_shop_gstin(invoice.buyer_shop_id, ShopDocument)
         if not shop_gstin:
             continue
-        tcs_data = get_tcs_data(invoice, invoice.buyer_shop_id, shop_gstin, OrderedProduct, RoundAmount)
+        tcs_data = get_tcs_data(invoice)
         for item in invoice.shipment.rt_order_product_order_product_mapping.all():
             tax_data = get_tax_data(item.product_tax_json, invoice, TaxGroup)
             address_line_max_length = get_config('ZOHO_ADDRESS_LINE_MAX_LENGTH', 99)
@@ -714,12 +714,13 @@ def create_e_note_data_excel(queryset, OrderedProduct, RoundAmount, ShopDocument
     writer = csv.writer(response)
     writer.writerow([
         'Credit Note Number', 'Credit Note Date', 'Invoice#', 'Reference Invoice Type', 'Reference#',
-        'Credit Note Status', 'Reason', 'Customer Name', 'GST Treatment', 'GST Identification Number (GSTIN)',
-        'Place of Supply', 'Sales person', 'Currency Code', 'Exchange Rate', 'Item Name', 'SKU', 'Item Desc',
-        'Item Type', 'Account', 'HSN/SAC', 'Quantity', 'Usage unit','Item Price', 'Item Tax', 'Item Tax %',
-        'Item Tax Type', 'Is Inclusive Tax', 'Item Tax Exemption Reason', 'Discount Type', 'Is Discount Before Tax',
-        'Entity Discount Percent', 'Entity Discount Amount', 'Discount', 'Discount Amount', 'Shipping Charge',
-        'Adjustment', 'Adjustment Description', 'Template Name', 'Notes	Terms & Conditions'
+        'Credit Note Status', 'Reason', 'Customer Name', 'GST Treatment', 'TCS Tax Name', 'TCS Percentage', 'TCS Amount',
+        'Nature Of Collection', 'GST Identification Number (GSTIN)', 'Place of Supply', 'Sales person', 'Currency Code',
+        'Exchange Rate', 'Item Name', 'SKU', 'Item Desc', 'Item Type', 'Account', 'HSN/SAC', 'Quantity', 'Usage unit',
+        'Item Price', 'Item Tax', 'Item Tax %', 'Item Tax Type', 'Is Inclusive Tax', 'Item Tax Exemption Reason',
+        'Discount Type', 'Is Discount Before Tax', 'Entity Discount Percent', 'Entity Discount Amount', 'Discount',
+        'Discount Amount', 'Shipping Charge', 'Adjustment', 'Adjustment Description', 'Template Name',
+        'Notes Terms & Conditions'
     ])
 
     notes = queryset.annotate(buyer_shop_id=F('shipment__order__buyer_shop_id'),
@@ -732,6 +733,7 @@ def create_e_note_data_excel(queryset, OrderedProduct, RoundAmount, ShopDocument
         shop_gstin = get_shop_gstin(note.buyer_shop_id, ShopDocument)
         if not shop_gstin:
             continue
+        tcs_data = get_tcs_data(note.shipment.invoice)
         items = note.shipment.rt_order_product_order_product_mapping.all()
         if note.shipment.shipment_status != 'CANCELLED' and note.credit_note_type != 'DISCOUNTED':
             items = items.filter(Q(returned_qty__gt=0) | Q(returned_damage_qty__gt=0))
@@ -755,6 +757,10 @@ def create_e_note_data_excel(queryset, OrderedProduct, RoundAmount, ShopDocument
                 '','','',
                 note.buyer_name+'_'+str(note.buyer_shop_id),
                 'business_gst',
+                'TCS',
+                tcs_data['tcs_rate'],
+                tcs_data['tcs_tax'],
+                tcs_data['nature_of_collection'],
                 shop_gstin,
                 note.state_code_txt,
                 '','','',

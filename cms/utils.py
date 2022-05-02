@@ -1,5 +1,9 @@
+from functools import wraps
+
 from rest_framework.response import Response
 from rest_framework import status
+
+from shops.models import Shop
 
 
 def api_response(msg, data=None, status_code=status.HTTP_406_NOT_ACCEPTABLE, success=False, extra_params=None):
@@ -40,3 +44,17 @@ def serializer_error(serializer):
                 result = ''.join('{} : {}'.format(field, error))
             errors.append(result)
     return errors[0]
+
+
+def check_shop(view_func):
+    @wraps(view_func)
+    def _wrapped_view_func(self, request, *args, **kwargs):
+        try:
+            shop = Shop.objects.get(id=request.META.get('HTTP_SHOP_ID', None), status=True, approval_status=2)
+        except:
+            shop = None
+        kwargs['shop'] = shop
+        kwargs['app_type'] = request.META.get('HTTP_APP_TYPE', None)
+        return view_func(self, request, *args, **kwargs)
+
+    return _wrapped_view_func

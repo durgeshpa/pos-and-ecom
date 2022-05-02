@@ -1447,7 +1447,7 @@ class Trip(models.Model):
     @property
     def trip_amount(self):
         return self.last_mile_trip_shipments_details.filter(~Q(shipment_status='CANCELLED')) \
-            .annotate(invoice_amount=F('shipment__invoice__invoice_total')) \
+            .annotate(invoice_amount=RoundAmount(F('shipment__invoice__invoice_total'))) \
             .aggregate(trip_amount=Sum(F('invoice_amount'), output_field=FloatField())).get('trip_amount')
 
     @property
@@ -1796,7 +1796,7 @@ class OrderedProduct(models.Model):  # Shipment
     @property
     def invoice_amount(self):
         if hasattr(self, 'invoice'):
-            return self.invoice.invoice_total
+            return round(self.invoice.invoice_total)
 
         return self.rt_order_product_order_product_mapping.all() \
             .aggregate(
@@ -1912,7 +1912,7 @@ class OrderedProduct(models.Model):  # Shipment
             for item in self.rt_order_product_order_product_mapping.all():
                 effective_price = item.effective_price if item.effective_price else 0
                 cash_to_be_collected = cash_to_be_collected + (item.delivered_qty * effective_price)
-            return round(float(cash_to_be_collected) * (1+tcs_rate), 2)
+            return round(float(cash_to_be_collected) * (1+tcs_rate))
         else:
             invoice_amount = self.rt_order_product_order_product_mapping.all() \
                 .aggregate(
@@ -1922,7 +1922,7 @@ class OrderedProduct(models.Model):  # Shipment
                 .aggregate(cn_amt=RoundAmount(Sum((F('discounted_price') * (F('shipped_qty') - F('delivered_qty')))), output_field=FloatField()))\
                 .get('cn_amt')
             if self.invoice_amount:
-                return round(float(invoice_amount - credit_note_amount) * (1+tcs_rate), 2)
+                return round(float(invoice_amount - credit_note_amount) * (1+tcs_rate))
             else:
                 return 0
 
@@ -1995,11 +1995,11 @@ class OrderedProduct(models.Model):  # Shipment
         super().save(*args, **kwargs)
         if self.order.ordered_cart.cart_type == 'AUTO':
             if self.shipment_status == OrderedProduct.MOVED_TO_DISPATCH:
-                CommonFunction.generate_invoice_number(self.pk,
+                CommonFunction.generate_invoice_number(self,
                             self.order.seller_shop.shop_name_address_mapping.filter(address_type='billing').last().pk)
         if self.order.ordered_cart.cart_type == 'BASIC':
             if self.shipment_status == OrderedProduct.MOVED_TO_DISPATCH:
-                CommonFunction.generate_invoice_number(self.pk,
+                CommonFunction.generate_invoice_number(self,
                     self.order.seller_shop.shop_name_address_mapping.filter(address_type='billing').last().pk)
         elif self.order.ordered_cart.cart_type == 'ECOM':
             if self.shipment_status == OrderedProduct.MOVED_TO_DISPATCH:
@@ -2088,7 +2088,7 @@ class Invoice(models.Model):
     
     @property
     def invoice_amount(self):
-        return self.invoice_total
+        return round(self.invoice_total)
 
     @property
     def is_igst_applicable(self):
@@ -3612,7 +3612,7 @@ class DispatchTrip(BaseTimestampUserModel):
     @property
     def trip_amount(self):
         return self.shipments_details.filter(~Q(shipment_status='CANCELLED')) \
-            .annotate(invoice_amount=F('shipment__invoice__invoice_total')) \
+            .annotate(invoice_amount=RoundAmount(F('shipment__invoice__invoice_total')))\
             .aggregate(trip_amount=Sum(F('invoice_amount'), output_field=FloatField())).get('trip_amount')
 
     @property
