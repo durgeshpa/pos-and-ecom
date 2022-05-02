@@ -22,6 +22,7 @@ from django.contrib.postgres.fields import JSONField
 from categories.models import BaseTimeModel, BaseTimestampUserStatusModel
 from .fields import CaseInsensitiveCharField
 from django.core.validators import MinValueValidator
+from django.contrib.postgres.fields import ArrayField
 # from analytics.post_save_signal import get_retailer_report
 
 Product = 'products.product'
@@ -141,7 +142,7 @@ class Shop(models.Model):
     online_inventory_enabled = models.BooleanField(default=True, verbose_name='Online Inventory Enabled')
     cutoff_time = models.TimeField(null=True, blank=True)
     dynamic_beat = models.BooleanField(default=False)
-    status_reward_configuration = models.CharField(max_length=20, choices=Choices, default='deactive')
+    #status_reward_configuration = models.CharField(max_length=20, choices=Choices, default='deactive')
 
     # last_order_at = models.DateTimeField(auto_now_add=True)
     # last_login_at = models.DateTimeField(auto_now_add=True)
@@ -738,8 +739,11 @@ class ExecutiveFeedback(models.Model):
         (9, "Already ordered today")
 
     )
-    day_beat_plan = models.ForeignKey(DayBeatPlanning, related_name='day_beat_plan', null=True, blank=True,
-                                      on_delete=models.CASCADE, unique=True)
+    day_beat_plan = models.ForeignKey(DayBeatPlanning,
+                                      related_name='day_beat_plan',
+                                      null=True, blank=True,
+                                      on_delete=models.CASCADE,
+                                      unique=True)
     executive_feedback = models.CharField(max_length=25, choices=executive_feedback_choice)
     feedback_date = models.DateField(null=True, blank=True)
     feedback_time = models.TimeField(null=True, blank=True)
@@ -787,7 +791,7 @@ class FOFOConfigSubCategory(models.Model):
         ("float", "Float"),
         ("bool", "Boolean"),
     )
-    category = models.ForeignKey(FOFOConfigCategory, related_name='fofo_category_details', on_delete=models.CASCADE,null=True)
+    category = models.ForeignKey(FOFOConfigCategory, related_name='fofo_category_details', on_delete=models.CASCADE,null=True, blank=True)
     name = CaseInsensitiveCharField(max_length=125)
     type = models.CharField(max_length=20, choices=FIELD_TYPE_CHOICES, default='int')
 
@@ -795,8 +799,10 @@ class FOFOConfigSubCategory(models.Model):
         unique_together = ('category', 'name',)
 
     def __str__(self):
-        return str(self.category) + " - " + str(self.name)
+        if self.category:
+            return str(self.category) + " - " + str(self.name)
 
+        return str(" ".join(str(self.name).split('_')))
 
 class FOFOConfigurations(models.Model):
     """
@@ -814,11 +820,26 @@ class FOFOConfigurations(models.Model):
     def clean(self):
         if self.value and self.value.__class__.__name__ == 'JSONString':
             self.value = str(self.value)
+        if self.value == "true":
+            self.value = True
+        if self.value == "false":
+            self.value = False
         if self.value and self.value.__class__.__name__ != self.key.type:
             raise ValidationError('value {} can only be {} type'.format(self.value, self.key.get_type_display()))
 
+    def save(self, *args, **kwargs):
+        try:
+            if self.value == "TRUE" or self.value == "True" or self.value == "true":
+                self.value = "True"
+            if self.value == "FALSE" or self.value == "False" or self.value == "false":
+                self.value = "False"
+            self.value = eval(self.key.type)(self.value)
+        except Exception as e:
+            raise ValidationError('value {} can only be {} type'.format(self.value, self.key.get_type_display()))
+        super(FOFOConfigurations, self).save(*args, **kwargs)
+
     def __str__(self):
-        return str(self.key)
+        return str(" ".join(str(self.key).split('_')))
 
     class Meta:
         permissions = (
@@ -859,3 +880,18 @@ class FOFOConfig(models.Model):
         permissions = (
             ("has_fofo_config_operations_shop", "Has update FOFO  shop config operations"),
         )
+
+
+class ShopFcmTopic(models.Model):
+    shop = models.ForeignKey(Shop, on_delete=models.CASCADE, related_name='fcm_topics', unique=True)
+    topic_name = models.CharField(max_length=200)
+    registration_ids = ArrayField(models.CharField(max_length=200))
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
+    
+    def __str__(self) -> str:
+        return f"{self.shop} >> {self.topic_name} >> {len(self.registration_ids)}"
+    
+    class Meta:
+        verbose_name = 'Shop Fcm Topic'
+        verbose_name_plural = 'Shop Fcm Topics'

@@ -56,14 +56,14 @@ from .models import (Cart, CartProductMapping, Commercial, CustomerCare, Dispatc
                      ShipmentProductMapping, Trip, ShipmentRescheduling, Feedback, PickerDashboard, Invoice,
                      ResponseComment, BulkOrder, RoundAmount, OrderedProductBatch, DeliveryData, PickerPerformanceData,
                      ShipmentPackaging, ShipmentPackagingMapping, ShipmentNotAttempt, ShopCrate,
-                     PickerUserAssignmentLog, EInvoiceData, ENoteData)
+                     PickerUserAssignmentLog, EInvoiceData, ENoteData, BuyerPurchaseData)
 from .resources import OrderResource
 from .signals import ReservedOrder
 from .utils import (GetPcsFromQty, add_cart_user, create_order_from_cart, create_order_data_excel,
                     create_invoice_data_excel, create_e_invoice_data_excel, create_e_note_data_excel)
 from .filters import (InvoiceAdminOrderFilter, InvoiceAdminTripFilter, InvoiceCreatedAt, DeliveryStartsAt,
                       DeliveryCompletedAt, OrderCreatedAt, EInvoiceAdminBuyerFilter, EInvoiceStatusFilter,
-                      ENoteAdminInvoiceFilter)
+                      ENoteAdminInvoiceFilter, BuyerTotalPurchaseFilter)
 from .tasks import update_order_status_picker_reserve_qty
 from payments.models import OrderPayment, ShipmentPayment
 from retailer_backend.messages import ERROR_MESSAGES
@@ -1942,11 +1942,11 @@ class CommercialAdmin(ExportCsvMixin, admin.ModelAdmin):
 
 
 class NoteAdmin(admin.ModelAdmin):
-    list_display = ('credit_note_id', 'shipment', 'shop', 'note_amount', 'download_credit_note', 'created_at')
-    fields = ('credit_note_id', 'shop', 'shipment', 'note_type', 'note_amount',
+    list_display = ('credit_note_id', 'shipment', 'shop', 'note_total', 'download_credit_note', 'created_at')
+    fields = ('credit_note_id', 'shop', 'shipment', 'note_type', 'note_total',
               'invoice_no', 'status')
     readonly_fields = ('credit_note_id', 'shop', 'shipment', 'note_type',
-                       'note_amount', 'invoice_no', 'status')
+                       'note_amount', 'tcs_amount', 'note_amount', 'invoice_no', 'status')
     list_filter = [('created_at', DateTimeRangeFilter), ShipmentSearch, CreditNoteSearch, ShopSearch]
 
     search_fields = ('credit_note_id', 'shop__shop_name', 'shipment__invoice__invoice_no')
@@ -2112,14 +2112,15 @@ class FeedbackAdmin(admin.ModelAdmin):
 
 class InvoiceAdmin(admin.ModelAdmin):
     actions = ['invoice_data_excel_action', 'download_bulk_invoice']
-    list_display = ('invoice_no', 'created_at', 'get_invoice_amount', 'get_shipment_status',
-                    'get_order', 'get_order_date', 'get_order_status', 'get_shipment',
+    list_display = ('invoice_no', 'created_at', 'invoice_sub_total', 'tcs_percent', 'tcs_amount', 'get_invoice_amount',
+                    'get_shipment_status', 'get_order', 'get_order_date', 'get_order_status', 'get_shipment',
                     'get_trip_no', 'get_trip_status', 'get_trip_started_at',
-                    'get_trip_completed_at', 'get_paid_amount', 'get_cn_amount')
+                    'get_trip_completed_at', 'get_paid_amount', 'get_cn_amount', 'is_tcs_applicable')
     list_per_page = FIFTY
     fieldsets = (
         ('Invoice', {
-            'fields': (('invoice_no', 'get_invoice_amount'), ('created_at', 'invoice_pdf'))
+            'fields': (('invoice_no', 'invoice_sub_total', 'tcs_amount', 'get_invoice_amount'),
+                       ('created_at', 'invoice_pdf'))
         }),
         ('Shipment', {
             'classes': ('extrapretty',),
@@ -2142,7 +2143,8 @@ class InvoiceAdmin(admin.ModelAdmin):
         ('created_at', InvoiceCreatedAt),
         ('shipment__trip__starts_at', DeliveryStartsAt),
         ('shipment__trip__completed_at', DeliveryCompletedAt),
-        ('shipment__order__created_at', OrderCreatedAt))
+        ('shipment__order__created_at', OrderCreatedAt),
+        'is_tcs_applicable')
 
     def invoice_data_excel_action(self, request, queryset):
         return create_invoice_data_excel(request, queryset, RoundAmount,
@@ -2189,7 +2191,7 @@ class InvoiceAdmin(admin.ModelAdmin):
         js = ('admin/js/picker.js',)
 
     def get_invoice_amount(self, obj):
-        return "%s %s" % (u'\u20B9', str(obj.invoice_amount))
+        return "%s %s" % (u'\u20B9', str(round(obj.invoice_total,2)))
     get_invoice_amount.short_description = "Invoice Amount"
 
     def get_shipment(self, obj):
@@ -2252,7 +2254,7 @@ class InvoiceAdmin(admin.ModelAdmin):
         shipment_payments = ShipmentPayment.objects.filter(shipment__invoice__id=OuterRef('pk')).order_by().values('shipment__invoice__id')
         shipment_paid_amount = shipment_payments.annotate(sum=Sum('paid_amount')).values('sum')
         credit_notes = Note.objects.filter(shipment__invoice__id=OuterRef('pk')).order_by().values('shipment__invoice__id')
-        credit_notes_amount = credit_notes.annotate(sum=Sum('amount')).values('sum')
+        credit_notes_amount = credit_notes.annotate(sum=Sum('note_total')).values('sum')
         qs = qs.annotate(
             get_order=F('shipment__order__order_no'), shipment_status=F('shipment__shipment_status'),
             trip_no=F('shipment__trip__dispatch_no'), trip_status=F('shipment__trip__trip_status'),
@@ -2749,6 +2751,15 @@ class ENoteAdmin(admin.ModelAdmin):
     def has_delete_permission(self, request, obj=None):
         return False
 
+@admin.register(BuyerPurchaseData)
+class BuyerPurchaseDataAdmin(admin.ModelAdmin):
+
+    class Media:
+        pass
+
+    list_per_page = FIFTY
+    list_display = ('seller_shop', 'buyer_shop', 'fin_year', 'total_purchase')
+    list_filter = (SellerShopFilter, BuyerShopFilter, 'fin_year', BuyerTotalPurchaseFilter)
 
 admin.site.register(Cart, CartAdmin)
 admin.site.register(BulkOrder, BulkOrderAdmin)
