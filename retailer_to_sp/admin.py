@@ -618,8 +618,8 @@ def category_filter(queryset, value):
     for obj in queryset:
         for product in obj.cart.rt_cart_list.all():
             try:
-                if product.cart_product.parent_product.parent_product_pro_category.first().category.id == value:
-                    cart_list.append(obj.cart)
+                if product.cart_product.parent_product.parent_product_pro_category.first().category.id == int(value):
+                    cart_list.append(obj.cart.id)
                     break;
             except:
                 pass
@@ -634,9 +634,12 @@ class ShopFilter(AutocompleteFilter):
     autocomplete_url = 'products-category-autocomplete'
     def queryset(self, request, queryset):
         if self.value():
+            obj = GlobalConfig.objects.get(key="days_category_filter")
+            day = obj.value if obj else 1
             time_threshold = datetime.datetime.now() - datetime.timedelta(days=1)
             queryset = queryset.filter(created_at__gt=time_threshold)
             cart_list = category_filter(queryset, self.value())
+            print(cart_list)
             return queryset.filter(cart__in=cart_list)
         # else:
         return queryset
