@@ -297,6 +297,9 @@ def get_tcs_data(shipment_instance):
         return shipment_instance.invoice.is_tcs_applicable, shipment_instance.invoice.tcs_amount, \
                shipment_instance.invoice.tcs_percent
 
+    elif shipment_instance.order.seller_shop_id not in get_config('active_wh_list'):
+        return False, 0, 0
+    
     invoice_amount = shipment_instance.invoice_amount
     is_tcs_applicable = False
     tcs_percent = 0
