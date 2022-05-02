@@ -285,6 +285,7 @@ class PosProductView(GenericAPIView):
 
     def validate_update(self, shop_id):
         # Validate product data
+        success_msg = 'Product has been updated successfully!'
         try:
             p_data = json.loads(self.request.data["data"])
         except (KeyError, ValueError):

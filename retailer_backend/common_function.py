@@ -294,15 +294,14 @@ def get_tcs_data(shipment_instance):
     Updates Total Buyer purchase in the current financial year
     '''
     is_tcs_applicable, tcs_amount, tcs_percent = False, 0, 0
-    if not shipment_instance.order.seller_shop.shop_type.shop_type == 'f':
-        if hasattr(shipment_instance, 'invoice'):
-            return shipment_instance.invoice.is_tcs_applicable, shipment_instance.invoice.tcs_amount, \
-                   shipment_instance.invoice.tcs_percent
 
+    if hasattr(shipment_instance, 'invoice'):
+        is_tcs_applicable = shipment_instance.invoice.is_tcs_applicable
+        tcs_percent = shipment_instance.invoice.tcs_percent
+        tcs_amount = shipment_instance.invoice.tcs_amount
+
+    elif shipment_instance.order.seller_shop_id in get_config('active_wh_list'):
         invoice_amount = shipment_instance.invoice_amount
-        is_tcs_applicable = False
-        tcs_percent = 0
-        tcs_amount = 0
         total_purchase = invoice_amount
         purchase_data = BuyerPurchaseData.objects.filter(seller_shop_id=shipment_instance.order.seller_shop_id,
                                                          buyer_shop_id=shipment_instance.order.buyer_shop_id,

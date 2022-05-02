@@ -391,7 +391,7 @@ class PastPurchasedProducts(APIView):
         '''
         shop = kwargs['shop']
         products = RetailerProduct.objects.filter(products_sold__user=request.user, products_sold__shop=shop,
-                                                  is_deleted=False, online_enabled=True)
+                                                  is_deleted=False, online_enabled=True,).order_by('-products_sold__id')
         count = products.count()
         products = self.pagination_class().paginate_queryset(products, self.request)
         serializer = RetailerProductSerializer(products, many=True)
