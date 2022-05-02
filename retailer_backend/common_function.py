@@ -293,7 +293,6 @@ def get_tcs_data(shipment_instance):
     Calculates TCS tax if applicable
     Updates Total Buyer purchase in the current financial year
     '''
-
     is_tcs_applicable, tcs_amount, tcs_percent = False, 0, 0
 
     if hasattr(shipment_instance, 'invoice'):
@@ -320,7 +319,6 @@ def get_tcs_data(shipment_instance):
             is_buyer_gst_available = True if buyer_shop_document else False
             tcs_percent = 0.75 if is_buyer_gst_available else 1
             tcs_amount = invoice_amount * tcs_percent / 100
-
     return is_tcs_applicable, tcs_amount, tcs_percent
 
 
