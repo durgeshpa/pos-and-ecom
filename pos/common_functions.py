@@ -575,10 +575,10 @@ class RewardCls(object):
             max_redeem_points = get_config_fofo_shop('Max_Point_Redeemed_Pos', shop.id)
         max_month_limit = get_config_fofo_shop('Max_Monthly_Points_Redeemed', shop.id)
 
-        max_month_limit = max_month_limit.value if max_month_limit else 500
-        if max_redeem_points and max_redeem_points.value:
-            if redeem_points > max_redeem_points.value:
-                redeem_points = max_redeem_points.value
+        max_month_limit = max_month_limit if max_month_limit else 500
+        if max_redeem_points and max_redeem_points:
+            if redeem_points > max_redeem_points:
+                redeem_points = max_redeem_points
         if this_month_reward_point_used and this_month_reward_point_used + redeem_points > max_month_limit:
             redeem_points = 0
             message = "only {} Loyalty Point can be used in a month".format(max_month_limit)

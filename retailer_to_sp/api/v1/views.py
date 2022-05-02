@@ -1250,7 +1250,7 @@ class CartCentral(GenericAPIView):
             # Get Offers Applicable, Verify applied offers, Apply highest discount on cart if auto apply
             offers = BasicCartOffers.refresh_offers_checkout(cart, False, None)
             # Refresh redeem reward
-            RewardCls.checkout_redeem_points(cart, 0, self.request.GET.get('use_rewards', 1))
+            RewardCls.checkout_redeem_points(cart, 0, shop=kwargs['shop'], app_type="ECOM", use_all=self.request.GET.get('use_rewards', 1))
             cart_data = self.get_serialize_process_basic(cart, next_offer)
             checkout = CartCheckout()
             checkout_data = checkout.serialize(cart, offers)
