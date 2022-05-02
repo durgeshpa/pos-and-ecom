@@ -10,7 +10,7 @@ from django.core.mail import EmailMessage
 from sp_to_gram.models import OrderedProductReserved, OrderedProductMapping
 from gram_to_brand.models import (
     OrderedProductReserved as GramOrderedProductReserved)
-from retailer_to_sp.models import (Cart, Order, OrderedProduct, generate_picklist_id, PickerDashboard)
+from retailer_to_sp.models import (Cart, Order, OrderedProduct, generate_picklist_id, PickerDashboard,SearchKeywordLog)
 from django.db.models import Sum, Q, F
 from celery.contrib import rdb
 from celery.utils.log import get_task_logger
@@ -254,3 +254,14 @@ def send_invoice_pdf_email(email, shop_name, order_no, media_url, file_name, key
             send_mail(sender.value, [email], subject, '', attachements)
         except Exception as err:
             celery_logger.exception("Sending of invoice over email failed due to {}".format(err))
+
+
+@task
+def insert_search_term(keyword):
+    term = SearchKeywordLog.objects.filter(search_term=keyword)
+    if len(term):
+        ins = SearchKeywordLog.objects.get(search_term=keyword)
+        ins.search_frequency += 1
+        ins.save()
+    else:
+        SearchKeywordLog.objects.create(search_term=keyword, search_frequency=1)
