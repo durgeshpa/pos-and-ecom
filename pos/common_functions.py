@@ -4,7 +4,7 @@ from functools import wraps
 from copy import deepcopy
 from decimal import Decimal
 import datetime
-
+from global_config.views import get_config_fofo_shop
 from django.db import transaction
 from rest_framework.response import Response
 from rest_framework import status
@@ -517,8 +517,22 @@ class RewardCls(object):
         return points, value_factor
 
     @classmethod
-    def checkout_redeem_points(cls, cart, redeem_points, use_all=None):
-        value_factor = GlobalConfig.objects.get(key='used_reward_factor').value
+    def checkout_redeem_points(cls, cart, redeem_points, shop=None, app_type="POS", use_all=None):
+        percentage_value = get_config_fofo_shop('Percentage_Value_Of_Each_Point', shop.id)
+        #value_factor = GlobalConfig.objects.get(key='used_reward_factor').value
+        flag = True # this flag will remain false if Ecom order by user count is less or eqal 2
+        if app_type == "ECOM":
+            count = Order.objects.filter(buyer=cart.buyer, ordered_cart__cart_type='ECOM',
+                order_status='delivered').count()
+            if count ==1:
+                redeem_points = get_config_fofo_shop('Point_Redeemed_First_Order', shop.id)
+                flag = False
+            elif count ==1:
+                redeem_points = get_config_fofo_shop('Point_Redeemed_Second_Order', shop.id)
+                flag = False
+
+
+        value_factor = 100/percentage_value
         if cart.buyer and ReferralCode.is_marketing_user(cart.buyer):
             obj = RewardPoint.objects.filter(reward_user=cart.buyer).last()
             if obj:
@@ -531,19 +545,37 @@ class RewardCls(object):
         else:
             redeem_points = 0
 
+        message = ""
+        if app_type=="ECOM" and not get_config_fofo_shop('Is_Enable_Point_Redeemed_Ecom', shop.id):
+            redeem_points = 0
+            message = "Loyalty Point Can Not Be Used For This Shop"
+
+        elif app_type=="POS" and not get_config_fofo_shop('Is_Enable_Point_Redeemed_Pos', shop.id):
+            redeem_points = 0
+            message = "Loyalty Point Can Not Be Used For This Shop"
+
         days = datetime.datetime.today().day
         date = get_back_date(days)
-
-        uses_reward_point = RewardLog.objects.filter(reward_user=cart.buyer,
-                                                     transaction_type__in=['order_debit', 'order_return_credit',
-                                                                           'order_cancel_credit'], modified_at__gte=date).\
-        aggregate(Sum('points'))
+        if shop.enable_loyalty_points:
+            uses_reward_point = RewardLog.objects.filter(reward_user=cart.buyer, shop=shop,
+                                                         transaction_type__in=['order_debit', 'order_return_credit',
+                                                                               'order_cancel_credit'], modified_at__gte=date).\
+            aggregate(Sum('points'))
+        else:
+            uses_reward_point = RewardLog.objects.filter(reward_user=cart.buyer,
+                                                         transaction_type__in=['order_debit', 'order_return_credit',
+                                                                               'order_cancel_credit'],
+                                                         modified_at__gte=date). \
+                aggregate(Sum('points'))
         this_month_reward_point_used = abs(uses_reward_point['points__sum']) if uses_reward_point['points__sum'] else None
-        max_redeem_points = GlobalConfig.objects.filter(key='max_redeem_points').last()
-        max_month_limit = GlobalConfig.objects.filter(key='max_month_limit _redeem_point').last()
+        max_redeem_points = None
+        if flag and app_type == "ECOM":
+            max_redeem_points = get_config_fofo_shop('Max_Point_Redeemed_Ecom', shop.id)
+        elif app_type == "POS":
+            max_redeem_points = get_config_fofo_shop('Max_Point_Redeemed_Pos', shop.id)
+        max_month_limit = get_config_fofo_shop('Max_Monthly_Points_Redeemed', shop.id)
 
         max_month_limit = max_month_limit.value if max_month_limit else 500
-        message = ""
         if max_redeem_points and max_redeem_points.value:
             if redeem_points > max_redeem_points.value:
                 redeem_points = max_redeem_points.value
@@ -570,12 +602,37 @@ class RewardCls(object):
         return data
 
     @classmethod
-    def order_buyer_points(cls, amount, user, tid, t_type, changed_by=None):
+    def order_buyer_points(cls, amount, user, tid, t_type, changed_by=None, shop = None, app_type="POS"):
         """
             Loyalty points to buyer on placing order
         """
         # Calculate number of points
-        points = RewardCls.get_loyalty_points(amount, 'direct_reward_percent')
+        # if shop:
+        #     value =
+        #     points = int(float(amount) *value/100)
+        # else:
+        key = None
+        if app_type == "ECOM" and get_config_fofo_shop("Is_Enable_Point_Added_Ecom_Order", shop.id):
+            key = "Percentage_Point_Added_Ecom_Order_Amount"
+        elif app_type == "POS" and get_config_fofo_shop("Is_Enable_Point_Added_Pos_Order", shop.id):
+            key = "Percentage_Point_Added_Pos_Order_Amount"
+
+        points = 0
+        if key:
+            points = RewardCls.get_loyalty_points(amount, key, Shop)
+
+        # check maximum point redeem add in a month by shop
+        days = datetime.datetime.today().day
+        date = get_back_date(days)
+        if shop.enable_loyalty_points:
+            uses_reward_point = RewardLog.objects.filter(reward_user=cart.buyer, shop=shop,
+                                                         transaction_type__in=['order_credit', 'order_return_debit',
+                                                                               'order_cancel_debit'], modified_at__gte=date).\
+            aggregate(Sum('points'))
+        this_month_reward_point_credit = abs(uses_reward_point['points__sum']) if uses_reward_point.get('points__sum') else 0
+        if this_month_reward_point_credit and this_month_reward_point_credit + points > get_config_fofo_shop("Max_Monthly_Points_Added", shop.id):
+            points = points-(this_month_reward_point_credit + points - get_config_fofo_shop("Max_Monthly_Points_Added", shop.id))
+            #message = "only {} Loyalty Point can be used in a month".format(max_month_limit)
 
         if not points:
             return 0
@@ -585,7 +642,7 @@ class RewardCls(object):
             reward_obj.direct_earned += points
             reward_obj.save()
             # Log transaction
-            RewardCls.create_reward_log(user, t_type, tid, points, changed_by)
+            RewardCls.create_reward_log(user, t_type, tid, points, changed_by,discount=0, shop=shop)
         return points
 
     @classmethod
@@ -645,11 +702,11 @@ class RewardCls(object):
                     RewardCls.create_reward_log(ancestor, t_type, tid, points_per_user, changed_by)
 
     @classmethod
-    def get_loyalty_points(cls, amount, key):
+    def get_loyalty_points(cls, amount, key,shop=None):
         """
             Loyalty points for an amount based on percentage (key)
         """
-        factor = GlobalConfig.objects.get(key=key).value / 100
+        factor = get_config_fofo_shop(key, shop.id)/ 100
         return int(float(amount) * factor)
 
     @classmethod
@@ -661,15 +718,17 @@ class RewardCls(object):
         return int(float(amount) * factor)
 
     @classmethod
-    def create_reward_log(cls, user, t_type, tid, points, changed_by=None, discount=0):
+    def create_reward_log(cls, user, t_type, tid, points, changed_by=None, discount=0,shop=None):
         """
             Log transaction on reward points
         """
-        RewardLog.objects.create(reward_user=user, transaction_type=t_type, transaction_id=tid, points=points,
+        print(shop)
+        #reaise Exception("shop not find{}".format(shop))
+        RewardLog.objects.create(reward_user=user,shop=shop, transaction_type=t_type, transaction_id=tid, points=points,
                                  changed_by=changed_by, discount=discount)
 
     @classmethod
-    def redeem_points_on_order(cls, points, redeem_factor, user, changed_by, tid):
+    def redeem_points_on_order(cls, points, redeem_factor, user, changed_by, tid,shop=None):
         """
             Deduct from loyalty points if used for order
         """
@@ -678,7 +737,7 @@ class RewardCls(object):
         reward_obj.points_used += int(points)
         reward_obj.save()
         # Log transaction
-        RewardCls.create_reward_log(user, 'order_debit', tid, int(points) * -1, changed_by, round(points / redeem_factor, 2))
+        RewardCls.create_reward_log(user,'order_debit', tid, int(points) * -1, changed_by, round(points / redeem_factor, 2),shop)
 
     @classmethod
     def adjust_points_on_return_cancel(cls, points_credit, user, tid, t_type_credit, t_type_debit, changed_by,

@@ -115,7 +115,7 @@ class RewardPointAdmin(admin.ModelAdmin):
 
 @admin.register(RewardLog)
 class RewardLogAdmin(admin.ModelAdmin):
-    list_display = ('reward_user', 'transaction_type', 'transaction_id', 'transaction_points', 'created_at', 'discount',
+    list_display = ('reward_user', 'shop', 'transaction_type', 'transaction_id', 'transaction_points', 'created_at', 'discount',
                     'changed_by', 'purchase_user', 'purchase_invoice', 'user_purchase_shop_location')
     fields = list_display
     list_filter = [RewardUserFilter, ('transaction_type', ChoiceDropdownFilter), ('created_at', DateTimeRangeFilter)]

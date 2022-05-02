@@ -33,7 +33,7 @@ from accounts.api.v1.serializers import PosUserSerializer, PosShopUserSerializer
 from addresses.models import Address, City, Pincode
 from audit.views import BlockUnblockProduct
 from barCodeGenerator import barcodeGen, qrCodeGen
-from global_config.views import get_config, get_config_fofo_shops
+from global_config.views import get_config, get_config_fofo_shops, get_config_fofo_shop
 from pos.payU_payment import send_request_refund
 from shops.models import Shop, ParentRetailerMapping, ShopUserMapping, ShopMigrationMapp, PosShopUserMapping, FOFOConfig
 from brand.models import Brand
@@ -1958,7 +1958,7 @@ class CartCheckout(APIView):
         spot_discount = self.request.data.get('spot_discount')
         with transaction.atomic():
             # Refresh redeem reward
-            redeem_points_message = RewardCls.checkout_redeem_points(cart, cart.redeem_points)
+            redeem_points_message = RewardCls.checkout_redeem_points(cart, cart.redeem_points,kwargs['shop'])
             if spot_discount:
                 offers = BasicCartOffers.apply_spot_discount(cart, spot_discount,
                                                              self.request.data.get('is_percentage'))
@@ -1992,7 +1992,7 @@ class CartCheckout(APIView):
             return api_response("Invalid request")
         with transaction.atomic():
             # Refresh redeem reward
-            use_reward_this_month = RewardCls.checkout_redeem_points(cart, 0, self.request.GET.get('use_rewards', 1))
+            use_reward_this_month = RewardCls.checkout_redeem_points(cart, 0, shop=kwargs['shop'], app_type="ECOM", use_all=self.request.GET.get('use_rewards', 1))
             # Get offers available now and apply coupon if applicable
             offers = BasicCartOffers.refresh_offers_checkout(cart, False, self.request.data.get('coupon_id'))
             data = self.serialize(cart)
@@ -2049,7 +2049,7 @@ class CartCheckout(APIView):
             # Redeem reward points on order
             redeem_points = redeem_points if redeem_points else cart.redeem_points
             # Refresh redeem reward
-            redeem_points_message = RewardCls.checkout_redeem_points(cart, int(redeem_points))
+            redeem_points_message = RewardCls.checkout_redeem_points(cart, int(redeem_points), kwargs['shop'])
             app_type = kwargs['app_type']
             data = self.serialize(cart, offers, app_type)
             data.update({"redeem_points_message": redeem_points_message if redeem_points_message else ""})
@@ -2071,7 +2071,7 @@ class CartCheckout(APIView):
             # Get Offers Applicable, Verify applied offers, Apply highest discount on cart if auto apply
             offers = BasicCartOffers.refresh_offers_checkout(cart, False, None)
             # Refresh redeem reward
-            use_reward_this_month = RewardCls.checkout_redeem_points(cart, 0, self.request.GET.get('use_rewards', 1))
+            use_reward_this_month = RewardCls.checkout_redeem_points(cart, 0, shop=kwargs['shop'],app_type="ECOM",use_all=self.request.GET.get('use_rewards', 1))
             data = self.serialize(cart, offers)
             address = AddressCheckoutSerializer(cart.buyer.ecom_user_address.filter(default=True).last()).data
             data.update({'default_address': address})
@@ -3085,7 +3085,7 @@ class OrderCentral(APIView):
                         if ReferralCode.is_marketing_user(order.buyer):
                             order.points_added = order_loyalty_points_credit(order.order_amount, order.buyer.id, order.order_no,
                                                                             'order_credit', 'order_indirect_credit',
-                                                                            self.request.user.id, order.seller_shop.id)
+                                                                            self.request.user.id, order.seller_shop, app_type="ECOM")
                 order.save()
                 if order_status == Order.DELIVERED:
                     whatsapp_order_delivered(order.order_no, shop.shop_name, order.buyer.phone_number, order.points_added, shop.enable_loyalty_points)
@@ -3418,8 +3418,9 @@ class OrderCentral(APIView):
         # order_config = GlobalConfig.objects.filter(key='ecom_minimum_order_amount').last()
         # order_config = get_config_fofo_shop('Minimum order value', shop.id)
         fofo_config = get_config_fofo_shops(shop)
-        order_config = fofo_config.get('min_order_value',None)
-        order_config = order_config if order_config else GlobalConfig.objects.filter(key='ecom_minimum_order_amount').last().value
+        order_config = get_config_fofo_shop('Minimum_Order_Value', shop.id)
+        # order_config = fofo_config.get('min_order_value',None)
+        # order_config = order_config if order_config else GlobalConfig.objects.filter(key='ecom_minimum_order_amount').last().value
         if order_config is not None:
             order_amount = cart.order_amount_after_discount
             if order_amount < order_config:
@@ -3457,13 +3458,15 @@ class OrderCentral(APIView):
                                 False, {'error_code': error_code.OUT_OF_STOCK_ITEMS})
 
         delivery_option = request.data.get('delivery_option', None)
+
         # Update Cart To Ordered
         get_response = self.update_cart_ecom(self.shop, cart)
         if get_response:
             return api_response(get_response)
         # Refresh redeem reward
         else:
-            RewardCls.checkout_redeem_points(cart, cart.redeem_points)
+            RewardCls.checkout_redeem_points(cart, cart.redeem_points, shop)
+
             order = self.create_basic_order(cart, shop, address, payment_type_id, delivery_option)
             payments = [
                 {
@@ -3474,7 +3477,7 @@ class OrderCentral(APIView):
                     "payment_mode": self.request.data.get('payment_mode', None)
                 }
             ]
-            self.auto_process_order(order, payments, 'ecom')
+            self.auto_process_order(order, payments, 'ecom', transaction_id='',shop=shop)
             self.auto_process_ecom_order(order)
             try:
                 from pyfcm import FCMNotification
@@ -3946,7 +3949,7 @@ class OrderCentral(APIView):
         response = serializer.data
         return response
 
-    def auto_process_order(self, order, payments, app_type='pos', transaction_id=''):
+    def auto_process_order(self, order, payments, app_type='pos', transaction_id='',shop=None):
         """
             Auto process add payment, shipment, invoice for retailer and customer
         """
@@ -3955,7 +3958,7 @@ class OrderCentral(APIView):
         redeem_points = order.ordered_cart.redeem_points
         if redeem_points:
             RewardCls.redeem_points_on_order(redeem_points, redeem_factor, order.buyer, self.request.user,
-                                             order.order_no)
+                                             order.order_no, shop)
         # Loyalty points credit
         # shops_str = GlobalConfig.objects.get(key=app_type + '_loyalty_shop_ids').value
         # shops_str = str(shops_str) if shops_str else ''
@@ -5432,8 +5435,10 @@ class CartStockCheckView(APIView):
         cart_products = PosCartCls.refresh_prices(cart_products)
         # Minimum Order Value
         # order_config = GlobalConfig.objects.filter(key='ecom_minimum_order_amount').last()
-        order_config = fofo_config.get('min_order_value',None)#get_config_fofo_shop('Minimum order value', shop.id)
-        order_config = order_config if order_config else GlobalConfig.objects.filter(key='ecom_minimum_order_amount').last().value
+#-------------------------------------------------------------------------------------------------------------------------------------#
+        order_config = get_config_fofo_shop('Minimum_Order_Value', shop.id)
+        #order_config = fofo_config.get('min_order_value',None)#get_config_fofo_shop('Minimum order value', shop.id)
+        #order_config = order_config if order_config else GlobalConfig.objects.filter(key='ecom_minimum_order_amount').last().value
         if order_config is not None:
             order_amount = cart.order_amount_after_discount
             if order_amount < order_config:
