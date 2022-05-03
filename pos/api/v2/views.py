@@ -174,9 +174,9 @@ class RewardConfigShopListView(GenericAPIView):
 def create_or_update(id,data):
     data_list = data
     for key in data_list.keys():
-        key_name = FOFOConfigSubCategory.objects.get(name=key)
+        reward_configration_key = FOFOConfigSubCategory.objects.get(name=key)
         instance, created = FOFOConfigurations.objects.update_or_create(
-            shop=id, key_id=key_name.id, defaults={"value":data[key_name.name]})
+            shop=id, key_id=reward_configration_key.id, defaults={"value":data[reward_configration_key.name]})
         instance.save()
 
 class RewardConfigShopCrudView(GenericAPIView):
