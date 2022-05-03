@@ -2977,19 +2977,20 @@ class OrderCentral(APIView):
                 cart_products = CartProductMapping.objects.filter(cart=order.ordered_cart)
                 if order.ordered_cart.cart_type == 'BASIC':
                     # Unprocessed orders can be cancelled
-                    if order.order_status != Order.ORDERED:
-                        return api_response('This order cannot be cancelled!')
+                    # if order.order_status != Order.ORDERED:
+                    #     return api_response('This order cannot be cancelled!')
 
-                    # cancel shipment pos order
-                    ordered_product = OrderedProduct.objects.filter(order=order).last()
-                    ordered_product.shipment_status = 'CANCELLED'
-                    ordered_product.last_modified_by = self.request.user
-                    ordered_product.save()
-                    # Update inventory
-                    for cp in cart_products:
-                        PosInventoryCls.order_inventory(cp.retailer_product.id, PosInventoryState.SHIPPED,
-                                                        PosInventoryState.AVAILABLE, cp.qty, self.request.user,
-                                                        order.order_no, PosInventoryChange.CANCELLED)
+                    # # cancel shipment pos order
+                    # ordered_product = OrderedProduct.objects.filter(order=order).last()
+                    # ordered_product.shipment_status = 'CANCELLED'
+                    # ordered_product.last_modified_by = self.request.user
+                    # ordered_product.save()
+                    # # Update inventory
+                    # for cp in cart_products:
+                    #     PosInventoryCls.order_inventory(cp.retailer_product.id, PosInventoryState.SHIPPED,
+                    #                                     PosInventoryState.AVAILABLE, cp.qty, self.request.user,
+                    #                                     order.order_no, PosInventoryChange.CANCELLED)
+                    return api_response('Offline Orders cannot be cancelled from pos app.')
                 else:
                     # delivered orders can not be cancelled
                     if order.order_status == Order.DELIVERED:
@@ -7402,7 +7403,15 @@ class ShipmentView(GenericAPIView):
                 if not shipment:
                     shipment = OrderedProduct(order=order)
                     shipment.save()
+
                 for product_map in products_info:
+                    cart_product_mapping = CartProductMapping.objects.filter(cart=order.ordered_cart,
+                                                                             retailer_product_id=product_map['product_id'])
+                    if cart_product_mapping.last().qty > product_map['picked_qty']:
+                        retailer_product = RetailerProduct.objects.filter(id=product_map['product_id'], shop=shop).last()
+                        retailer_product.online_enabled = False
+                        retailer_product.online_disabled_status = product_map['online_disabled_status']
+                        retailer_product.save()
                     product_id, qty, product_type = product_map['product_id'], product_map['picked_qty'], product_map[
                         'product_type']
                     ordered_product_mapping, _ = ShipmentProducts.objects.get_or_create(ordered_product=shipment,

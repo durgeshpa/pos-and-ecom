@@ -118,12 +118,12 @@ class RetailerProductAdmin(admin.ModelAdmin):
                     'description', 'sku_type', 'status', 'product_pack_type', 'created_at', 'modified_at')
     fields = ('shop', 'linked_product', 'sku', 'name', 'mrp', 'selling_price', 'product_ean_code',
               'description', 'sku_type', 'status', 'is_deleted', 'purchase_pack_size', 'initial_purchase_value',
-              'online_enabled', 'online_price', 'created_at', 'modified_at', 'product_pack_type', 'measurement_category',
-              'offer_price', 'offer_start_date', 'offer_end_date')
+              'online_enabled', 'online_disabled_status', 'online_price', 'created_at', 'modified_at',
+              'product_pack_type', 'measurement_category', 'offer_price', 'offer_start_date', 'offer_end_date')
     readonly_fields = ('shop', 'sku', 'product_ean_code',
                        'purchase_pack_size', 'online_enabled', 'online_price', 'name', 'created_at',
                        'sku_type', 'mrp', 'modified_at', 'description', 'initial_purchase_value',
-                       'offer_price', 'offer_start_date', 'offer_end_date')
+                       'offer_price', 'offer_start_date', 'offer_end_date', 'online_disabled_status')
 
     def b2c_cat_sub_cat(self, obj):
         if obj.linked_product and obj.linked_product.parent_product.parent_product_pro_b2c_category.exists():
