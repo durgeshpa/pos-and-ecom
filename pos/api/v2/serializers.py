@@ -6,6 +6,13 @@ from django.db import transaction
 """
 @Durgesh patel
 """
+class ChoiceField(serializers.ChoiceField):
+
+    def to_representation(self, obj):
+        if obj == '' and self.allow_blank:
+            return obj
+        return {'id': obj, 'desc': self._choices[obj]}
+
 
 class ShopOwnerNameListSerializer(serializers.ModelSerializer):
     shop_owner_id = serializers.SerializerMethodField('get_user_id')
@@ -86,9 +93,13 @@ class RewardConfigListShopSerializers(serializers.ModelSerializer):
     pin_code = serializers.SerializerMethodField()
     shop_name = serializers.SerializerMethodField()
     city = serializers.SerializerMethodField()
+    shop_owner = serializers.SerializerMethodField()
+    shop_type = ShopTypeListSerializers()
+    approval_status = ChoiceField(choices=Shop.APPROVAL_STATUS_CHOICES, required=False)
     class Meta:
         model = PosStoreRewardMappings
-        fields = ('id', 'shop_name', 'city', 'pin_code', 'status')
+        fields = ('id', 'shop_name', 'city', 'pin_code', 'approval_status',
+            'enable_loyalty_points', 'status', 'shop_owner', 'shop_type')
 
     def get_pin_code(self, obj):
         return obj.get_shop_pin_code
@@ -98,6 +109,9 @@ class RewardConfigListShopSerializers(serializers.ModelSerializer):
 
     def get_city(self, obj):
         return obj.city_name
+
+    def get_shop_owner(self, obj):
+        return obj.shop_owner.first_name
 
 
 class ShopConfigSerializers(serializers.ModelSerializer):
@@ -130,8 +144,11 @@ class RewardConfigShopSerializers(serializers.ModelSerializer):
             'value_of_each_point', 'first_order_redeem_point', 'second_order_redeem_point',
             'max_monthly_points_added', 'max_monthly_points_redeemed')"""
     def get_shop_config(self,obj):
-        query = FOFOConfigurations.objects.filter(shop=obj)
-        return ShopConfigSerializers(query, many=True).data
+        objects = obj.fofo_shop.all()
+        shop_keys = {}
+        for obj in objects:
+            shop_keys[obj.key.name] = obj.value
+        return shop_keys
 
     def validate(self, data):
 
