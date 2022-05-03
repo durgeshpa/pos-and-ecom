@@ -613,37 +613,6 @@ class CartAdmin(ExportCsvMixinCart, ExportCsvMixinCartProduct, admin.ModelAdmin)
                 if obj.rt_order_cart_mapping.order_status == 'CANCELLED':
                     return self.readonly_fields+ ('approval_status',)
         return self.readonly_fields
-def category_filter(queryset, value):
-    cart_list = []
-    for obj in queryset:
-        for product in obj.cart.rt_cart_list.all():
-            try:
-                if product.cart_product.parent_product.parent_product_pro_category.first().category.id == int(value):
-                    cart_list.append(obj.cart.id)
-                    break;
-            except:
-                pass
-        else:
-            continue
-    return cart_list
-
-
-class ShopFilter(AutocompleteFilter):
-    title = 'Category'
-    field_name = 'cart'
-    autocomplete_url = 'products-category-autocomplete'
-    def queryset(self, request, queryset):
-        if self.value():
-            obj = GlobalConfig.objects.get(key="days_category_filter")
-            day = obj.value if obj else 1
-            time_threshold = datetime.datetime.now() - datetime.timedelta(days=1)
-            queryset = queryset.filter(created_at__gt=time_threshold)
-            cart_list = category_filter(queryset, self.value())
-            print(cart_list)
-            return queryset.filter(cart__in=cart_list)
-        # else:
-        return queryset
-
 
 
 class BulkOrderAdmin(admin.ModelAdmin):
@@ -651,7 +620,7 @@ class BulkOrderAdmin(admin.ModelAdmin):
     form = BulkCartForm
     list_display = ('cart', 'order_type', 'seller_shop', 'buyer_shop', 'shipping_address', 'billing_address',
                     'create_purchase_order', 'created_at')
-    list_filter = (SellerShopFilter, BuyerShopFilter, ShopFilter)
+    list_filter = (SellerShopFilter, BuyerShopFilter)
     list_per_page = 20
 
     class Media:
@@ -683,9 +652,6 @@ class BulkOrderAdmin(admin.ModelAdmin):
                     return format_html(
                         "<a href= 'javascript:void(0);' class='order-po-create' data-id='%s'>Create PO (POS Shop)</a>"
                         % order.pk)
-    def get_queryset(self, request):
-        qs = super(BulkOrderAdmin, self).get_queryset(request)
-        return qs
 
 
 class ExportCsvMixin:
