@@ -112,8 +112,10 @@ class RewardConfigListShopSerializers(serializers.ModelSerializer):
         return obj.city_name
 
     def get_shop_owner(self, obj):
-        """reurn shop owner name"""
-        return obj.shop_owner.first_name
+        """reurn shop owner first_name, last_name, phone_no."""
+        return {"first_name": obj.shop_owner.first_name,
+                "last_name" : obj.shop_owner.last_name,
+                "phone_number": obj.shop_owner.phone_number}
 
 
 class ShopConfigSerializers(serializers.ModelSerializer):

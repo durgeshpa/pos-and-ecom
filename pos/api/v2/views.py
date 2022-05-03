@@ -304,7 +304,6 @@ class ShopRewardConfigKeys(GenericAPIView):
 class BulkUpdate(GenericAPIView):
     """Bulk update reward configartions """
     authentication_classes = (authentication.TokenAuthentication,)
-    permission_classes = (AllowAny,)
     queryset = FOFOConfigSubCategory.objects.all()
     serializer_class = ShopRewardConfigKeySerilizer
     def put(self, request):
