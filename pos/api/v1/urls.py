@@ -1,12 +1,20 @@
 from django.conf.urls import url
 
+from rest_framework.routers import DefaultRouter
+
 from .views import (PosProductView, CouponOfferCreation, InventoryReport, SalesReport, CustomerReport, VendorView,
                     POView, POProductInfoView, POListView, GrnOrderView, GrnOrderListView, VendorListView,
                     PaymentTypeDetailView, IncentiveView, ShopSpecificationView, GrnReturnOrderView,
                     GetGrnOrderListView, ReturnStatusListView, MeasurementCategoryView, StockUpdateReasonListView,
                     PRNwithoutGRNView, CreateBulkProductView, UpdateInventoryStockView, Contect_Us, PaymentStatusList,
-                    EcomPaymentTypeDetailView, PaymentModeChoicesList, RefundPayment
-                    )
+                    EcomPaymentTypeDetailView, PaymentModeChoicesList, RefundPayment, RetailerProductListViewSet,
+                    DownloadRetailerProductCsvShopWiseView, DownloadUploadRetailerProductsCsvSampleFileView, 
+                    BulkCreateUpdateRetailerProductsView, LinkRetailerProductsBulkUploadCsvSampleView, LinkRetailerProductBulkUploadView,
+                    RetailerProductImageBulkUploadView, PosShopListView)
+
+router = DefaultRouter()
+
+router.register('retailer-products', RetailerProductListViewSet, base_name='retailer-products')
 
 urlpatterns = [
     url(r'^catalogue-product/', PosProductView.as_view(), name='catalogue-product'),
@@ -51,5 +59,14 @@ urlpatterns = [
 
     url(r'^payment-status-choice/$', PaymentStatusList.as_view()),
     url(r'^payment-mode-choice/$', PaymentModeChoicesList.as_view()),
-    url(r'^payment-refund/$', RefundPayment.as_view(), name='payment-refund')
+    url(r'^payment-refund/$', RefundPayment.as_view(), name='payment-refund'),
+    url(r'^download-retailer-products-csv/$', DownloadRetailerProductCsvShopWiseView.as_view(), name='download-retailer-products-csv'),
+    url(r'^download-upload-retailer-products-sample-file/$', DownloadUploadRetailerProductsCsvSampleFileView.as_view(), name='download-upload-retailer-products-sample-file'),
+    url(r'^create-update-bulk-retailer-products/$', BulkCreateUpdateRetailerProductsView.as_view(), name='create-update-bulk-retailer-products-file'),
+    url(r'^link-retailer-products-sample-file/$', LinkRetailerProductsBulkUploadCsvSampleView.as_view(), name='link-retailer-products-sample-file'),
+    url(r'^link-retailer-products-bulk-upload/$', LinkRetailerProductBulkUploadView.as_view(), name='link-retailer-products-bulk-upload'),
+    url(r'^upload-retailer-product-images/$', RetailerProductImageBulkUploadView.as_view(), name='upload-retailer-product-images'),
+    url(r'^shop-list/$', PosShopListView.as_view(), name='shop-list')
 ]
+
+urlpatterns += router.urls

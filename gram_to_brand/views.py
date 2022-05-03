@@ -251,6 +251,15 @@ class DownloadPurchaseOrder(APIView):
         # PAN
         pan_number = getShopPANNumber(shop_name)
 
+        # Contact for Location address & other WH related queries
+        wh_query_contact = get_config('WH_QUERY_CONTACT', "Prakash (9871467268), "
+                                                          "Prahlad (9068612387)")
+
+        #Contact for Cost, PO Schedule, PO Expiry, EAN Code, HSN, case pack
+        category_query_contact = get_config('CATEGORY_QUERY_CONTACT',
+                                            "Raman (9997489987) Raman@gramfactory.com/Deepak (7053558941) "
+                                            "Deepak@gramfactory.com/Rajat (7906952920) Rajat@gramfactory.com")
+
         data = {
             "object": order_obj,
             "products": products,
@@ -271,7 +280,9 @@ class DownloadPurchaseOrder(APIView):
             "is_gf_shop": is_gf_shop,
             "license_number": license_number,
             "cin": cin_number,
-            "pan_no": pan_number
+            "pan_no": pan_number,
+            "wh_query_contact": wh_query_contact,
+            "category_query_contact": category_query_contact
         }
 
         cmd_option = {
@@ -439,8 +450,8 @@ class VendorProductPrice(APIView):
     
 
     def get(self, *args, **kwargs):
-        supplier_id = self.request.GET.get('supplier_id')
-        product_id = self.request.GET.get('product_id')
+        supplier_id = None if self.request.GET.get('supplier_id').strip()=='' else self.request.GET.get('supplier_id')
+        product_id = None if self.request.GET.get('product_id').strip()=='' else self.request.GET.get('product_id')
         vendor_product_price, vendor_product_mrp, product_case_size, product_inner_case_size = 0, 0, 0, 0
         vendor_mapping = ProductVendorMapping.objects.filter(vendor__id=supplier_id, product__id=product_id)
 
@@ -718,6 +729,16 @@ def generate_pdf_data(po_instance):
         shop_name_documents.filter(shop_document_type='gstin').last()
     gram_factory_shipping_gstin = po_instance.gf_shipping_address.shop_name. \
         shop_name_documents.filter(shop_document_type='gstin').last()
+
+    # Contact for Location address & other WH related queries
+    wh_query_contact = get_config('WH_QUERY_CONTACT', "Prakash (9871467268), "
+                                                      "Prahlad (9068612387)")
+
+    # Contact for Cost, PO Schedule, PO Expiry, EAN Code, HSN, case pack
+    category_query_contact = get_config('CATEGORY_QUERY_CONTACT',
+                                        "Raman (9997489987) Raman@gramfactory.com/Deepak (7053558941) "
+                                        "Deepak@gramfactory.com/Rajat (7906952920) Rajat@gramfactory.com")
+
     tax_inline, sum_amount, sum_qty = 0, 0, 0
     gst_list = []
     cess_list = []
@@ -760,7 +781,10 @@ def generate_pdf_data(po_instance):
         "total_amount": total_amount,
         "order_id": order_id,
         "gram_factory_billing_gstin": gram_factory_billing_gstin,
-        "gram_factory_shipping_gstin": gram_factory_shipping_gstin}
+        "gram_factory_shipping_gstin": gram_factory_shipping_gstin,
+        "wh_query_contact": wh_query_contact,
+        "category_query_contact": category_query_contact
+    }
     return data
 
 

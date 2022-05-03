@@ -95,7 +95,7 @@ class OrderPaymentAdmin(admin.ModelAdmin, PermissionMixin):
         return AdminFormWithRequest
 
     def has_change_permission(self, request, obj=None):
-        return False
+        return True
 
 
 class ReferenceNoSearch(InputFilter):
@@ -447,13 +447,13 @@ def ShipmentPaymentInlineAdminFactory(object_id=None):
 class ShipmentPaymentDataAdmin(admin.ModelAdmin, PermissionMixin):
     inlines = [ShipmentPaymentInlineAdmin]
     model = ShipmentData
-    list_display = ('order', 'trip', 'invoice_no', 'invoice_amount', 'total_paid_amount', 'invoice_city')
+    list_display = ('order', 'trip', 'invoice_no', 'invoice_amount', 'amount_to_be_collected', 'total_paid_amount', 'invoice_city')
     search_fields = ['order__order_no', 'trip__dispatch_no', 'invoice_number']
     list_filter = (InvoiceNoFilter,)
     list_per_page = 50
-    fields = ['order', 'trip', 'trip_status', 'invoice_no', 'invoice_amount', 'total_paid_amount', 'shipment_address',
+    fields = ['order', 'trip', 'trip_status', 'invoice_no', 'invoice_amount', 'amount_to_be_collected', 'total_paid_amount', 'shipment_address', 
               'invoice_city', 'shipment_status', 'no_of_crates', 'no_of_packets', 'no_of_sacks']
-    readonly_fields = ['order', 'trip', 'trip_status', 'invoice_no', 'invoice_amount', 'total_paid_amount',
+    readonly_fields = ['order', 'trip', 'trip_status', 'invoice_no', 'invoice_amount', 'total_paid_amount', 'amount_to_be_collected',
                        'shipment_address', 'invoice_city', 'shipment_status', 'no_of_crates', 'no_of_packets',
                        'no_of_sacks']
 
@@ -465,6 +465,10 @@ class ShipmentPaymentDataAdmin(admin.ModelAdmin, PermissionMixin):
     def total_paid_amount(self,obj):
         return obj.total_paid_amount
     total_paid_amount.short_description = 'Total Paid Amount'
+    
+    def amount_to_be_collected(self, obj):
+        return obj.cash_to_be_collected()
+    amount_to_be_collected.short_description = 'Amount to be Collected'
 
     def has_change_permission(self, request, obj=None):
         if request.user.has_perm("payments.change_payment"):

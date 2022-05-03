@@ -133,7 +133,7 @@ def payment_reconsilations(trxn_id, payment_type='online', obj = None):
             else:
                 obj.payment_mode = 'Net Banking'
 
-            if obj.order.order_status != 'ordered':
+            if obj.order.order_status in [Order.PAYMENT_PENDING, Order.PAYMENT_FAILED]:
                 objs = Order.objects.filter(id=obj.order.id).last()
                 objs.order_status = 'ordered'
                 objs.save()
@@ -167,40 +167,40 @@ def payment_reconsilations(trxn_id, payment_type='online', obj = None):
 def payment_reconsilation_():
     cron_logger.info('cron_perminutes payment_reconsilation start..........................')
     try:
-        time_threshold = datetime.datetime.now() - datetime.timedelta(minutes=45)
-        objects = Payment.objects.filter(created_at__gt=time_threshold)
+        time_threshold = datetime.datetime.now() - datetime.timedelta(minutes=15)
+        objects = Payment.objects.filter(order__ordered_cart__cart_type='ECOM', created_at__gt=time_threshold)
         for obj in objects:
             try:
                payment_reconsilations(str(obj.order.ordered_cart_id), obj.payment_type.type, obj)
             except Exception as e:
                 cron_logger.error(e)
-                cron_logger.error('Exception during getting trnjection id .........')
+                cron_logger.error('Exception during getting trnsection id .........')
     except Exception as e:
         cron_logger.error(e)
 
 
 def payment_reconsilation_per_ten_minutes():
     cron_logger.info('cron_per 10 minutes payment_reconsilation start..........................')
-    time_threshold = datetime.datetime.now() - datetime.timedelta(minutes=60)
-    objects = Payment.objects.filter(created_at__gt=time_threshold)
+    time_threshold = datetime.datetime.now() - datetime.timedelta(days=2)
+    objects = Payment.objects.filter(order__ordered_cart__cart_type='ECOM', created_at__gt=time_threshold)
     for obj in objects:
         try:
            payment_reconsilations(str(obj.order.ordered_cart_id), obj.payment_type.type, obj)
         except Exception as e:
             cron_logger.error(e)
-            cron_logger.error('Exception during getting trnjection id .........')
+            cron_logger.error('Exception during getting trnsection id .........')
 
 
 def payment_reconsilation_per_24_hours():
-    cron_logger.info('cron_per 24 minutes payment_reconsilation start..........................')
-    time_threshold = datetime.datetime.now() - datetime.timedelta(hours=24)
-    objects = Payment.objects.filter(created_at__gt=time_threshold)
+    cron_logger.info('cron_per 12 pm  payment_reconsilation start..........................')
+    time_threshold = datetime.datetime.now() - datetime.timedelta(days=3)
+    objects = Payment.objects.filter(order__ordered_cart__cart_type='ECOM', created_at__gt=time_threshold)
     for obj in objects:
         try:
            payment_reconsilations(str(obj.order.ordered_cart_id), obj.payment_type.type, obj)
         except Exception as e:
             cron_logger.error(e)
-            cron_logger.error('Exception during getting trnjection id .........')
+            cron_logger.error('Exception during getting trnsection id .........')
 
 
 def payment_refund_status_update():

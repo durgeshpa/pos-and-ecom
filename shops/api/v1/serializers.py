@@ -9,7 +9,7 @@ from products.common_validators import get_validate_parent_product_image_ids
 from shops.models import (PosShopUserMapping, RetailerType, ShopType, Shop, ShopPhoto,
                           ShopRequestBrand, ShopDocument, ShopUserMapping, SalesAppVersion, ShopTiming,
                           FavouriteProduct, DayBeatPlanning, ExecutiveFeedback, USER_TYPE_CHOICES, FOFOConfigurations,
-                          FOFOConfigCategory, FOFOConfigSubCategory
+                          FOFOConfigCategory, FOFOConfigSubCategory, FOFOConfig
                           )
 from django.contrib.auth import get_user_model
 from django.db import transaction
@@ -679,7 +679,7 @@ class FeedbackCreateSerializers(serializers.ModelSerializer):
     """
     Applied Sales Executive Feedback
     """
-    day_beat_plan = serializers.SlugRelatedField(queryset=DayBeatPlanning.objects.all(), slug_field='id', required=True)
+    #day_beat_plan = serializers.SlugRelatedField(queryset=DayBeatPlanning.objects.all(), slug_field='id', required=True)
     executive_feedback = serializers.CharField(required=True, max_length=1)
     feedback_date = serializers.DateField(required=True)
     latitude = serializers.DecimalField(decimal_places=15, max_digits=30, required=True)
@@ -700,14 +700,14 @@ class FeedbackCreateSerializers(serializers.ModelSerializer):
         """
         # validated_data['feedback_date'] = datetime.today().strftime("%Y-%m-%d")
         # condition to check same reference of Day Beat Plan with same date is exist or not
-        executive_feedback = ExecutiveFeedback.objects.filter(day_beat_plan=validated_data['day_beat_plan'])
-        if executive_feedback.exists():
-            # create instance of Executive Feedback
-            executive_feedback.update(executive_feedback=validated_data['executive_feedback'],
-                                      feedback_date=validated_data['feedback_date'],
-                                      feedback_time=datetime.now().time(),
-                                      latitude=validated_data.get('latitude', None),
-                                      longitude=validated_data.get('longitude', None))
+        # executive_feedback = ExecutiveFeedback.objects.filter(day_beat_plan=validated_data['day_beat_plan'])
+        # if executive_feedback.exists():
+        #     # create instance of Executive Feedback
+        #     executive_feedback.update(executive_feedback=validated_data['executive_feedback'],
+        #                               feedback_date=validated_data['feedback_date'],
+        #                               feedback_time=datetime.now().time(),
+        #                               latitude=validated_data.get('latitude', None),
+        #                               longitude=validated_data.get('longitude', None))
 
             # condition to check if executive apply "Could Not Visit" for less than equal to 5 within the same date
             # then assign next visit date and beat plan date accordingly
@@ -758,12 +758,21 @@ class FeedbackCreateSerializers(serializers.ModelSerializer):
             #                                       temp_status=temp_status)
 
             # return executive feedback instance
-            return executive_feedback[0]
-        else:
-            validated_data['feedback_time'] = datetime.now().time()
-            return ExecutiveFeedback.objects.create(**validated_data)
-            
-        # return False
+        #     return executive_feedback[0]
+        # else:
+        validated_data['feedback_time'] = datetime.now().time()
+        feedback = ExecutiveFeedback(**validated_data)
+        feedback.save()
+        return feedback
+
+    def update(self, feedback, validated_data):
+        feedback.executive_feedback=validated_data.get('executive_feedback')
+        feedback.feedback_date=validated_data['feedback_date']
+        feedback.feedback_time=datetime.now().time()
+        feedback.latitude=validated_data.get('latitude', None)
+        feedback.longitude=validated_data.get('longitude', None)
+        feedback.save()
+        return feedback
 
 class ChoiceField(serializers.ChoiceField):
 
@@ -933,9 +942,27 @@ class FOFOCategoryConfigurationsGetSerializer(serializers.ModelSerializer):
             context={'shop': self.context.get('shop')}).data
 
 
+class FofoConfigSerilizer(serializers.ModelSerializer):
+    shop_is_open_today = serializers.SerializerMethodField()
+
+    class Meta:
+        model = FOFOConfig
+        fields = ('shop_opening_timing', 'shop_closing_timing', 'working_off_start_date',
+            'working_off_end_date', 'delivery_time', 'delivery_redius', 'min_order_value','shop_is_open_today')
+    def get_shop_is_open_today(self, obj):
+        day = datetime.today().date()
+        start_off_day = obj.working_off_start_date
+        end_off_day = obj.working_off_end_date
+        if (start_off_day and end_off_day) and (start_off_day<= day and end_off_day >= day):
+            return False
+        return True
+
+
+
 class FOFOConfigurationsGetSerializer(serializers.Serializer):
     shop = serializers.SerializerMethodField()
     category = serializers.SerializerMethodField()
+    shop_config = serializers.SerializerMethodField(read_only=True)
 
     def get_shop(self, obj):
         return ShopNameSerializer(self.context.get('shop'), read_only=True).data
@@ -956,6 +983,9 @@ class FOFOConfigurationsGetSerializer(serializers.Serializer):
         return FOFOCategoryConfigurationsGetSerializer(FOFOConfigCategory.objects.filter(
             fofo_category_details__fofo_category__shop=self.context.get('shop')).distinct(), many=True,
             context={'shop': self.context.get('shop')}).data
+    def get_shop_config(self,obj):
+            return FofoConfigSerilizer(FOFOConfig.objects.filter(shop=self.context.get('shop')).last()).data
+
 
 
 class FOFOConfigurationsCrudSerializer(serializers.ModelSerializer):

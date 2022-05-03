@@ -1,3 +1,4 @@
+import csv
 import logging
 from datetime import datetime
 
@@ -11,8 +12,8 @@ from rest_framework.generics import GenericAPIView, CreateAPIView, UpdateAPIView
 from rest_framework.permissions import AllowAny
 
 from products.models import ParentProduct as ParentProducts, ProductHSN, ProductCapping as ProductCappings, \
-    ProductVendorMapping, Product as ChildProduct, Tax, Weight, ProductPrice
-from categories.models import Category
+    ProductVendorMapping, Product as ChildProduct, Tax, Weight, ProductPrice, ParentProduct
+from categories.models import Category, B2cCategory
 from brand.models import Brand, Vendor
 from shops.models import Shop
 from shops.services import shop_search, search_city, search_pincode
@@ -22,15 +23,16 @@ from addresses.models import Pincode, City
 from .serializers import ParentProductSerializers, BrandSerializers, ParentProductExportAsCSVSerializers, \
     ActiveDeactiveSelectedParentProductSerializers, ProductHSNSerializers, WeightExportAsCSVSerializers, \
     ProductCappingSerializers, ProductVendorMappingSerializers, ChildProductSerializers, TaxSerializers, \
-    CategorySerializers, ProductSerializers, GetParentProductSerializers, ActiveDeactiveSelectedChildProductSerializers, \
+    CategorySerializers, B2cCategorySerializers, ProductSerializers, GetParentProductSerializers, \
+    ActiveDeactiveSelectedChildProductSerializers, \
     ChildProductExportAsCSVSerializers, TaxCrudSerializers, TaxExportAsCSVSerializers, WeightSerializers, \
     ProductHSNCrudSerializers, HSNExportAsCSVSerializers, ProductPriceSerializers, CitySerializer, \
     ProductVendorMappingExportAsCSVSerializers, PinCodeSerializer, ShopsSerializer, \
     DisapproveSelectedProductPriceSerializers, ProductSlabPriceExportAsCSVSerializers, ImageProductSerializers, \
-    DiscountChildProductSerializers
+    DiscountChildProductSerializers, HSNExportAsCSVUploadSerializer, ParentProductApprovalSerializers
 from brand.api.v1.serializers import VendorSerializers
-from products.common_function import get_response, serializer_error
-from products.common_validators import validate_id, validate_data_format
+from products.common_function import get_response, serializer_error, can_approve_product_tax
+from products.common_validators import validate_id, validate_data_format, validate_data_format_without_json
 from products.services import parent_product_search, child_product_search, product_hsn_search, tax_search, \
     category_search, brand_search, parent_product_name_search, vendor_search, product_vendor_search, \
     product_price_search
@@ -74,6 +76,24 @@ class CategoryListView(GenericAPIView):
         category = SmallOffsetPagination().paginate_queryset(self.queryset, request)
         serializer = self.serializer_class(category, many=True)
         msg = "" if category else "no category found"
+        return get_response(msg, serializer.data, True)
+
+
+class B2cCategoryListView(GenericAPIView):
+    """
+        Get B2c Category List
+    """
+    authentication_classes = (authentication.TokenAuthentication,)
+    queryset = B2cCategory.objects.select_related('category_parent').only('id', 'category_name', 'category_parent', )
+    serializer_class = B2cCategorySerializers
+
+    def get(self, request):
+        search_text = self.request.GET.get('search_text')
+        if search_text:
+            self.queryset = category_search(self.queryset, search_text)
+        category = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        serializer = self.serializer_class(category, many=True)
+        msg = "" if category else "no b2c category found"
         return get_response(msg, serializer.data, True)
 
 
@@ -246,14 +266,15 @@ class ParentProductView(GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
     queryset = ParentProducts.objects.select_related('parent_brand', 'product_hsn', 'updated_by').prefetch_related(
-        'parent_product_pro_category', 'parent_product_pro_tax', 'product_parent_product', 'parent_product_log',
+        'parent_product_pro_category', 'parent_product_pro_b2c_category', 'parent_product_pro_tax',
+        'product_parent_product', 'parent_product_log',
         'product_parent_product__product_pro_image', 'parent_product_pro_category__category',
         'product_parent_product__product_vendor_mapping', 'parent_product_pro_tax__tax', 'parent_product_pro_image',
         'parent_product_log__updated_by', 'product_parent_product__product_vendor_mapping__vendor', ) \
         .only('id', 'parent_id', 'name', 'inner_case_size', 'product_type', 'is_ptr_applicable', 'updated_by',
               'ptr_percent', 'ptr_type', 'status', 'parent_brand__brand_name', 'parent_brand__brand_code',
               'updated_at', 'product_hsn__product_hsn_code', 'is_lead_time_applicable', 'is_ars_applicable',
-              'max_inventory', 'brand_case_size', 'discounted_life_percent').order_by('-id')
+              'max_inventory', 'brand_case_size', 'discounted_life_percent', 'tax_status', 'tax_remark').order_by('-id')
     serializer_class = ParentProductSerializers
 
     def get(self, request):
@@ -345,8 +366,10 @@ class ParentProductView(GenericAPIView):
     def search_filter_parent_product(self):
 
         category = self.request.GET.get('category')
+        b2c_category = self.request.GET.get('b2c_category')
         brand = self.request.GET.get('brand')
         product_status = self.request.GET.get('status')
+        tax_status = self.request.GET.get('tax_status')
         search_text = self.request.GET.get('search_text')
 
         # search using parent_id, name & category_name based on criteria that matches
@@ -357,9 +380,15 @@ class ParentProductView(GenericAPIView):
             self.queryset = self.queryset.filter(parent_brand__id=brand)
         if product_status is not None:
             self.queryset = self.queryset.filter(status=product_status)
+        if tax_status is not None:
+            self.queryset = self.queryset.filter(tax_status=tax_status)
         if category is not None:
             self.queryset = self.queryset.filter(
                 parent_product_pro_category__category__id=category)
+        if b2c_category is not None:
+            self.queryset = self.queryset.filter(
+                parent_product_pro_b2c_category__category_id=b2c_category
+            )
         return self.queryset.distinct()
 
 
@@ -525,6 +554,7 @@ class ChildProductView(GenericAPIView):
     def search_filter_product_list(self):
 
         category = self.request.GET.get('category')
+        b2c_category = self.request.GET.get('b2c_category')
         brand = self.request.GET.get('brand')
         product_status = self.request.GET.get('status')
         parent_product_id = self.request.GET.get('parent_product_id')
@@ -543,6 +573,10 @@ class ChildProductView(GenericAPIView):
         if category is not None:
             self.queryset = self.queryset.filter(
                 parent_product__parent_product_pro_category__category__id=category)
+        if b2c_category is not None:
+            self.queryset = self.queryset.filter(
+                parent_product__parent_product_pro_b2c_category__category__id=b2c_category)
+        
         return self.queryset
 
 
@@ -682,8 +716,8 @@ class ProductCappingView(GenericAPIView):
 class ProductHSNView(GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
-    queryset = ProductHSN.objects.prefetch_related('hsn_log', 'hsn_log__updated_by').only('id', 'product_hsn_code'). \
-        order_by('-id')
+    queryset = ProductHSN.objects.prefetch_related('hsn_log', 'hsn_log__updated_by')\
+        .only('id', 'product_hsn_code').order_by('-id')
     serializer_class = ProductHSNCrudSerializers
 
     def get(self, request):
@@ -711,7 +745,8 @@ class ProductHSNView(GenericAPIView):
         """ POST API for ProductHSN Creation """
 
         info_logger.info("ProductHSN POST api called.")
-        serializer = self.get_serializer(data=request.data)
+        serializer = self.get_serializer(data=request.data,
+                                         context={"request": self.request, "user": self.request.user})
         if serializer.is_valid():
             serializer.save(created_by=request.user)
             info_logger.info("product HSN created successfully ")
@@ -731,7 +766,8 @@ class ProductHSNView(GenericAPIView):
             return get_response(id_instance['error'])
 
         hsn_instance = id_instance['data'].last()
-        serializer = self.serializer_class(instance=hsn_instance, data=request.data)
+        serializer = self.serializer_class(instance=hsn_instance, data=request.data,
+                                           context={"request": self.request, "user": self.request.user})
         if serializer.is_valid():
             serializer.save(updated_by=request.user)
             info_logger.info("HSN Updated Successfully.")
@@ -881,6 +917,39 @@ class HSNExportAsCSVView(CreateAPIView):
             response = serializer.save()
             info_logger.info("HSN CSVExported successfully ")
             return HttpResponse(response, content_type='text/csv')
+        return get_response(serializer_error(serializer), False)
+
+
+class HSNExportAsCSVSampleDownloadView(GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+
+    def get(self, request):
+        """ Get API for Download sample TAX with HSN CSV """
+
+        info_logger.info("HSNExportAsCSVSampleDownloadView GET api called.")
+        filename = "hsn_tax_sample_csv.csv"
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
+        writer = csv.writer(response)
+        writer.writerow(["product_hsn_code", "gst_rate_1", "gst_rate_2", "gst_rate_3",
+                         "cess_rate_1", "cess_rate_2", "cess_rate_3"])
+        writer.writerow([8013210, 5, 12, 18, 20.89, 3, 5.55])
+        info_logger.info("HSN Tax CSVExported successfully ")
+        return HttpResponse(response, content_type='text/csv')
+
+
+class HSNExportAsCSVUploadView(GenericAPIView):
+    """
+    This class is used to upload csv file for TAX with HSN
+    """
+    authentication_classes = (authentication.TokenAuthentication,)
+    serializer_class = HSNExportAsCSVUploadSerializer
+
+    def post(self, request):
+        serializer = self.get_serializer(data=request.data, context={'user': self.request.user})
+        if serializer.is_valid():
+            serializer.save(created_by=request.user)
+            return get_response('data uploaded successfully!', serializer.data, True)
         return get_response(serializer_error(serializer), False)
 
 
@@ -1468,5 +1537,158 @@ class DiscountProductView(GenericAPIView):
         # filter using parent_product_id exact match
         if parent_product_id is not None:
             self.queryset = self.queryset.filter(parent_product=parent_product_id)
-
         return self.queryset
+
+
+class ParentProductsTaxStatusChoicesView(GenericAPIView):
+    """
+        Get Parent Products Tax Status Choices List
+    """
+    authentication_classes = (authentication.TokenAuthentication,)
+
+    def get(self, request):
+        """ GET Choice List for Parent Products Tax Status """
+
+        info_logger.info("Parent Products Tax Status GET api called.")
+        """ GET Parent Products Tax Status Choice List """
+        fields = ['id', 'value', ]
+        data = [dict(zip(fields, d)) for d in ParentProducts.TAX_STATUS_CHOICES]
+        msg = ""
+        return get_response(msg, data, True)
+
+
+class ParentProductApprovalView(GenericAPIView):
+    """
+        Get Parent Product
+        Search Parent Product
+        List Parent Product
+        Update Parent Product
+    """
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    queryset = ParentProducts.objects.filter(tax_status__in=[ParentProducts.PENDING, ParentProducts.DECLINED])\
+        .select_related('parent_brand', 'product_hsn', 'updated_by')\
+        .prefetch_related('parent_product_pro_tax', 'parent_product_log', 'parent_product_pro_tax__tax', ) \
+        .only('id', 'parent_id', 'name', 'product_type', 'updated_by', 'status', 'parent_brand__brand_name',
+              'parent_brand__brand_code', 'updated_at', 'product_hsn__product_hsn_code', 'tax_status', 'tax_remark')\
+        .order_by('-id')
+    serializer_class = ParentProductApprovalSerializers
+
+    def get(self, request):
+        """ GET API for Parent Product with Image Category & Tax """
+
+        info_logger.info("Parent Product GET api called.")
+        product_total_count = self.queryset.count()
+        active_product_total_count = self.queryset.filter(status=True).count()
+        if request.GET.get('id'):
+            """ Get Parent Product for specific ID """
+            id_validation = validate_id(self.queryset, int(request.GET.get('id')))
+            if 'error' in id_validation:
+                return get_response(id_validation['error'])
+            parent_product = id_validation['data']
+        else:
+            """ GET Parent Product List """
+            self.queryset = self.search_filter_parent_product()
+            product_total_count = self.queryset.count()
+            active_product_total_count = self.queryset.filter(status=True).count()
+            parent_product = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        serializer = self.serializer_class(parent_product, many=True)
+        msg = f"TOTAL PARENT SKUS {product_total_count}  TOTAL ACTIVE PARENT SKUS {active_product_total_count}" \
+            if parent_product else "no parent product found"
+        return get_response(msg, serializer.data, True)
+
+    @can_approve_product_tax
+    def put(self, request):
+        """ PUT API to Approve Parent Product Tax """
+
+        info_logger.info("Parent Product PUT api called.")
+
+        modified_data = validate_data_format_without_json(self.request)
+        if 'error' in modified_data:
+            return get_response(modified_data['error'])
+
+        if 'id' not in modified_data:
+            return get_response('please provide id to update parent product', False)
+
+        # validations for input id
+        id_instance = validate_id(self.queryset, int(modified_data['id']))
+        if 'error' in id_instance:
+            return get_response(id_instance['error'])
+        parent_product_instance = id_instance['data'].last()
+
+        serializer = self.serializer_class(instance=parent_product_instance, data=modified_data)
+        if serializer.is_valid():
+            serializer.save(updated_by=request.user)
+            info_logger.info("Parent Product Updated Successfully.")
+            return get_response('parent product updated!', serializer.data)
+        return get_response(serializer_error(serializer), False)
+
+    def search_filter_parent_product(self):
+
+        category = self.request.GET.get('category')
+        brand = self.request.GET.get('brand')
+        product_status = self.request.GET.get('status')
+        tax_status = self.request.GET.get('tax_status')
+        search_text = self.request.GET.get('search_text')
+
+        # search using parent_id, name & category_name based on criteria that matches
+        if search_text:
+            self.queryset = parent_product_search(self.queryset, search_text.strip())
+        # filter using brand_name, category & product_status exact match
+        if brand is not None:
+            self.queryset = self.queryset.filter(parent_brand__id=brand)
+        if product_status is not None:
+            self.queryset = self.queryset.filter(status=product_status)
+        if tax_status is not None:
+            self.queryset = self.queryset.filter(tax_status=tax_status)
+        if category is not None:
+            self.queryset = self.queryset.filter(
+                parent_product_pro_category__category__id=category)
+        return self.queryset.distinct()
+
+
+class BulkParentProductApprovalView(GenericAPIView):
+    """
+        Update Parent Product
+    """
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    queryset = ParentProducts.objects.filter(tax_status__in=[ParentProducts.PENDING, ParentProducts.DECLINED])\
+        .select_related('parent_brand', 'product_hsn', 'updated_by')\
+        .prefetch_related('parent_product_pro_tax', 'parent_product_log', 'parent_product_pro_tax__tax', ) \
+        .only('id', 'parent_id', 'name', 'product_type', 'updated_by', 'status', 'parent_brand__brand_name',
+              'parent_brand__brand_code', 'updated_at', 'product_hsn__product_hsn_code', 'tax_status', 'tax_remark')\
+        .order_by('-id')
+    serializer_class = ParentProductApprovalSerializers
+
+    @can_approve_product_tax
+    def put(self, request):
+        """ PUT API to Approve Parent Product Tax """
+
+        info_logger.info("Bulk Parent Product PUT api called.")
+        if not request.data.get('parent_product_ids'):
+            return get_response('please select parent product', False)
+        non_approved = []
+        try:
+            for id in request.data.get('parent_product_ids'):
+                # validations for input id
+                id_instance = validate_id(self.queryset, int(id))
+                if 'error' in id_instance:
+                    return get_response(id_instance['error'])
+                parent_product_instance = id_instance['data'].last()
+
+                serializer = self.serializer_class(instance=parent_product_instance,
+                                                   data={'id': int(id), 'tax_status': ParentProduct.APPROVED})
+                if serializer.is_valid():
+                    serializer.save(updated_by=request.user)
+                    info_logger.info("Parent Product Updated Successfully.")
+                else:
+                    non_approved.append(id)
+        except Exception as e:
+            error_logger.error(e)
+            return get_response(f'please provide a valid tax id {id}', False)
+        if non_approved:
+            return get_response('Some products were not approved, kindly try to update individually to see error', False)
+        else:
+            return get_response('All selected products approved', True)
+

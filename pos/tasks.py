@@ -106,16 +106,16 @@ def update_es(products, shop_id):
         if product.linked_product and product.linked_product.parent_product:
             brand = str(product.linked_product.product_brand)
             brand_id = str(product.linked_product.product_brand.id)
-            if product.linked_product.parent_product.parent_product_pro_category:
+            if product.linked_product.parent_product.parent_product_pro_b2c_category:
                 category = [str(c.category) for c in
-                            product.linked_product.parent_product.parent_product_pro_category.filter(status=True)]
+                            product.linked_product.parent_product.parent_product_pro_b2c_category.filter(status=True)]
                 category_id = [str(c.category_id) for c in
-                            product.linked_product.parent_product.parent_product_pro_category.filter(status=True)]
+                            product.linked_product.parent_product.parent_product_pro_b2c_category.filter(status=True)]
 
                 sub_category = [str(c.category) for c in
-                            product.linked_product.parent_product.parent_product_pro_category.filter(status=True)]
+                            product.linked_product.parent_product.parent_product_pro_b2c_category.filter(status=True)]
                 sub_category_id = [str(c.category_id) for c in
-                               product.linked_product.parent_product.parent_product_pro_category.filter(status=True)]
+                               product.linked_product.parent_product.parent_product_pro_b2c_category.filter(status=True)]
 
         inv_available = PosInventoryState.objects.get(inventory_state=PosInventoryState.AVAILABLE)
         pos_inv = PosInventory.objects.filter(product=product, inventory_state=inv_available).last()
@@ -154,6 +154,12 @@ def update_es(products, shop_id):
         else:
             initial_purchase_value = product.initial_purchase_value \
                 if product.initial_purchase_value else 0
+
+        # Converting to string format
+        category = ",".join(category)
+        category_id = ",".join(category_id)
+        sub_category = ",".join(sub_category)
+        sub_category_id = ",".join(sub_category_id)
 
         params = {
             'id': product.id,
@@ -390,8 +396,9 @@ def mail_to_vendor_on_order_return_creation(pos_return_items_obj):
                '\n \n Note: Take Prior appointment before return and bring PR copy along with Original Invoice.' \
                '\n \n Thanks, \n {}'.format(vendor_name, instance.pr_number, shop_name, shop_name)
 
-        message = SendSms(phone=phone_number, body=body)
-        message.send()
+        if phone_number:
+            message = SendSms(phone=phone_number, body=body)
+            message.send()
 
     except Exception as e:
         exc_type, exc_obj, exc_tb = sys.exc_info()

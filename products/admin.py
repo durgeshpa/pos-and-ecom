@@ -3,6 +3,7 @@ from io import StringIO
 import csv
 
 from admin_auto_filters.filters import AutocompleteFilter
+from dal_admin_filters import AutocompleteFilter as DalAutocompleteFilter
 from daterange_filter.filter import DateRangeFilter
 from django.contrib.admin.options import StackedInline
 from rangefilter.filter import DateTimeRangeFilter
@@ -18,6 +19,7 @@ from django.utils.html import format_html
 from barCodeGenerator import merged_barcode_gen
 from retailer_backend.admin import InputFilter
 from retailer_backend.filters import CityFilter, ProductCategoryFilter
+from .common_function import generate_tax_group_name_by_the_mapped_taxes, ParentProductCls
 
 from .forms import (ProductCappingForm, ProductForm, ProductPriceAddPerm,
                     ProductPriceChangePerm, ProductPriceNewForm, ProductHSNForm,
@@ -25,7 +27,8 @@ from .forms import (ProductCappingForm, ProductForm, ProductPriceAddPerm,
                     RepackagingForm, ParentProductForm, ProductSourceMappingForm, DestinationRepackagingCostMappingForm,
                     ProductSourceMappingFormSet, DestinationRepackagingCostMappingFormSet, ProductImageFormSet,
                     SlabInlineFormSet, PriceSlabForm, ProductPriceSlabForm, ProductPriceSlabCreationForm,
-                    ProductPackingMappingForm, ProductPackingMappingFormSet, DiscountedProductForm, DiscountedProductPriceSlabCreationForm)
+                    ProductPackingMappingForm, ProductPackingMappingFormSet, DiscountedProductForm,
+                    DiscountedProductPriceSlabCreationForm, TaxGroupFormSet)
 
 from .models import *
 from .resources import (ColorResource, FlavorResource, FragranceResource,
@@ -124,7 +127,7 @@ class ExportCsvMixin:
             field_names_temp = field_names.copy()
             cost_params = ['raw_material', 'wastage', 'fumigation', 'label_printing', 'packing_labour',
                            'primary_pm_cost', 'secondary_pm_cost', 'final_fg_cost', 'conversion_cost']
-            add_fields = ['product_brand', 'product_category', 'image', 'source skus', 'packing_sku',
+            add_fields = ['product_brand', 'b2b_category', 'b2c_category', 'image', 'source skus', 'packing_sku',
                           'packing_sku_weight_per_unit_sku'] + cost_params
             for field_name in add_fields:
                 field_names_temp.append(field_name)
@@ -135,7 +138,8 @@ class ExportCsvMixin:
             items = [getattr(obj, field) for field in field_names]
             if self.model._meta.db_table == 'products_product':
                 items.append(obj.product_brand)
-                items.append(self.product_category(obj))
+                items.append(self.b2b_category(obj))
+                items.append(self.b2c_category(obj))
                 if obj.use_parent_image and obj.parent_product.parent_product_pro_image.last():
                     items.append(obj.parent_product.parent_product_pro_image.last().image.url)
                 elif obj.product_pro_image.last():
@@ -174,6 +178,12 @@ class ChildParentIDFilter(AutocompleteFilter):
 
     def get_autocomplete_url(self, request, model_admin):
         return reverse('admin:parent-product-list-filter-autocomplete')
+
+
+class ParentProductFilter(DalAutocompleteFilter):
+    title = 'Parent Product (ID or Name)'  # display title
+    field_name = 'parent_product'  # name of the foreign key field
+    autocomplete_url = 'parent-product-filter-autocomplete'
 
 
 class ParentBrandFilter(AutocompleteFilter):
@@ -450,10 +460,45 @@ class ProductTaxMappingAdmin(admin.TabularInline):
         pass
 
 
+class ProductB2bCategoryFormSet(BaseInlineFormSet):
+    def clean(self):
+        super(ProductB2bCategoryFormSet, self).clean()
+        if self.instance.product_type == 'b2b' or self.instance.product_type == 'both':
+            non_empty_forms = 0
+            for form in self:
+                if form.cleaned_data:
+                    non_empty_forms += 1
+            if non_empty_forms - len(self.deleted_forms) < 1:
+                raise ValidationError("Please fill at least one form.")
+
+class ProductB2cCategoryFormSet(BaseInlineFormSet):
+    def clean(self):
+        super(ProductB2cCategoryFormSet, self).clean()
+        if self.instance.product_type == 'b2c' or self.instance.product_type == 'both':
+            non_empty_forms = 0
+            for form in self:
+                if form.cleaned_data:
+                    non_empty_forms += 1
+            if non_empty_forms - len(self.deleted_forms) < 1:
+                raise ValidationError("Please fill at least one form.")
+
 class ParentProductCategoryAdmin(TabularInline):
     model = ParentProductCategory
     autocomplete_fields = ['category', ]
-    formset = RequiredInlineFormSet  # or AtLeastOneFormSet
+    #formset = RequiredInlineFormSet  # or AtLeastOneFormSet
+    formset = ProductB2bCategoryFormSet
+
+
+class ParentProductB2cCategoryAdminInline(TabularInline):
+    model = ParentProductB2cCategory
+    autocomplete_fields = ['category', ]
+    formset = ProductB2cCategoryFormSet
+
+
+@admin.register(ParentProductB2cCategory)
+class ParentProductB2cCategoryAdmin(admin.ModelAdmin):
+    list_display = ('id', 'parent_product', 'category', 'status')
+    
 
 
 def deactivate_selected_products(modeladmin, request, queryset):
@@ -550,6 +595,19 @@ class ParentProductTaxMappingAdmin(admin.TabularInline):
         pass
 
 
+class ParentProductTaxApprovalLogAdmin(admin.TabularInline):
+    model = ParentProductTaxApprovalLog
+    fields = ('parent_product', 'tax_status', 'tax_remark', 'created_by', 'created_at')
+    readonly_fields = ('parent_product', 'tax_status', 'tax_remark', 'created_by', 'created_at')
+    extra = 0
+
+    def has_add_permission(self, request, obj):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
 class ParentProductAdmin(admin.ModelAdmin):
     resource_class = ParentProductResource
     form = ParentProductForm
@@ -565,25 +623,27 @@ class ParentProductAdmin(admin.ModelAdmin):
     change_form_template = 'admin/products/parent_product_change_form.html'
     actions = [deactivate_selected_products, approve_selected_products, 'export_as_csv']
     list_display = [
-        'parent_id', 'name', 'parent_product_discriptions', 'parent_brand', 'product_category', 'product_hsn',
-        'product_gst', 'product_cess', 'product_surcharge', 'product_image', 'status',
-        'product_type', 'is_ptr_applicable', 'ptrtype', 'ptrpercent', 'discounted_life_percent'
+        'parent_id', 'name', 'parent_product_discriptions', 'parent_brand', 'b2b_category', 'b2c_category',
+        'product_hsn', 'product_gst', 'product_cess', 'product_surcharge', 'tax_status', 'tax_remark',
+        'product_image', 'status', 'product_type', 'is_ptr_applicable', 'ptrtype', 'ptrpercent',
+        'discounted_life_percent'
     ]
     search_fields = [
         'parent_id', 'name'
     ]
     inlines = [
-        ParentProductCategoryAdmin, ParentProductImageAdmin, ParentProductTaxMappingAdmin
+        ParentProductCategoryAdmin, ParentProductB2cCategoryAdminInline, 
+        ParentProductImageAdmin, ParentProductTaxMappingAdmin, ParentProductTaxApprovalLogAdmin
     ]
     list_filter = [ParentCategorySearch, ParentBrandFilter, ParentIDFilter, 'status']
     list_per_page = 50
     autocomplete_fields = ['product_hsn', 'parent_brand']
+    readonly_fields = ['product_type']
 
     @staticmethod
     def parent_product_discriptions(obj):
         """convert text string to html formate for display on admin pannel..."""
         return format_html('{}'.format(obj.product_discription[0:200:]))
-
 
     def product_gst(self, obj):
         if ParentProductTaxMapping.objects.filter(parent_product=obj, tax__tax_type='gst').exists():
@@ -609,7 +669,7 @@ class ParentProductAdmin(admin.ModelAdmin):
 
     product_surcharge.short_description = 'Product Surcharge'
 
-    def product_category(self, obj):
+    def b2b_category(self, obj):
         try:
             if obj.parent_product_pro_category.exists():
                 cats = [str(c.category) for c in obj.parent_product_pro_category.filter(status=True)]
@@ -618,7 +678,18 @@ class ParentProductAdmin(admin.ModelAdmin):
         except:
             return ''
 
-    product_category.short_description = 'Product Category'
+    b2b_category.short_description = 'Product B2B Category'
+
+    def b2c_category(self, obj):
+        try:
+            if obj.parent_product_pro_b2c_category.exists():
+                cats = [str(c.category) for c in obj.parent_product_pro_b2c_category.filter(status=True)]
+                return "\n".join(cats)
+            return ''
+        except:
+            return ''
+
+    b2c_category.short_description = 'Product B2C Category'
 
     def product_image(self, obj):
         if obj.parent_product_pro_image.exists():
@@ -640,9 +711,9 @@ class ParentProductAdmin(admin.ModelAdmin):
     def export_as_csv(self, request, queryset):
         meta = self.model._meta
         field_names = [
-            'parent_id', 'name', 'parent_brand', 'product_category', 'product_hsn',
-            'product_gst', 'product_cess', 'product_surcharge', 'product_image', 'status',
-            'product_type', 'is_ptr_applicable', 'ptr_type', 'ptr_percent', 'discounted_life_percent'
+            'parent_id', 'name', 'parent_brand', 'b2b_category', 'b2c_category', 'product_hsn', 'product_gst',
+            'product_cess', 'product_surcharge', 'product_image',
+            'status', 'product_type', 'is_ptr_applicable', 'ptr_type', 'ptr_percent', 'discounted_life_percent'
         ]
         response = HttpResponse(content_type='text/csv')
         response['Content-Disposition'] = 'attachment; filename={}.csv'.format(meta)
@@ -719,6 +790,18 @@ class ParentProductAdmin(admin.ModelAdmin):
            ),
         ] + urls
         return urls
+
+    def response_add(self, request, new_object):
+        obj = self.after_saving_model_and_related_inlines(new_object)
+        return super(ParentProductAdmin, self).response_add(request, obj)
+
+    def response_change(self, request, obj):
+        obj = self.after_saving_model_and_related_inlines(obj)
+        return super(ParentProductAdmin, self).response_change(request, obj)
+
+    def after_saving_model_and_related_inlines(self, obj):
+        ParentProductCls.update_tax_status_and_remark(obj)
+        return obj
 
 
 def deactivate_selected_child_products(modeladmin, request, queryset):
@@ -1066,13 +1149,13 @@ class ProductAdmin(admin.ModelAdmin, ExportCsvMixin):
 
     actions = [deactivate_selected_child_products, approve_selected_child_products, 'export_as_csv']
     list_display = [
-        'product_sku', 'product_name', 'parent_product', 'parent_name',
-        'product_brand', 'product_category', 'product_ean_code', 'product_hsn', 'product_gst',
-        'product_mrp', 'is_ptr_applicable', 'ptr_type', 'ptr_percent', 'products_image', 'status'
+        'product_sku', 'product_name', 'parent_product', 'parent_name', 'product_brand', 'b2b_category',
+        'b2c_category', 'product_ean_code', 'product_hsn', 'product_gst', 'product_mrp', 'is_ptr_applicable',
+        'ptr_type', 'ptr_percent', 'products_image', 'status'
     ]
 
     search_fields = ['product_name', 'id']
-    list_filter = [CategorySearch, ProductBrandSearch, ProductSearch, ChildParentIDFilter, 'status', ProductEanSearch]
+    list_filter = [CategorySearch, ProductBrandSearch, ProductSearch, ParentProductFilter, 'status', ProductEanSearch]
     list_per_page = 50
 
     inlines = [ProductImageAdmin, ProductSourceMappingAdmin, ProductPackingMappingAdmin,
@@ -1125,7 +1208,7 @@ class ProductAdmin(admin.ModelAdmin, ExportCsvMixin):
     def ptr_percent(self, obj):
         return obj.parent_product.ptr_percent
 
-    def product_category(self, obj):
+    def b2b_category(self, obj):
         try:
             if obj.parent_product.parent_product_pro_category.exists():
                 cats = [str(c.category) for c in obj.parent_product.parent_product_pro_category.filter(status=True)]
@@ -1134,7 +1217,18 @@ class ProductAdmin(admin.ModelAdmin, ExportCsvMixin):
         except:
             return ''
 
-    product_category.short_description = 'Product Category'
+    b2b_category.short_description = 'Product B2B Category'
+
+    def b2c_category(self, obj):
+        try:
+            if obj.parent_product.parent_product_pro_b2c_category.exists():
+                cats = [str(c.category) for c in obj.parent_product.parent_product_pro_b2c_category.filter(status=True)]
+                return "\n".join(cats)
+            return ''
+        except:
+            return ''
+
+    b2c_category.short_description = 'Product B2C Category'
 
     def get_changeform_initial_data(self, request):
         if request.GET.get('product'):
@@ -1175,6 +1269,9 @@ class ProductAdmin(admin.ModelAdmin, ExportCsvMixin):
         for inv in bin_inv:
             inv.weight = inv.quantity * obj.weight_value
             inv.save()
+
+    class Media:
+        pass
 
 
 class MRPSearch(InputFilter):
@@ -1326,8 +1423,24 @@ class ProductPriceAdmin(admin.ModelAdmin, ExportProductPrice):
         ).distinct()
 
 
+class ProductHsnGstInline(admin.TabularInline):
+    model = ProductHsnGst
+    extra = 0
+    max_num = 3
+    fields = ('gst',)
+    formset = AtLeastOneFormSet
+
+
+class ProductHsnCessInline(admin.TabularInline):
+    model = ProductHsnCess
+    extra = 0
+    max_num = 3
+    fields = ('cess',)
+
+
 class ProductHSNAdmin(admin.ModelAdmin, ExportCsvMixin):
     form = ProductHSNForm
+    inlines = [ProductHsnGstInline, ProductHsnCessInline]
     fields = ['product_hsn_code']
     list_display = ['product_hsn_code']
     actions = ['export_as_csv']
@@ -1925,7 +2038,7 @@ class DiscountedProductsAdmin(admin.ModelAdmin, ExportCsvMixin):
     readonly_fields = ('product_sku', 'product_name', 'parent_product', 'reason_for_child_sku', 'product_name',
                        'product_ean_code', 'product_mrp', 'status')
 
-    list_filter = [ProductSearch, ChildParentIDFilter]
+    list_filter = [ProductSearch, ParentProductFilter]
 
     search_fields = ['product_name', 'id']
 
@@ -1977,6 +2090,26 @@ class DiscountedProductsAdmin(admin.ModelAdmin, ExportCsvMixin):
             return ''
     product_category.short_description = 'Product Category'
 
+    def b2b_category(self, obj):
+        try:
+            if obj.parent_product.parent_product_pro_category.exists():
+                cats = [str(c.category) for c in obj.parent_product.parent_product_pro_category.filter(status=True)]
+                return "\n".join(cats)
+            return ''
+        except:
+            return ''
+
+    b2b_category.short_description = 'Product B2B Category'
+
+    def b2c_category(self, obj):
+        try:
+            if obj.parent_product.parent_product_pro_b2c_category.exists():
+                cats = [str(c.category) for c in obj.parent_product.parent_product_pro_b2c_category.filter(status=True)]
+                return "\n".join(cats)
+            return ''
+        except:
+            return ''
+
     def has_add_permission(self, request):
         return False
 
@@ -1993,6 +2126,42 @@ class DiscountedProductsAdmin(admin.ModelAdmin, ExportCsvMixin):
                 name='parent-product-list-filter-autocomplete',
             ),]
         return urls
+
+    class Media:
+        pass
+
+
+class GroupTaxMappingInline(admin.TabularInline):
+    formset = TaxGroupFormSet
+    model = GroupTaxMapping
+    extra = 0
+    fields = ('tax',)
+
+
+class TaxGroupAdmin(admin.ModelAdmin, ExportCsvMixin):
+    inlines = [GroupTaxMappingInline]
+    fields = ['name', 'zoho_id', 'is_igst']
+    readonly_fields = ['name']
+    list_display = ['name', 'zoho_id', 'zoho_grp_type']
+    search_fields = ['name', 'zoho_id']
+
+    def response_add(self, request, new_object):
+        obj = self.after_saving_model_and_related_inlines(new_object)
+        return super(TaxGroupAdmin, self).response_add(request, obj)
+
+    def response_change(self, request, obj):
+        obj = self.after_saving_model_and_related_inlines(obj)
+        return super(TaxGroupAdmin, self).response_change(request, obj)
+
+    def after_saving_model_and_related_inlines(self, obj):
+        obj.name = generate_tax_group_name_by_the_mapped_taxes(Tax.objects.filter(
+            id__in=obj.group_taxes.values_list('tax__id', flat=True)), obj.is_igst)
+        if obj.group_taxes.count() > 1:
+            obj.zoho_grp_type = TaxGroup.TAX_GROUP
+        else:
+            obj.zoho_grp_type = TaxGroup.TAX_SINGLE
+        obj.save()
+        return obj
 
 
 admin.site.register(ProductImage, ProductImageMainAdmin)
@@ -2013,3 +2182,4 @@ admin.site.register(Repackaging, RepackagingAdmin)
 admin.site.register(ParentProduct, ParentProductAdmin)
 admin.site.register(SlabProductPrice, ProductSlabPriceAdmin)
 admin.site.register(DiscountedProductPrice, DiscountedProductSlabPriceAdmin)
+admin.site.register(TaxGroup, TaxGroupAdmin)

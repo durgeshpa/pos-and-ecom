@@ -99,6 +99,38 @@ class RetailerProductCls(object):
         return product
 
     @classmethod
+    def update_retailer_product(cls, product_id, shop_id, name, mrp, selling_price, linked_product_id, sku_type, description,
+                                product_ean_code, user, event_type, pack_type, measure_cat_id, event_id=None,
+                                product_status='active', offer_price=None, offer_sd=None, offer_ed=None,
+                                product_ref=None, online_enabled=True, online_price=None, purchase_pack_size=1,
+                                is_visible=False, initial_purchase_value=None, add_offer_price=False):
+        product_status = 'active' if product_status is None else product_status
+        try:
+            if online_enabled is True and float(online_price) == 0.0 and add_offer_price is True:
+                online_price = offer_price
+            elif online_enabled is True and float(online_price) == 0.0:
+                online_price = selling_price
+        except:
+            online_price = selling_price
+        product = RetailerProduct.objects.filter(id=product_id)
+        old_product = deepcopy(product.last())
+        product = product.update(name=name, linked_product_id=linked_product_id,
+                                mrp=mrp, sku_type=sku_type, selling_price=selling_price,
+                                offer_price=offer_price, offer_start_date=offer_sd,
+                                offer_end_date=offer_ed, description=description,
+                                product_ean_code=product_ean_code, status=product_status,
+                                product_ref=product_ref, product_pack_type=pack_type,
+                                measurement_category_id=measure_cat_id,
+                                online_enabled=online_enabled, online_price=online_price,
+                                purchase_pack_size=purchase_pack_size, is_deleted=is_visible,
+                                initial_purchase_value=initial_purchase_value, 
+                                modified_at=datetime.datetime.now())
+        product = RetailerProduct.objects.filter(id=old_product.id).last()
+        event_id = product.sku if not event_id else event_id
+        ProductChangeLogs.product_update(product, old_product, user, event_type, event_id)
+        return product
+    
+    @classmethod
     def create_images(cls, product, images):
         if images:
             count = 0
@@ -143,6 +175,19 @@ class RetailerProductCls(object):
         product.save()
         # Change logs
         ProductChangeLogs.product_update(product, old_product, user, event_type, event_id)
+    
+    @classmethod
+    def link_product(cls, retailer_product_id, linked_product_id, user, event_type, event_id):
+        product = RetailerProduct.objects.filter(id=retailer_product_id)
+        old_product = deepcopy(product.last())
+        product = product.update(linked_product_id=linked_product_id, 
+                                 sku_type=2, 
+                                 modified_at=datetime.datetime.now())
+        product = RetailerProduct.objects.filter(id=old_product.id).last()
+        event_id = product.sku if not event_id else event_id
+        ProductChangeLogs.product_link_update(product, old_product, user, event_type, event_id)
+        return product
+        
 
     @classmethod
     def get_sku_type(cls, sku_type):
@@ -405,7 +450,8 @@ class PosCartCls(object):
             if product.offer_price and product.offer_start_date and product.offer_end_date and \
                     product.offer_start_date <= datetime.date.today() <= product.offer_end_date:
                 cart_product.selling_price = cart_product.retailer_product.offer_price
-            elif cart_product.cart.cart_type == 'ECOM' and cart_product.retailer_product.online_enabled and cart_product.retailer_product.online_price:
+            elif cart_product.cart.cart_type == 'ECOM' and cart_product.retailer_product.online_enabled \
+                    and cart_product.retailer_product.online_price:
                 cart_product.selling_price = cart_product.retailer_product.online_price
             else:
                 cart_product.selling_price = cart_product.retailer_product.selling_price
@@ -488,10 +534,11 @@ class RewardCls(object):
         days = datetime.datetime.today().day
         date = get_back_date(days)
 
-        uses_rewrd_point = RewardLog.objects.filter(reward_user=cart.buyer,
-            transaction_type__in=['order_debit', 'order_return_credit', 'order_cancel_credit'], modified_at__gte=date).\
+        uses_reward_point = RewardLog.objects.filter(reward_user=cart.buyer,
+                                                     transaction_type__in=['order_debit', 'order_return_credit',
+                                                                           'order_cancel_credit'], modified_at__gte=date).\
         aggregate(Sum('points'))
-        this_month_reward_point_used = abs(uses_rewrd_point['points__sum']) if uses_rewrd_point['points__sum'] else None
+        this_month_reward_point_used = abs(uses_reward_point['points__sum']) if uses_reward_point['points__sum'] else None
         max_redeem_points = GlobalConfig.objects.filter(key='max_redeem_points').last()
         max_month_limit = GlobalConfig.objects.filter(key='max_month_limit _redeem_point').last()
 
@@ -777,6 +824,19 @@ def check_logged_in_user_is_superuser(view_func):
     return _wrapped_view_func
 
 
+def check_logged_in_user_has_fofo_config_perm(view_func):
+    """
+    Decorator to validate request from Has Fofo Config Perm
+    """
+    @wraps(view_func)
+    def _wrapped_view_func(self, request, *args, **kwargs):
+        user = request.user
+        if user.has_perm('shops.has_fofo_config_operations'):
+            return view_func(self, request, *args, **kwargs)
+        return api_response("Logged In user does not have required permission to perform this action.")
+    return _wrapped_view_func
+
+
 class ProductChangeLogs(object):
 
     @classmethod
@@ -796,6 +856,17 @@ class ProductChangeLogs(object):
             new_value = getattr(instance, product_change_col[0])
             if str(old_value) != str(new_value):
                 product_changes[product_change_col[0]] = [old_value, new_value]
+        ProductChangeLogs.create_product_log(instance, event_type, event_id, user, product_changes)
+    
+    @classmethod
+    def product_link_update(cls, product, old_instance, user, event_type, event_id):
+        instance = RetailerProduct.objects.get(id=product.id)
+        product_changes, product_change_cols = {}, ['linked_product_id']
+        for product_change_col in product_change_cols:
+            old_value = getattr(old_instance, product_change_col)
+            new_value = getattr(instance, product_change_col)
+            if str(old_value) != str(new_value):
+                product_changes[product_change_col] = [old_value, new_value]
         ProductChangeLogs.create_product_log(instance, event_type, event_id, user, product_changes)
 
     @classmethod

@@ -19,6 +19,7 @@ from rest_framework import serializers
 from barCodeGenerator import merged_barcode_gen
 from gram_to_brand.models import GRNOrder
 from products.models import Product, ParentProduct, ProductImage, ParentProductImage, Repackaging
+from retailer_backend.messages import ERROR_MESSAGES
 from retailer_to_sp.models import PickerDashboard, Order, OrderedProduct
 from shops.models import Shop, ShopUserMapping
 
@@ -1069,9 +1070,7 @@ class ZonewiseSummarySerializers(serializers.Serializer):
     zone = serializers.SerializerMethodField()
 
     def get_zone(self, obj):
-        if obj['zone']:
-            return ZoneSerializer(Zone.objects.get(id=obj['zone']), read_only=True).data
-        return None
+        return ZoneSerializer(obj['zone'], read_only=True).data
 
 
 class PutawayItemsCrudSerializer(serializers.ModelSerializer):
@@ -1340,10 +1339,11 @@ class PutawayActionSerializer(PutawayItemsCrudSerializer):
 
                     bin = Bin.objects.filter(bin_id=item['bin'], warehouse=putaway_instance.warehouse,
                                              zone=zone, is_active=True).last()
-                    if BinInventory.objects.filter(~Q(batch_id=putaway_instance.batch_id), warehouse=putaway_instance.warehouse,
-                                                bin=bin, sku=putaway_instance.sku, quantity__gt=0).exists():
-                        raise serializers.ValidationError(f"Invalid bin {item['bin']}| This product with different expiry date "
-                                                          f"already present in bin")
+                    if BinInventory.objects.filter(
+                            ~Q(batch_id=putaway_instance.batch_id), warehouse=putaway_instance.warehouse, bin=bin,
+                            sku=putaway_instance.sku).filter(Q(quantity__gt=0) | Q(to_be_picked_qty__gt=0)).exists():
+                        raise serializers.ValidationError(f"Invalid bin {item['bin']}| This product with different "
+                                                          f"expiry date already present in bin")
                     if bin:
                         item['bin'] = bin
                     else:
@@ -1558,6 +1558,9 @@ class AllocateQCAreaSerializer(serializers.ModelSerializer):
             if picker_dashboard_instance.repackaging:
                 raise serializers.ValidationError('This picking is of repackaging type, '
                                                   'this cannot be moved to QC Area.')
+
+            if picker_dashboard_instance.picking_status == 'picking_cancelled':
+                raise serializers.ValidationError(ERROR_MESSAGES['ORDER_CANCELLED'].format(picker_dashboard_instance.order))
 
             if picker_dashboard_instance.picking_status not in ['picking_complete', 'moved_to_qc']:
                 raise serializers.ValidationError('This picking is not yet completed')

@@ -16,16 +16,19 @@ from .models import (
     PosShopUserMapping, Shop, ShopType, RetailerType, ParentRetailerMapping,
     ShopPhoto, ShopDocument, ShopInvoicePattern, ShopUserMapping,
     ShopRequestBrand, SalesAppVersion, ShopTiming, FavouriteProduct, BeatPlanning, DayBeatPlanning, ExecutiveFeedback,
-    ShopStatusLog, FOFOConfigCategory, FOFOConfigSubCategory, FOFOConfigurations)
-from addresses.models import Address
-from addresses.forms import AddressForm
+    ShopStatusLog, FOFOConfigCategory, FOFOConfigSubCategory, FOFOConfigurations, FOFOConfig)
+from addresses.models import Address, DispatchCenterCityMapping, DispatchCenterPincodeMapping, ShopRoute
+from addresses.forms import AddressForm, ShopRouteForm
 from .forms import (ParentRetailerMappingForm, PosShopUserMappingForm, ShopParentRetailerMappingForm,
                     ShopForm, RequiredInlineFormSet, BeatPlanningAdminForm,
-                    AddressInlineFormSet, ShopUserMappingForm, ShopTimingForm, FOFOShopConfigForm)
+                    AddressInlineFormSet, ShopUserMappingForm, ShopTimingForm, DispatchCenterCityMappingInlineFormSet,
+                    DispatchCenterPincodeMappingInlineFormSet, DispatchCenterCityMappingForm,
+                    DispatchCenterPincodeMappingForm, FOFOShopConfigForm, FOFOConfigInlineForm)
 
-from .views import (StockAdjustmentView, bulk_shop_updation, ShopAutocomplete, UserAutocomplete, 
-                    ShopUserMappingCsvView, ShopUserMappingCsvSample, ShopTimingAutocomplete
-)
+from .views import (StockAdjustmentView, bulk_shop_updation, ShopAutocomplete, UserAutocomplete,
+                    ShopUserMappingCsvView, ShopUserMappingCsvSample, ShopTimingAutocomplete,
+                    bulk_shop_status_update, bulk_shop_status_change_sample_file
+                    )
 from pos.filters import NonPosShopAutocomplete, PosShopAutocomplete, FofoOnlineEnabledShopAutocomplete
 from retailer_backend.admin import InputFilter
 from services.views import SalesReportFormView, SalesReport
@@ -170,12 +173,38 @@ class ShopInvoicePatternAdmin(admin.TabularInline):
     fields = ('pattern', 'status')
 
 
+class ShopRouteInlineAdmin(admin.TabularInline):
+    model = ShopRoute
+    form = ShopRouteForm
+    max_num = 1
+    fields = ('city', 'route',)
+
+    def city(self, obj):
+        return obj.route.city
+
+
 class AddressAdmin(admin.TabularInline):
     model = Address
     formset = AddressInlineFormSet
     form = AddressForm
     fields = ('nick_name', 'address_contact_name', 'address_contact_number',
               'address_type', 'address_line1', 'state', 'city', 'pincode_link')
+    extra = 2
+
+
+class DispatchCenterCityAdmin(admin.TabularInline):
+    model = DispatchCenterCityMapping
+    formset = DispatchCenterCityMappingInlineFormSet
+    form = DispatchCenterCityMappingForm
+    fields = ('city', )
+    extra = 2
+
+
+class DispatchCenterPincodeAdmin(admin.TabularInline):
+    model = DispatchCenterPincodeMapping
+    formset = DispatchCenterPincodeMappingInlineFormSet
+    form = DispatchCenterPincodeMappingForm
+    fields = ('pincode', )
     extra = 2
 
 
@@ -213,9 +242,12 @@ class ShopCityFilter(InputFilter):
 
 class ShopStatusAdmin(admin.TabularInline):
     model = ShopStatusLog
-    fields = ('reason', 'user', 'created_at')
-    readonly_fields = ('reason', 'user', 'created_at')
+    fields = ('status', 'status_change_reason', 'user', 'created_at')
+    readonly_fields = ('status', 'status_change_reason', 'user', 'created_at')
     extra = 0
+
+    def status(self, obj):
+        return obj.reason
 
     def created_at(self, obj):
         return obj.changed_at
@@ -232,6 +264,11 @@ class FOFOConfigurationsInline(admin.TabularInline):
     extra = 1
     fields = ('key', 'value')
 
+class FOFOConfigInline(admin.TabularInline):
+    form = FOFOConfigInlineForm
+    model = FOFOConfig
+    can_delete = False
+
 
 class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
     change_list_template = 'admin/shops/shop/change_list.html'
@@ -239,13 +276,15 @@ class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
     resource_class = ShopResource
     form = ShopForm
     fields = ['shop_name', 'shop_owner', 'shop_type', 'status', 'pos_enabled', 'online_inventory_enabled',
-              'approval_status', ]
-    actions = ["export_as_csv", "disable_shop", "download_status_report"]
-    inlines = [ShopPhotosAdmin, ShopDocumentsAdmin, AddressAdmin, ShopInvoicePatternAdmin,
-               ShopParentRetailerMapping, ShopStatusAdmin, ]
-
+              'enable_loyalty_points',
+              'latitude', 'longitude', 'approval_status', 'cutoff_time', 'disapproval_status_reason']
+    actions = ["export_as_csv", "disable_shop", "download_status_report", "download_shop_routes"]
+    inlines = [
+        ShopPhotosAdmin, ShopDocumentsAdmin, AddressAdmin, DispatchCenterCityAdmin, DispatchCenterPincodeAdmin,
+        ShopRouteInlineAdmin, ShopInvoicePatternAdmin, ShopParentRetailerMapping, ShopStatusAdmin
+    ]
     list_display = (
-        'shop_name', 'get_shop_shipping_address', 'get_shop_pin_code', 'get_shop_parent',
+        'shop_name', 'get_shop_shipping_address', 'get_shop_pin_code', 'get_shop_parent',"working_off_start_date", 'working_off_end_date',
         'shop_owner', 'shop_type', 'created_at', 'status', 'get_shop_city', 'approval_status',
         'shop_mapped_product', 'imei_no', 'warehouse_code'
     )
@@ -261,16 +300,24 @@ class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
 
     def changeform_view(self, request, object_id, form_url='', extra_context=None):
         self.inlines = [ShopPhotosAdmin, ShopDocumentsAdmin, AddressAdmin, ShopInvoicePatternAdmin,
-                        ShopParentRetailerMapping, ShopStatusAdmin, ]
-        if request.user.is_superuser:
+                        DispatchCenterCityAdmin, DispatchCenterPincodeAdmin, ShopRouteInlineAdmin, 
+                        ShopParentRetailerMapping, ShopStatusAdmin]
+        if request.user.is_superuser or request.user.has_perm('shops.has_fofo_config_operations'):
             self.inlines.append(FOFOConfigurationsInline)
+        if request.user.is_superuser or request.user.has_perm('shops.has_fofo_config_operations_shop'):
+            self.inlines.append(FOFOConfigInline)
         return super(ShopAdmin, self).changeform_view(request, object_id, form_url, extra_context)
-
 
     def get_readonly_fields(self, request, obj=None):
         if obj and obj.shop_type.shop_type == 'f':
             return self.readonly_fields + ('shop_code', 'warehouse_code')
         return self.readonly_fields
+    def working_off_start_date(self,obj):
+        return obj.fofo_shop_config.working_off_start_date
+
+    def working_off_end_date(self,obj):
+        return obj.fofo_shop_config.working_off_end_date
+
 
     def get_urls(self):
         from django.conf.urls import url
@@ -305,6 +352,16 @@ class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
                        r'^bulk-shop-updation/$',
                        self.admin_site.admin_view(bulk_shop_updation),
                        name="bulk-shop-updation"
+                   ),
+                   url(
+                       r'^bulk_shop_status_change/$',
+                       self.admin_site.admin_view(bulk_shop_status_update),
+                       name="bulk_shop_status_change"
+                   ),
+                   url(
+                       r'^download/bulk_shop_status_change_sample_download/$',
+                       self.admin_site.admin_view(bulk_shop_status_change_sample_file),
+                       name="download/bulk_shop_status_change_sample_download"
                    ),
                    url(
                        r'^shop-autocomplete/$',
@@ -351,7 +408,6 @@ class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
                         self.admin_site.admin_view(UserAutocomplete.as_view()),
                         name="user-autocomplete"
                     ),
-
                ] + urls
         return urls
 
@@ -381,6 +437,23 @@ class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
         for s_id in queryset:
             data = ShopStatusLog.objects.values_list(
                 'shop__id', 'shop__shop_name', 'reason', 'changed_at', 'user__id', 'user__first_name') \
+                .filter(shop=s_id)
+            for obj in data:
+                writer.writerow(list(obj))
+        return response
+
+    def download_shop_routes(self, request, queryset):
+
+        field_names = ['shop_id', 'shop_name', 'city_id', 'city_name', 'route_id', 'route']
+        meta = self.model._meta
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename={}.csv'.format(meta)
+
+        writer = csv.writer(response)
+        writer.writerow(field_names)
+        for s_id in queryset:
+            data = ShopRoute.objects.values_list(
+                'shop__id', 'shop__shop_name', 'route__city_id', 'route__city__city_name', 'route_id', 'route__name') \
                 .filter(shop=s_id)
             for obj in data:
                 writer.writerow(list(obj))
@@ -696,12 +769,12 @@ class FOFOConfigCategoryAdmin(admin.ModelAdmin):
     fields = ('name', )
 
     def has_add_permission(self, request, obj=None):
-        if request.user.is_superuser:
+        if request.user.is_superuser or request.user.has_perm('shops.has_fofo_config_operations'):
             return True
         return False
 
     def has_change_permission(self, request, obj=None):
-        if request.user.is_superuser:
+        if request.user.is_superuser or request.user.has_perm('shops.has_fofo_config_operations'):
             return True
         return False
 
@@ -712,15 +785,15 @@ class FOFOConfigCategoryAdmin(admin.ModelAdmin):
 
 
 class FOFOConfigSubCategoryAdmin(admin.ModelAdmin):
-    fields = ('name', 'category', 'type')
+    fields = ('name', 'type')
 
     def has_add_permission(self, request, obj=None):
-        if request.user.is_superuser:
+        if request.user.is_superuser or request.user.has_perm('shops.has_fofo_config_operations'):
             return True
         return False
 
     def has_change_permission(self, request, obj=None):
-        if request.user.is_superuser:
+        if request.user.is_superuser or request.user.has_perm('shops.has_fofo_config_operations'):
             return True
         return False
 
@@ -751,6 +824,26 @@ class FOFOConfigSubCategoryAdmin(admin.ModelAdmin):
 #         return False
 
 
+class ShopStatusLogAdmin(admin.ModelAdmin):
+    fields = ('shop', 'status', 'status_change_reason', 'user', 'created_at')
+    list_display = ('shop', 'status', 'status_change_reason', 'user', 'created_at')
+    readonly_fields = ('shop', 'status', 'status_change_reason', 'user', 'created_at')
+    search_fields = ('shop__shop_name',)
+    list_filter = [ShopFilter, UserFilter ]
+
+    def status(self, obj):
+        return obj.reason
+
+    def created_at(self, obj):
+        return obj.changed_at
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
 admin.site.register(ParentRetailerMapping, ParentRetailerMappingAdmin)
 admin.site.register(ShopType, ShopTypeAdmin)
 admin.site.register(RetailerType)
@@ -765,4 +858,5 @@ admin.site.register(PosShopUserMapping, PosShopUserMappingAdmin)
 admin.site.register(ExecutiveFeedback, ExecutiveFeedbackAdmin)
 admin.site.register(FOFOConfigCategory, FOFOConfigCategoryAdmin)
 admin.site.register(FOFOConfigSubCategory, FOFOConfigSubCategoryAdmin)
+admin.site.register(ShopStatusLog, ShopStatusLogAdmin)
 # admin.site.register(FOFOConfigurations, FOFOConfigurationsAdmin)

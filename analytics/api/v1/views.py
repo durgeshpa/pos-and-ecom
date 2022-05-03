@@ -180,43 +180,93 @@ def order_report(order_id):
     if order.rt_order_order_product.all():
         for shipment in order.rt_order_order_product.all():
             for products in shipment.rt_order_product_order_product_mapping.all():
-                product_id = products.product.id
-                product_name = products.product.product_name
-                product_brand = products.product.product_brand
-                product_mrp = products.product.product_pro_price.filter(status=True,
-                                                                        seller_shop=seller_shop).last().mrp
-                product_value_tax_included = products.product.product_pro_price.filter(status=True,
-                                                                                       seller_shop=seller_shop).last().price_to_retailer
-                for price in order.ordered_cart.rt_cart_list.all():
-                    selling_price = price.cart_product_price.selling_price
-                    item_effective_price = price.item_effective_prices
-                if products.product.product_pro_tax.filter(tax__tax_type='gst').exists():
-                    product_gst = products.product.product_pro_tax.filter(tax__tax_type='gst').last()
-                if order.shipping_address.state == order.seller_shop.shop_name_address_mapping.filter(
-                        address_type='shipping').last().state:
-                    product_cgst = (float(product_gst.tax.tax_percentage) / 2.0)
-                    product_sgst = (float(product_gst.tax.tax_percentage) / 2.0)
-                    product_igst = ''
-                else:
-                    product_cgst = ''
-                    product_sgst = ''
-                    product_igst = (float(product_gst.tax.tax_percentage))
-                if products.product.product_pro_tax.filter(tax__tax_type='cess').exists():
-                    product_cess = products.product.product_pro_tax.filter(tax__tax_type='cess').last().tax.tax_percentage
-                else:
-                    product_cess = ''
+                if products.product:
+                    product_id = products.product.id
+                    product_name = products.product.product_name
+                    product_brand = products.product.product_brand
+                    product_mrp = products.product.product_pro_price.filter(status=True,
+                                                                            seller_shop=seller_shop).last().mrp
+                    product_value_tax_included = products.product.product_pro_price.filter(status=True,
+                                                                                        seller_shop=seller_shop).last().price_to_retailer
+                    for price in order.ordered_cart.rt_cart_list.all():
+                        selling_price = price.cart_product_price.selling_price
+                        item_effective_price = price.item_effective_prices
+                    if products.product.product_pro_tax.filter(tax__tax_type='gst').exists():
+                        product_gst = products.product.product_pro_tax.filter(tax__tax_type='gst').last()
+                    if order.shipping_address.state == order.seller_shop.shop_name_address_mapping.filter(
+                            address_type='shipping').last().state:
+                        product_cgst = (float(product_gst.tax.tax_percentage) / 2.0)
+                        product_sgst = (float(product_gst.tax.tax_percentage) / 2.0)
+                        product_igst = ''
+                    else:
+                        product_cgst = ''
+                        product_sgst = ''
+                        product_igst = (float(product_gst.tax.tax_percentage))
+                    if products.product.product_pro_tax.filter(tax__tax_type='cess').exists():
+                        product_cess = products.product.product_pro_tax.filter(tax__tax_type='cess').last().tax.tax_percentage
+                    else:
+                        product_cess = ''                
+                elif products.retailer_product:
+                    product_id = products.retailer_product.id
+                    product_name = products.retailer_product.name
+                    product_mrp = products.retailer_product.mrp if products.retailer_product.mrp else ''
+                    selling_price = products.retailer_product.selling_price if products.retailer_product.selling_price else ''
+                    if products.retailer_product.linked_product:
+                        product_brand = products.retailer_product.linked_product.product_brand
+                        if not product_mrp:
+                            product_mrp = products.retailer_product.linked_product.product_pro_price.filter(status=True,
+                                                                                    seller_shop=seller_shop).last().mrp
+                        if products.retailer_product.linked_product.product_pro_price.filter(status=True,
+                                                                                            seller_shop=seller_shop).last():
+                            product_value_tax_included = products.retailer_product.linked_product.product_pro_price.filter(status=True,
+                                                                                                seller_shop=seller_shop).last().price_to_retailer
+                        else:
+                             product_value_tax_included = ''
+                        for price in order.ordered_cart.rt_cart_list.all():
+                            if price.cart_product_price:
+                                selling_price = price.cart_product_price.selling_price
+                            else:
+                                selling_price = ''
+                            item_effective_price = price.item_effective_prices
+                        if products.retailer_product.linked_product.product_pro_tax.filter(tax__tax_type='gst').exists():
+                            product_gst = products.retailer_product.linked_product.product_pro_tax.filter(tax__tax_type='gst').last()
+                        if order.shipping_address and order.shipping_address.state == order.seller_shop.shop_name_address_mapping.filter(
+                                address_type='shipping').last().state:
+                            product_cgst = (float(product_gst.tax.tax_percentage) / 2.0)
+                            product_sgst = (float(product_gst.tax.tax_percentage) / 2.0)
+                            product_igst = ''
+                        else:
+                            product_cgst = ''
+                            product_sgst = ''
+                            product_igst = (float(product_gst.tax.tax_percentage))
+                        if products.retailer_product.linked_product.product_pro_tax.filter(tax__tax_type='cess').exists():
+                            product_cess = products.retailer_product.linked_product.product_pro_tax.filter(tax__tax_type='cess').last().tax.tax_percentage
+                        else:
+                            product_cess = ''
+                    else:
+                        product_brand = ''
+                        product_value_tax_included = ''
+                        item_effective_price = ''
+                        product_cgst = ''
+                        product_sgst = ''
+                        product_igst = ''
+                        product_cess = ''
                 invoice_id = shipment.id
                 invoice_modified_at = shipment.modified_at
                 order_modified_at = order.modified_at
                 shipment_last_modified_by = shipment.last_modified_by
                 seller_shop = order.seller_shop
                 order_id = order.order_no
-                pin_code = order.shipping_address.pincode
+                pin_code = order.shipping_address.pincode if order.shipping_address else ''
                 order_status = order.get_order_status_display()
                 order_date = order.created_at
                 order_by = order.ordered_by
-                retailer_id = order.buyer_shop.id
-                retailer_name = order.buyer_shop
+                if order.buyer_shop:
+                    retailer_id = order.buyer_shop.id 
+                    retailer_name = order.buyer_shop
+                else:
+                    retailer_id = '' 
+                    retailer_name = ''
                 order_invoice = shipment.invoice_no
                 invoice_date = shipment.created_at
                 invoice_status = shipment.get_shipment_status_display()
@@ -238,60 +288,112 @@ def order_report(order_id):
                 if shipment and shipment.trip:
                     trip = shipment.trip.dispatch_no
                     trip_id = shipment.trip.id
-                    trip_id = shipment.trip.id
                     trip_status = shipment.trip.trip_status
                     delivery_boy = shipment.trip.delivery_boy
                     trip_created_at = shipment.trip.created_at
                 OrderDetailReportsData.objects.create(invoice_id=invoice_id, order_invoice=order_invoice,invoice_date=invoice_date,invoice_modified_at=invoice_modified_at,invoice_last_modified_by=shipment_last_modified_by,invoice_status=invoice_status,order_id=order_id, seller_shop=seller_shop,order_status=order_status, order_date=order_date,order_modified_at=order_modified_at,order_by=order_by, retailer_id=retailer_id,retailer_name=retailer_name, pin_code=pin_code,
-                                                      product_id=product_id, product_name=product_name,product_brand=product_brand, product_mrp=product_mrp,selling_price=selling_price,item_effective_price=item_effective_price,product_value_tax_included=product_value_tax_included,ordered_sku_pieces=ordered_sku_pieces,shipped_sku_pieces=shipped_sku_pieces,delivered_sku_pieces=delivered_sku_pieces,returned_sku_pieces=returned_sku_pieces,damaged_sku_pieces=damaged_sku_pieces,
-                                                      product_cgst=product_cgst, product_sgst=product_sgst,product_igst=product_igst, product_cess=product_cess,sales_person_name=sales_person_name, order_type=order_type,campaign_name=campaign_name, discount=discount, trip_id=trip_id,trip_status=trip_status, delivery_boy=delivery_boy,trip_created_at=trip_created_at)
-
-
+                                                    product_id=product_id, product_name=product_name,product_brand=product_brand, product_mrp=product_mrp,selling_price=selling_price,item_effective_price=item_effective_price,product_value_tax_included=product_value_tax_included,ordered_sku_pieces=ordered_sku_pieces,shipped_sku_pieces=shipped_sku_pieces,delivered_sku_pieces=delivered_sku_pieces,returned_sku_pieces=returned_sku_pieces,damaged_sku_pieces=damaged_sku_pieces,
+                                                    product_cgst=product_cgst, product_sgst=product_sgst,product_igst=product_igst, product_cess=product_cess,sales_person_name=sales_person_name, order_type=order_type,campaign_name=campaign_name, discount=discount, trip_id=trip_id,trip_status=trip_status, delivery_boy=delivery_boy,trip_created_at=trip_created_at)
     else:
         for od in order.ordered_cart.rt_cart_list.all():
-            product_id = od.cart_product.id
-            product_name = od.cart_product.product_name
-            product_brand = od.cart_product.product_brand
-            product_mrp = od.cart_product.product_pro_price.filter(status=True,seller_shop=seller_shop).last().mrp
-            product_value_tax_included = od.cart_product.product_pro_price.filter(status=True, seller_shop=seller_shop).last().price_to_retailer
-            selling_price = od.cart_product_price.selling_price
-            item_effective_price = od.item_effective_prices
-            if od.cart_product.product_pro_tax.filter(tax__tax_type='gst').exists():
-                product_gst = od.cart_product.product_pro_tax.filter(tax__tax_type='gst').last()
-            if order.shipping_address.state == order.seller_shop.shop_name_address_mapping.filter(
-                    address_type='shipping').last().state:
-                product_cgst = (float(product_gst.tax.tax_percentage) / 2.0)
-                product_sgst = (float(product_gst.tax.tax_percentage) / 2.0)
-                product_igst = ''
-            else:
-                product_cgst = ''
-                product_sgst = ''
-                product_igst = (float(product_gst.tax.tax_percentage))
-            if od.cart_product.product_pro_tax.filter(tax__tax_type='cess').exists():
-                product_cess = od.cart_product.product_pro_tax.filter(tax__tax_type='cess').last().tax.tax_percentage
-            else:
-                product_cess=''
+            if od.cart_product:
+                product_id = od.cart_product.id
+                product_name = od.cart_product.product_name
+                product_brand = od.cart_product.product_brand
+                product_mrp = od.cart_product.product_pro_price.filter(status=True,seller_shop=seller_shop).last().mrp
+                product_value_tax_included = od.cart_product.product_pro_price.filter(status=True, seller_shop=seller_shop).last().price_to_retailer
+                selling_price = od.cart_product_price.selling_price
+                item_effective_price = od.item_effective_prices
+                if od.cart_product.product_pro_tax.filter(tax__tax_type='gst').exists():
+                    product_gst = od.cart_product.product_pro_tax.filter(tax__tax_type='gst').last()
+                if order.shipping_address.state == order.seller_shop.shop_name_address_mapping.filter(
+                        address_type='shipping').last().state:
+                    product_cgst = (float(product_gst.tax.tax_percentage) / 2.0)
+                    product_sgst = (float(product_gst.tax.tax_percentage) / 2.0)
+                    product_igst = ''
+                else:
+                    product_cgst = ''
+                    product_sgst = ''
+                    product_igst = (float(product_gst.tax.tax_percentage))
+                if od.cart_product.product_pro_tax.filter(tax__tax_type='cess').exists():
+                    product_cess = od.cart_product.product_pro_tax.filter(tax__tax_type='cess').last().tax.tax_percentage
+                else:
+                    product_cess=''
+                for order_product in od.cart_product.rt_product_order_product.all():
+                    ordered_sku_pieces = order_product.ordered_qty
+                    shipped_sku_pieces = order_product.shipped_qty
+                    delivered_sku_pieces = order_product.delivered_qty
+                    returned_sku_pieces = order_product.returned_qty
+                    damaged_sku_pieces = order_product.damaged_qty
+            elif od.retailer_product:
+                product_id = od.retailer_product.id
+                product_name = od.retailer_product.name
+                product_mrp = od.retailer_product.mrp if od.retailer_product.mrp else ''
+                selling_price = od.retailer_product.selling_price
+                item_effective_price = od.item_effective_prices
+                if od.retailer_product.linked_product:
+                    product_brand = od.retailer_product.linked_product.product_brand
+                    if not product_mrp:
+                        product_mrp = od.retailer_product.linked_product.product_pro_price.filter(status=True,seller_shop=seller_shop).last().mrp
+                    if od.retailer_product.linked_product.product_pro_price.filter(status=True, seller_shop=seller_shop).last():
+                        product_value_tax_included = od.retailer_product.linked_product.product_pro_price.filter(status=True, seller_shop=seller_shop).last().price_to_retailer
+                    else:
+                        product_value_tax_included = ''
+                    selling_price = od.cart_product_price.selling_price if not selling_price else selling_price
+                    if od.retailer_product.linked_product.product_pro_tax.filter(tax__tax_type='gst').exists():
+                        product_gst = od.retailer_product.linked_product.product_pro_tax.filter(tax__tax_type='gst').last()
+                    if order.shipping_address and order.shipping_address.state == order.seller_shop.shop_name_address_mapping.filter(
+                            address_type='shipping').last().state:
+                        product_cgst = (float(product_gst.tax.tax_percentage) / 2.0)
+                        product_sgst = (float(product_gst.tax.tax_percentage) / 2.0)
+                        product_igst = ''
+                    else:
+                        product_cgst = ''
+                        product_sgst = ''
+                        product_igst = (float(product_gst.tax.tax_percentage))
+                    if od.retailer_product.linked_product.product_pro_tax.filter(tax__tax_type='cess').exists():
+                        product_cess = od.retailer_product.linked_product.product_pro_tax.filter(tax__tax_type='cess').last().tax.tax_percentage
+                    else:
+                        product_cess=''
+                    for order_product in od.retailer_product.linked_product.rt_product_order_product.all():
+                        ordered_sku_pieces = order_product.ordered_qty
+                        shipped_sku_pieces = order_product.shipped_qty
+                        delivered_sku_pieces = order_product.delivered_qty
+                        returned_sku_pieces = order_product.returned_qty
+                        damaged_sku_pieces = order_product.damaged_qty
+                else:
+                    product_brand = ''
+                    product_value_tax_included = ''
+                    item_effective_price = ''
+                    product_cgst = ''
+                    product_sgst = ''
+                    product_igst = ''
+                    product_cess = ''
+                    ordered_sku_pieces = ''
+                    shipped_sku_pieces = ''
+                    delivered_sku_pieces = ''
+                    returned_sku_pieces = ''
+                    damaged_sku_pieces = ''
             invoice_id = ''
             invoice_modified_at = ''
             order_modified_at = ''
             shipment_last_modified_by =''
             seller_shop = order.seller_shop
             order_id = order.order_no
-            pin_code = order.shipping_address.pincode
+            pin_code = order.shipping_address.pincode if order.shipping_address else ''
             order_status = order.get_order_status_display()
             order_date = order.created_at
             order_by = order.ordered_by
-            retailer_id = order.buyer_shop.id
-            retailer_name = order.buyer_shop
+            if order.buyer_shop:
+                retailer_id = order.buyer_shop.id
+                retailer_name = order.buyer_shop
+            else:
+                retailer_id = ''
+                retailer_name = ''
             order_invoice = ''
             invoice_date = ''
             invoice_status = ''
-            for order_product in od.cart_product.rt_product_order_product.all():
-                ordered_sku_pieces = order_product.ordered_qty
-                shipped_sku_pieces = order_product.shipped_qty
-                delivered_sku_pieces = order_product.delivered_qty
-                returned_sku_pieces = order_product.returned_qty
-                damaged_sku_pieces = order_product.damaged_qty
+            
             sales_person_name = ''
             if order.ordered_by:
                 sales_person_name = "{} {}".format(order.ordered_by.first_name, order.ordered_by.last_name)
@@ -310,7 +412,6 @@ def order_report(order_id):
                                                     ordered_sku_pieces=ordered_sku_pieces,shipped_sku_pieces=shipped_sku_pieces,delivered_sku_pieces=delivered_sku_pieces,returned_sku_pieces=returned_sku_pieces,damaged_sku_pieces=damaged_sku_pieces,
                                                     product_cgst=product_cgst,product_sgst=product_sgst,product_igst=product_igst,product_cess=product_cess,sales_person_name=sales_person_name,order_type=order_type,
                                                     campaign_name=campaign_name, discount=discount,trip_id=trip_id, trip_status=trip_status,delivery_boy=delivery_boy,trip_created_at=trip_created_at)
-
 
 
 @task(queue='analytics_tasks', routing_key='analytics')
@@ -436,47 +537,47 @@ def retailer_report(id):
                                                               service_partner_contact=service_partner_contact)
 
 
-
 @task(queue='analytics_tasks', routing_key='analytics')
 def trip_report(trip_id):
-    trips = Trip.objects.get(pk=trip_id)
-    i=0
-    trip_id = trips.id
-    seller_shop = trips.seller_shop.shop_name
-    dispatch_no = trips.dispatch_no
-    delivery_boy = trips.delivery_boy.first_name
-    vehicle_no = trips.vehicle_no
-    trip_status = trips.trip_status
-    e_way_bill_no = trips.e_way_bill_no
-    starts_at = trips.starts_at
-    completed_at = trips.completed_at
-    trip_amount = ''
-    received_amount = trips.received_amount
-    created_at = trips.created_at
-    modified_at = trips.modified_at
-    total_crates_shipped = trips.total_crates_shipped
-    total_packets_shipped = trips.total_packets_shipped
-    total_sacks_shipped = trips.total_sacks_shipped
-    total_crates_collected = trips.total_crates_collected
-    total_packets_collected = trips.total_packets_shipped
-    total_sacks_collected = trips.total_sacks_collected
-    cash_to_be_collected = trips.cash_to_be_collected()
-    cash_collected_by_delivery_boy = trips.cash_collected_by_delivery_boy()
-    total_paid_amount = trips.total_paid_amount()
-    total_received_amount = trips.total_received_amount
-    received_cash_amount = trips.received_cash_amount
-    received_online_amount = trips.received_online_amount
-    cash_to_be_collected_value = trips.cash_to_be_collected_value
-    total_trip_shipments = trips.total_trip_shipments
-    total_trip_amount = trips.trip_amount
-    total_trip_amount_value = trips.total_trip_amount_value
-    trip_weight = trips.trip_weight()
+    trips = Trip.objects.filter(pk=trip_id).last()
+    if trips:
+        i = 0
+        trip_id = trips.id
+        seller_shop = trips.seller_shop.shop_name
+        dispatch_no = trips.dispatch_no
+        delivery_boy = trips.delivery_boy.first_name
+        vehicle_no = trips.vehicle_no
+        trip_status = trips.trip_status
+        e_way_bill_no = trips.e_way_bill_no
+        starts_at = trips.starts_at
+        completed_at = trips.completed_at
+        trip_amount = ''
+        received_amount = trips.received_amount
+        created_at = trips.created_at
+        modified_at = trips.modified_at
+        total_crates_shipped = trips.total_crates_shipped
+        total_packets_shipped = trips.total_packets_shipped
+        total_sacks_shipped = trips.total_sacks_shipped
+        total_crates_collected = trips.total_crates_collected
+        total_packets_collected = trips.total_packets_shipped
+        total_sacks_collected = trips.total_sacks_collected
+        cash_to_be_collected = trips.cash_to_be_collected()
+        cash_collected_by_delivery_boy = trips.cash_collected_by_delivery_boy()
+        total_paid_amount = trips.total_paid_amount()
+        total_received_amount = trips.total_received_amount
+        received_cash_amount = trips.received_cash_amount
+        received_online_amount = trips.received_online_amount
+        cash_to_be_collected_value = trips.cash_to_be_collected_value
+        total_trip_shipments = trips.total_trip_shipments
+        total_trip_amount = trips.trip_amount
+        total_trip_amount_value = trips.total_trip_amount_value
+        trip_weight = trips.trip_weight()
 
-    TriReport.objects.create(trip_id=trip_id,seller_shop=seller_shop,dispatch_no=dispatch_no,delivery_boy=delivery_boy,vehicle_no=vehicle_no,trip_status=trip_status,e_way_bill_no=e_way_bill_no,
-                                                    starts_at=starts_at,completed_at=completed_at,trip_amount=trip_amount,received_amount=received_amount,created_at=created_at,modified_at=modified_at,total_crates_shipped=total_crates_shipped,
-                                                    total_packets_shipped=total_packets_shipped,total_sacks_shipped=total_sacks_shipped,total_crates_collected=total_crates_collected,total_packets_collected=total_packets_collected,total_sacks_collected=total_sacks_collected,cash_to_be_collected=cash_to_be_collected,
-                                                    cash_collected_by_delivery_boy=cash_collected_by_delivery_boy,total_paid_amount=total_paid_amount,total_received_amount=total_received_amount,received_cash_amount=received_cash_amount,received_online_amount=received_online_amount,cash_to_be_collected_value=cash_to_be_collected_value,total_trip_shipments=total_trip_shipments,
-                                                    total_trip_amount=total_trip_amount,total_trip_amount_value=total_trip_amount_value,trip_weight=trip_weight)
+        TriReport.objects.create(trip_id=trip_id,seller_shop=seller_shop,dispatch_no=dispatch_no,delivery_boy=delivery_boy,vehicle_no=vehicle_no,trip_status=trip_status,e_way_bill_no=e_way_bill_no,
+                                                        starts_at=starts_at,completed_at=completed_at,trip_amount=trip_amount,received_amount=received_amount,created_at=created_at,modified_at=modified_at,total_crates_shipped=total_crates_shipped,
+                                                        total_packets_shipped=total_packets_shipped,total_sacks_shipped=total_sacks_shipped,total_crates_collected=total_crates_collected,total_packets_collected=total_packets_collected,total_sacks_collected=total_sacks_collected,cash_to_be_collected=cash_to_be_collected,
+                                                        cash_collected_by_delivery_boy=cash_collected_by_delivery_boy,total_paid_amount=total_paid_amount,total_received_amount=total_received_amount,received_cash_amount=received_cash_amount,received_online_amount=received_online_amount,cash_to_be_collected_value=cash_to_be_collected_value,total_trip_shipments=total_trip_shipments,
+                                                        total_trip_amount=total_trip_amount,total_trip_amount_value=total_trip_amount_value,trip_weight=trip_weight)
 
 
 # @periodic_task(run_every=(crontab(minute=2, hour=0)), name="getStock", ignore_result=True)

@@ -10,7 +10,10 @@ from shops.api.v2.views import (ApprovalStatusListView, AddressListView, BeatPla
                                 ShopTypeChoiceView, BulkUpdateShopView, BeatPlanningExecutivesListView,
                                 DisapproveShopSelectedShopView, PinCodeView, StateView, CityView, AddressTypeChoiceView,
                                 BulkUpdateShopSampleCSV, BulkCreateShopUserMappingSampleCSV, ShopCrudView,
-                                ShopManagerListDisView, DownloadShopStatusCSV)
+                                ShopManagerListDisView, DownloadShopStatusCSV, SellerShopFilterView, DispatchCenterFilterView,
+                                ShopDeActivateChoiceView, BulkShopStatusUpdateView,
+                                ShopRouteCrudView, ShopRouteSampleFile, ShopRouteUploadView)
+from shops.views import bulk_shop_status_change_sample_file
 
 router = routers.DefaultRouter()
 
@@ -46,6 +49,11 @@ urlpatterns = [
     url('shop-address-type', AddressTypeChoiceView.as_view(), name='hop-address-type'),
     url('shop/', ShopCrudView.as_view(), name='shops'),
 
+    url('shop-deactivate-choices/', ShopDeActivateChoiceView.as_view(), name='shop-deactivate-choices'),
+    url('upload/shop-bulk-status-update/', BulkShopStatusUpdateView.as_view(), name='upload/shop-bulk-status-update'),
+    url('download/shop-bulk-status-update/', bulk_shop_status_change_sample_file,
+        name='download/shop-bulk-status-update'),
+
     url('download/shop-user-mapping-create-sample-csv', BulkCreateShopUserMappingSampleCSV.as_view(),
         name='download/shop-user-mapping-update-create-csv'),
     url('upload/bulk-shop-user-mapping-create', BulkCreateShopUserMappingView.as_view(),
@@ -59,7 +67,13 @@ urlpatterns = [
     url('upload/beat-planning', BeatPlanningView.as_view(), name='upload/beat-planning'),
     url('beat-planning/', BeatPlanningListView.as_view(), name='beat-planning'),
     url('beat-plan-employees/', BeatPlanningExecutivesListView.as_view(), name='beat-plan-employees'),
-    url('download-shop-status', DownloadShopStatusCSV.as_view(), name='download-shop-status')
+    url('download-shop-status', DownloadShopStatusCSV.as_view(), name='download-shop-status'),
+    url('seller-shops-list/', SellerShopFilterView.as_view(), name='seller-shops-list'),
+    url('dispatch-centers-list/', DispatchCenterFilterView.as_view(), name='dispatch-centers-list'),
+    url('download-shop-status', DownloadShopStatusCSV.as_view(), name='download-shop-status'),
+    url('shop-routes/', ShopRouteCrudView.as_view(), name='shop-routes'),
+    url('download/shop-route-sample', ShopRouteSampleFile.as_view(), name='download-shop-routes-sample'),
+    url('upload/shop-route', ShopRouteUploadView.as_view(), name='upload/shop-routes'),
 ]
 
 urlpatterns += router.urls

@@ -7,6 +7,7 @@ from django.db.models import Sum, Count, F, FloatField, Avg
 from django.core.exceptions import ObjectDoesNotExist
 from django_filters import rest_framework as filters
 from django.contrib.auth import get_user_model
+from rest_framework.permissions import AllowAny
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import generics, status, viewsets, permissions, authentication
@@ -17,7 +18,7 @@ from addresses.models import Address
 from addresses.api.v1.serializers import AddressSerializer
 from common.data_wrapper_view import DataWrapperViewSet
 from pos.common_functions import check_pos_shop, pos_check_permission, api_response, check_logged_in_user_is_superuser, \
-    check_fofo_shop
+    check_fofo_shop, check_logged_in_user_has_fofo_config_perm
 from retailer_backend.utils import SmallOffsetPagination
 from retailer_backend import messages
 from retailer_backend.messages import SUCCESS_MESSAGES, ERROR_MESSAGES
@@ -41,11 +42,17 @@ from .serializers import (RetailerTypeSerializer, ShopTypeSerializer, ShopSerial
                           FOFOConfigurationsCrudSerializer, FOFOCategoryConfigurationsCrudSerializer,
                           FOFOSubCategoryConfigurationsCrudSerializer, FOFOConfigurationsGetSerializer,
                           FOFOListSerializer)
-from ...common_validators import validate_fofo_sub_category
+from ...common_validators import validate_id, get_logged_user_wise_query_set_to_filter_warehouse, \
+    get_logged_user_wise_query_set_for_seller_shop, validate_fofo_sub_category
 
 User = get_user_model()
 
 logger = logging.getLogger('shop-api')
+
+# Get an instance of a logger
+info_logger = logging.getLogger('file-info')
+error_logger = logging.getLogger('file-error')
+debug_logger = logging.getLogger('file-debug')
 
 
 class ShopRequestBrandViewSet(DataWrapperViewSet):
@@ -1099,8 +1106,13 @@ class DayBeatPlan(viewsets.ModelViewSet):
             day_beat_plan = DayBeatPlanning.objects.filter(id=request.POST['day_beat_plan'],
                                                            next_plan_date=request.POST['feedback_date'])
             if day_beat_plan:
-                serializer = FeedbackCreateSerializers(
-                    data=request.data, context={'request': request})
+                executive_feedback = ExecutiveFeedback.objects.filter(day_beat_plan_id=request.POST['day_beat_plan'])
+                if not executive_feedback:
+                    serializer = FeedbackCreateSerializers(
+                        data=request.data, context={'request': request})
+                else:
+                    serializer = FeedbackCreateSerializers(executive_feedback.last(),
+                        data=request.data, context={'request': request})
                 if serializer.is_valid():
                     result = serializer.save()
                     if result:
@@ -1262,7 +1274,7 @@ class FOFOConfigCategoryView(generics.GenericAPIView):
     queryset = FOFOConfigCategory.objects.order_by('-id')
     serializer_class = FOFOCategoryConfigurationsCrudSerializer
 
-    @check_logged_in_user_is_superuser
+    @check_logged_in_user_has_fofo_config_perm
     def get(self, request):
         """ GET Category List """
         search_text = self.request.GET.get('search_text')
@@ -1273,7 +1285,7 @@ class FOFOConfigCategoryView(generics.GenericAPIView):
         msg = "" if category else "no category found"
         return get_response(msg, serializer.data, True)
 
-    @check_logged_in_user_is_superuser
+    @check_logged_in_user_has_fofo_config_perm
     def post(self, request, *args, **kwargs):
         serializer = self.serializer_class(data=request.data)
         if serializer.is_valid():
@@ -1281,7 +1293,7 @@ class FOFOConfigCategoryView(generics.GenericAPIView):
             return get_response('category created Successfully!', None, True, status.HTTP_200_OK)
         return get_response(serializer_error(serializer), False)
 
-    @check_logged_in_user_is_superuser
+    @check_logged_in_user_has_fofo_config_perm
     def put(self, request):
         """ PUT API for Category Updation """
 
@@ -1307,7 +1319,7 @@ class FOFOConfigSubCategoryView(generics.GenericAPIView):
     queryset = FOFOConfigSubCategory.objects.order_by('-id')
     serializer_class = FOFOSubCategoryConfigurationsCrudSerializer
 
-    @check_logged_in_user_is_superuser
+    @check_logged_in_user_has_fofo_config_perm
     def get(self, request):
         """ GET Sub-Category List """
         search_text = self.request.GET.get('search_text')
@@ -1318,7 +1330,7 @@ class FOFOConfigSubCategoryView(generics.GenericAPIView):
         msg = "" if sub_category else "no sub category found"
         return get_response(msg, serializer.data, True)
 
-    @check_logged_in_user_is_superuser
+    @check_logged_in_user_has_fofo_config_perm
     def post(self, request, *args, **kwargs):
         serializer = self.serializer_class(data=request.data)
         if serializer.is_valid():
@@ -1326,7 +1338,7 @@ class FOFOConfigSubCategoryView(generics.GenericAPIView):
             return get_response('sub category created Successfully!', None, True, status.HTTP_200_OK)
         return get_response(serializer_error(serializer), False)
 
-    @check_logged_in_user_is_superuser
+    @check_logged_in_user_has_fofo_config_perm
     def put(self, request):
         """ PUT API for Sub Category Updation """
 
@@ -1352,7 +1364,7 @@ class FOFOListView(generics.GenericAPIView):
     queryset = FOFOConfigCategory.objects.order_by('-id')
     serializer_class = FOFOListSerializer
 
-    @check_logged_in_user_is_superuser
+    @check_logged_in_user_has_fofo_config_perm
     def get(self, request, *args, **kwargs):
         """ GET Cat Sub-Cat Configurations List """
         search_text = self.request.GET.get('search_text')
@@ -1370,7 +1382,7 @@ class FOFOConfigurationsView(generics.GenericAPIView):
     queryset = FOFOConfigurations.objects.order_by('-id')
     serializer_class = FOFOConfigurationsCrudSerializer
 
-    @check_logged_in_user_is_superuser
+    @check_logged_in_user_has_fofo_config_perm
     @check_fofo_shop
     def get(self, request, *args, **kwargs):
         """ GET FOFO  List """
@@ -1389,7 +1401,7 @@ class FOFOConfigurationsView(generics.GenericAPIView):
         msg = "" if queryset else "no configurations found"
         return get_response(msg, serializer.data, True)
 
-    @check_logged_in_user_is_superuser
+    @check_logged_in_user_has_fofo_config_perm
     @check_fofo_shop
     def post(self, request, *args, **kwargs):
         shop = kwargs['shop']
@@ -1405,7 +1417,7 @@ class FOFOConfigurationsView(generics.GenericAPIView):
             return get_response('Configurations has been done Successfully!', None, True, status.HTTP_200_OK)
         return get_response(serializer_error_batch(serializer), False)
 
-    @check_logged_in_user_is_superuser
+    @check_logged_in_user_has_fofo_config_perm
     @check_fofo_shop
     def put(self, request, *args, **kwargs):
         shop = kwargs['shop']
@@ -1437,4 +1449,196 @@ class FOFOConfigurationsView(generics.GenericAPIView):
             return {'error': "Invalid Data Format"}
         return {'data': data}
 
+
+
+
+
+class SellerShopFilterView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    queryset = Shop.objects.all()
+    serializer_class = ShopBasicSerializer
+
+    def get(self, request):
+        """ GET API for Shop """
+        info_logger.info("Shop GET api called.")
+        if request.GET.get('id'):
+            """ Get Shop for specific ID """
+            id_validation = validate_id(
+                self.queryset, int(request.GET.get('id')))
+            if 'error' in id_validation:
+                return get_response(id_validation['error'])
+            shops_data = id_validation['data']
+        else:
+            """ GET Shop List """
+            self.queryset = get_logged_user_wise_query_set_for_seller_shop(request.user, self.queryset)
+            self.queryset = self.search_filter_shops_data()
+            shops_data = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+
+        serializer = self.serializer_class(shops_data, many=True)
+        msg = "" if shops_data else "no shop found"
+        return get_response(msg, serializer.data, True)
+
+    def search_filter_shops_data(self):
+        search_text = self.request.GET.get('search_text')
+        shop_type = self.request.GET.get('shop_type')
+        shop_owner = self.request.GET.get('shop_owner')
+        pin_code = self.request.GET.get('pin_code')
+        city = self.request.GET.get('city')
+        status = self.request.GET.get('status')
+        approval_status = self.request.GET.get('approval_status')
+
+        '''search using shop_name and parent_shop based on criteria that matches'''
+        if search_text:
+            self.queryset = shop_search(self.queryset, search_text)
+
+        '''Filters using shop_type, shop_owner, pin_code, city, status, approval_status'''
+        if shop_type:
+            self.queryset = self.queryset.filter(shop_type__id=shop_type)
+
+        if shop_owner:
+            self.queryset = self.queryset.filter(shop_owner=shop_owner)
+
+        if pin_code:
+            self.queryset = self.queryset.filter(shop_name_address_mapping__pincode_link__id=pin_code)
+
+        if city:
+            self.queryset = self.queryset.filter(shop_name_address_mapping__city__id=city)
+
+        if status:
+            self.queryset = self.queryset.filter(status=status)
+
+        if approval_status:
+            self.queryset = self.queryset.filter(approval_status=approval_status)
+
+        return self.queryset.distinct('id')
+
+
+class DispatchCenterFilterView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    queryset = Shop.objects.filter(shop_type__shop_type='dc').order_by('-id')
+    serializer_class = ShopBasicSerializer
+
+    def get(self, request):
+        """ GET API for Shop """
+        info_logger.info("Shop GET api called.")
+        if request.GET.get('id'):
+            """ Get Shop for specific ID """
+            id_validation = validate_id(
+                self.queryset, int(request.GET.get('id')))
+            if 'error' in id_validation:
+                return get_response(id_validation['error'])
+            shops_data = id_validation['data']
+        else:
+            """ GET Shop List """
+            self.queryset = get_logged_user_wise_query_set_to_filter_warehouse(request.user, self.queryset)
+            self.queryset = self.search_filter_shops_data()
+            shops_data = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+
+        serializer = self.serializer_class(shops_data, many=True)
+        msg = "" if shops_data else "no shop found"
+        return get_response(msg, serializer.data, True)
+
+    def search_filter_shops_data(self):
+        search_text = self.request.GET.get('search_text')
+        parent_shop = self.request.GET.get('parent_shop')
+        shop_type = self.request.GET.get('shop_type')
+        shop_owner = self.request.GET.get('shop_owner')
+        pin_code = self.request.GET.get('pin_code')
+        city = self.request.GET.get('city')
+        status = self.request.GET.get('status')
+        approval_status = self.request.GET.get('approval_status')
+
+        '''search using shop_name and parent_shop based on criteria that matches'''
+        if search_text:
+            self.queryset = shop_search(self.queryset, search_text)
+
+        '''Filters using parent_shop, shop_type, shop_owner, pin_code, city, status, approval_status'''
+        if shop_type:
+            self.queryset = self.queryset.filter(shop_type__id=shop_type)
+
+        if parent_shop:
+            self.queryset = self.queryset.filter(retiler_mapping__parent_id=parent_shop)
+
+        if shop_owner:
+            self.queryset = self.queryset.filter(shop_owner=shop_owner)
+
+        if pin_code:
+            self.queryset = self.queryset.filter(shop_name_address_mapping__pincode_link__id=pin_code)
+
+        if city:
+            self.queryset = self.queryset.filter(shop_name_address_mapping__city__id=city)
+
+        if status:
+            self.queryset = self.queryset.filter(status=status)
+
+        if approval_status:
+            self.queryset = self.queryset.filter(approval_status=approval_status)
+
+        return self.queryset.distinct('id')
+
+
+class RetailerShopFilterView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    queryset = Shop.objects.filter(shop_type__shop_type='r').order_by('-id')
+    serializer_class = ShopBasicSerializer
+
+    def get(self, request):
+        """ GET API for Shop """
+        info_logger.info("Shop GET api called.")
+        if request.GET.get('id'):
+            """ Get Shop for specific ID """
+            id_validation = validate_id(
+                self.queryset, int(request.GET.get('id')))
+            if 'error' in id_validation:
+                return get_response(id_validation['error'])
+            shops_data = id_validation['data']
+        else:
+            """ GET Shop List """
+            self.queryset = self.search_filter_shops_data()
+            shops_data = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+
+        serializer = self.serializer_class(shops_data, many=True)
+        msg = "" if shops_data else "no shop found"
+        return get_response(msg, serializer.data, True)
+
+    def search_filter_shops_data(self):
+        search_text = self.request.GET.get('search_text')
+        parent_shop = self.request.GET.get('parent_shop')
+        shop_type = self.request.GET.get('shop_type')
+        shop_owner = self.request.GET.get('shop_owner')
+        pin_code = self.request.GET.get('pin_code')
+        city = self.request.GET.get('city')
+        status = self.request.GET.get('status')
+        approval_status = self.request.GET.get('approval_status')
+
+        '''search using shop_name and parent_shop based on criteria that matches'''
+        if search_text:
+            self.queryset = shop_search(self.queryset, search_text)
+
+        '''Filters using parent_shop, shop_type, shop_owner, pin_code, city, status, approval_status'''
+        if shop_type:
+            self.queryset = self.queryset.filter(shop_type__id=shop_type)
+
+        if parent_shop:
+            self.queryset = self.queryset.filter(retiler_mapping__parent_id=parent_shop)
+
+        if shop_owner:
+            self.queryset = self.queryset.filter(shop_owner=shop_owner)
+
+        if pin_code:
+            self.queryset = self.queryset.filter(shop_name_address_mapping__pincode_link__id=pin_code)
+
+        if city:
+            self.queryset = self.queryset.filter(shop_name_address_mapping__city__id=city)
+
+        if status:
+            self.queryset = self.queryset.filter(status=status)
+
+        if approval_status:
+            self.queryset = self.queryset.filter(approval_status=approval_status)
+
+        return self.queryset.distinct('id')
 

@@ -23,6 +23,8 @@ from celery.task import task
 from django.http import JsonResponse
 from django.urls import reverse
 
+from retailer_to_sp.api.v1.views import pdf_generation
+from retailer_to_sp.common_model_functions import ShopCrateCommonFunctions
 from sp_to_gram.models import (
     OrderedProductReserved, OrderedProductMapping as SPOrderedProductMapping,
     OrderedProduct as SPOrderedProduct)
@@ -31,7 +33,8 @@ from retailer_to_sp.models import (CartProductMapping, Order, OrderedProduct, Or
                                    Shipment, populate_data_on_qc_pass, add_to_putaway_on_return,
                                    check_franchise_inventory_update, ShipmentNotAttempt, BASIC, ECOM,
                                    Shipment, populate_data_on_qc_pass, OrderedProductBatch, ShipmentPackaging,
-                                   add_to_putaway_on_return, check_franchise_inventory_update, ShipmentNotAttempt)
+                                   ShipmentNotAttempt, LastMileTripShipmentMapping, LastMileTripShipmentPackages,
+                                   Invoice, DispatchTripShipmentMapping, DispatchTrip, DispatchTripShipmentPackages)
 from products.models import Product
 from retailer_to_sp.forms import (
     OrderedProductForm, OrderedProductMappingShipmentForm,
@@ -60,6 +63,7 @@ from wms.views import shipment_out_inventory_change, shipment_reschedule_invento
 from pos.models import RetailerProduct
 from pos.common_functions import create_po_franchise
 from retailer_to_sp.common_function import getShopLicenseNumber, getShopCINNumber, getGSTINNumber, getShopPANNumber
+from zoho.models import ZohoInvoice
 
 logger = logging.getLogger('django')
 info_logger = logging.getLogger('file-info')
@@ -71,10 +75,14 @@ class ShipmentMergedBarcode(APIView):
     def get(self, request, *args, **kwargs):
         shipment_id_list = {}
         pk = self.kwargs.get('pk')
+        movement_type = self.request.GET.get('movement_type')
         shipment = OrderedProduct.objects.filter(pk=pk).last()
         if not shipment:
             return get_response("Shipment not found for pk: " + str(pk) + ".")
-        shipment_packagings = shipment.shipment_packaging.all()
+        if movement_type and movement_type == ShipmentPackaging.RETURNED:
+            shipment_packagings = shipment.shipment_packaging.filter(movement_type=ShipmentPackaging.RETURNED)
+        else:
+            shipment_packagings = shipment.shipment_packaging.filter(~Q(movement_type=ShipmentPackaging.RETURNED))
         pack_cnt = shipment_packagings.count()
         for cnt, packaging in enumerate(shipment_packagings):
             barcode_id = str("05" + str(packaging.id).zfill(10))
@@ -83,13 +91,15 @@ class ShipmentMergedBarcode(APIView):
             else:
                 pck_type_r_id = str(packaging.packaging_type)
             customer_city_pincode = str(shipment.order.city) + " / " + str(shipment.order.pincode)
-            route = "N/A"
+            route = str(shipment.order.buyer_shop.shop_routes.last().route.name) if \
+                shipment.order.buyer_shop and shipment.order.buyer_shop.shop_routes.exists() else "N/A"
+            dispatch_center = str(shipment.order.dispatch_center.pk) if \
+                shipment.order.dispatch_center else str(shipment.order.seller_shop.pk)
             shipment_count = str(str(cnt + 1) + " / " + str(pack_cnt))
             if not packaging.crate and packaging.packaging_details.exists():
                 quantity = str(packaging.packaging_details.last().quantity)
                 product_name = str(packaging.packaging_details.last().ordered_product.product.product_name)
-                if product_name and len(product_name) > 32:
-                    product_name = product_name[:32] + "..."
+                product_name = (product_name[:30] + '..') if len(product_name) > 30 else product_name
                 data = {shipment_count: pck_type_r_id,
                         shipment.order.order_no: customer_city_pincode,
                         product_name: quantity,
@@ -180,8 +190,8 @@ class DownloadCreditNote(APIView):
         sum_qty, sum_basic_amount, sum_amount, tax_inline, total_product_tax_amount = 0, 0, 0, 0, 0
         taxes_list, gst_tax_list, cess_tax_list, surcharge_tax_list = [], [], [], []
         igst, cgst, sgst, cess, surcharge = 0, 0, 0, 0, 0
-        tcs_rate = 0
-        tcs_tax = 0
+        tcs_rate = credit_note.shipment.invoice.tcs_percent
+        tcs_tax = credit_note.tcs_amount
         taxes_list = []
         gst_tax_list = []
         cess_tax_list = []
@@ -315,15 +325,7 @@ class DownloadCreditNote(APIView):
                 igst, cgst, sgst, cess, surcharge = sum(gst_tax_list), (sum(gst_tax_list)) / 2, (sum(gst_tax_list)) / 2, sum(cess_tax_list), sum(surcharge_tax_list)
 
         total_amount = sum_amount
-        # if float(total_amount) + float(paid_amount) > 5000000:
-        #     if gstinn2 == 'Unregistered':
-        #         tcs_rate = 1
-        #         tcs_tax = total_amount * decimal.Decimal(tcs_rate / 100)
-        #     else:
-        #         tcs_rate = 0.075
-        #         tcs_tax = total_amount * decimal.Decimal(tcs_rate / 100)
 
-        tcs_tax = round(tcs_tax, 2)
         sum_amount = sum_amount
         amount = total_amount
         total_amount = total_amount + tcs_tax
@@ -459,6 +461,7 @@ def ordered_product_mapping_shipment(request):
                 with transaction.atomic():
                     shipment = form.save()
                     shipment.shipment_status = 'SHIPMENT_CREATED'
+                    shipment.current_shop = order.seller_shop
                     shipment.save()
                     for forms in form_set:
                         if forms.is_valid():
@@ -577,6 +580,7 @@ def trip_planning(request):
             selected_shipments = form.cleaned_data.get('selected_id', None)
             if selected_shipments:
                 selected_shipments = selected_shipments.split(',')
+                create_update_last_mile_trip_shipment_mapping(trip.id, selected_shipments, request.user)
                 selected_shipments = Dispatch.objects.filter(
                     pk__in=selected_shipments)
                 selected_shipments.update(trip=trip, shipment_status='READY_TO_DISPATCH')
@@ -610,6 +614,48 @@ TRIP_ORDER_STATUS_MAP = {
     'STARTED': Order.DISPATCHED,
     'COMPLETED': Order.COMPLETED
 }
+
+
+def update_trip_package_count(trip_id):
+    trip = Trip.objects.filter(id=trip_id).last()
+    package_data = trip.get_package_data()
+    trip.no_of_crates = package_data['no_of_crates']
+    trip.no_of_packets = package_data['no_of_packs']
+    trip.no_of_sacks = package_data['no_of_sacks']
+    trip.save()
+
+
+def create_update_last_mile_trip_shipment_mapping(trip_id, shipment_ids, request_user):
+    removed_shipments = LastMileTripShipmentMapping.objects.filter(
+        ~Q(shipment_id__in=shipment_ids), ~Q(shipment_status=LastMileTripShipmentMapping.CANCELLED), trip_id=trip_id)
+    if removed_shipments:
+        for trip_shipment in removed_shipments:
+            if trip_shipment.shipment.shipment_status == OrderedProduct.READY_TO_DISPATCH:
+                trip_shipment.shipment.shipment_status = OrderedProduct.MOVED_TO_DISPATCH
+                trip_shipment.shipment.save()
+                trip_shipment.last_mile_trip_shipment_mapped_packages.all() \
+                    .update(package_status=LastMileTripShipmentPackages.CANCELLED, updated_by=request_user)
+        removed_shipments.update(shipment_status=LastMileTripShipmentMapping.CANCELLED, updated_by=request_user)
+
+    for shipment_id in shipment_ids:
+        if LastMileTripShipmentMapping.objects.filter(~Q(shipment_status=LastMileTripShipmentMapping.CANCELLED),
+                                                      trip_id=trip_id, shipment_id=shipment_id).exists():
+            trip_shipment = LastMileTripShipmentMapping.objects.filter(
+                ~Q(shipment_status=LastMileTripShipmentMapping.CANCELLED),
+                trip_id=trip_id, shipment_id=shipment_id).last()
+            LastMileTripShipmentMapping.objects.filter(
+                ~Q(shipment_status=LastMileTripShipmentMapping.CANCELLED), trip_id=trip_id, shipment_id=shipment_id).\
+                update(shipment_status=LastMileTripShipmentMapping.LOADED_FOR_DC, updated_by=request_user)
+        else:
+            trip_shipment = LastMileTripShipmentMapping.objects.create(
+                trip_id=trip_id, shipment_id=shipment_id, shipment_status=LastMileTripShipmentMapping.LOADED_FOR_DC,
+                created_by=request_user, updated_by=request_user)
+        LastMileTripShipmentPackages.objects.filter(trip_shipment=trip_shipment).delete()
+        for package in ShipmentPackaging.objects.filter(
+                shipment_id=shipment_id, status=ShipmentPackaging.DISPATCH_STATUS_CHOICES.READY_TO_DISPATCH):
+            LastMileTripShipmentPackages.objects.create(trip_shipment=trip_shipment, shipment_packaging=package,
+                                                        package_status=LastMileTripShipmentPackages.LOADED)
+    update_trip_package_count(trip_id)
 
 
 def trip_planning_change(request, pk):
@@ -665,7 +711,6 @@ def trip_planning_change(request, pk):
                         else:
                             trip_instance.rt_invoice_trip.all().update(
                                 shipment_status=TRIP_SHIPMENT_STATUS_MAP[current_trip_status])
-                            update_packages_on_shipment_status_change(trip_instance.rt_invoice_trip.all())
                         return redirect('/admin/retailer_to_sp/trip/')
 
                     if trip_status == Trip.READY:
@@ -675,13 +720,11 @@ def trip_planning_change(request, pk):
                             update_full_part_order_status(OrderedProduct.objects.get(id=shipment))
 
                         trip_instance.rt_invoice_trip.all().update(trip=None, shipment_status='MOVED_TO_DISPATCH')
-                        update_packages_on_shipment_status_change(trip_instance.rt_invoice_trip.all())
 
                     if current_trip_status == Trip.CANCELLED:
                         trip_instance.rt_invoice_trip.all().update(
                             shipment_status=TRIP_SHIPMENT_STATUS_MAP[current_trip_status], trip=None)
 
-                        update_packages_on_shipment_status_change(trip_instance.rt_invoice_trip.all())
                         # updating order status for shipments when trip is cancelled
                         trip_shipments = trip_instance.rt_invoice_trip.values_list('id', flat=True)
                         for shipment in trip_shipments:
@@ -706,14 +749,16 @@ def trip_planning_change(request, pk):
 
                     if selected_shipment_ids:
                         selected_shipment_list = selected_shipment_ids.split(',')
-                        selected_shipments = Dispatch.objects.filter(~Q(shipment_status='CANCELLED'),
-                                                                     pk__in=selected_shipment_list)
+                        selected_shipments = Dispatch.objects.filter(
+                            ~Q(shipment_status=OrderedProduct.CANCELLED), ~Q(order__order_status=Order.CANCELLED),
+                            pk__in=selected_shipment_list)
+                        create_update_last_mile_trip_shipment_mapping(
+                            trip_instance.pk, selected_shipments.values_list('id', flat=True), request.user)
 
                         shipment_out_inventory_change(selected_shipments, TRIP_SHIPMENT_STATUS_MAP[current_trip_status])
                         if current_trip_status not in ['COMPLETED', 'CLOSED']:
                             selected_shipments.update(shipment_status=TRIP_SHIPMENT_STATUS_MAP[current_trip_status],
                                                       trip=trip_instance)
-                            update_packages_on_shipment_status_change(selected_shipments)
                         # updating order status for shipments with respect to trip status
                         if current_trip_status in TRIP_ORDER_STATUS_MAP.keys():
                             Order.objects.filter(rt_order_order_product__in=selected_shipment_list).update(
@@ -746,6 +791,7 @@ class LoadDispatches(APIView):
     def get(self, request):
 
         seller_shop = request.GET.get('seller_shop_id')
+        source_shop = request.GET.get('source_shop_id')
         area = request.GET.get('area')
         trip_id = request.GET.get('trip_id')
         invoice_id = request.GET.get('invoice_no')
@@ -818,21 +864,28 @@ class LoadDispatches(APIView):
         # Exclude Not Attempted shipments
         not_attempt_dispatches = ShipmentNotAttempt.objects.values_list(
             'shipment', flat=True
-        ).filter(created_at__date=datetime.date.today(),
-                 shipment__shipment_status=OrderedProduct.NOT_ATTEMPT
+        ).filter(shipment__shipment_status=OrderedProduct.NOT_ATTEMPT).filter(
+            Q(created_at__date=datetime.date.today()) |
+            Q(shipment__last_mile_trip_shipment__trip__trip_status__in=[Trip.READY, Trip.STARTED, Trip.COMPLETED])
         )
         dispatches = dispatches.exclude(id__in=not_attempt_dispatches)
 
         # Exclude Rescheduled shipments
         reschedule_dispatches = ShipmentRescheduling.objects.values_list(
             'shipment', flat=True
-        ).filter(
-            ~Q(rescheduling_date__lte=datetime.date.today()),
-            shipment__shipment_status=OrderedProduct.RESCHEDULED
+        ).filter(shipment__shipment_status=OrderedProduct.RESCHEDULED).filter(
+            ~Q(rescheduling_date__lte=datetime.date.today()) |
+            Q(shipment__last_mile_trip_shipment__trip__trip_status__in=[Trip.READY, Trip.STARTED, Trip.COMPLETED])
         )
         dispatches = dispatches.exclude(id__in=reschedule_dispatches)
+        if source_shop and source_shop != seller_shop:
+            dispatches = dispatches.filter(order__dispatch_center_id=source_shop, current_shop=source_shop)
+        elif seller_shop:
+            dispatches = dispatches.filter(order__dispatch_center__isnull=True)
 
         if dispatches and commercial:
+            dispatches = dispatches.exclude(shipment_status__in=[OrderedProduct.NOT_ATTEMPT,
+                                            OrderedProduct.RESCHEDULED])
             serializer = CommercialShipmentSerializer(dispatches, many=True)
             msg = {'is_success': True,
                    'message': None,
@@ -1249,7 +1302,23 @@ def update_delivered_qty(instance, inline_form):
     instance.save()
 
 
+def release_dispatch_crates_used_in_shipment(shipment_instance):
+    info_logger.info(f"release_dispatch_crates|Start|Order No {shipment_instance.order.order_no} "
+                     f"|Shipment Id {shipment_instance.id}")
+    crates_used = shipment_instance.shipment_packaging.filter(
+        packaging_type=ShipmentPackaging.PACKAGING_TYPE_CHOICES.CRATE,
+        movement_type=ShipmentPackaging.DISPATCH).values_list('crate_id', flat=True)
+    info_logger.info(f"release_dispatch_crates|crates_used {list(crates_used)}|"
+                     f"Order No {shipment_instance.order.order_no}")
+    for crate_id in crates_used:
+        ShopCrateCommonFunctions.mark_crate_available(shipment_instance.current_shop.id, crate_id)
+        info_logger.info(f"release_dispatch_crates| Crate {crate_id} | Released at {shipment_instance.current_shop}")
+    info_logger.info(f"release_dispatch_crates|Done|Order No {shipment_instance.order.order_no}")
+
+
 def update_shipment_status_verified(form_instance, formset):
+    info_logger.info(f"update_shipment_status_verified|Shipment Id {form_instance.id}|"
+                     f"status {form_instance.shipment_status}")
     shipped_qty_list = []
     returned_qty_list = []
     damaged_qty_list = []
@@ -1273,9 +1342,9 @@ def update_shipment_status_verified(form_instance, formset):
 
         elif shipped_qty > (returned_qty + damaged_qty):
             form_instance.shipment_status = 'PARTIALLY_DELIVERED_AND_VERIFIED'
-
+        release_dispatch_crates_used_in_shipment(form_instance)
         form_instance.save()
-
+    info_logger.info(f"update_shipment_status_verified|Completed|Shipment Id {form_instance.id}")
 
 # def update_order_status(close_order_checked, shipment_id):
 #     shipment = OrderedProduct.objects.get(pk=shipment_id)
@@ -1590,10 +1659,11 @@ class OrderCancellation(object):
         self.order_status = instance.order_status
         self.order_shipments_count = instance.rt_order_order_product.count()
         if self.order_shipments_count:
+            self.last_shipment_instance = instance.rt_order_order_product.last()
             self.last_shipment = list(self.get_shipment_queryset())[-1]
             self.shipments_id_list = [i['id'] for i in self.get_shipment_queryset()]
             self.last_shipment_status = self.last_shipment.get('shipment_status')
-            self.trip_status = self.last_shipment.get('trip__trip_status')
+            self.trip_status = self.last_shipment.get('last_mile_trip_shipment__trip__trip_status')
             self.last_shipment_id = self.last_shipment.get('id')
             self.seller_shop_id = self.last_shipment.get('order__seller_shop__id')
             self.cart = self.last_shipment.get('order__ordered_cart_id')
@@ -1602,9 +1672,13 @@ class OrderCancellation(object):
 
     def get_shipment_queryset(self):
         q = self.order.rt_order_order_product.values(
-            'id', 'shipment_status', 'trip__trip_status',
+            'id', 'shipment_status', 'trip__trip_status', 'last_mile_trip_shipment__trip__trip_status',
             'order__seller_shop__id', 'order__ordered_cart_id')
         return q
+
+    def cancel_shipment(self):
+        self.last_shipment_instance.shipment_status = 'CANCELLED'
+        self.last_shipment_instance.save()
 
     def get_shipment_products(self, shipment_id_list):
         shipment_products = OrderedProductMapping.objects \
@@ -1642,7 +1716,7 @@ class OrderCancellation(object):
         credit_note = Note.objects.create(shop_id=self.seller_shop_id,
                                           credit_note_id=note_id,
                                           shipment_id=self.last_shipment_id,
-                                          amount=0, status=True)
+                                          amount=0, note_total=0, status=True)
         # creating SP GRN
         credit_grn = SPOrderedProduct.objects.create(credit_note=credit_note)
 
@@ -1658,6 +1732,9 @@ class OrderCancellation(object):
 
         # update credit note amount
         credit_note.amount = credit_amount
+        tcs_percent = self.last_shipment_instance.invoice.tcs_percent / 100
+        credit_note.tcs_amount = credit_amount * tcs_percent
+        credit_note.note_total = credit_amount * (1 + tcs_percent)
         credit_note.save()
 
     def update_sp_qty_from_cart_or_shipment(self):
@@ -1671,6 +1748,24 @@ class OrderCancellation(object):
 
         # reserved_qty_queryset.update(reserve_status=OrderedProductReserved.ORDER_CANCELLED)
 
+    def mark_trip_mapping_cancelled(self):
+        trip_shipment = LastMileTripShipmentMapping.objects.filter(
+            shipment=self.last_shipment_id, trip__trip_status=Trip.READY).last()
+        if trip_shipment:
+            all_mapped_packages = trip_shipment.last_mile_trip_shipment_mapped_packages.all()
+            all_mapped_packages.update(package_status=LastMileTripShipmentPackages.CANCELLED)
+            trip_shipment.shipment_status = LastMileTripShipmentMapping.CANCELLED
+            trip_shipment.save()
+
+    def mark_dispatch_trip_mapping_cancelled(self):
+        trip_shipment = DispatchTripShipmentMapping.objects.filter(
+            shipment=self.last_shipment_id, trip__trip_status=DispatchTrip.NEW).last()
+        if trip_shipment:
+            all_mapped_packages = trip_shipment.trip_shipment_mapped_packages.all()
+            all_mapped_packages.update(package_status=DispatchTripShipmentPackages.CANCELLED)
+            trip_shipment.shipment_status = DispatchTripShipmentMapping.CANCELLED
+            trip_shipment.save()
+
     def cancel(self):
         # check if order associated with any shipment
 
@@ -1682,24 +1777,30 @@ class OrderCancellation(object):
             if (self.last_shipment_status in ['SHIPMENT_CREATED', 'QC_STARTED', 'READY_TO_SHIP'] and
                     not self.trip_status):
                 self.update_sp_qty_from_cart_or_shipment()
-                self.get_shipment_queryset().update(shipment_status='CANCELLED')
+                # self.get_shipment_queryset().update(shipment_status='CANCELLED')
+                self.cancel_shipment()
 
             # if invoice created but shipment is not added to trip
             # cancel order and generate credit note
             elif (self.last_shipment_status in
-                  [OrderedProduct.MOVED_TO_DISPATCH, OrderedProduct.RESCHEDULED, OrderedProduct.NOT_ATTEMPT] and
-                  not self.trip_status):
+                  [OrderedProduct.MOVED_TO_DISPATCH, OrderedProduct.RESCHEDULED, OrderedProduct.NOT_ATTEMPT]):
                 self.generate_credit_note(order_closed=self.order.order_closed)
                 # updating shipment status
-                self.get_shipment_queryset().update(shipment_status='CANCELLED')
+                # self.get_shipment_queryset().update(shipment_status='CANCELLED')
+                self.cancel_shipment()
 
             elif self.trip_status and self.trip_status == Trip.READY:
                 # cancel order and generate credit note and
                 # remove shipment from trip
                 self.generate_credit_note(order_closed=self.order.order_closed)
                 # updating shipment status and remove trip
-                self.get_shipment_queryset().update(
-                    shipment_status='CANCELLED', trip=None)
+                # self.get_shipment_queryset().update(shipment_status='CANCELLED', trip=None)
+
+                # Mark All Last mile trip mappings as Cancelled
+                self.mark_trip_mapping_cancelled()
+                # Mark All Dispatch mile trip mappings as Cancelled
+                self.mark_dispatch_trip_mapping_cancelled()
+                self.cancel_shipment()
             else:
                 # can't cancel the order
                 pass
@@ -1928,11 +2029,13 @@ def create_shipment(sender, instance=None, created=False, **kwargs):
 
 @transaction.atomic
 def create_order_shipment(order_instance):
+
     info_logger.info(f"create_order_shipment|order no{order_instance.order_no}")
     if OrderedProduct.objects.filter(order=order_instance).exists():
         info_logger.info(f"create_order_shipment|shipment already created for {order_instance.order_no}")
         return
-    shipment = OrderedProduct(order=order_instance, qc_area=order_instance.picker_order.last().qc_area)
+    shipment = OrderedProduct(order=order_instance, current_shop=order_instance.seller_shop,
+                              qc_area=order_instance.picker_order.last().qc_area)
     shipment.save()
     products_picked = Pickup.objects.filter(pickup_type_id=order_instance.order_no, status='picking_complete')\
         .prefetch_related('sku', 'bin_inventory','bin_inventory__bin__bin')
@@ -1987,20 +2090,32 @@ def create_order_shipment(order_instance):
     info_logger.info(f"create_order_shipment|shipment created|order no{order_instance.order_no}")
 
 
-def update_shipment_package_status(shipment_instance):
-    if shipment_instance.shipment_status == OrderedProduct.OUT_FOR_DELIVERY:
-        shipment_instance.shipment_packaging.filter(status=ShipmentPackaging.DISPATCH_STATUS_CHOICES.READY_TO_DISPATCH) \
-            .update(status=ShipmentPackaging.DISPATCH_STATUS_CHOICES.DISPATCHED)
-    elif shipment_instance.shipment_status == OrderedProduct.MOVED_TO_DISPATCH:
-        shipment_instance.shipment_packaging.filter(status=ShipmentPackaging.DISPATCH_STATUS_CHOICES.DISPATCHED) \
-            .update(status=ShipmentPackaging.DISPATCH_STATUS_CHOICES.READY_TO_DISPATCH)
-    elif shipment_instance.shipment_status in [OrderedProduct.FULLY_DELIVERED_AND_VERIFIED,
-                                      OrderedProduct.FULLY_RETURNED_AND_VERIFIED,
-                                      OrderedProduct.PARTIALLY_DELIVERED_AND_VERIFIED]:
-        shipment_instance.shipment_packaging.filter(status=ShipmentPackaging.DISPATCH_STATUS_CHOICES.DISPATCHED) \
-            .update(status=ShipmentPackaging.DISPATCH_STATUS_CHOICES.DELIVERED)
+class SourceShopAutocomplete(autocomplete.Select2QuerySetView):
+    def get_queryset(self, *args, **kwargs):
+        if not self.request.user.is_authenticated:
+            return Shop.objects.none()
+
+        seller_shop_id = self.forwarded.get('seller_shop', None)
+        qs = Shop.objects.filter(Q(id=seller_shop_id)|Q(shop_type__shop_type='dc', retiler_mapping__status=True,
+                                                        retiler_mapping__parent_id=seller_shop_id))
+
+        if self.q:
+            qs = qs.filter(shop_name__icontains=self.q)
+        return qs
 
 
-def update_packages_on_shipment_status_change(shipments):
-    for instance in shipments:
-        update_shipment_package_status(instance)
+@transaction.atomic
+def generate_e_invoice():
+    info_logger.info('generate_e_invoice| Started')
+    try:
+        zoho_invoices = ZohoInvoice.objects.filter(e_invoice_status='Pushed', e_invoice_pdf_generated=False,
+                                                   e_invoice_qr_raw_data__isnull=False)
+        invoice_number_list = zoho_invoices.values_list('invoice_number', flat=True)
+        info_logger.info(f'generate_e_invoice| Invoice Count {len(invoice_number_list)} ')
+        invoices = Invoice.objects.filter(invoice_no__in=invoice_number_list)
+        invoices.update(invoice_pdf=None)
+        zoho_invoices.update(e_invoice_pdf_generated=True)
+        info_logger.info('generate_e_invoice| Completed')
+    except Exception as e:
+        info_logger.error(e)
+        info_logger.error('generate_e_invoice| Failed')

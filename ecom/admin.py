@@ -7,10 +7,12 @@ from django.urls import reverse
 
 
 from marketing.filters import PosBuyerFilter
+from pos.filters import ShopFilter
 from retailer_to_sp.admin import OrderIDFilter, SellerShopFilter
 from retailer_to_sp.models import Order
 
-from .models import Address, Tag, TagProductMapping, EcomCart, EcomCartProductMapping, EcomOrderedProductMapping, EcomOrderedProduct
+from .models import Address, Tag, TagProductMapping, EcomCart, EcomCartProductMapping, EcomOrderedProductMapping, \
+    EcomOrderedProduct, ShopUserLocationMappedLog
 from ecom.utils import generate_ecom_order_csv_report
 from .forms import TagProductForm
 from ecom.views import DownloadEcomOrderInvoiceView
@@ -98,10 +100,11 @@ class Seller_SHOP(SimpleListFilter):
         else:
             return queryset
 
+
 class EcomOrderProductAdmin(admin.ModelAdmin):
     search_fields = ('order_no', 'rt_order_order_product__invoice__invoice_no')
     list_per_page = 10
-    list_display = ('order_no', 'order_status', 'buyer_address', 'invoice_no', 'download_invoice', 'created_at')
+    list_display = ('order_no', 'order_status', 'buyer_address', 'invoice_no', 'download_invoice', 'created_at',)
 
     actions = ['download_order_reports']
 
@@ -110,7 +113,8 @@ class EcomOrderProductAdmin(admin.ModelAdmin):
             'fields': ('seller_shop',)}),
 
         (_('Order Details'), {
-            'fields': ('id', 'order_no', 'invoice_no', 'order_status','order_cancellation_reason', 'buyer', 'buyer_address')}),
+            'fields': ('id', 'order_no', 'invoice_no', 'order_status', 'order_cancellation_reason', 'buyer',
+                       'buyer_address', )}),
 
         (_('Amount Details'), {
             'fields': ('sub_total', 'offer_discount', 'reward_discount', 'order_amount')}),
@@ -131,7 +135,10 @@ class EcomOrderProductAdmin(admin.ModelAdmin):
         return obj.ordered_cart.subtotal
 
     def offer_discount(self, obj):
-        return obj.ordered_cart.offer_discount
+        try:
+            return obj.ordered_cart.offer_discount
+        except:
+            return float(0)
 
     def reward_discount(self, obj):
         return obj.ordered_cart.redeem_points_value
@@ -287,5 +294,30 @@ class EcommerceTripAdmin(admin.ModelAdmin):
         return False
 
 
+class ShopUserLocationMappedLogAdmin(admin.ModelAdmin):
+    fields = ('shop', 'user', 'modified_at', )
+    list_display = ('shop', 'user', 'modified_at', )
+    list_filter = [ShopFilter, ('modified_at', DateRangeFilter)]
+    search_fields = ('user__phone_number', 'user__first_name', 'user__last_name',)
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    class Media:
+        pass
+
+
 admin.site.register(EcomOrderedProduct, EcomOrderProductAdmin)
 admin.site.register(EcomCart, EcomCartAdmin)
+admin.site.register(ShopUserLocationMappedLog, ShopUserLocationMappedLogAdmin)
+
+
+
+
+

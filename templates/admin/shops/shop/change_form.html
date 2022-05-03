@@ -32,9 +32,11 @@
                 shop_type = $("#id_shop_type").children("option:selected").text();
                 if (shop_type == 'Franchise - foco' || shop_type == 'Franchise - fofo'){
                     $('.field-pos_enabled').removeClass('hidden');
+                    $('.field-enable_loyalty_points').removeClass('hidden');
                 }
                 else {
                     $('.field-pos_enabled').addClass('hidden');
+                    $('.field-enable_loyalty_points').addClass('hidden');
                     {#$('.field-latitude').addClass('hidden');#}
                     {#$('.field-longitude').addClass('hidden');#}
                     $('#id_pos_enabled').prop("checked", false);
@@ -46,6 +48,22 @@
 
             document.getElementById('id_shop_type').onchange = function() {
                 enableForPosAction();
+            };
+            function disapprovalReasonAction () {
+                approval_status = $("#id_approval_status").children("option:selected").text();
+                disapproval_status_reason = $("#id_disapproval_status_reason").children("option:selected").val();
+                if (approval_status == 'Disapproved'){
+                    $('.field-disapproval_status_reason').removeClass('hidden');
+                }
+                else {
+                    $('.field-disapproval_status_reason').addClass('hidden');
+                }
+            }
+
+            disapprovalReasonAction();
+
+            document.getElementById('id_approval_status').onchange = function() {
+                disapprovalReasonAction();
             };
         });
 

@@ -7,6 +7,7 @@ import collections, decimal
 from django.db.models.query import InstanceCheckMeta
 
 from django.forms import BaseInlineFormSet
+from django.db import transaction
 
 from dal import autocomplete, forward
 from django import forms
@@ -24,8 +25,9 @@ from tempus_dominus.widgets import DateTimePicker
 
 from addresses.models import City, Pincode, State
 from brand.models import Brand, Vendor
-from categories.models import Category
+from categories.models import Category, B2cCategory
 from global_config.views import get_config
+from products.common_function import generate_tax_group_name_by_the_mapped_taxes
 from products.models import (Color, Flavor, Fragrance, PackageSize, Product,
                              ProductImage, ProductPrice,
                              ProductVendorMapping, Size, Tax,
@@ -33,7 +35,7 @@ from products.models import (Color, Flavor, Fragrance, PackageSize, Product,
                              Repackaging, ParentProduct, ProductHSN, ProductSourceMapping,
                              DestinationRepackagingCostMapping, ParentProductImage, ProductCapping,
                              ParentProductCategory, PriceSlab, SlabProductPrice, ProductPackingMapping,
-                             DiscountedProductPrice)
+                             DiscountedProductPrice, TaxGroup)
 from retailer_backend.utils import isDateValid, getStrToDate, isBlankRow
 from retailer_backend.validators import *
 from shops.models import Shop, ShopType
@@ -431,7 +433,7 @@ class ParentProductForm(forms.ModelForm):
 
     class Meta:
         model = ParentProduct
-        fields = ('parent_brand', 'name', 'product_hsn',
+        fields = ('parent_brand', 'name', 'product_hsn', 'tax_status', 'tax_remark',
                   'brand_case_size', 'inner_case_size',
                   'product_type', 'is_ptr_applicable', 'ptr_percent', 'ptr_type', 'is_ars_applicable', 'max_inventory',
                   'is_lead_time_applicable', 'discounted_life_percent','product_discription')
@@ -450,6 +452,10 @@ class ParentProductForm(forms.ModelForm):
                 raise ValidationError(_('Invalid PTR Percentage'))
 
         return cleaned_data
+
+    @transaction.atomic
+    def save(self, *args, **kwargs):
+        return super().save(*args, **kwargs)
 
 
 class UploadParentProductAdminForm(forms.Form):
@@ -472,7 +478,7 @@ class UploadParentProductAdminForm(forms.Form):
                 continue
             if '' in row:
                 if (row[0] == '' and row[1] == '' and row[2] == '' and row[3] == '' and row[4] == '' and
-                        row[5] == '' and row[6] == '' and row[7] == '' and row[8] == '' and row[9] == ''):
+                        row[5] == '' and row[6] == '' and row[7] == '' and row[8] == '' and row[9] == '' and row[10] == ''):
                     continue
             if not row[0]:
                 raise ValidationError(_(f"Row {row_id + 2} | 'Parent Name' can not be empty."))
@@ -483,39 +489,48 @@ class UploadParentProductAdminForm(forms.Form):
             elif not Brand.objects.filter(brand_name=row[1].strip()).exists():
                 raise ValidationError(_(f"Row {row_id + 2} | 'Brand' doesn't exist in the system."))
             if not row[2]:
-                raise ValidationError(_(f"Row {row_id + 2} | 'Category' can not be empty."))
-            else:
-                if not Category.objects.filter(category_name=row[2].strip()).exists():
-                    categories = row[2].split(',')
-                    for cat in categories:
-                        cat = cat.strip().replace("'", '')
-                        if not Category.objects.filter(category_name=cat).exists():
-                            raise ValidationError(
-                                _(f"Row {row_id + 2} | 'Category' {cat.strip()} doesn't exist in the system."))
+                raise ValidationError(_(f"Row {row_id + 2} | 'B2B Categories' can not be empty."))
             if not row[3]:
-                raise ValidationError(_(f"Row {row_id + 2} | 'HSN' can not be empty."))
-            elif not ProductHSN.objects.filter(product_hsn_code=row[3].replace("'", '')).exists():
-                raise ValidationError(_(f"Row {row_id + 2} | 'HSN' doesn't exist in the system."))
+                raise ValidationError(_(f"Row {row_id + 2} | 'B2C Categories' can not be empty."))
+            if row[2] and not Category.objects.filter(category_name=row[2].strip()).exists():
+                categories = row[2].split(',')
+                for cat in categories:
+                    cat = cat.strip().replace("'", '')
+                    if not Category.objects.filter(category_name=cat).exists():
+                        raise ValidationError(
+                            _(f"Row {row_id + 2} | 'B2b Category' {cat.strip()} doesn't exist in the system."))
+            if row[3] and not B2cCategory.objects.filter(category_name=row[3].strip()).exists():
+                categories = row[3].split(',')
+                for cat in categories:
+                    cat = cat.strip().replace("'", '')
+                    if not B2cCategory.objects.filter(category_name=cat).exists():
+                        raise ValidationError(
+                            _(f"Row {row_id + 2} | 'B2c Category' {cat.strip()} doesn't exist in the system."))
             if not row[4]:
+                raise ValidationError(_(f"Row {row_id + 2} | 'HSN' can not be empty."))
+            elif not ProductHSN.objects.filter(product_hsn_code=row[4].replace("'", '')).exists():
+                raise ValidationError(_(f"Row {row_id + 2} | 'HSN' doesn't exist in the system."))
+            if not row[5]:
                 raise ValidationError(_(f"Row {row_id + 2} | 'GST' can not be empty."))
-            elif not re.match("^([0]|[5]|[1][2]|[1][8]|[2][8])(\s+)?(%)?$", row[4]):
+            elif not re.match("^([0]|[5]|[1][2]|[1][8]|[2][8])(\s+)?(%)?$", row[5]):
                 raise ValidationError(_(f"Row {row_id + 2} | 'GST' can only be 0, 5, 12, 18, 28."))
-            if row[5] and not re.match("^([0]|[1][2])(\s+)?%?$", row[5]):
+            print(row[6])
+            if row[6] and not re.match("^([0]|[1][2])(\s+)?%?$", row[6]):
                 raise ValidationError(_(f"Row {row_id + 2} | 'CESS' can only be 0, 12."))
-            if row[6] and not re.match("^[0-9]\d*(\.\d{1,2})?(\s+)?%?$", row[6]):
+            if row[7] and not re.match("^[0-9]\d*(\.\d{1,2})?(\s+)?%?$", row[7]):
                 raise ValidationError(_(f"Row {row_id + 2} | 'Surcharge' can only be a numeric value."))
-            if not row[7]:
-                raise ValidationError(_(f"Row {row_id + 2} | 'Brand Case Size' can not be empty."))
-            elif not re.match("^\d+$", row[7]):
-                raise ValidationError(_(f"Row {row_id + 2} | 'Brand Case Size' can only be a numeric value."))
             if not row[8]:
-                raise ValidationError(_(f"Row {row_id + 2} | 'Inner Case Size' can not be empty."))
+                raise ValidationError(_(f"Row {row_id + 2} | 'Brand Case Size' can not be empty."))
             elif not re.match("^\d+$", row[8]):
-                raise ValidationError(_(f"Row {row_id + 2} | 'Inner Case Size' can only be a numeric value."))
+                raise ValidationError(_(f"Row {row_id + 2} | 'Brand Case Size' can only be a numeric value."))
             if not row[9]:
+                raise ValidationError(_(f"Row {row_id + 2} | 'Inner Case Size' can not be empty."))
+            elif not re.match("^\d+$", row[9]):
+                raise ValidationError(_(f"Row {row_id + 2} | 'Inner Case Size' can only be a numeric value."))
+            if not row[10]:
                 raise ValidationError(_(f"Row {row_id + 2} | 'Product Type' can not be empty."))
-            elif row[9].lower() not in ['b2b', 'b2c', 'both', 'both b2b and b2c']:
-                raise ValidationError(_(f"Row {row_id + 2} | 'GST' can only be 'B2B', 'B2C', 'Both B2B and B2C'."))
+            elif row[10].lower() not in ['both', 'both b2b and b2c']:
+                raise ValidationError(_(f"Row {row_id + 2} | 'Product Type' can only 'Both B2B and B2C'."))
         return self.cleaned_data['file']
 
 
@@ -2774,3 +2789,37 @@ class DiscountedProductPriceSlabCreationForm(forms.ModelForm):
             raise ValidationError('Invalid Selling Price')
 
         return data
+
+
+class TaxGroupForm(forms.ModelForm):
+    class Meta:
+        model = TaxGroup
+        fields = ('name', 'zoho_id',)
+
+    def clean(self):
+        if self.cleaned_data['name']:
+            if TaxGroup.objects.filter(name=self.cleaned_data['name']).exists():
+                raise ValidationError('Same Tax group already exist.')
+        return
+
+
+class TaxGroupFormSet(BaseInlineFormSet):
+    def clean(self):
+        super(TaxGroupFormSet, self).clean()
+        tax_ids = []
+        tax_types_added = []
+        non_empty_forms = 0
+        for form in self:
+            if form.cleaned_data and form.cleaned_data.get('tax'):
+                non_empty_forms += 1
+                if form.cleaned_data['tax'].tax_type in tax_types_added:
+                    raise ValidationError("This type of tax already exists in the group!")
+                tax_types_added.append(form.cleaned_data['tax'].tax_type)
+                tax_ids.append(form.cleaned_data['tax'].id)
+
+        if non_empty_forms - len(self.deleted_forms) < 1:
+            raise ValidationError("Please add atleast one tax to group!")
+
+        if TaxGroup.objects.filter(
+                name=generate_tax_group_name_by_the_mapped_taxes(Tax.objects.filter(id__in=tax_ids), self.cleaned_data[0]['tax_group'].is_igst)).exists():
+            raise ValidationError('Same Tax group already exist.')

@@ -1,7 +1,7 @@
 import datetime
 import logging
 
-from django.db.models.signals import post_save
+from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
 
 from global_config.views import get_config
@@ -12,7 +12,8 @@ from sp_to_gram.models import (Cart as SpPO, CartProductMapping as SpPOProducts,
 from whc.models import AutoOrderProcessing
 from wms.common_functions import InCommonFunctions
 from wms.models import InventoryType
-from .models import BrandNote, GRNOrderProductMapping, GRNOrder, Cart, Order
+from .models import BrandNote, GRNOrderProductMapping, GRNOrder, Cart, Order, CartProductMapping, \
+    CartProductMappingTaxLog
 from .views import mail_to_vendor_on_po_approval
 
 logger = logging.getLogger(__name__)
@@ -58,6 +59,15 @@ def create_grn_id(sender, instance=None, created=False, **kwargs):
         activity_type = "STOCK_IN"
         # from notification_center.utils import SendNotification
         # SendNotification(user_id=user_id, activity_type=activity_type, data=data).send()
+
+
+@receiver(pre_save, sender=CartProductMapping)
+def add_tax_change_log(sender, instance, update_fields=None, ** kwargs):
+    old_instance = CartProductMapping.objects.filter(id=instance.id).last()
+    if old_instance and (old_instance.gst != instance.gst or old_instance.cess != instance.cess):
+        CartProductMappingTaxLog.objects.create(
+            cart_product_mapping=instance, existing_gst=old_instance.gst, existing_cess=old_instance.cess,
+            new_gst=instance.gst, new_cess=instance.cess, created_by=instance.cart.last_modified_by)
 
 
 @receiver(post_save, sender=GRNOrderProductMapping)
@@ -137,7 +147,8 @@ def create_debit_note(sender, instance=None, created=False, **kwargs):
                         weight = int(instance.delivered_qty) * instance.product.weight_value
                     in_obj = InCommonFunctions.create_in(
                         shop.retailer, 'GRN', instance.grn_order.grn_id, instance.product, instance.batch_id,
-                        int(instance.delivered_qty), putaway_quantity, type_normal, weight, instance.manufacture_date)
+                        int(instance.delivered_qty), putaway_quantity, type_normal, weight, instance.manufacture_date,
+                        instance.grn_order.id)
 
         # ends here
         instance.available_qty = 0

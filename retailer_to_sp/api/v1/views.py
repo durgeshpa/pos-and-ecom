@@ -2,7 +2,7 @@ import logging
 import math
 import re
 import json
-
+import codecs
 from django.http import HttpResponse
 from datetime import date as datetime_date
 from datetime import datetime, timedelta
@@ -10,17 +10,17 @@ from decimal import Decimal
 from hashlib import sha512
 from operator import itemgetter
 
-import requests
-from decouple import config
+from django.contrib.auth import get_user_model
+from django.contrib.auth.models import Group
 from django.core import validators
 from django.core.exceptions import ObjectDoesNotExist
-from django.db.models import F, Sum, Q, Case, When, Value
+from django.db.models import F, Sum, Q, Case, When, Value, FloatField
 from django.core.files.base import ContentFile
-from django.db import transaction
-from django.contrib.auth import get_user_model
+from django.db import transaction, models
+from django.db.models import F, Sum, Q, Count, Value, Case, When, Subquery
+from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from django.shortcuts import render
-from elasticsearch import Elasticsearch
 from num2words import num2words
 from rest_framework import status, generics, permissions, authentication
 from rest_framework.generics import GenericAPIView
@@ -32,35 +32,15 @@ from wkhtmltopdf.views import PDFTemplateResponse
 from accounts.api.v1.serializers import PosUserSerializer, PosShopUserSerializer
 from addresses.models import Address, City, Pincode
 from audit.views import BlockUnblockProduct
-from barCodeGenerator import barcodeGen
-from global_config.views import get_config
-from shops.api.v1.serializers import ShopBasicSerializer
-from wms.common_validators import validate_id, validate_data_format, validate_shipment
-from wms.services import check_whc_manager_coordinator_supervisor_qc_executive, shipment_search, \
-    check_whc_manager_dispatch_executive, check_qc_dispatch_executive, check_dispatch_executive
-
-from .serializers import (ProductsSearchSerializer, CartSerializer, OrderSerializer,
-                          CustomerCareSerializer, OrderNumberSerializer, GramPaymentCodSerializer,
-                          GramMappedCartSerializer, GramMappedOrderSerializer,
-                          OrderDetailSerializer, OrderedProductSerializer, OrderedProductMappingSerializer,
-                          RetailerShopSerializer, SellerOrderListSerializer, OrderListSerializer,
-                          ReadOrderedProductSerializer, FeedBackSerializer,
-                          ShipmentDetailSerializer, TripSerializer, ShipmentSerializer, PickerDashboardSerializer,
-                          ShipmentReschedulingSerializer, ShipmentReturnSerializer, ParentProductImageSerializer,
-                          ShopSerializer, ShipmentProductSerializer, RetailerOrderedProductMappingSerializer,
-                          ShipmentQCSerializer, ShipmentPincodeFilterSerializer, CitySerializer,
-                          DispatchItemsSerializer, DispatchDashboardSerializer, ShipmentNotAttemptSerializer
-                          )
-
-from retailer_to_sp.models import (Cart, CartProductMapping, CreditNote, Order, OrderedProduct, Payment, CustomerCare,
-                                   Feedback, OrderedProductMapping as ShipmentProducts, Trip, PickerDashboard,
-                                   ShipmentRescheduling, Note, OrderedProductBatch,
-                                   OrderReturn, ReturnItems, OrderedProductMapping, ShipmentPackaging, RoundAmount)
-from shops.models import Shop, ParentRetailerMapping, ShopUserMapping, ShopMigrationMapp, PosShopUserMapping
+from barCodeGenerator import barcodeGen, qrCodeGen
+from global_config.views import get_config, get_config_fofo_shops
+from pos.payU_payment import send_request_refund
+from shops.models import Shop, ParentRetailerMapping, ShopUserMapping, ShopMigrationMapp, PosShopUserMapping, FOFOConfig
 from brand.models import Brand
 from categories import models as categorymodel
 from common.common_utils import (create_file_name, single_pdf_file, create_merge_pdf_name, merge_pdf_files,
-                                 create_invoice_data, whatsapp_opt_in, whatsapp_order_cancel, whatsapp_order_refund)
+                                 create_invoice_data, whatsapp_opt_in, whatsapp_order_cancel, whatsapp_order_refund, 
+                                 whatsapp_order_delivered)
 from common.constants import PREFIX_CREDIT_NOTE_FILE_NAME, ZERO, PREFIX_INVOICE_FILE_NAME, INVOICE_DOWNLOAD_ZIP_NAME
 from common.data_wrapper_view import DataWrapperViewSet
 from coupon.models import Coupon, CusotmerCouponUsage
@@ -81,7 +61,6 @@ from pos.api.v1.serializers import (BasicCartSerializer, BasicCartListSerializer
                                     RetailerProductResponseSerializer, PosShopUserMappingListSerializer,
                                     PaymentTypeSerializer, PosEcomOrderDetailSerializer,
                                     RetailerOrderedDashBoardSerializer, PosEcomShopSerializer)
-
 from pos.common_functions import (api_response, delete_cart_mapping, ORDER_STATUS_MAP, RetailerProductCls,
                                   update_customer_pos_cart, PosInventoryCls, RewardCls, serializer_error,
                                   check_pos_shop, PosAddToCart, PosCartCls, ONLINE_ORDER_STATUS_MAP,
@@ -94,40 +73,76 @@ from pos.tasks import update_es, order_loyalty_points_credit
 from products.models import ProductPrice, ProductOption, Product
 from retailer_backend.common_function import getShopMapping, checkNotShopAndMapping
 from retailer_backend.messages import ERROR_MESSAGES
-from retailer_backend.settings import AWS_MEDIA_URL, es
 from retailer_backend.utils import SmallOffsetPagination
 from retailer_to_gram.models import (Cart as GramMappedCart, CartProductMapping as GramMappedCartProductMapping,
                                      Order as GramMappedOrder)
-from retailer_to_sp.common_function import check_date_range, capping_check, generate_credit_note_id
+from retailer_to_sp.common_function import check_date_range, capping_check, generate_credit_note_id, \
+    get_logged_user_wise_query_set_for_trip_invoices
+from retailer_to_sp.common_function import dispatch_trip_search, trip_search
 from retailer_to_sp.common_function import getShopLicenseNumber, getShopCINNumber, getGSTINNumber, getShopPANNumber
-from retailer_to_sp.models import (ShipmentNotAttempt)
+from retailer_to_sp.models import (Cart, CartProductMapping, CreditNote, Order, OrderedProduct, Payment, CustomerCare,
+                                   Feedback, OrderedProductMapping as ShipmentProducts, Trip, PickerDashboard,
+                                   ShipmentRescheduling, Note, OrderedProductBatch,
+                                   OrderReturn, ReturnItems, OrderedProductMapping, ShipmentPackaging,
+                                   DispatchTrip, DispatchTripShipmentMapping, INVOICE_AVAILABILITY_CHOICES,
+                                   DispatchTripShipmentPackages, LastMileTripShipmentMapping, PACKAGE_VERIFY_CHOICES,
+                                   DispatchTripCrateMapping, ShipmentPackagingMapping, TRIP_TYPE_CHOICE, ShopCrate,
+                                   LastMileTripShipmentPackages, ShipmentNotAttempt, RoundAmount)
 from retailer_to_sp.tasks import send_invoice_pdf_email
+from shops.api.v1.serializers import ShopBasicSerializer
 from sp_to_gram.models import OrderedProductReserved
-from sp_to_gram.tasks import es_search, upload_shop_stock
-
+from sp_to_gram.tasks import es_search, upload_shop_stock, upload_all_products_in_es
 from wms.common_functions import OrderManagement, get_stock, is_product_not_eligible, get_response, \
-    get_logged_user_wise_query_set_for_shipment, get_logged_user_wise_query_set_for_dispatch
-from wms.common_functions import OrderManagement, get_stock, is_product_not_eligible
-from wms.common_validators import validate_data_format, validate_id
-from wms.models import OrderReserveRelease, InventoryType, PosInventoryState, PosInventoryChange
-from ...common_validators import validate_shipment_dispatch_item
-from wms.views import shipment_not_attempt_inventory_change
-from wms.views import shipment_reschedule_inventory_change
-from .serializers import (ProductsSearchSerializer, CartSerializer, OrderSerializer, CustomerCareSerializer,
-                          OrderNumberSerializer, GramPaymentCodSerializer, GramMappedCartSerializer,
-                          GramMappedOrderSerializer, OrderDetailSerializer, OrderedProductSerializer,
-                          OrderedProductMappingSerializer, RetailerShopSerializer, SellerOrderListSerializer,
-                          OrderListSerializer, ReadOrderedProductSerializer, FeedBackSerializer,
+    get_logged_user_wise_query_set_for_shipment, get_logged_user_wise_query_set_for_dispatch, \
+    get_logged_user_wise_query_set_for_dispatch_trip, get_logged_user_wise_query_set_for_dispatch_crates, \
+    get_logged_user_wise_query_set_for_shipment_packaging
+from wms.common_validators import validate_id, validate_data_format, validate_data_days_date_request, validate_shipment
+from retailer_backend.settings import AWS_MEDIA_URL
+from wms.models import OrderReserveRelease, InventoryType, PosInventoryState, PosInventoryChange, Crate
+from zoho.models import ZohoInvoice
+
+from wms.views import shipment_not_attempt_inventory_change, shipment_reschedule_inventory_change
+from .serializers import (ProductsSearchSerializer, CartSerializer, OrderSerializer,
+                          CustomerCareSerializer, OrderNumberSerializer, GramPaymentCodSerializer,
+                          GramMappedCartSerializer, GramMappedOrderSerializer,
+                          OrderDetailSerializer, OrderedProductSerializer, OrderedProductMappingSerializer,
+                          RetailerShopSerializer, SellerOrderListSerializer, OrderListSerializer,
+                          ReadOrderedProductSerializer, FeedBackSerializer,
                           ShipmentDetailSerializer, TripSerializer, ShipmentSerializer, PickerDashboardSerializer,
                           ShipmentReschedulingSerializer, ShipmentReturnSerializer, ParentProductImageSerializer,
-                          ShopSerializer, OrderPaymentStatusChangeSerializers)
-from .serializers import (ShipmentNotAttemptSerializer
+                          ShopSerializer, OrderPaymentStatusChangeSerializers,
+                          ShipmentProductSerializer, RetailerOrderedProductMappingSerializer,
+                          ShipmentQCSerializer, ShipmentPincodeFilterSerializer, CitySerializer,
+                          DispatchItemsSerializer, DispatchDashboardSerializer,
+                          UserSerializers, DispatchTripCrudSerializers, DispatchInvoiceSerializer,
+                          TripSummarySerializer, ShipmentNotAttemptSerializer, DispatchTripStatusChangeSerializers,
+                          LoadVerifyPackageSerializer, ShipmentPackageSerializer, TripShipmentMappingSerializer,
+                          UnloadVerifyPackageSerializer, LastMileTripCrudSerializers,
+                          LastMileTripShipmentsSerializer, VerifyRescheduledShipmentPackageSerializer,
+                          ShipmentCompleteVerifySerializer, VerifyReturnShipmentProductsSerializer,
+                          ShipmentCratesValidatedSerializer, LastMileTripStatusChangeSerializers,
+                          ShipmentDetailsByCrateSerializer, LoadVerifyCrateSerializer, UnloadVerifyCrateSerializer,
+                          DispatchTripShipmentMappingSerializer, PackagesUnderTripSerializer,
+                          MarkShipmentPackageVerifiedSerializer, ShipmentPackageProductsSerializer,
+                          DispatchCenterCrateSerializer, DispatchCenterShipmentPackageSerializer,
+                          LoadLastMileInvoiceSerializer, LastMileTripSummarySerializer,
+                          LastMileLoadVerifyPackageSerializer, RemoveLastMileInvoiceFromTripSerializer,
+                          VerifyNotAttemptShipmentPackageSerializer, VerifyShipmentPackageSerializer,
+                          DetailedShipmentPackageInfoSerializer, DetailedShipmentPackagingMappingInfoSerializer,
+                          VerifyBackwardTripItemsSerializer, BackwardTripQCSerializer, PosOrderUserSearchSerializer
                           )
-import math
+
+from ...common_validators import validate_shipment_dispatch_item, validate_trip_user, \
+    get_shipment_by_crate_id, get_shipment_by_shipment_label, validate_shipment_id, validate_trip_shipment, \
+    validate_trip, validate_shipment_label, validate_trip_shipment_package, check_user_can_plan_trip, \
+    validate_last_mile_trip_user
+from wms.services import check_whc_manager_coordinator_supervisor_qc_executive, shipment_search, \
+    check_whc_manager_dispatch_executive, check_qc_dispatch_executive, check_dispatch_executive
 from pos.payU_payment import *
 from fcm.utils import get_device_model
-from django.template.loader import render_to_string
 from datetime import datetime
+
+from ...utils import round_half_down, get_fin_year_start_date
 
 Device = get_device_model()
 
@@ -138,6 +153,27 @@ logger = logging.getLogger('django')
 info_logger = logging.getLogger('file-info')
 error_logger = logging.getLogger('file-error')
 
+
+def distance(shop_location, order_location):
+    """
+    Calculate distance between order location and shop location
+    """
+    lat1, lon1 = shop_location
+    lat2, lon2 = order_location
+    radius = 6371 # km
+
+    dlat = math.radians(lat2-lat1)
+    dlon = math.radians(lon2-lon1)
+    a = math.sin(dlat/2) * math.sin(dlat/2) + math.cos(math.radians(lat1)) \
+        * math.cos(math.radians(lat2)) * math.sin(dlon/2) * math.sin(dlon/2)
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
+    d = radius * c
+    return d
+def get_order_location(shop):
+    """
+    Get shop location ...
+    """
+    return float(shop.latitude),float(shop.longitude)
 
 class PickerDashboardViewSet(DataWrapperViewSet):
     '''
@@ -357,6 +393,14 @@ class SearchProducts(APIView):
         category_ids = self.request.GET.get('category_ids')
         sub_category_ids = self.request.GET.get('sub_category_ids')
         filter_list = [{"term": {"is_deleted": False}}]
+        if int(self.request.GET.get('online_enabled', 0) ) == 1:
+            filter_list.append({"term": {"online_enabled": True}})
+            filter_list.append({"term": {"status": 'active'}})
+        if int(self.request.GET.get('offline', 0)) == 1:
+            filter_list.append({"term": {"online_enabled": False}})
+            filter_list.append({"term": {"status": 'active'}})
+        if int(self.request.GET.get('inactive', 0)) == 1:
+            filter_list.append({"term": {"status": 'deactivated'}})
 
         if app_type == '3':
             filter_list.append({"term": {"status": 'active'}})
@@ -394,12 +438,19 @@ class SearchProducts(APIView):
                 for word in tokens:
                     keyword += "*" + word + "* "
                 keyword = keyword.strip()
-                query_string = {"query": "*" + keyword + "*", "fields": ["name"], "minimum_should_match": 2}
-
+                query_string = {"query": "*" + keyword + "*", "fields": ["category","sub_category","brand","name"], "minimum_should_match": 2}
         if category_ids:
             category = category_ids.split(',')
-            category_filter = str(categorymodel.Category.objects.filter(id__in=category, status=True).last())
-            filter_list.append({"match": {"category": {"query": category_filter, "operator": "and"}}})
+            if app_type == '3':
+                category = categorymodel.B2cCategory.objects.filter(id__in=category, status=True).last()
+                category_filter = str(category)
+                if category and category.b2c_cat_parent.exists():
+                    filter_list.append({"match": {"category": {"query": category_filter, "operator": "and"}}})
+                else:
+                    filter_list.append({"match_phrase": {"category": {"query": category_filter}}})
+            else:
+                category_filter = str(categorymodel.Category.objects.filter(id__in=category, status=True).last())
+                filter_list.append({"match": {"category": {"query": category_filter, "operator": "and"}}})
 
         if sub_category_ids:
             #sub_category = sub_category_ids.split(',')
@@ -417,7 +468,7 @@ class SearchProducts(APIView):
                 body['query']['bool']['must_not'] = must_not
             else:
                 body['query'] = {"bool": {"must_not": must_not}}
-        return self.process_rp(output_type, body, shop_id)
+        return self.process_rp(output_type, body, shop_id, app_type)
 
     @check_pos_shop
     def rp_gf_search(self, request, *args, **kwargs):
@@ -425,12 +476,13 @@ class SearchProducts(APIView):
             Search Retailer Shop Catalogue - Followed by GramFactory Catalogue If Products not found
         """
         shop_id = kwargs['shop'].id
+        app_type = kwargs['app_type']
         search_type = self.request.GET.get('search_type', '1')
         # Exact Search
         if search_type == '1':
-            results = self.rp_gf_exact_search(shop_id)
+            results = self.rp_gf_exact_search(shop_id, app_type)
         elif search_type == '2':
-            results = self.rp_gf_normal_search(shop_id)
+            results = self.rp_gf_normal_search(shop_id, app_type)
         else:
             return api_response("Provide a valid search type")
         if results:
@@ -438,7 +490,7 @@ class SearchProducts(APIView):
         else:
             return api_response('No Products Found', None, status.HTTP_200_OK)
 
-    def rp_gf_exact_search(self, shop_id):
+    def rp_gf_exact_search(self, shop_id, app_type):
         """
             Exact Search Retailer Shop Catalogue - Followed by GramFactory Catalogue If Products not found
         """
@@ -450,13 +502,13 @@ class SearchProducts(APIView):
             response['products'] = rp_results
         # search GramFactory products if retailer products not found
         else:
-            gf_results = self.gf_exact_search()
+            gf_results = self.gf_exact_search(app_type)
             if gf_results:
                 response['product_type'] = 'gf_catalogue'
                 response['products'] = gf_results
         return response
 
-    def rp_gf_normal_search(self, shop_id):
+    def rp_gf_normal_search(self, shop_id, app_type):
         """
             Keyword Search Retailer Shop Catalogue - Followed by GramFactory Catalogue If Products not found
         """
@@ -468,7 +520,7 @@ class SearchProducts(APIView):
             response['products'] = rp_results
         # search GramFactory products if retailer products not found
         else:
-            gf_results = self.gf_pos_normal_search()
+            gf_results = self.gf_pos_normal_search(app_type)
             if gf_results:
                 response['product_type'] = 'gf_catalogue'
                 response['products'] = gf_results
@@ -559,7 +611,7 @@ class SearchProducts(APIView):
         if app_type != '2':
             # Normal Search
             if search_type == '2':
-                results, is_store_active = self.gf_normal_search()
+                results, is_store_active = self.gf_normal_search(app_type)
                 if results:
                     return api_response(['Products Found'], results, status.HTTP_200_OK, True, is_store_active)
                 else:
@@ -569,10 +621,10 @@ class SearchProducts(APIView):
         else:
             # Exact Search
             if search_type == '1':
-                results = self.gf_exact_search()
+                results = self.gf_exact_search(app_type)
             # Normal Search
             elif search_type == '2':
-                results = self.gf_pos_normal_search()
+                results = self.gf_pos_normal_search(app_type)
             else:
                 return api_response("Please Provide A Valid Search Type")
             if results:
@@ -581,7 +633,7 @@ class SearchProducts(APIView):
                 return api_response('Product not found in GramFactory catalog. Please add new Product.', None,
                                     status.HTTP_200_OK)
 
-    def gf_exact_search(self):
+    def gf_exact_search(self, app_type):
         """
             Search GramFactory Catalogue Exact Ean
         """
@@ -589,9 +641,9 @@ class SearchProducts(APIView):
         body = dict()
         if ean_code and ean_code != '':
             body["query"] = {"bool": {"filter": [{"term": {"ean": ean_code}}]}}
-        return self.process_gf(body)
+        return self.process_gf(app_type, body)
 
-    def gf_normal_search(self):
+    def gf_normal_search(self, app_type):
         """
             Search GramFactory Catalogue By Name, Brand, Category
             Full catalogue or for a particular parent shop
@@ -620,27 +672,31 @@ class SearchProducts(APIView):
         is_store_active = {'is_store_active': True if parent_shop else False}
         query = self.search_query()
         body = {'query': query, }
-        return self.process_gf(body, shop, parent_shop, cart_check, cart, cart_products), is_store_active
+        return self.process_gf(app_type, body, shop, parent_shop, cart_check, cart, cart_products), is_store_active
 
-    def gf_pos_normal_search(self):
+    def gf_pos_normal_search(self, app_type):
         """
             Search GramFactory Catalogue By Name
         """
         body = {'query': self.search_query(), }
-        return self.process_gf(body)
+        return self.process_gf(app_type, body)
 
-    def process_gf(self, body, shop=None, parent_shop=None, cart_check=False, cart=None, cart_products=None):
+    def process_gf(self, app_type, body, shop=None, parent_shop=None, cart_check=False, cart=None, cart_products=None):
         """
             Modify Es results for response based on shop
         """
         body["from"] = int(self.request.GET.get('offset', 0))
         body["size"] = int(self.request.GET.get('pro_count', 100))
         p_list = []
+        if app_type != '1':
+            es_index = 'all_b2c_product'
+        else:
+            es_index = 'all_products'
         # No Shop Id OR Store Inactive
         if not parent_shop:
             body["_source"] = {"includes": ["id", "name", "product_images", "pack_size", "brand_case_size",
                                             "weight_unit", "weight_value", "visible", "mrp", "ean"]}
-            products_list = es_search(index='all_products', body=body)
+            products_list = es_search(index=es_index, body=body)
             for p in products_list['hits']['hits']:
                 p["_source"]["description"] = p["_source"]["name"]
                 p_list.append(p["_source"])
@@ -964,8 +1020,8 @@ class AutoSuggest(APIView):
         index = "all_products"
         if shop_id:
             if Shop.objects.filter(id=shop_id).exists():
-                parent_mapping = ParentRetailerMapping.objects.get(retailer=shop_id, status=True)
-                if parent_mapping.parent.shop_type.shop_type == 'sp':
+                parent_mapping = ParentRetailerMapping.objects.filter(retailer=shop_id, status=True).last()
+                if parent_mapping and parent_mapping.parent.shop_type.shop_type == 'sp':
                     index = parent_mapping.parent.id
         products_list = es_search(index=index, body=body)
         p_list = []
@@ -1319,7 +1375,7 @@ class CartCentral(GenericAPIView):
         """
         serializer = GramMappedCartSerializer(GramMappedCart.objects.get(id=cart.id),
                                               context={'parent_mapping_id': seller_shop.id,
-                                                       'delivery_message': self.delivery_message()})
+                                                       'delivery_message': self.delivery_message(seller_shop.shop_type)})
         return serializer.data
 
     def get_serialize_process_basic(self, cart, next_offer):
@@ -1456,6 +1512,16 @@ class CartCentral(GenericAPIView):
             return api_response('Added To Cart', self.post_serialize_process_basic(cart), status.HTTP_200_OK, True)
 
     def pos_cart_product_create(self, shop_id, product_info, cart_id):
+
+        if product_info['ean'] and (not product_info['linked_pid'] or product_info['linked_pid'] == ''):
+            try:
+                pid = Product.objects.filter(product_ean_code__startswith=product_info['ean']).last()
+                if pid:
+                    product_info['linked_pid'] = getattr(pid,'id')
+                    product_info['type'] = 2
+            except:
+                 pass
+
         product = RetailerProductCls.create_retailer_product(shop_id, product_info['name'], product_info['mrp'],
                                                              product_info['sp'], product_info['linked_pid'],
                                                              product_info['type'], product_info['name'],
@@ -1755,7 +1821,8 @@ class UserView(APIView):
             return api_response("Please enter a valid phone number")
 
         data, msg = [], 'Customer Does Not Exists'
-        customer = User.objects.filter(phone_number=phone_no).last()
+        orders = Order.objects.filter(seller_shop=kwargs['shop'])
+        customer = User.objects.filter(id__in=Subquery(orders.values('buyer_id'))).filter(phone_number=phone_no).last()
         if customer:
             data, msg = PosUserSerializer(customer).data, 'Customer Detail Success'
         return api_response(msg, data, status.HTTP_200_OK, True)
@@ -1925,11 +1992,23 @@ class CartCheckout(APIView):
             return api_response("Invalid request")
         with transaction.atomic():
             # Refresh redeem reward
-            use_rewrd_this_month = RewardCls.checkout_redeem_points(cart, 0, self.request.GET.get('use_rewards', 1))
+            use_reward_this_month = RewardCls.checkout_redeem_points(cart, 0, self.request.GET.get('use_rewards', 1))
             # Get offers available now and apply coupon if applicable
             offers = BasicCartOffers.refresh_offers_checkout(cart, False, self.request.data.get('coupon_id'))
             data = self.serialize(cart)
-            data['redeem_points_message'] = use_rewrd_this_month
+
+            data['redeem_points_message'] = use_reward_this_month
+            time = datetime.now().strftime("%H:%M:%S")
+            time = datetime.strptime(time,"%H:%M:%S").time()
+            fofo_config = get_config_fofo_shops(kwargs['shop'].id)
+            delivery_time = str(fofo_config.get('delivery_time')) + " " + 'min' if fofo_config.get('delivery_time', None) else None
+
+            if fofo_config.get('open_time',None) and fofo_config.get('close_time',None) and not (
+                    fofo_config['open_time'] < time < fofo_config['close_time']):
+                delivery_time = "Your order will be deliverd tomorrow"
+
+            data['estimate_delivery_time'] = delivery_time
+
             if 'error' in offers:
                 return api_response(offers['error'], None, offers['code'])
             if offers['applied']:
@@ -1973,7 +2052,7 @@ class CartCheckout(APIView):
             redeem_points_message = RewardCls.checkout_redeem_points(cart, int(redeem_points))
             app_type = kwargs['app_type']
             data = self.serialize(cart, offers, app_type)
-            data.update({"redeem_points_message": redeem_points_message})
+            data.update({"redeem_points_message": redeem_points_message if redeem_points_message else ""})
 
             return api_response("Cart Checkout", data, status.HTTP_200_OK, True)
 
@@ -1992,12 +2071,22 @@ class CartCheckout(APIView):
             # Get Offers Applicable, Verify applied offers, Apply highest discount on cart if auto apply
             offers = BasicCartOffers.refresh_offers_checkout(cart, False, None)
             # Refresh redeem reward
-            use_rewrd_this_month = RewardCls.checkout_redeem_points(cart, 0, self.request.GET.get('use_rewards', 1))
+            use_reward_this_month = RewardCls.checkout_redeem_points(cart, 0, self.request.GET.get('use_rewards', 1))
             data = self.serialize(cart, offers)
             address = AddressCheckoutSerializer(cart.buyer.ecom_user_address.filter(default=True).last()).data
             data.update({'default_address': address})
+            delivery_time = get_config_fofo_shops(kwargs['shop'])
+            time = datetime.now().strftime("%H:%M:%S")
+            time = datetime.strptime(time,"%H:%M:%S").time()
+            fofo_config = get_config_fofo_shops(kwargs['shop'].id)
+            delivery_time = str(fofo_config.get('delivery_time')) + " "+ 'min' if fofo_config.get('delivery_time', None) else None
+
+            if fofo_config.get('open_time',None) and fofo_config.get('close_time',None) and not (
+                    fofo_config['open_time'] < time < fofo_config['close_time']):
+                delivery_time = "Your order will be deliverd tomorrow"
+            data['estimate_delivery_time'] = delivery_time
             data.update({'saving': round(data['total_mrp'] - data['amount_payable'], 2)})
-            data.update({"redeem_points_message": use_rewrd_this_month})
+            data.update({"redeem_points_message": use_reward_this_month if use_reward_this_month else ""})
             return api_response("Cart Checkout", data, status.HTTP_200_OK, True)
 
     def delete(self, request, *args, **kwargs):
@@ -2021,7 +2110,11 @@ class CartCheckout(APIView):
                                     cart_type='BASIC')
         except ObjectDoesNotExist:
             return api_response("Cart Does Not Exist / Already Closed")
-        RewardCls.checkout_redeem_points(cart, 0, self.request.GET.get('use_rewards', 1))
+        if self.request.GET.get('redeem_points'):
+            redeem_points = self.request.GET.get('redeem_points')
+            redeem_points = redeem_points if redeem_points else cart.redeem_points
+            # Refresh redeem reward
+            RewardCls.checkout_redeem_points(cart, int(redeem_points))
         cart_products = cart.rt_cart_list.all()
         cart_value = 0
         for product_map in cart_products:
@@ -2475,6 +2568,93 @@ class CartCheckout(APIView):
 #             return Response(msg, status=status.HTTP_200_OK)
 
 
+def order_pickup_genrate_invioce(request,order):
+    if order.ordered_cart.cart_type != 'ECOM':
+        return api_response("Invalid action")
+    # if order.order_status != Order.PICKUP_CREATED:
+    #     return api_response("This order is not picked yet or is already out for delivery")
+    try:
+        delivery_person = User.objects.get(id=request.user.id)
+    except:
+        return api_response("Please select a delivery person")
+    order.order_status = Order.OUT_FOR_DELIVERY
+    order.delivery_person = delivery_person
+                ###### trip me save created
+    order.save()
+    shipment = OrderedProduct.objects.filter(order=order).last()
+    shipment.shipment_status = OrderedProduct.MOVED_TO_DISPATCH
+    shipment.save()
+    shipment.shipment_status = 'OUT_FOR_DELIVERY'
+    shipment.save()
+    if shipment.pos_trips.filter(trip_type='ECOM').exists():
+        pos_trip = shipment.pos_trips.filter(trip_type='ECOM').last()
+    else:
+        pos_trip = PosTrip.objects.create(trip_type='ECOM',
+                                          shipment=shipment)
+    pos_trip.trip_start_at = datetime.now()
+    pos_trip.save()
+                # Inventory move from ordered to picked
+    ordered_products = ShipmentProducts.objects.filter(ordered_product=shipment)
+    for product_map in ordered_products:
+        product_id = product_map.retailer_product_id
+        if product_map.shipped_qty > 0:
+            PosInventoryCls.order_inventory(product_id, PosInventoryState.ORDERED,
+                                            PosInventoryState.SHIPPED,
+                                            product_map.shipped_qty,
+                                            request.user, order.order_no, PosInventoryChange.SHIPPED)
+        ordered_p = CartProductMapping.objects.get(cart=order.ordered_cart,
+                                                               retailer_product=product_map.retailer_product,
+                                                               product_type=product_map.product_type)
+        if ordered_p.qty - product_map.shipped_qty > 0:
+            PosInventoryCls.order_inventory(product_id, PosInventoryState.ORDERED,
+                                            PosInventoryState.AVAILABLE,
+                                            ordered_p.qty - product_map.shipped_qty,
+                                            request.user, order.order_no, PosInventoryChange.SHIPPED)
+    pdf_generation_retailer(request, order.id)
+
+def order_shipment(request, data, *args, **kwargs):
+    shop = kwargs['shop']
+    serializer = EcomShipmentSerializer(data=data, context={'shop': shop})
+    if serializer.is_valid():
+        with transaction.atomic():
+                data = serializer.validated_data
+                products_info, order_id = data['products'], data['order_id']
+                order = Order.objects.filter(pk=order_id, seller_shop=shop,
+                                             order_status__in=['ordered', Order.PICKUP_CREATED],
+                                             ordered_cart__cart_type='ECOM').last()
+                    # Create shipment
+                shipment = OrderedProduct.objects.filter(order=order).last()
+                if not shipment:
+                    shipment = OrderedProduct(order=order)
+                    shipment.save()
+                for product_map in products_info:
+                    product_id, qty, product_type = product_map['product_id'], product_map['picked_qty'], product_map[
+                        'product_type']
+                    ordered_product_mapping, _ = ShipmentProducts.objects.get_or_create(ordered_product=shipment,
+                                                                                        retailer_product_id=product_id,
+                                                                                        product_type=product_type)
+                    ordered_product_mapping.shipped_qty = qty
+                    ordered_product_mapping.picked_pieces = qty
+                    ordered_product_mapping.selling_price = product_map['selling_price']
+                    ordered_product_mapping.save()
+                    # Item Batch
+                    batch = OrderedProductBatch.objects.filter(ordered_product_mapping=ordered_product_mapping).last()
+                    if not batch:
+                        OrderedProductBatch.objects.create(ordered_product_mapping=ordered_product_mapping,
+                                                           pickup_quantity=qty, quantity=qty, delivered_qty=qty)
+                    else:
+                        batch.pickup_quantity = qty
+                        batch.quantity = qty
+                        batch.delivered_qty = qty
+                        batch.save()
+
+                order.order_status = Order.PICKUP_CREATED
+                order.ordered_by = request.user
+                order.save()
+                return True
+    else:
+        return False
+
 class ReservedOrder(generics.ListAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (permissions.IsAuthenticated,)
@@ -2734,7 +2914,10 @@ class OrderCentral(APIView):
         app_type = self.request.META.get('HTTP_APP_TYPE', '1')
         # app_type = request.data.get('cart_type', '1')
         if app_type == '1':
-            return self.put_retail_order(kwargs['pk'])
+
+            # return self.put_retail_order(kwargs['pk'])
+            return api_response(["Sorry! Order cannot be cancelled from the APP"])
+
         elif app_type == '2':
             return self.put_basic_order(request, *args, **kwargs)
         elif app_type == '3':
@@ -2808,23 +2991,24 @@ class OrderCentral(APIView):
                 order.order_status = order_status
                 order.last_modified_by = self.request.user
                 order.save()
-                # try:
-                #     trxn_id = order.ordered_cart
-                #     payment_datails = PosPayment.objects.filter(order=order.id, transaction_id=trxn_id).first()
-                #     if payment_datails:
-                #         refund_amount = payment_datails.amount
-                #         payment_id = payment_datails.payment_id
-                #         response = send_request_refund(payment_id, refund_amount)
-                #         request_id = response.get('request_id')
-                #         if response.get('status'):
-                #             request_id = response.get('request_id')
-                #             payment_datails.is_refund = True
-                #             payment_datails.refund_status = 'queued'
-                #             payment_datails.request_id= request_id
-                #             payment_datails.refund_amount = refund_amount
-                #             payment_datails.save()
-                # except  Exception as e:
-                #     pass
+                try:
+                    trxn_id = order.ordered_cart
+                    payment_datails = PosPayment.objects.filter(order=order.id, transaction_id=trxn_id, payment_type__type='online',
+                                                                order__ordered_cart__cart_type='ECOM' ).first()
+                    if payment_datails:
+                        refund_amount = payment_datails.amount
+                        payment_id = payment_datails.payment_id
+                        response = send_request_refund(payment_id, refund_amount)
+                        request_id = response.get('request_id')
+                        if response.get('status'):
+                            request_id = response.get('request_id')
+                            payment_datails.is_refund = True
+                            payment_datails.refund_status = 'queued'
+                            payment_datails.request_id= request_id
+                            payment_datails.refund_amount = refund_amount
+                            payment_datails.save()
+                except  Exception as e:
+                    pass
                 # Refund redeemed loyalty points
                 # Deduct loyalty points awarded on order
                 points_credit, points_debit, net_points = RewardCls.adjust_points_on_return_cancel(
@@ -2882,22 +3066,43 @@ class OrderCentral(APIView):
                 pdf_generation_retailer(request, order.id)
             # Delivered/Closed
             else:
-                if order.order_status not in [Order.OUT_FOR_DELIVERY, Order.DELIVERED]:
+                if order.delivery_option == '1':
+                    data = {'order_id': order.id,
+                            'products':[]}
+                    for i in CartProductMapping.objects.filter(cart=order.ordered_cart, product_type=1):
+
+                        data['products'].append({'product_id':i.retailer_product_id,
+                                                  'picked_qty': i.qty})
+                    order_shipment(request, data, *args, **kwargs)
+                    order_pickup_genrate_invioce(request, order)
+                elif order.order_status not in [Order.OUT_FOR_DELIVERY, Order.DELIVERED]:
                     return api_response("Invalid Order update")
                 order.order_status = order_status
                 order.last_modified_by = self.request.user
+                if order_status == Order.DELIVERED:
+                    shop = kwargs['shop']
+                    if shop.enable_loyalty_points: ## credit point on order delivery complete
+                        if ReferralCode.is_marketing_user(order.buyer):
+                            order.points_added = order_loyalty_points_credit(order.order_amount, order.buyer.id, order.order_no,
+                                                                            'order_credit', 'order_indirect_credit',
+                                                                            self.request.user.id, order.seller_shop.id)
                 order.save()
-                shipment = OrderedProduct.objects.filter(order=order).last()
-                shipment.shipment_status = order_status
-                shipment.save()
-                shipment.rt_order_product_order_product_mapping.update(delivered_qty=F('shipped_qty'))
-                if shipment.pos_trips.filter(trip_type='ECOM').exists():
-                    pos_trip = shipment.pos_trips.filter(trip_type='ECOM').last()
-                else:
-                    pos_trip = PosTrip.objects.create(trip_type='ECOM',
-                                                      shipment=shipment)
-                pos_trip.trip_end_at = datetime.now()
-                pos_trip.save()
+                if order_status == Order.DELIVERED:
+                    whatsapp_order_delivered(order.order_no, shop.shop_name, order.buyer.phone_number, order.points_added, shop.enable_loyalty_points)
+                try:
+                    shipment = OrderedProduct.objects.filter(order=order).last()
+                    shipment.shipment_status = order_status
+                    shipment.save()
+                    shipment.rt_order_product_order_product_mapping.update(delivered_qty=F('shipped_qty'))
+                    if shipment.pos_trips.filter(trip_type='ECOM').exists():
+                        pos_trip = shipment.pos_trips.filter(trip_type='ECOM').last()
+                    else:
+                        pos_trip = PosTrip.objects.create(trip_type='ECOM',
+                                                          shipment=shipment)
+                    pos_trip.trip_end_at = datetime.now()
+                    pos_trip.save()
+                except:
+                    pass
 
         return api_response("Order updated successfully!", response, status.HTTP_200_OK, True)
 
@@ -2941,23 +3146,24 @@ class OrderCentral(APIView):
             whatsapp_order_cancel.delay(order_number, shop_name, phone_number, points_credit, points_debit,
                                         net_points)
             response = None
-            # try:
-            #     trxn_id = order.ordered_cart
-            #     payment_datails = PosPayment.objects.filter(order=order.id, transaction_id=trxn_id).first()
-            #     if payment_datails:
-            #         refund_amount = payment_datails.amount
-            #         payment_id = payment_datails.payment_id
-            #         response = send_request_refund(payment_id, refund_amount)
-            #         request_id = response.get('request_id')
-            #         if response.get('status'):
-            #             request_id = response.get('request_id')
-            #             payment_datails.is_refund = True
-            #             payment_datails.refund_status = 'queued'
-            #             payment_datails.request_id= request_id
-            #             payment_datails.refund_amount = refund_amount
-            #             payment_datails.save()
-            # except Exception as e:
-            #     pass
+            try:
+                trxn_id = order.ordered_cart
+                payment_datails = PosPayment.objects.filter(order=order.id, transaction_id=trxn_id, payment_type__type='online',
+                order__ordered_cart__cart_type='ECOM' ).first()
+                if payment_datails:
+                    refund_amount = payment_datails.amount
+                    payment_id = payment_datails.payment_id
+                    response = send_request_refund(payment_id, refund_amount)
+                    request_id = response.get('request_id')
+                    if response.get('status'):
+                        request_id = response.get('request_id')
+                        payment_datails.is_refund = True
+                        payment_datails.refund_status = 'queued'
+                        payment_datails.request_id= request_id
+                        payment_datails.refund_amount = refund_amount
+                        payment_datails.save()
+            except Exception as e:
+                pass
         return api_response("Order cancelled successfully!", response, status.HTTP_200_OK, True)
 
     def put_retail_order(self, pk):
@@ -3052,8 +3258,10 @@ class OrderCentral(APIView):
                                       buyer=self.request.user, ordered_cart__cart_type='ECOM')
         except ObjectDoesNotExist:
             return api_response("Order Not Found!")
+
         return api_response('Order', self.get_serialize_process_pos_ecom(order), status.HTTP_200_OK, True,
-                            extra_params={"key_p": str(config('PAYU_KEY'))})
+                            extra_params={"key_p": str(config('PAYU_KEY')),}
+                            )
 
     def post_retail_order(self):
         """
@@ -3138,6 +3346,7 @@ class OrderCentral(APIView):
             For basic cart
         """
         shop = kwargs['shop']
+        self.shop = shop
         with transaction.atomic():
             # basic validations for inputs
             initial_validation = self.post_basic_validate(shop)
@@ -3166,12 +3375,14 @@ class OrderCentral(APIView):
                                 status.HTTP_200_OK, True)
 
     @check_pos_shop
+    @transaction.atomic
     def post_ecom_order(self, request, *args, **kwargs):
         """
             Place Order
             For ecom cart
         """
         shop = kwargs['shop']
+        self.shop = shop
         if not shop.online_inventory_enabled:
             return api_response("Franchise Shop Is Not Online Enabled!")
 
@@ -3185,10 +3396,11 @@ class OrderCentral(APIView):
         if address.pincode != shop.shop_name_address_mapping.filter(
                 address_type='shipping').last().pincode_link.pincode:
             return api_response("This Shop is not serviceable at your delivery address")
-        try:
-            cart = Cart.objects.filter(cart_type='ECOM', buyer=self.request.user, seller_shop=shop,
-                                       cart_status='active').last()
-        except ObjectDoesNotExist:
+
+        cart = Cart.objects.filter(cart_type='ECOM', buyer=self.request.user, seller_shop=shop,
+                                   cart_status='active').last()
+
+        if not cart:
             return api_response("Please add items to proceed to order")
 
         try:
@@ -3199,19 +3411,15 @@ class OrderCentral(APIView):
         if not payment_type_id == 4:
             if not self.request.data.get('payment_status'):
                 return api_response("Please provide online payment status.")
-
             if not any(self.request.data.get('payment_status') in i for i in PosPayment.PAYMENT_STATUS):
                 return api_response("Please provide valid online payment status")
 
-            # if not self.request.data.get('payment_mode'):
-            #     return api_response("Please provide online payment mode.")
-
-            # if not any(self.request.data.get('payment_mode') in i for i in PosPayment.MODE_CHOICES):
-            #     return api_response("Please provide valid online payment mode")
-
         # Minimum Order Value
         # order_config = GlobalConfig.objects.filter(key='ecom_minimum_order_amount').last()
-        order_config = get_config_fofo_shop('Minimum order value', shop.id)
+        # order_config = get_config_fofo_shop('Minimum order value', shop.id)
+        fofo_config = get_config_fofo_shops(shop)
+        order_config = fofo_config.get('min_order_value',None)
+        order_config = order_config if order_config else GlobalConfig.objects.filter(key='ecom_minimum_order_amount').last().value
         if order_config is not None:
             order_amount = cart.order_amount_after_discount
             if order_amount < order_config:
@@ -3248,12 +3456,15 @@ class OrderCentral(APIView):
             return api_response("Few items in your cart are not available.", deleted_product, status.HTTP_200_OK,
                                 False, {'error_code': error_code.OUT_OF_STOCK_ITEMS})
 
-        with transaction.atomic():
-            # Update Cart To Ordered
-            self.update_cart_ecom(cart)
-            # Refresh redeem reward
+        delivery_option = request.data.get('delivery_option', None)
+        # Update Cart To Ordered
+        get_response = self.update_cart_ecom(self.shop, cart)
+        if get_response:
+            return api_response(get_response)
+        # Refresh redeem reward
+        else:
             RewardCls.checkout_redeem_points(cart, cart.redeem_points)
-            order = self.create_basic_order(cart, shop, address, payment_type_id)
+            order = self.create_basic_order(cart, shop, address, payment_type_id, delivery_option)
             payments = [
                 {
                     "payment_type": payment_type_id,
@@ -3272,16 +3483,20 @@ class OrderCentral(APIView):
                                                 is_active=True).distinct('reg_id')
                 for device in devices:
                     registration_id = device.reg_id
-                    message_title = "PepperTap Store Order Alert !!"
-                    message_body = "Hello, You received a new Order."
+                    message_title = f"{shop.shop_name} - Order Alert !!"
+                    message_body = f"Hello, You received a new Order of Rs {int(order.order_amount)}"
                     result = push_service.notify_single_device(registration_id=registration_id,
                                                                message_title=message_title,
                                                                message_body=message_body)
                     info_logger.info(result)
             except Exception as e:
                 info_logger.info(e)
-            return api_response('Ordered Successfully!', BasicOrderListSerializer(Order.objects.get(id=order.id)).data,
-                                status.HTTP_200_OK, True)
+            if shop.enable_loyalty_points:
+                msg = 'Ordered Successfully, Reward points will be credited after delivery!'
+            else:
+                msg = 'Ordered Successfully!'
+            return api_response(msg, BasicOrderListSerializer(Order.objects.get(id=order.id)).data,
+                                 status.HTTP_200_OK, True)
 
     def get_retail_validate(self):
         """
@@ -3507,12 +3722,17 @@ class OrderCentral(APIView):
         cart.last_modified_by = self.request.user
         cart.save()
 
-    def update_cart_ecom(self, cart):
+    def update_cart_ecom(self, seller_shop, cart):
         """
             Place order
             Update cart to ordered
             For ecom cart
         """
+        updated_cart = Cart.objects.filter(cart_type='ECOM', buyer=self.request.user, seller_shop=seller_shop,
+                                           cart_status='active').last()
+
+        if not updated_cart:
+            return "Please add items to proceed to order"
         cart.cart_status = 'ordered'
         cart.last_modified_by = self.request.user
         cart.save()
@@ -3552,7 +3772,7 @@ class OrderCentral(APIView):
         order.save()
         return order
 
-    def create_basic_order(self, cart, shop, address=None, payment_id=None):
+    def create_basic_order(self, cart, shop, address=None, payment_id=None, delivery_option=None):
         user = self.request.user
         order, _ = Order.objects.get_or_create(last_modified_by=user, ordered_by=user, ordered_cart=cart)
         order.buyer = cart.buyer
@@ -3567,13 +3787,28 @@ class OrderCentral(APIView):
                     order.order_status = Order.PAYMENT_PENDING
                 elif self.request.data.get('payment_status') == 'payment_failed':
                     order.order_status = Order.PAYMENT_FAILED
+            order.delivery_option = delivery_option
+            fofo_config = get_config_fofo_shops(shop)
+            time = datetime.now().strftime("%H:%M:%S")
+            time = datetime.strptime(time,"%H:%M:%S").time()
+            msg = fofo_config.get('delivery_time',None)
+            if msg :
+                msg = str(msg)+" "+"min"
+            if delivery_option and delivery_option == '1':
+                msg = None
+            if fofo_config.get('open_time',None) and fofo_config.get('close_time',None) and not (fofo_config['open_time']<time and fofo_config['close_time']>time):
+                msg = "Your order will be deliverd tomorrow"
+                if delivery_option and delivery_option == '1':
+                    msg = "Please pickup your order tommorow"
+
+            order.estimate_delivery_time = msg
         order.save()
 
         if address:
-            EcomOrderAddress.objects.create(order=order, address=address.address, contact_name=address.contact_name,
-                                            contact_number=address.contact_number, latitude=address.latitude,
-                                            longitude=address.longitude, pincode=address.pincode,
-                                            state=address.state, city=address.city)
+            EcomOrderAddress.objects.get_or_create(order=order, address=address.address, contact_name=address.contact_name,
+                                                    contact_number=address.contact_number, latitude=address.latitude,
+                                                    longitude=address.longitude, pincode=address.pincode,
+                                                    state=address.state, city=address.city)
         return order
 
     def update_ordered_reserve_sp(self, cart, parent_mapping, order):
@@ -3722,14 +3957,9 @@ class OrderCentral(APIView):
             RewardCls.redeem_points_on_order(redeem_points, redeem_factor, order.buyer, self.request.user,
                                              order.order_no)
         # Loyalty points credit
-        shops_str = GlobalConfig.objects.get(key=app_type + '_loyalty_shop_ids').value
-        shops_str = str(shops_str) if shops_str else ''
-        if shops_str == 'all' or (shops_str and str(order.seller_shop.id) in shops_str.split(',')):
-            if ReferralCode.is_marketing_user(order.buyer):
-                order.points_added = order_loyalty_points_credit(order.order_amount, order.buyer.id, order.order_no,
-                                                                 'order_credit', 'order_indirect_credit',
-                                                                 self.request.user.id, order.seller_shop.id)
-                order.save()
+        # shops_str = GlobalConfig.objects.get(key=app_type + '_loyalty_shop_ids').value
+        # shops_str = str(shops_str) if shops_str else ''
+        # if shops_str == 'all' or (shops_str and str(order.seller_shop.id) in shops_str.split(',')):
         # Add free products
         offers = order.ordered_cart.offers
         product_qty_map = {}
@@ -3761,8 +3991,8 @@ class OrderCentral(APIView):
                 paid_by=order.buyer,
                 processed_by=self.request.user,
                 amount=payment['amount'],
-                payment_status=payment['payment_status'],
-                payment_mode=payment['payment_mode']
+                payment_status = payment['payment_status'],
+                payment_mode = payment['payment_mode']
             )
 
     def auto_process_pos_order(self, order):
@@ -4222,6 +4452,7 @@ class OrderedItemCentralDashBoard(APIView):
         """
         # products for shop
         products = RetailerProduct.objects.filter(shop=shop)
+        ecom_products = products.filter(online_enabled=True)
 
         # orders for shop
         orders = Order.objects.prefetch_related('rt_return_order').filter(seller_shop=shop).exclude(
@@ -4232,16 +4463,16 @@ class OrderedItemCentralDashBoard(APIView):
         ecom_orders = orders.filter(order_app_type=Order.POS_ECOMM)
 
         # invoices for shop
-        invoices = OrderedProductMapping.objects.filter(ordered_product__order__seller_shop=shop).filter(
-            ~Q(ordered_product__order__ordered_cart__cart_type='ECOM',
-               ordered_product__order__rt_payment_retailer_order__payment_type__type__iexact='cod',
-               ordered_product__order__order_status = Order.OUT_FOR_DELIVERY))\
-            .exclude(ordered_product__order__order_status=Order.CANCELLED)
+        invoices = OrderedProduct.objects.filter(order__seller_shop=shop).filter(
+            ~Q(order__ordered_cart__cart_type='ECOM',
+               order__rt_payment_retailer_order__payment_type__type__iexact='cod',
+               order__order_status=Order.OUT_FOR_DELIVERY))\
+            .exclude(order__order_status=Order.CANCELLED)
 
         # pos invoices for shop
-        pos_invoices = invoices.filter(ordered_product__order__order_app_type=Order.POS_WALKIN)
+        pos_invoices = invoices.filter(order__order_app_type=Order.POS_WALKIN)
         # ecom invoices for shop
-        ecom_invoices = invoices.filter(ordered_product__order__order_app_type=Order.POS_ECOMM)
+        ecom_invoices = invoices.filter(order__order_app_type=Order.POS_ECOMM)
 
         # Return for shop
         returns = OrderReturn.objects.filter(order__seller_shop=shop, status='completed')
@@ -4266,10 +4497,10 @@ class OrderedItemCentralDashBoard(APIView):
             pos_orders = pos_orders.filter(order_status=order_status_actual) if order_status_actual else orders
             ecom_orders = ecom_orders.filter(order_status=order_status_actual) if order_status_actual else orders
 
-            invoices = invoices.filter(ordered_product__order__order_status=order_status_actual) if order_status_actual else invoices
-            pos_invoices = pos_invoices.filter(ordered_product__order__order_status=order_status_actual) if \
+            invoices = invoices.filter(order__order_status=order_status_actual) if order_status_actual else invoices
+            pos_invoices = pos_invoices.filter(order__order_status=order_status_actual) if \
                 order_status_actual else invoices
-            ecom_invoices = ecom_invoices.filter(ordered_product__order__order_status=order_status_actual) if \
+            ecom_invoices = ecom_invoices.filter(order__order_status=order_status_actual) if \
                 order_status_actual else invoices
 
         # filter for date range
@@ -4277,15 +4508,16 @@ class OrderedItemCentralDashBoard(APIView):
         today_date = datetime.today()
         if filters == 1:  # today
             products = products.filter(created_at__date=today_date)
+            ecom_products = ecom_products.filter(created_at__date=today_date)
             # orders
             orders = orders.filter(created_at__date=today_date)
             pos_orders = pos_orders.filter(created_at__date=today_date)
             ecom_orders = ecom_orders.filter(created_at__date=today_date)
 
             # invoice
-            invoices = invoices.filter(ordered_product__invoice__created_at__date=today_date)
-            pos_invoices = pos_invoices.filter(ordered_product__invoice__created_at__date=today_date)
-            ecom_invoices = ecom_invoices.filter(ordered_product__invoice__created_at__date=today_date)
+            invoices = invoices.filter(invoice__created_at__date=today_date)
+            pos_invoices = pos_invoices.filter(invoice__created_at__date=today_date)
+            ecom_invoices = ecom_invoices.filter(invoice__created_at__date=today_date)
 
             # orders returns
             returns = returns.filter(modified_at__date=today_date)
@@ -4300,15 +4532,16 @@ class OrderedItemCentralDashBoard(APIView):
         elif filters == 2:  # yesterday
             yesterday = today_date - timedelta(days=1)
             products = products.filter(created_at__date=yesterday)
+            ecom_products = ecom_products.filter(created_at__date=yesterday)
             # orders
             orders = orders.filter(created_at__date=yesterday)
             pos_orders = pos_orders.filter(created_at__date=yesterday)
             ecom_orders = ecom_orders.filter(created_at__date=yesterday)
 
             # invoice
-            invoices = invoices.filter(ordered_product__invoice__created_at__date=yesterday)
-            pos_invoices = pos_invoices.filter(ordered_product__invoice__created_at__date=yesterday)
-            ecom_invoices = ecom_invoices.filter(ordered_product__invoice__created_at__date=yesterday)
+            invoices = invoices.filter(invoice__created_at__date=yesterday)
+            pos_invoices = pos_invoices.filter(invoice__created_at__date=yesterday)
+            ecom_invoices = ecom_invoices.filter(invoice__created_at__date=yesterday)
 
             # orders returns
             returns = returns.filter(modified_at__date=yesterday)
@@ -4322,15 +4555,16 @@ class OrderedItemCentralDashBoard(APIView):
 
         elif filters == 3:  # this week
             products = products.filter(created_at__week=today_date.isocalendar()[1])
+            ecom_products = ecom_products.filter(created_at__week=today_date.isocalendar()[1])
             # orders
             orders = orders.filter(created_at__week=today_date.isocalendar()[1])
             pos_orders = pos_orders.filter(created_at__week=today_date.isocalendar()[1])
             ecom_orders = ecom_orders.filter(created_at__week=today_date.isocalendar()[1])
 
             # invoice
-            invoices = invoices.filter(ordered_product__invoice__created_at__week=today_date.isocalendar()[1])
-            pos_invoices = pos_invoices.filter(ordered_product__invoice__created_at__week=today_date.isocalendar()[1])
-            ecom_invoices = ecom_invoices.filter(ordered_product__invoice__created_at__week=today_date.isocalendar()[1])
+            invoices = invoices.filter(invoice__created_at__week=today_date.isocalendar()[1])
+            pos_invoices = pos_invoices.filter(invoice__created_at__week=today_date.isocalendar()[1])
+            ecom_invoices = ecom_invoices.filter(invoice__created_at__week=today_date.isocalendar()[1])
 
             # orders returns
             returns = returns.filter(modified_at__week=today_date.isocalendar()[1])
@@ -4345,15 +4579,16 @@ class OrderedItemCentralDashBoard(APIView):
         elif filters == 4:  # last week
             last_week = today_date - timedelta(weeks=1)
             products = products.filter(created_at__week=last_week.isocalendar()[1])
+            ecom_products = ecom_products.filter(created_at__week=last_week.isocalendar()[1])
             # orders
             orders = orders.filter(created_at__week=last_week.isocalendar()[1])
             pos_orders = pos_orders.filter(created_at__week=last_week.isocalendar()[1])
             ecom_orders = ecom_orders.filter(created_at__week=last_week.isocalendar()[1])
 
             # invoice
-            invoices = invoices.filter(ordered_product__invoice__created_at__week=last_week.isocalendar()[1])
-            pos_invoices = pos_invoices.filter(ordered_product__invoice__created_at__week=last_week.isocalendar()[1])
-            ecom_invoices = ecom_invoices.filter(ordered_product__invoice__created_at__week=last_week.isocalendar()[1])
+            invoices = invoices.filter(invoice__created_at__week=last_week.isocalendar()[1])
+            pos_invoices = pos_invoices.filter(invoice__created_at__week=last_week.isocalendar()[1])
+            ecom_invoices = ecom_invoices.filter(invoice__created_at__week=last_week.isocalendar()[1])
 
             # orders returns
             returns = returns.filter(modified_at__week=last_week.isocalendar()[1])
@@ -4367,15 +4602,16 @@ class OrderedItemCentralDashBoard(APIView):
 
         elif filters == 5:  # this month
             products = products.filter(created_at__month=today_date.month)
+            ecom_products = ecom_products.filter(created_at__month=today_date.month)
             # orders
             orders = orders.filter(created_at__month=today_date.month)
             pos_orders = pos_orders.filter(created_at__month=today_date.month)
             ecom_orders = ecom_orders.filter(created_at__month=today_date.month)
 
             # invoice
-            invoices = invoices.filter(ordered_product__invoice__created_at__month=today_date.month)
-            pos_invoices = pos_invoices.filter(ordered_product__invoice__created_at__month=today_date.month)
-            ecom_invoices = ecom_invoices.filter(ordered_product__invoice__created_at__month=today_date.month)
+            invoices = invoices.filter(invoice__created_at__month=today_date.month)
+            pos_invoices = pos_invoices.filter(invoice__created_at__month=today_date.month)
+            ecom_invoices = ecom_invoices.filter(invoice__created_at__month=today_date.month)
 
             # orders returns
             returns = returns.filter(modified_at__month=today_date.month)
@@ -4390,15 +4626,16 @@ class OrderedItemCentralDashBoard(APIView):
         elif filters == 6:  # last month
             last_month = today_date - timedelta(days=30)
             products = products.filter(created_at__month=last_month.month)
+            ecom_products = ecom_products.filter(created_at__month=last_month.month)
             # orders
             orders = orders.filter(created_at__month=last_month.month)
             pos_orders = pos_orders.filter(created_at__month=last_month.month)
             ecom_orders = ecom_orders.filter(created_at__month=last_month.month)
 
             # invoice
-            invoices = invoices.filter(ordered_product__invoice__created_at__month=last_month.month)
-            pos_invoices = pos_invoices.filter(ordered_product__invoice__created_at__month=last_month.month)
-            ecom_invoices = ecom_invoices.filter(ordered_product__invoice__created_at__month=last_month.month)
+            invoices = invoices.filter(invoice__created_at__month=last_month.month)
+            pos_invoices = pos_invoices.filter(invoice__created_at__month=last_month.month)
+            ecom_invoices = ecom_invoices.filter(invoice__created_at__month=last_month.month)
 
             # orders returns
             returns = returns.filter(modified_at__month=last_month.month)
@@ -4412,15 +4649,16 @@ class OrderedItemCentralDashBoard(APIView):
 
         elif filters == 7:  # this year
             products = products.filter(created_at__year=today_date.year)
+            ecom_products = ecom_products.filter(created_at__year=today_date.year)
             # orders
             orders = orders.filter(created_at__year=today_date.year)
             pos_orders = pos_orders.filter(created_at__year=today_date.year)
             ecom_orders = ecom_orders.filter(created_at__year=today_date.year)
 
             # invoice
-            invoices = invoices.filter(ordered_product__invoice__created_at__year=today_date.year)
-            pos_invoices = pos_invoices.filter(ordered_product__invoice__created_at__year=today_date.year)
-            ecom_invoices = ecom_invoices.filter(ordered_product__invoice__created_at__year=today_date.year)
+            invoices = invoices.filter(invoice__created_at__year=today_date.year)
+            pos_invoices = pos_invoices.filter(invoice__created_at__year=today_date.year)
+            ecom_invoices = ecom_invoices.filter(invoice__created_at__year=today_date.year)
 
             # orders returns
             returns = returns.filter(modified_at__year=today_date.year)
@@ -4434,63 +4672,66 @@ class OrderedItemCentralDashBoard(APIView):
 
         # Ordered Count
         total_ordered_final_amount = orders.aggregate(Sum('order_amount')).get('order_amount__sum')
+        total_ordered_final_amount = total_ordered_final_amount if total_ordered_final_amount else 0
         total_refund_amount = returns.aggregate(Sum('refund_amount')).get('refund_amount__sum')
+
         if total_refund_amount:
             total_ordered_final_amount -= float(total_refund_amount)
         # POS Ordered Count
         pos_total_ordered_final_amount = pos_orders.aggregate(Sum('order_amount')).get('order_amount__sum')
+        pos_total_ordered_final_amount = pos_total_ordered_final_amount if pos_total_ordered_final_amount else 0
         pos_total_refund_amount = pos_returns.aggregate(Sum('refund_amount')).get('refund_amount__sum')
         if pos_total_refund_amount:
             pos_total_ordered_final_amount -= float(pos_total_refund_amount)
+
         # ECOM Ordered Count
         ecom_total_ordered_final_amount = ecom_orders.aggregate(Sum('order_amount')).get('order_amount__sum')
+        ecom_total_ordered_final_amount = ecom_total_ordered_final_amount if ecom_total_ordered_final_amount else 0
         ecom_total_refund_amount = ecom_returns.aggregate(Sum('refund_amount')).get('refund_amount__sum')
         if ecom_total_refund_amount:
             ecom_total_ordered_final_amount -= float(ecom_total_refund_amount)
 
-        # Invoice Count
-        total_invoices_final_amount = invoices.annotate(inv_amt=RoundAmount(Sum(F('effective_price') * F('shipped_qty')))).\
-            aggregate(amt=Sum('inv_amt')).get('amt')
-        total_invoice_refund_amount = invoice_returns.aggregate(Sum('order_return__refund_amount')).\
-            get('order_return__refund_amount__sum')
-        if total_invoice_refund_amount:
-            total_invoices_final_amount -= Decimal(total_invoice_refund_amount)
         # POS Invoice Count
-        pos_total_invoices_final_amount = pos_invoices.annotate(
-            inv_amt=RoundAmount(Sum(F('effective_price') * F('shipped_qty')))).\
-            aggregate(amt=Sum('inv_amt')).get('amt')
+        pos_total_invoices_final_amount = 0
+        for invoice in pos_invoices:
+            pos_total_invoices_final_amount += round_half_down(invoice.invoice_amount_final)
         pos_total_invoice_refund_amount = pos_invoice_returns.aggregate(Sum('order_return__refund_amount')).\
             get('order_return__refund_amount__sum')
         if pos_total_invoice_refund_amount:
-            pos_total_invoices_final_amount -= Decimal(pos_total_invoice_refund_amount)
+            pos_total_invoices_final_amount -= float(pos_total_invoice_refund_amount)
+
         # ECOM Invoice Count
-        ecom_total_invoices_final_amount = ecom_invoices.annotate(
-            inv_amt=RoundAmount(Sum(F('effective_price') * F('shipped_qty')))).\
-            aggregate(amt=Sum('inv_amt')).get('amt')
+        ecom_total_invoices_final_amount = 0
+        for invoice in ecom_invoices:
+            ecom_total_invoices_final_amount += invoice.invoice_amount_final
         ecom_total_invoice_refund_amount = ecom_invoice_returns.aggregate(Sum('order_return__refund_amount')). \
             get('order_return__refund_amount__sum')
         if ecom_total_invoice_refund_amount:
-            ecom_total_invoices_final_amount -= Decimal(ecom_total_invoice_refund_amount)
+            ecom_total_invoices_final_amount -= float(ecom_total_invoice_refund_amount)
 
+        # Invoice Count
+        total_invoices_final_amount = pos_total_invoices_final_amount + ecom_total_invoices_final_amount
         # counts of order for shop_id with total_ordered_final_amount, total_invoices_final_amount  & products
         products_count = products.count()
+        ecom_products_count = ecom_products.count()
 
         order_count = orders.count()
-        invoice_count = invoices.values('ordered_product_id').distinct('ordered_product_id').count()
+        invoice_count = invoices.count()
 
         ecom_order_count = ecom_orders.count()
-        ecom_invoice_count = ecom_invoices.values('ordered_product_id').distinct('ordered_product_id').count()
+        ecom_invoice_count = ecom_invoices.count()
 
         pos_order_count = pos_orders.count()
-        pos_invoice_count = pos_invoices.values('ordered_product_id').distinct('ordered_product_id').count()
+        pos_invoice_count = pos_invoices.count()
 
         overview = [{"shop_name": shop.shop_name, "orders": order_count, "products": products_count,
-                     "revenue": total_ordered_final_amount, "ecom_order_count": ecom_order_count,
-                     "pos_order_count": pos_order_count, "ecom_revenue": ecom_total_ordered_final_amount,
-                     "pos_revenue": pos_total_ordered_final_amount, "invoices": invoice_count,
-                     "ecom_invoice_count": ecom_invoice_count, "pos_invoice_count": pos_invoice_count,
-                     "invoice_revenue": total_invoices_final_amount, "ecom_invoice_revenue":
-                         ecom_total_invoices_final_amount, "pos_invoice_revenue": pos_total_invoices_final_amount}]
+                     "ecom_products": ecom_products_count, "revenue": total_ordered_final_amount,
+                     "ecom_order_count": ecom_order_count, "pos_order_count": pos_order_count,
+                     "ecom_revenue": ecom_total_ordered_final_amount, "pos_revenue": pos_total_ordered_final_amount,
+                     "invoices": invoice_count, "ecom_invoice_count": ecom_invoice_count,
+                     "pos_invoice_count": pos_invoice_count, "invoice_revenue": total_invoices_final_amount,
+                     "ecom_invoice_revenue": ecom_total_invoices_final_amount,
+                     "pos_invoice_revenue": pos_total_invoices_final_amount}]
         return overview
 
     def get_retail_order_overview(self):
@@ -5158,19 +5399,48 @@ class CartStockCheckView(APIView):
         if address.pincode != shop.shop_name_address_mapping.filter(
                 address_type='shipping').last().pincode_link.pincode:
             return api_response("This Shop is not serviceable at your delivery address")
+        #
+        # lattitude,longitude = self.request.GET.get('latitude'),self.request.GET.get('longitude')
+        # if lattitude and longitude:
+        #     lattitude = float(lattitude)
+        #     longitude = float(longitude)
+        # shop_lattitude,shop_longitude = get_order_location(shop)
+        # order_distance = 0
+        # if lattitude and longitude:
+        #     order_distance = distance((shop_lattitude, shop_longitude), (lattitude, longitude))
+        # delivery_redius = get_config_fofo_shop('Delivery Radius', shop.id)
+        # if order_distance != 0 and delivery_redius and order_distance * 1000 > get_config_fofo_shop('Delivery Radius', shop.id):
+        #     return api_response("This Shop is not serviceable at your delivery address")
+        """"---------------------------------------------validation for fofo shop-----------------------------------------------"""
 
+        time = datetime.now().strftime("%H:%M:%S")
+        time = datetime.strptime(time,"%H:%M:%S").time()
+        day = datetime.today().date()
+
+        fofo_config = get_config_fofo_shops(shop)
+        msg = 'Stock check completed'
+        if fofo_config.get('open_time',None) and fofo_config.get('close_time',None) and not (fofo_config['open_time']<time and fofo_config['close_time']>time):
+            msg = "Your Order Will Pick Up Tomorrow"
+            #return api_response("Sorry for the inconvenience, order acceptable b/w {} to {}".format(fofo_config['open_time'], fofo_config['close_time']))
+
+        start_off_day = fofo_config.get('working_off_start_date', None)
+        end_off_day = fofo_config.get('working_off_end_date',start_off_day)
+        if (start_off_day and end_off_day) and (start_off_day<= day and end_off_day >= day):
+            return api_response("Sorry for the inconvenience, Shop is non operational on {}".format(datetime.today().date()))
         # Check for changes in cart - price / offers / available inventory
         cart_products = cart.rt_cart_list.all()
         cart_products = PosCartCls.refresh_prices(cart_products)
         # Minimum Order Value
         # order_config = GlobalConfig.objects.filter(key='ecom_minimum_order_amount').last()
-        order_config = get_config_fofo_shop('Minimum order value', shop.id)
+        order_config = fofo_config.get('min_order_value',None)#get_config_fofo_shop('Minimum order value', shop.id)
+        order_config = order_config if order_config else GlobalConfig.objects.filter(key='ecom_minimum_order_amount').last().value
         if order_config is not None:
             order_amount = cart.order_amount_after_discount
             if order_amount < order_config:
                 return api_response(
                     "A minimum total purchase amount of {} is required to checkout.".format(order_config),
                     None, status.HTTP_200_OK, False)
+        """"-----------------------------------------------------------------------------------------------------------------------"""
 
         if shop.online_inventory_enabled:
             out_of_stock_items = PosCartCls.out_of_stock_items(cart_products)
@@ -5180,7 +5450,7 @@ class CartStockCheckView(APIView):
                 return api_response("Few items in your cart are not available.", out_of_stock_items, status.HTTP_200_OK,
                                     False, {'error_code': error_code.OUT_OF_STOCK_ITEMS})
 
-        return api_response("Stock check completed", None, status.HTTP_200_OK, True)
+        return api_response(msg, None, status.HTTP_200_OK, True)
 
 
 class OrderReturnComplete(APIView):
@@ -5415,7 +5685,7 @@ def pdf_generation(request, ordered_product):
     # get prefix of file name
     file_prefix = PREFIX_INVOICE_FILE_NAME
     # get the file name along with with prefix name
-    filename = create_file_name(file_prefix, ordered_product)
+    filename = create_file_name(file_prefix, ordered_product, with_timestamp=True)
     # we will be changing based on shop name
     template_name = 'admin/invoice/invoice_sp.html'
     if type(request) is str:
@@ -5425,16 +5695,26 @@ def pdf_generation(request, ordered_product):
         request = request
         ordered_product = ordered_product
 
-    try:
-        if ordered_product.invoice.invoice_pdf.url:
+    if ordered_product.invoice and ordered_product.invoice.invoice_pdf and ordered_product.invoice.invoice_pdf.url:
             pass
-    except Exception as e:
-        logger.exception(e)
+    else:
         barcode = barcodeGen(ordered_product.invoice_no)
+        e_invoice_data = None
+        # Check if e-invoicing is done for this order
+        # and get e-invocing details
+        # details include QRCode, IRN, Ack No, Ack Date
+        zoho_invoice = ZohoInvoice.objects.filter(invoice_number=ordered_product.invoice_no).last()
+        if zoho_invoice and zoho_invoice.e_invoice_qr_raw_data:
+            try:
+                qrCode = qrCodeGen(ordered_product.invoice_no, zoho_invoice.e_invoice_qr_raw_data)
+                irn = zoho_invoice.e_invoice_reference_number
+                ack_no = zoho_invoice.e_invoice_ack_number
+                ack_date = zoho_invoice.e_invoice_ack_date
 
+                e_invoice_data = {'qrCode': qrCode, 'irn': irn, 'ack_no': ack_no, 'ack_date': ack_date}
+            except Exception as e:
+                pass
         buyer_shop_id = ordered_product.order.buyer_shop_id
-        paid_amount = 0
-        invoice_details = OrderedProduct.objects.filter(order__buyer_shop_id=buyer_shop_id)
 
         # Licence
         shop_mapping = ParentRetailerMapping.objects.filter(
@@ -5446,19 +5726,13 @@ def pdf_generation(request, ordered_product):
         license_number = getShopLicenseNumber(shop_name)
         # CIN
         cin_number = getShopCINNumber(shop_name)
-
-        for invoice_amount in invoice_details:
-            date_time = invoice_amount.created_at
-            date = date_time.strftime("%d")
-            month = date_time.strftime("%m")
-            year = date_time.strftime("%Y")
-            # print(str(date) + " " + str(month) + " " + str(year) + " " + str(invoice_amount.invoice_amount) + " " + str(invoice_amount.shipment_status))
-            if int(month) > 2 and int(year) > 2019:
-                if invoice_amount.invoice_amount is None:
-                    paid_amount += 0
-                else:
-                    paid_amount += invoice_amount.invoice_amount
-        # print(paid_amount)
+        fin_year_start_dt = get_fin_year_start_date()
+        paid_amount = OrderedProduct.objects.filter(order__buyer_shop_id=buyer_shop_id,
+                                                    created_at__gte=fin_year_start_dt) \
+                                            .aggregate(paid_amount=RoundAmount(Sum(
+                                                F('rt_order_product_order_product_mapping__effective_price') *
+                                                F('rt_order_product_order_product_mapping__shipped_qty'),
+                                                output_field=FloatField())))['paid_amount']
 
         try:
             if ordered_product.order.buyer_shop.shop_timing:
@@ -5497,8 +5771,6 @@ def pdf_generation(request, ordered_product):
         gst_tax_list = []
         cess_tax_list = []
         surcharge_tax_list = []
-        tcs_rate = 0
-        tcs_tax = 0
         sum_qty = 0
         igst = sum(gst_tax_list)
         cgst = (sum(gst_tax_list)) / 2
@@ -5638,19 +5910,10 @@ def pdf_generation(request, ordered_product):
                 sum(gst_tax_list)) / 2, sum(
                 cess_tax_list), sum(surcharge_tax_list)
 
-        total_amount = ordered_product.invoice_amount
-
+        total_amount = ordered_product.invoice.invoice_sub_total
+        tcs_rate = ordered_product.invoice.tcs_percent
+        tcs_tax = round(ordered_product.invoice.tcs_amount, 2)
         total_tax_amount = ordered_product.sum_amount_tax()
-
-        if float(paid_amount) > 5000000:
-            if buyer_shop_gistin == 'unregistered':
-                tcs_rate = 1
-                tcs_tax = total_amount * float(tcs_rate / 100)
-            else:
-                tcs_rate = 0.1
-                tcs_tax = total_amount * float(tcs_rate / 100)
-
-        tcs_tax = round(tcs_tax, 2)
         try:
             product_special_cess = round(m.total_product_cess_amount)
         except:
@@ -5682,7 +5945,7 @@ def pdf_generation(request, ordered_product):
                 "shop_name_gram": shop_name_gram, "nick_name_gram": nick_name_gram,
                 "address_line1_gram": address_line1_gram, "city_gram": city_gram, "state_gram": state_gram,
                 "pincode_gram": pincode_gram, "cin": cin_number,
-                "hsn_list": list1, "license_number": license_number}
+                "hsn_list": list1, "license_number": license_number, "e_invoice_data": e_invoice_data}
 
         cmd_option = {"margin-top": 10, "zoom": 1, "javascript-delay": 1000, "footer-center": "[page]/[topage]",
                       "no-stop-slow-scripts": True, "quiet": True}
@@ -5708,35 +5971,33 @@ def pdf_generation_retailer(request, order_id, delay=True):
     ordered_product = order.rt_order_order_product.all()[0]
     filename = create_file_name(file_prefix, ordered_product)
     template_name = 'admin/invoice/invoice_retailer_3inch.html'
-    try:
-        # Don't create pdf if already created
-        if ordered_product.invoice.invoice_pdf.url:
-            try:
-                phone_number, shop_name = order.buyer.phone_number, order.seller_shop.shop_name
-                media_url, file_name, manager = ordered_product.invoice.invoice_pdf.url, ordered_product.invoice.invoice_no, \
-                                                order.ordered_cart.seller_shop.pos_shop.filter(
-                                                    user_type='manager').last()
-                if delay:
-                    whatsapp_opt_in.delay(phone_number, shop_name, media_url, file_name)
-                    if manager and manager.user.email:
-                        send_invoice_pdf_email.delay(manager.user.email, shop_name, order.order_no, media_url,
-                                                     file_name, 'order')
-                    else:
-                        logger.exception("Email not present for Manager {}".format(str(manager)))
-                    # email task to send manager order invoice ^
+    # Don't create pdf if already created
+    if ordered_product.invoice and ordered_product.invoice.invoice_pdf and ordered_product.invoice.invoice_pdf.url:
+        try:
+            phone_number, shop_name = order.buyer.phone_number, order.seller_shop.shop_name
+            media_url, file_name, manager = ordered_product.invoice.invoice_pdf.url, ordered_product.invoice.invoice_no, \
+                                            order.ordered_cart.seller_shop.pos_shop.filter(
+                                                user_type='manager').last()
+            if delay:
+                whatsapp_opt_in.delay(phone_number, shop_name, media_url, file_name)
+                if manager and manager.user.email:
+                    send_invoice_pdf_email.delay(manager.user.email, shop_name, order.order_no, media_url,
+                                                 file_name, 'order')
                 else:
-                    if manager and manager.user.email:
-                        send_invoice_pdf_email(manager.user.email, shop_name, order.order_no, media_url, file_name,
-                                               'order')
-                    else:
-                        logger.exception("Email not present for Manager {}".format(str(manager)))
-                    return whatsapp_opt_in(phone_number, shop_name, media_url, file_name)
-            except Exception as e:
-                logger.exception("Retailer Invoice send error order {}".format(order.order_no))
-                logger.exception(e)
+                    info_logger.error("Email not present for Manager {}".format(str(manager)))
+                # email task to send manager order invoice ^
+            else:
+                if manager and manager.user.email:
+                    send_invoice_pdf_email(manager.user.email, shop_name, order.order_no, media_url, file_name,
+                                           'order')
+                else:
+                    info_logger.error("Email not present for Manager {}".format(str(manager)))
+            return whatsapp_opt_in(phone_number, shop_name, media_url, file_name)
+        except Exception as e:
+            logger.exception("Retailer Invoice send error order {}".format(order.order_no))
+            logger.exception(e)
 
-    except Exception as e:
-        logger.exception(e)
+    else:
         barcode = barcodeGen(ordered_product.invoice_no)
         # Products
         product_listing = []
@@ -5822,7 +6083,7 @@ def pdf_generation_retailer(request, order_id, delay=True):
             retailer_gstin_number = order.seller_shop.shop_name_documents.filter(
                 shop_document_type='gstin').last().shop_document_number
 
-        height = 140 + 5 * count  # calculating page height of invoice 145 is base value
+        height = 170 + 17 * count  # calculating page height of invoice 170 is base value
 
         data = {"shipment": ordered_product, "order": ordered_product.order, "url": request.get_host(),
                 "scheme": request.is_secure() and "https" or "http", "total_amount": total_amount, 'total': total,
@@ -5834,13 +6095,14 @@ def pdf_generation_retailer(request, order_id, delay=True):
                 "cin": cin_number,
                 "payment_type": ordered_product.order.rt_payment_retailer_order.last().payment_type.type}
         cmd_option = {"margin-top": 2, "margin-left": 0, "margin-right": 0, "margin-bottom": 2, "javascript-delay": 0,
-                      "page-height": height, "page-width": 80, "no-stop-slow-scripts": True, "quiet": True, }
+                      "page-height": height, "page-width": 70, "no-stop-slow-scripts": True, "quiet": True,'encoding': 'utf8 '
+                      ,"dpi":300}
         response = PDFTemplateResponse(request=request, template=template_name, filename=filename,
                                        context=data, show_content_in_browser=False, cmd_options=cmd_option)
-        # with open("/var/www/gmfact/retailer-backend/heelo.pdf", "wb") as f:
+        # with open("heelo.pdf", "wb") as f:
         #     f.write(response.rendered_content)
         # content = render_to_string(template_name, data)
-        # with open("abc.html", 'w') as static_file:
+        # with codecs.open("abc.html", "w", "utf-8-sig") as static_file:
         #     static_file.write(content)
 
         try:
@@ -5854,19 +6116,21 @@ def pdf_generation_retailer(request, order_id, delay=True):
             manager = order.ordered_cart.seller_shop.pos_shop.filter(user_type='manager').last()
             # whatsapp api call for sending an invoice
             if delay:
-                whatsapp_opt_in.delay(phone_number, shop_name, media_url, file_name)
+                if request.data.get("is_whatsapp", True):
+                    whatsapp_opt_in.delay(phone_number, shop_name, media_url, file_name)
                 if manager and manager.user.email:
                     send_invoice_pdf_email.delay(manager.user.email, shop_name, order.order_no, media_url, file_name,
                                                  'order')
                 else:
-                    logger.exception("Email not present for Manager {}".format(str(manager)))
+                    info_logger.error("Email not present for Manager {}".format(str(manager)))
                 # send email
             else:
                 if manager and manager.user.email:
                     send_invoice_pdf_email(manager.user.email, shop_name, order.order_no, media_url, file_name, 'order')
                 else:
-                    logger.exception("Email not present for Manager {}".format(str(manager)))
-                return whatsapp_opt_in(phone_number, shop_name, media_url, file_name)
+                    info_logger.error("Email not present for Manager {}".format(str(manager)))
+                if request.data.get("is_whatsapp", True):
+                    return whatsapp_opt_in(phone_number, shop_name, media_url, file_name)
         except Exception as e:
             logger.exception("Retailer Invoice save and send error order {}".format(order.order_no))
             logger.exception(e)
@@ -5878,41 +6142,39 @@ def pdf_generation_return_retailer(request, order, ordered_product, order_return
     # template_name = 'admin/credit_note/credit_note_retailer.html'
     template_name = 'admin/credit_note/credit_retailer_3inch.html'
 
-    try:
-        # Don't create pdf if already created
-        if credit_note_instance.credit_note_pdf.url:
-            try:
-                order_number, order_status, phone_number = order.order_no, order.order_status, order.buyer.phone_number
-                refund_amount = order_return.refund_amount if order_return.refund_amount > 0 else 0
-                media_url, file_name = credit_note_instance.credit_note_pdf.url, ordered_product.invoice_no
-                manager = order.ordered_cart.seller_shop.pos_shop.filter(user_type='manager').last()
-                shop_name = order.ordered_cart.seller_shop.shop_name
-                if delay:
-                    whatsapp_order_refund.delay(order_number, order_status, phone_number, refund_amount, media_url,
-                                                file_name)
-                    if manager and manager.user.email:
-                        send_invoice_pdf_email.delay(manager.user.email, shop_name, order_number, media_url, file_name,
-                                                     'return')
-                    else:
-                        logger.exception("Email not present for Manager {}".format(str(manager)))
-                    # send mail to manager for return
+
+    # Don't create pdf if already created
+    if credit_note_instance and credit_note_instance.credit_note_pdf and credit_note_instance.credit_note_pdf.url:
+        try:
+            order_number, order_status, phone_number = order.order_no, order.order_status, order.buyer.phone_number
+            refund_amount = order_return.refund_amount if order_return.refund_amount > 0 else 0
+            media_url, file_name = credit_note_instance.credit_note_pdf.url, ordered_product.invoice_no
+            manager = order.ordered_cart.seller_shop.pos_shop.filter(user_type='manager').last()
+            shop_name = order.ordered_cart.seller_shop.shop_name
+            if delay:
+                whatsapp_order_refund.delay(order_number, order_status, phone_number, refund_amount, media_url,
+                                            file_name)
+                if manager and manager.user.email:
+                    send_invoice_pdf_email.delay(manager.user.email, shop_name, order_number, media_url, file_name,
+                                                 'return')
                 else:
-                    if manager and manager.user.email:
-                        send_invoice_pdf_email(manager.user.email, shop_name, order_number, media_url, file_name,
-                                               'return')
-                    else:
-                        logger.exception("Email not present for Manager {}".format(str(manager)))
-                    return whatsapp_order_refund(order_number, order_status, phone_number, refund_amount, media_url,
-                                                 file_name)
-                    # send mail to manager for return
-            except Exception as e:
-                logger.exception("Retailer Credit note send error order {} return {}".format(order.order_no,
-                                                                                             order_return.id))
-                logger.exception(e)
+                    info_logger.error("Email not present for Manager {}".format(str(manager)))
+                # send mail to manager for return
+            else:
+                if manager and manager.user.email:
+                    send_invoice_pdf_email(manager.user.email, shop_name, order_number, media_url, file_name,
+                                           'return')
+                else:
+                    info_logger.error("Email not present for Manager {}".format(str(manager)))
+                return whatsapp_order_refund(order_number, order_status, phone_number, refund_amount, media_url,
+                                                             file_name)
+                # send mail to manager for return
+        except Exception as e:
+            logger.exception("Retailer Credit note send error order {} return {}".format(order.order_no,
+                                                                                         order_return.id))
+            logger.exception(e)
 
-    except Exception as e:
-        logger.exception(e)
-
+    else:
         filename = create_file_name(file_prefix, credit_note_instance.credit_note_id)
         barcode = barcodeGen(credit_note_instance.credit_note_id)
         # Total Items
@@ -5990,7 +6252,7 @@ def pdf_generation_return_retailer(request, order, ordered_product, order_return
             retailer_gstin_number = order.seller_shop.shop_name_documents.filter(
                 shop_document_type='gstin').last().shop_document_number
 
-        height = 140 + 5 * count  # calculating page height of invoice 145 is base value
+        height = 170 + 13 * count  # calculating page height of invoice 170 is base value
         data = {
             "url": request.get_host(),
             "scheme": request.is_secure() and "https" or "http",
@@ -6041,22 +6303,24 @@ def pdf_generation_return_retailer(request, order, ordered_product, order_return
             manager = order.ordered_cart.seller_shop.pos_shop.filter(user_type='manager').last()
             shop_name = order.ordered_cart.seller_shop.shop_name
             if delay:
-                whatsapp_order_refund.delay(order_number, order_status, phone_number, refund_amount, media_url,
-                                            file_name)
+                if request.data.get("is_whatsapp", True):
+                    whatsapp_order_refund.delay(order_number, order_status, phone_number, refund_amount, media_url,
+                                                file_name)
                 if manager and manager.user.email:
                     send_invoice_pdf_email.delay(manager.user.email, shop_name, order_number, media_url, file_name,
                                                  'return')
                 else:
-                    logger.exception("Email not present for Manager {}".format(str(manager)))
+                    info_logger.error("Email not present for Manager {}".format(str(manager)))
                 # send order return mail to
             else:
                 if manager and manager.user.email:
                     send_invoice_pdf_email(manager.user.email, shop_name, order_number, media_url, file_name, 'return')
                 else:
-                    logger.exception("Email not present for Manager {}".format(str(manager)))
+                    info_logger.error("Email not present for Manager {}".format(str(manager)))
                 # send mail to manager
-                return whatsapp_order_refund(order_number, order_status, phone_number, refund_amount, media_url,
-                                             file_name)
+                if request.data.get("is_whatsapp", False):
+                    return whatsapp_order_refund(order_number, order_status, phone_number, refund_amount, media_url,
+                                                 file_name)
         except Exception as e:
             logger.exception("Retailer Credit note save and send error order {} return {}".format(order.order_no,
                                                                                                   order_return.id))
@@ -6117,8 +6381,8 @@ class DownloadCreditNoteDiscounted(APIView):
         sum_qty, sum_amount, tax_inline, sum_basic_amount, product_tax_amount, total_product_tax_amount = 0, 0, 0, 0, 0, 0
         taxes_list, gst_tax_list, cess_tax_list, surcharge_tax_list = [], [], [], []
         igst, cgst, sgst, cess, surcharge = 0, 0, 0, 0, 0
-        tcs_rate = 0
-        tcs_tax = 0
+        tcs_rate = credit_note.shipment.invoice.tcs_percent
+        tcs_tax = credit_note.tcs_amount
         list1 = []
         for z in credit_note.shipment.order.seller_shop.shop_name_address_mapping.all():
             pan_no = 'AAHCG4891M' if z.shop_name == 'GFDN SERVICES PVT LTD (NOIDA)' or z.shop_name == 'GFDN SERVICES PVT LTD (DELHI)' else '---'
@@ -6544,8 +6808,10 @@ class ShipmentDeliveryUpdate(APIView):
                     ShipmentProducts.objects.get(ordered_product_id=shipment_id, product=product).shipped_qty)
                 if shipped_qty >= int(returned_qty) + int(damaged_qty):
                     delivered_qty = shipped_qty - (int(returned_qty) + int(damaged_qty))
+                    initial_returned_qty = int(returned_qty) + int(damaged_qty)
                     ShipmentProducts.objects.filter(ordered_product__id=shipment_id, product=product).update(
                         returned_qty=returned_qty, returned_damage_qty=damaged_qty, delivered_qty=delivered_qty,
+                        initial_returned_qty=initial_returned_qty, initial_delivered_qty=delivered_qty,
                         cancellation_date=datetime.now())
                 # shipment_product_details = ShipmentDetailSerializer(shipment, many=True)
                 else:
@@ -6709,18 +6975,21 @@ class RetailerList(generics.ListAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (permissions.IsAuthenticated,)
 
+    def get_manager(self):
+        return ShopUserMapping.objects.filter(employee=self.request.user, status=True)
+
+    def get_child_employee(self):
+        return ShopUserMapping.objects.filter(Q(manager__in=self.get_manager()) | Q(employee=self.request.user,
+                                                      employee_group__permissions__codename='can_sales_person_add_shop'),
+                                              shop__shop_type__shop_type__in=['r', 'f', 'sp'], status=True)
+
     def get_shops(self):
-        return ShopUserMapping.objects.filter(employee_id__in=self.request.user.shop_employee.all() \
-                                              .prefetch_related('employee_list').values('employee_list__employee_id'),
-                                              shop__shop_type__shop_type__in=['r', 'f'], status=True)
-
-    def get_employee(self):
-        return ShopUserMapping.objects.filter(employee=self.request.user,
-                                              employee_group__permissions__codename='can_sales_person_add_shop',
-                                              shop__shop_type__shop_type__in=['r', 'f'], status=True)
-
+        return ShopUserMapping.objects.filter(Q(manager__in=self.get_manager()) | Q(employee=self.request.user,
+                                                 employee_group__permissions__codename='can_sales_person_add_shop'),
+                                                 employee__in=self.get_child_employee().values('employee'),
+                                              shop__shop_type__shop_type__in=['r', 'f', ], status=True)
     def get_queryset(self):
-        shop_emp = self.get_employee()
+        shop_emp = self.get_child_employee()
         if not shop_emp.exists():
             shop_emp = self.get_shops()
         return shop_emp.values('shop')
@@ -6975,7 +7244,6 @@ class RefreshEsRetailer(APIView):
 
         if not shops.exists():
             return api_response("No shops found")
-
         for shop in shops:
             shop_id = shop.id
             info_logger.info('RefreshEsRetailer | shop {}, Started'.format(shop_id))
@@ -7242,6 +7510,9 @@ class ProcessShipmentView(generics.GenericAPIView):
 
         else:
             """ Get Process Shipment for specific Shipment and batch Id """
+
+            if request.GET.get('shipment_id') and not re.match("^\d+$", str(request.GET.get('shipment_id'))):
+                return get_response('please provide valid shipment_id', False)
             if not request.GET.get('shipment_id') or not (request.GET.get('batch_id') or request.GET.get('ean_code')):
                 return get_response('please provide id / shipment_id & batch_id to get shipment product detail', False)
             process_shipments_data = self.filter_shipment_data()
@@ -7308,6 +7579,7 @@ class ShipmentQCView(generics.GenericAPIView):
         prefetch_related('qc_area__qc_desk_areas', 'qc_area__qc_desk_areas__qc_executive'). \
         only('id', 'order__order_no', 'order__seller_shop__id', 'order__seller_shop__shop_name',
              'order__buyer_shop__id', 'order__buyer_shop__shop_name', 'order__shipping_address__pincode',
+             'order__dispatch_center__id', 'order__dispatch_center__shop_name', 'order__dispatch_delivery',
              'order__shipping_address__pincode_link_id', 'order__shipping_address__nick_name',
              'order__shipping_address__address_line1', 'order__shipping_address__address_contact_name',
              'order__shipping_address__address_contact_number', 'order__shipping_address__address_type',
@@ -7337,10 +7609,14 @@ class ShipmentQCView(generics.GenericAPIView):
     @check_qc_dispatch_executive
     def put(self, request):
         """ PUT API for shipment update """
+
+        info_logger.info("PUT API for shipment update called.")
+        if not request.data.get('data').get('id'):
+            return get_response('please provide id to update shipment', False)
+
         modified_data = validate_data_format(self.request)
         if 'error' in modified_data:
             return get_response(modified_data['error'])
-        # shipment_data = validate_shipment_qc_desk(self.queryset, int(modified_data['id']), request.user)
         shipment_data = validate_shipment(self.queryset, int(modified_data['id']))
         if 'error' in shipment_data:
             return get_response(shipment_data['error'])
@@ -7364,6 +7640,10 @@ class ShipmentQCView(generics.GenericAPIView):
         pincode = self.request.GET.get('pincode')
         pincode_no = self.request.GET.get('pincode_no')
         buyer_shop = self.request.GET.get('buyer_shop')
+        dispatch_center = self.request.GET.get('dispatch_center')
+        trip_id = self.request.GET.get('trip_id')
+        availability = self.request.GET.get('availability')
+        return_packages = self.request.GET.get('return_packages')
 
         '''search using warehouse name, product's name'''
         if search_text:
@@ -7398,6 +7678,11 @@ class ShipmentQCView(generics.GenericAPIView):
 
         if buyer_shop:
             self.queryset = self.queryset.filter(order__buyer_shop_id=buyer_shop)
+
+        if return_packages and return_packages in ['0', '1', 0, 1]:
+            if int(return_packages):
+                self.queryset = self.queryset.filter(order__dispatch_delivery=True,
+                                                     shipment_packaging__movement_type=ShipmentPackaging.RETURNED)
 
         return self.queryset.distinct('id')
 
@@ -7560,9 +7845,19 @@ class DispatchItemsView(generics.GenericAPIView):
 
     def filter_packaging_items(self):
         shipment_id = self.request.GET.get('shipment_id')
+        package_status = self.request.GET.get('package_status')
+        movement_type = self.request.GET.get('movement_type')
 
         if shipment_id:
             self.queryset = self.queryset.filter(shipment_id=shipment_id)
+
+        if package_status:
+            self.queryset = self.queryset.filter(status=package_status)
+
+        if movement_type:
+            self.queryset = self.queryset.filter(movement_type=movement_type)
+        else:
+            self.queryset = self.queryset.filter(movement_type=ShipmentPackaging.DISPATCH)
         return self.queryset
 
 
@@ -7821,3 +8116,2548 @@ class OrderStatusChoicesList(GenericAPIView):
                                                (Order.PAYMENT_APPROVED, "Payment Approved"),
                                                (Order.PAYMENT_COD, "Payment COD")]]
         return api_response('', data, status.HTTP_200_OK, True)
+
+
+class DeliverBoysList(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    queryset = get_user_model().objects.values('id', 'phone_number', 'first_name', 'last_name').order_by('-id')
+    serializer_class = UserSerializers
+
+    def user_search(self, queryset, search_string):
+        """
+        This method is used to search using user name & phone number based on criteria that matches
+        @param queryset:
+        @param search_string:
+        @return: queryset
+        """
+        sts_list = search_string.split(' ')
+        for search_text in sts_list:
+            queryset = queryset.filter(Q(phone_number__icontains=search_text) | Q(first_name__icontains=search_text)
+                                       | Q(last_name__icontains=search_text))
+        return queryset
+
+    def get(self, request):
+        info_logger.info("Delivery Boys api called.")
+        """ GET Delivery Boys List """
+        group = Group.objects.get(name='Delivery Boy')
+        self.queryset = self.queryset.filter(groups=group)
+        warehouse = self.request.GET.get('warehouse')
+        if warehouse:
+            self.queryset = self.queryset.filter(shop_employee__shop_id=warehouse)
+        id = self.request.GET.get('id')
+        if id:
+            self.queryset = self.queryset.filter(id=id)
+        search_text = self.request.GET.get('search_text')
+        if search_text:
+            self.queryset = self.user_search(self.queryset, search_text)
+        delivery_boys = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        serializer = self.serializer_class(delivery_boys, many=True)
+        msg = "" if delivery_boys else "no delivery boy found"
+        return get_response(msg, serializer.data, True)
+
+
+class VehicleDriverList(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    queryset = get_user_model().objects.values('id', 'phone_number', 'first_name', 'last_name').order_by('-id')
+    serializer_class = UserSerializers
+
+    def user_search(self, queryset, search_string):
+        """
+        This method is used to search using user name & phone number based on criteria that matches
+        @param queryset:
+        @param search_string:
+        @return: queryset
+        """
+        sts_list = search_string.split(' ')
+        for search_text in sts_list:
+            queryset = queryset.filter(Q(phone_number__icontains=search_text) | Q(first_name__icontains=search_text)
+                                       | Q(last_name__icontains=search_text))
+        return queryset
+
+    def get(self, request):
+        info_logger.info("Delivery Boys api called.")
+        """ GET Delivery Boys List """
+        group = Group.objects.get(name='Vehicle Driver')
+        self.queryset = self.queryset.filter(groups=group)
+        warehouse = self.request.GET.get('warehouse')
+        if warehouse:
+            self.queryset = self.queryset.filter(shop_employee__shop_id=warehouse)
+        id = self.request.GET.get('id')
+        if id:
+            self.queryset = self.queryset.filter(id=id)
+        search_text = self.request.GET.get('search_text')
+        if search_text:
+            self.queryset = self.user_search(self.queryset, search_text)
+        vehicle_drivers = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        serializer = self.serializer_class(vehicle_drivers, many=True)
+        msg = "" if vehicle_drivers else "no vehicle driver found"
+        return get_response(msg, serializer.data, True)
+
+
+class DispatchTripsCrudView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    queryset = DispatchTrip.objects. \
+        annotate(status=Case(
+                         When(trip_status__in=[DispatchTrip.NEW, DispatchTrip.STARTED], then=Value("PENDING")),
+                         When(trip_status__in=[DispatchTrip.COMPLETED, DispatchTrip.UNLOADING,],
+                              then=Value("COMPLETED")),
+                         default=F('trip_status'))).\
+        select_related('seller_shop', 'seller_shop__shop_owner', 'seller_shop__shop_type',
+                       'seller_shop__shop_type__shop_sub_type', 'source_shop', 'source_shop__shop_owner',
+                       'source_shop__shop_type', 'source_shop__shop_type__shop_sub_type', 'destination_shop',
+                       'destination_shop__shop_owner', 'destination_shop__shop_type',
+                       'destination_shop__shop_type__shop_sub_type', 'delivery_boy', 'created_by', 'updated_by'). \
+        only('id', 'dispatch_no', 'vehicle_no', 'seller_shop__id', 'seller_shop__status', 'seller_shop__shop_name',
+             'seller_shop__shop_type', 'seller_shop__shop_type__shop_type', 'seller_shop__shop_type__shop_sub_type',
+             'seller_shop__shop_type__shop_sub_type__retailer_type_name', 'seller_shop__shop_owner',
+             'seller_shop__shop_owner__first_name', 'seller_shop__shop_owner__last_name',
+             'seller_shop__shop_owner__phone_number', 'source_shop__id', 'source_shop__status',
+             'source_shop__shop_name', 'source_shop__shop_type', 'source_shop__shop_type__shop_type',
+             'source_shop__shop_type__shop_sub_type', 'source_shop__shop_type__shop_sub_type__retailer_type_name',
+             'source_shop__shop_owner', 'source_shop__shop_owner__first_name', 'source_shop__shop_owner__last_name',
+             'source_shop__shop_owner__phone_number', 'destination_shop__id', 'destination_shop__status',
+             'destination_shop__shop_name', 'destination_shop__shop_type', 'destination_shop__shop_type__shop_type',
+             'destination_shop__shop_type__shop_sub_type', 'destination_shop__shop_owner',
+             'destination_shop__shop_type__shop_sub_type__retailer_type_name',
+             'destination_shop__shop_owner__first_name', 'destination_shop__shop_owner__last_name',
+             'destination_shop__shop_owner__phone_number', 'delivery_boy__id', 'delivery_boy__first_name',
+             'delivery_boy__last_name', 'delivery_boy__phone_number', 'trip_status', 'starts_at',
+             'completed_at', 'opening_kms', 'closing_kms', 'no_of_crates', 'no_of_packets', 'no_of_sacks',
+             'no_of_crates_check', 'no_of_packets_check', 'no_of_sacks_check', 'created_at', 'updated_at',
+             'created_by__id', 'created_by__first_name', 'created_by__last_name', 'created_by__phone_number',
+             'updated_by__id', 'updated_by__first_name', 'updated_by__last_name', 'updated_by__phone_number',). \
+        order_by('-id')
+    serializer_class = DispatchTripCrudSerializers
+
+    @check_whc_manager_dispatch_executive
+    def get(self, request):
+        """ GET API for Dispatch Trip """
+        info_logger.info("Dispatch Trip GET api called.")
+        if request.GET.get('id'):
+            """ Get Dispatch Trip for specific ID """
+            dispatch_trip_total_count = self.queryset.count()
+            id_validation = validate_id(self.queryset, int(request.GET.get('id')))
+            if 'error' in id_validation:
+                return get_response(id_validation['error'])
+            dispatch_trips_data = id_validation['data']
+        else:
+            """ GET Dispatch Trip List """
+            self.queryset = get_logged_user_wise_query_set_for_dispatch_trip(request.user, self.queryset)
+            self.queryset = self.search_filter_dispatch_trips_data()
+            dispatch_trip_total_count = self.queryset.count()
+            dispatch_trips_data = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+
+        serializer = self.serializer_class(dispatch_trips_data, many=True)
+        msg = f"total count {dispatch_trip_total_count}" if dispatch_trips_data else "no dispatch_trip found"
+        return get_response(msg, serializer.data, True)
+
+    @check_whc_manager_dispatch_executive
+    def post(self, request):
+        """ POST API for Dispatch Trip Creation with Image """
+
+        info_logger.info("Dispatch Trip POST api called.")
+        modified_data = validate_data_format(self.request)
+        if 'error' in modified_data:
+            return get_response(modified_data['error'])
+
+        serializer = self.serializer_class(data=modified_data)
+        if serializer.is_valid():
+            serializer.save(created_by=request.user)
+            info_logger.info("Dispatch Trip Created Successfully.")
+            return get_response('dispatch_trip created successfully!', serializer.data)
+        return get_response(serializer_error(serializer), False)
+
+    @check_whc_manager_dispatch_executive
+    def put(self, request):
+        """ PUT API for Dispatch Trip Updation """
+
+        info_logger.info("Dispatch Trip PUT api called.")
+        modified_data = validate_data_format(self.request)
+        if 'error' in modified_data:
+            return get_response(modified_data['error'])
+
+        if 'id' not in modified_data:
+            return get_response('please provide id to update dispatch_trip', False)
+
+        # validations for input id
+        id_validation = validate_id(self.queryset, int(modified_data['id']))
+        if 'error' in id_validation:
+            return get_response(id_validation['error'])
+        dispatch_trip_instance = id_validation['data'].last()
+
+        serializer = self.serializer_class(instance=dispatch_trip_instance, data=modified_data)
+        if serializer.is_valid():
+            serializer.save(updated_by=request.user)
+            info_logger.info("Dispatch Trip Updated Successfully.")
+            return get_response('dispatch_trip updated!', serializer.data)
+        return get_response(serializer_error(serializer), False)
+
+    @check_whc_manager_dispatch_executive
+    def delete(self, request):
+        """ Delete Dispatch Trip """
+
+        info_logger.info("Dispatch Trip DELETE api called.")
+        if not request.data.get('dispatch_trip_id'):
+            return get_response('please provide dispatch_trip_id', False)
+        try:
+            for z_id in request.data.get('dispatch_trip_id'):
+                dispatch_trip_id = self.queryset.get(id=int(z_id))
+                try:
+                    trip_mappings = DispatchTripShipmentMapping.objects.filter(trip_id=dispatch_trip_id)
+                    if trip_mappings:
+                        trip_mappings.delete()
+                    dispatch_trip_id.delete()
+                except:
+                    return get_response(f'can not delete dispatch trip | {dispatch_trip_id.id} | getting used', False)
+        except ObjectDoesNotExist as e:
+            error_logger.error(e)
+            return get_response(f'please provide a valid dispatch trip id {z_id}', False)
+        return get_response('dispatch trip were deleted successfully!', True)
+
+    def search_filter_dispatch_trips_data(self):
+        search_text = self.request.GET.get('search_text')
+        seller_shop = self.request.GET.get('seller_shop')
+        source_shop = self.request.GET.get('source_shop')
+        destination_shop = self.request.GET.get('destination_shop')
+        delivery_boy = self.request.GET.get('delivery_boy')
+        dispatch_no = self.request.GET.get('dispatch_no')
+        dispatch_center = self.request.GET.get('dispatch_center')
+        vehicle_no = self.request.GET.get('vehicle_no')
+        trip_status = self.request.GET.get('trip_status')
+        trip_type = self.request.GET.get('trip_type')
+        date = self.request.GET.get('date')
+        status = self.request.GET.get('status')
+
+        '''search using seller_shop name, source_shop's firstname  and destination_shop's firstname'''
+        if search_text:
+            self.queryset = dispatch_trip_search(self.queryset, search_text)
+
+        '''
+            Filters using seller_shop, source_shop, destination_shop, delivery_boy, dispatch_no, vehicle_no, trip_status
+        '''
+        if seller_shop:
+            self.queryset = self.queryset.filter(seller_shop__id=seller_shop)
+
+        if source_shop:
+            self.queryset = self.queryset.filter(source_shop__id=source_shop)
+
+        if destination_shop:
+            self.queryset = self.queryset.filter(destination_shop__id=destination_shop)
+
+        if delivery_boy:
+            self.queryset = self.queryset.filter(delivery_boy__id=delivery_boy)
+
+        if dispatch_no:
+            self.queryset = self.queryset.filter(dispatch_no=dispatch_no)
+
+        if dispatch_center:
+            self.queryset = self.queryset.filter(
+                Q(source_shop_id=dispatch_center) | Q(destination_shop_id=dispatch_center))
+
+        if vehicle_no:
+            self.queryset = self.queryset.filter(vehicle_no=vehicle_no)
+
+        if trip_status:
+            self.queryset = self.queryset.filter(trip_status=trip_status)
+
+        if date:
+            self.queryset = self.queryset.filter(created_at__date=date)
+
+        if trip_type:
+            self.queryset = self.queryset.filter(trip_type=trip_type)
+        else:
+            self.queryset = self.queryset.filter(trip_type=DispatchTrip.FORWARD)
+
+        if status:
+            self.queryset = self.queryset.filter(status=status)
+
+        return self.queryset.distinct('id')
+
+
+class DispatchTripStatusChangeView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    queryset = DispatchTrip.objects. \
+        select_related('seller_shop', 'seller_shop__shop_owner', 'seller_shop__shop_type',
+                       'seller_shop__shop_type__shop_sub_type', 'source_shop', 'source_shop__shop_owner',
+                       'source_shop__shop_type', 'source_shop__shop_type__shop_sub_type', 'destination_shop',
+                       'destination_shop__shop_owner', 'destination_shop__shop_type',
+                       'destination_shop__shop_type__shop_sub_type', 'delivery_boy', 'created_by', 'updated_by'). \
+        prefetch_related('shipments_details'). \
+        only('id', 'dispatch_no', 'vehicle_no', 'seller_shop__id', 'seller_shop__status', 'seller_shop__shop_name',
+             'seller_shop__shop_type', 'seller_shop__shop_type__shop_type', 'seller_shop__shop_type__shop_sub_type',
+             'seller_shop__shop_type__shop_sub_type__retailer_type_name', 'seller_shop__shop_owner',
+             'seller_shop__shop_owner__first_name', 'seller_shop__shop_owner__last_name',
+             'seller_shop__shop_owner__phone_number', 'source_shop__id', 'source_shop__status',
+             'source_shop__shop_name', 'source_shop__shop_type', 'source_shop__shop_type__shop_type',
+             'source_shop__shop_type__shop_sub_type', 'source_shop__shop_type__shop_sub_type__retailer_type_name',
+             'source_shop__shop_owner', 'source_shop__shop_owner__first_name', 'source_shop__shop_owner__last_name',
+             'source_shop__shop_owner__phone_number', 'destination_shop__id', 'destination_shop__status',
+             'destination_shop__shop_name', 'destination_shop__shop_type', 'destination_shop__shop_type__shop_type',
+             'destination_shop__shop_type__shop_sub_type', 'destination_shop__shop_owner',
+             'destination_shop__shop_type__shop_sub_type__retailer_type_name',
+             'destination_shop__shop_owner__first_name', 'destination_shop__shop_owner__last_name',
+             'destination_shop__shop_owner__phone_number', 'delivery_boy__id', 'delivery_boy__first_name',
+             'delivery_boy__last_name', 'delivery_boy__phone_number', 'trip_status', 'starts_at',
+             'completed_at', 'opening_kms', 'closing_kms', 'no_of_crates', 'no_of_packets', 'no_of_sacks',
+             'no_of_crates_check', 'no_of_packets_check', 'no_of_sacks_check', 'created_at', 'updated_at',
+             'created_by__id', 'created_by__first_name', 'created_by__last_name', 'created_by__phone_number',
+             'updated_by__id', 'updated_by__first_name', 'updated_by__last_name', 'updated_by__phone_number',). \
+        order_by('-id')
+    serializer_class = DispatchTripStatusChangeSerializers
+
+    @check_whc_manager_dispatch_executive
+    def get(self, request):
+        """ GET API for Dispatch Trip """
+        info_logger.info("Dispatch Trip GET api called.")
+        if request.GET.get('id'):
+            """ Get Dispatch Trip for specific ID """
+            dispatch_trip_total_count = self.queryset.count()
+            id_validation = validate_id(self.queryset, int(request.GET.get('id')))
+            if 'error' in id_validation:
+                return get_response(id_validation['error'])
+            dispatch_trips_data = id_validation['data']
+        else:
+            """ GET Dispatch Trip List """
+            self.queryset = get_logged_user_wise_query_set_for_dispatch_trip(request.user, self.queryset)
+            self.queryset = self.search_filter_dispatch_trips_data()
+            dispatch_trip_total_count = self.queryset.count()
+            dispatch_trips_data = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+
+        serializer = self.serializer_class(dispatch_trips_data, many=True)
+        msg = f"total count {dispatch_trip_total_count}" if dispatch_trips_data else "no dispatch_trip found"
+        return get_response(msg, serializer.data, True)
+
+    @check_whc_manager_dispatch_executive
+    def put(self, request):
+        """ PUT API for Dispatch Trip Updation """
+
+        info_logger.info("Dispatch Trip PUT api called.")
+        modified_data = validate_data_format(self.request)
+        if 'error' in modified_data:
+            return get_response(modified_data['error'])
+
+        if 'id' not in modified_data:
+            return get_response('please provide id to update dispatch_trip', False)
+
+        # validations for input id
+        id_validation = validate_id(self.queryset, int(modified_data['id']))
+        if 'error' in id_validation:
+            return get_response(id_validation['error'])
+        dispatch_trip_instance = id_validation['data'].last()
+        if 'vehicle_no' not in modified_data:
+            modified_data['vehicle_no'] = dispatch_trip_instance.vehicle_no
+
+        serializer = self.serializer_class(instance=dispatch_trip_instance, data=modified_data)
+        if serializer.is_valid():
+            serializer.save(updated_by=request.user)
+            info_logger.info("Dispatch Trip Updated Successfully.")
+            return get_response('dispatch_trip updated!', serializer.data)
+        return get_response(serializer_error(serializer), False)
+
+    def search_filter_dispatch_trips_data(self):
+        search_text = self.request.GET.get('search_text')
+        seller_shop = self.request.GET.get('seller_shop')
+        source_shop = self.request.GET.get('source_shop')
+        destination_shop = self.request.GET.get('destination_shop')
+        delivery_boy = self.request.GET.get('delivery_boy')
+        dispatch_no = self.request.GET.get('dispatch_no')
+        vehicle_no = self.request.GET.get('vehicle_no')
+        trip_status = self.request.GET.get('trip_status')
+
+        '''search using seller_shop name, source_shop's firstname  and destination_shop's firstname'''
+        if search_text:
+            self.queryset = dispatch_trip_search(self.queryset, search_text)
+
+        '''
+            Filters using seller_shop, source_shop, destination_shop, delivery_boy, dispatch_no, vehicle_no, trip_status
+        '''
+        if seller_shop:
+            self.queryset = self.queryset.filter(seller_shop__id=seller_shop)
+
+        if source_shop:
+            self.queryset = self.queryset.filter(source_shop__id=source_shop)
+
+        if destination_shop:
+            self.queryset = self.queryset.filter(destination_shop__id=destination_shop)
+
+        if delivery_boy:
+            self.queryset = self.queryset.filter(delivery_boy__id=delivery_boy)
+
+        if dispatch_no:
+            self.queryset = self.queryset.filter(dispatch_no=dispatch_no)
+
+        if vehicle_no:
+            self.queryset = self.queryset.filter(vehicle_no=vehicle_no)
+
+        if trip_status:
+            self.queryset = self.queryset.filter(trip_status=trip_status)
+
+        return self.queryset.distinct('id')
+
+
+class ShipmentPackagingView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    queryset = ShipmentPackaging.objects. \
+        select_related('crate', 'warehouse', 'warehouse__shop_owner', 'shipment', 'shipment__invoice',
+                       'shipment__order',  'shipment__order__shipping_address', 'shipment__order__buyer_shop',
+                       'shipment__order__shipping_address__shop_name', 'shipment__order__buyer_shop__shop_owner',
+                       'warehouse__shop_type',  'warehouse__shop_type__shop_sub_type', 'created_by', 'updated_by'). \
+        prefetch_related('packaging_details', 'trip_packaging_details', 'shipment__trip_shipment',
+                         'shipment__rescheduling_shipment', 'shipment__not_attempt_shipment',
+                         'shipment__last_mile_trip_shipment'). \
+        order_by('-id')
+    serializer_class = ShipmentPackageSerializer
+
+    def get(self, request):
+        """ GET API for Shipment Packaging """
+        info_logger.info("Shipment Packaging GET api called.")
+        if not request.GET.get('packaging_id') and not request.GET.get('shipment_id'):
+            return get_response("'packaging_id' or 'shipment_id' is required.")
+        if request.GET.get('packaging_id'):
+            """ Get Shipment Packaging for specific ID """
+            id_validation = validate_id(self.queryset, int(request.GET.get('packaging_id')))
+            if 'error' in id_validation:
+                return get_response(id_validation['error'])
+            packaging_data = id_validation['data']
+            shipment = packaging_data.last().shipment
+            movement_type = packaging_data.last().movement_type
+        elif request.GET.get('shipment_id'):
+            id_validation = validate_shipment_id(int(request.GET.get('shipment_id')))
+            if 'error' in id_validation:
+                return get_response(id_validation['error'])
+            shipment = id_validation['data']
+            movement_type = ShipmentPackaging.DISPATCH
+        self.queryset = self.queryset.filter(shipment=shipment, movement_type=movement_type)
+        serializer = self.serializer_class(
+            self.queryset.filter(shipment=shipment, movement_type=movement_type), many=True)
+        msg = "" if self.queryset.exists() else "no packaging found"
+        return get_response(msg, serializer.data, True)
+
+
+class ShipmentDetailsByCrateView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    queryset = OrderedProduct.objects.\
+        select_related('order', 'order__seller_shop', 'order__shipping_address', 'order__shipping_address__city',
+                       'order__shipping_address__state', 'order__shipping_address__pincode_link', 'invoice', 'qc_area').\
+        prefetch_related('shipment_packaging').\
+        only('id', 'order__order_no', 'order__seller_shop__id', 'order__seller_shop__shop_name',
+             'order__buyer_shop__id', 'order__buyer_shop__shop_name', 'order__shipping_address__pincode',
+             'order__dispatch_center__id', 'order__dispatch_center__shop_name', 'order__dispatch_delivery',
+             'order__shipping_address__pincode_link_id', 'order__shipping_address__nick_name',
+             'order__shipping_address__address_line1', 'order__shipping_address__address_contact_name',
+             'order__shipping_address__address_contact_number', 'order__shipping_address__address_type',
+             'order__shipping_address__city_id', 'order__shipping_address__city__city_name',
+             'order__shipping_address__state__state_name', 'shipment_status', 'invoice__invoice_no', 'qc_area__id',
+             'qc_area__area_id', 'qc_area__area_type', 'created_at').\
+        order_by('-id')
+    serializer_class = ShipmentDetailsByCrateSerializer
+
+    def get(self, request):
+        """ GET API for Shipment Details By Crate """
+        info_logger.info("Shipment Details By Crate GET api called.")
+        if not (request.GET.get('crate_id') or request.GET.get('shipment_id') or request.GET.get('shipment_label_id')):
+            return get_response("'crate_id/shipment_label_id/shipment_id' | This is mandatory.")
+        """Get Shipment"""
+        if request.GET.get('crate_id') :
+            """ Get Shipment Details By Crate for specific ID """
+            id_validation = get_shipment_by_crate_id(request.GET.get('crate_id'), Crate.DISPATCH)
+        elif request.GET.get('shipment_label_id'):
+            id_validation = get_shipment_by_shipment_label(request.GET.get('shipment_label_id'))
+        elif request.GET.get('shipment_id'):
+            id_validation = validate_shipment_id(request.GET.get('shipment_id'))
+        if 'error' in id_validation:
+            return get_response(id_validation['error'])
+        shipment_id = id_validation['data']
+
+        serializer = self.serializer_class(self.queryset.filter(id=shipment_id).last())
+        msg = "" if shipment_id else "no shipment found"
+        return get_response(msg, serializer.data, True)
+
+
+class ShipmentCratesPackagingView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    queryset = LastMileTripShipmentPackages.objects.order_by('-id')
+    serializer_class = VerifyShipmentPackageSerializer
+
+    @check_whc_manager_dispatch_executive
+    def put(self, request):
+        """ PUT API for Dispatch Trip Updation """
+
+        info_logger.info("Dispatch Trip PUT api called.")
+        modified_data = validate_data_format(self.request)
+        if 'error' in modified_data:
+            return get_response(modified_data['error'])
+
+        if 'crate_id' not in modified_data or 'shipment_id' not in modified_data:
+            return get_response('please provide crate_id and shipment_id to verify shipment crate', False)
+
+        # validations for input id
+        id_validation = self.validate_package_by_crate_id(modified_data['crate_id'], modified_data['shipment_id'])
+        if 'error' in id_validation:
+            return get_response(id_validation['error'])
+        packaging_data = id_validation['data']
+        modified_data['shop'] = request.user.shop_employee.all().last().shop_id
+
+        serializer = self.serializer_class(instance=packaging_data, data=modified_data)
+        if serializer.is_valid():
+            serializer.save(updated_by=request.user)
+            info_logger.info("shipment crate verified successfully.")
+            return get_response('shipment crate verified!', serializer.data)
+        return get_response(serializer_error(serializer), False)
+
+    def validate_package_by_crate_id(self, crate_id, shipment_id=None):
+        shipment = OrderedProduct.objects.filter(id=shipment_id).last()
+        if not shipment:
+            return {'error': 'Invalid shipment.'}
+        trip_package = self.queryset.filter(
+            ~Q(trip_shipment__shipment_status=LastMileTripShipmentMapping.CANCELLED),
+            trip_shipment__trip=shipment.last_trip, shipment_packaging__shipment=shipment,
+            shipment_packaging__crate__crate_id=crate_id).last()
+        if not trip_package:
+            return {'error': 'Invalid Crate for selected shipment.'}
+        return {'data': trip_package}
+
+
+class VerifyRescheduledShipmentPackagesView(generics.GenericAPIView):
+    """
+       View to verify shipment packages from a rescheduled shipment.
+    """
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    queryset = LastMileTripShipmentPackages.objects.all()
+    serializer_class = VerifyRescheduledShipmentPackageSerializer
+
+    def validate_package_by_shipment_package(self, package_id, shipment_id, trip_id):
+        shipment_package = self.queryset.filter(shipment_packaging_id=package_id,
+                                                trip_shipment__shipment_id=shipment_id,
+                                                trip_shipment__trip_id=trip_id).last()
+        if not shipment_package:
+            return {"error": "Package does not belong to this trip."}
+        if shipment_package.trip_shipment.shipment.shipment_status != OrderedProduct.RESCHEDULED:
+            return {"error": f"Invalid Shipment status."}
+        return {"data": shipment_package}
+
+    @check_whc_manager_dispatch_executive
+    def put(self, request):
+        """ PUT API for Dispatch Trip Updation """
+
+        info_logger.info("Dispatch Trip PUT api called.")
+        modified_data = validate_data_format(self.request)
+        if 'error' in modified_data:
+            return get_response(modified_data['error'])
+
+        if 'package_id' not in modified_data:
+            return get_response("'package_id' | This is required.", False)
+        if 'shipment_id' not in modified_data:
+            return get_response("'shipment_id' | This is required.", False)
+        if 'trip_id' not in modified_data:
+            return get_response("'trip_id' | This is required.", False)
+        if 'return_status' not in modified_data:
+            return get_response("'return_status' | This is required.", False)
+
+        # validations for input id
+        id_validation = self.validate_package_by_shipment_package(modified_data['package_id'],
+                                                                  modified_data['shipment_id'],
+                                                                  modified_data['trip_id'])
+        if 'error' in id_validation:
+            return get_response(id_validation['error'])
+        packaging_data = id_validation['data']
+
+        serializer = self.serializer_class(instance=packaging_data, data=modified_data)
+        if serializer.is_valid():
+            serializer.save(updated_by=request.user)
+            info_logger.info("shipment package verified successfully.")
+            return get_response('shipment package verified!', serializer.data)
+        return get_response(serializer_error(serializer), False)
+
+
+class VerifyNotAttemptShipmentPackagesView(generics.GenericAPIView):
+    """
+       View to verify shipment packages from a rescheduled shipment.
+    """
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    queryset = LastMileTripShipmentPackages.objects.all()
+    serializer_class = VerifyNotAttemptShipmentPackageSerializer
+
+    def validate_package_by_shipment_package(self, package_id, shipment_id, trip_id):
+        shipment_package = self.queryset.filter(shipment_packaging_id=package_id,
+                                                trip_shipment__shipment_id=shipment_id,
+                                                trip_shipment__trip_id=trip_id).last()
+        if not shipment_package:
+            return {"error": "Package does not belong to this trip."}
+        if shipment_package.trip_shipment.shipment.shipment_status != OrderedProduct.NOT_ATTEMPT:
+            return {"error": f"Invalid Shipment status."}
+
+        return {"data": shipment_package}
+
+    @check_whc_manager_dispatch_executive
+    def put(self, request):
+        """ PUT API for Dispatch Trip Updation """
+
+        info_logger.info("Dispatch Trip PUT api called.")
+        modified_data = validate_data_format(self.request)
+        if 'error' in modified_data:
+            return get_response(modified_data['error'])
+
+        if 'package_id' not in modified_data:
+            return get_response("'package_id' | This is required.", False)
+        if 'shipment_id' not in modified_data:
+            return get_response("'shipment_id' | This is required.", False)
+        if 'trip_id' not in modified_data:
+            return get_response("'trip_id' | This is required.", False)
+        if 'return_status' not in modified_data:
+            return get_response("'return_status' | This is required.", False)
+
+        # validations for input id
+        id_validation = self.validate_package_by_shipment_package(modified_data['package_id'],
+                                                                  modified_data['shipment_id'],
+                                                                  modified_data['trip_id'])
+        if 'error' in id_validation:
+            return get_response(id_validation['error'])
+
+        packaging_data = id_validation['data']
+
+        serializer = self.serializer_class(instance=packaging_data, data=modified_data)
+        if serializer.is_valid():
+            serializer.save(updated_by=request.user)
+            info_logger.info("shipment package verified successfully.")
+            return get_response('shipment package verified!', serializer.data)
+        return get_response(serializer_error(serializer), False)
+
+
+class VerifyReturnShipmentProductsView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    queryset = OrderedProductMapping.objects.all()
+    serializer_class = VerifyReturnShipmentProductsSerializer
+
+    @check_whc_manager_dispatch_executive
+    def get(self, request):
+        """ GET API for Process Shipment """
+        info_logger.info("Process Shipment GET api called.")
+
+        if request.GET.get('id'):
+            """ Get Process Shipment for specific ID """
+            id_validation = validate_id(self.queryset, int(request.GET.get('id')))
+            if 'error' in id_validation:
+                return get_response(id_validation['error'])
+            process_shipments_data = id_validation['data']
+
+        else:
+            """ Get Process Shipment for specific Shipment and batch Id """
+            if request.GET.get('shipment_id') and (request.GET.get('batch_id') or request.GET.get('product_ean_code')):
+                process_shipments_data = self.filter_shipment_data()
+            else:
+                return get_response('please provide id / shipment_id & (batch_id or product_ean_code) '
+                                    'to get shipment product detail', False)
+
+        serializer = self.serializer_class(process_shipments_data, many=True)
+        msg = "" if process_shipments_data else "no shipment product found"
+        return get_response(msg, serializer.data, True)
+
+    @check_whc_manager_dispatch_executive
+    def put(self, request):
+        """ PUT API for Process Shipment Updation """
+
+        info_logger.info("Process Shipment PUT api called.")
+        modified_data = validate_data_format(self.request)
+        if 'error' in modified_data:
+            return get_response(modified_data['error'])
+
+        if 'id' not in modified_data:
+            return get_response('please provide id to process_shipment', False)
+
+        # validations for input id
+        id_validation = validate_id(self.queryset, int(modified_data['id']))
+        if 'error' in id_validation:
+            return get_response(id_validation['error'])
+        process_shipment_instance = id_validation['data'].last()
+
+        serializer = self.serializer_class(instance=process_shipment_instance, data=modified_data)
+        if serializer.is_valid():
+            serializer.save(last_modified_by=request.user)
+            info_logger.info("Process Shipment Updated Successfully.")
+            return get_response('process_shipment updated!', serializer.data)
+        return get_response(serializer_error(serializer), False)
+
+    def filter_shipment_data(self):
+        """ Filters the Shipment data based on request"""
+        shipment_id = self.request.GET.get('shipment_id')
+        product_ean_code = self.request.GET.get('product_ean_code')
+        batch_id = self.request.GET.get('batch_id')
+
+        '''Filters using shipment_id & batch_id'''
+        if shipment_id:
+            self.queryset = self.queryset.filter(ordered_product__id=shipment_id)
+
+        if product_ean_code:
+            self.queryset = self.queryset.filter(product__product_ean_code__startswith=product_ean_code)
+
+        if batch_id:
+            self.queryset = self.queryset.filter(rt_ordered_product_mapping__batch_id=batch_id)
+
+        return self.queryset.distinct('id')
+
+
+class ShipmentCratesValidatedView(generics.GenericAPIView):
+    """
+       View to validate shipment crates.
+    """
+
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    serializer_class = ShipmentCratesValidatedSerializer
+    queryset = OrderedProduct.objects.order_by('-id')
+
+    def get(self, request):
+        if not request.GET.get('id'):
+            return get_response("'id' | This is mandatory")
+
+        """ Get Shipment for specific id """
+        id_validation = validate_id(self.queryset, int(request.GET.get('id')))
+        if 'error' in id_validation:
+            return get_response(id_validation['error'])
+        self.queryset = id_validation['data']
+
+        shipment_data = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        serializer = self.serializer_class(shipment_data, many=True)
+        msg = "" if shipment_data else "no shipment found"
+        return get_response(msg, serializer.data, True)
+
+
+class ShipmentCompleteVerifyView(generics.GenericAPIView):
+    """
+       View to complete verify a shipment.
+    """
+
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    serializer_class = ShipmentCompleteVerifySerializer
+    queryset = OrderedProduct.objects.\
+        select_related('order', 'order__seller_shop', 'order__shipping_address', 'order__shipping_address__city',
+                       'order__shipping_address__state', 'order__shipping_address__pincode_link', 'invoice', 'qc_area').\
+        prefetch_related('qc_area__qc_desk_areas', 'qc_area__qc_desk_areas__qc_executive').\
+        only('id', 'order__order_no', 'order__seller_shop__id', 'order__seller_shop__shop_name',
+             'order__buyer_shop__id', 'order__buyer_shop__shop_name', 'order__shipping_address__pincode',
+             'order__dispatch_center__id', 'order__dispatch_center__shop_name', 'order__dispatch_delivery',
+             'order__shipping_address__pincode_link_id', 'order__shipping_address__nick_name',
+             'order__shipping_address__address_line1', 'order__shipping_address__address_contact_name',
+             'order__shipping_address__address_contact_number', 'order__shipping_address__address_type',
+             'order__shipping_address__city_id', 'order__shipping_address__city__city_name',
+             'order__shipping_address__state__state_name', 'shipment_status', 'invoice__invoice_no', 'qc_area__id',
+             'qc_area__area_id', 'qc_area__area_type', 'created_at').\
+        order_by('-id')
+
+    @check_whc_manager_dispatch_executive
+    def put(self, request):
+        """ PUT API for shipment update """
+
+        info_logger.info("Shipment PUT api called.")
+        modified_data = validate_data_format(self.request)
+        if 'error' in modified_data:
+            return get_response(modified_data['error'])
+
+        if 'id' not in modified_data:
+            return get_response('please provide id to update shipment', False)
+
+        # validations for input id
+        id_validation = validate_id(self.queryset, int(modified_data['id']))
+        if 'error' in id_validation:
+            return get_response(id_validation['error'])
+        shipment_instance = id_validation['data'].last()
+
+        serializer = self.serializer_class(instance=shipment_instance, data=modified_data)
+        if serializer.is_valid():
+            serializer.save(updated_by=request.user)
+            info_logger.info("Shipment Updated Successfully.")
+            return get_response('shipment updated!', serializer.data)
+        return get_response(serializer_error(serializer), False)
+
+
+class TripSummaryView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    serializer_class = TripSummarySerializer
+
+    @check_whc_manager_dispatch_executive
+    def get(self, request):
+        """ GET API for trip summary """
+        info_logger.info("Order Status Summary GET api called.")
+        """ GET Trip Summary List """
+        if not self.request.GET.get('dispatch_center', None):
+            return get_response("'dispatch_center' | This is mandatory")
+        if not self.request.GET.get('trip_id', None):
+            return get_response("'trip_id' | This is mandatory")
+        dispatch_trip_qs = DispatchTrip.objects.prefetch_related('shipments_details').order_by('-id')
+        id_validation = validate_id(dispatch_trip_qs, self.request.GET.get('trip_id'))
+        if 'error' in id_validation:
+            return get_response(id_validation['error'])
+        trip = id_validation['data'].last()
+        trip_summary_data = {
+            "trip_data": self.added_shipments_to_trip_summary(self.request, trip),
+            "non_trip_data": self.non_added_shipments_to_trip_summary(self.request, trip)
+        }
+        serializer = self.serializer_class(trip_summary_data)
+        msg = "" if trip_summary_data else "no trip found"
+        return get_response(msg, serializer.data, True)
+
+    def added_shipments_to_trip_summary(self, request, dispatch_trip_instance):
+        """ GET API for trip summary """
+        info_logger.info("Added shipmets to Trip Summary called.")
+
+        if dispatch_trip_instance:
+            trip_summary_data = {
+                'total_invoices': dispatch_trip_instance.no_of_shipments,
+                'total_crates': dispatch_trip_instance.no_of_crates,
+                'total_packets': dispatch_trip_instance.no_of_packets,
+                'total_sack': dispatch_trip_instance.no_of_sacks,
+                'total_empty_crate': dispatch_trip_instance.no_of_empty_crates,
+                'weight': dispatch_trip_instance.get_trip_weight,
+                'invoices_check': dispatch_trip_instance.shipments_details.filter(
+                    shipment_status=DispatchTripShipmentMapping.UNLOADED_AT_DC).count(),
+                'total_crates_check': dispatch_trip_instance.no_of_crates_check,
+                'total_packets_check': dispatch_trip_instance.no_of_packets_check,
+                'total_sack_check': dispatch_trip_instance.no_of_sacks_check,
+                'total_empty_crate_check': dispatch_trip_instance.no_of_empty_crates_check,
+                'remaining_invoices': dispatch_trip_instance.shipments_details.filter(
+                    shipment_status=DispatchTripShipmentMapping.UNLOADING_AT_DC).count(),
+                'remaining_crates': dispatch_trip_instance.no_of_crates-dispatch_trip_instance.no_of_crates_check,
+                'remaining_packets': dispatch_trip_instance.no_of_packets-dispatch_trip_instance.no_of_packets_check,
+                'remaining_sacks': dispatch_trip_instance.no_of_sacks-dispatch_trip_instance.no_of_sacks_check,
+                'remaining_empty_crate': dispatch_trip_instance.no_of_empty_crates-dispatch_trip_instance.no_of_empty_crates_check,
+            }
+        else:
+            trip_summary_data = {
+                'total_invoices': 0,
+                'total_crates': 0,
+                'total_packets': 0,
+                'total_sack': 0,
+                'total_empty_crate': 0,
+                'weight': 0,
+                'invoices_check': 0,
+                'total_crates_check': 0,
+                'total_packets_check': 0,
+                'total_sack_check': 0,
+                'total_empty_crate_check': 0,
+                'remaining_invoices': 0,
+                'remaining_crates': 0,
+                'remaining_packets': 0,
+                'remaining_sacks': 0,
+                'remaining_empty_crate': 0
+            }
+        return trip_summary_data
+
+    def non_added_shipments_to_trip_summary(self, request, dispatch_trip_instance):
+        """ GET API for trip summary """
+        info_logger.info("Added shipmets to Trip Summary called.")
+        if dispatch_trip_instance.trip_type == DispatchTrip.FORWARD:
+            trip_summary_data = self.get_non_trip_data_forward_trip(request)
+        elif dispatch_trip_instance.trip_type == DispatchTrip.BACKWARD:
+            trip_summary_data = self.get_non_trip_data_backward_trip(request)
+
+        return trip_summary_data
+
+    def get_non_trip_data_forward_trip(self, request):
+        shipment_qs = OrderedProduct.objects.filter(shipment_status=OrderedProduct.MOVED_TO_DISPATCH). \
+            select_related('order', 'order__seller_shop'). \
+            order_by('-id')
+        shipment_qs = get_logged_user_wise_query_set_for_trip_invoices(request.user, shipment_qs)
+        shipment_qs = self.filter_non_added_in_trip_shipments_summary_data(shipment_qs)
+        resp_data = shipment_qs.aggregate(no_of_invoices=Count('id'))
+        resp_data['no_of_crates'] = 0
+        resp_data['no_of_packets'] = 0
+        resp_data['no_of_sacks'] = 0
+        resp_data['weight'] = 0
+        for ss in shipment_qs.all():
+            smt_pack_data = ss.shipment_packaging. \
+                exclude(trip_packaging_details__package_status=DispatchTripShipmentPackages.LOADED,
+                        trip_packaging_details__trip_shipment__trip__trip_status=DispatchTrip.NEW). \
+                aggregate(no_of_crates=Count(Case(When(packaging_type=ShipmentPackaging.CRATE, then=1))),
+                          no_of_packets=Count(Case(When(packaging_type=ShipmentPackaging.BOX, then=1))),
+                          no_of_sacks=Count(Case(When(packaging_type=ShipmentPackaging.SACK, then=1)))
+                          )
+            if smt_pack_data:
+                resp_data['no_of_crates'] += smt_pack_data['no_of_crates'] if smt_pack_data['no_of_crates'] else 0
+                resp_data['no_of_packets'] += smt_pack_data['no_of_packets'] if smt_pack_data['no_of_packets'] else 0
+                resp_data['no_of_sacks'] += smt_pack_data['no_of_sacks'] if smt_pack_data['no_of_sacks'] else 0
+        trip_summary_data = {
+            'total_invoices': resp_data['no_of_invoices'] if resp_data['no_of_invoices'] else 0,
+            'total_crates': resp_data['no_of_crates'] if resp_data['no_of_crates'] else 0,
+            'total_packets': resp_data['no_of_packets'] if resp_data['no_of_packets'] else 0,
+            'total_sack': resp_data['no_of_sacks'] if resp_data['no_of_sacks'] else 0,
+            'total_empty_crate': 0,
+            'weight': resp_data['weight'] if resp_data['weight'] else 0,
+            'invoices_check': 0,
+            'total_crates_check': 0,
+            'total_packets_check': 0,
+            'total_sack_check': 0,
+            'total_empty_crate_check': 0,
+            'remaining_invoices': 0,
+            'remaining_crates': 0,
+            'remaining_packets': 0,
+            'remaining_sacks': 0,
+            'remaining_empty_crate': 0
+        }
+        return trip_summary_data
+
+    def get_non_trip_data_backward_trip(self, request):
+        dispatch_center = request.GET.get('dispatch_center')
+        resp_data = ShipmentPackaging.objects.filter(
+                                        Q(trip_packaging_details__isnull=True)|
+                                        Q(trip_packaging_details__package_status=DispatchTripShipmentPackages.CANCELLED),
+                                        movement_type=ShipmentPackaging.RETURNED,
+                                        status=ShipmentPackaging.DISPATCH_STATUS_CHOICES.PACKED,
+                                        warehouse_id=dispatch_center,
+                                        shipment__shipment_status__in=[
+                                                  OrderedProduct.FULLY_RETURNED_AND_VERIFIED,
+                                                  OrderedProduct.PARTIALLY_DELIVERED_AND_VERIFIED]).\
+            aggregate(no_of_crates=Count(Case(When(packaging_type=ShipmentPackaging.CRATE, then=1))),
+                          no_of_packets=Count(Case(When(packaging_type=ShipmentPackaging.BOX, then=1))),
+                          no_of_sacks=Count(Case(When(packaging_type=ShipmentPackaging.SACK, then=1)))
+                          )
+        trip_summary_data = {
+            'total_invoices': 0,
+            'total_crates': resp_data['no_of_crates'] if resp_data['no_of_crates'] else 0,
+            'total_packets': resp_data['no_of_packets'] if resp_data['no_of_packets'] else 0,
+            'total_sack': resp_data['no_of_sacks'] if resp_data['no_of_sacks'] else 0,
+            'total_empty_crate': ShopCrate.objects.filter(shop_id=dispatch_center, is_available=True).count(),
+            'weight': 0,
+            'invoices_check': 0,
+            'total_crates_check': 0,
+            'total_packets_check': 0,
+            'total_sack_check': 0,
+            'total_empty_crate_check': 0,
+            'remaining_invoices': 0,
+            'remaining_crates': 0,
+            'remaining_packets': 0,
+            'remaining_sacks': 0,
+            'remaining_empty_crate': 0
+        }
+        return trip_summary_data
+
+    def filter_non_added_in_trip_shipments_summary_data(self, queryset):
+        trip_id = self.request.GET.get('trip_id')
+        dispatch_center = self.request.GET.get('dispatch_center')
+
+        '''Filters using dispatch_center'''
+        if trip_id:
+            queryset = queryset.filter(current_shop=DispatchTrip.objects.get(id=trip_id).source_shop)
+
+        if dispatch_center:
+            queryset = queryset.filter(order__dispatch_center__id=dispatch_center)
+
+        return queryset
+
+
+class DispatchCenterShipmentView(generics.GenericAPIView):
+    """
+    View to get invoices ready for dispatch to dispatch center.
+    """
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    serializer_class = DispatchInvoiceSerializer
+    queryset = OrderedProduct.objects.\
+        select_related('order', 'order__seller_shop', 'order__shipping_address', 'order__shipping_address__city',
+                       'invoice'). \
+        only('id', 'order__order_no', 'order__seller_shop__id', 'order__seller_shop__shop_name',
+             'order__buyer_shop__id', 'order__buyer_shop__shop_name', 'order__shipping_address__pincode',
+             'order__dispatch_center__id', 'order__dispatch_center__shop_name', 'order__dispatch_delivery',
+             'order__shipping_address__pincode_link_id', 'order__shipping_address__nick_name',
+             'order__shipping_address__address_line1', 'order__shipping_address__address_contact_name',
+             'order__shipping_address__address_contact_number', 'order__shipping_address__address_type',
+             'order__shipping_address__city_id', 'order__shipping_address__city__city_name',
+             'order__shipping_address__state__state_name', 'shipment_status', 'invoice__invoice_no', 'created_at'). \
+        order_by('-id')
+
+
+    def get(self, request):
+        validation_response = self.validate_get_request()
+        if "error" in validation_response:
+            return get_response(validation_response["error"], False)
+        self.queryset = get_logged_user_wise_query_set_for_trip_invoices(request.user, self.queryset)
+        self.queryset = self.search_filter_invoice_data()
+        shipment_data = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        serializer = self.serializer_class(shipment_data, many=True)
+        msg = "" if shipment_data else "no invoice found"
+        return get_response(msg, serializer.data, True)
+
+    def validate_get_request(self):
+        try:
+            if not self.request.GET.get('dispatch_center', None):
+                return {"error" : "'dispatch_center'| This is required"}
+            elif not self.request.GET.get('availability') \
+                    or int(self.request.GET.get('availability')) not in INVOICE_AVAILABILITY_CHOICES._db_values:
+                return {"error": "'availability' | Invalid availability choice."}
+            elif int(self.request.GET['availability']) in [INVOICE_AVAILABILITY_CHOICES.ADDED,
+                                                      INVOICE_AVAILABILITY_CHOICES.ALL] and \
+                    not self.request.GET.get('trip_id'):
+                return {"error": "'trip_id' | This is required."}
+            return {"data": self.request.data }
+        except Exception as e:
+            return {"error": "Invalid Request"}
+
+
+    def search_filter_invoice_data(self):
+        """ Filters the Shipment data based on request"""
+        search_text = self.request.GET.get('search_text')
+        date = self.request.GET.get('date')
+        status = self.request.GET.get('status')
+        city = self.request.GET.get('city')
+        city_name = self.request.GET.get('city_name')
+        pincode = self.request.GET.get('pincode')
+        pincode_no = self.request.GET.get('pincode_no')
+        buyer_shop = self.request.GET.get('buyer_shop')
+        dispatch_center = self.request.GET.get('dispatch_center')
+        trip_id = self.request.GET.get('trip_id')
+        invoice_package_status = self.request.GET.get('invoice_package_status', None)
+        invoice_package_status = int(invoice_package_status) if invoice_package_status else None
+        availability = int(self.request.GET.get('availability'))
+
+        '''search using warehouse name, product's name'''
+        if search_text:
+            self.queryset = shipment_search(self.queryset, search_text)
+
+        '''Filters using warehouse, product, zone, date, status, putaway_type_id'''
+
+        if date:
+            self.queryset = self.queryset.filter(created_at__date=date)
+
+        if status:
+            self.queryset = self.queryset.filter(status=status)
+
+        if city:
+            self.queryset = self.queryset.filter(order__shipping_address__city_id=city)
+
+        if city_name:
+            self.queryset = self.queryset.filter(order__shipping_address__city__city_name__icontains=city_name)
+
+        if pincode_no:
+            self.queryset = self.queryset.filter(order__shipping_address__pincode=pincode_no)
+
+        if pincode:
+            self.queryset = self.queryset.filter(order__shipping_address__pincode_link_id=pincode)
+
+        if buyer_shop:
+            self.queryset = self.queryset.filter(order__buyer_shop_id=buyer_shop)
+
+        if dispatch_center:
+            self.queryset = self.queryset.filter(order__dispatch_center_id=dispatch_center)
+
+        if invoice_package_status in PACKAGE_VERIFY_CHOICES._db_values:
+            if invoice_package_status == PACKAGE_VERIFY_CHOICES.OK:
+                self.queryset = self.queryset.filter(
+                    ~Q(trip_shipment__shipment_status=DispatchTripShipmentMapping.CANCELLED),
+                    ~Q(trip_shipment__trip_shipment_mapped_packages__package_status__in=[
+                        DispatchTripShipmentPackages.DAMAGED_AT_LOADING,
+                        DispatchTripShipmentPackages.DAMAGED_AT_UNLOADING,
+                        DispatchTripShipmentPackages.MISSING_AT_LOADING,
+                        DispatchTripShipmentPackages.MISSING_AT_UNLOADING]))
+            elif invoice_package_status == PACKAGE_VERIFY_CHOICES.DAMAGED:
+                self.queryset = self.queryset.filter(
+                    ~Q(trip_shipment__shipment_status=DispatchTripShipmentMapping.CANCELLED),
+                    trip_shipment__trip_shipment_mapped_packages__package_status__in=[
+                        DispatchTripShipmentPackages.DAMAGED_AT_LOADING,
+                        DispatchTripShipmentPackages.DAMAGED_AT_UNLOADING])
+            elif invoice_package_status == PACKAGE_VERIFY_CHOICES.MISSING:
+                self.queryset = self.queryset.filter(
+                    trip_shipment__trip_shipment_mapped_packages__package_status__in=[
+                        DispatchTripShipmentPackages.MISSING_AT_LOADING,
+                        DispatchTripShipmentPackages.MISSING_AT_UNLOADING])
+
+        if availability:
+            if availability == INVOICE_AVAILABILITY_CHOICES.ADDED:
+                self.queryset = self.queryset.filter(trip_shipment__trip_id=trip_id,
+                                                     trip_shipment__shipment_status__in=[
+                                                     DispatchTripShipmentMapping.LOADED_FOR_DC,
+                                                     DispatchTripShipmentMapping.UNLOADING_AT_DC,
+                                                     DispatchTripShipmentMapping.UNLOADED_AT_DC],
+                                                     )
+            elif availability == INVOICE_AVAILABILITY_CHOICES.NOT_ADDED:
+                shipment_moved_to_dispatch = self.queryset.filter(shipment_status=OrderedProduct.MOVED_TO_DISPATCH)
+                shipment_not_added_in_any_trip = shipment_moved_to_dispatch.filter(trip_shipment__isnull=True)
+                shipment_added_in_some_other_trip = shipment_moved_to_dispatch.exclude(
+                                                                ~Q(trip_shipment__trip_id=trip_id),
+                                                                trip_shipment__isnull=False,
+                                                                trip_shipment__shipment_status__in=[
+                                                                 DispatchTripShipmentMapping.LOADING_FOR_DC,
+                                                                 DispatchTripShipmentMapping.LOADED_FOR_DC,
+                                                                 DispatchTripShipmentMapping.UNLOADING_AT_DC,
+                                                                 DispatchTripShipmentMapping.UNLOADED_AT_DC])
+
+                self.queryset = shipment_not_added_in_any_trip.union(shipment_added_in_some_other_trip)
+            elif availability == INVOICE_AVAILABILITY_CHOICES.ALL:
+
+                shipment_moved_to_dispatch = self.queryset.filter(shipment_status__in=[
+                                                                    OrderedProduct.MOVED_TO_DISPATCH,
+                                                                    OrderedProduct.READY_TO_DISPATCH]
+                                                                  )
+                self.queryset = shipment_moved_to_dispatch.exclude(~Q(trip_shipment__trip_id=trip_id),
+                                                                   trip_shipment__shipment_status__in=[
+                                                                     DispatchTripShipmentMapping.LOADING_FOR_DC,
+                                                                     DispatchTripShipmentMapping.LOADED_FOR_DC,
+                                                                     DispatchTripShipmentMapping.UNLOADING_AT_DC,
+                                                                     DispatchTripShipmentMapping.UNLOADED_AT_DC])
+                # self.queryset = self.queryset.filter(Q(trip_shipment__isnull=True)|
+                #                                      ~Q(trip_shipment__trip=trip_id) &
+                #                                      Q(trip_shipment__shipment_status=
+                #                                        DispatchTripShipmentMapping.CANCELLED),
+                #                                      Q(shipment_status=OrderedProduct.MOVED_TO_DISPATCH)|
+                #                                      Q(trip_shipment__trip_id=trip_id) &
+                #                                      ~Q(trip_shipment__shipment_status=
+                #                                         DispatchTripShipmentMapping.CANCELLED))
+
+        return self.queryset.distinct('id')
+
+
+class DispatchCenterCrateView(generics.GenericAPIView):
+    """
+    View to get crates ready for dispatch to dispatch center.
+    """
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    serializer_class = DispatchCenterCrateSerializer
+    queryset = ShopCrate.objects.\
+        select_related('shop', 'crate'). \
+        only('id', 'shop__id', 'shop__shop_name', 'crate', 'is_available', 'created_at', 'updated_at'). \
+        order_by('-id')
+
+    def get(self, request):
+        validation_response = self.validate_get_request()
+        if "error" in validation_response:
+            return get_response(validation_response["error"], False)
+        self.queryset = get_logged_user_wise_query_set_for_dispatch_crates(request.user, self.queryset)
+        self.queryset = self.search_filter_crates_data()
+        mapping_data = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        serializer = self.serializer_class(mapping_data, many=True)
+        msg = "" if mapping_data else "no crate found"
+        return get_response(msg, serializer.data, True)
+
+    def validate_get_request(self):
+        try:
+            if not self.request.GET.get('shop', None):
+                return {"error": "'shop'| This is required"}
+            elif not self.request.GET.get('availability') \
+                    or int(self.request.GET.get('availability')) not in INVOICE_AVAILABILITY_CHOICES._db_values:
+                return {"error": "'availability' | Invalid availability choice."}
+            elif int(self.request.GET['availability']) in [INVOICE_AVAILABILITY_CHOICES.ADDED,
+                                                           INVOICE_AVAILABILITY_CHOICES.ALL] and \
+                    not self.request.GET.get('trip_id'):
+                return {"error": "'trip_id' | This is required."}
+            return {"data": self.request.data }
+        except Exception as e:
+            return {"error": "Invalid Request"}
+
+    def search_filter_crates_data(self):
+        """ Filters the Shipment data based on request"""
+        crate = self.request.GET.get('crate')
+        shop = self.request.GET.get('shop')
+        trip_id = self.request.GET.get('trip_id')
+        availability = int(self.request.GET.get('availability'))
+
+        if crate:
+            self.queryset = self.queryset.filter(crate_id=crate)
+
+        if shop:
+            self.queryset = self.queryset.filter(shop_id=shop)
+
+        if availability:
+            try:
+                availability = int(availability)
+                if availability == INVOICE_AVAILABILITY_CHOICES.ADDED:
+                    self.queryset = self.queryset.filter(crate__crate_trips__isnull=False,
+                                                         crate__crate_trips__trip_id=trip_id)
+                elif availability == INVOICE_AVAILABILITY_CHOICES.NOT_ADDED:
+                    self.queryset = self.queryset.filter(is_available=True)
+                elif availability == INVOICE_AVAILABILITY_CHOICES.ALL:
+                    self.queryset = self.queryset.filter(Q(crate__crate_trips__trip_id=trip_id) |
+                                                         Q(is_available=True))
+            except:
+                pass
+
+        return self.queryset.distinct('id')
+
+
+class DispatchCenterShipmentPackageView(generics.GenericAPIView):
+    """
+    View to get Shipment Package ready for dispatch to dispatch center.
+    """
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    serializer_class = DispatchCenterShipmentPackageSerializer
+    queryset = ShipmentPackaging.objects.\
+        select_related('warehouse', 'crate', 'shipment'). \
+        only('id', 'warehouse__id', 'warehouse__shop_name', 'crate', 'shipment', 'created_at', 'updated_at'). \
+        order_by('-id')
+
+    def get(self, request):
+        validation_response = self.validate_get_request()
+        if "error" in validation_response:
+            return get_response(validation_response["error"], False)
+        self.queryset = get_logged_user_wise_query_set_for_shipment_packaging(request.user, self.queryset)
+        self.queryset = self.search_filter_shipment_packages_data()
+        mapping_data = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        serializer = self.serializer_class(mapping_data, many=True)
+        msg = "" if mapping_data else "no packages found"
+        return get_response(msg, serializer.data, True)
+
+    def validate_get_request(self):
+        try:
+            if not self.request.GET.get('shop', None):
+                return {"error": "'shop'| This is required"}
+            elif not self.request.GET.get('availability') \
+                    or int(self.request.GET.get('availability')) not in INVOICE_AVAILABILITY_CHOICES._db_values:
+                return {"error": "'availability' | Invalid availability choice."}
+            elif int(self.request.GET['availability']) in [INVOICE_AVAILABILITY_CHOICES.ADDED,
+                                                           INVOICE_AVAILABILITY_CHOICES.ALL] and \
+                    not self.request.GET.get('trip_id'):
+                return {"error": "'trip_id' | This is required."}
+            return {"data": self.request.data }
+        except Exception as e:
+            return {"error": "Invalid Request"}
+
+    def search_filter_shipment_packages_data(self):
+        """ Filters the Shipment data based on request"""
+        package_id = self.request.GET.get('package_id')
+        shop = self.request.GET.get('shop')
+        trip_id = self.request.GET.get('trip_id')
+        availability = int(self.request.GET.get('availability'))
+
+        if package_id:
+            self.queryset = self.queryset.filter(id=package_id)
+
+        if shop:
+            self.queryset = self.queryset.filter(warehouse_id=shop)
+
+        if availability:
+            try:
+                availability = int(availability)
+                if availability == INVOICE_AVAILABILITY_CHOICES.ADDED:
+                    self.queryset = self.queryset.filter(
+                        status='READY_TO_DISPATCH').filter(Q(shipment__trip_shipment__trip_id=trip_id) |
+                                                           Q(shipment__last_mile_trip_shipment__trip_id=trip_id))
+                elif availability == INVOICE_AVAILABILITY_CHOICES.NOT_ADDED:
+                    self.queryset = self.queryset.filter(status='PACKED',
+                                                         shipment__shipment_status__in=[
+                                                             OrderedProduct.FULLY_RETURNED_AND_VERIFIED,
+                                                             OrderedProduct.PARTIALLY_DELIVERED_AND_VERIFIED,
+                                                             OrderedProduct.FULLY_RETURNED_AND_CLOSED,
+                                                             OrderedProduct.PARTIALLY_DELIVERED_AND_CLOSED])
+            except:
+                pass
+
+        return self.queryset.distinct('id')
+
+
+class LoadVerifyCrateView(generics.GenericAPIView):
+    """
+       View to verify and load empty crate to a trip.
+    """
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    serializer_class = LoadVerifyCrateSerializer
+
+    @check_whc_manager_dispatch_executive
+    def post(self, request):
+        """ POST API for Empty Crate Load Verification """
+        info_logger.info("Load Verify POST api called.")
+        modified_data = validate_data_format(self.request)
+        if 'error' in modified_data:
+            return get_response(modified_data['error'])
+        validated_trip = validate_trip_user(modified_data['trip_id'], request.user)
+        if 'error' in validated_trip:
+            return get_response(validated_trip['error'])
+        serializer = self.serializer_class(data=modified_data)
+        if serializer.is_valid():
+            serializer.save(created_by=request.user)
+            info_logger.info("Empty crate loaded Successfully.")
+            return get_response('Empty crate loaded successfully!', serializer.data)
+        return get_response(serializer_error(serializer), False)
+
+
+class UnloadVerifyCrateView(generics.GenericAPIView):
+    """
+       View to verify and unload packages from a trip.
+    """
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    serializer_class = UnloadVerifyCrateSerializer
+    queryset = DispatchTripCrateMapping.objects.all()
+
+    def validate_trip_empty_crate(self, crate_id, trip_id):
+        trip_empty_crate = self.queryset.filter(
+            crate_status__in=[DispatchTripCrateMapping.LOADED, DispatchTripCrateMapping.DAMAGED_AT_LOADING],
+            crate__crate_id=crate_id, trip__id=trip_id).last()
+        if not trip_empty_crate:
+            return {"error": "invalid Crate"}
+        return {"data": trip_empty_crate}
+
+    def put(self, request):
+        """ POST API for Shipment Package Load Verification """
+        info_logger.info("Load Verify POST api called.")
+        modified_data = validate_data_format(self.request)
+        if 'error' in modified_data:
+            return get_response(modified_data['error'])
+
+        if 'crate_id' not in modified_data:
+            return get_response("'crate_id' | This is required.", False)
+        if 'trip_id' not in modified_data:
+            return get_response("'trip_id' | This is required.", False)
+        if 'status' not in modified_data:
+            return get_response("'status' | This is required.", False)
+
+        # validations for input
+        crate_validation = self.validate_trip_empty_crate(modified_data['crate_id'], int(modified_data['trip_id']))
+        if 'error' in crate_validation:
+            return get_response(crate_validation['error'])
+        trip_empty_crate = crate_validation['data']
+
+        serializer = self.serializer_class(instance=trip_empty_crate, data=modified_data)
+        if serializer.is_valid():
+            serializer.save(updated_by=request.user)
+            info_logger.info("Crate unloaded Successfully.")
+            return get_response('Crate unloaded successfully!', serializer.data)
+        return get_response(serializer_error(serializer), False)
+
+
+class LoadVerifyPackageView(generics.GenericAPIView):
+    """
+       View to verify and load packages to a trip.
+    """
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    serializer_class = LoadVerifyPackageSerializer
+
+    def post(self, request):
+        """ POST API for Shipment Package Load Verification """
+        info_logger.info("Load Verify POST api called.")
+        modified_data = validate_data_format(self.request)
+        if 'error' in modified_data:
+            return get_response(modified_data['error'])
+        validated_trip = validate_trip_user(modified_data['trip_id'], request.user)
+        if 'error' in validated_trip:
+            return get_response(validated_trip['error'])
+        serializer = self.serializer_class(data=modified_data, context={'current_user': request.user})
+        if serializer.is_valid():
+            serializer.save(created_by=request.user)
+            info_logger.info("Package loaded Successfully.")
+            return get_response('Package loaded successfully!', serializer.data)
+        return get_response(serializer_error(serializer), False)
+
+
+class UnloadVerifyPackageView(generics.GenericAPIView):
+    """
+       View to verify and unload packages from a trip.
+    """
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    serializer_class = UnloadVerifyPackageSerializer
+    queryset = DispatchTripShipmentPackages.objects.all()
+
+    def validate_trip_shipment_package(self, package_id, trip_id):
+        trip_shipment_package = self.queryset.filter(shipment_packaging_id=package_id,
+                                                     trip_shipment__trip__id=trip_id).last()
+        if not trip_shipment_package:
+            return {"error": "Package does not belong to this trip."}
+        return {"data": trip_shipment_package}
+
+    def put(self, request):
+        """ POST API for Shipment Package Load Verification """
+        info_logger.info("Load Verify POST api called.")
+        modified_data = validate_data_format(self.request)
+        if 'error' in modified_data:
+            return get_response(modified_data['error'])
+
+        if 'package_id' not in modified_data:
+            return get_response("'package_id' | This is required.", False)
+        if 'trip_id' not in modified_data:
+            return get_response("'trip_id' | This is required.", False)
+        if 'status' not in modified_data:
+            return get_response("'status' | This is required.", False)
+
+        # validations for input
+        shipment_validation = self.validate_trip_shipment_package(int(modified_data['package_id']),
+                                                                  int(modified_data['trip_id']))
+        if 'error' in shipment_validation:
+            return get_response(shipment_validation['error'])
+        trip_shipment_package = shipment_validation['data']
+
+        serializer = self.serializer_class(instance=trip_shipment_package, data=modified_data)
+
+        if serializer.is_valid():
+            serializer.save(updated_by=request.user)
+            info_logger.info("Package unloaded Successfully.")
+            return get_response('Package unloaded successfully!', serializer.data)
+        return get_response(serializer_error(serializer), False)
+
+
+class RemoveInvoiceFromTripView(generics.GenericAPIView):
+    """
+       View to remove invoice from a trip.
+    """
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    serializer_class = TripShipmentMappingSerializer
+    queryset = DispatchTripShipmentMapping.objects.all()
+
+    def put(self, request):
+        """ POST API for Shipment Package Load Verification """
+        info_logger.info("Remove invoice PUT api called.")
+        modified_data = validate_data_format(self.request)
+        if 'error' in modified_data:
+            return get_response(modified_data['error'])
+
+        if 'shipment_id' not in modified_data:
+            return get_response("'shipment_id' | This is required.", False)
+        if 'trip_id' not in modified_data:
+            return get_response("'trip_id' | This is required.", False)
+
+        # validations for input
+        shipment_validation = self.validate_trip_invoice(int(modified_data['shipment_id']),
+                                                   int(modified_data['trip_id']))
+        if 'error' in shipment_validation:
+            return get_response(shipment_validation['error'])
+        trip_invoice_mapping = shipment_validation['data'].last()
+
+        serializer = self.serializer_class(instance=trip_invoice_mapping, data=modified_data)
+        if serializer.is_valid():
+            serializer.save(updated_by=request.user)
+
+            info_logger.info("Shipment removed successfully.")
+            return get_response('Shipment removed successfully!', serializer.data)
+        return get_response(serializer_error(serializer), False)
+
+    def validate_trip_invoice(self, shipment_id, trip_id):
+        if not self.queryset.filter(~Q(shipment_status=DispatchTripShipmentMapping.CANCELLED),
+                                    trip_id=trip_id, shipment_id=shipment_id).exists():
+            return {"error": "invalid Shipment"}
+        return {"data" : self.queryset.filter(~Q(shipment_status=DispatchTripShipmentMapping.CANCELLED),
+                                              trip_id=trip_id, shipment_id=shipment_id)}
+
+
+class LastMileTripCrudView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    queryset = Trip.objects. \
+        annotate(status=Case(
+                         When(trip_status__in=[Trip.READY, Trip.STARTED], then=Value("PENDING")),
+                         When(trip_status__in=[Trip.CANCELLED, Trip.PAYMENT_VERIFIED, Trip.RETURN_VERIFIED],
+                              then=Value("CLOSED")),
+                         default=F('trip_status'))).\
+        select_related('seller_shop', 'source_shop', 'seller_shop__shop_owner', 'seller_shop__shop_type',
+                       'seller_shop__shop_type__shop_sub_type', 'delivery_boy'). \
+        only('id', 'dispatch_no', 'vehicle_no', 'seller_shop__id', 'seller_shop__status', 'seller_shop__shop_name',
+             'seller_shop__shop_type', 'seller_shop__shop_type__shop_type', 'seller_shop__shop_type__shop_sub_type',
+             'seller_shop__shop_type__shop_sub_type__retailer_type_name', 'seller_shop__shop_owner',
+             'seller_shop__shop_owner__first_name', 'seller_shop__shop_owner__last_name',
+             'seller_shop__shop_owner__phone_number',  'source_shop__id', 'source_shop__status', 'source_shop__shop_name',
+             'source_shop__shop_type', 'source_shop__shop_type__shop_type', 'source_shop__shop_type__shop_sub_type',
+             'source_shop__shop_type__shop_sub_type__retailer_type_name', 'source_shop__shop_owner',
+             'source_shop__shop_owner__first_name', 'source_shop__shop_owner__last_name',
+             'source_shop__shop_owner__phone_number', 'delivery_boy__id', 'delivery_boy__first_name',
+             'delivery_boy__last_name', 'delivery_boy__phone_number', 'trip_status', 'e_way_bill_no', 'starts_at',
+             'completed_at', 'received_amount', 'opening_kms', 'closing_kms', 'no_of_crates', 'no_of_packets',
+             'no_of_sacks', 'no_of_crates_check', 'no_of_packets_check', 'no_of_sacks_check', 'created_at',
+             'modified_at', ). \
+        order_by('-id')
+    serializer_class = LastMileTripCrudSerializers
+
+    @check_whc_manager_dispatch_executive
+    def get(self, request):
+        """ GET API for Dispatch Trip """
+        info_logger.info("Dispatch Trip GET api called.")
+        if request.GET.get('id'):
+            """ Get Dispatch Trip for specific ID """
+            trip_total_count = self.queryset.count()
+            id_validation = validate_id(self.queryset, int(request.GET.get('id')))
+            if 'error' in id_validation:
+                return get_response(id_validation['error'])
+            trips_data = id_validation['data']
+        else:
+            """ GET Dispatch Trip List """
+            self.queryset = get_logged_user_wise_query_set_for_dispatch_trip(request.user, self.queryset)
+            self.queryset = self.search_filter_trips_data()
+            trip_total_count = self.queryset.count()
+            trips_data = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+
+        serializer = self.serializer_class(trips_data, many=True)
+        msg = f"total count {trip_total_count}" if trips_data else "no trip found"
+        return get_response(msg, serializer.data, True)
+
+    @check_whc_manager_dispatch_executive
+    @check_user_can_plan_trip
+    def post(self, request):
+        """ POST API for Last Mile Trip Creation with Image """
+
+        info_logger.info("Last Mile Trip POST api called.")
+        modified_data = validate_data_format(self.request)
+        if 'error' in modified_data:
+            return get_response(modified_data['error'])
+
+        serializer = self.serializer_class(data=modified_data)
+        if serializer.is_valid():
+            serializer.save(created_by=request.user)
+            info_logger.info("Last Mile Trip Created Successfully.")
+            return get_response('trip created successfully!', serializer.data)
+        return get_response(serializer_error(serializer), False)
+
+    @check_whc_manager_dispatch_executive
+    @check_user_can_plan_trip
+    def put(self, request):
+        """ PUT API for Last Mile Trip Updation """
+
+        info_logger.info("Last Mile Trip PUT api called.")
+        modified_data = validate_data_format(self.request)
+        if 'error' in modified_data:
+            return get_response(modified_data['error'])
+
+        if 'id' not in modified_data:
+            return get_response('please provide id to update trip', False)
+
+        # validations for input id
+        id_validation = validate_id(self.queryset, int(modified_data['id']))
+        if 'error' in id_validation:
+            return get_response(id_validation['error'])
+        trip_instance = id_validation['data'].last()
+        modified_data['dispatch_no'] = trip_instance.dispatch_no
+
+        serializer = self.serializer_class(instance=trip_instance, data=modified_data)
+        if serializer.is_valid():
+            serializer.save(updated_by=request.user)
+            info_logger.info("Last Mile Trip Updated Successfully.")
+            return get_response('trip updated!', serializer.data)
+        return get_response(serializer_error(serializer), False)
+
+    @check_whc_manager_dispatch_executive
+    @check_user_can_plan_trip
+    def delete(self, request):
+        """ Delete Last Mile Trip """
+
+        info_logger.info("Last Mile Trip DELETE api called.")
+        if not request.data.get('trip_id'):
+            return get_response('please provide trip_id', False)
+        try:
+            for z_id in request.data.get('trip_id'):
+                trip_id = self.queryset.get(id=int(z_id))
+                try:
+                    trip_mappings = DispatchTripShipmentMapping.objects.filter(trip_id=trip_id)
+                    if trip_mappings:
+                        trip_mappings.delete()
+                    trip_id.delete()
+                except:
+                    return get_response(f'can not delete dispatch trip | {trip_id.id} | getting used', False)
+        except ObjectDoesNotExist as e:
+            error_logger.error(e)
+            return get_response(f'please provide a valid dispatch trip id {z_id}', False)
+        return get_response('dispatch trip were deleted successfully!', True)
+
+    def search_filter_trips_data(self):
+        search_text = self.request.GET.get('search_text')
+        seller_shop = self.request.GET.get('seller_shop')
+        source_shop = self.request.GET.get('source_shop')
+        delivery_boy = self.request.GET.get('delivery_boy')
+        dispatch_no = self.request.GET.get('dispatch_no')
+        vehicle_no = self.request.GET.get('vehicle_no')
+        trip_status = self.request.GET.get('trip_status')
+        t_status = self.request.GET.get('status')
+        created_at = self.request.GET.get('date')
+        data_days = self.request.GET.get('data_days')
+
+        '''search using seller_shop name, source_shop's firstname  and destination_shop's firstname'''
+        if search_text:
+            self.queryset = trip_search(self.queryset, search_text)
+
+        '''
+            Filters using seller_shop, delivery_boy, dispatch_no, vehicle_no, trip_status
+        '''
+        if seller_shop:
+            self.queryset = self.queryset.filter(seller_shop__id=seller_shop)
+
+        if source_shop:
+            self.queryset = self.queryset.filter(source_shop__id=source_shop)
+
+        if delivery_boy:
+            self.queryset = self.queryset.filter(delivery_boy__id=delivery_boy)
+
+        if dispatch_no:
+            self.queryset = self.queryset.filter(dispatch_no=dispatch_no)
+
+        if vehicle_no:
+            self.queryset = self.queryset.filter(vehicle_no=vehicle_no)
+
+        if trip_status:
+            self.queryset = self.queryset.filter(trip_status=trip_status)
+
+        if t_status:
+            self.queryset = self.queryset.filter(status=t_status)
+
+        if created_at:
+            if data_days:
+                end_date = datetime.strptime(created_at, "%Y-%m-%d")
+                start_date = end_date - timedelta(days=int(data_days))
+                self.queryset = self.queryset.filter(
+                    created_at__date__gte=start_date.date(), created_at__date__lte=end_date.date())
+            else:
+                created_at = datetime.strptime(created_at, "%Y-%m-%d")
+                self.queryset = self.queryset.filter(created_at__date=created_at)
+
+        return self.queryset.distinct('id')
+
+
+class LastMileTripShipmentsView(generics.GenericAPIView):
+    """
+    View to get invoices ready for dispatch to dispatch center.
+    """
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    serializer_class = LastMileTripShipmentsSerializer
+    queryset = OrderedProduct.objects.filter(~Q(shipment_status__in=[OrderedProduct.SHIPMENT_CREATED,
+                                                                     OrderedProduct.QC_STARTED,
+                                                                     OrderedProduct.QC_REJECTED,
+                                                                     OrderedProduct.READY_TO_SHIP])).\
+        select_related('order', 'order__seller_shop', 'order__shipping_address', 'order__shipping_address__city',
+                       'invoice'). \
+        only('id', 'order__order_no', 'order__seller_shop__id', 'order__seller_shop__shop_name',
+             'order__buyer_shop__id', 'order__buyer_shop__shop_name', 'order__shipping_address__pincode',
+             'order__dispatch_center__id', 'order__dispatch_center__shop_name', 'order__dispatch_delivery',
+             'order__shipping_address__pincode_link_id', 'order__shipping_address__nick_name',
+             'order__shipping_address__address_line1', 'order__shipping_address__address_contact_name',
+             'order__shipping_address__address_contact_number', 'order__shipping_address__address_type',
+             'order__shipping_address__city_id', 'order__shipping_address__city__city_name',
+             'order__shipping_address__state__state_name', 'shipment_status', 'invoice__invoice_no', 'created_at'). \
+        order_by('-id')
+
+    def get(self, request):
+        validation_response = self.validate_get_request()
+        if "error" in validation_response:
+            return get_response(validation_response["error"], False)
+        # self.queryset = get_logged_user_wise_query_set_for_dispatch_trip(request.user, self.queryset)
+        self.queryset = self.search_filter_invoice_data()
+        shipment_data = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        data_dict = {
+            'trip_id': self.request.GET.get('trip_id'),
+            'invoices': shipment_data
+        }
+        serializer = self.serializer_class(data_dict)
+        msg = "" if shipment_data else "no invoice found"
+        return get_response(msg, serializer.data, True)
+
+    def validate_get_request(self):
+        try:
+            if not self.request.GET.get('seller_shop', None):
+                return {"error": "'seller_shop'| This is required"}
+            elif not self.request.GET.get('availability') \
+                    or int(self.request.GET.get('availability')) not in INVOICE_AVAILABILITY_CHOICES._db_values:
+                return {"error": "'availability' | Invalid availability choice."}
+            elif not self.request.GET.get('trip_id', None):
+                return {"error": "'trip_id' | This is required."}
+            elif not Trip.objects.filter(id=self.request.GET.get('trip_id')).exists():
+                return {"error": "'trip_id' | Invalid trip."}
+            return {"data": self.request.data}
+        except Exception as e:
+            return {"error": "Invalid Request"}
+
+    def search_filter_invoice_data(self):
+        """ Filters the Shipment data based on request"""
+        search_text = self.request.GET.get('search_text')
+        date = self.request.GET.get('date')
+        shipment_status = self.request.GET.get('shipment_status')
+        city = self.request.GET.get('city')
+        city_name = self.request.GET.get('city_name')
+        pincode = self.request.GET.get('pincode')
+        pincode_no = self.request.GET.get('pincode_no')
+        seller_shop = self.request.GET.get('seller_shop')
+        buyer_shop = self.request.GET.get('buyer_shop')
+        current_shop = self.request.GET.get('current_shop')
+        dispatch_center = self.request.GET.get('dispatch_center')
+        trip_id = self.request.GET.get('trip_id')
+        availability = self.request.GET.get('availability')
+
+        '''search using warehouse name, product's name'''
+        if search_text:
+            self.queryset = shipment_search(self.queryset, search_text)
+
+        '''Filters using warehouse, product, zone, date, status, putaway_type_id'''
+
+        if date:
+            self.queryset = self.queryset.filter(created_at__date=date)
+
+        if shipment_status:
+            self.queryset = self.queryset.filter(shipment_status=shipment_status)
+
+        if city:
+            self.queryset = self.queryset.filter(order__shipping_address__city_id=city)
+
+        if city_name:
+            self.queryset = self.queryset.filter(order__shipping_address__city__city_name__icontains=city_name)
+
+        if pincode_no:
+            self.queryset = self.queryset.filter(order__shipping_address__pincode=pincode_no)
+
+        if pincode:
+            self.queryset = self.queryset.filter(order__shipping_address__pincode_link_id=pincode)
+
+        if seller_shop:
+            self.queryset = self.queryset.filter(order__seller_shop_id=seller_shop)
+
+        if buyer_shop:
+            self.queryset = self.queryset.filter(order__buyer_shop_id=buyer_shop)
+
+        if current_shop:
+            self.queryset = self.queryset.filter(current_shop_id=current_shop)
+
+        if dispatch_center:
+            self.queryset = self.queryset.filter(order__dispatch_center=dispatch_center)
+
+        if trip_id:
+            trip_source_shop = Trip.objects.filter(id=trip_id).last().source_shop
+            self.queryset = self.queryset.filter(current_shop=trip_source_shop)
+            if trip_source_shop.shop_type.shop_type == 'sp':
+                self.queryset = self.queryset.filter(order__dispatch_center__isnull=True)
+            if trip_source_shop.shop_type.shop_type == 'dc':
+                self.queryset = self.queryset.filter(order__dispatch_center=trip_source_shop)
+
+        if availability:
+            try:
+                availability = int(availability)
+                if availability == INVOICE_AVAILABILITY_CHOICES.ADDED:
+                    self.queryset = self.queryset.filter(~Q(shipment_status=OrderedProduct.MOVED_TO_DISPATCH)).filter(
+                        Q(last_mile_trip_shipment__isnull=False,
+                          last_mile_trip_shipment__shipment_status__in=[LastMileTripShipmentMapping.TO_BE_LOADED,
+                                                                        LastMileTripShipmentMapping.LOADING_FOR_DC,
+                                                                        LastMileTripShipmentMapping.LOADED_FOR_DC],
+                          last_mile_trip_shipment__trip_id=trip_id) | Q(trip_id=trip_id))
+                elif availability == INVOICE_AVAILABILITY_CHOICES.NOT_ADDED:
+                    current_date = datetime.now().date()
+                    self.queryset = self.queryset.filter(
+                        Q((Q(last_mile_trip_shipment__isnull=True) |
+                           Q(last_mile_trip_shipment__shipment_status=LastMileTripShipmentMapping.CANCELLED)),
+                            shipment_status=OrderedProduct.MOVED_TO_DISPATCH) |
+                        Q(~Q(last_mile_trip_shipment__trip__trip_status__in=[Trip.READY, Trip.STARTED, Trip.COMPLETED]),
+                          shipment_status=OrderedProduct.NOT_ATTEMPT,
+                          not_attempt_shipment__created_at__date__lt=current_date) |
+                        Q(~Q(last_mile_trip_shipment__trip__trip_status__in=[Trip.READY, Trip.STARTED, Trip.COMPLETED]),
+                          shipment_status=OrderedProduct.RESCHEDULED,
+                          rescheduling_shipment__rescheduling_date__lte=current_date))
+                elif availability == INVOICE_AVAILABILITY_CHOICES.ALL:
+                    self.queryset = self.queryset.filter(
+                        Q(last_mile_trip_shipment__trip_id=trip_id) | Q(last_mile_trip_shipment__isnull=True) |
+                        Q(trip_id=trip_id))
+            except:
+                pass
+
+        return self.queryset.distinct('id')
+
+
+class LastMileTripStatusChangeView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    queryset = Trip.objects. \
+        select_related('seller_shop', 'seller_shop__shop_owner', 'seller_shop__shop_type',
+                       'seller_shop__shop_type__shop_sub_type', 'delivery_boy'). \
+        prefetch_related('rt_invoice_trip'). \
+        only('id', 'dispatch_no', 'vehicle_no', 'seller_shop__id', 'seller_shop__status', 'seller_shop__shop_name',
+             'seller_shop__shop_type', 'seller_shop__shop_type__shop_type', 'seller_shop__shop_type__shop_sub_type',
+             'seller_shop__shop_type__shop_sub_type__retailer_type_name', 'seller_shop__shop_owner',
+             'seller_shop__shop_owner__first_name', 'seller_shop__shop_owner__last_name',
+             'seller_shop__shop_owner__phone_number', 'delivery_boy__id', 'delivery_boy__first_name',
+             'delivery_boy__last_name', 'delivery_boy__phone_number', 'trip_status', 'e_way_bill_no', 'starts_at',
+             'completed_at', 'received_amount', 'opening_kms', 'closing_kms', 'no_of_crates', 'no_of_packets',
+             'no_of_sacks', 'no_of_crates_check', 'no_of_packets_check', 'no_of_sacks_check', 'created_at',
+             'modified_at', ). \
+        order_by('-id')
+    serializer_class = LastMileTripStatusChangeSerializers
+
+    @check_whc_manager_dispatch_executive
+    @check_user_can_plan_trip
+    def get(self, request):
+        """ GET API for Dispatch Trip """
+        info_logger.info("Dispatch Trip GET api called.")
+        if request.GET.get('id'):
+            """ Get Dispatch Trip for specific ID """
+            trip_total_count = self.queryset.count()
+            id_validation = validate_id(self.queryset, int(request.GET.get('id')))
+            if 'error' in id_validation:
+                return get_response(id_validation['error'])
+            trips_data = id_validation['data']
+        else:
+            """ GET Dispatch Trip List """
+            self.queryset = get_logged_user_wise_query_set_for_dispatch_trip(request.user, self.queryset)
+            self.queryset = self.search_filter_trips_data()
+            trip_total_count = self.queryset.count()
+            trips_data = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+
+        serializer = self.serializer_class(trips_data, many=True)
+        msg = f"total count {trip_total_count}" if trips_data else "no trip found"
+        return get_response(msg, serializer.data, True)
+
+    @check_whc_manager_dispatch_executive
+    @check_user_can_plan_trip
+    def put(self, request):
+        """ PUT API for Last Mile Trip Updation """
+
+        info_logger.info("Last Mile Trip PUT api called.")
+        modified_data = validate_data_format(self.request)
+        if 'error' in modified_data:
+            return get_response(modified_data['error'])
+
+        if 'id' not in modified_data:
+            return get_response('please provide id to update trip', False)
+
+        # validations for input id
+        id_validation = validate_id(self.queryset, int(modified_data['id']))
+        if 'error' in id_validation:
+            return get_response(id_validation['error'])
+        trip_instance = id_validation['data'].last()
+
+        serializer = self.serializer_class(instance=trip_instance, data=modified_data)
+        if serializer.is_valid():
+            serializer.save(updated_by=request.user)
+            info_logger.info("Last Mile Trip Updated Successfully.")
+            return get_response('trip updated!', serializer.data)
+        return get_response(serializer_error(serializer), False)
+
+    def search_filter_trips_data(self):
+        search_text = self.request.GET.get('search_text')
+        seller_shop = self.request.GET.get('seller_shop')
+        delivery_boy = self.request.GET.get('delivery_boy')
+        dispatch_no = self.request.GET.get('dispatch_no')
+        vehicle_no = self.request.GET.get('vehicle_no')
+        trip_status = self.request.GET.get('trip_status')
+
+        '''search using seller_shop name, source_shop's firstname  and destination_shop's firstname'''
+        if search_text:
+            self.queryset = trip_search(self.queryset, search_text)
+
+        '''
+            Filters using seller_shop, delivery_boy, dispatch_no, vehicle_no, trip_status
+        '''
+        if seller_shop:
+            self.queryset = self.queryset.filter(seller_shop__id=seller_shop)
+
+        if delivery_boy:
+            self.queryset = self.queryset.filter(delivery_boy__id=delivery_boy)
+
+        if dispatch_no:
+            self.queryset = self.queryset.filter(dispatch_no=dispatch_no)
+
+        if vehicle_no:
+            self.queryset = self.queryset.filter(vehicle_no=vehicle_no)
+
+        if trip_status:
+            self.queryset = self.queryset.filter(trip_status=trip_status)
+
+        return self.queryset.distinct('id')
+
+
+class DispatchPackageStatusList(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+
+    def get(self, request):
+        '''
+        API to get shipment package rejection reason list
+        '''
+        fields = ['id', 'value']
+        data = [dict(zip(fields, d)) for d in PACKAGE_VERIFY_CHOICES]
+        msg = ""
+        return get_response(msg, data, True)
+
+
+class ReschedulingReasonsListView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+
+    def get(self, request):
+        """ GET API for ReschedulingReasonsList """
+        info_logger.info("ReschedulingReasonsList GET api called.")
+        fields = ['id', 'value']
+        data = [dict(zip(fields, d)) for d in ShipmentRescheduling.RESCHEDULING_REASON]
+        msg = ""
+        return get_response(msg, data, True)
+
+
+class ReturnReasonsListView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+
+    def get(self, request):
+        """ GET API for ReturnReasonsList """
+        info_logger.info("ReturnReasonsList GET api called.")
+        fields = ['id', 'value']
+        data = [dict(zip(fields, d)) for d in OrderedProduct.RETURN_REASON]
+        msg = ""
+        return get_response(msg, data, True)
+
+
+class ShipmentNotAttemptReasonsListView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+
+    def get(self, request):
+        """ GET API for ShipmentNotAttemptReasonsList """
+        info_logger.info("ShipmentNotAttemptReasonsList GET api called.")
+        fields = ['id', 'value']
+        data = [dict(zip(fields, d)) for d in ShipmentNotAttempt.NOT_ATTEMPT_REASON]
+        msg = ""
+        return get_response(msg, data, True)
+
+
+class CrateRemarkReasonsListView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+
+    def get(self, request):
+        """ GET API for CrateRemarkReasonsList """
+        info_logger.info("CrateRemarkReasonsList GET api called.")
+        fields = ['id', 'value']
+        data = [dict(zip(fields, d)) for d in ShipmentPackaging.RETURN_REMARK_CHOICES]
+        msg = ""
+        return get_response(msg, data, True)
+
+
+class DispatchTripStatusList(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+
+    def get(self, request):
+        '''
+        API to get shipment package rejection reason list
+        '''
+        fields = ['id', 'value']
+        data = [dict(zip(fields, d)) for d in DispatchTrip.DISPATCH_TRIP_STATUS]
+        msg = ""
+        return get_response(msg, data, True)
+
+
+class LastMileTripStatusList(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+
+    def get(self, request):
+        fields = ['id', 'value']
+        data = [dict(zip(fields, d)) for d in Trip.TRIP_STATUS]
+        msg = ""
+        return get_response(msg, data, True)
+
+
+class LoadInvoiceView(generics.GenericAPIView):
+    """
+       View to mark invoice as added to a trip.
+    """
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    serializer_class = DispatchTripShipmentMappingSerializer
+    queryset = DispatchTripShipmentMapping.objects.\
+                only('id', 'trip', 'shipment', 'shipment_status', 'shipment_health', 'trip_shipment_mapped_packages')
+
+    def put(self, request):
+        """ POST API for Shipment Package Load Verification """
+        info_logger.info("Load Verify POST api called.")
+        modified_data = validate_data_format(self.request)
+        if 'error' in modified_data:
+            return get_response(modified_data['error'])
+        validated_shipment = validate_trip_shipment(modified_data['trip_id'], modified_data['shipment_id'])
+        if 'error' in validated_shipment:
+            return get_response(validated_shipment['error'])
+        serializer = self.serializer_class(instance=validated_shipment['data'], data=modified_data)
+        if serializer.is_valid():
+            serializer.save(created_by=request.user)
+            info_logger.info("Invoice added to the trip.")
+            return get_response('Invoice added to the trip.', serializer.data)
+        return get_response(serializer_error(serializer), False)
+
+
+class PackagesUnderTripView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    queryset = ShipmentPackaging.objects.order_by('packaging_type')
+    serializer_class = PackagesUnderTripSerializer
+
+    # @check_whc_manager_dispatch_executive
+    def get(self, request):
+        '''
+        API to get all the packages for a trip
+        '''
+        validated_request = self.validate_request()
+        if 'error' in validated_request:
+            return get_response(validated_request['error'])
+        if not request.GET.get('trip_id'):
+            return get_response("'trip_id' | This is mandatory")
+        validated_trip = validate_trip(request.GET.get('trip_id'), request.GET.get('trip_type'))
+        if 'error' in validated_trip:
+            return get_response(validated_trip['error'])
+        self.queryset = self.filter_packaging_items(validated_trip['data'])
+        dispatch_items = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        serializer = self.serializer_class(dispatch_items, many=True)
+        msg = "" if dispatch_items else "no packaging found"
+        return get_response(msg, serializer.data, True)
+
+    def validate_request(self):
+        try:
+            if self.request.GET.get('is_return_verified') and \
+                    int(self.request.GET.get('is_return_verified')) not in [0,1]:
+                raise
+        except:
+            return {'error' : "'is_return_verified' | Invalid value. Only 0 or 1 is allowed."}
+        return {'request' : self.request}
+
+    def filter_packaging_items(self, trip_instance):
+        shipment_id = self.request.GET.get('shipment_id')
+        package_status = self.request.GET.get('package_status')
+        trip_type = self.request.GET.get('trip_type')
+        is_return_verified = self.request.GET.get('is_return_verified')
+        if isinstance(trip_instance, DispatchTrip):
+
+            package_ids = DispatchTripShipmentPackages.objects.filter(
+                    package_status__in=[DispatchTripShipmentPackages.LOADED,
+                                        DispatchTripShipmentPackages.UNLOADED,
+                                        DispatchTripShipmentPackages.VERIFIED,
+                                        DispatchTripShipmentPackages.PARTIALLY_VERIFIED],
+                    trip_shipment__trip=trip_instance).values_list('shipment_packaging_id', flat=True)
+            self.queryset = self.queryset.filter(id__in=package_ids,
+                shipment__trip_shipment__shipment_status__in=[
+                    DispatchTripShipmentMapping.LOADING_FOR_DC,DispatchTripShipmentMapping.LOADED_FOR_DC,
+                    DispatchTripShipmentMapping.UNLOADING_AT_DC, DispatchTripShipmentMapping.UNLOADED_AT_DC]
+                   )
+            if not trip_type or trip_type == TRIP_TYPE_CHOICE.DISPATCH_FORWARD:
+                self.queryset = self.queryset.filter(shipment__trip_shipment__trip=trip_instance,
+                                                     movement_type=ShipmentPackaging.DISPATCH)
+            elif trip_type == TRIP_TYPE_CHOICE.DISPATCH_BACKWARD:
+                self.queryset = self.queryset.filter(shipment__trip_shipment__trip=trip_instance,
+                                                     movement_type=ShipmentPackaging.RETURNED)
+        elif isinstance(trip_instance, Trip):
+            package_ids = LastMileTripShipmentPackages.objects.filter(
+                                                            ~Q(package_status=LastMileTripShipmentPackages.CANCELLED),
+                                                            trip_shipment__trip=trip_instance,
+                                                            trip_shipment__shipment_status__in=[
+                                                                LastMileTripShipmentMapping.TO_BE_LOADED,
+                                                                LastMileTripShipmentMapping.LOADING_FOR_DC,
+                                                                LastMileTripShipmentMapping.LOADED_FOR_DC]
+                                                        )\
+                                                .values_list('shipment_packaging_id', flat=True)
+            self.queryset = self.queryset.filter(id__in=package_ids)
+
+        if shipment_id:
+            self.queryset = self.queryset.filter(shipment_id=shipment_id)
+
+        if is_return_verified:
+            is_return_verified = int(is_return_verified)
+            if is_return_verified == 1:
+                self.queryset = self.queryset.filter(trip_packaging_details__package_status=DispatchTripShipmentPackages.VERIFIED)
+            else:
+                self.queryset = self.queryset.filter(trip_packaging_details__package_status__in=[
+                    DispatchTripShipmentPackages.PARTIALLY_VERIFIED, DispatchTripShipmentPackages.UNLOADED])
+
+        return self.queryset.distinct('id', 'packaging_type')
+
+
+class MarkShipmentPackageVerifiedView(generics.GenericAPIView):
+    """
+       View to mark shipment package verify
+    """
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    serializer_class = MarkShipmentPackageVerifiedSerializer
+    queryset = DispatchTripShipmentPackages.objects.all()
+
+    def get(self, request):
+        '''
+        API to get shipment package detail
+        '''
+        if not request.GET.get('package_id'):
+            return get_response("'package_id' | This is mandatory")
+        if not request.GET.get('trip_id'):
+            return get_response("'trip_id' | This is mandatory")
+        self.queryset = self.filter_package_data()
+        dispatch_items = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        serializer = self.serializer_class(dispatch_items, many=True)
+        msg = "" if dispatch_items else "no packaging found"
+        return get_response(msg, serializer.data, True)
+
+    def put(self, request):
+        """ PUT API to mark shipment package verify """
+
+        info_logger.info("Mark Shipment Package Verify PUT api called.")
+        modified_data = validate_data_format(self.request)
+        if 'error' in modified_data:
+            return get_response(modified_data['error'])
+
+        if 'package_id' not in modified_data:
+            return get_response("'package_id' | This is required.", False)
+        if 'trip_id' not in modified_data:
+            return get_response("'trip_id' | This is required.", False)
+
+        validated_data = validate_trip_shipment_package(modified_data['trip_id'], modified_data['package_id'])
+        if 'error' in validated_data:
+            return get_response(validated_data['error'])
+        trip_shipment_data = validated_data['data']
+
+        serializer = self.serializer_class(instance=trip_shipment_data, data=modified_data)
+        if serializer.is_valid():
+            serializer.save(updated_by=request.user)
+            info_logger.info("Package verified successfully.")
+            return get_response('Package verified!', serializer.data)
+        return get_response(serializer_error(serializer), False)
+
+    def filter_package_data(self):
+        trip_id = self.request.GET.get('trip_id')
+        package_id = self.request.GET.get('package_id')
+        package_status = self.request.GET.get('package_status')
+
+        if trip_id:
+            self.queryset = self.queryset.filter(trip_shipment__trip_id=trip_id)
+
+        if package_id:
+            self.queryset = self.queryset.filter(shipment_packaging_id=package_id)
+
+        if package_status:
+            self.queryset = self.queryset.filter(status=package_status)
+
+        return self.queryset
+
+
+class ShipmentPackageProductsView(generics.GenericAPIView):
+    """
+       View to GET package products.
+    """
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    serializer_class = ShipmentPackageProductsSerializer
+    queryset = ShipmentPackagingMapping.objects.all()
+
+    def get(self, request):
+        """
+            API to get all the products for a package
+        """
+        if not request.GET.get('package_id'):
+            return get_response("'package_id' | This is mandatory")
+        validated_shipment_label = validate_shipment_label(request.GET.get('package_id'))
+        if 'error' in validated_shipment_label:
+            return get_response(validated_shipment_label['error'])
+        self.queryset = self.filter_shipment_products()
+        dispatch_items = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        serializer = self.serializer_class(dispatch_items, many=True,
+                                           context={'shop': validated_shipment_label['data'].warehouse})
+        msg = "" if dispatch_items else "no product found"
+        return get_response(msg, serializer.data, True)
+
+    def filter_shipment_products(self):
+        package_id = self.request.GET.get('package_id')
+        product_id = self.request.GET.get('product_id')
+        product_ean_code = self.request.GET.get('product_ean_code')
+        batch_id = self.request.GET.get('batch_id')
+        is_verified = self.request.GET.get('is_verified')
+
+        if package_id:
+            self.queryset = self.queryset.filter(shipment_packaging_id=package_id)
+
+        if product_id:
+            self.queryset = self.queryset.filter(ordered_product__product_id=product_id)
+
+        if product_ean_code:
+            self.queryset = self.queryset.filter(
+                ordered_product__product__product_ean_code__startswith=product_ean_code)
+
+        if batch_id:
+            self.queryset = self.queryset.filter(ordered_product__rt_ordered_product_mapping__batch_id=batch_id)
+
+        if is_verified:
+            self.queryset = self.queryset.filter(is_verified=is_verified)
+
+        return self.queryset
+
+
+class LoadLastMileInvoiceView(generics.GenericAPIView):
+    """
+       View to mark invoice as added to a trip.
+    """
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    serializer_class = LoadLastMileInvoiceSerializer
+    queryset = LastMileTripShipmentMapping.objects.only('id', 'trip', 'shipment', 'shipment_status')
+
+    @check_user_can_plan_trip
+    def post(self, request):
+        """ POST API to load invoice in Last mile trip """
+        info_logger.info("Load invoice POST api called.")
+        modified_data = validate_data_format(self.request)
+        if 'error' in modified_data:
+            return get_response(modified_data['error'])
+        if 'trip_id' not in modified_data:
+            return get_response("'trip_id' | This is mandatory.")
+        validated_trip = validate_last_mile_trip_user(modified_data['trip_id'], request.user)
+        if 'error' in validated_trip:
+            return get_response(validated_trip['error'])
+
+        serializer = self.serializer_class(data=modified_data)
+        if serializer.is_valid():
+            serializer.save(created_by=request.user)
+            info_logger.info("Invoice added to the trip.")
+            return get_response('Invoice added to the trip.', serializer.data)
+        return get_response(serializer_error(serializer), False)
+
+
+class RemoveLastMileInvoiceFromTripView(generics.GenericAPIView):
+    """
+       View to remove invoice from a trip.
+    """
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    serializer_class = RemoveLastMileInvoiceFromTripSerializer
+    queryset = LastMileTripShipmentMapping.objects.all()
+
+    def put(self, request):
+        """ POST API for Shipment Package Load Verification """
+        info_logger.info("Remove invoice PUT api called.")
+        modified_data = validate_data_format(self.request)
+        if 'error' in modified_data:
+            return get_response(modified_data['error'])
+
+        if 'shipment_id' not in modified_data:
+            return get_response("'shipment_id' | This is required.", False)
+        if 'trip_id' not in modified_data:
+            return get_response("'trip_id' | This is required.", False)
+
+        # validations for input
+        shipment_validation = self.validate_trip_invoice(int(modified_data['shipment_id']),
+                                                         int(modified_data['trip_id']))
+        if 'error' in shipment_validation:
+            return get_response(shipment_validation['error'])
+        trip_invoice_mapping = shipment_validation['data'].last()
+
+        serializer = self.serializer_class(instance=trip_invoice_mapping, data=modified_data)
+        if serializer.is_valid():
+            serializer.save(updated_by=request.user)
+
+            info_logger.info("Shipment removed successfully.")
+            return get_response('Shipment removed successfully!', serializer.data)
+        return get_response(serializer_error(serializer), False)
+
+    def validate_trip_invoice(self, shipment_id, trip_id):
+        if not self.queryset.filter(~Q(shipment_status=LastMileTripShipmentMapping.CANCELLED),
+                                    trip_id=trip_id, shipment_id=shipment_id).exists():
+            return {"error": "invalid Shipment"}
+        return {"data": self.queryset.filter(~Q(shipment_status=LastMileTripShipmentMapping.CANCELLED),
+                                             trip_id=trip_id, shipment_id=shipment_id)}
+
+
+class LastMileTripSummaryView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    serializer_class = LastMileTripSummarySerializer
+
+    @check_whc_manager_dispatch_executive
+    def get(self, request):
+        """ GET API for Last mile trip summary """
+        info_logger.info("Order Status Summary GET api called.")
+        """ GET Trip Summary List """
+        if not self.request.GET.get('trip_id', None):
+            return get_response("'trip_id' | This is mandatory")
+        trip_summary_data = {
+            "trip_data": self.added_shipments_to_trip_summary(self.request),
+            "non_trip_data": self.non_added_shipments_to_trip_summary(self.request)
+        }
+        serializer = self.serializer_class(trip_summary_data)
+        msg = "" if trip_summary_data else "no trip found"
+        return get_response(msg, serializer.data, True)
+
+    def added_shipments_to_trip_summary(self, request):
+        """ GET API for trip summary """
+        info_logger.info("Added shipmets to Trip Summary called.")
+        # self.queryset = get_logged_user_wise_query_set_for_trip(self.request.user, self.queryset)
+        last_mile_trip_qs = Trip.objects. \
+            select_related('seller_shop', 'source_shop', 'delivery_boy'). \
+            prefetch_related('last_mile_trip_shipments_details'). \
+            order_by('-id')
+        last_mile_trip_qs = get_logged_user_wise_query_set_for_dispatch_trip(request.user, last_mile_trip_qs)
+        last_mile_trip_qs = self.filter_trip_summary_data(last_mile_trip_qs)
+        last_mile_trip_instance = last_mile_trip_qs.last()
+        if last_mile_trip_instance:
+            trip_summary_data = {
+                'total_invoices': last_mile_trip_instance.no_of_shipments,
+                'total_crates': last_mile_trip_instance.no_of_crates,
+                'total_packets': last_mile_trip_instance.no_of_packets,
+                'total_sack': last_mile_trip_instance.no_of_sacks,
+                'weight': last_mile_trip_instance.get_trip_weight,
+                'total_crates_check': last_mile_trip_instance.no_of_crates_check,
+                'total_packets_check': last_mile_trip_instance.no_of_packets_check,
+                'total_sack_check': last_mile_trip_instance.no_of_sacks_check,
+                'remaining_crates': last_mile_trip_instance.no_of_crates-last_mile_trip_instance.no_of_crates_check,
+                'remaining_packets': last_mile_trip_instance.no_of_packets-last_mile_trip_instance.no_of_packets_check,
+                'remaining_sacks': last_mile_trip_instance.no_of_sacks-last_mile_trip_instance.no_of_sacks_check,
+            }
+        else:
+            trip_summary_data = {
+                'total_invoices': 0,
+                'total_crates': 0,
+                'total_packets': 0,
+                'total_sack': 0,
+                'weight': 0,
+                'total_crates_check': 0,
+                'total_packets_check': 0,
+                'total_sack_check': 0,
+                'remaining_crates': 0,
+                'remaining_packets': 0,
+                'remaining_sacks': 0
+            }
+        return trip_summary_data
+
+    def non_added_shipments_to_trip_summary(self, request):
+        """ GET API for trip summary """
+        info_logger.info("Added shipmets to Trip Summary called.")
+        # self.queryset = get_logged_user_wise_query_set_for_trip(self.request.user, self.queryset)
+        current_date = datetime.now().date()
+        shipment_qs = OrderedProduct.objects.filter(
+            Q(shipment_status=OrderedProduct.MOVED_TO_DISPATCH) |
+            Q(shipment_status=OrderedProduct.NOT_ATTEMPT, not_attempt_shipment__created_at__date__lt=current_date) |
+            Q(shipment_status=OrderedProduct.RESCHEDULED, rescheduling_shipment__rescheduling_date__gte=current_date)).\
+            select_related('order', 'order__seller_shop'). \
+            order_by('-id')
+        shipment_qs = get_logged_user_wise_query_set_for_trip_invoices(request.user, shipment_qs)
+        shipment_qs = self.filter_non_added_in_trip_shipments_summary_data(shipment_qs)
+        resp_data = shipment_qs.aggregate(no_of_invoices=Count('id'))
+        resp_data['no_of_crates'] = 0
+        resp_data['no_of_packets'] = 0
+        resp_data['no_of_sacks'] = 0
+        resp_data['weight'] = 0
+        for ss in shipment_qs.all():
+            smt_pack_data = ss.shipment_packaging.\
+                exclude(last_mile_trip_packaging_details__trip_shipment__trip__trip_status=Trip.READY).\
+                aggregate(no_of_crates=Count(Case(When(packaging_type=ShipmentPackaging.CRATE, then=1))),
+                          no_of_packets=Count(Case(When(packaging_type=ShipmentPackaging.BOX, then=1))),
+                          no_of_sacks=Count(Case(When(packaging_type=ShipmentPackaging.SACK, then=1)))
+                          )
+            if smt_pack_data:
+                resp_data['no_of_crates'] += smt_pack_data['no_of_crates'] if smt_pack_data['no_of_crates'] else 0
+                resp_data['no_of_packets'] += smt_pack_data['no_of_packets'] if smt_pack_data['no_of_packets'] else 0
+                resp_data['no_of_sacks'] += smt_pack_data['no_of_sacks'] if smt_pack_data['no_of_sacks'] else 0
+        trip_summary_data = {
+            'total_invoices': resp_data['no_of_invoices'] if resp_data['no_of_invoices'] else 0,
+            'total_crates': resp_data['no_of_crates'] if resp_data['no_of_crates'] else 0,
+            'total_packets': resp_data['no_of_packets'] if resp_data['no_of_packets'] else 0,
+            'total_sack': resp_data['no_of_sacks'] if resp_data['no_of_sacks'] else 0,
+            'weight': resp_data['weight'] if resp_data['weight'] else 0,
+            'total_crates_check': 0,
+            'total_packets_check': 0,
+            'total_sack_check': 0,
+            'remaining_crates': 0,
+            'remaining_packets': 0,
+            'remaining_sacks': 0
+        }
+        return trip_summary_data
+
+    def filter_trip_summary_data(self, queryset):
+        trip_id = self.request.GET.get('trip_id')
+        created_at = self.request.GET.get('date')
+        data_days = self.request.GET.get('data_days')
+
+        '''Filters using trip_id, created_at'''
+        if trip_id:
+            queryset = queryset.filter(id=trip_id)
+
+        if created_at:
+            if data_days:
+                end_date = datetime.strptime(created_at, "%Y-%m-%d")
+                start_date = end_date - timedelta(days=int(data_days))
+                queryset = queryset.filter(
+                    created_at__date__gte=start_date.date(), created_at__date__lte=end_date.date())
+            else:
+                created_at = datetime.strptime(created_at, "%Y-%m-%d")
+                queryset = queryset.filter(created_at__date=created_at)
+
+        return queryset
+
+    def filter_non_added_in_trip_shipments_summary_data(self, queryset):
+        trip_id = self.request.GET.get('trip_id')
+        created_at = self.request.GET.get('date')
+        data_days = self.request.GET.get('data_days')
+
+        '''Filters using trip_id, created_at'''
+        if trip_id:
+            trip_source_shop = Trip.objects.filter(id=trip_id).last().source_shop
+            queryset = queryset.filter(current_shop=trip_source_shop)
+            if trip_source_shop.shop_type.shop_type == 'sp':
+                queryset = queryset.filter(order__dispatch_center__isnull=True)
+            if trip_source_shop.shop_type.shop_type == 'dc':
+                queryset = queryset.filter(order__dispatch_center=trip_source_shop)
+
+        if created_at:
+            if data_days:
+                end_date = datetime.strptime(created_at, "%Y-%m-%d")
+                start_date = end_date - timedelta(days=int(data_days))
+                queryset = queryset.filter(
+                    created_at__date__gte=start_date.date(), created_at__date__lte=end_date.date())
+            else:
+                created_at = datetime.strptime(created_at, "%Y-%m-%d")
+                queryset = queryset.filter(created_at__date=created_at)
+
+        return queryset
+
+
+class LastMileLoadVerifyPackageView(generics.GenericAPIView):
+    """
+       View to verify and load packages to a trip.
+    """
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    serializer_class = LastMileLoadVerifyPackageSerializer
+
+    def post(self, request):
+        """ POST API for Shipment Package Load Verification """
+        info_logger.info("Load Verify POST api called.")
+        modified_data = validate_data_format(self.request)
+        if 'error' in modified_data:
+            return get_response(modified_data['error'])
+        validated_trip = validate_last_mile_trip_user(modified_data['trip_id'], request.user)
+        if 'error' in validated_trip:
+            return get_response(validated_trip['error'])
+        serializer = self.serializer_class(data=modified_data, context={'current_user': request.user})
+        if serializer.is_valid():
+            serializer.save(created_by=request.user)
+            info_logger.info("Package loaded Successfully.")
+            return get_response('Package loaded successfully!', serializer.data)
+        return get_response(serializer_error(serializer), False)
+
+class VerifyBackwardTripItems(generics.GenericAPIView):
+    """
+    API view to verify Packages reaching warehouse in backward dispatch trip
+    """
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    serializer_class = VerifyBackwardTripItemsSerializer
+    queryset = ShipmentPackagingMapping.objects\
+        .select_related('ordered_product','ordered_product__product')\
+        .prefetch_related('shipment_packaging__trip_packaging_details__trip_shipment',
+                          'ordered_product__rt_ordered_product_mapping')\
+        .order_by('-id')
+
+
+    def get(self, request):
+
+        info_logger.info(f"VerifyBackwardTripItems | GET | user {request.user} | request {request.GET}")
+
+        if request.GET.get('id'):
+            id_validation = validate_id(self.queryset, int(request.GET.get('id')))
+            if 'error' in id_validation:
+                return get_response(id_validation['error'])
+            item_data = id_validation['data']
+
+        else:
+            """ Get Item Data for specific trip and batch/ean """
+            if not request.GET.get('trip_id'):
+                return get_response('trip_id is required', False)
+            elif not request.GET.get('package_id') :
+                return get_response('package_id is required', False)
+            elif not (request.GET.get('batch_id') or request.GET.get('ean')):
+                return get_response('please batch_id id / ean  is required', False)
+            item_data = self.filter_item_data()
+
+        serializer = self.serializer_class(item_data, many=True)
+        msg = "" if item_data.exists() else "no item found"
+        return get_response(msg, serializer.data, True)
+
+    ## Permission to return executive only
+    def put(self, request):
+
+        info_logger.info(f"VerifyBackwardTripItems | GET | user {request.user} | request data {request.data}")
+
+        modified_data = validate_data_format(self.request)
+        if 'error' in modified_data:
+            return get_response(modified_data['error'])
+
+        if 'trip_id' not in modified_data:
+            return get_response('trip_id is required.', False)
+        elif 'package_id' not in modified_data:
+            return get_response('package_id is required.', False)
+        elif 'id' not in modified_data:
+            return get_response('id is required.', False)
+
+        # validations for input id
+        id_validation = validate_id(self.queryset, int(modified_data['id']))
+        if 'error' in id_validation:
+            return get_response(id_validation['error'])
+        item_instance = id_validation['data'].last()
+
+        serializer = self.serializer_class(instance=item_instance, data=modified_data)
+        if serializer.is_valid():
+            serializer.save(updated_by=request.user)
+            return get_response('process_shipment updated!', serializer.data)
+        return get_response(serializer_error(serializer), False)
+
+    def filter_item_data(self):
+        """ Filters the Shipment data based on request"""
+        trip_id = self.request.GET.get('trip_id')
+        package_id = self.request.GET.get('package_id')
+        batch_id = self.request.GET.get('batch_id')
+        ean = self.request.GET.get('ean')
+
+        if trip_id:
+            self.queryset = self.queryset.filter(shipment_packaging__trip_packaging_details__trip_shipment__trip_id=trip_id)
+
+        if package_id:
+            self.queryset = self.queryset.filter(shipment_packaging_id=package_id)
+
+        if batch_id:
+            self.queryset = self.queryset.filter(ordered_product__rt_ordered_product_mapping__batch_id=batch_id)
+
+        if ean:
+            self.queryset = self.queryset.filter(ordered_product__product__product_ean_code__startswith=ean)
+
+        return self.queryset.distinct('id')
+
+
+class BackwardTripQCView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    queryset = DispatchTripShipmentPackages.objects.all()
+    serializer_class = BackwardTripQCSerializer
+
+    def get(self, request):
+        if not request.GET.get('trip_id'):
+            return get_response("'trip_id' | This is mandatory")
+        validated_trip = validate_trip(request.GET.get('trip_id'), TRIP_TYPE_CHOICE.DISPATCH_BACKWARD)
+        if 'error' in validated_trip:
+            return get_response(validated_trip['error'])
+        self.queryset = self.filter_packaging_items(validated_trip['data'])
+        serializer = self.serializer_class(self.queryset)
+        msg = "" if self.queryset.exists() else "no package pending for QC."
+        return get_response(msg, serializer.data, True)
+
+    def filter_packaging_items(self, trip_instance):
+        self.queryset = self.queryset.filter(package_status=DispatchTripShipmentPackages.UNLOADED,
+                                             trip_shipment__trip=trip_instance,
+                                             trip_shipment__shipment_status=DispatchTripShipmentMapping.UNLOADED_AT_DC)
+        return self.queryset
+
+
+class PosOrderUserSearchView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    serializer_class = PosOrderUserSearchSerializer
+    
+    def get(self, request, *args, **kwargs):
+        search = request.query_params.get('search')
+        shop_id = request.META.get('HTTP_SHOP_ID')
+        if search:
+            orders = Order.objects.filter(seller_shop_id=shop_id)
+            users = User.objects.filter(id__in=Subquery(orders.values('buyer_id')))
+            if search.isnumeric() and len(search) >= 5:
+                qs = users.filter(phone_number__istartswith=search)
+            elif len(search) >= 3:
+                qs = users.filter(first_name__istartswith=search)
+            else:
+                qs = None
+            serializer = self.serializer_class(qs, many=True)
+            msg = 'success'
+            return get_response(msg, serializer.data, True)
+        else:
+            msg = 'Search to get Buyers.'
+            return get_response(msg, '', True)

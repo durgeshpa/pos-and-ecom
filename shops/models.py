@@ -1,12 +1,15 @@
 import logging
 from datetime import date
 import traceback
+from typing import Tuple
+
 from django.db import models
 from django.contrib.auth import get_user_model
 # from django.conf import settings
 from django.utils.safestring import mark_safe
 from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
+
 from otp.sms import SendSms
 import datetime, re
 from django.core.exceptions import ValidationError
@@ -18,6 +21,7 @@ from django.contrib.auth.models import Group
 from django.contrib.postgres.fields import JSONField
 from categories.models import BaseTimeModel, BaseTimestampUserStatusModel
 from .fields import CaseInsensitiveCharField
+from django.core.validators import MinValueValidator
 # from analytics.post_save_signal import get_retailer_report
 
 Product = 'products.product'
@@ -28,7 +32,8 @@ SHOP_TYPE_CHOICES = (
     ("r", "Retailer"),
     ("sr", "Super Retailer"),
     ("gf", "Gram Factory"),
-    ("f", "Franchise")
+    ("f", "Franchise"),
+    ("dc", "Dispatch Center")
 )
 
 RETAILER_TYPE_CHOICES = (
@@ -82,12 +87,38 @@ class Shop(models.Model):
         (APPROVED, 'Approved'),
         (DISAPPROVED, 'Disapproved'),
     )
+    # LOCATION_STARTED = 'LOCATION_STARTED'
+    # SHOP_ONBOARDED = 'SHOP_ONBOARDED'
+    BUSINESS_CLOSED = 'BUSINESS_CLOSED'
+    BLOCKED_BY_GRAMFACTORY = 'BLOCKED_BY_GRAMFACTORY'
+    NOT_SERVING_SHOP_LOCATION = 'NOT_SERVING_SHOP_LOCATION'
+    PERMANENTLY_CLOSED = 'PERMANENTLY_CLOSED'
+    MISBEHAVIOUR_OR_DISPUTE = 'MISBEHAVIOUR_OR_DISPUTE'
+    MULTIPLE_SHOP_IDS = 'MULTIPLE_SHOP_IDS'
+    FREQUENT_CANCELLATION_HOLD_AND_RETURN_OF_ORDERS = 'FREQUENT_CANCELLATION_HOLD_AND_RETURN_OF_ORDERS'
+    MOBILE_NUMBER_LOST_CLOSED_CHANGED = 'MOBILE_NUMBER_LOST_CLOSED_CHANGED'
+    REGION_NOT_SERVICED = 'REGION_NOT_SERVICED'
+
+    DISAPPROVED_STATUS_REASON_CHOICES = (
+        (BUSINESS_CLOSED, 'Business Closed'),
+        (BLOCKED_BY_GRAMFACTORY, 'Blocked By Gramfactory'),
+        (NOT_SERVING_SHOP_LOCATION, 'Not Serving Shop Location'),
+        (PERMANENTLY_CLOSED, 'Permanently Closed'),
+        (REGION_NOT_SERVICED, 'Region Not Serviced'),
+        (MISBEHAVIOUR_OR_DISPUTE, 'Misbehaviour Or Dispute'),
+        (MULTIPLE_SHOP_IDS, 'Multiple Shop Ids'),
+        (FREQUENT_CANCELLATION_HOLD_AND_RETURN_OF_ORDERS, 'Frequent Cancellation, Return And Holds Of Orders'),
+        (MOBILE_NUMBER_LOST_CLOSED_CHANGED, 'Mobile Number Changed'),
+    )
+    Choices = (('active', 'Active'),
+                ('deactive', 'Deactive'))
     shop_name = models.CharField(max_length=255)
     shop_owner = models.ForeignKey(get_user_model(), related_name='shop_owner_shop', on_delete=models.CASCADE)
     shop_type = models.ForeignKey(ShopType, related_name='shop_type_shop', on_delete=models.CASCADE)
     related_users = models.ManyToManyField(get_user_model(), blank=True, related_name='related_shop_user')
     created_by = models.ForeignKey(get_user_model(), related_name='shop_created_by', null=True, blank=True,
                                    on_delete=models.DO_NOTHING)
+    enable_loyalty_points = models.BooleanField( default=False)
     shop_code = models.CharField(max_length=1, blank=True, null=True)
     shop_code_bulk = models.CharField(max_length=1, blank=True, null=True)
     shop_code_discounted = models.CharField(max_length=1, blank=True, null=True)
@@ -97,6 +128,8 @@ class Shop(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     approval_status = models.IntegerField(choices=APPROVAL_STATUS_CHOICES, default=1)
+    disapproval_status_reason = models.CharField(choices=DISAPPROVED_STATUS_REASON_CHOICES, max_length=50,
+                                              null=True, blank=True)
     status = models.BooleanField(default=False)
     updated_by = models.ForeignKey(
         get_user_model(), null=True, related_name='shop_uploaded_by',
@@ -106,7 +139,9 @@ class Shop(models.Model):
     latitude = models.DecimalField(max_digits=30, decimal_places=15, null=True, verbose_name='Latitude For Ecommerce')
     longitude = models.DecimalField(max_digits=30, decimal_places=15, null=True, verbose_name='Longitude For Ecommerce')
     online_inventory_enabled = models.BooleanField(default=True, verbose_name='Online Inventory Enabled')
+    cutoff_time = models.TimeField(null=True, blank=True)
     dynamic_beat = models.BooleanField(default=False)
+    status_reward_configuration = models.CharField(max_length=20, choices=Choices, default='deactive')
 
     # last_order_at = models.DateTimeField(auto_now_add=True)
     # last_login_at = models.DateTimeField(auto_now_add=True)
@@ -232,6 +267,10 @@ class Shop(models.Model):
     def get_orders(self):
         return self.rt_buyer_shop_order.all()
 
+    # def clean(self):
+    #     if self.approval_status == Shop.DISAPPROVED and self.disapproval_status_reason is None:
+    #         raise ValidationError('Disapproval status reason is required.')
+
     def save(self, force_insert=False, force_update=False, *args, **kwargs):
         if self.status != self.__original_status and self.status is True and ParentRetailerMapping.objects.filter(
                 retailer=self, status=True).exists():
@@ -253,6 +292,7 @@ class Shop(models.Model):
             #                        " Thanks," \
             #                        " Team GramFactory " % (username, shop_title))
             # message.send()
+
         super(Shop, self).save(force_insert, force_update, *args, **kwargs)
 
     # def available_product(self, product):
@@ -325,7 +365,7 @@ def create_shop_status_log(sender, instance=None, created=False, **kwargs):
         user = instance.updated_by
     else:
         user = instance.created_by
-    if instance and instance.approval_status:
+    if instance and instance.approval_status in [0, 1, 2]:
         approval_status = instance.approval_status
         if approval_status == 0:
             reason = 'Disapproved'
@@ -334,8 +374,10 @@ def create_shop_status_log(sender, instance=None, created=False, **kwargs):
         else:
             reason = 'Approved'
         last_status = ShopStatusLog.objects.filter(shop=instance).last()
-        if not last_status or last_status.reason != reason:
-            ShopStatusLog.objects.create(reason=reason, user=user, shop=instance)
+        if not last_status or last_status.reason != reason or \
+                last_status.status_change_reason != instance.get_disapproval_status_reason_display():
+            ShopStatusLog.objects.create(reason=reason, status_change_reason=
+            instance.get_disapproval_status_reason_display(), user=user, shop=instance)
 
 
 class FavouriteProduct(models.Model):
@@ -485,11 +527,11 @@ def shop_verification_notification1(sender, instance=None, created=False, **kwar
 
                 activity_type = "SHOP_VERIFIED"
 
-                from notification_center.utils import SendNotification
-                try:
-                    SendNotification(user_id=instance.id, activity_type=activity_type, data=data).send()
-                except Exception as e:
-                    logging.error(e)
+                # from notification_center.utils import SendNotification
+                # try:
+                #     SendNotification(user_id=instance.id, activity_type=activity_type, data=data).send()
+                # except Exception as e:
+                #     logging.error(e)
                 # message = SendSms(phone=shop.shop_owner,
                 #                   body="Dear %s, Your Shop %s has been approved. Click here to start ordering immediately at GramFactory App."\
                 #                       " Thanks,"\
@@ -498,7 +540,7 @@ def shop_verification_notification1(sender, instance=None, created=False, **kwar
                 # message.send()
 
         else:
-            logging.info("edited: ParentRetailerMapping")
+            # logging.info("edited: ParentRetailerMapping")
 
             activity_type = "SHOP_CREATED"
 
@@ -679,6 +721,7 @@ class DayBeatPlanning(models.Model):
     status = models.BooleanField(default=True)
     is_active = models.BooleanField(default=True)
 
+
 class ExecutiveFeedback(models.Model):
     """
     This model is used for to store day wise beat plan for sales executive
@@ -696,7 +739,7 @@ class ExecutiveFeedback(models.Model):
 
     )
     day_beat_plan = models.ForeignKey(DayBeatPlanning, related_name='day_beat_plan', null=True, blank=True,
-                                      on_delete=models.CASCADE)
+                                      on_delete=models.CASCADE, unique=True)
     executive_feedback = models.CharField(max_length=25, choices=executive_feedback_choice)
     feedback_date = models.DateField(null=True, blank=True)
     feedback_time = models.TimeField(null=True, blank=True)
@@ -714,6 +757,7 @@ class ShopStatusLog(models.Model):
     Maintain Log of Shop enabled and disabled
     """
     reason = models.CharField(max_length=125, blank=True, null=True)
+    status_change_reason = models.CharField(max_length=255, blank=True, null=True)
     user = models.ForeignKey(get_user_model(), related_name='shop_status_changed_by', on_delete=models.CASCADE)
     shop = models.ForeignKey(Shop, related_name='shop_detail', on_delete=models.CASCADE)
     changed_at = models.DateTimeField(auto_now_add=True)
@@ -743,9 +787,12 @@ class FOFOConfigSubCategory(models.Model):
         ("float", "Float"),
         ("bool", "Boolean"),
     )
-    category = models.ForeignKey(FOFOConfigCategory, related_name='fofo_category_details', on_delete=models.CASCADE)
-    name = CaseInsensitiveCharField(max_length=125, unique=True)
+    category = models.ForeignKey(FOFOConfigCategory, related_name='fofo_category_details', on_delete=models.CASCADE,null=True)
+    name = CaseInsensitiveCharField(max_length=125)
     type = models.CharField(max_length=20, choices=FIELD_TYPE_CHOICES, default='int')
+
+    class Meta:
+        unique_together = ('category', 'name',)
 
     def __str__(self):
         return str(self.category) + " - " + str(self.name)
@@ -772,3 +819,43 @@ class FOFOConfigurations(models.Model):
 
     def __str__(self):
         return str(self.key)
+
+    class Meta:
+        permissions = (
+            ("has_fofo_config_operations", "Has update FOFO config operations"),
+        )
+
+
+class FOFOConfig(models.Model):
+    # SUN = 'SUN'
+    # MON = 'MON'
+    # TUE = 'TUE'
+    # WED = 'WED'
+    # THU = 'THU'
+    # FRI = 'FRI'
+    # SAT = 'SAT'
+
+    # working_day_choices = (
+    #     (SUN, 'SUN'),
+    #     (MON, 'MON'),
+    #     (TUE, 'TUE'),
+    #     (WED, 'WED'),
+    #     (THU, 'THU'),
+    #     (FRI, 'FRI'),
+    #     (SAT, 'FRI'),
+    # )
+    shop = models.OneToOneField(Shop, related_name='fofo_shop_config', null=True, blank=True, unique=True, on_delete=models.CASCADE,)
+    shop_opening_timing = models.TimeField(null=True, blank=True)
+    shop_closing_timing = models.TimeField(null=True, blank=True)
+
+    working_off_start_date = models.DateField(null=True, blank=True)
+    working_off_end_date = models.DateField(null=True, blank=True)
+    
+    delivery_redius = models.DecimalField(max_digits=8, decimal_places=1, blank=True, null=True, help_text="Insert value in meters")
+    min_order_value = models.DecimalField(max_digits=10, decimal_places=2, default=199,validators=[MinValueValidator(199)], blank=True, null=True)
+    delivery_time = models.IntegerField(blank=True, null=True, help_text="Insert value in minutes")
+
+    class Meta:
+        permissions = (
+            ("has_fofo_config_operations_shop", "Has update FOFO  shop config operations"),
+        )

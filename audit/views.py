@@ -15,13 +15,12 @@ import csv
 import codecs
 from wms.models import Bin
 from accounts.models import User
-from retailer_to_sp.models import Order, Trip, PickerDashboard
-from wms.views import commit_updates_to_es, PicklistRefresh
+from retailer_to_sp.models import Order, Trip
+from wms.views import commit_updates_to_es
 from .models import (AuditRun, AuditRunItem, AuditDetail,
                      AUDIT_DETAIL_STATUS_CHOICES, AUDIT_RUN_STATUS_CHOICES, AUDIT_INVENTORY_CHOICES,
                      AUDIT_RUN_TYPE_CHOICES, AUDIT_STATUS_CHOICES, AuditTicket, AUDIT_TICKET_STATUS_CHOICES,
-                     AuditProduct,
-                     AUDIT_PRODUCT_STATUS, AUDIT_DETAIL_STATE_CHOICES, AuditCancelledPicklist, AuditTicketManual,
+                     AuditProduct, AUDIT_PRODUCT_STATUS, AUDIT_DETAIL_STATE_CHOICES, AuditTicketManual,
                      AUDIT_LEVEL_CHOICES
                      )
 from services.models import WarehouseInventoryHistoric, BinInventoryHistoric, InventoryArchiveMaster
@@ -593,6 +592,7 @@ def get_remaining_products_to_audit(audit, audit_run):
                      .format(remaining_skus_to_audit))
     return remaining_skus_to_audit
 
+
 def update_audit_status_by_audit(audit_id):
     audit = AuditDetail.objects.filter(id=audit_id).last()
     audit_items = AuditRunItem.objects.filter(audit_run__audit=audit)
@@ -604,36 +604,7 @@ def update_audit_status_by_audit(audit_id):
     audit.state = audit_state
     audit.save()
 
-
-def create_pick_list_by_audit(audit_id):
-    orders_to_generate_picklists = AuditCancelledPicklist.objects.filter(audit=audit_id, is_picklist_refreshed=False)\
-                                                                 .order_by('order_no')
-    for o in orders_to_generate_picklists:
-        info_logger.error('create_pick_list_by_audit|Starting for order {}'.format(o.order_no))
-        order = Order.objects.filter(~Q(order_status='CANCELLED'), order_no=o.order_no).last()
-        if order is None:
-            info_logger.error('create_pick_list_by_audit| Order number-{}, No active order found'
-                              .format(o.order_no))
-            continue
-        try:
-            pd_obj = PickerDashboard.objects.filter(order=order,
-                                                    picking_status__in=['picking_pending', 'picking_assigned'],
-                                                    is_valid=False).last()
-            if pd_obj is None:
-                info_logger.info("Picker Dashboard object does not exists for order {}".format(order.order_no))
-                continue
-            with transaction.atomic():
-                PicklistRefresh.create_picklist_by_order(order)
-                o.is_picklist_refreshed = True
-                o.save()
-                pd_obj.is_valid = True
-                pd_obj.refreshed_at = timezone.now()
-                pd_obj.save()
-        except Exception as e:
-            info_logger.error(e)
-            info_logger.error('create_pick_list_by_audit|Exception while generating picklist for order {}'.format(o.order_no))
-
-
+@transaction.atomic
 def create_audit_tickets_by_audit(audit_id):
     audit = AuditDetail.objects.filter(id=audit_id).last()
     if audit.state != AUDIT_DETAIL_STATE_CHOICES.FAIL:
@@ -658,8 +629,8 @@ def create_audit_tickets_by_audit(audit_id):
 
             AuditTicketManual.objects.create(warehouse=audit_run.warehouse,
                                              audit_run=audit_run, bin=i.bin, sku=i.sku, batch_id=i.batch_id,
-                                             qty_normal_system=agg_qty['n_sys'],
-                                             qty_normal_actual=agg_qty['n_phy'],
+                                             qty_normal_system=0 if agg_qty['n_sys'] is None else agg_qty['n_sys'],
+                                             qty_normal_actual=0 if agg_qty['n_phy'] is None else agg_qty['n_phy'],
                                              qty_damaged_system=0 if agg_qty['d_sys'] is None else agg_qty['d_sys'],
                                              qty_damaged_actual=0 if agg_qty['d_phy'] is None else agg_qty['d_phy'],
                                              qty_expired_system=0 if agg_qty['e_sys'] is None else agg_qty['e_sys'],

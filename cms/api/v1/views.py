@@ -1,33 +1,37 @@
 import logging
 from rest_framework.exceptions import ValidationError, NotFound
-from rest_framework.generics import RetrieveAPIView
+from rest_framework.generics import RetrieveAPIView, GenericAPIView
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
-from rest_framework import status
+from rest_framework import status, authentication, permissions, generics
 from rest_framework.permissions import AllowAny
 
 from categories.models import Category
 from brand.models import Brand
-from .serializers import CardDataSerializer, CardSerializer, ApplicationSerializer, ApplicationDataSerializer, PageSerializer, PageDetailSerializer, CardItemSerializer, PageLatestDetailSerializer, CategorySerializer, SubCategorySerializer, BrandSerializer, SubBrandSerializer
-from ...choices import CARD_TYPE_CHOICES
-from ...models import Application, Card, CardVersion, Page, PageVersion, CardItem, ApplicationPage
-from ...utils import api_response
-from banner.models import Banner
+from retailer_backend.utils import SmallOffsetPagination
+from .serializers import CardDataSerializer, CardSerializer, ApplicationSerializer, ApplicationDataSerializer, \
+    PageSerializer, PageDetailSerializer, CardItemSerializer, PageLatestDetailSerializer, CategorySerializer, \
+    SubCategorySerializer, BrandSerializer, SubBrandSerializer, LandingPageSerializer, PageFunctionSerializer
+from ...choices import CARD_TYPE_CHOICES, LANDING_PAGE_TYPE_CHOICE, LISTING_SUBTYPE_CHOICE, IMAGE_TYPE_CHOICE
+from ...models import Application, Card, CardVersion, Page, PageVersion, CardItem, ApplicationPage, LandingPage, \
+    Functions
+from ...utils import api_response, get_response, serializer_error, check_shop
 
 from .pagination import PaginationHandlerMixin
 from rest_framework.pagination import LimitOffsetPagination
 
 from django.core.cache import cache
 
-from cms.permissions import ( has_cards_create_permission,
-                              has_apps_create_permission,
-                              has_pages_create_permission,
-                              has_pages_status_change_permission,
-                              has_apps_status_change_permission
-                              )
+from cms.permissions import (has_cards_create_permission,
+                             has_apps_create_permission,
+                             has_pages_create_permission,
+                             has_pages_status_change_permission,
+                             has_apps_status_change_permission, IsCMSDesigner
+                             )
 
 from cms.messages import VALIDATION_ERROR_MESSAGES, SUCCESS_MESSAGES, ERROR_MESSAGES
+from ...validators import validate_data_format, validate_id
 
 info_logger = logging.getLogger('file-info')
 error_logger = logging.getLogger('file-error')
@@ -53,7 +57,7 @@ class CardView(APIView, PaginationHandlerMixin):
             info_logger.info("----------USING CACHED CARDS @GET cards/--------")
             queryset = cache.get('cards')
         else:
-            queryset = Card.objects.all()
+            queryset = Card.objects.order_by('-id')
             info_logger.info("-----CACHING CARDS  @GET cards/----------")
             cache.set('cards', queryset)
 
@@ -100,6 +104,8 @@ class CardView(APIView, PaginationHandlerMixin):
         """Create a new card"""
         has_cards_create_permission(request.user)
         info_logger.info("CardView POST API called.")
+
+        request.META['HTTP_X_FORWARDED_PROTO'] = 'https'
         data = request.data
         card_data = data.pop("card_data")
         serializer = CardDataSerializer(data=card_data, context={'request': request})
@@ -317,7 +323,7 @@ class ItemsView(APIView):
 class CardDetailView(RetrieveAPIView):
     """Get card by id"""
     lookup_field = "id"
-    queryset = Card.objects.all()
+    queryset = Card.objects.order_by('-id')
     serializer_class = CardSerializer
 
 
@@ -430,7 +436,7 @@ class PageView(APIView):
             info_logger.info("----------USING CACHED PAGES @GET pages/--------")
             pages = cache.get('pages')
         else:
-            pages = Page.objects.all()
+            pages = Page.objects.order_by('-id')
             info_logger.info("-----CACHING PAGES  @GET pages/----------")
             cache.set('pages', pages)
 
@@ -510,7 +516,8 @@ class PageDetailView(APIView):
 
     def get(self, request, id, format = None):
         """Get page specific details"""
-        
+
+        request.META['HTTP_X_FORWARDED_PROTO'] = 'https'
         query_params = request.query_params
         try:
             page = Page.objects.get(id = id)
@@ -604,16 +611,18 @@ class PageVersionDetailView(APIView):
     serializer_class = PageLatestDetailSerializer
     permission_classes = (AllowAny,)
 
-    def get(self, request, id, format = None):
+    @check_shop
+    def get(self, request, id, *args, **kwargs):
         """Get Data of Latest Version"""
-
+        request.META['HTTP_X_FORWARDED_PROTO'] = 'https'
+        shop_id = kwargs.get('shop', None)
         try:
             page_key = f"latest_page_{id}"
-            cached_page = cache.get(page_key, None)
-            if(cached_page):
-                return Response(cached_page, status=status.HTTP_200_OK)
-            else:
-                page = Page.objects.get(id = id)
+            # cached_page = cache.get(page_key, None)
+            # if(cached_page):
+            #     return Response(cached_page, status=status.HTTP_200_OK)
+            # else:
+            page = Page.objects.get(id = id)
         except Exception:
             message = {
                 "is_success": False,
@@ -629,7 +638,7 @@ class PageVersionDetailView(APIView):
             }
             return Response(message)
         latest_page_version = PageVersion.objects.get(version_no = latest_page_version_no, page = page)
-        serializer = self.serializer_class(page, context = {'version': latest_page_version})
+        serializer = self.serializer_class(page, context = {'version': latest_page_version, 'shop_id': shop_id})
         message = {
             "is_success": True,
             "message": "OK",
@@ -708,3 +717,153 @@ class SubBrandListView(APIView):
             message = "SubBrand Found"
         return api_response(message, serializer.data, status.HTTP_200_OK,  is_success)        
 
+
+class PageFunctionView(generics.GenericAPIView):
+
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated, IsCMSDesigner)
+    queryset = Functions.objects.order_by('-id')
+    serializer_class = PageFunctionSerializer
+
+    def get(self, request):
+
+        if request.GET.get('id'):
+            page_functions = Functions.objects.filter(type=request.GET.get('type'), id=request.GET.get('id'))
+        else:
+            self.queryset = self.filter_page_functions()
+            page_functions = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+
+        serializer = self.serializer_class(page_functions, many=True)
+        msg = "" if page_functions else "no page function found"
+        return get_response(msg, serializer.data, True)
+
+    def post(self, request):
+        modified_data = validate_data_format(self.request)
+        if 'error' in modified_data:
+            return get_response(modified_data['error'])
+
+        serializer = self.serializer_class(data=modified_data, context={'request':request})
+        if serializer.is_valid():
+            serializer.save(created_by=request.user)
+            return get_response('function created successfully!', serializer.data)
+        return get_response(serializer_error(serializer), False)
+
+    def filter_page_functions(self):
+        type = self.request.GET.get('type')
+
+        if type:
+            self.queryset = self.queryset.filter(type=type)
+        return self.queryset
+
+
+class LandingPageView(generics.GenericAPIView):
+
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated, )
+    queryset = LandingPage.objects.order_by('-id')
+    serializer_class = LandingPageSerializer
+
+    @check_shop
+    def get(self, request, *args, **kwargs):
+        if request.GET.get('id'):
+            landing_pages = LandingPage.objects.filter(id=request.GET.get('id'))
+        else:
+            self.queryset = self.filter_landing_pages()
+            landing_pages = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        shop_id = kwargs.get('shop', None)
+        serializer = self.serializer_class(landing_pages, many=True, context={'request':request, 'shop_id': shop_id})
+        msg = "" if landing_pages else "no landing page found"
+        return get_response(msg, serializer.data, True)
+
+    def post(self, request):
+        modified_data = self.validate_request()
+        if 'error' in modified_data:
+            return get_response(modified_data['error'])
+
+        serializer = self.serializer_class(data=request.data)
+        if serializer.is_valid():
+            serializer.save(created_by=request.user)
+            return get_response('landing page created successfully!', serializer.data)
+        return get_response(serializer_error(serializer), False)
+
+
+    def put(self, request):
+        if 'id' not in request.data:
+            return get_response('please provide id to update Landing page', False)
+
+        # validations for input id
+        id_validation = validate_id(self.queryset, int(request.data['id']))
+        if 'error' in id_validation:
+            return get_response(id_validation['error'])
+        instance = id_validation['data'].last()
+
+        serializer = self.serializer_class(instance=instance, data=request.data)
+        if serializer.is_valid():
+            serializer.save(updated_by=request.user)
+            return get_response('landing page updated!', serializer.data)
+        return get_response(serializer_error(serializer), False)
+
+    def filter_landing_pages(self):
+        type = self.request.GET.get('type')
+        sub_type = self.request.GET.get('sub_type')
+        app = self.request.GET.get('app')
+        name = self.request.GET.get('name')
+
+        if type:
+            self.queryset = self.queryset.filter(type=type)
+
+        if sub_type:
+            self.queryset = self.queryset.filter(sub_type=sub_type)
+
+        if app:
+            self.queryset = self.queryset.filter(app_id=app)
+
+        if name:
+            self.queryset = self.queryset.filter(name__icontains=name)
+
+        return self.queryset
+
+
+    def validate_request(self):
+        return self.request.data
+
+
+
+class CardTypeList(GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+
+    def get(self, request):
+        fields = ['id', 'value']
+        data = [dict(zip(fields, d)) for d in CARD_TYPE_CHOICES]
+        return get_response('', data, True)
+
+
+class LandingPageTypeList(GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+
+    def get(self, request):
+        fields = ['id', 'value']
+        data = [dict(zip(fields, d)) for d in LANDING_PAGE_TYPE_CHOICE]
+        return get_response('', data, True)
+
+
+class LandingPageSubTypeList(GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+
+    def get(self, request):
+        fields = ['id', 'value']
+        data = [dict(zip(fields, d)) for d in LISTING_SUBTYPE_CHOICE]
+        return get_response('', data, True)
+
+
+class ImageTypeList(GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+
+    def get(self, request):
+        fields = ['id', 'value']
+        data = [dict(zip(fields, d)) for d in IMAGE_TYPE_CHOICE]
+        return get_response('', data, True)

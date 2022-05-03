@@ -141,6 +141,11 @@ class WarehouseAssortment(BaseTimestampUserModel):
     def __str__(self):
         return str(self.product) + " - " + str(self.zone) + " - " + str(self.pk)
 
+    def save(self, *args, **kwargs):
+        Putaway.objects.filter(warehouse=self.warehouse, sku__parent_product=self.product, zone__isnull=True) \
+            .update(zone=self.zone)
+        super(WarehouseAssortment, self).save(*args, **kwargs)
+
 
 class BaseQuerySet(query.QuerySet):
 
@@ -274,6 +279,7 @@ class In(models.Model):
             self.weight = 0
         super(In, self).save(*args, **kwargs)
 
+
 class Putaway(models.Model):
     NEW, ASSIGNED, INITIATED, COMPLETED, CANCELLED = 'NEW', 'ASSIGNED', 'INITIATED', 'COMPLETED', 'CANCELLED'
     PUTAWAY_STATUS_CHOICE = Choices((NEW, 'New'), (ASSIGNED, 'Assigned'), (INITIATED, 'Initiated'),
@@ -283,6 +289,8 @@ class Putaway(models.Model):
                                      on_delete=models.DO_NOTHING)
     putaway_type = models.CharField(max_length=20, null=True, blank=True)
     putaway_type_id = models.CharField(max_length=20, null=True, blank=True)
+    zone = models.ForeignKey(Zone, related_name="zone_putaway", on_delete=models.DO_NOTHING, null=True, blank=True)
+    reference_id = models.IntegerField(null=True, blank=True)
     sku = models.ForeignKey(Product, to_field='product_sku', on_delete=models.DO_NOTHING)
     batch_id = models.CharField(max_length=50, null=True, blank=True)
     inventory_type = models.ForeignKey(InventoryType, null=True, blank=True, on_delete=models.DO_NOTHING)
@@ -300,6 +308,12 @@ class Putaway(models.Model):
         self.putaway_quantity = 0 if not self.putaway_quantity else self.putaway_quantity
         if self.putaway_quantity > self.quantity:
             raise ValidationError('Putaway_quantity must be less than or equal to Grned_quantity')
+
+    def save(self, *args, **kwargs):
+        assortment = WarehouseAssortment.objects.filter(
+            warehouse=self.warehouse, product=self.sku.parent_product).last()
+        self.zone = assortment.zone if assortment else None
+        super(Putaway, self).save(*args, **kwargs)
 
 
 class PutawayBinInventory(models.Model):

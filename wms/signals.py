@@ -4,12 +4,13 @@ import sys
 from django.core.files.uploadedfile import InMemoryUploadedFile
 
 from django.db import transaction
+from django.db.models import Q
 from django.db.models.signals import post_save, m2m_changed, pre_save
 from django.dispatch import receiver
 
 from accounts.models import User
 from common.common_utils import barcode_gen
-from retailer_to_sp.models import PickerDashboard
+from retailer_to_sp.models import PickerDashboard, ShopCrate
 from wms.models import ZonePutawayUserAssignmentMapping, Zone, QCArea, ZonePickerUserAssignmentMapping, Crate, QCDesk, \
     QCDeskQCAreaAssignmentMapping, QCDeskQCAreaAssignmentMappingTransactionLog
 from wms.views import auto_qc_area_assignment_to_order
@@ -99,10 +100,9 @@ def assign_token_for_existing_qc_area(sender, instance=None, created=False, upda
     """ Assign Token for exiting QC Area mapped order """
     if instance.token_id is None and instance.qc_area:
         picker_instance = PickerDashboard.objects.filter(qc_area=instance.qc_area). \
-            filter(picking_status='moved_to_qc', order__rt_order_order_product__isnull=True).last()
-        if not picker_instance:
-            picker_instance = PickerDashboard.objects.filter(qc_area=instance.qc_area).filter(
-                picking_status='moved_to_qc', order__rt_order_order_product__shipment_status='SHIPMENT_CREATED').last()
+            filter(Q(order__rt_order_order_product__isnull=True) |
+                   Q(order__rt_order_order_product__shipment_status='SHIPMENT_CREATED')). \
+            filter(picking_status__in=[PickerDashboard.PICKING_COMPLETE, PickerDashboard.MOVED_TO_QC]).last()
         if picker_instance and picker_instance.order:
             instance.token_id = picker_instance.order.order_no
             instance.qc_done = False
@@ -143,3 +143,8 @@ def create_crate_barcode(sender, instance=None, created=False, update_fields=Non
         instance.crate_barcode = InMemoryUploadedFile(image, 'ImageField', "%s.jpg" % instance.crate_id, 'image/jpeg',
                                                  sys.getsizeof(image), None)
         instance.save()
+        info_logger.info(f"create_crate_barcode|Barcode created|Crate {instance}")
+        shop_crate_instance, _ = ShopCrate.objects.update_or_create(shop=instance.warehouse, crate=instance,
+                                                                    defaults={'is_available': True})
+        info_logger.info(f"create_crate_barcode|ShopCrate|shop_id {instance.warehouse.id} | crate_db_id {instance.id} "
+                         f"Crate Id {shop_crate_instance.crate.crate_id}| is_available True")

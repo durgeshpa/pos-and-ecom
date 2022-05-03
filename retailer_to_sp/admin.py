@@ -11,7 +11,7 @@ from admin_numeric_filter.admin import (NumericFilterModelAdmin, SliderNumericFi
 from dal_admin_filters import AutocompleteFilter
 from django.contrib import messages, admin
 from django.core.exceptions import ValidationError, FieldError
-from django.db.models import Q, Count, FloatField, Avg
+from django.db.models import Q, Count, FloatField, Avg, Exists
 from django.db.models import F, Sum, OuterRef, Subquery, IntegerField, CharField, Value
 from django.forms.models import BaseInlineFormSet
 from django.http import HttpResponse
@@ -27,6 +27,8 @@ from global_config.models import GlobalConfig
 
 # app imports
 from rangefilter.filter import DateTimeRangeFilter
+
+from global_config.views import get_config
 from retailer_backend.admin import InputFilter
 from retailer_backend.utils import time_diff_days_hours_mins_secs, date_diff_in_seconds
 from retailer_to_sp.api.v1.views import DownloadInvoiceSP
@@ -44,6 +46,7 @@ from sp_to_gram.models import OrderedProductReserved
 from common.constants import DOWNLOAD_BULK_INVOICE, ZERO, FIFTY
 from wms.admin import ZoneFilter, QCAreaAutocomplete, CrateFilter, Warehouse
 from wms.models import Pickup
+from zoho.models import ZohoInvoice, ZohoCreditNote
 from .forms import (CartForm, CartProductMappingForm, CommercialForm, CustomerCareForm,
                     ReturnProductMappingForm, ShipmentForm, ShipmentProductMappingForm, ShipmentReschedulingForm,
                     OrderedProductReschedule, OrderedProductMappingRescheduleForm, OrderForm, EditAssignPickerForm,
@@ -52,17 +55,19 @@ from .models import (Cart, CartProductMapping, Commercial, CustomerCare, Dispatc
                      OrderedProduct, OrderedProductMapping, Payment, ReturnProductMapping, Shipment,
                      ShipmentProductMapping, Trip, ShipmentRescheduling, Feedback, PickerDashboard, Invoice,
                      ResponseComment, BulkOrder, RoundAmount, OrderedProductBatch, DeliveryData, PickerPerformanceData,
-                     ShipmentPackaging, ShipmentPackagingMapping, ShipmentNotAttempt)
+                     ShipmentPackaging, ShipmentPackagingMapping, ShipmentNotAttempt, ShopCrate,
+                     PickerUserAssignmentLog, EInvoiceData, ENoteData, BuyerPurchaseData)
 from .resources import OrderResource
 from .signals import ReservedOrder
 from .utils import (GetPcsFromQty, add_cart_user, create_order_from_cart, create_order_data_excel,
-                    create_invoice_data_excel)
+                    create_invoice_data_excel, create_e_invoice_data_excel, create_e_note_data_excel)
 from .filters import (InvoiceAdminOrderFilter, InvoiceAdminTripFilter, InvoiceCreatedAt, DeliveryStartsAt,
-                      DeliveryCompletedAt, OrderCreatedAt)
+                      DeliveryCompletedAt, OrderCreatedAt, EInvoiceAdminBuyerFilter, EInvoiceStatusFilter,
+                      ENoteAdminInvoiceFilter, BuyerTotalPurchaseFilter)
 from .tasks import update_order_status_picker_reserve_qty
 from payments.models import OrderPayment, ShipmentPayment
 from retailer_backend.messages import ERROR_MESSAGES
-from shops.models import PosShopUserMapping
+from shops.models import PosShopUserMapping, ShopDocument, Shop
 from accounts.middlewares import get_current_user
 from pos.models import PosCart
 
@@ -705,6 +710,7 @@ class SellerShopFilter(AutocompleteFilter):
     field_name = 'seller_shop'
     autocomplete_url = 'seller-shop-autocomplete'
 
+
 class BuyerShopFilter(AutocompleteFilter):
     title = 'Buyer Shop'
     field_name = 'buyer_shop'
@@ -1013,6 +1019,12 @@ class PickerDashboardAdmin(admin.ModelAdmin):
     download_pick_list.short_description = 'Download Pick List'
     download_bulk_pick_list.short_description = 'Download Pick List for Selected Orders/Repackagings'
 
+    def save_model(self, request, obj, form, change):
+        picker_boy = form.cleaned_data['picker_boy']
+        if obj.id and 'picker_boy' in form.changed_data and form.initial.get('picker_boy') != picker_boy:
+            PickerUserAssignmentLog.log_user_change(obj, get_current_user(), form.initial.get('picker_boy'))
+        super(PickerDashboardAdmin, self).save_model(request, obj, form, change)
+        
 
 class OrderZoneFilter(InputFilter):
     parameter_name = 'zone'
@@ -1068,6 +1080,7 @@ class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
                     'trip_id', 'shipment_status_reason', 'delivery_date', 'cn_amount', 'cash_collected',
                     'picking_status', 'picklist_id', 'picklist_refreshed_at', 'picker_boy', 'zone', 'qc_area',
                     'qc_desk', 'qc_executive', 'pickup_completed_at', 'picking_completion_time', 'create_purchase_order'
+                    , 'dispatch_delivery', 'dispatch_center'
                     )
 
     readonly_fields = ('payment_mode', 'paid_amount', 'total_paid_amount',
@@ -1079,7 +1092,7 @@ class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
     list_filter = [PhoneNumberFilter, SKUFilter,  GFCodeFilter,  ProductNameFilter, SellerShopFilter, BuyerShopFilter,
                    OrderNoSearch, OrderInvoiceSearch, Pincode, ('order_status', ChoiceDropdownFilter),
                    ('shipping_address__city', RelatedDropdownFilter), OrderZoneFilter, OrderQCAreaFilter,
-                   ('created_at', DateTimeRangeFilter)]
+                   'dispatch_delivery', ('created_at', DateTimeRangeFilter)]
 
     class Media:
         js = ('admin/js/picker.js', )
@@ -1224,7 +1237,7 @@ class ShipmentReschedulingAdminNested(NestedTabularInline):
 @admin.register(ShipmentNotAttempt)
 class ShipmentNotAttemptAdmin(admin.ModelAdmin):
     model = ShipmentNotAttempt
-    list_display = ('shipment', 'order', 'trip', 'not_attempt_reason', 'created_by')
+    list_display = ('shipment', 'order', 'trip', 'not_attempt_reason', 'created_at', 'created_by')
     list_per_page = 20
     search_fields = ('shipment__order__order_no', 'not_attempt_reason', 'shipment__invoice__invoice_no',
                      'trip__dispatch_no')
@@ -1419,6 +1432,21 @@ class OrderedProductAdmin(NestedModelAdmin):
 
         return super(OrderedProductAdmin, self).change_view(request, object_id, form_url, extra_context)
 
+    def has_add_permission(cls, request):
+        ''' remove add and save and add another button '''
+        return False
+
+    def changeform_view(self, request, object_id=None, form_url='', extra_context=None):
+        extra_context = extra_context or {}
+        if object_id:
+            shipment = OrderedProduct.objects.filter(id=object_id).last()
+            if shipment.last_trip and isinstance(shipment.last_trip, Trip) and \
+                    shipment.last_trip.source_shop.shop_type.shop_type == 'dc':
+                extra_context['show_save_and_continue'] = False
+                extra_context['show_save'] = False
+                extra_context['show_delete_link'] = False
+        return super(OrderedProductAdmin, self).changeform_view(request, object_id, extra_context=extra_context)
+
     class Media:
         css = {"all": ("admin/css/hide_admin_inline_object_name.css",)}
         js = ('admin/js/shipment.js','https://ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js')
@@ -1537,13 +1565,14 @@ class ShipmentAdmin(NestedModelAdmin):
         'order__shipping_address__city',
     )
     list_display = (
-        'start_qc', 'order', 'created_at', 'trip', 'shipment_address',
+        'start_qc', 'order', 'created_at', 'qc_area', 'trip_id', 'shipment_address',
         'seller_shop', 'invoice_city', 'invoice_amount', 'payment_mode',
-        'shipment_status', 'download_invoice', 'pincode',
+        'shipment_status', 'download_invoice', 'pincode', 'qc_started_at', 'qc_completed_at'
     )
     list_filter = [
         ('created_at', DateTimeRangeFilter), InvoiceSearch, ShipmentOrderIdSearch,
-        ShipmentSellerShopSearch, ('shipment_status', ChoiceDropdownFilter), PincodeSearch
+        ShipmentSellerShopSearch, ('shipment_status', ChoiceDropdownFilter), PincodeSearch,
+        ('qc_started_at', DateTimeRangeFilter), ('qc_completed_at', DateTimeRangeFilter),
     ]
     fields = ['order', 'invoice_no', 'invoice_amount', 'shipment_address', 'invoice_city',
               'shipment_status', 'no_of_crates', 'no_of_packets', 'no_of_sacks', 'close_order']
@@ -1670,6 +1699,10 @@ class ShipmentAdmin(NestedModelAdmin):
         #     "<a href='/admin/retailer_to_sp/shipment/%s/change/' class='button'>Start QC</a>" %(obj.id))
     start_qc.short_description = 'Invoice No'
 
+    def trip_id(self,obj):
+        return obj.last_trip
+    trip_id.short_description = 'Trip'
+
     def save_model(self, request, obj, form, change):
         if not hasattr(form.instance, 'invoice') and (form.cleaned_data.get('shipment_status', None) == form.instance.READY_TO_SHIP):
             self.has_invoice_no = False
@@ -1766,7 +1799,7 @@ class TripAdmin(ExportCsvMixin, admin.ModelAdmin):
     change_list_template = 'admin/retailer_to_sp/trip/change_list.html'
     actions = ["export_as_csv_trip",]
     list_display = (
-        'dispathces', 'total_trip_shipments', 'delivery_boy', 'seller_shop', 'vehicle_no',
+        'dispathces', 'total_trip_shipments', 'delivery_boy', 'seller_shop', 'source_shop', 'vehicle_no',
         'trip_status', 'starts_at', 'completed_at', 'download_trip_pdf'
     )
     readonly_fields = ('dispathces',)
@@ -1909,11 +1942,11 @@ class CommercialAdmin(ExportCsvMixin, admin.ModelAdmin):
 
 
 class NoteAdmin(admin.ModelAdmin):
-    list_display = ('credit_note_id', 'shipment', 'shop', 'note_amount', 'download_credit_note', 'created_at')
-    fields = ('credit_note_id', 'shop', 'shipment', 'note_type', 'note_amount',
+    list_display = ('credit_note_id', 'shipment', 'shop', 'note_total', 'download_credit_note', 'created_at')
+    fields = ('credit_note_id', 'shop', 'shipment', 'note_type', 'note_total',
               'invoice_no', 'status')
     readonly_fields = ('credit_note_id', 'shop', 'shipment', 'note_type',
-                       'note_amount', 'invoice_no', 'status')
+                       'note_amount', 'tcs_amount', 'note_amount', 'invoice_no', 'status')
     list_filter = [('created_at', DateTimeRangeFilter), ShipmentSearch, CreditNoteSearch, ShopSearch]
 
     search_fields = ('credit_note_id', 'shop__shop_name', 'shipment__invoice__invoice_no')
@@ -2079,14 +2112,15 @@ class FeedbackAdmin(admin.ModelAdmin):
 
 class InvoiceAdmin(admin.ModelAdmin):
     actions = ['invoice_data_excel_action', 'download_bulk_invoice']
-    list_display = ('invoice_no', 'created_at', 'get_invoice_amount', 'get_shipment_status',
-                    'get_order', 'get_order_date', 'get_order_status', 'get_shipment',
+    list_display = ('invoice_no', 'created_at', 'invoice_sub_total', 'tcs_percent', 'tcs_amount', 'get_invoice_amount',
+                    'get_shipment_status', 'get_order', 'get_order_date', 'get_order_status', 'get_shipment',
                     'get_trip_no', 'get_trip_status', 'get_trip_started_at',
-                    'get_trip_completed_at', 'get_paid_amount', 'get_cn_amount')
+                    'get_trip_completed_at', 'get_paid_amount', 'get_cn_amount', 'is_tcs_applicable')
     list_per_page = FIFTY
     fieldsets = (
         ('Invoice', {
-            'fields': (('invoice_no', 'get_invoice_amount'), ('created_at', 'invoice_pdf'))
+            'fields': (('invoice_no', 'invoice_sub_total', 'tcs_amount', 'get_invoice_amount'),
+                       ('created_at', 'invoice_pdf'))
         }),
         ('Shipment', {
             'classes': ('extrapretty',),
@@ -2109,7 +2143,8 @@ class InvoiceAdmin(admin.ModelAdmin):
         ('created_at', InvoiceCreatedAt),
         ('shipment__trip__starts_at', DeliveryStartsAt),
         ('shipment__trip__completed_at', DeliveryCompletedAt),
-        ('shipment__order__created_at', OrderCreatedAt))
+        ('shipment__order__created_at', OrderCreatedAt),
+        'is_tcs_applicable')
 
     def invoice_data_excel_action(self, request, queryset):
         return create_invoice_data_excel(request, queryset, RoundAmount,
@@ -2156,7 +2191,7 @@ class InvoiceAdmin(admin.ModelAdmin):
         js = ('admin/js/picker.js',)
 
     def get_invoice_amount(self, obj):
-        return "%s %s" % (u'\u20B9', str(obj.invoice_amount))
+        return "%s %s" % (u'\u20B9', str(round(obj.invoice_total,2)))
     get_invoice_amount.short_description = "Invoice Amount"
 
     def get_shipment(self, obj):
@@ -2219,7 +2254,7 @@ class InvoiceAdmin(admin.ModelAdmin):
         shipment_payments = ShipmentPayment.objects.filter(shipment__invoice__id=OuterRef('pk')).order_by().values('shipment__invoice__id')
         shipment_paid_amount = shipment_payments.annotate(sum=Sum('paid_amount')).values('sum')
         credit_notes = Note.objects.filter(shipment__invoice__id=OuterRef('pk')).order_by().values('shipment__invoice__id')
-        credit_notes_amount = credit_notes.annotate(sum=Sum('amount')).values('sum')
+        credit_notes_amount = credit_notes.annotate(sum=Sum('note_total')).values('sum')
         qs = qs.annotate(
             get_order=F('shipment__order__order_no'), shipment_status=F('shipment__shipment_status'),
             trip_no=F('shipment__trip__dispatch_no'), trip_status=F('shipment__trip__trip_status'),
@@ -2586,6 +2621,146 @@ class ShipmentPackagingMappingAdmin(admin.ModelAdmin):
     def has_delete_permission(self, request, obj=None):
         return False
 
+
+class ShopCrateAdmin(admin.ModelAdmin):
+    list_display = ('shop', 'crate', 'is_available', 'created_at', 'created_by', 'updated_at', 'updated_by')
+    # list_select_related = ('warehouse', 'pickup', 'bin')
+    readonly_fields = ('shop', 'crate', 'is_available', 'created_at', 'created_by', 'updated_at', 'updated_by')
+    list_filter = ['is_available', CrateFilter, ('created_at', DateTimeRangeFilter)]
+    list_per_page = 50
+
+    class Media:
+        pass
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+class EInvoiceAdmin(admin.ModelAdmin):
+    actions = ['invoice_data_excel_action']
+    list_display = ('invoice_no', 'get_buyer_name', 'get_buyer_gstin', 'created_at')
+    list_per_page = FIFTY
+    search_fields = ('invoice_no',)
+    ordering = ('-created_at',)
+    list_filter = (
+        EInvoiceStatusFilter,
+        EInvoiceAdminBuyerFilter,
+        InvoiceAdminOrderFilter,
+        ('created_at', InvoiceCreatedAt),
+        ('shipment__order__created_at', OrderCreatedAt))
+
+    def invoice_data_excel_action(self, request, queryset):
+        return create_e_invoice_data_excel(queryset, OrderedProduct, RoundAmount, ShopDocument)
+
+    invoice_data_excel_action.short_description = "Download CSV of selected Invoices"
+
+    class Media:
+        js = ('admin/js/picker.js',)
+
+    def get_buyer_name(self, obj):
+        return obj.buyer_name
+    get_buyer_name.short_description = "Buyer Name"
+
+    def get_buyer_gstin(self, obj):
+        buyer_shop_document = ShopDocument.objects.filter(shop_name_id=obj.shipment.order.buyer_shop_id,
+                                                          shop_document_type=ShopDocument.GSTIN).last()
+        return buyer_shop_document.shop_document_number if buyer_shop_document else None
+    get_buyer_gstin.short_description = "Buyer GSTIN"
+
+    def get_queryset(self, request):
+        zoho_invoices = ZohoInvoice.objects.all().values_list('invoice_number', flat=True)
+        gstin_exists = ShopDocument.objects.filter(shop_name_id=OuterRef('shipment__order__buyer_shop_id'),
+                                                   shop_document_type='gstin')
+        qs = super().get_queryset(request)\
+            .filter(shipment__order__seller_shop_id=get_config('current_wh_active', 50484),
+                    created_at__gte=(datetime.datetime.now()-datetime.timedelta(days=get_config('e_invoice_days', 60))))
+        qs = qs.exclude(shipment__order__ordered_cart__cart_type='BASIC')
+        qs = qs.annotate(buyer_name=F('shipment__order__buyer_shop__shop_name'), gstin_exists=Exists(gstin_exists))
+        qs = qs.filter(gstin_exists=True)
+        qs = qs.exclude(invoice_no__in=zoho_invoices)
+        return qs
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
+class ENoteAdmin(admin.ModelAdmin):
+    actions = ['e_note_data_excel']
+    list_display = ('credit_note_id', 'invoice_no', 'get_buyer_name', 'get_buyer_gstin', 'created_at')
+    list_per_page = FIFTY
+    search_fields = ('credit_note_id',)
+    ordering = ('-created_at',)
+    list_filter = (
+        EInvoiceStatusFilter,
+        EInvoiceAdminBuyerFilter,
+        InvoiceAdminOrderFilter,
+        ENoteAdminInvoiceFilter,
+        ('created_at', InvoiceCreatedAt),
+        ('shipment__order__created_at', OrderCreatedAt))
+
+    def e_note_data_excel(self, request, queryset):
+        return create_e_note_data_excel(queryset, OrderedProduct, RoundAmount, ShopDocument)
+
+    e_note_data_excel.short_description = "Download CSV of selected notes"
+
+    class Media:
+        js = ('admin/js/picker.js',)
+
+    def get_buyer_name(self, obj):
+        return obj.buyer_name
+    get_buyer_name.short_description = "Buyer Name"
+
+    def get_buyer_gstin(self, obj):
+        buyer_shop_document = ShopDocument.objects.filter(shop_name_id=obj.shipment.order.buyer_shop_id,
+                                                          shop_document_type=ShopDocument.GSTIN).last()
+        return buyer_shop_document.shop_document_number if buyer_shop_document else None
+    get_buyer_gstin.short_description = "Buyer GSTIN"
+
+    def get_queryset(self, request):
+
+        zoho_notes = ZohoCreditNote.objects.all().values_list('credit_note_number', flat=True)
+        gstin_exists = ShopDocument.objects.filter(shop_name_id=OuterRef('shipment__order__buyer_shop_id'),
+                                                   shop_document_type='gstin')
+        qs = super().get_queryset(request)\
+            .filter(shipment__order__seller_shop_id=get_config('current_wh_active', 50484),
+                    created_at__gte=(datetime.datetime.now()-datetime.timedelta(days=get_config('e_invoice_days', 60))),
+                    )
+        qs = qs.exclude(shipment__order__ordered_cart__cart_type='BASIC')
+        qs = qs.annotate(buyer_name=F('shipment__order__buyer_shop__shop_name'), gstin_exists=Exists(gstin_exists))
+        qs = qs.filter(gstin_exists=True)
+        qs = qs.exclude(credit_note_id__in=zoho_notes)
+        return qs
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+@admin.register(BuyerPurchaseData)
+class BuyerPurchaseDataAdmin(admin.ModelAdmin):
+
+    class Media:
+        pass
+
+    list_per_page = FIFTY
+    list_display = ('seller_shop', 'buyer_shop', 'fin_year', 'total_purchase')
+    list_filter = (SellerShopFilter, BuyerShopFilter, 'fin_year', BuyerTotalPurchaseFilter)
+
 admin.site.register(Cart, CartAdmin)
 admin.site.register(BulkOrder, BulkOrderAdmin)
 admin.site.register(Order, OrderAdmin)
@@ -2603,4 +2778,7 @@ admin.site.register(Invoice, InvoiceAdmin)
 admin.site.register(DeliveryData, DeliveryPerformanceDashboard)
 admin.site.register(PickerPerformanceData, PickerPerformanceDashboard)
 admin.site.register(ShipmentPackaging, ShipmentPackagingAdmin)
+admin.site.register(ShopCrate, ShopCrateAdmin)
 admin.site.register(ShipmentPackagingMapping, ShipmentPackagingMappingAdmin)
+admin.site.register(EInvoiceData, EInvoiceAdmin)
+admin.site.register(ENoteData, ENoteAdmin)

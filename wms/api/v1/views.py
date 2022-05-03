@@ -19,16 +19,14 @@ from products.models import Repackaging
 from retailer_to_sp.models import Order, PickerDashboard, ShipmentPackaging
 from rest_framework.views import APIView
 from rest_framework import permissions, authentication
-from django.core.exceptions import ObjectDoesNotExist
+from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.db.models import Q, Sum, Case, When, F
 from django.db import transaction, models
 from gram_to_brand.models import GRNOrderProductMapping
 import datetime
 from wms.common_functions import (CommonBinInventoryFunctions, PutawayCommonFunctions, CommonBinFunctions,
-                                  updating_tables_on_putaway,
-                                  CommonWarehouseInventoryFunctions, InternalInventoryChange,
+                                  updating_tables_on_putaway, CommonWarehouseInventoryFunctions, InternalInventoryChange,
                                   get_logged_user_wise_query_set_for_pickup_list)
-
 from ..v2.serializers import PicklistSerializer
 from ...common_validators import validate_pickup_crates_list, validate_pickup_request
 from ...services import check_whc_manager_coordinator_supervisor_picker, pickup_search, check_picker
@@ -520,7 +518,6 @@ class PickupList(APIView):
             start_date = end_date.replace(hour=0, minute=0, second=0)
             if data_days:
                 start_date = end_date.replace(hour=0, minute=0, second=0) - datetime.timedelta(days=int(data_days))
-
             self.queryset = self.queryset.filter(created_at__gte=start_date, created_at__lte=end_date)
         return self.queryset
 
@@ -566,6 +563,9 @@ class BinIDList(APIView):
 
         if not pd_qs.exists():
             msg = {'is_success': False, 'message': ERROR_MESSAGES['PICKER_DASHBOARD_ENTRY_MISSING'], 'data': None}
+            return Response(msg, status=status.HTTP_200_OK)
+        if pd_qs.last().picking_status == PickerDashboard.PICKING_CANCELLED:
+            msg = {'is_success': False, 'message': ERROR_MESSAGES['ORDER_CANCELLED'].format(order_no), 'data': None}
             return Response(msg, status=status.HTTP_200_OK)
         pickup_assigned_date = pd_qs.last().picker_assigned_date
         zones = pd_qs.values_list('zone', flat=True)
@@ -625,8 +625,15 @@ class PickupDetail(APIView):
             msg = {'is_success': True, 'message': 'Order number field is empty.', 'data': None}
             return Response(msg, status=status.HTTP_200_OK)
 
+        order = Order.objects.filter(order_no=order_no).last()
+        if not order and not Repackaging.objects.filter(repackaging_no=order_no).exists():
+            msg = {'is_success': True, 'message': 'Invalid order no.', 'data': None}
+            return Response(msg, status=status.HTTP_200_OK)
+        elif order and order.order_status == Order.CANCELLED:
+            msg = {'is_success': True, 'message': ERROR_MESSAGES['ORDER_CANCELLED'].format(order_no), 'data': None}
+            return Response(msg, status=status.HTTP_200_OK)
         try:
-            warehouse = request.user.shop_employee.all().last().shop_id
+            warehouse = request.user.shop_employee.last().shop_id
 
         except Exception as e:
             error_logger.error(e)
@@ -652,7 +659,6 @@ class PickupDetail(APIView):
             msg = {'is_success': False, 'message': ERROR_MESSAGES['PICK_BIN_DETAILS_NOT_FOUND'], 'data': None}
             info_logger.info(f"PickupDetail | GET | response {msg}" )
             return Response(msg, status=status.HTTP_200_OK)
-        order = Order.objects.filter(order_no=order_no).last()
         pd_qs = PickerDashboard.objects.filter(order=order, zone__picker_users=request.user)
         if not pd_qs.exists():
             msg = {'is_success': False, 'message': ERROR_MESSAGES['PICKER_DASHBOARD_ENTRY_MISSING'], 'data': None}
@@ -668,10 +674,19 @@ class PickupDetail(APIView):
     @check_picker
     def post(self, request):
         info_logger.info("Pick up detail POST API called.")
-        info_logger.info(f"PickupDetail | POST | request user {request.user}, data{request.data}" )
+        info_logger.info(f"PickupDetail | POST | request user {request.user}, data{request.data}")
         msg = {'is_success': False, 'message': 'Missing Required field.', 'data': None}
+
+        order_no = request.data.get('order_no')
+        if not order_no:
+            return Response(msg, status=status.HTTP_200_OK)
+        order = Order.objects.filter(order_no=order_no).last()
+        if order and order.order_status == Order.CANCELLED:
+            msg = {'is_success': True, 'message': ERROR_MESSAGES['ORDER_CANCELLED'].format(order_no), 'data': None}
+            return Response(msg, status=status.HTTP_200_OK)
+
         try:
-            warehouse = request.user.shop_employee.all().last().shop_id
+            warehouse = request.user.shop_employee.last().shop_id
 
         except Exception as e:
             error_logger.error(e)
@@ -692,9 +707,6 @@ class PickupDetail(APIView):
             msg = {'is_success': False, 'message': "Bin id is not associated with the user's warehouse.", 'data': None}
             return Response(msg, status=status.HTTP_200_OK)
 
-        order_no = request.data.get('order_no')
-        if not order_no:
-            return Response(msg, status=status.HTTP_200_OK)
         pickup_quantity = request.data.get('pickup_quantity')
         if not pickup_quantity:
             return Response(msg, status=status.HTTP_200_OK)
@@ -758,96 +770,104 @@ class PickupDetail(APIView):
         state_to_be_picked = InventoryState.objects.filter(inventory_state='to_be_picked').last()
         state_total_available = InventoryState.objects.filter(inventory_state='total_available').last()
         tr_type = "picked"
-        with transaction.atomic():
-            for j, i in diction.items():
-                picking_details = PickupBinInventory.objects.filter(pickup__pickup_type_id=order_no,
-                                                                    pickup__zone__picker_users=request.user,
-                                                                    bin__bin__bin_id=bin_id, pickup__sku__id=j)\
-                                                            .exclude(pickup__status='picking_cancelled')
-                if picking_details.count() == 0:
-                    return Response({'is_success': False,
-                                     'message': 'Picking details not found, please check the details entered.',
-                                     'data': None}, status=status.HTTP_200_OK)
-
-                if picking_details.exists():
-                    pickup_quantity = i['pickup_quantity']
-                    total_to_be_picked = i['total_to_be_picked_qty']
-                    info_logger.info("PickupDetail|POST|Pickup Started for SKU-{}, Qty-{}, Bin-{}"
-                                     .format(j, pickup_quantity, bin_id))
-                    if total_to_be_picked != picking_details.last().quantity:
+        try:
+            with transaction.atomic():
+                for j, i in diction.items():
+                    picking_details = PickupBinInventory.objects.filter(pickup__pickup_type_id=order_no,
+                                                                        pickup__zone__picker_users=request.user,
+                                                                        bin__bin__bin_id=bin_id, pickup__sku__id=j) \
+                        .exclude(pickup__status='picking_cancelled')
+                    if picking_details.count() == 0:
                         return Response({'is_success': False,
-                                         'message': "To be Picked qty has changed, please revise your input for "
-                                                    "Picked qty",
+                                         'message': 'Picking details not found, please check the details entered.',
                                          'data': None}, status=status.HTTP_200_OK)
-                    tr_id = picking_details.last().pickup.id
-                    pick_qty = picking_details.last().pickup_quantity
-                    info_logger.info("PickupDetail|POST|SKU-{}, Picked qty-{}"
-                                     .format(j, pick_qty))
-                    if pick_qty is not None:
-                        return Response({'is_success': False, 'message': "Multiple pickups are not allowed",
-                                         'data': None}, status=status.HTTP_200_OK)
-                    else:
-                        pick_qty = 0
-                    qty = picking_details.last().quantity
-                    if pick_qty + pickup_quantity > qty:
-                        if qty - pick_qty == 0:
-                            data_list.append({'is_success': False, 'message': "You can't add more Pick up quantity."})
+
+                    if picking_details.exists():
+                        pickup_quantity = i['pickup_quantity']
+                        total_to_be_picked = i['total_to_be_picked_qty']
+                        info_logger.info("PickupDetail|POST|Pickup Started for SKU-{}, Qty-{}, Bin-{}"
+                                         .format(j, pickup_quantity, bin_id))
+                        if total_to_be_picked != picking_details.last().quantity:
+                            return Response({'is_success': False,
+                                             'message': "To be Picked qty has changed, please revise your input for "
+                                                        "Picked qty",
+                                             'data': None}, status=status.HTTP_200_OK)
+                        tr_id = picking_details.last().pickup.id
+                        pick_qty = picking_details.last().pickup_quantity
+                        info_logger.info("PickupDetail|POST|SKU-{}, Picked qty-{}"
+                                         .format(j, pick_qty))
+                        if pick_qty is not None:
+                            return Response({'is_success': False, 'message': "Multiple pickups are not allowed",
+                                             'data': None}, status=status.HTTP_200_OK)
                         else:
-                            data_list.append({'is_success': False,
-                                              'message': "Can add only {} more items".format(abs(qty - pick_qty))})
-                        continue
-                    else:
-                        remarks_text = ''
-                        if remarks_dict.get(j) is not None:
-                            remarks_text = PickupBinInventory.PICKUP_REMARKS_CHOICES[remarks_dict.get(j)]
-
-                        bin_inv_id = picking_details.last().bin_id
-                        bin_inv_obj = CommonBinInventoryFunctions.get_filtered_bin_inventory(id=bin_inv_id).last()
-                        warehouse = bin_inv_obj.warehouse
-                        sku = bin_inv_obj.sku
-                        inventory_type = bin_inv_obj.inventory_type
-                        if not bin_inv_obj:
-                            data_list.append({'is_success': False,
-                                              'message': ERROR_MESSAGES['SOME_ISSUE']})
-                            info_logger.info('PickupDetail|POST API| Bin Inventory Object not found, Bin Inv ID-{}'
-                                             .format(bin_inv_id))
+                            pick_qty = 0
+                        qty = picking_details.last().quantity
+                        if pick_qty + pickup_quantity > qty:
+                            if qty - pick_qty == 0:
+                                data_list.append({'is_success': False, 'message': "You can't add more Pick up quantity."})
+                            else:
+                                data_list.append({'is_success': False,
+                                                  'message': "Can add only {} more items".format(abs(qty - pick_qty))})
                             continue
-                        CommonBinInventoryFunctions.deduct_to_be_picked_from_bin(pickup_quantity, bin_inv_obj)
+                        else:
+                            remarks_text = ''
+                            if remarks_dict.get(j) is not None:
+                                remarks_text = PickupBinInventory.PICKUP_REMARKS_CHOICES[remarks_dict.get(j)]
 
-                        CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
-                            warehouse, sku, inventory_type, state_to_be_picked, -1*pickup_quantity, tr_type, tr_id )
+                            bin_inv_id = picking_details.last().bin_id
+                            bin_inv_obj = CommonBinInventoryFunctions.get_filtered_bin_inventory(id=bin_inv_id).last()
+                            warehouse = bin_inv_obj.warehouse
+                            sku = bin_inv_obj.sku
+                            inventory_type = bin_inv_obj.inventory_type
+                            if not bin_inv_obj:
+                                data_list.append({'is_success': False,
+                                                  'message': ERROR_MESSAGES['SOME_ISSUE']})
+                                info_logger.info('PickupDetail|POST API| Bin Inventory Object not found, Bin Inv ID-{}'
+                                                 .format(bin_inv_id))
+                                continue
+                            CommonBinInventoryFunctions.deduct_to_be_picked_from_bin(pickup_quantity, bin_inv_obj)
 
-                        CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
-                            warehouse, sku, inventory_type, state_total_available, -1 * pickup_quantity, tr_type, tr_id)
+                            CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
+                                warehouse, sku, inventory_type, state_to_be_picked, -1 * pickup_quantity, tr_type, tr_id)
 
-                        CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
-                            warehouse, sku, inventory_type, state_picked, pickup_quantity, tr_type, tr_id)
+                            CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
+                                warehouse, sku, inventory_type, state_total_available, -1 * pickup_quantity, tr_type, tr_id)
 
-                        picking_details.update(pickup_quantity=pickup_quantity + pick_qty, last_picked_at=timezone.now(),
-                                               remarks=remarks_text)
-                        is_crate_applicable = False
-                        if i['pickup_crates']['is_crate_applicable'] is True:
-                            is_crate_applicable = True
-                            for crate_obj in i['pickup_crates']['crates']:
-                                crate_instance = Crate.objects.get(crate_id=crate_obj['crate_id'])
-                                PickupCrate.objects.create(
-                                    pickup=picking_details.last().pickup, quantity=int(crate_obj['quantity']),
-                                    crate=crate_instance, created_by=request.user, updated_by=request.user)
-                        pick_object = PickupBinInventory.objects.filter(
-                            pickup__pickup_type_id=order_no, pickup__zone__picker_users=request.user,
-                            pickup__sku__id=j).exclude(pickup__status='picking_cancelled')
-                        sum_total = sum([0 if i.pickup_quantity is None else i.pickup_quantity for i in pick_object])
-                        Pickup.objects.filter(pickup_type_id=order_no, sku__id=j, zone__picker_users=request.user)\
-                                      .exclude(status='picking_cancelled')\
-                                      .update(pickup_quantity=sum_total, is_crate_applicable=is_crate_applicable)
+                            CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
+                                warehouse, sku, inventory_type, state_picked, pickup_quantity, tr_type, tr_id)
 
-                        info_logger.info("PickupDetail|POST|Picking Done for SKU-{}, Total Qty Picked-{}"
-                                         .format(j, sum_total))
-                        serializer = PickupBinInventorySerializer(picking_details.last())
-                        data_list.append(serializer.data)
-        msg = {'is_success': True, 'message': 'Pick up data saved successfully.',
-               'data': data_list}
-        return Response(msg, status=status.HTTP_200_OK)
+                            picking_details.update(pickup_quantity=pickup_quantity + pick_qty,
+                                                   last_picked_at=timezone.now(),
+                                                   remarks=remarks_text)
+                            is_crate_applicable = False
+                            if i['pickup_crates']['is_crate_applicable'] is True:
+                                is_crate_applicable = True
+                                for crate_obj in i['pickup_crates']['crates']:
+                                    crate_instance = Crate.objects.get(crate_id=crate_obj['crate_id'])
+                                    PickupCrate.objects.create(
+                                        pickup=picking_details.last().pickup, quantity=int(crate_obj['quantity']),
+                                        crate=crate_instance, created_by=request.user, updated_by=request.user)
+                            pick_object = PickupBinInventory.objects.filter(
+                                pickup__pickup_type_id=order_no, pickup__zone__picker_users=request.user,
+                                pickup__sku__id=j).exclude(pickup__status='picking_cancelled')
+                            sum_total = sum([0 if i.pickup_quantity is None else i.pickup_quantity for i in pick_object])
+                            Pickup.objects.filter(pickup_type_id=order_no, sku__id=j, zone__picker_users=request.user) \
+                                .exclude(status='picking_cancelled') \
+                                .update(pickup_quantity=sum_total, is_crate_applicable=is_crate_applicable)
+
+                            info_logger.info("PickupDetail|POST|Picking Done for SKU-{}, Total Qty Picked-{}"
+                                             .format(j, sum_total))
+                            serializer = PickupBinInventorySerializer(picking_details.last())
+                            data_list.append(serializer.data)
+            msg = {'is_success': True, 'message': 'Pick up data saved successfully.',
+                   'data': data_list}
+            return Response(msg, status=status.HTTP_200_OK)
+        except ValidationError as e:
+            msg = {'is_success': True, 'message': e.message, 'data': data_list}
+            return Response(msg, status=status.HTTP_200_OK)
+        except Exception as e:
+            msg = {'is_success': True, 'message': e, 'data': data_list}
+            return Response(msg, status=status.HTTP_200_OK)
 
 
 class PickupComplete(APIView):
@@ -857,14 +877,13 @@ class PickupComplete(APIView):
     def post(self, request):
         order_no = request.data.get('order_no')
         if not order_no:
-            msg = {'is_success': True, 'message': 'Order number field is empty.', 'data': None}
+            msg = {'is_success': False, 'message': 'Order number field is empty.', 'data': None}
             return Response(msg, status=status.HTTP_200_OK)
 
         is_repackaging = 0
 
         order_qs = Order.objects.filter(order_no=order_no)
         order_obj = order_qs.last()
-
         with transaction.atomic():
 
             if order_obj:
@@ -879,6 +898,10 @@ class PickupComplete(APIView):
 
             if pd_obj.filter(picking_status='picking_complete').exists():
                 return Response({'is_success': True, 'message': "Pickup completed for the selected items"})
+
+            if pd_obj.last().picking_status == PickerDashboard.PICKING_CANCELLED:
+                msg = {'is_success': False, 'message': ERROR_MESSAGES['ORDER_CANCELLED'].format(order_no), 'data': None}
+                return Response(msg, status=status.HTTP_200_OK)
 
             pick_obj = Pickup.objects.select_for_update(). \
                 filter(pickup_type_id=order_no, zone__picker_users=request.user). \

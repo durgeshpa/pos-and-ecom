@@ -1,7 +1,9 @@
 import django_filters
+from django.contrib.admin import SimpleListFilter
 from django_filters import rest_framework as filters
 from rangefilter.filter import DateTimeRangeFilter
 
+from global_config.views import get_config
 from retailer_backend.admin import InputFilter
 
 from retailer_to_sp.models import PickerDashboard
@@ -66,3 +68,58 @@ class OrderCreatedAt(DateTimeRangeFilter):
     def __init__(self, field, request, params, model, model_admin, field_path):
         super().__init__(field, request, params, model, model_admin, field_path)
         self.title = 'Order Created At'
+
+
+class EInvoiceAdminBuyerFilter(InputFilter):
+    parameter_name = 'buyer_name'
+    title = 'Buyer'
+
+    def queryset(self, request, queryset):
+        if self.value() is not None:
+            return queryset.filter(shipment__order__buyer_shop__shop_name__icontains=self.value())
+
+
+class EInvoiceStatusFilter(SimpleListFilter):
+    title = 'Order Status'
+    parameter_name = 'order_status'
+
+    def lookups(self, request, model_admin):
+        return (
+            ('CANCELLED', 'Cancelled'),
+            ('OTHER', 'Others')
+        )
+
+    def queryset(self, request, queryset):
+        if self.value() in ('CANCELLED',):
+            return queryset.filter(shipment__order__order_status=self.value())
+        elif self.value() == 'OTHER':
+            return queryset.exclude(shipment__order__order_status='CANCELLED')
+        elif self.value() == None:
+            return queryset
+
+
+class ENoteAdminInvoiceFilter(InputFilter):
+    parameter_name = 'invoice_no'
+    title = 'Invoice'
+
+    def queryset(self, request, queryset):
+        if self.value() is not None:
+            return queryset.filter(shipment__invoice__invoice_no__icontains=self.value())
+
+
+
+class BuyerTotalPurchaseFilter(SimpleListFilter):
+    title = 'Total Purchase'
+    parameter_name = 'purchase'
+    tcs_applicable_amt = get_config('TCS_B2B_APPLICABLE_AMT', 5000000)
+
+    def lookups(self, request, model_admin):
+        total_purchase = ((0, f'Less than {self.tcs_applicable_amt}'), (1, f'Greater than {self.tcs_applicable_amt}'))
+        return total_purchase
+
+    def queryset(self, request, queryset):
+        if self.value() == '0':
+            queryset = queryset.filter(total_purchase__lt=self.tcs_applicable_amt)
+        elif self.value() == '1':
+            queryset = queryset.filter(total_purchase__gte=self.tcs_applicable_amt)
+        return queryset

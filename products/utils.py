@@ -1,5 +1,8 @@
 import io
+import logging
+
 import xlsxwriter
+from django.core.mail import EmailMessage
 
 from django.http import QueryDict
 import json
@@ -9,11 +12,15 @@ from django.http import HttpResponse
 from django.db.models import Q
 
 from addresses.models import Address, City, State
+from global_config.models import GlobalConfig
 from .models import ProductHSN, ParentProduct
 from products.models import ProductVendorMapping, Product
 
 from django.db.models.functions import Length
 
+info_logger = logging.getLogger('file-info')
+error_logger = logging.getLogger('file-error')
+debug_logger = logging.getLogger('file-debug')
 
 def create_shops_excel(queryset):
     cities_list = City.objects.values_list('city_name', flat=True)
@@ -275,3 +282,49 @@ def deactivate_product(product):
     product.status = 'deactivated'
     product.save()
 
+
+def parent_product_categories(parent_product):
+    b2b_cat = None
+    b2c_cat = None
+    if parent_product.parent_product_pro_category.filter(status=True).exists():
+        b2b_cat = parent_product.parent_product_pro_category.filter(status=True)
+    if parent_product.parent_product_pro_b2c_category.filter(status=True).exists():
+        b2c_cat = parent_product.parent_product_pro_b2c_category.filter(status=True)
+    return b2b_cat, b2c_cat
+
+
+def send_mail_on_product_tax_declined(product):
+    """
+        Email team on parent product tax get declined.
+    """
+    try:
+        info_logger.info('send_mail_on_product_tax_declined | started')
+
+        if product.tax_status == ParentProduct.DECLINED:
+            hsn_gst = ", ".join(map(str, product.product_hsn.hsn_gst.values_list('gst', flat=True)))
+            hsn_cess = ", ".join(map(str, product.product_hsn.hsn_cess.values_list('cess', flat=True)))
+            entered_gst = product.parent_product_pro_tax.filter(tax__tax_type='gst').last()
+            entered_gst = entered_gst.tax.tax_percentage if entered_gst else 'N/A'
+            entered_cess = product.parent_product_pro_tax.filter(tax__tax_type='cess').last()
+            entered_cess = entered_cess.tax.tax_percentage if entered_cess else 'N/A'
+
+            email = EmailMessage()
+            email.subject = 'Parent Product TAX Declined'
+            # email.body = 'PFA the list of products which are pending for approval. '
+            email.body = 'Dear Team, \n \nBelow product tax has been declined, PFB details' \
+                         '\n \nProduct name: {}, \nHSN code: {}, \nEntered Product GST rate: {}, \n' \
+                         'HSN code GST rates: {}, \nEntered Product Cess rate: {}, \nHSN code Cess rates:  {}, \n' \
+                         'Reason for Decline: {} \nDeclined by: {}. \n \n Thanks'.\
+                format(product.name, product.product_hsn.product_hsn_code, entered_gst, hsn_gst if hsn_gst else 'N/A',
+                       entered_cess, hsn_cess if hsn_cess else 'N/A', product.tax_remark, product.updated_by)
+            sender = GlobalConfig.objects.get(key='sender')
+            email.from_email = sender.value
+            receiver = GlobalConfig.objects.get(key='PARENT_PRODUCT_TAX_DECLINED')
+            email.to = receiver.value
+            email.send()
+            info_logger.info('send_mail_on_product_tax_declined | mailed')
+        else:
+            info_logger.info(f'send_mail_on_product_tax_declined | Parent Product {product} does not declined.')
+    except Exception as e:
+        error_logger.error(e)
+        error_logger.info(f'send_mail_on_product_tax_declined | exception {e}')

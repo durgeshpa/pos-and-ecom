@@ -1,9 +1,12 @@
+import logging
+
 from django.db.models import Sum, Q
 
 from global_config.views import get_config
 from retailer_to_sp.models import Order
 from wms.models import InventoryState, InventoryType, Pickup, WarehouseInventory, BinInventory
 
+cron_logger = logging.getLogger('cron_log')
 warehouse_list = get_config('active_wh_list', [600, 50484])
 
 type_normal = InventoryType.objects.only('id').get(inventory_type='normal').id
@@ -65,12 +68,16 @@ def match_total_available_and_to_be_picked(warehouse):
                 if w.quantity != total_available:
                     print("BinQuantity-{}, Warehouse Inventory --> SKU-{}, total available quantity-{}"
                           .format(total_available, w.sku_id, w.quantity))
+                    cron_logger.info("BinQuantity-{}, Warehouse Inventory --> SKU-{}, total available quantity-{}"
+                                     .format(total_available, w.sku_id, w.quantity))
                     w.quantity = total_available
                     w.save()
             elif w.inventory_state_id == stage_to_be_picked:
                 if w.quantity != item['to_be_picked']:
                     print("BinQuantity-{}, Warehouse Inventory --> SKU-{}, to be picked quantity-{}"
                           .format(item['to_be_picked'], w.sku_id, w.quantity))
+                    cron_logger.info("BinQuantity-{}, Warehouse Inventory --> SKU-{}, to be picked quantity-{}"
+                                     .format(item['to_be_picked'], w.sku_id, w.quantity))
                     w.quantity = item['to_be_picked']
                     w.save()
 

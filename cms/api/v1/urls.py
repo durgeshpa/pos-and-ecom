@@ -1,5 +1,7 @@
 from django.urls import path
 from . import views
+from .views import LandingPageView, PageFunctionView, LandingPageTypeList, LandingPageSubTypeList, CardTypeList, \
+    ImageTypeList
 
 urlpatterns = [
     path('apps/', views.ApplicationView.as_view(), name = 'apps'),
@@ -13,5 +15,12 @@ urlpatterns = [
     path('category/', views.CategoryListView.as_view(), name = 'cms-category-list'),
     path('subcategory-banner/', views.SubCategoryListView.as_view(), name = 'cms-subcategory-list'),
     path('brand/', views.BrandListView.as_view(), name = 'cms-brand-list'),
-    path('subbrand-banner/', views.SubBrandListView.as_view(), name = 'cms-subbrand-list')
+    path('subbrand-banner/', views.SubBrandListView.as_view(), name = 'cms-subbrand-list'),
+    path("landing-pages/", LandingPageView.as_view(), name = 'landing-pages'),
+    path("functions/", PageFunctionView.as_view(), name = 'functions'),
+    path("choice-card-type/", CardTypeList.as_view()),
+    path("choice-lp-type/", LandingPageTypeList.as_view()),
+    path("choice-lp-subtype/", LandingPageSubTypeList.as_view()),
+    path("choice-image-type/", ImageTypeList.as_view()),
+
 ]

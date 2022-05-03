@@ -25,7 +25,7 @@ from dateutil.relativedelta import relativedelta
 from django.db.models import Q, Sum, F
 
 from django.http import HttpResponse, JsonResponse, response, Http404, FileResponse, HttpResponseBadRequest
-from django.shortcuts import render, get_object_or_404
+from django.shortcuts import render, get_object_or_404, redirect
 from django.db import transaction
 from django.contrib import messages
 
@@ -37,6 +37,9 @@ from rest_framework.response import Response
 from rest_framework import status
 from wkhtmltopdf.views import PDFTemplateResponse
 
+from pos.common_bulk_functions import generate_csv_file_by_data_list_with_filename
+from pos.common_bulk_validators import bulk_product_validation, \
+    bulk_product_validation_with_error_list_and_validated_data
 from pos.common_functions import RetailerProductCls, PosInventoryCls, ProductChangeLogs
 from pos.models import RetailerProduct, RetailerProductImage, PosCart, DiscountedRetailerProduct, \
     MeasurementCategory, RetailerOrderedReport, Payment, RetailerOrderedProduct, RetailerOrderReturn, \
@@ -46,9 +49,11 @@ from pos.forms import RetailerProductsCSVDownloadForm, RetailerProductsCSVUpload
     RetailerPurchaseReportForm
 from pos.tasks import generate_pdf_data, update_es
 from products.models import Product, ParentProductCategory
+from products.utils import parent_product_categories
 from shops.models import Shop, PosShopUserMapping
-from retailer_to_sp.models import OrderReturn, OrderedProduct, CreditNote, OrderedProductMapping, RoundAmount
+from retailer_to_sp.models import OrderReturn, OrderedProduct, CreditNote, OrderedProductMapping, RoundAmount, Order
 from wms.models import PosInventory, PosInventoryState, PosInventoryChange
+from retailer_backend.settings import AWS_MEDIA_URL
 
 info_logger = logging.getLogger('file-info')
 logger = logging.getLogger(__name__)
@@ -540,28 +545,23 @@ def upload_retailer_products_list(request):
             return render(request, 'admin/pos/retailerproductscsvupload.html', {'form': form})
 
         if form.is_valid():
+            info_logger.info("Data validation has been successfully done.")
+            try:
+                products_csv_file = form.cleaned_data['products_csv']
+                products_csv_file_obj = BulkRetailerProduct.objects.create(
+                    products_csv=products_csv_file, seller_shop=form.cleaned_data['seller_shop'],
+                    uploaded_by=form.cleaned_data['uploaded_by'])
+                response = pos_save_products_csv_file(products_csv_file_obj)
+                info_logger.info("Products File uploaded")
+                if isinstance(response, HttpResponse):
+                    return response
+                return render(request, 'admin/pos/retailerproductscsvupload.html',
+                              {'form': form,
+                               'success': 'Products Created/Updated Successfully!', })
+            except Exception as e:
+                error_logger.error(e)
+            return redirect('/admin/pos/retailerproduct/retailer_products_csv_upload')
 
-            # product_status = request.POST.get('catalogue_product_status')
-            # reader = csv.reader(codecs.iterdecode(request.FILES.get('file'), 'utf-8', errors='ignore'))
-            # header = next(reader, None)
-            # uploaded_data_by_user_list = []
-            # csv_dict = {}
-            # count = 0
-            # for id, row in enumerate(reader):
-            #     for ele in row:
-            #         csv_dict[header[count]] = ele
-            #         count += 1
-            #     uploaded_data_by_user_list.append(csv_dict)
-            #     csv_dict = {}
-            #     count = 0
-            # # if product_status == 'create_products':
-            # bulk_create_update_products(request, shop_id, form, uploaded_data_by_user_list)
-            # else:
-            #     bulk_create_update_products(request, shop_id, form, uploaded_data_by_user_list)
-
-            return render(request, 'admin/pos/retailerproductscsvupload.html',
-                          {'form': form,
-                           'success': 'Products Created/Updated Successfully!', })
     else:
         form = RetailerProductsCSVUploadForm()
         return render(
@@ -569,6 +569,20 @@ def upload_retailer_products_list(request):
             'admin/pos/retailerproductscsvupload.html',
             {'form': form}
         )
+
+
+def pos_save_products_csv_file(bulk_invoice_obj):
+    response_file = None
+    if bulk_invoice_obj:
+        if bulk_invoice_obj.products_csv:
+            error_list, validated_rows = bulk_product_validation_with_error_list_and_validated_data(
+                bulk_invoice_obj.products_csv, bulk_invoice_obj.seller_shop.pk)
+            if validated_rows:
+                bulk_create_update_validated_products(
+                    bulk_invoice_obj.uploaded_by, bulk_invoice_obj.seller_shop.pk, validated_rows)
+            if len(error_list) > 1:
+                response_file = generate_csv_file_by_data_list_with_filename(error_list, 'products_error.csv')
+    return response_file
 
 
 def retailer_products_list(product):
@@ -615,9 +629,10 @@ def DownloadRetailerCatalogue(request, *args, **kwargs):
     response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
     writer = csv.writer(response)
     writer.writerow(
-        ['product_id', 'shop_id', 'shop_name', 'product_sku', 'product_name', 'mrp', 'selling_price',
-         'linked_product_sku', 'product_ean_code', 'description', 'sku_type','parent_product_id' , 'category', 'sub_category',
-         'brand', 'sub_brand', 'status', 'quantity', 'discounted_sku', 'discounted_stock', 'discounted_price',
+        ['product_id', 'shop_id', 'shop_name', 'product_sku', 'product_name', 'product_image', 'mrp', 'selling_price',
+         'linked_product_sku', 'linked_product_image', 'product_ean_code', 'description', 'sku_type',
+         'parent_product_id', 'b2b_category', 'b2b_sub_category', 'b2c_category', 'b2c_sub_category', 'brand',
+         'sub_brand', 'status', 'quantity', 'discounted_sku', 'discounted_stock', 'discounted_price',
          'product_pack_type', 'measurement_category', 'purchase_pack_size', 'available_for_online_orders',
          'online_order_price', 'is_visible', 'offer_price', 'offer_start_date', 'offer_end_date',
          'initial_purchase_value'])
@@ -626,19 +641,26 @@ def DownloadRetailerCatalogue(request, *args, **kwargs):
     if product_qs.exists():
         retailer_products = product_qs \
             .prefetch_related('linked_product') \
+            .prefetch_related('linked_product__parent_product__product_type') \
             .prefetch_related('linked_product__parent_product__parent_brand') \
             .prefetch_related('linked_product__parent_product__parent_brand__brand_parent') \
             .prefetch_related('linked_product__parent_product__parent_product_pro_category__category') \
             .prefetch_related('linked_product__parent_product__parent_product_pro_category__category__category_parent') \
+            .prefetch_related('linked_product__parent_product__parent_product_pro_b2c_category__category') \
+            .prefetch_related('linked_product__parent_product__parent_product_pro_b2c_category__category__category_parent') \
             .select_related('measurement_category')\
             .values('id', 'shop', 'shop__shop_name', 'sku', 'name', 'mrp', 'selling_price', 'product_pack_type',
+                    'retailer_product_image__image',
                     'purchase_pack_size',
                     'measurement_category__category',
                     'linked_product__product_sku',
                     'product_ean_code', 'description', 'sku_type',
                     'linked_product__parent_product__parent_product_pro_category__category__category_name',
-                    'linked_product__parent_product__parent_id',
+                    'linked_product__parent_product__parent_product_pro_b2c_category__category__category_name',
                     'linked_product__parent_product__parent_product_pro_category__category__category_parent__category_name',
+                    'linked_product__parent_product__parent_product_pro_b2c_category__category__category_parent__category_name',
+                    'linked_product__parent_product__product_type',
+                    'linked_product__parent_product__parent_id',
                     'linked_product__parent_product__parent_brand__brand_name',
                     'linked_product__parent_product__parent_brand__brand_parent__brand_name',
                     'status', 'discounted_product', 'discounted_product__sku', 'online_enabled', 'online_price',
@@ -656,6 +678,7 @@ def DownloadRetailerCatalogue(request, *args, **kwargs):
         inventory_data = {i.product_id: i.quantity for i in inventory}
         is_visible = 'False'
         for product_id, product in product_dict.items():
+            retailer_images = RetailerProductImage.objects.filter(product=product['id'])
             category = product[
                 'linked_product__parent_product__parent_product_pro_category__category__category_parent__category_name']
             sub_category = product[
@@ -663,6 +686,14 @@ def DownloadRetailerCatalogue(request, *args, **kwargs):
             if not category:
                 category = sub_category
                 sub_category = None
+
+            b2c_category = product[
+                'linked_product__parent_product__parent_product_pro_b2c_category__category__category_parent__category_name']
+            b2c_sub_category = product[
+                'linked_product__parent_product__parent_product_pro_b2c_category__category__category_name']
+            if not b2c_category:
+                b2c_category = b2c_sub_category
+                b2c_sub_category = None
 
             brand = product[
                 'linked_product__parent_product__parent_brand__brand_parent__brand_name']
@@ -694,13 +725,28 @@ def DownloadRetailerCatalogue(request, *args, **kwargs):
                 initial_purchase_value = product['initial_purchase_value'] \
                     if product['initial_purchase_value'] else 0
 
+            product_image = None
+            linked_product_image = None
+            if retailer_images:
+                product_image = ", ".join([x.image.url for x in retailer_images.all()])
+
+            if product['linked_product__product_sku']:
+                product_obj = Product.objects.get(product_sku=product['linked_product__product_sku'])
+                linked_product_images = products_image(product_obj)
+                if linked_product_images is not None:
+                    linked_product_image = str(linked_product_images)
+
+                # product_image = str(AWS_MEDIA_URL) + str(product['retailer_product_image__image'])
             writer.writerow(
                 [product['id'], product['shop'], product['shop__shop_name'], product['sku'], product['name'],
+                 product_image,
                  product['mrp'], product['selling_price'], product['linked_product__product_sku'],
+                 linked_product_image,
                  product['product_ean_code'], product['description'],
                  RetailerProductCls.get_sku_type(product['sku_type']),
                  product['linked_product__parent_product__parent_id'],
-                 category, sub_category, brand, sub_brand, product['status'], inventory_data.get(product_id, 0),
+                 category, sub_category, b2c_category, b2c_sub_category, brand, sub_brand, product['status'],
+                 inventory_data.get(product_id, 0),
                  product['discounted_product__sku'], discounted_stock, discounted_price, product['product_pack_type'],
                  measurement_category, product['purchase_pack_size'], online_enabled,
                  product['online_price'], is_visible, product['offer_price'], product['offer_start_date'],
@@ -708,6 +754,16 @@ def DownloadRetailerCatalogue(request, *args, **kwargs):
     else:
         writer.writerow(["Products for selected shop doesn't exists"])
     return response
+
+
+def products_image(obj):
+    if obj.use_parent_image and obj.parent_product.parent_product_pro_image.exists():
+        return ", ".join([x.image.url for x in obj.parent_product.parent_product_pro_image.all()])
+    elif not obj.use_parent_image and obj.product_pro_image.exists():
+        return ", ".join([x.image.url for x in obj.product_pro_image.all()])
+    elif not obj.use_parent_image and obj.child_product_pro_image.exists():
+        return ", ".join([x.image.url for x in obj.child_product_pro_image.all()])
+    return '-'
 
 
 def download_discounted_products(request, *args):
@@ -790,16 +846,16 @@ def RetailerCatalogueSampleFile(request, *args):
     writer = csv.writer(response)
     writer.writerow(
         ['product_id', 'shop_id', 'shop_name', 'product_sku', 'product_name', 'mrp', 'selling_price',
-         'linked_product_sku', 'product_ean_code', 'description', 'sku_type', 'category', 'sub_category',
-         'brand', 'sub_brand', 'status', 'quantity', 'discounted_sku', 'discounted_stock', 'discounted_price',
-         'product_pack_type', 'measurement_category', 'purchase_pack_size', 'available_for_online_orders',
+         'linked_product_sku', 'product_ean_code', 'description', 'sku_type', 'b2b_category', 'b2b_sub_category',
+         'b2c_category', 'b2c_sub_category', 'brand', 'sub_brand', 'status', 'quantity', 'discounted_sku',
+         'discounted_stock', 'discounted_price', 'product_pack_type', 'measurement_category', 'purchase_pack_size', 'available_for_online_orders',
          'online_order_price', 'is_visible', 'offer_price', 'offer_start_date', 'offer_end_date',
          'initial_purchase_value'])
     writer.writerow(["", 36966, "", "", 'Loose Noodles', 12, 10, 'PROPROTOY00000019', 'EAEASDF', 'XYZ', "",
-                     "", "", "", "", 'active', 2, "", "", "", 'loose', 'weight', 1, 'Yes', 11, 'Yes', 9, "2021-11-21",
+                     "", "", "", "", "", "", 'active', 2, "", "", "", 'loose', 'weight', 1, 'Yes', 11, 'Yes', 9, "2021-11-21",
                      "2021-11-23", 8])
     writer.writerow(["", 36966, "", "", 'Packed Noodles', 12, 10, 'PROPROTOY00000019', 'EAEASDF', 'XYZ', "",
-                     "", "", "", "", 'active', 2, "", "", "", 'packet', '', 1, 'Yes', 11, 'Yes', 9, "2021-11-21",
+                     "", "", "", "",  "", "",'active', 2, "", "", "", 'packet', '', 1, 'Yes', 11, 'Yes', 9, "2021-11-21",
                      "2021-11-23", 9.5])
 
     return response
@@ -978,7 +1034,7 @@ def posinventorychange_data_excel(request, queryset):
 
 
 def get_product_details(product):
-    parent_id, category, sub_category, brand, sub_brand = None, None, None, None, None
+    parent_id, category, sub_category, b2c_category, b2c_sub_category, brand, sub_brand = None, None, None, None, None, None, None
     if product.linked_product:
         parent_id = product.linked_product.parent_product.parent_id
         brand_details = Product.objects.values('parent_product__parent_brand__brand_name',
@@ -990,15 +1046,25 @@ def get_product_details(product):
         else:
             brand = brand_details[0]['parent_product__parent_brand__brand_name']
 
-        cat = ParentProductCategory.objects.values('category__category_name',
-                                                   'category__category_parent__category_name').filter \
-            (parent_product__id=product.linked_product.parent_product.id)
-        if cat[0]['category__category_parent__category_name']:
-            category = cat[0]['category__category_parent__category_name']
-            sub_category = cat[0]['category__category_name']
-        else:
-            category = cat[0]['category__category_name']
-    return parent_id, category, sub_category, brand, sub_brand
+        # cat = ParentProductCategory.objects.values('category__category_name',
+        #                                            'category__category_parent__category_name').filter \
+        #     (parent_product__id=product.linked_product.parent_product.id)
+        b2b_cat, b2c_cat = parent_product_categories(product.linked_product.parent_product)
+        if b2b_cat:
+            cat = b2b_cat.values('category__category_name', 'category__category_parent__category_name')
+            if cat[0]['category__category_parent__category_name']:
+                category = cat[0]['category__category_parent__category_name']
+                sub_category = cat[0]['category__category_name']
+            else:
+                category = cat[0]['category__category_name']
+        if b2c_cat:
+            b2ccat = b2c_cat.values('category__category_name', 'category__category_parent__category_name')
+            if b2ccat[0]['category__category_parent__category_name']:
+                b2c_category = b2ccat[0]['category__category_parent__category_name']
+                b2c_sub_category = b2ccat[0]['category__category_name']
+            else:
+                b2c_category = b2ccat[0]['category__category_name']
+    return parent_id, category, sub_category, b2c_category, b2c_sub_category, brand, sub_brand
 
 
 def get_tax_details(product):
@@ -1170,7 +1236,7 @@ class RetailerOrderedReportView(APIView):
     def total_order_calculation(self, user, start_date, end_date, shop):
         pos_cash_order_qs = OrderedProduct.objects.filter(invoice__created_at__date__gte=start_date,
                                                           invoice__created_at__date__lte=end_date,
-                                                          order__ordered_cart__cart_type='BASIC',
+                                                          order__order_app_type=Order.POS_WALKIN,
                                                           order__seller_shop__id=shop,
                                                           order__rt_payment_retailer_order__payment_type__type__iexact='cash',
                                                           order__ordered_by__id=user,
@@ -1182,7 +1248,7 @@ class RetailerOrderedReportView(APIView):
 
         pos_online_order_qs = OrderedProduct.objects.filter(invoice__created_at__date__gte=start_date,
                                                             invoice__created_at__date__lte=end_date,
-                                                            order__ordered_cart__cart_type='BASIC',
+                                                            order__order_app_type=Order.POS_WALKIN,
                                                             order__seller_shop__id=shop,
                                                             order__rt_payment_retailer_order__payment_type__type__in=
                                                             ['credit', 'online'],
@@ -1195,44 +1261,49 @@ class RetailerOrderedReportView(APIView):
 
         ecom_total_order_qs = OrderedProduct.objects.filter(order__created_at__date__gte=start_date,
                                                             order__created_at__date__lte=end_date,
-                                                            order__ordered_cart__cart_type='ECOM',
+                                                            order__order_app_type=Order.POS_ECOMM,
                                                             order__seller_shop__id=shop,
                                                             order__ordered_by__id=user,
                                                             order__order_status=
                                                             RetailerOrderedReport.PICKUP_CREATED). \
             aggregate(amt=Sum('order__rt_payment_retailer_order__amount'))
 
-        ecom_cash_order_qs = OrderedProductMapping.objects.filter(
-            ordered_product__invoice__created_at__date__gte=start_date,
-            ordered_product__invoice__created_at__date__lte=end_date,
-            ordered_product__order__ordered_cart__cart_type='ECOM',
-            ordered_product__order__seller_shop__id=shop,
-            ordered_product__order__rt_payment_retailer_order__payment_type__type__iexact='cod',
-            ordered_product__order__ordered_by__id=user,
-            ordered_product__order__order_status__in=[RetailerOrderedReport.DELIVERED,
-                                                      RetailerOrderedReport.PARTIALLY_RETURNED,
-                                                      RetailerOrderedReport.FULLY_RETURNED]).\
-            annotate(inv_amt=RoundAmount(Sum(F('effective_price') * F('shipped_qty')))).aggregate(amt=Sum('inv_amt'))
+        ecom_cash_order_qs = OrderedProduct.objects.filter(invoice__created_at__date__gte=start_date,
+                                                           invoice__created_at__date__lte=end_date,
+                                                           order__order_app_type=Order.POS_ECOMM,
+                                                           order__seller_shop__id=shop,
+                                                           order__rt_payment_retailer_order__payment_type__type__iexact='cod',
+                                                           order__ordered_by__id=user,
+                                                           order__order_status__in=[
+                                                               RetailerOrderedReport.DELIVERED,
+                                                               RetailerOrderedReport.PARTIALLY_RETURNED,
+                                                               RetailerOrderedReport.FULLY_RETURNED])\
+            .exclude(order__order_status=RetailerOrderedReport.CANCELLED)
 
-        ecom_online_order_qs = OrderedProductMapping.objects.filter(
-            ordered_product__invoice__created_at__date__gte=start_date,
-            ordered_product__invoice__created_at__date__lte=end_date,
-            ordered_product__order__ordered_cart__cart_type='ECOM',
-            ordered_product__order__seller_shop__id=shop,
-            ordered_product__order__rt_payment_retailer_order__payment_type__type__in=
-            ['cod_upi', 'credit', 'online'],
-            ordered_product__order__ordered_by__id=user,
-            ordered_product__order__order_status__in=[
-                RetailerOrderedReport.OUT_FOR_DELIVERY,
-                RetailerOrderedReport.PARTIALLY_RETURNED,
-                RetailerOrderedReport.DELIVERED,
-                RetailerOrderedReport.FULLY_RETURNED],).\
-            annotate(inv_amt=RoundAmount(Sum(F('effective_price') * F('shipped_qty')))).aggregate(amt=Sum('inv_amt'))
+        ecom_cash_order_amt = 0
+        for e_cash_invoice in ecom_cash_order_qs:
+            ecom_cash_order_amt += e_cash_invoice.invoice_amount_final
+
+        ecom_online_order_qs = OrderedProduct.objects.filter(invoice__created_at__date__gte=start_date,
+                                                             invoice__created_at__date__lte=end_date,
+                                                             order__order_app_type=Order.POS_ECOMM,
+                                                             order__seller_shop__id=shop,
+                                                             order__rt_payment_retailer_order__payment_type__type__in=
+                                                             ['cod_upi', 'credit', 'online'],
+                                                             order__ordered_by__id=user,
+                                                             order__order_status__in=[
+                                                                 RetailerOrderedReport.OUT_FOR_DELIVERY,
+                                                                 RetailerOrderedReport.PARTIALLY_RETURNED,
+                                                                 RetailerOrderedReport.DELIVERED,
+                                                                 RetailerOrderedReport.FULLY_RETURNED])\
+            .exclude(order__order_status=RetailerOrderedReport.CANCELLED)
+
+        ecom_online_order_amt = 0
+        for e_online_invoice in ecom_online_order_qs:
+            ecom_online_order_amt += e_online_invoice.invoice_amount_final
 
         pos_cash_order_amt = pos_cash_order_qs['amt'] if 'amt' in pos_cash_order_qs and pos_cash_order_qs['amt'] else 0
         pos_online_order_amt = pos_online_order_qs['amt'] if 'amt' in pos_online_order_qs and pos_online_order_qs['amt'] else 0
-        ecom_cash_order_amt = ecom_cash_order_qs['amt'] if 'amt' in ecom_cash_order_qs and ecom_cash_order_qs['amt'] else 0
-        ecom_online_order_amt = ecom_online_order_qs['amt'] if 'amt' in ecom_online_order_qs and ecom_online_order_qs['amt'] else 0
         ecom_total_order_amt = ecom_total_order_qs['amt'] if 'amt' in ecom_total_order_qs and ecom_total_order_qs['amt'] else 0
 
         pos_cash_return_order_qs = CreditNote.objects.filter(order_return__order__ordered_cart__cart_type='BASIC',
@@ -1288,10 +1359,10 @@ class RetailerOrderedReportView(APIView):
         #
         # can_order_amt = can_order_qs['amt'] if 'amt' in can_order_qs and can_order_qs['amt'] else 0
 
-        pos_cash_amt = float(pos_cash_order_amt) - float(pos_cash_return_amt)
-        pos_online_amt = float(pos_online_order_amt) - float(pos_online_return_amt)
-        ecomm_online_amt = float(ecom_online_order_amt) - float(ecom_online_return_amt)
-        ecomm_cash_amt = float(ecom_cash_order_amt) - float(ecom_cash_return_amt)
+        pos_cash_amt = Decimal(pos_cash_order_amt) - Decimal(pos_cash_return_amt)
+        pos_online_amt = Decimal(pos_online_order_amt) - Decimal(pos_online_return_amt)
+        ecomm_online_amt = Decimal(ecom_online_order_amt) - Decimal(ecom_online_return_amt)
+        ecomm_cash_amt = Decimal(ecom_cash_order_amt) - Decimal(ecom_cash_return_amt)
         return pos_cash_amt, pos_online_amt, ecom_total_order_amt, ecomm_cash_amt, ecomm_online_amt
 
     def get(self, *args, **kwargs):
@@ -1645,3 +1716,15 @@ def products_list_status(request, product_status_info):
     info_logger.info(f"[pos/views.py: products_list_status] - CSV for products_list_status has been "
                      f"successfully downloaded with response [{response}]")
     return response
+
+
+class PosStoreRewardMappingAutocomplete(autocomplete.Select2QuerySetView):
+    """
+    Shop Filter for Retailer and Franchise Shops
+    """
+
+    def get_queryset(self, *args, **kwargs):
+        qs = Shop.objects.filter(Q(shop_type__shop_sub_type__retailer_type_name__in=["foco","fofo"]))
+        if self.q:
+            qs = qs.filter(Q(shop_type__shop_sub_type__retailer_type_name__in=["foco","fofo"]),shop_name__icontains=self.q)
+        return qs

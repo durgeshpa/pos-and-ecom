@@ -9,8 +9,9 @@ from rest_framework.response import Response
 
 from django.db import transaction
 from products.common_validators import get_csv_file_data
-from addresses.models import Address, State, City, Pincode
+from addresses.models import Address, State, City, Pincode, DispatchCenterPincodeMapping, DispatchCenterCityMapping
 from products.models import CentralLog
+from shops.common_validators import get_validate_approval_status_change_reason
 from shops.models import BeatPlanning, DayBeatPlanning, ParentRetailerMapping, ShopDocument, ShopInvoicePattern, \
     ShopPhoto, ShopUserMapping, Shop
 from shops.base64_to_file import to_file
@@ -199,6 +200,48 @@ class ShopCls(object):
                 Address.objects.update_or_create(defaults=address, id=add_id)
 
     @classmethod
+    def create_update_dispatch_center_cities(cls, shop, cities):
+        """
+            Delete existing Dispatch Center Cities if not in the request
+            Create / Update Dispatch Center Cities
+        """
+        if cities:
+            ids = []
+            for city_obj in cities:
+                if 'id' in city_obj:
+                    ids.append(city_obj['id'])
+
+            DispatchCenterCityMapping.objects.filter(dispatch_center=shop).exclude(id__in=ids).delete()
+
+            for city in cities:
+                city['dispatch_center'] = shop
+                add_id = None
+                if 'id' in city:
+                    add_id = city.pop('id')
+                DispatchCenterCityMapping.objects.update_or_create(defaults=city, id=add_id)
+
+    @classmethod
+    def create_update_dispatch_center_pincodes(cls, shop, pincodes):
+        """
+            Delete existing Dispatch Center Pincodes if not in the request
+            Create / Update Dispatch Center Pincodes
+        """
+        if pincodes:
+            ids = []
+            for pincode_obj in pincodes:
+                if 'id' in pincode_obj:
+                    ids.append(pincode_obj['id'])
+
+            DispatchCenterPincodeMapping.objects.filter(dispatch_center=shop).exclude(id__in=ids).delete()
+
+            for pincode in pincodes:
+                pincode['dispatch_center'] = shop
+                add_id = None
+                if 'id' in pincode:
+                    add_id = pincode.pop('id')
+                DispatchCenterPincodeMapping.objects.update_or_create(defaults=pincode, id=add_id)
+
+    @classmethod
     def create_upadte_shop_photos(cls, shop, existing_photos, photos):
         """
             Delete existing Shop Photos if not in the request
@@ -379,3 +422,35 @@ def get_file_extension(file_name, decoded_file):
     extension = "jpg" if extension == "jpeg" else extension
 
     return extension
+
+
+def bulk_update_shop_status(validated_data):
+    """
+        Update Shop Status
+    """
+    reader = csv.reader(codecs.iterdecode(validated_data['file'], 'utf-8', errors='ignore'))
+    next(reader)
+    try:
+        for row_id, row in enumerate(reader):
+            if str(row[2]).lower() == 'awaiting approval':
+                row[2] = 1
+            if str(row[2]).lower() == 'approved':
+                row[2] = 2
+            else:
+                row[2] = 0
+
+            if row[3] and row[2] == 0:
+                disapproval_status_reason = get_validate_approval_status_change_reason(str(row[3]), row[2])
+                row[3] = disapproval_status_reason['data']
+            else:
+                row[3] = None
+            shop_obj = Shop.objects.get(id=int(row[0]))
+            shop_obj.approval_status = row[2]
+            shop_obj.disapproval_status_reason = row[3]
+            shop_obj.updated_by = validated_data['updated_by']
+            shop_obj.save()
+
+    except Exception as e:
+        msg = "Unable to update shop status for row {}".format(row_id + 1)
+        error_logger.info(msg)
+        return msg

@@ -17,7 +17,7 @@ from addresses.models import Address, Area, City, Country, Pincode, State
 from brand.models import Brand, Vendor
 from categories.models import BaseTimeModel, BaseTimestampUserStatusModel, Category, B2cCategory
 from coupon.models import Coupon, Discount
-from global_config.views import get_config
+from global_config.views import get_config,get_config_fofo_shops
 from retailer_backend.validators import *
 from shops.models import Shop, ShopUserMapping, ShopType
 from tinymce.models import HTMLField
@@ -38,6 +38,21 @@ WEIGHT_UNIT_CHOICES = (
 
 CAPPING_TYPE_CHOICES = Choices((0, 'DAILY', 'Daily'), (1, 'WEEKLY', 'Weekly'),
                                (2, 'MONTHLY', 'Monthly'))
+
+GST_CHOICE = (
+    (0, 'GST-0'),
+    (5, 'GST-5'),
+    (12, 'GST-12'),
+    (18, 'GST-18'),
+    (28, 'GST-28'),
+)
+
+CESS_CHOICE = (
+    (0, 'CESS-0'),
+    (5, 'CESS-5'),
+    (12, 'CESS-12'),
+    (36, 'CESS-36')
+)
 
 
 class Size(models.Model):
@@ -134,7 +149,36 @@ class ProductHSN(BaseTimestampUserStatusModel):
         return self.product_hsn_code
 
 
+class ProductHsnGst(BaseTimestampUserStatusModel):
+    gst = models.IntegerField(null=True, choices=GST_CHOICE)
+    product_hsn = models.ForeignKey(ProductHSN, related_name='hsn_gst', on_delete=models.DO_NOTHING)
+
+    def __str__(self):
+        return f"{self.product_hsn} -> {self.gst}"
+
+    class Meta:
+        unique_together = ('product_hsn', 'gst')
+
+
+class ProductHsnCess(BaseTimestampUserStatusModel):
+    cess = models.IntegerField(null=True, choices=CESS_CHOICE)
+    product_hsn = models.ForeignKey(ProductHSN, related_name='hsn_cess', on_delete=models.DO_NOTHING)
+
+    def __str__(self):
+        return f"{self.product_hsn} -> {self.cess}"
+
+    class Meta:
+        unique_together = ('product_hsn', 'cess')
+
+
 class ParentProduct(BaseTimestampUserStatusModel):
+    GST_MULTIPLE_RATES, CESS_MULTIPLE_RATES = 'GST Multiple Rates', 'Cess Multiple Rates'
+    GST_AND_CESS_MULTIPLE_RATES = 'GST and Cess Multiple Rates'
+    GST_RATE_MISMATCH, CESS_RATE_MISMATCH = 'GST Rate mismatch', 'Cess Rate mismatch'
+    GST_AND_CESS_RATE_MISMATCH = 'GST and Cess Rate mismatch'
+    GST_MULTIPLE_RATES_AND_CESS_RATE_MISMATCH = 'GST Multiple Rates and Cess Rate mismatch'
+    CESS_MULTIPLE_RATES_AND_GST_RATE_MISMATCH = 'Cess Multiple Rates and GST Rate mismatch'
+
     parent_id = models.CharField(max_length=255, validators=[ParentIDValidator])
     name = models.CharField(max_length=255, validators=[ProductNameValidator])
     parent_slug = models.SlugField(max_length=255)
@@ -147,12 +191,20 @@ class ParentProduct(BaseTimestampUserStatusModel):
         ('both', 'Both B2B and B2C'),
     )
     brand_case_size = models.PositiveIntegerField(blank=False)
-    product_type = models.CharField(max_length=5, choices=PRODUCT_TYPE_CHOICES)
+    product_type = models.CharField(max_length=5, choices=PRODUCT_TYPE_CHOICES, default='both')
     is_ptr_applicable = models.BooleanField(verbose_name='Is PTR Applicable', default=False)
     ptr_percent = models.DecimalField(max_digits=4, decimal_places=2, blank=True, null=True,
                                       validators=[PercentageValidator])
     PTR_TYPE_CHOICES = Choices((1, 'MARK_UP', 'Mark Up'), (2, 'MARK_DOWN', 'Mark Down'))
     ptr_type = models.SmallIntegerField(choices=PTR_TYPE_CHOICES, null=True, blank=True)
+    PENDING, APPROVED, DECLINED = 'PENDING', 'APPROVED', 'DECLINED'
+    TAX_STATUS_CHOICES = Choices(
+        (PENDING, 'Pending For Approval'),
+        (APPROVED, 'Approved'),
+        (DECLINED, 'Declined')
+    )
+    tax_status = models.CharField(max_length=10, choices=TAX_STATUS_CHOICES, null=True, blank=True)
+    tax_remark = models.CharField(max_length=50, null=True, blank=True)
     is_ars_applicable = models.BooleanField(verbose_name='Is ARS Applicable', default=False)
     max_inventory = models.PositiveSmallIntegerField(verbose_name='Max Inventory(In Days)',
                                                      validators=[MinValueValidator(1), MaxValueValidator(999)])
@@ -166,6 +218,7 @@ class ParentProduct(BaseTimestampUserStatusModel):
         on_delete=models.DO_NOTHING
     )
     product_discription = HTMLField(blank=True)
+
     @property
     def ptr_type_text(self):
         if self.ptr_type is not None and self.ptr_type in self.PTR_TYPE_CHOICES:
@@ -185,9 +238,22 @@ class ParentProduct(BaseTimestampUserStatusModel):
 
     class Meta:
         ordering = ['-created_at']
+        permissions = (
+            ("can_approve_product_tax", "Can Approve Product TAX."),
+        )
 
     def __str__(self):
         return "{}-{}".format(self.parent_id, self.name)
+
+
+class ParentProductTaxApprovalLog(BaseTimestampUserStatusModel):
+    parent_product = models.ForeignKey(ParentProduct, related_name='parent_product_tax_approval_log',
+                                       on_delete=models.DO_NOTHING)
+    tax_status = models.CharField(max_length=10, null=True, blank=True)
+    tax_remark = models.CharField(max_length=100, null=True, blank=True)
+
+    def __str__(self):
+        return str(self.parent_product)
 
 
 class ParentProductSKUGenerator(models.Model):
@@ -210,14 +276,19 @@ class ParentProductCategory(BaseTimeModel):
 
 
 class ParentProductB2cCategory(BaseTimeModel):
-    parent_product = models.ForeignKey(ParentProduct, related_name='parent_product_pro_b2c_category',
+    parent_product = models.ForeignKey(ParentProduct, 
+                                       related_name='parent_product_pro_b2c_category',
                                        on_delete=models.CASCADE)
     category = models.ForeignKey(B2cCategory, related_name='parent_category_pro_b2c_category', on_delete=models.CASCADE)
     status = models.BooleanField(default=True)
 
     class Meta:
-        verbose_name = _("Parent Product Category")
-        verbose_name_plural = _("Parent Product Categories")
+        verbose_name = _("Parent Product B2c Category")
+        verbose_name_plural = _("Parent Product B2c Categories")
+
+    def __str__(self):
+        return f"{self.parent_product} --> {self.category}"
+
 
 class ParentProductImage(BaseTimeModel):
     parent_product = models.ForeignKey(ParentProduct, related_name='parent_product_pro_image', on_delete=models.CASCADE)
@@ -234,24 +305,6 @@ class ParentProductImage(BaseTimeModel):
 
     def __str__(self):
         return self.image.name
-
-
-@receiver(pre_save, sender=ParentProductCategory)
-def create_parent_product_id(sender, instance=None, created=False, **kwargs):
-    parent_product = ParentProduct.objects.get(pk=instance.parent_product.id)
-    if parent_product.parent_id:
-        return
-    cat_sku_code = instance.category.category_sku_part
-    brand_sku_code = parent_product.parent_brand.brand_code
-    last_sku = ParentProductSKUGenerator.objects.filter(cat_sku_code=cat_sku_code, brand_sku_code=brand_sku_code).last()
-    if last_sku:
-        last_sku_increment = str(int(last_sku.last_auto_increment) + 1).zfill(len(last_sku.last_auto_increment))
-    else:
-        last_sku_increment = '0001'
-    ParentProductSKUGenerator.objects.create(cat_sku_code=cat_sku_code, brand_sku_code=brand_sku_code,
-                                             last_auto_increment=last_sku_increment)
-    parent_product.parent_id = "P%s%s%s" % (cat_sku_code, brand_sku_code, last_sku_increment)
-    parent_product.save()
 
 
 class Product(BaseTimestampUserStatusModel):
@@ -772,9 +825,29 @@ class ProductCategory(models.Model):
         verbose_name_plural = _("Product Categories")
 
 
+class ProductB2cCategory(models.Model):
+    product = models.ForeignKey(Product, related_name='product_pro_b2c_category', on_delete=models.CASCADE)
+    category = models.ForeignKey(B2cCategory, related_name='b2c_category_pro_b2c_category', on_delete=models.CASCADE)
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
+    status = models.BooleanField(default=True)
+
+    class Meta:
+        verbose_name = _("Product B2c Category")
+        verbose_name_plural = _("Product B2c Categories")
+
+
 class ProductCategoryHistory(models.Model):
     product = models.ForeignKey(Product, related_name='product_pro_cat_history', on_delete=models.CASCADE)
     category = models.ForeignKey(Category, related_name='category_pro_cat_history', on_delete=models.CASCADE)
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
+    status = models.BooleanField(default=True)
+
+
+class ProductB2cCategoryHistory(models.Model):
+    product = models.ForeignKey(Product, related_name='product_pro_b2c_cat_history', on_delete=models.CASCADE)
+    category = models.ForeignKey(B2cCategory, related_name='b2c_category_pro_b2c_cat_history', on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
     status = models.BooleanField(default=True)
@@ -824,6 +897,29 @@ class Tax(BaseTimestampUserStatusModel):
     class Meta:
         verbose_name = _("Tax")
         verbose_name_plural = _("Taxes")
+
+
+class TaxGroup(BaseTimestampUserStatusModel):
+    TAX_GROUP, TAX_SINGLE = 'TAX_GROUP', 'TAX_SINGLE'
+    ZOHO_TAX_TYPE_CHOICE = ((TAX_GROUP, 'Tax Group'), (TAX_SINGLE, 'itemAmount'))
+    name = models.CharField(max_length=100, unique=True, null=True, blank=True)
+    zoho_id = models.CharField(max_length=100)
+    is_igst = models.BooleanField(default=False)
+    zoho_grp_type = models.CharField(choices=ZOHO_TAX_TYPE_CHOICE, max_length=50)
+
+    def __str__(self):
+        return str(self.name)
+
+
+class GroupTaxMapping(BaseTimestampUserStatusModel):
+    tax_group = models.ForeignKey(TaxGroup, related_name='group_taxes', on_delete=models.CASCADE)
+    tax = models.ForeignKey(Tax, related_name='tax_group', on_delete=models.CASCADE)
+
+    def __str__(self):
+        return f"{self.tax_group} -> {self.tax}"
+
+    class Meta:
+        unique_together = ('tax_group', 'tax',)
 
 
 class ProductTaxMapping(BaseTimeModel):
@@ -969,8 +1065,19 @@ def create_product_sku(sender, instance=None, created=False, **kwargs):
     if not instance.product_sku:
         if instance.product_type == Product.PRODUCT_TYPE_CHOICE.NORMAL:
             # cat_sku_code = instance.category.category_sku_part
-            parent_product_category = ParentProductCategory.objects.filter(
-                parent_product=instance.parent_product).first().category
+            if instance.parent_product.product_type=='b2c':
+                parent_product_category = ParentProductB2cCategory.objects.filter(
+                    parent_product=instance.parent_product).first().category
+            elif instance.parent_product.product_type=='b2b':
+                parent_product_category = ParentProductCategory.objects.filter(
+                    parent_product=instance.parent_product).first().category
+            else:
+                if ParentProductCategory.objects.filter(parent_product=instance.parent_product).exists():
+                    parent_product_category = ParentProductCategory.objects.filter(
+                        parent_product=instance.parent_product).first().category
+                elif ParentProductB2cCategory.objects.filter(parent_product=instance.parent_product).exists():
+                    parent_product_category = ParentProductB2cCategory.objects.filter(
+                        parent_product=instance.parent_product).first().category
             cat_sku_code = parent_product_category.category_sku_part
             parent_cat_sku_code = parent_product_category.category_parent.category_sku_part if parent_product_category.category_parent else cat_sku_code
             brand_sku_code = instance.product_brand.brand_code

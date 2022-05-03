@@ -6,12 +6,12 @@ from django.core.exceptions import ObjectDoesNotExist
 from rest_framework import authentication
 from rest_framework.generics import GenericAPIView
 
-from categories.models import Category
+from categories.models import Category, B2cCategory
 from products.models import BulkUploadForProductAttributes
 from .serializers import UploadMasterDataSerializers, DownloadMasterDataSerializers, CategoryImageSerializers, \
     ParentProductImageSerializers, ChildProductImageSerializers, DATA_TYPE_CHOICES, BrandImageSerializers, \
     CategoryListSerializers, DownloadProductVendorMappingSerializers, BulkProductVendorMappingSerializers, \
-    BulkSlabProductPriceSerializers, BulkDiscountedProductPriceSerializers
+    BulkSlabProductPriceSerializers, BulkDiscountedProductPriceSerializers, B2cCategoryImageSerializers, B2cCategoryListSerializers
 
 from retailer_backend.utils import SmallOffsetPagination
 
@@ -40,6 +40,24 @@ class CategoryListView(GenericAPIView):
         category = SmallOffsetPagination().paginate_queryset(self.queryset, request)
         serializer = self.serializer_class(category, many=True)
         msg = "" if category else "no category found"
+        return get_response(msg, serializer.data, True)
+
+
+class B2cCategoryListView(GenericAPIView):
+    """
+        Get Category List
+    """
+    authentication_classes = (authentication.TokenAuthentication,)
+    queryset = B2cCategory.objects.values('id', 'category_name', )
+    serializer_class = B2cCategoryListSerializers
+
+    def get(self, request):
+        search_text = self.request.GET.get('search_text')
+        if search_text:
+            self.queryset = category_search(self.queryset, search_text)
+        category = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        serializer = self.serializer_class(category, many=True)
+        msg = "" if category else "no b2c category found"
         return get_response(msg, serializer.data, True)
 
 
@@ -81,11 +99,13 @@ class BulkCreateUpdateAttributesView(GenericAPIView):
             h)Create Parent Product
             i)Create Brand
             j)Create Category
+            k)Create B2c Category
 
             g)Update Child Product
             h)Update Parent Product
             i)Update Brand
             j)Update Category
+            k)Update B2c Category
 
             After following operations, an entry will be created in 'BulkUploadForProductAttributes' Table
         """
@@ -203,6 +223,18 @@ class CategoryMultiImageUploadView(GenericAPIView):
         if serializer.is_valid():
             serializer.save(updated_by=request.user)
             info_logger.info("CategoryMultiImage upload successfully")
+            return get_response('', serializer.data)
+        return get_response(serializer_error(serializer), False)
+
+
+class B2cCategoryMultiImageUploadView(GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    serializer_class = B2cCategoryImageSerializers
+
+    def post(self, request):
+        serializer = self.serializer_class(data=request.data)
+        if serializer.is_valid():
+            serializer.save(updated_by=request.user)
             return get_response('', serializer.data)
         return get_response(serializer_error(serializer), False)
 
