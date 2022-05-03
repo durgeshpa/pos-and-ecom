@@ -7,8 +7,9 @@ from django.db import transaction
 @Durgesh patel
 """
 class ChoiceField(serializers.ChoiceField):
-
+    """custom choice field ..."""
     def to_representation(self, obj):
+        """return display selected option ..."""
         if obj == '' and self.allow_blank:
             return obj
         return {'id': obj, 'desc': self._choices[obj]}
@@ -111,6 +112,7 @@ class RewardConfigListShopSerializers(serializers.ModelSerializer):
         return obj.city_name
 
     def get_shop_owner(self, obj):
+        """reurn shop owner name"""
         return obj.shop_owner.first_name
 
 

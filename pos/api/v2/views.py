@@ -174,9 +174,9 @@ class RewardConfigShopListView(GenericAPIView):
 def create_or_update(id,data):
     data_list = data
     for key in data_list.keys():
-        key = FOFOConfigSubCategory.objects.get(name=key)
+        key_name = FOFOConfigSubCategory.objects.get(name=key)
         instance, created = FOFOConfigurations.objects.update_or_create(
-            shop=id, key_id=key.id, defaults={"value":data[key.name]})
+            shop=id, key_id=key_name.id, defaults={"value":data[key_name.name]})
         instance.save()
 
 class RewardConfigShopCrudView(GenericAPIView):
@@ -308,8 +308,8 @@ class BulkUpdate(GenericAPIView):
     queryset = FOFOConfigSubCategory.objects.all()
     serializer_class = ShopRewardConfigKeySerilizer
     def put(self, request):
+        """bulk update shop reward configration .."""
         data = request.data
-        print(data.get('shop_id'))
         queryset = Shop.objects.filter(id__in=data.get('shop_id'))
         for obj in queryset:
             try:
@@ -318,5 +318,6 @@ class BulkUpdate(GenericAPIView):
                 obj.updated_by=request.user
                 obj.save()
             except Exception as e:
+                error_logger.error(e)
                 return get_response(str(e), False)
         return get_response("updated successfully", "", True)
