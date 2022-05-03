@@ -22,6 +22,7 @@ from rest_framework import status
 from celery.task import task
 from django.http import JsonResponse
 from django.urls import reverse
+from categories.models import Category
 
 from retailer_to_sp.api.v1.views import pdf_generation
 from retailer_to_sp.common_model_functions import ShopCrateCommonFunctions
@@ -2119,3 +2120,11 @@ def generate_e_invoice():
     except Exception as e:
         info_logger.error(e)
         info_logger.error('generate_e_invoice| Failed')
+
+class ProductCategoryAutocomplete(autocomplete.Select2QuerySetView):
+    def get_queryset(self, *args, **kwargs):
+        qs = Category.objects.all()
+        if self.q:
+           return Category.objects.filter(category_name__icontains=self.q)
+            # qs = Product.objects.filter(product_name__icontains=self.q)
+        return qs
