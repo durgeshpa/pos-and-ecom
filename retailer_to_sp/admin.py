@@ -56,7 +56,7 @@ from .models import (Cart, CartProductMapping, Commercial, CustomerCare, Dispatc
                      ShipmentProductMapping, Trip, ShipmentRescheduling, Feedback, PickerDashboard, Invoice,
                      ResponseComment, BulkOrder, RoundAmount, OrderedProductBatch, DeliveryData, PickerPerformanceData,
                      ShipmentPackaging, ShipmentPackagingMapping, ShipmentNotAttempt, ShopCrate,
-                     PickerUserAssignmentLog, EInvoiceData, ENoteData, BuyerPurchaseData)
+                     PickerUserAssignmentLog, EInvoiceData, ENoteData, BuyerPurchaseData, SearchKeywordLog)
 from .resources import OrderResource
 from .signals import ReservedOrder
 from .utils import (GetPcsFromQty, add_cart_user, create_order_from_cart, create_order_data_excel,
@@ -2761,6 +2761,13 @@ class BuyerPurchaseDataAdmin(admin.ModelAdmin):
     list_display = ('seller_shop', 'buyer_shop', 'fin_year', 'total_purchase')
     list_filter = (SellerShopFilter, BuyerShopFilter, 'fin_year', BuyerTotalPurchaseFilter)
 
+class SearchKeywordLogAdmin(admin.ModelAdmin):
+    readonly_fields = ('search_term','search_frequency',)
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+
 admin.site.register(Cart, CartAdmin)
 admin.site.register(BulkOrder, BulkOrderAdmin)
 admin.site.register(Order, OrderAdmin)
@@ -2782,3 +2789,4 @@ admin.site.register(ShopCrate, ShopCrateAdmin)
 admin.site.register(ShipmentPackagingMapping, ShipmentPackagingMappingAdmin)
 admin.site.register(EInvoiceData, EInvoiceAdmin)
 admin.site.register(ENoteData, ENoteAdmin)
+admin.site.register(SearchKeywordLog, SearchKeywordLogAdmin)
