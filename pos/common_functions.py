@@ -738,9 +738,7 @@ class RewardCls(object):
         reward_obj.points_used += int(points)
         reward_obj.save()
         # Log transaction
-        RewardCls.create_reward_log(user, 'order_debit', tid, int(points) * -1, changed_by,
-                                    round(points / redeem_factor, 2))
-
+        RewardCls.create_reward_log(user,'order_debit', tid, int(points) * -1, changed_by, round(points / redeem_factor, 2),shop)
 
     @classmethod
     def adjust_points_on_return_cancel(cls, points_credit, user, tid, t_type_credit, t_type_debit, changed_by,
