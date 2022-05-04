@@ -311,14 +311,18 @@ def get_tcs_data(shipment_instance):
         BuyerPurchaseData.objects.update_or_create(seller_shop_id=shipment_instance.order.seller_shop_id,
                                                    buyer_shop_id=shipment_instance.order.buyer_shop_id,
                                                    fin_year=get_financial_year('%Y'),
-                                                   defaults={'total_purchase': total_purchase})
-        if total_purchase >= get_config('TCS_B2B_APPLICABLE_AMT', 5000000):
+                                                   defaults={'total_purchase': round(total_purchase, 2)})
+        # Get TCS Specific Config
+        tcs_config_params = get_config('TCS_CONFIG', {"TCS_B2B_APPLICABLE_AMT" : 5000000,
+                                                      "TCS_PERCENT_IF_PAN_AVAILABLE": 0.1,
+                                                      "TCS_PERCENT": 1})
+        if total_purchase >= tcs_config_params.get('TCS_B2B_APPLICABLE_AMT', 5000000):
             is_tcs_applicable = True
-            buyer_shop_document = ShopDocument.objects.filter(shop_name_id=shipment_instance.order.buyer_shop_id,
-                                                              shop_document_type=ShopDocument.GSTIN).last()
-            is_buyer_gst_available = True if buyer_shop_document else False
-            tcs_percent = 0.75 if is_buyer_gst_available else 1
-            tcs_amount = invoice_amount * tcs_percent / 100
+            is_buyer_pan_available = ShopDocument.objects.filter(shop_name_id=shipment_instance.order.buyer_shop_id,
+                                                              shop_document_type=ShopDocument.PAN).last()
+            tcs_percent = tcs_config_params.get('TCS_PERCENT_IF_PAN_AVAILABLE', 0.1) if is_buyer_pan_available else \
+                          tcs_config_params.get('TCS_PERCENT', 1)
+            tcs_amount = round(invoice_amount * tcs_percent / 100, 2)
     return is_tcs_applicable, tcs_amount, tcs_percent
 
 
