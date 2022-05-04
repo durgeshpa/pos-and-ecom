@@ -99,7 +99,8 @@ class RetailerProductCls(object):
         return product
 
     @classmethod
-    def update_retailer_product(cls, product_id, shop_id, name, mrp, selling_price, linked_product_id, sku_type, description,
+    def update_retailer_product(cls, product_id, shop_id, name, mrp, selling_price, linked_product_id, sku_type,
+                                description,
                                 product_ean_code, user, event_type, pack_type, measure_cat_id, event_id=None,
                                 product_status='active', offer_price=None, offer_sd=None, offer_ed=None,
                                 product_ref=None, online_enabled=True, online_price=None, purchase_pack_size=1,
@@ -115,21 +116,21 @@ class RetailerProductCls(object):
         product = RetailerProduct.objects.filter(id=product_id)
         old_product = deepcopy(product.last())
         product = product.update(name=name, linked_product_id=linked_product_id,
-                                mrp=mrp, sku_type=sku_type, selling_price=selling_price,
-                                offer_price=offer_price, offer_start_date=offer_sd,
-                                offer_end_date=offer_ed, description=description,
-                                product_ean_code=product_ean_code, status=product_status,
-                                product_ref=product_ref, product_pack_type=pack_type,
-                                measurement_category_id=measure_cat_id,
-                                online_enabled=online_enabled, online_price=online_price,
-                                purchase_pack_size=purchase_pack_size, is_deleted=is_visible,
-                                initial_purchase_value=initial_purchase_value, 
-                                modified_at=datetime.datetime.now())
+                                 mrp=mrp, sku_type=sku_type, selling_price=selling_price,
+                                 offer_price=offer_price, offer_start_date=offer_sd,
+                                 offer_end_date=offer_ed, description=description,
+                                 product_ean_code=product_ean_code, status=product_status,
+                                 product_ref=product_ref, product_pack_type=pack_type,
+                                 measurement_category_id=measure_cat_id,
+                                 online_enabled=online_enabled, online_price=online_price,
+                                 purchase_pack_size=purchase_pack_size, is_deleted=is_visible,
+                                 initial_purchase_value=initial_purchase_value,
+                                 modified_at=datetime.datetime.now())
         product = RetailerProduct.objects.filter(id=old_product.id).last()
         event_id = product.sku if not event_id else event_id
         ProductChangeLogs.product_update(product, old_product, user, event_type, event_id)
         return product
-    
+
     @classmethod
     def create_images(cls, product, images):
         if images:
@@ -175,19 +176,18 @@ class RetailerProductCls(object):
         product.save()
         # Change logs
         ProductChangeLogs.product_update(product, old_product, user, event_type, event_id)
-    
+
     @classmethod
     def link_product(cls, retailer_product_id, linked_product_id, user, event_type, event_id):
         product = RetailerProduct.objects.filter(id=retailer_product_id)
         old_product = deepcopy(product.last())
-        product = product.update(linked_product_id=linked_product_id, 
-                                 sku_type=2, 
+        product = product.update(linked_product_id=linked_product_id,
+                                 sku_type=2,
                                  modified_at=datetime.datetime.now())
         product = RetailerProduct.objects.filter(id=old_product.id).last()
         event_id = product.sku if not event_id else event_id
         ProductChangeLogs.product_link_update(product, old_product, user, event_type, event_id)
         return product
-        
 
     @classmethod
     def get_sku_type(cls, sku_type):
@@ -479,7 +479,6 @@ class PosCartCls(object):
                     }]
         return out_of_stock_items
 
-
     @classmethod
     def product_deleled(cls, cart_products, remove_deleted=0):
         deleted_items = []
@@ -500,9 +499,11 @@ class PosCartCls(object):
                 }]
         return deleted_items
 
+
 def get_back_date(day=0):
     """return back date accourding to given date"""
-    return datetime.datetime.today()-datetime.timedelta(days=day)
+    return datetime.datetime.today() - datetime.timedelta(days=day)
+
 
 class RewardCls(object):
 
@@ -536,9 +537,11 @@ class RewardCls(object):
 
         uses_reward_point = RewardLog.objects.filter(reward_user=cart.buyer,
                                                      transaction_type__in=['order_debit', 'order_return_credit',
-                                                                           'order_cancel_credit'], modified_at__gte=date).\
-        aggregate(Sum('points'))
-        this_month_reward_point_used = abs(uses_reward_point['points__sum']) if uses_reward_point['points__sum'] else None
+                                                                           'order_cancel_credit'],
+                                                     modified_at__gte=date). \
+            aggregate(Sum('points'))
+        this_month_reward_point_used = abs(uses_reward_point['points__sum']) if uses_reward_point[
+            'points__sum'] else None
         max_redeem_points = GlobalConfig.objects.filter(key='max_redeem_points').last()
         max_month_limit = GlobalConfig.objects.filter(key='max_month_limit _redeem_point').last()
 
@@ -678,7 +681,8 @@ class RewardCls(object):
         reward_obj.points_used += int(points)
         reward_obj.save()
         # Log transaction
-        RewardCls.create_reward_log(user, 'order_debit', tid, int(points) * -1, changed_by, round(points / redeem_factor, 2))
+        RewardCls.create_reward_log(user, 'order_debit', tid, int(points) * -1, changed_by,
+                                    round(points / redeem_factor, 2))
 
     @classmethod
     def adjust_points_on_return_cancel(cls, points_credit, user, tid, t_type_credit, t_type_debit, changed_by,
@@ -722,7 +726,7 @@ class RewardCls(object):
 
 
 def filter_pos_shop(user):
-    return Shop.objects.filter(shop_type__shop_type='f', status=True, approval_status=2, 
+    return Shop.objects.filter(shop_type__shop_type='f', status=True, approval_status=2,
                                pos_enabled=True, pos_shop__user=user, pos_shop__status=True)
 
 
@@ -815,12 +819,14 @@ def check_logged_in_user_is_superuser(view_func):
     """
     Decorator to validate request from Superuser
     """
+
     @wraps(view_func)
     def _wrapped_view_func(self, request, *args, **kwargs):
         user = request.user
         if user.is_superuser:
             return view_func(self, request, *args, **kwargs)
         return api_response("Logged In user does not have required permission to perform this action.")
+
     return _wrapped_view_func
 
 
@@ -828,12 +834,14 @@ def check_logged_in_user_has_fofo_config_perm(view_func):
     """
     Decorator to validate request from Has Fofo Config Perm
     """
+
     @wraps(view_func)
     def _wrapped_view_func(self, request, *args, **kwargs):
         user = request.user
         if user.has_perm('shops.has_fofo_config_operations'):
             return view_func(self, request, *args, **kwargs)
         return api_response("Logged In user does not have required permission to perform this action.")
+
     return _wrapped_view_func
 
 
@@ -857,7 +865,7 @@ class ProductChangeLogs(object):
             if str(old_value) != str(new_value):
                 product_changes[product_change_col[0]] = [old_value, new_value]
         ProductChangeLogs.create_product_log(instance, event_type, event_id, user, product_changes)
-    
+
     @classmethod
     def product_link_update(cls, product, old_instance, user, event_type, event_id):
         instance = RetailerProduct.objects.get(id=product.id)
@@ -911,8 +919,10 @@ class PosAddToCart(object):
             # Either existing product OR info for adding new product
             product = None
             new_product_info = dict()
+            create_new_product = False
             # Adding new product in catalogue and cart
             if not request.data.get('product_id'):
+                create_new_product = True
                 # User permission check
                 pos_shop_user_obj = validate_user_type_for_pos_shop(shop, request.user)
                 if 'error' in pos_shop_user_obj:
@@ -938,7 +948,8 @@ class PosAddToCart(object):
                         return api_response(f"GramFactory product not found for given {linked_pid}")
                     new_product_info['type'] = 2
 
-                new_product_info['name'], new_product_info['sp'], new_product_info['linked_pid'], new_product_info['mrp'] = \
+                new_product_info['name'], new_product_info['sp'], new_product_info['linked_pid'], new_product_info[
+                    'mrp'] = \
                     name, sp, linked_pid, mrp
                 new_product_info['ean'] = ean
                 product_pack_type = 'packet'
@@ -951,6 +962,10 @@ class PosAddToCart(object):
 
                 price_change = request.data.get('price_change')
                 mrp_change = int(self.request.data.get('mrp_change')) if self.request.data.get('mrp_change') else 0
+
+                new_product_info['name'], new_product_info['linked_pid'], new_product_info['ean'], \
+                new_product_info['type'] = product.name, product.linked_product.id if product.linked_product else None, \
+                      product.product_ean_code, product.sku_type
 
                 # Check If MRP and Selling price Change
                 if price_change in [1, 2] and mrp_change == 1:
@@ -971,6 +986,11 @@ class PosAddToCart(object):
                     if Decimal(selling_price) > Decimal(product_mrp):
                         return api_response("Selling Price should be equal to OR less than MRP")
 
+                    if product_mrp !=product.product_mrp:
+                        create_new_product = True
+                        new_product_info['sp'], new_product_info['mrp'] = request.data.get('selling_price'), \
+                                                                          self.request.data.get('product_mrp')
+
                 # Check If MRP Change
                 elif mrp_change == 1:
                     # User permission check
@@ -985,6 +1005,11 @@ class PosAddToCart(object):
                         return api_response("Please provide mrp to change product mrp")
                     if product.selling_price and product.selling_price > product_mrp:
                         return api_response("MRP should be equal to OR greater than Selling Price")
+
+                    if product_mrp != product.product_mrp:
+                        create_new_product = True
+                        new_product_info['sp'], new_product_info['mrp'] = product.selling_price,\
+                                                                          self.request.data.get('product_mrp')
 
                 # Check if selling price is less than equal to mrp if price change
                 elif price_change in [1, 2]:
@@ -1022,7 +1047,8 @@ class PosAddToCart(object):
                     if product.status != 'active':
                         return api_response("The discounted product is de-activated!")
                     elif discounted_stock < Decimal(qty):
-                        return api_response("The discounted product has only {} quantity in stock!".format(discounted_stock))
+                        return api_response(
+                            "The discounted product has only {} quantity in stock!".format(discounted_stock))
 
                 product_pack_type = product.product_pack_type
 
@@ -1037,6 +1063,7 @@ class PosAddToCart(object):
             # Return with objects
             kwargs['product'] = product
             kwargs['new_product_info'] = new_product_info
+            kwargs['create_new_product'] = create_new_product
             kwargs['quantity'] = qty
             kwargs['cart'] = cart
             return view_func(self, request, *args, **kwargs)
@@ -1165,7 +1192,7 @@ def check_fofo_shop(view_func):
         if not shop.online_inventory_enabled:
             return api_response("Franchise Shop Is Not Online Enabled!")
 
-        if shop.shop_type.shop_sub_type.retailer_type_name !='fofo':
+        if shop.shop_type.shop_sub_type.retailer_type_name != 'fofo':
             return api_response("Shop Type Not Franchise - fofo")
 
         kwargs['shop'] = shop
