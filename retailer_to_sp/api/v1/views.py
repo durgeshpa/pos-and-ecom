@@ -443,7 +443,9 @@ class SearchProducts(APIView):
                 query_string = {"query": keyword + "*", "fields": ["ean"]}
             else:
                 # Insert into DB asynchronously
-                insert_search_term.delay(keyword)
+                offset = int(self.request.GET.get('offset', 0))
+                if offset == 0:
+                    insert_search_term.delay(keyword)
                 tokens = keyword.split()
                 keyword = ""
                 for word in tokens:
