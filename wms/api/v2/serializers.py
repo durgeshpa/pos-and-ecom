@@ -1300,10 +1300,20 @@ class BinShiftPostSerializer(serializers.ModelSerializer):
                                                   f"Available Quantity {bin_inv.quantity+bin_inv.to_be_picked_qty}")
         else:
             raise serializers.ValidationError("Invalid s_bin or batch_id")
-        if BinInventory.objects.filter(~Q(batch_id=self.initial_data['batch_id']),
-                                       Q(quantity__gt=0)|Q(to_be_picked_qty__gt=0), bin=t_bin, sku=sku).exists():
-            raise serializers.ValidationError("Invalid Movement | "
-                                              "Target bin already has same product with different batch ID")
+
+        product_id = [sku.id]
+        if sku.product_type == Product.PRODUCT_TYPE_CHOICE.NORMAL:
+            if sku.discounted_sku:
+                product_id.append(sku.discounted_sku.id)
+        else:
+            if sku.product_ref:
+                product_id.append(sku.product_ref.id)
+
+        if BinInventory.objects.filter(
+                ~Q(batch_id=self.initial_data['batch_id']), Q(quantity__gt=0) | Q(to_be_picked_qty__gt=0),
+                bin=t_bin, sku__id__in=product_id).exists():
+            raise serializers.ValidationError(
+                "Invalid Movement | Target bin already has same product with different batch ID")
         return data
 
     @transaction.atomic
