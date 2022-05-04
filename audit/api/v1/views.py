@@ -548,7 +548,6 @@ class AuditSKUsByBinList(APIView):
             msg = {'is_success': False, 'message': 'Invalid Bin', 'data': None}
             return Response(msg, status=status.HTTP_200_OK)
         bin_products = BinInventory.objects.filter(Q(quantity__gt=0) | Q(to_be_picked_qty__gt=0),
-                                                   sku__product_type=Product.PRODUCT_TYPE_CHOICE.NORMAL,
                                                    warehouse=audit.warehouse, bin=bin).only('sku', 'batch_id')\
                                            .values('sku_id', 'batch_id', 'sku__product_name', 'sku__product_mrp')\
                                            .distinct('sku_id')
