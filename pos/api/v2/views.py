@@ -150,7 +150,8 @@ class RewardConfigShopListView(GenericAPIView):
         shop = self.request.GET.get('shop_id')
         '''search using shop_name and parent_shop based on criteria that matches'''
         if search_text:
-            self.queryset = shop_search(self.queryset, search_text)
+            self.queryset = self.queryset.filter(Q(shop_name__icontains=search_text) |
+                               Q(retiler_mapping__parent__shop_name__icontains=search_text))
 
         '''Filters using shop_type, shop_owner, pin_code, city, status, approval_status'''
         if shop:

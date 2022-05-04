@@ -833,7 +833,8 @@ class FOFOConfigurations(models.Model):
                 self.value = "True"
             if self.value == "FALSE" or self.value == "False" or self.value == "false":
                 self.value = "False"
-            self.value = eval(self.key.type)(self.value)
+            if self.value:
+                self.value = eval(self.key.type)(self.value)
         except Exception as e:
             raise ValidationError('value {} can only be {} type'.format(self.value, self.key.get_type_display()))
         super(FOFOConfigurations, self).save(*args, **kwargs)
