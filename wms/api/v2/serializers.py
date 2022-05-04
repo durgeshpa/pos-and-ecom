@@ -25,7 +25,7 @@ from shops.models import Shop, ShopUserMapping
 
 from wms.common_functions import ZoneCommonFunction, WarehouseAssortmentCommonFunction, PutawayCommonFunctions, \
     CommonBinInventoryFunctions, CommonWarehouseInventoryFunctions, get_sku_from_batch, post_picking_order_update, \
-    QCDeskCommonFunction
+    QCDeskCommonFunction, get_sku_from_batch_and_bin
 from global_config.views import get_config
 from wms.models import In, Out, InventoryType, Zone, WarehouseAssortment, Bin, BIN_TYPE_CHOICES, \
     ZonePutawayUserAssignmentMapping, Putaway, PutawayBinInventory, BinInventory, InventoryState, \
@@ -1290,17 +1290,18 @@ class BinShiftPostSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Invalid Inventory Type")
         data['inventory_type'] = inventory_type
 
+        sku = get_sku_from_batch_and_bin(self.initial_data['batch_id'], s_bin.bin_id)
+
         bin_inv = BinInventory.objects.filter(bin=s_bin, batch_id=self.initial_data['batch_id'],
-                                              inventory_type=inventory_type).last()
+                                              sku=sku, inventory_type=inventory_type).last()
         if bin_inv:
             if bin_inv.quantity+bin_inv.to_be_picked_qty < self.initial_data['qty']:
                 raise serializers.ValidationError(f"Invalid Quantity to move | "
                                                   f"Available Quantity {bin_inv.quantity+bin_inv.to_be_picked_qty}")
         else:
             raise serializers.ValidationError("Invalid s_bin or batch_id")
-        sku = get_sku_from_batch(self.initial_data['batch_id'])
         if BinInventory.objects.filter(~Q(batch_id=self.initial_data['batch_id']),
-                                    Q(quantity__gt=0)|Q(to_be_picked_qty__gt=0), bin=t_bin, sku=sku).exists():
+                                       Q(quantity__gt=0)|Q(to_be_picked_qty__gt=0), bin=t_bin, sku=sku).exists():
             raise serializers.ValidationError("Invalid Movement | "
                                               "Target bin already has same product with different batch ID")
         return data
