@@ -309,7 +309,7 @@ class BulkUpdate(GenericAPIView):
     def put(self, request):
         """bulk update shop reward configration .."""
         data = request.data
-        queryset = Shop.objects.filter(id__in=data.get('shop_id'))
+        queryset = Shop.objects.filter(id__in=data.get('id'))
         for obj in queryset:
             try:
                 create_or_update(obj, data.get('shop_config'))
