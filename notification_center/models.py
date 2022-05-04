@@ -17,8 +17,12 @@ Shop = 'shops.shop'
 
 
 class FCMDevice(AbstractDevice):
-
+    APP_TYPE_CHOICE = (
+        ('pos', 'Pos App'),
+        ('ecom', 'Ecom App')
+    )
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='user_fcm')
+    app_type = models.CharField(choices=APP_TYPE_CHOICE, max_length=20, default='pos')
     is_active = models.BooleanField(verbose_name=("Is active?"), default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now_add=True)

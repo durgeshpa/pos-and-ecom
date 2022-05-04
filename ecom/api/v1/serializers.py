@@ -548,6 +548,7 @@ class TagProductSerializer(serializers.ModelSerializer):
 class EcomShipmentProductSerializer(serializers.Serializer):
     product_id = serializers.IntegerField(min_value=1)
     picked_qty = serializers.IntegerField(min_value=0)
+    online_disabled_status = serializers.ChoiceField(choices=RetailerProduct.ONLINE_DISABLED_CHOICES, allow_blank=True)
 
 
 class EcomShipmentSerializer(serializers.Serializer):
@@ -576,6 +577,8 @@ class EcomShipmentSerializer(serializers.Serializer):
                 raise serializers.ValidationError("{} Invalid product info".format(key))
             if item['picked_qty'] > order_products[key][1]:
                 raise serializers.ValidationError("Picked quantity should be less than ordered quantity")
+            if item['picked_qty'] < order_products[key][1] and not 'online_disabled_status' in item:
+                raise serializers.ValidationError("Picked quantity is less than ordered quantity please provide reason")
 
             given_products += [key]
             item['selling_price'] = order_products[key][2]
