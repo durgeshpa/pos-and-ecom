@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import re
 import logging
 import firebase_admin
 from firebase_admin import messaging
@@ -9,7 +10,6 @@ from django.db.models import Q
 from celery.task import task
 from celery.utils.log import get_task_logger
 from global_config.models import GlobalConfig
-from notification_center.fcm_notification import Device
 from shops.models import (Shop,
                           DayBeatPlanning,
                           ExecutiveFeedback, ShopFcmTopic)
@@ -72,7 +72,7 @@ def create_topics_on_fcm(shops=None):
     except Exception as err:
         f_app = firebase_admin.get_app()
     if not shops:
-        shops = Shop.objects.filter(status=True)
+        shops = Shop.objects.filter(shop_type__shop_type='f', status=True, approval_status=2, pos_enabled=True)
     for shop in shops:
         days_limit = int(get_config('topic_order_day_limit', 90))
         start_point = datetime.today() - timedelta(days=days_limit)
@@ -80,9 +80,11 @@ def create_topics_on_fcm(shops=None):
             | Q(user__user_location__shop=shop), user__rt_buyer_order__created_at__gte=start_point)\
                 .filter(is_active=True).distinct('reg_id').values_list('reg_id', flat=True))
         old_devices = shop.fcm_topics.values_list('registration_ids', flat=True)
-        devices = [device for device in devices if device not in old_devices]
+        if old_devices:
+            devices = [device for device in devices if device not in old_devices[0]]
         if devices:
-            topic_name = f"{shop.shop_name.split(' ')[0]}_{shop.id}"
+            shop_name = re.sub('\W+','', shop.shop_name.split(' ')[0])
+            topic_name = f"{shop_name}_{shop.id}"
             response = messaging.subscribe_to_topic(devices, topic_name)
             cron_logger.info(f"{response.success_count} devices subscribed for shop {shop}")
             cron_logger.info(f"{response.failure_count} devices not subscribed due to error for shop {shop}")
@@ -91,7 +93,7 @@ def create_topics_on_fcm(shops=None):
             print([f"{err.index} - {err.reason}" for err in response.errors])
             try:
                 shop_topic = ShopFcmTopic.objects.get(shop=shop)
-                shop_topic.registration_ids.append(devices)
+                shop_topic.registration_ids.extend(devices)
                 shop_topic.save()
             except ShopFcmTopic.DoesNotExist:
                 shop_topic = ShopFcmTopic(shop=shop, topic_name=topic_name, registration_ids=devices)
@@ -105,7 +107,7 @@ def remove_stale_users():
         f_app = firebase_admin.initialize_app()
     except Exception as err:
         f_app = firebase_admin.get_app()
-    shops = Shop.objects.filter(status=True)
+    shops = Shop.objects.filter(shop_type__shop_type='f', status=True, approval_status=2, pos_enabled=True)
     for shop in shops:
         stale_limit = int(get_config('topic_order_day_limit', 90))
         dead_point = datetime.today() - timedelta(days=stale_limit)
@@ -121,7 +123,8 @@ def remove_stale_users():
         )
         cron_logger.info(f"{len(unsubscribed_devices)} devices unsubscribed for shop {shop}")
         if unsubscribed_devices:
-            topic_name = f"{shop.shop_name.split(' ')[0].lower()}_{shop.id}"
+            shop_name = re.sub('\W+','', shop.shop_name.split(' ')[0])
+            topic_name = f"{shop_name}_{shop.id}"
             response = messaging.unsubscribe_from_topic(unsubscribed_devices, topic_name)
             cron_logger.info(f"{response.success_count} devices unsubscribed for shop {shop}")
             cron_logger.info(f"{response.failure_count} devices not unsubscribed due to error for shop {shop}")
