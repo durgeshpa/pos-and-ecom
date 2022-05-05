@@ -78,7 +78,7 @@ def create_topics_on_fcm(shops=None):
         start_point = datetime.today() - timedelta(days=days_limit)
         devices = list(Device.objects.filter(Q(user__rt_buyer_order__seller_shop=shop) \
             | Q(user__user_location__shop=shop), user__rt_buyer_order__created_at__gte=start_point)\
-                .filter(is_active=True).distinct('reg_id').values_list('reg_id', flat=True))
+                .filter(is_active=True, app_type='ecom').distinct('reg_id').values_list('reg_id', flat=True))
         old_devices = shop.fcm_topics.values_list('registration_ids', flat=True)
         if old_devices:
             devices = [device for device in devices if device not in old_devices[0]]
@@ -114,12 +114,13 @@ def remove_stale_users():
         days_limit = int(get_config('topic_order_day_limit', 90))
         start_point = datetime.today() - timedelta(days=days_limit)
         old_devices = Device.objects.filter(user__rt_buyer_order__seller_shop=shop,
-                                            user__rt_buyer_order__created_at__lte=dead_point)
+                                            user__rt_buyer_order__created_at__lte=dead_point, 
+                                            app_type='ecom')
         unsubscribed_devices = list(
             Device.objects.filter(id__in=Subquery(old_devices.values('id')))\
                 .exclude(user__rt_buyer_order__seller_shop=shop,
                         user__rt_buyer_order__created_at__gte=start_point)\
-                            .filter(is_active=True).distinct('reg_id').values_list('reg_id', flat=True)
+                            .filter(is_active=True, app_type='ecom').distinct('reg_id').values_list('reg_id', flat=True)
         )
         cron_logger.info(f"{len(unsubscribed_devices)} devices unsubscribed for shop {shop}")
         if unsubscribed_devices:
