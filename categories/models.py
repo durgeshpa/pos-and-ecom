@@ -36,6 +36,10 @@ class Category(BaseTimestampUserStatusModel):
     """
     We define Category and Sub Category in this model
     """
+    CATEGORY_TYPE_CHOICES = (
+        ('grocery', 'Grocery'),
+        ('superstore', 'SuperStore')
+    )
     category_name = models.CharField(max_length=255, unique=True)
     category_slug = models.SlugField(unique=True)
     category_desc = models.TextField(null=True, blank=True)
@@ -44,7 +48,7 @@ class Category(BaseTimestampUserStatusModel):
     category_sku_part = models.CharField(max_length=3, unique=True, validators=[CapitalAlphabets],
                                          help_text="Please enter three characters for SKU")
     category_image = models.FileField(upload_to='category_img_file', null=True, blank=True)
-    b2c_status = models.BooleanField(default=True)
+    category_type = models.CharField(max_length=10, default='grocery', choices=CATEGORY_TYPE_CHOICES)
     updated_by = models.ForeignKey(
         get_user_model(), null=True,
         related_name='category_updated_by',
@@ -70,6 +74,8 @@ class Category(BaseTimestampUserStatusModel):
     def clean(self, *args, **kwargs):
         if self.category_parent == self:
             raise ValidationError(_('Category and Category Parent cannot be same'))
+        elif self.category_parent and self.category_parent.category_type != self.category_type:
+            raise ValidationError({'category_parent':_('Category and Category Parent should be of same type.')})
         else:
             super(Category, self).clean(*args, **kwargs)
 

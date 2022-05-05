@@ -280,7 +280,7 @@ class CategoryCrudSerializers(serializers.ModelSerializer):
     class Meta:
         model = Category
         fields = ('id', 'category_name', 'category_desc', 'category_slug', 'category_sku_part', 'category_image',
-                  'updated_by', 'status', 'category_parent', 'category_log', 'cat_parent')
+                  'updated_by', 'status', 'category_parent', 'category_log', 'cat_parent', 'category_type')
 
     def validate(self, data):
         """ category_slug validation."""
@@ -308,6 +308,9 @@ class CategoryCrudSerializers(serializers.ModelSerializer):
             cat_obj = validate_category_slug(self.initial_data['category_slug'], cat_id)
             if cat_obj is not None and 'error' in cat_obj:
                 raise serializers.ValidationError(cat_obj['error'])
+        
+        if data.get('category_parent') and data.get('category_parent').category_type != self.initial_data.get('category_type'):
+            raise serializers.ValidationError('Category Parent and Category should have same type.')
 
         return data
 
