@@ -1874,7 +1874,7 @@ class CartUserView(APIView):
         cart.save()
 
         # Reset redeem points on cart
-        RewardCls.checkout_redeem_points(cart, 0)
+        RewardCls.checkout_redeem_points(cart, 0, shop=kwargs['shop'])
 
         # Serialize
         data = PosUserSerializer(customer).data
@@ -1909,7 +1909,7 @@ class CartUserView(APIView):
         cart.save()
 
         # Reset redeem points on cart
-        RewardCls.checkout_redeem_points(cart, 0)
+        RewardCls.checkout_redeem_points(cart, 0, shop=kwargs['shop'])
 
         # Serialize
         data = PosUserSerializer(customer).data
@@ -2132,7 +2132,7 @@ class CartCheckout(APIView):
             redeem_points = self.request.GET.get('redeem_points')
             redeem_points = redeem_points if redeem_points else cart.redeem_points
             # Refresh redeem reward
-            RewardCls.checkout_redeem_points(cart, int(redeem_points))
+            RewardCls.checkout_redeem_points(cart, int(redeem_points), shop=kwargs['shop'])
         cart_products = cart.rt_cart_list.all()
         cart_value = 0
         for product_map in cart_products:
@@ -2157,7 +2157,7 @@ class CartCheckout(APIView):
                                     cart_status='active')
         except ObjectDoesNotExist:
             return api_response("No items added in cart yet")
-        RewardCls.checkout_redeem_points(cart, 0, self.request.GET.get('use_rewards', 1))
+        RewardCls.checkout_redeem_points(cart, 0,shop=kwargs['shop'], app_type="ECOM", use_all=self.request.GET.get('use_rewards', 1))
         cart_products = cart.rt_cart_list.all()
         cart_value = 0
         for product_map in cart_products:
@@ -3383,7 +3383,7 @@ class OrderCentral(APIView):
             # Update Cart To Ordered
             self.update_cart_basic(cart)
             # Refresh redeem reward
-            RewardCls.checkout_redeem_points(cart, cart.redeem_points)
+            RewardCls.checkout_redeem_points(cart, cart.redeem_points, shop=kwargs['shop'])
             order = self.create_basic_order(cart, shop)
             self.auto_process_order(order, payments, 'pos', transaction_id)
             obj = Order.objects.get(id=order.id)
