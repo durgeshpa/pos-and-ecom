@@ -329,7 +329,6 @@ def validate_bulk_data_format(request):
         data = json.loads(request.data["data"])
     except Exception as e:
         return {'error': "Invalid Data Format", }
-
     if request.FILES.getlist('file'):
         data['file'] = request.FILES['file']
 
@@ -395,7 +394,7 @@ def read_file(csv_file, upload_master_data, category, b2c_category):
         required_header_list = ["brand_id", "name", "brand_slug", "brand_description", "brand_code",
                                 "brand_parent_id", "brand_parent", 'status']
     if upload_master_data == "category_update":
-        required_header_list = ["b2b_category_id", "name", "category_slug", "category_desc", "category_sku_part",
+        required_header_list = ["b2b_category_id", "name", "category_slug", "category_desc", "category_sku_part", "category_type",
                                 "b2b_parent_category_id", "b2b_parent_category_name", 'status']
     if upload_master_data == "b2c_category_update":
         required_header_list = ["b2c_category_id", "name", "category_slug", "category_desc", "category_sku_part",
@@ -416,7 +415,7 @@ def read_file(csv_file, upload_master_data, category, b2c_category):
         required_header_list = ['name', 'brand_slug', 'brand_parent', 'brand_parent_id', 'brand_description',
                                 'brand_code', 'status']
     if upload_master_data == "create_category":
-        required_header_list = ['name', 'category_slug', 'category_desc', 'b2b_category_parent', 'category_sku_part',
+        required_header_list = ['name', 'category_slug', 'category_desc', 'b2b_category_parent', 'category_sku_part', "category_type",
                                 'status', 'b2b_parent_category_id']
     if upload_master_data == "create_b2c_category":
         required_header_list = ['name', 'category_slug', 'category_desc', 'b2c_category_parent', 'category_sku_part',
@@ -1203,6 +1202,7 @@ def validate_row(uploaded_data_list, header_list, category, b2c_category):
                 if not categories.filter(category_name__iexact=row['category_parent'].strip()).exists():
                     raise ValidationError(f"Row {row_num} | {row['category_parent']} | "
                                           f"'category_parent' doesn't exist in the system ")
+                    
 
             if 'b2b_category_parent' in header_list and 'b2b_category_parent' in row.keys() and \
                     row['b2b_category_parent'] != '':
@@ -1242,6 +1242,11 @@ def validate_row(uploaded_data_list, header_list, category, b2c_category):
                 if not categories.filter(id=row['b2b_parent_category_id']).exists():
                     raise ValidationError(f"Row {row_num} | {row['b2b_parent_category_id']} | "
                                           f"'b2b_parent_category_id' doesn't exist in the system ")
+            
+            if 'category_type' in header_list and 'category_type' in row.keys():
+                category_parent = categories.filter(id=row['b2b_parent_category_id']).last()
+                if category_parent and category_parent.category_type != row['category_type']:
+                    raise ValidationError(f"Row {row_num} | Category Parent Type and Category type should be same.")
 
             if 'b2c_parent_category_id' in header_list and 'b2c_parent_category_id' in row.keys() and \
                     row['b2c_parent_category_id'] != '':
