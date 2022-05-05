@@ -1471,12 +1471,15 @@ class CartCentral(GenericAPIView):
             For cart type 'basic'
         """
         with transaction.atomic():
-            product, new_product_info, qty, cart, shop, create_new_product = kwargs['product'], kwargs['new_product_info'], kwargs[
+            product, new_product_info, qty, cart, shop, create_new_product = kwargs['product'], \
+                                                                             kwargs['new_product_info'], kwargs[
                 'quantity'], kwargs['cart'], kwargs['shop'], kwargs['create_new_product']
             # Update or create cart for shop
             cart = self.post_update_basic_cart(shop, cart)
             # Create product if not existing
             if create_new_product:
+                if product is not None:
+                    delete_cart_mapping(cart, product, 'basic')
                 product = self.pos_cart_product_create(shop.id, new_product_info, cart.id)
             # Check if product has to be removed
             if not qty > 0:
