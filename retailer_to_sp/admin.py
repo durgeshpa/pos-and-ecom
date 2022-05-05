@@ -428,7 +428,7 @@ class CartProductMappingAdmin(admin.TabularInline):
     def _qty(self, obj):
         return int(obj.qty)
     def _product_mrp(self,obj):
-        return obj.cart_product.product_mrp if obj.cart_product else obj.retailer_product.mrp
+        return obj.cart_product.product_mrp 
 
     def _no_of_pieces(self, obj):
         return int(obj.no_of_pieces)
@@ -513,7 +513,7 @@ class CategoryFilter(AutocompleteFilter):
             day = obj.value if obj else 2
             time_threshold = datetime.datetime.now() - datetime.timedelta(days=day)
             queryset = queryset.filter(created_at__gt=time_threshold)
-            cart_list = self.category_filter(querysets, self.value())
+            cart_list = self.category_filter(queryset, self.value())
             self.rendered_widget = str(self.rendered_widget).split("\n")[0]
             id  = self.used_parameters.get('buyer__id__exact', None)
             if id :
@@ -688,7 +688,15 @@ class ShopFilter(AutocompleteFilter):
             time_threshold = datetime.datetime.now() - datetime.timedelta(days=day)
             queryset = queryset.filter(created_at__gt=time_threshold)
             cart_list = category_filter(queryset, self.value())
-            return queryset.filter(cart__in=cart_list)
+            queryset = queryset.filter(cart__in=cart_list)
+            self.rendered_widget = str(self.rendered_widget).split("\n")[0]
+            id  = self.used_parameters.get('cart__id__exact', None)
+            if id :
+                obj = Category.objects.get(id=id)
+                self.rendered_widget +='\n<option value = "{}" selected> {}</option >'.format(obj.id,obj)
+            self.rendered_widget+=('\n<option value = "" >-----------</option>\n</select>')
+            self.rendered_widget = SafeText("".join(self.rendered_widget))
+
 
         # else:
         return queryset
