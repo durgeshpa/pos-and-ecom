@@ -279,7 +279,7 @@ class CommonBinInventoryFunctions(object):
         source_bin = data['s_bin']
         target_bin = data['t_bin']
         batch_id = data['batch_id']
-        sku = get_sku_from_batch(batch_id)
+        sku = get_sku_from_batch_and_bin(batch_id, source_bin)
         qty = data['qty']
         inventory_type = data['inventory_type']
         tr_type = 'bin_shift'
@@ -288,13 +288,11 @@ class CommonBinInventoryFunctions(object):
             with transaction.atomic():
                 source_bin_inv_object = BinInventory.objects.select_for_update().filter(
                     warehouse=warehouse, bin_id=source_bin, batch_id=batch_id,
-                    inventory_type=inventory_type,
-                    sku__product_type=Product.PRODUCT_TYPE_CHOICE.NORMAL).last()
+                    inventory_type=inventory_type, sku=sku).last()
 
                 target_bin_inv_object = BinInventory.objects.select_for_update().filter(
                     warehouse=warehouse, bin_id=target_bin, batch_id=batch_id,
-                    inventory_type=inventory_type,
-                    sku__product_type=Product.PRODUCT_TYPE_CHOICE.NORMAL).last()
+                    inventory_type=inventory_type, sku=sku).last()
                 if target_bin_inv_object is None:
                     target_bin_inv_object = cls.create_bin_inventory(warehouse, target_bin, sku, batch_id,
                                                                      inventory_type, 0, True)
@@ -2493,6 +2491,22 @@ def post_picking_order_update(picker_dashboard_instance):
 
 def get_sku_from_batch(batch_id):
     sku = None
+    if not sku:
+        sku_id = batch_id[:-6]
+        sku = Product.objects.filter(product_sku=sku_id).last()
+    return sku
+
+
+def get_sku_from_batch_and_bin(batch_id, bin_id):
+    sku = None
+    bin_inventory = BinInventory.objects.filter(batch_id=batch_id, bin__bin_id=bin_id)
+    if bin_inventory:
+        dis_bin_inventory = bin_inventory.filter(sku__product_type=Product.PRODUCT_TYPE_CHOICE.DISCOUNTED).last()
+        sku = dis_bin_inventory.sku if dis_bin_inventory else bin_inventory.last().sku
+    else:
+        in_entry = In.objects.filter(batch_id=batch_id).last()
+        if in_entry:
+            sku = in_entry.sku
     if not sku:
         sku_id = batch_id[:-6]
         sku = Product.objects.filter(product_sku=sku_id).last()
