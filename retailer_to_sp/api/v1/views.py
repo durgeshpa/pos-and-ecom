@@ -5912,7 +5912,7 @@ def pdf_generation(request, ordered_product):
 
         total_amount = ordered_product.invoice.invoice_sub_total
         tcs_rate = ordered_product.invoice.tcs_percent
-        tcs_tax = round(ordered_product.invoice.tcs_amount, 2)
+        tcs_tax = ordered_product.invoice.tcs_amount
         total_tax_amount = ordered_product.sum_amount_tax()
         try:
             product_special_cess = round(m.total_product_cess_amount)
