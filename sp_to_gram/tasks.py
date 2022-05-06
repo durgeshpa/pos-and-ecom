@@ -176,12 +176,12 @@ def get_warehouse_stock(shop_id=None, product=None, inventory_type=None):
 							  product.parent_product.parent_product_pro_category.filter(status=True)]
 		visible=False
 		if product_dict:
-			warehouse_visible=WarehouseInventory.objects.filter(warehouse=shop, sku=product, inventory_state=InventoryState.objects.filter(
-                inventory_state='total_available').last(), inventory_type=type_normal).last()
+			warehouse_visible = WarehouseInventory.objects.filter(warehouse=shop, sku=product, inventory_state=InventoryState.objects.filter(
+				inventory_state='total_available').last(), inventory_type=type_normal).last()
 			if warehouse_visible:
 				visible = warehouse_visible.visible
 		else:
-			visible=True
+			visible = True
 		ean = product.product_ean_code
 		if ean and type(ean) == str:
 			ean = ean.split('_')[0]
