@@ -7,8 +7,6 @@ from pos.models import RetailerProduct
 from retailer_backend.settings import ELASTICSEARCH_PREFIX as es_prefix, es
 
 
-
-
 class BasicCartOffers(object):
 
     @classmethod
