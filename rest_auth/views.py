@@ -116,7 +116,7 @@ class LoginView(GenericAPIView):
         if app_type == '3':
             if user.is_ecom_user is False:
                 return Response({'is_success': False, 'message': ['You are not authorized please signup first !'],
-                                 'response_data': None}, status=status.HTTP_200_OK)
+                                 'response_data': None}, status=status.HTTP_400_BAD_REQUEST)
         response_serializer_class = self.get_response_serializer()
         response_serializer = response_serializer_class(instance={'user': user, 'token': token,
                                                                   'shop_object': shop_object, 'action': 1})
