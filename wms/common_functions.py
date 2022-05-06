@@ -620,7 +620,6 @@ def get_stock(shop, inventory_type, product_id_list=None):
                                                                           'to_be_picked', 'total_available'])
     query_set = WarehouseInventory.objects.filter(warehouse=shop,
                                                   inventory_type=inventory_type,
-                                                  quantity__gt=0,
                                                   inventory_state__in=inventory_states)
     if product_id_list is not None:
         if len(product_id_list) > 0:
