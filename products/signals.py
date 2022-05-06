@@ -129,15 +129,9 @@ def update_product_elasticsearch(sender, instance=None, created=False, **kwargs)
 def update_parent_product_elasticsearch(sender, instance=None, created=False, **kwargs):
     info_logger.info("Updating ES of child products of parent {}".format(instance))
     child_skus = Product.objects.filter(parent_product=instance)
-    if instance.product_type == 'b2c':
+    if instance.product_type == 'grocery':
         child_categories = [str(c.category) for c in instance.parent_product_pro_b2c_category.filter(status=True)]
-    elif instance.product_type == 'b2b':
-        child_categories = [str(c.category) for c in instance.parent_product_pro_category.filter(status=True)]
-    elif instance.product_type == 'both':
-        child_categories = [str(c.category) for c in instance.parent_product_pro_b2c_category.filter(status=True)]
-        child_categories += [str(c.category) for c in instance.parent_product_pro_category.filter(status=True)]
-    else:
-        child_categories = []
+    child_categories += [str(c.category) for c in instance.parent_product_pro_category.filter(status=True)]
     for child in child_skus:
         product_images = []
         if child.use_parent_image:

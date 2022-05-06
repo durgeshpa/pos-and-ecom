@@ -874,7 +874,7 @@ def check_mandatory_columns(uploaded_data_list, header_list, upload_master_data,
             if 'product_type' not in row.keys() or row['product_type'] == '':
                 raise ValidationError(f"Row {row_num} | 'product_type' can't be empty")
 
-            elif row['product_type'].lower() !='both':
+            elif row['product_type'].lower() !='grocery' and row['product_type'].lower() !='superstore':
                 raise ValidationError(f"Row {row_num} | {row['product_type']} | 'Product Type can only "
                                       f" 'both' ")
 
@@ -1470,7 +1470,7 @@ def validate_row(uploaded_data_list, header_list, category, b2c_category):
                     raise ValidationError(f"Row {row_num} | 'ptr_percent' is invalid")
 
             if 'product_type' in header_list and 'product_type' in row.keys() and row['product_type'] != '':
-                product_type_list = ['b2b', 'b2c', 'both']
+                product_type_list = ['grocery', 'superstore', 'both']
                 if row['product_type'].lower() not in product_type_list:
                     raise ValidationError(f"Row {row_num} | {row['product_type']} | 'Product Type can either be "
                                           f"'b2b', 'b2c' or 'both'!")

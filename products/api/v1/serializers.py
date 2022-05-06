@@ -302,19 +302,11 @@ class ParentProductSerializers(serializers.ModelSerializer):
         data['product_hsn'] = product_hsn_val['product_hsn']
         b2b_category_val = None
         b2c_category_val = None
-        if self.initial_data.get('product_type') == 'b2b':
+        if 'parent_product_pro_category' in self.initial_data and self.initial_data['parent_product_pro_category']:
             b2b_category_val = get_validate_categories(self.initial_data['parent_product_pro_category'])
             if 'error' in b2b_category_val:
                 raise serializers.ValidationError(_(b2b_category_val["error"]))
-        elif self.initial_data.get('product_type') == 'b2c':
-            b2c_category_val = get_validate_categories(self.initial_data['parent_product_pro_b2c_category'], True)
-            if 'error' in b2c_category_val:
-                raise serializers.ValidationError(_(b2c_category_val["error"]))
-        else:
-            if 'parent_product_pro_category' in self.initial_data and self.initial_data['parent_product_pro_category']:
-                b2b_category_val = get_validate_categories(self.initial_data['parent_product_pro_category'])
-                if 'error' in b2b_category_val:
-                    raise serializers.ValidationError(_(b2b_category_val["error"]))
+        if self.initial_data.get('product_type') == 'grocery':
             if 'parent_product_pro_b2c_category' in self.initial_data and \
                     self.initial_data['parent_product_pro_b2c_category']:
                 b2c_category_val = get_validate_categories(self.initial_data['parent_product_pro_b2c_category'], True)
@@ -505,7 +497,7 @@ class ActiveDeactiveSelectedParentProductSerializers(serializers.ModelSerializer
 
         try:
             parent_products = ParentProduct.objects.filter(id__in=validated_data['parent_product_id_list'])
-            parent_products.update(status=parent_product_status, product_type='both', updated_by=validated_data['updated_by'],
+            parent_products.update(status=parent_product_status, updated_by=validated_data['updated_by'],
                                    updated_at=timezone.now())
             for parent_product_obj in parent_products:
                 Product.objects.filter(parent_product=parent_product_obj).update(status=product_status,

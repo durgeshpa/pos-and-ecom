@@ -186,12 +186,11 @@ class ParentProduct(BaseTimestampUserStatusModel):
     product_hsn = models.ForeignKey(ProductHSN, related_name='parent_hsn', blank=False, on_delete=models.CASCADE)
     inner_case_size = models.PositiveIntegerField(blank=False, default=1)
     PRODUCT_TYPE_CHOICES = (
-        ('b2b', 'B2B'),
-        ('b2c', 'B2C'),
-        ('both', 'Both B2B and B2C'),
+        ('grocery', 'Grocery'),
+        ('superstore', 'SuperStore'),
     )
     brand_case_size = models.PositiveIntegerField(blank=False)
-    product_type = models.CharField(max_length=5, choices=PRODUCT_TYPE_CHOICES, default='both')
+    product_type = models.CharField(max_length=10, choices=PRODUCT_TYPE_CHOICES, default='grocery')
     is_ptr_applicable = models.BooleanField(verbose_name='Is PTR Applicable', default=False)
     ptr_percent = models.DecimalField(max_digits=4, decimal_places=2, blank=True, null=True,
                                       validators=[PercentageValidator])
@@ -248,7 +247,7 @@ class ParentProduct(BaseTimestampUserStatusModel):
 
 class ParentProductTaxApprovalLog(BaseTimestampUserStatusModel):
     parent_product = models.ForeignKey(ParentProduct, related_name='parent_product_tax_approval_log',
-                                       on_delete=models.DO_NOTHING)
+                                       on_delete=models.CASCADE)
     tax_status = models.CharField(max_length=10, null=True, blank=True)
     tax_remark = models.CharField(max_length=100, null=True, blank=True)
 

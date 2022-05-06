@@ -1002,7 +1002,7 @@ def parent_product_upload(request):
                             product_hsn=ProductHSN.objects.filter(product_hsn_code=row[4].replace("'", '')).last(),
                             brand_case_size=int(row[8]),
                             inner_case_size=int(row[9]),
-                            product_type='both',
+                            product_type=row[10],
                             product_discription=row[11]
                         )
                         parent_product.save()
