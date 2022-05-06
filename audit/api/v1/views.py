@@ -646,6 +646,11 @@ class AuditInventory(APIView):
         if not batch_id:
             msg = {'is_success': False, 'message': ERROR_MESSAGES['EMPTY'] % 'batch_id', 'data': None}
             return Response(msg, status=status.HTTP_200_OK)
+        if len(batch_id) == 24 and str(batch_id).startswith('D'):
+            msg = {'is_success': False,
+                   'message': "Audit can not perform for Discounted product with diff expiry date",
+                   'data': None}
+            return Response(msg, status=status.HTTP_200_OK)
         old_inventory = request.data.get('system_inventory')
         if not old_inventory:
             msg = {'is_success': False, 'message': ERROR_MESSAGES['EMPTY'] % 'system_inventory', 'data': None}
@@ -659,7 +664,7 @@ class AuditInventory(APIView):
         sku = self.get_sku_from_batch_and_bin(batch_id, bin_id)
         if not sku:
             msg = {'is_success': False,
-                   'message': ERROR_MESSAGES['SOME_ISSUE'],
+                   'message': f'SKU not found in Bin {bin_id} for Batch {batch_id}',
                    'data': None}
             return Response(msg, status=status.HTTP_200_OK)
 
