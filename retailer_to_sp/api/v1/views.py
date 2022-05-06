@@ -1503,7 +1503,6 @@ class CartCentral(GenericAPIView):
                 cart_mapping.selling_price = product.online_price
                 cart_mapping.qty = qty
                 cart_mapping.no_of_pieces = int(qty)
-                cart_mapping.no_of_pieces = qty
                 cart_mapping.qty_conversion_unit_id = kwargs['conversion_unit_id']
                 cart_mapping.save()
             # serialize and return response
@@ -3797,9 +3796,9 @@ class OrderCentral(APIView):
             if delivery_option and delivery_option == '1':
                 msg = None
             if fofo_config.get('open_time',None) and fofo_config.get('close_time',None) and not (fofo_config['open_time']<time and fofo_config['close_time']>time):
-                msg = "Your order will be deliverd tomorrow"
+                msg = "Your order will be delivered tomorrow"
                 if delivery_option and delivery_option == '1':
-                    msg = "Please pickup your order tommorow"
+                    msg = "Please pickup your order tomorrow"
 
             order.estimate_delivery_time = msg
         order.save()
