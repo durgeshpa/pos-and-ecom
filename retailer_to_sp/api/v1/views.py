@@ -1540,7 +1540,7 @@ class CartCentral(GenericAPIView):
         shop_id = self.request.data.get('shop_id')
         # Added Quantity check
         try:
-            if qty is None or qty == '' or int(qty) <= 0:
+            if qty is None or qty == '' or int(qty) < 0:
                 return {'error': "Qty missing/invalid!"}
         except:
             return {'error': "Qty invalid!"}
