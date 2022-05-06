@@ -583,24 +583,26 @@ LOGGING = {
        # },
        'file-info': {
            'level': 'INFO',
-           'class': 'logging.FileHandler',
+           'class': 'logging.handlers.TimedRotatingFileHandler',
            'filename': '/var/log/retailer-backend/info.log',
+           'when': 'midnight',
+           'backupCount': 10,
            'formatter': 'verbose',
        },
        'file-error': {
            'level': 'ERROR',
-           'class': 'logging.FileHandler',
+           'class': 'logging.handlers.TimedRotatingFileHandler',
            'filename': '/var/log/retailer-backend/error.log',
+           'when': 'midnight',
+           'backupCount': 10,
            'formatter': 'verbose',
        },
-       # 'console': {
-       #     'class': 'logging.StreamHandler',
-       #     'formatter': 'simple',
-       # },
         'cron_log_file': {
              'level': 'INFO',
-             'class': 'logging.FileHandler',
+             'class': 'logging.handlers.TimedRotatingFileHandler',
              'filename': '/var/log/retailer-backend/scheduled_jobs.log',
+             'when': 'midnight',
+             'backupCount': 10,
              'formatter': 'verbose'
          },
         'elastic_log_file': {
