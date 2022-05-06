@@ -3851,6 +3851,13 @@ class ENoteData(Note):
         verbose_name_plural = 'e-notes'
 
 
+class SearchKeywordLog(models.Model):
+    search_term = models.CharField(max_length=100,null=True)
+    search_frequency = models.IntegerField()
+    def __str__(self):
+        return self.search_term
+
+
 class BuyerPurchaseData(models.Model):
     seller_shop = models.ForeignKey(Shop, related_name='shop_sale', on_delete=models.DO_NOTHING)
     buyer_shop = models.ForeignKey(Shop, related_name='buyer_purchase', on_delete=models.DO_NOTHING)
