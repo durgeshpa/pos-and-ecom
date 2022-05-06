@@ -1470,10 +1470,10 @@ def validate_row(uploaded_data_list, header_list, category, b2c_category):
                     raise ValidationError(f"Row {row_num} | 'ptr_percent' is invalid")
 
             if 'product_type' in header_list and 'product_type' in row.keys() and row['product_type'] != '':
-                product_type_list = ['grocery', 'superstore', 'both']
+                product_type_list = ['grocery', 'superstore']
                 if row['product_type'].lower() not in product_type_list:
                     raise ValidationError(f"Row {row_num} | {row['product_type']} | 'Product Type can either be "
-                                          f"'b2b', 'b2c' or 'both'!")
+                                          f"'grocery', or 'superstore'!")
 
             if 'discounted_life_percent' in header_list and 'discounted_life_percent' in row.keys() and row[
                 'discounted_life_percent'] != '':
