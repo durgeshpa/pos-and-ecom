@@ -384,6 +384,11 @@ def delete_cart_mapping(cart, product, cart_type='retail'):
             GramMappedCartProductMapping.objects.filter(cart=cart, cart_product=product).delete()
     elif cart_type in ['basic', 'ecom']:
         if CartProductMapping.objects.filter(cart=cart, retailer_product=product).exists():
+            if cart.offers:
+                value = [x for x in cart.offers if "item_id" in x and x["item_id"] == product.id]
+                if value:
+                    cart.offers.remove(value[0])
+                    cart.save()
             CartProductMapping.objects.filter(cart=cart, retailer_product=product).delete()
 
 
@@ -531,8 +536,9 @@ class RewardCls(object):
             elif count ==1:
                 redeem_points = get_config_fofo_shop('Point_Redeemed_Second_Order', shop.id)
                 flag = False
-
-        value_factor = 100/percentage_value
+        value_factor = 0
+        if percentage_value:
+            value_factor = 100/percentage_value
         if cart.buyer and ReferralCode.is_marketing_user(cart.buyer):
             obj = RewardPoint.objects.filter(reward_user=cart.buyer).last()
             if obj:

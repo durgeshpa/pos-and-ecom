@@ -22,7 +22,8 @@ from retailer_to_sp.models import Cart, CartProductMapping
 from wms.models import PosInventory, PosInventoryState
 from marketing.models import Referral
 from accounts.models import User
-from pos.common_functions import RewardCls, RetailerProductCls, generate_debit_note_number, PosCartCls
+from pos.common_functions import RewardCls, RetailerProductCls, generate_debit_note_number, PosCartCls, \
+    delete_cart_mapping
 from marketing.sms import SendSms
 from pos.offers import BasicCartOffers
 
@@ -442,11 +443,17 @@ def update_shop_retailer_product_cart(shop_id, product_id, **kwargs):
     """
     try:
         if shop_id and product_id:
-            product = RetailerProduct.objects.filter(id=product_id, shop_id=shop_id)
-            if product_id and product.exists():
+            product = RetailerProduct.objects.filter(id=product_id, shop_id=shop_id).last()
+            if product:
                 carts = Cart.objects.filter(cart_type='ECOM', cart_status='active', seller_shop_id=shop_id)
                 for cart in carts:
+                    if not product.online_enabled:
+                        delete_cart_mapping(cart, product, 'ecom')
+                    # Refresh cart prices
                     PosCartCls.refresh_prices(cart.rt_cart_list.filter(retailer_product_id=product_id))
-                    BasicCartOffers.refresh_offers_cart(cart)
+                    # Refresh - add/remove/update combo
+                    BasicCartOffers.refresh_offers_cart_on_product_change(cart)
+                    # Get Offers Applicable, Verify applied offers, Apply the highest discount on cart if auto apply
+                    BasicCartOffers.refresh_offers_checkout(cart, False, None)
     except Exception as e:
         info_logger.info(e)
