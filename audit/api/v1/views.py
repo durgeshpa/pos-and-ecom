@@ -648,7 +648,7 @@ class AuditInventory(APIView):
             return Response(msg, status=status.HTTP_200_OK)
         if len(batch_id) == 24 and str(batch_id).startswith('D'):
             msg = {'is_success': False,
-                   'message': "Audit can not perform for Discounted product with diff expiry date",
+                   'message': "Product being audited is discounted product, can not change the expiry date",
                    'data': None}
             return Response(msg, status=status.HTTP_200_OK)
         old_inventory = request.data.get('system_inventory')
