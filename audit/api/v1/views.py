@@ -673,7 +673,8 @@ class AuditInventory(APIView):
                 msg = {'is_success': False, 'message': ERROR_MESSAGES['EXPIRED_NON_ZERO'], 'data': None}
                 return Response(msg, status=status.HTTP_200_OK)
 
-        if expiry_date <= datetime.today():
+        if expiry_date <= datetime.today() or (sku.product_type == Product.PRODUCT_TYPE_CHOICE.DISCOUNTED and
+                                               expiry_date <= (datetime.today() - timedelta(days=2))):
             if (physical_inventory['normal']+physical_inventory['damaged']) > 0:
                 msg = {'is_success': False, 'message': ERROR_MESSAGES['NORMAL_NON_ZERO'], 'data': None}
                 return Response(msg, status=status.HTTP_200_OK)
