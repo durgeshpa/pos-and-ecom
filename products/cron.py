@@ -121,7 +121,6 @@ def packing_sku_inventory_alert():
         cron_logger.error(e)
         cron_logger.info('cron packing material inventory alert | exception')
 
-
 def update_price_discounted_product():
     """
     Update price of discounted product on the basis of remaining life
@@ -185,7 +184,7 @@ def update_price_discounted_product():
                 with transaction.atomic():
                     discounted_price = ProductPrice.objects.create(
                         product=dis_prod.sku,
-                        mrp=dis_prod.product_mrp,
+                        mrp=dis_prod.sku.product_mrp,
                         selling_price=selling_price,
                         seller_shop=dis_prod.warehouse,
                         start_date=datetime.datetime.today(),
@@ -194,7 +193,9 @@ def update_price_discounted_product():
                                              selling_price=selling_price)
                     cron_logger.info(f'Successfully created discounted price for {dis_prod.sku}')
 
-        except Exception:
+        except Exception as e:
+
+            cron_logger.error(e)
             cron_logger.error(f'update discounted product price | exception for sku {dis_prod.sku}')
 
 
