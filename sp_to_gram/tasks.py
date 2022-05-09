@@ -192,6 +192,7 @@ def get_warehouse_stock(shop_id=None, product=None, inventory_type=None):
 			"parent_id": product.parent_product.parent_id,
 			"parent_name":product.parent_product.name,
 			"name": product.product_name,
+			"product_type": product.parent_product.product_type,
 			"name_lower": product.product_name.lower(),
 			"brand": str(product.product_brand),
 			"brand_lower": str(product.product_brand).lower(),

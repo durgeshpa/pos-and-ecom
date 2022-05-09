@@ -313,7 +313,7 @@ class ParentProductView(GenericAPIView):
         if serializer.is_valid():
             serializer.save(created_by=request.user)
             info_logger.info("Parent Product Created Successfully.")
-            return get_response('parent product created successfully!', serializer.data)
+            return get_response('Parent product created successfully!', serializer.data)
         return get_response(serializer_error(serializer), False)
 
     def put(self, request):
