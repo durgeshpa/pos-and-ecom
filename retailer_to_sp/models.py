@@ -3678,7 +3678,7 @@ class DispatchTrip(BaseTimestampUserModel):
         return data
 
     def total_empty_crates(self):
-        empty_crates = self.trip_empty_crates.filter().count()
+        empty_crates = self.trip_empty_crates.all().count()
         return empty_crates
 
 
