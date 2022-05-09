@@ -3297,9 +3297,11 @@ class LoadVerifyCrateSerializer(serializers.ModelSerializer):
         info_logger.info(f"post_crate_load_trip_update|trip_crate_mapping {trip_crate_mapping}")
         # Update total no of empty crates
         trip = trip_crate_mapping.trip
-        if trip_crate_mapping.crate_status == DispatchTripCrateMapping.LOADED:
-            trip.no_of_empty_crates = (trip.no_of_empty_crates if trip.no_of_empty_crates else 0) + 1
-            trip.save()
+        trip.no_of_empty_crates = trip.total_empty_crates()
+        trip.save()
+        # if trip_crate_mapping.crate_status == DispatchTripCrateMapping.LOADED:
+        #     trip.no_of_empty_crates = (trip.no_of_empty_crates if trip.no_of_empty_crates else 0) + 1
+        #     trip.save()
 
         # Make crate used at source
         shop = trip_crate_mapping.trip.source_shop
