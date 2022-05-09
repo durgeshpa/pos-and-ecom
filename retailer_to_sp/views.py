@@ -1709,7 +1709,7 @@ class OrderCancellation(object):
             .last().get('id')
         # creating note id
         note_id = brand_credit_note_pattern(Note, 'credit_note_id',
-                                            None, address_id)
+                                            self.last_shipment_instance, address_id)
 
         credit_amount = 0
 

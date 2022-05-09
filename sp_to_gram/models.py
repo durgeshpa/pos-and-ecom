@@ -464,14 +464,14 @@ def create_credit_note_on_trip_close(trip_id):
             last_credit_note = CreditNote.objects.filter(shop=shipment.order.seller_shop, status=True).order_by('credit_note_id').last()
             if last_credit_note:
                 note_id = brand_credit_note_pattern(
-                            CreditNote, 'credit_note_id', None,
+                            CreditNote, 'credit_note_id', shipment,
                             shipment.order.seller_shop.
                             shop_name_address_mapping.filter(
                                             address_type='billing'
                                             ).last().pk)
             else:
                 note_id = brand_credit_note_pattern(
-                            CreditNote, 'credit_note_id', None,
+                            CreditNote, 'credit_note_id', shipment,
                             shipment.order.seller_shop.
                             shop_name_address_mapping.filter(
                                             address_type='billing'
@@ -530,14 +530,14 @@ def create_credit_note_on_trip_close(trip_id):
             last_credit_note = CreditNote.objects.filter(shop=shipment.order.seller_shop, status=True).order_by('credit_note_id').last()
             if last_credit_note:
                 note_id = discounted_credit_note_pattern(
-                            CreditNote, 'credit_note_id', None,
+                            CreditNote, 'credit_note_id', shipment,
                             shipment.order.seller_shop.
                             shop_name_address_mapping.filter(
                                             address_type='billing'
                                             ).last().pk)
             else:
                 note_id = discounted_credit_note_pattern(
-                            CreditNote, 'credit_note_id', None,
+                            CreditNote, 'credit_note_id', shipment,
                             shipment.order.seller_shop.
                             shop_name_address_mapping.filter(
                                             address_type='billing'
@@ -579,14 +579,14 @@ def create_credit_note(instance=None, created=False, **kwargs):
         last_credit_note = CreditNote.objects.filter(shop=instance.order.seller_shop, status=True).order_by('credit_note_id').last()
         if last_credit_note:
             note_id = discounted_credit_note_pattern(
-                        CreditNote, 'credit_note_id', None,
+                        CreditNote, 'credit_note_id', instance,
                         instance.order.seller_shop.
                         shop_name_address_mapping.filter(
                                         address_type='billing'
                                         ).last().pk)
         else:
             note_id = discounted_credit_note_pattern(
-                        CreditNote, 'credit_note_id', None,
+                        CreditNote, 'credit_note_id', instance,
                         instance.order.seller_shop.
                         shop_name_address_mapping.filter(
                                         address_type='billing'

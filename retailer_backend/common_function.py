@@ -100,20 +100,28 @@ def get_last_model_invoice(starts_with, field):
         return 0
 
 
-def common_pattern(model, field, instance_id, address, invoice_type, is_invoice=False, year=None):
+def common_pattern(model, field, instance, address, invoice_type, is_invoice=False, year=None):
     state_code, shop_code, shop_code_bulk, shop_code_discounted, warehouse_code = get_shop_warehouse_state_code(
         address)
+
     financial_year = year if year else get_financial_year()
+
+    if field == 'credit_note_id':
+        shop_code = instance.invoice_no[:1]
+        warehouse_code = instance.invoice_no[-9:-7]
+        state_code = instance.invoice_no[-11:-9]
+
     starts_with = "%s%s%s%s%s" % (
-        shop_code, invoice_type, financial_year,
-        state_code, warehouse_code)
+            shop_code, invoice_type, financial_year,
+            state_code, warehouse_code)
+
     try:
         last_number = cache.incr(starts_with)
     except:
         if is_invoice:
             last_number = get_last_model_invoice(starts_with, field)
         else:
-            last_number = get_last_no_to_increment(model, field, instance_id, starts_with)
+            last_number = get_last_no_to_increment(model, field, instance, starts_with)
         last_number += 1
         cache.set(starts_with, last_number)
         cache.persist(starts_with)
@@ -125,20 +133,27 @@ def common_pattern(model, field, instance_id, address, invoice_type, is_invoice=
     return "%s%s" % (starts_with, ends_with)
 
 
-def common_pattern_bulk(model, field, instance_id, address, invoice_type, is_invoice=False, year=None):
+def common_pattern_bulk(model, field, instance, address, invoice_type, is_invoice=False, year=None):
     state_code, shop_code, shop_code_bulk, shop_code_discounted, warehouse_code = get_shop_warehouse_state_code(
         address)
     financial_year = year if year else get_financial_year()
+
+    if field == 'credit_note_id':
+        shop_code_bulk = instance.invoice_no[:1]
+        warehouse_code = instance.invoice_no[-9:-7]
+        state_code = instance.invoice_no[-11:-9]
+
     starts_with = "%s%s%s%s%s" % (
-        shop_code_bulk, invoice_type, financial_year,
-        state_code, warehouse_code)
+            shop_code_bulk, invoice_type, financial_year,
+            state_code, warehouse_code)
+
     try:
         last_number = cache.incr(starts_with)
     except:
         if is_invoice:
             last_number = get_last_model_invoice(starts_with, field)
         else:
-            last_number = get_last_no_to_increment(model, field, instance_id, starts_with)
+            last_number = get_last_no_to_increment(model, field, instance, starts_with)
         last_number += 1
         cache.set(starts_with, last_number)
         cache.persist(starts_with)
@@ -146,20 +161,25 @@ def common_pattern_bulk(model, field, instance_id, address, invoice_type, is_inv
     return "%s%s" % (starts_with, ends_with)
 
 
-def common_pattern_discounted(model, field, instance_id, address, invoice_type, is_invoice=False, year=None):
+def common_pattern_discounted(model, field, instance, address, invoice_type, is_invoice=False, year=None):
     state_code, shop_code, shop_code_bulk, shop_code_discounted, warehouse_code = get_shop_warehouse_state_code(
         address)
     financial_year = year if year else get_financial_year()
+    if field == 'credit_note_id':
+        shop_code_discounted = instance.invoice_no[:1]
+        warehouse_code = instance.invoice_no[-9:-7]
+        state_code = instance.invoice_no[-11:-9]
+
     starts_with = "%s%s%s%s%s" % (
-        shop_code_discounted, invoice_type, financial_year,
-        state_code, warehouse_code)
+            shop_code_discounted, invoice_type, financial_year,
+            state_code, warehouse_code)
     try:
         last_number = cache.incr(starts_with)
     except:
         if is_invoice:
             last_number = get_last_model_invoice(starts_with, field)
         else:
-            last_number = get_last_no_to_increment(model, field, instance_id, starts_with)
+            last_number = get_last_no_to_increment(model, field, instance, starts_with)
         last_number += 1
         cache.set(starts_with, last_number)
         cache.persist(starts_with)
