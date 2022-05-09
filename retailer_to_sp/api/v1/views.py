@@ -1539,8 +1539,12 @@ class CartCentral(GenericAPIView):
         qty = self.request.data.get('qty')
         shop_id = self.request.data.get('shop_id')
         # Added Quantity check
-        if qty is None or qty == '':
-            return {'error': "Qty Not Found!"}
+        try:
+            if qty is None or qty == '' or int(qty) < 0:
+                return {'error': "Qty missing/invalid!"}
+        except:
+            return {'error': "Qty invalid!"}
+
         # Check if buyer shop exists
         if not Shop.objects.filter(id=shop_id).exists():
             return {'error': "Shop Doesn't Exist!"}
@@ -2693,10 +2697,14 @@ class ReservedOrder(generics.ListAPIView):
                 )
 
                 # Check and remove if any product blocked for audit
+                # Check and remove if product quantity is not valid
                 for p in cart_products:
                     is_blocked_for_audit = BlockUnblockProduct.is_product_blocked_for_audit(p.cart_product,
                                                                                             parent_mapping.parent)
-                    if is_blocked_for_audit:
+                    if is_blocked_for_audit or p.qty <= 0:
+                        info_logger.info(f"ReservedOrder | Delete product from cart | cart {cart.cart_no} | "
+                                         f"product {p.cart_product.product_sku} | audit blocked {is_blocked_for_audit} | "
+                                         f"cart qty {p.qty}")
                         p.delete()
 
                 # Check if products available in cart
@@ -2706,13 +2714,6 @@ class ReservedOrder(generics.ListAPIView):
                            'response_data': None,
                            'is_shop_time_entered': False}
                     return Response(msg, status=status.HTTP_200_OK)
-                # Check if any product blocked for audit
-                # for p in cart_products:
-                #     is_blocked_for_audit = BlockUnblockProduct.is_product_blocked_for_audit(p.cart_product,
-                #                                                                             parent_mapping.parent)
-                #     if is_blocked_for_audit:
-                #         msg['message'] = [ERROR_MESSAGES['4019'].format(p)]
-                #         return Response(msg, status=status.HTTP_200_OK)
 
                 cart_products.update(qty_error_msg='')
                 cart_products.update(capping_error_msg='')
