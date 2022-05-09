@@ -668,13 +668,14 @@ class AuditInventory(APIView):
         expiry_date_string = get_expiry_date(batch_id)
         expiry_date = datetime.strptime(expiry_date_string, "%d/%m/%Y")
 
-        if expiry_date > datetime.today():
+        if (sku.product_type == Product.PRODUCT_TYPE_CHOICE.NORMAL and expiry_date > datetime.today()) or \
+                (sku.product_type == Product.PRODUCT_TYPE_CHOICE.DISCOUNTED and (expiry_date - timedelta(days=2)) > datetime.today()):
             if physical_inventory['expired'] > 0:
                 msg = {'is_success': False, 'message': ERROR_MESSAGES['EXPIRED_NON_ZERO'], 'data': None}
                 return Response(msg, status=status.HTTP_200_OK)
 
-        if expiry_date <= datetime.today() or (sku.product_type == Product.PRODUCT_TYPE_CHOICE.DISCOUNTED and
-                                               expiry_date <= (datetime.today() - timedelta(days=2))):
+        if (sku.product_type == Product.PRODUCT_TYPE_CHOICE.NORMAL and expiry_date <= datetime.today()) or \
+                (sku.product_type == Product.PRODUCT_TYPE_CHOICE.DISCOUNTED and (expiry_date - timedelta(days=2)) <= datetime.today()):
             if (physical_inventory['normal']+physical_inventory['damaged']) > 0:
                 msg = {'is_success': False, 'message': ERROR_MESSAGES['NORMAL_NON_ZERO'], 'data': None}
                 return Response(msg, status=status.HTTP_200_OK)
