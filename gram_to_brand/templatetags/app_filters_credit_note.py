@@ -41,6 +41,7 @@ def amount(value, *args, **kwargs):
 def findTax(r, per, product_cess_amount, qty, *args, **kwargs):
     # you would need to do any localization of the result here
     special_cess= float(product_cess_amount)
+    qty = float(qty)
     return round((((float((r-special_cess)*100)/(100+per)*per)/100) + special_cess)*qty)
 
 @register.simple_tag(name='findReturnTax')
