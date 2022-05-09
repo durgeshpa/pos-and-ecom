@@ -146,7 +146,7 @@ class Referral(models.Model):
                 ref_obj.user_linked_type = 'SHOP_OWNERS'
 
             elif has_gf_employee_permission(parent_ref_obj.user):
-                referrer_points = int(get_global_config('referrer_points_to_be_added_on_signup', 10))
+                referrer_points = int(get_global_config('gf_employee_referrer_points_to_be_added_on_signup', 0))
                 if parent_ref_obj.user.groups.filter(name='Field Executive').exists():
                     ref_obj.user_linked_type = 'FIELD_EXECUTIVE'
                 elif parent_ref_obj.user.groups.filter(name='Digital Marketing').exists():
