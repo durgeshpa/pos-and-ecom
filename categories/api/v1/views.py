@@ -165,7 +165,7 @@ class CategoryView(GenericAPIView):
     queryset = Category.objects.select_related('updated_by', 'category_parent').prefetch_related('category_log',
                                                                                                  'category_log__updated_by',
                                                                                                  'cat_parent'). \
-        only('id', 'category_name', 'category_desc', 'category_image', 'category_sku_part', 'updated_by',
+        only('id', 'category_name', 'category_desc', 'category_image', 'category_sku_part', 'category_type','updated_by',
              'category_parent', 'status', 'category_slug').order_by('-id')
     serializer_class = CategoryCrudSerializers
 
@@ -180,6 +180,7 @@ class CategoryView(GenericAPIView):
                 return get_response(id_validation['error'])
             category = id_validation['data']
         else:
+            print('here')
             """ GET API for Category LIST with SubCategory """
             self.queryset = self.search_filter_category()
             category = SmallOffsetPagination().paginate_queryset(self.queryset, request)
@@ -252,7 +253,8 @@ class CategoryView(GenericAPIView):
 
         cat_status = self.request.GET.get('status')
         search_text = self.request.GET.get('search_text')
-
+        cat_type = self.request.GET.get('category_type')
+        
         # search based on category name
         if search_text:
             self.queryset = category_search(self.queryset, search_text.strip())
@@ -260,7 +262,10 @@ class CategoryView(GenericAPIView):
         # filter based on status
         if cat_status is not None:
             self.queryset = self.queryset.filter(status=cat_status)
-
+        
+        if cat_type:
+            self.queryset = self.queryset.filter(category_type=cat_type)
+        
         return self.queryset
 
 
@@ -368,7 +373,7 @@ class B2cCategoryView(GenericAPIView):
         # filter based on status
         if cat_status is not None:
             self.queryset = self.queryset.filter(status=cat_status)
-
+        
         return self.queryset
 
 
