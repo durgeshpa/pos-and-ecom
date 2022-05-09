@@ -521,8 +521,8 @@ def create_credit_note_on_trip_close(trip_id):
 
             credit_note.amount = credit_amount
             tcs_percent = shipment.invoice.tcs_percent / 100
-            credit_note.tcs_amount = credit_amount * tcs_percent
-            credit_note.note_total = credit_amount * (1 + tcs_percent)
+            credit_note.tcs_amount = round(credit_amount * tcs_percent, 2)
+            credit_note.note_total = credit_amount + credit_note.tcs_amount
             credit_note.save()
 
         if shipment.order.ordered_cart.approval_status == True:
@@ -559,8 +559,8 @@ def create_credit_note_on_trip_close(trip_id):
                 credit_amount += (float(item.effective_price) - float(item.discounted_price)) * float(item.delivered_qty)
             credit_note.amount = credit_amount
             tcs_percent = shipment.invoice.tcs_percent / 100
-            credit_note.tcs_amount = credit_amount * tcs_percent
-            credit_note.note_total = credit_amount * (1 + tcs_percent)
+            credit_note.tcs_amount = round(credit_amount * tcs_percent, 2)
+            credit_note.note_total = credit_amount + credit_note.tcs_amount
             credit_note.save()
 
 
