@@ -566,7 +566,8 @@ class EcomShipmentSerializer(serializers.Serializer):
 
         order_products = {str(i.retailer_product_id): (
             i.retailer_product_id, i.qty, i.selling_price) for i in
-            CartProductMapping.objects.filter(cart=order.ordered_cart, product_type=1)}
+            CartProductMapping.objects.filter(cart=order.ordered_cart,
+                                              product_type=1)}
 
         # validate given picked products info
         products_info = attrs['products']
