@@ -8330,6 +8330,7 @@ class DispatchTripsCrudView(generics.GenericAPIView):
         trip_status = self.request.GET.get('trip_status')
         trip_type = self.request.GET.get('trip_type')
         date = self.request.GET.get('date')
+        data_days = self.request.GET.get('data_days')
         status = self.request.GET.get('status')
 
         '''search using seller_shop name, source_shop's firstname  and destination_shop's firstname'''
@@ -8365,7 +8366,14 @@ class DispatchTripsCrudView(generics.GenericAPIView):
             self.queryset = self.queryset.filter(trip_status=trip_status)
 
         if date:
-            self.queryset = self.queryset.filter(created_at__date=date)
+            if data_days:
+                end_date = datetime.strptime(date, "%Y-%m-%d")
+                start_date = end_date - timedelta(days=int(data_days))
+                self.queryset = self.queryset.filter(
+                    created_at__date__gte=start_date.date(), created_at__date__lte=end_date.date())
+            else:
+                created_at = datetime.strptime(date, "%Y-%m-%d")
+                self.queryset = self.queryset.filter(created_at__date=created_at)
 
         if trip_type:
             self.queryset = self.queryset.filter(trip_type=trip_type)
