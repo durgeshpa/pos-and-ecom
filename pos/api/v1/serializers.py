@@ -27,7 +27,8 @@ from pos.tasks import mail_to_vendor_on_po_creation, mail_to_vendor_on_order_ret
 from retailer_to_sp.models import CartProductMapping, Cart, Order, OrderReturn, ReturnItems, \
     OrderedProductMapping, OrderedProduct
 from accounts.api.v1.serializers import PosUserSerializer, PosShopUserSerializer
-from pos.common_functions import RewardCls, PosInventoryCls, RetailerProductCls, get_default_qty, validate_data_format
+from pos.common_functions import RewardCls, PosInventoryCls, RetailerProductCls, get_default_qty, validate_data_format, \
+    mark_pos_product_online_enabled
 from pos.common_validators import get_validate_grn_order, get_validate_vendor
 from products.models import ParentProduct, Product
 from retailer_backend.validators import ProductNameValidator
@@ -2537,6 +2538,7 @@ class PosGrnOrderCreateSerializer(serializers.ModelSerializer):
                                                   PosInventoryState.AVAILABLE, product['received_qty'], user,
                                                   grn_order.grn_id, PosInventoryChange.GRN_ADD,
                                                   product['pack_size'])
+                mark_pos_product_online_enabled(product['product_id'])
             total_grn_qty = PosGRNOrderProductMapping.objects.filter(grn_order__order=po.pos_po_order).aggregate(
                 Sum('received_qty')).get('received_qty__sum')
             total_grn_qty = total_grn_qty if total_grn_qty else 0
@@ -2544,6 +2546,7 @@ class PosGrnOrderCreateSerializer(serializers.ModelSerializer):
             total_po_qty = PosCartProductMapping.objects.filter(cart=po).aggregate(Sum('qty')).get('qty__sum')
             po.status = PosCart.DELIVERED if total_po_qty == total_grn_qty else po_status
             po.save()
+
             # Upload invoice
             if 'invoice' in validated_data and validated_data['invoice']:
                 Document.objects.create(grn_order=grn_order, document=validated_data['invoice'],
