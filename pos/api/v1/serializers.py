@@ -428,7 +428,13 @@ class RetailerProductsSearchSerializer(serializers.ModelSerializer):
         model = RetailerProduct
         fields = ('id', 'name', 'selling_price', 'online_price', 'mrp', 'is_discounted', 'image',
                   'product_pack_type', 'measurement_category', 'default_measurement_unit', 'current_stock',
-                  'product_ean_code', 'category', 'category_id', 'brand', 'brand_id',)
+                  'product_ean_code', 'category', 'category_id', 'brand', 'brand_id', 'online_disabled_status')
+
+    def to_representation(self, instance):
+        response = super().to_representation(instance)
+        if response['online_disabled_status']:
+            response['online_disabled_status'] = instance.get_online_disabled_status_display()
+        return response
 
 
 class BasicCartProductMappingSerializer(serializers.ModelSerializer):

@@ -327,8 +327,9 @@ class EcomRegisterSerializer(serializers.Serializer):
 
     def validate(self, data):
         existing_user = UserModel.objects.filter(phone_number=data['username']).last()
-        if existing_user and 'referral_code' in self.initial_data and self.initial_data['referral_code'] is not None:
-            raise serializers.ValidationError("You are already registered Please login.")
+        if existing_user and existing_user.is_ecom_user:
+            if existing_user and 'referral_code' in self.initial_data and self.initial_data['referral_code'] is not None:
+                raise serializers.ValidationError("You are already registered Please login.")
 
         if data['password1'] != data['password2']:
             raise serializers.ValidationError(_("The two password fields didn't match."))

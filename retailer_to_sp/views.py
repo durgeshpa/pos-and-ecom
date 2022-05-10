@@ -35,7 +35,7 @@ from retailer_to_sp.models import (CartProductMapping, Order, OrderedProduct, Or
                                    Shipment, populate_data_on_qc_pass, OrderedProductBatch, ShipmentPackaging,
                                    ShipmentNotAttempt, LastMileTripShipmentMapping, LastMileTripShipmentPackages,
                                    Invoice, DispatchTripShipmentMapping, DispatchTrip, DispatchTripShipmentPackages)
-from products.models import Product
+from products.models import Product, Category
 from retailer_to_sp.forms import (
     OrderedProductForm, OrderedProductMappingShipmentForm,
     TripForm, DispatchForm, AssignPickerForm, )
@@ -1733,8 +1733,8 @@ class OrderCancellation(object):
         # update credit note amount
         credit_note.amount = credit_amount
         tcs_percent = self.last_shipment_instance.invoice.tcs_percent / 100
-        credit_note.tcs_amount = credit_amount * tcs_percent
-        credit_note.note_total = credit_amount * (1 + tcs_percent)
+        credit_note.tcs_amount = round(credit_amount * tcs_percent, 2)
+        credit_note.note_total = credit_amount + credit_note.tcs_amount
         credit_note.save()
 
     def update_sp_qty_from_cart_or_shipment(self):
@@ -2119,3 +2119,14 @@ def generate_e_invoice():
     except Exception as e:
         info_logger.error(e)
         info_logger.error('generate_e_invoice| Failed')
+
+
+class ProductCategoryAutocomplete(autocomplete.Select2QuerySetView):
+    """auto completion for category ..."""
+    def get_queryset(self, *args, **kwargs):
+        """return filter object ..."""
+        qs = Category.objects.all()
+        if self.q:
+           return Category.objects.filter(category_name__icontains=self.q)
+            # qs = Product.objects.filter(product_name__icontains=self.q)
+        return qs

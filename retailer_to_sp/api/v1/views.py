@@ -443,7 +443,9 @@ class SearchProducts(APIView):
                 query_string = {"query": keyword + "*", "fields": ["ean"]}
             else:
                 # Insert into DB asynchronously
-                insert_search_term.delay(keyword)
+                offset = int(self.request.GET.get('offset', 0))
+                if offset == 0:
+                    insert_search_term.delay(keyword)
                 tokens = keyword.split()
                 keyword = ""
                 for word in tokens:
@@ -1469,12 +1471,15 @@ class CartCentral(GenericAPIView):
             For cart type 'basic'
         """
         with transaction.atomic():
-            product, new_product_info, qty, cart, shop = kwargs['product'], kwargs['new_product_info'], kwargs[
-                'quantity'], kwargs['cart'], kwargs['shop']
+            product, new_product_info, qty, cart, shop, create_new_product = kwargs['product'], \
+                                                                             kwargs['new_product_info'], kwargs[
+                'quantity'], kwargs['cart'], kwargs['shop'], kwargs['create_new_product']
             # Update or create cart for shop
             cart = self.post_update_basic_cart(shop, cart)
             # Create product if not existing
-            if product is None:
+            if create_new_product:
+                if product is not None:
+                    delete_cart_mapping(cart, product, 'basic')
                 product = self.pos_cart_product_create(shop.id, new_product_info, cart.id)
             # Check if product has to be removed
             if not qty > 0:
@@ -1519,7 +1524,6 @@ class CartCentral(GenericAPIView):
                 cart_mapping.selling_price = product.online_price
                 cart_mapping.qty = qty
                 cart_mapping.no_of_pieces = int(qty)
-                cart_mapping.no_of_pieces = qty
                 cart_mapping.qty_conversion_unit_id = kwargs['conversion_unit_id']
                 cart_mapping.save()
             # serialize and return response
@@ -1555,8 +1559,12 @@ class CartCentral(GenericAPIView):
         qty = self.request.data.get('qty')
         shop_id = self.request.data.get('shop_id')
         # Added Quantity check
-        if qty is None or qty == '':
-            return {'error': "Qty Not Found!"}
+        try:
+            if qty is None or qty == '' or int(qty) < 0:
+                return {'error': "Qty missing/invalid!"}
+        except:
+            return {'error': "Qty invalid!"}
+
         # Check if buyer shop exists
         if not Shop.objects.filter(id=shop_id).exists():
             return {'error': "Shop Doesn't Exist!"}
@@ -1872,7 +1880,7 @@ class CartUserView(APIView):
         cart.save()
 
         # Reset redeem points on cart
-        RewardCls.checkout_redeem_points(cart, 0)
+        RewardCls.checkout_redeem_points(cart, 0, shop=kwargs['shop'])
 
         # Serialize
         data = PosUserSerializer(customer).data
@@ -1907,7 +1915,7 @@ class CartUserView(APIView):
         cart.save()
 
         # Reset redeem points on cart
-        RewardCls.checkout_redeem_points(cart, 0)
+        RewardCls.checkout_redeem_points(cart, 0, shop=kwargs['shop'])
 
         # Serialize
         data = PosUserSerializer(customer).data
@@ -2008,7 +2016,8 @@ class CartCheckout(APIView):
             return api_response("Invalid request")
         with transaction.atomic():
             # Refresh redeem reward
-            use_reward_this_month = RewardCls.checkout_redeem_points(cart, 0, shop=kwargs['shop'], app_type="ECOM", use_all=self.request.GET.get('use_rewards', 1))
+            use_reward_this_month = RewardCls.checkout_redeem_points(cart, 0, shop=kwargs['shop'], app_type="ECOM",
+                                                                     use_all=self.request.GET.get('use_rewards', 1))
             # Get offers available now and apply coupon if applicable
             offers = BasicCartOffers.refresh_offers_checkout(cart, False, self.request.data.get('coupon_id'))
             data = self.serialize(cart)
@@ -2130,7 +2139,7 @@ class CartCheckout(APIView):
             redeem_points = self.request.GET.get('redeem_points')
             redeem_points = redeem_points if redeem_points else cart.redeem_points
             # Refresh redeem reward
-            RewardCls.checkout_redeem_points(cart, int(redeem_points))
+            RewardCls.checkout_redeem_points(cart, int(redeem_points), shop=kwargs['shop'])
         cart_products = cart.rt_cart_list.all()
         cart_value = 0
         for product_map in cart_products:
@@ -2155,7 +2164,7 @@ class CartCheckout(APIView):
                                     cart_status='active')
         except ObjectDoesNotExist:
             return api_response("No items added in cart yet")
-        RewardCls.checkout_redeem_points(cart, 0, self.request.GET.get('use_rewards', 1))
+        RewardCls.checkout_redeem_points(cart, 0,shop=kwargs['shop'], app_type="ECOM", use_all=self.request.GET.get('use_rewards', 1))
         cart_products = cart.rt_cart_list.all()
         cart_value = 0
         for product_map in cart_products:
@@ -2709,10 +2718,14 @@ class ReservedOrder(generics.ListAPIView):
                 )
 
                 # Check and remove if any product blocked for audit
+                # Check and remove if product quantity is not valid
                 for p in cart_products:
                     is_blocked_for_audit = BlockUnblockProduct.is_product_blocked_for_audit(p.cart_product,
                                                                                             parent_mapping.parent)
-                    if is_blocked_for_audit:
+                    if is_blocked_for_audit or p.qty <= 0:
+                        info_logger.info(f"ReservedOrder | Delete product from cart | cart {cart.cart_no} | "
+                                         f"product {p.cart_product.product_sku} | audit blocked {is_blocked_for_audit} | "
+                                         f"cart qty {p.qty}")
                         p.delete()
 
                 # Check if products available in cart
@@ -2722,13 +2735,6 @@ class ReservedOrder(generics.ListAPIView):
                            'response_data': None,
                            'is_shop_time_entered': False}
                     return Response(msg, status=status.HTTP_200_OK)
-                # Check if any product blocked for audit
-                # for p in cart_products:
-                #     is_blocked_for_audit = BlockUnblockProduct.is_product_blocked_for_audit(p.cart_product,
-                #                                                                             parent_mapping.parent)
-                #     if is_blocked_for_audit:
-                #         msg['message'] = [ERROR_MESSAGES['4019'].format(p)]
-                #         return Response(msg, status=status.HTTP_200_OK)
 
                 cart_products.update(qty_error_msg='')
                 cart_products.update(capping_error_msg='')
@@ -2977,19 +2983,20 @@ class OrderCentral(APIView):
                 cart_products = CartProductMapping.objects.filter(cart=order.ordered_cart)
                 if order.ordered_cart.cart_type == 'BASIC':
                     # Unprocessed orders can be cancelled
-                    if order.order_status != Order.ORDERED:
-                        return api_response('This order cannot be cancelled!')
+                    # if order.order_status != Order.ORDERED:
+                    #     return api_response('This order cannot be cancelled!')
 
-                    # cancel shipment pos order
-                    ordered_product = OrderedProduct.objects.filter(order=order).last()
-                    ordered_product.shipment_status = 'CANCELLED'
-                    ordered_product.last_modified_by = self.request.user
-                    ordered_product.save()
-                    # Update inventory
-                    for cp in cart_products:
-                        PosInventoryCls.order_inventory(cp.retailer_product.id, PosInventoryState.SHIPPED,
-                                                        PosInventoryState.AVAILABLE, cp.qty, self.request.user,
-                                                        order.order_no, PosInventoryChange.CANCELLED)
+                    # # cancel shipment pos order
+                    # ordered_product = OrderedProduct.objects.filter(order=order).last()
+                    # ordered_product.shipment_status = 'CANCELLED'
+                    # ordered_product.last_modified_by = self.request.user
+                    # ordered_product.save()
+                    # # Update inventory
+                    # for cp in cart_products:
+                    #     PosInventoryCls.order_inventory(cp.retailer_product.id, PosInventoryState.SHIPPED,
+                    #                                     PosInventoryState.AVAILABLE, cp.qty, self.request.user,
+                    #                                     order.order_no, PosInventoryChange.CANCELLED)
+                    return api_response('Offline Orders cannot be cancelled from pos app.')
                 else:
                     # delivered orders can not be cancelled
                     if order.order_status == Order.DELIVERED:
@@ -3380,7 +3387,7 @@ class OrderCentral(APIView):
             # Update Cart To Ordered
             self.update_cart_basic(cart)
             # Refresh redeem reward
-            RewardCls.checkout_redeem_points(cart, cart.redeem_points)
+            RewardCls.checkout_redeem_points(cart, cart.redeem_points, shop=kwargs['shop'])
             order = self.create_basic_order(cart, shop)
             self.auto_process_order(order, payments, 'pos', transaction_id)
             obj = Order.objects.get(id=order.id)
@@ -3816,9 +3823,9 @@ class OrderCentral(APIView):
             if delivery_option and delivery_option == '1':
                 msg = None
             if fofo_config.get('open_time',None) and fofo_config.get('close_time',None) and not (fofo_config['open_time']<time and fofo_config['close_time']>time):
-                msg = "Your order will be deliverd tomorrow"
+                msg = "Your order will be delivered tomorrow"
                 if delivery_option and delivery_option == '1':
-                    msg = "Please pickup your order tommorow"
+                    msg = "Please pickup your order tomorrow"
 
             order.estimate_delivery_time = msg
         order.save()
@@ -5935,7 +5942,7 @@ def pdf_generation(request, ordered_product):
 
         total_amount = ordered_product.invoice.invoice_sub_total
         tcs_rate = ordered_product.invoice.tcs_percent
-        tcs_tax = round(ordered_product.invoice.tcs_amount, 2)
+        tcs_tax = ordered_product.invoice.tcs_amount
         total_tax_amount = ordered_product.sum_amount_tax()
         try:
             product_special_cess = round(m.total_product_cess_amount)
@@ -5991,14 +5998,14 @@ def pdf_generation_retailer(request, order_id, delay=True):
     """
     file_prefix = PREFIX_INVOICE_FILE_NAME
     order = Order.objects.filter(id=order_id).last()
-    ordered_product = order.rt_order_order_product.all()[0]
-    filename = create_file_name(file_prefix, ordered_product)
+    #ordered_product = order.rt_order_order_product.all()[0]
+    filename = create_file_name(file_prefix, order.rt_order_order_product.all()[0])
     template_name = 'admin/invoice/invoice_retailer_3inch.html'
     # Don't create pdf if already created
-    if ordered_product.invoice and ordered_product.invoice.invoice_pdf and ordered_product.invoice.invoice_pdf.url:
+    if order.rt_order_order_product.all()[0].invoice and order.rt_order_order_product.all()[0].invoice.invoice_pdf and order.rt_order_order_product.all()[0].invoice.invoice_pdf.url:
         try:
             phone_number, shop_name = order.buyer.phone_number, order.seller_shop.shop_name
-            media_url, file_name, manager = ordered_product.invoice.invoice_pdf.url, ordered_product.invoice.invoice_no, \
+            media_url, file_name, manager = order.rt_order_order_product.all()[0].invoice.invoice_pdf.url, order.rt_order_order_product.all()[0].invoice.invoice_no, \
                                             order.ordered_cart.seller_shop.pos_shop.filter(
                                                 user_type='manager').last()
             if delay:
@@ -6021,7 +6028,7 @@ def pdf_generation_retailer(request, order_id, delay=True):
             logger.exception(e)
 
     else:
-        barcode = barcodeGen(ordered_product.invoice_no)
+        barcode = barcodeGen(order.rt_order_order_product.all()[0].invoice_no)
         # Products
         product_listing = []
         # Total invoice qty
@@ -6030,9 +6037,9 @@ def pdf_generation_retailer(request, order_id, delay=True):
         total_mrp = 0
         total = 0
         count = 0
-        for m in ordered_product.rt_order_product_order_product_mapping.filter(shipped_qty__gt=0):
+        for m in order.rt_order_order_product.all()[0].rt_order_product_order_product_mapping.filter(shipped_qty__gt=0):
             sum_qty += m.shipped_qty
-            cart_product_map = ordered_product.order.ordered_cart.rt_cart_list.filter(
+            cart_product_map = order.rt_order_order_product.all()[0].order.ordered_cart.rt_cart_list.filter(
                 retailer_product=m.retailer_product,
                 product_type=m.product_type
             ).last()
@@ -6060,10 +6067,10 @@ def pdf_generation_retailer(request, order_id, delay=True):
                 count = count + 2  # height of double line
             else:
                 count = count + 1  # height of sinlge line
-        cart = ordered_product.order.ordered_cart
+        cart = order.rt_order_order_product.all()[0].order.ordered_cart
         product_listing = sorted(product_listing, key=itemgetter('id'))
         # Total payable amount
-        total_amount = round(ordered_product.invoice_amount_final, 2)
+        total_amount = round(order.rt_order_order_product.all()[0].invoice_amount_final, 2)
         total_amount_int = int(round(total_amount))
         # redeem value
         redeem_value = round(cart.redeem_points / cart.redeem_factor, 2) if cart.redeem_factor else 0
@@ -6080,7 +6087,7 @@ def pdf_generation_retailer(request, order_id, delay=True):
         state = '-'
         pincode = '-'
         address_contact_number = ''
-        for z in ordered_product.order.seller_shop.shop_name_address_mapping.all():
+        for z in order.rt_order_order_product.all()[0].order.seller_shop.shop_name_address_mapping.all():
             nick_name, address_line1 = z.nick_name, z.address_line1
             city, state, pincode = z.city, z.state, z.pincode
             address_contact_number = z.address_contact_number
@@ -6108,7 +6115,7 @@ def pdf_generation_retailer(request, order_id, delay=True):
 
         height = 170 + 17 * count  # calculating page height of invoice 170 is base value
 
-        data = {"shipment": ordered_product, "order": ordered_product.order, "url": request.get_host(),
+        data = {"shipment": order.rt_order_order_product.all()[0], "order": order.rt_order_order_product.all()[0].order, "url": request.get_host(),
                 "scheme": request.is_secure() and "https" or "http", "total_amount": total_amount, 'total': total,
                 'discount': discount, "barcode": barcode, "product_listing": product_listing, "rupees": rupees,
                 "sum_qty": sum_qty, "nick_name": nick_name, "address_line1": address_line1, "city": city,
@@ -6116,7 +6123,7 @@ def pdf_generation_retailer(request, order_id, delay=True):
                 "pincode": pincode, "address_contact_number": address_contact_number, "reward_value": redeem_value,
                 "license_number": license_number, "retailer_gstin_number": retailer_gstin_number,
                 "cin": cin_number,
-                "payment_type": ordered_product.order.rt_payment_retailer_order.last().payment_type.type}
+                "payment_type": order.rt_order_order_product.all()[0].order.rt_payment_retailer_order.last().payment_type.type}
         cmd_option = {"margin-top": 2, "margin-left": 0, "margin-right": 0, "margin-bottom": 2, "javascript-delay": 0,
                       "page-height": height, "page-width": 70, "no-stop-slow-scripts": True, "quiet": True,'encoding': 'utf8 '
                       ,"dpi":300}
@@ -6130,12 +6137,12 @@ def pdf_generation_retailer(request, order_id, delay=True):
 
         try:
             # create_invoice_data(ordered_product)
-            ordered_product.invoice.invoice_pdf.save("{}".format(filename), ContentFile(response.rendered_content),
+            order.rt_order_order_product.all()[0].invoice.invoice_pdf.save("{}".format(filename), ContentFile(response.rendered_content),
                                                      save=True)
             phone_number = order.buyer.phone_number
             shop_name = order.seller_shop.shop_name
-            media_url = ordered_product.invoice.invoice_pdf.url
-            file_name = ordered_product.invoice.invoice_no
+            media_url = order.rt_order_order_product.all()[0].invoice.invoice_pdf.url
+            file_name = order.rt_order_order_product.all()[0].invoice.invoice_no
             manager = order.ordered_cart.seller_shop.pos_shop.filter(user_type='manager').last()
             # whatsapp api call for sending an invoice
             if delay:

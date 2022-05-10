@@ -1067,13 +1067,18 @@ class DecodeBarcode(APIView):
                 if grn_product is None:
                     batch_id = id[6:]
                     product_id = id[1:6].lstrip("0")
-                    product_batch_ids = In.objects.filter(sku=Product.objects.filter(id=product_id).last()).values('batch_id').distinct()
-                    if product_batch_ids:
-                        for batch_ids in product_batch_ids:
-                            if batch_ids['batch_id'][-6:] == batch_id:
-                                barcode_data = {'type': 'batch', 'id': batch_ids['batch_id'], 'barcode': barcode}
-                                data_item = {'is_success': True, 'message': '', 'data': barcode_data}
-                                data.append(data_item)
+                    product = Product.objects.filter(id=product_id).last()
+                    product_batch_id = In.objects.filter(sku=product, batch_id__endswith=batch_id).last()
+                    if product_batch_id:
+                        barcode_data = {'type': 'batch', 'id': product_batch_id.batch_id, 'barcode': barcode}
+                        data_item = {'is_success': True, 'message': '', 'data': barcode_data}
+                        data.append(data_item)
+                    elif BinInventory.objects.filter(sku=product, batch_id__endswith=batch_id).exists():
+                        last__batch_id = BinInventory.objects.filter(sku=product,
+                                                                     batch_id__endswith=batch_id).last().batch_id
+                        barcode_data = {'type': 'batch', 'id': last__batch_id, 'barcode': barcode}
+                        data_item = {'is_success': True, 'message': '', 'data': barcode_data}
+                        data.append(data_item)
                     else:
                         barcode_data = {'type': None, 'id': None, 'barcode': barcode}
                         data_item = {'is_success': False, 'message': 'Batch Id not found', 'data': barcode_data}

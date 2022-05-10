@@ -25,7 +25,7 @@ from retailer_to_sp.models import (CartProductMapping, Cart, Order, OrderedProdu
                                    DispatchTripShipmentPackages, ShipmentNotAttempt, PACKAGE_VERIFY_CHOICES,
                                    LastMileTripShipmentMapping, ShopCrate, DispatchTripCrateMapping,
                                    add_to_putaway_on_return, LastMileTripShipmentPackages, ShipmentPackagingBatch,
-                                   RETURN_REMARK_CHOICES)
+                                   RETURN_REMARK_CHOICES, add_to_putaway_on_partail)
 
 from retailer_to_gram.models import (Cart as GramMappedCart, CartProductMapping as GramMappedCartProductMapping,
                                      Order as GramMappedOrder, OrderedProduct as GramMappedOrderedProduct,
@@ -2075,6 +2075,7 @@ class ShipmentQCSerializer(serializers.ModelSerializer):
             self.update_order_status_post_qc_done(shipment_instance)
             info_logger.info(f"post_shipment_status_change|shipment_status {shipment_instance.shipment_status} "
                              f"|Picking Crates released|OrderNo {shipment_instance.order.order_no}")
+            add_to_putaway_on_partail(shipment_instance.id)
         elif shipment_instance.shipment_status == OrderedProduct.RESCHEDULED:
             if 'rescheduling_reason' in shipment_reschedule and 'rescheduling_date' in shipment_reschedule:
                 self.create_shipment_reschedule(

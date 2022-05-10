@@ -833,7 +833,8 @@ class FOFOConfigurations(models.Model):
                 self.value = "True"
             if self.value == "FALSE" or self.value == "False" or self.value == "false":
                 self.value = "False"
-            self.value = eval(self.key.type)(self.value)
+            if self.value:
+                self.value = eval(self.key.type)(self.value)
         except Exception as e:
             raise ValidationError('value {} can only be {} type'.format(self.value, self.key.get_type_display()))
         super(FOFOConfigurations, self).save(*args, **kwargs)
@@ -885,7 +886,7 @@ class FOFOConfig(models.Model):
 class ShopFcmTopic(models.Model):
     shop = models.ForeignKey(Shop, on_delete=models.CASCADE, related_name='fcm_topics', unique=True)
     topic_name = models.CharField(max_length=200)
-    registration_ids = ArrayField(models.CharField(max_length=200))
+    registration_ids = ArrayField(models.CharField(max_length=500))
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
     
