@@ -65,7 +65,7 @@ from pos.common_functions import (api_response, delete_cart_mapping, ORDER_STATU
                                   update_customer_pos_cart, PosInventoryCls, RewardCls, serializer_error,
                                   check_pos_shop, PosAddToCart, PosCartCls, ONLINE_ORDER_STATUS_MAP,
                                   pos_check_permission_delivery_person, ECOM_ORDER_STATUS_MAP, get_default_qty,
-                                  pos_check_user_permission)
+                                  pos_check_user_permission, mark_pos_product_online_enabled)
 from pos.models import (RetailerProduct, Payment as PosPayment,
                         PaymentType, MeasurementUnit, PosTrip)
 from pos.offers import BasicCartOffers
@@ -4046,6 +4046,8 @@ class OrderCentral(APIView):
                                             self.request.user, order.order_no, PosInventoryChange.ORDERED)
             PosInventoryCls.order_inventory(product_id, PosInventoryState.ORDERED, PosInventoryState.SHIPPED, qty,
                                             self.request.user, order.order_no, PosInventoryChange.SHIPPED)
+
+            mark_pos_product_online_enabled(product_id)
         # Invoice Number Generate
         shipment.shipment_status = OrderedProduct.MOVED_TO_DISPATCH
         shipment.save()

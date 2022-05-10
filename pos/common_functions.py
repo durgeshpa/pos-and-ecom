@@ -1262,3 +1262,14 @@ def check_fofo_shop(view_func):
         return view_func(self, request, *args, **kwargs)
 
     return _wrapped_view_func
+
+
+def mark_pos_product_online_enabled(product_id):
+    """
+        update product status on inventory update
+    """
+    instance = RetailerProduct.objects.filter(id=product_id).last()
+    if instance and instance.online_enabled is False and instance.online_disabled_status:
+        instance.online_enabled = True
+        instance.online_disabled_status = None
+        instance.save()
