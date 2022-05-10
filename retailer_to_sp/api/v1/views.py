@@ -7405,7 +7405,8 @@ class ShipmentView(GenericAPIView):
 
                 for product_map in products_info:
                     cart_product_mapping = CartProductMapping.objects.filter(cart=order.ordered_cart,
-                                                                             retailer_product_id=product_map['product_id'])
+                                                                             retailer_product_id=product_map['product_id'],
+                                                                             product_type=1)
                     if cart_product_mapping.last().qty > product_map['picked_qty']:
                         retailer_product = RetailerProduct.objects.filter(id=product_map['product_id'], shop=shop).last()
                         retailer_product.online_enabled = False
