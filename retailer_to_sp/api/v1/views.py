@@ -1471,12 +1471,15 @@ class CartCentral(GenericAPIView):
             For cart type 'basic'
         """
         with transaction.atomic():
-            product, new_product_info, qty, cart, shop, create_new_product = kwargs['product'], kwargs['new_product_info'], kwargs[
+            product, new_product_info, qty, cart, shop, create_new_product = kwargs['product'], \
+                                                                             kwargs['new_product_info'], kwargs[
                 'quantity'], kwargs['cart'], kwargs['shop'], kwargs['create_new_product']
             # Update or create cart for shop
             cart = self.post_update_basic_cart(shop, cart)
             # Create product if not existing
             if create_new_product:
+                if product is not None:
+                    delete_cart_mapping(cart, product, 'basic')
                 product = self.pos_cart_product_create(shop.id, new_product_info, cart.id)
             # Check if product has to be removed
             if not qty > 0:
@@ -1521,7 +1524,6 @@ class CartCentral(GenericAPIView):
                 cart_mapping.selling_price = product.online_price
                 cart_mapping.qty = qty
                 cart_mapping.no_of_pieces = int(qty)
-                cart_mapping.no_of_pieces = qty
                 cart_mapping.qty_conversion_unit_id = kwargs['conversion_unit_id']
                 cart_mapping.save()
             # serialize and return response
@@ -2010,7 +2012,8 @@ class CartCheckout(APIView):
             return api_response("Invalid request")
         with transaction.atomic():
             # Refresh redeem reward
-            use_reward_this_month = RewardCls.checkout_redeem_points(cart, 0, shop=kwargs['shop'], app_type="ECOM", use_all=self.request.GET.get('use_rewards', 1))
+            use_reward_this_month = RewardCls.checkout_redeem_points(cart, 0, shop=kwargs['shop'], app_type="ECOM",
+                                                                     use_all=self.request.GET.get('use_rewards', 1))
             # Get offers available now and apply coupon if applicable
             offers = BasicCartOffers.refresh_offers_checkout(cart, False, self.request.data.get('coupon_id'))
             data = self.serialize(cart)
@@ -3819,9 +3822,9 @@ class OrderCentral(APIView):
             if delivery_option and delivery_option == '1':
                 msg = None
             if fofo_config.get('open_time',None) and fofo_config.get('close_time',None) and not (fofo_config['open_time']<time and fofo_config['close_time']>time):
-                msg = "Your order will be deliverd tomorrow"
+                msg = "Your order will be delivered tomorrow"
                 if delivery_option and delivery_option == '1':
-                    msg = "Please pickup your order tommorow"
+                    msg = "Please pickup your order tomorrow"
 
             order.estimate_delivery_time = msg
         order.save()
@@ -7408,8 +7411,10 @@ class ShipmentView(GenericAPIView):
 
                 for product_map in products_info:
                     cart_product_mapping = CartProductMapping.objects.filter(cart=order.ordered_cart,
-                                                                             retailer_product_id=product_map['product_id'])
-                    if cart_product_mapping.last().qty > product_map['picked_qty']:
+                                                                             retailer_product_id=product_map['product_id'],
+                                                                             product_type=1).last()
+                    if cart_product_mapping and cart_product_mapping.qty > product_map['picked_qty'] \
+                            and product_map['product_type']==1:
                         retailer_product = RetailerProduct.objects.filter(id=product_map['product_id'], shop=shop).last()
                         retailer_product.online_enabled = False
                         retailer_product.online_disabled_status = product_map['online_disabled_status']

@@ -566,7 +566,8 @@ class EcomShipmentSerializer(serializers.Serializer):
 
         order_products = {str(i.retailer_product_id): (
             i.retailer_product_id, i.qty, i.selling_price) for i in
-            CartProductMapping.objects.filter(cart=order.ordered_cart, product_type=1)}
+            CartProductMapping.objects.filter(cart=order.ordered_cart,
+                                              product_type=1)}
 
         # validate given picked products info
         products_info = attrs['products']
@@ -577,7 +578,8 @@ class EcomShipmentSerializer(serializers.Serializer):
                 raise serializers.ValidationError("{} Invalid product info".format(key))
             if item['picked_qty'] > order_products[key][1]:
                 raise serializers.ValidationError("Picked quantity should be less than ordered quantity")
-            if item['picked_qty'] < order_products[key][1] and not 'online_disabled_status' in item:
+            if item['picked_qty'] < order_products[key][1] and (not 'online_disabled_status' in item and
+                                                                not item['online_disabled_status']):
                 raise serializers.ValidationError("Picked quantity is less than ordered quantity please provide reason")
 
             given_products += [key]

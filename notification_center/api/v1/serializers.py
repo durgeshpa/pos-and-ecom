@@ -27,9 +27,9 @@ class DeviceSerializer(serializers.ModelSerializer):
         dev_id = validated_data.get('dev_id', None)
         reg_id = validated_data.get('reg_id', None)
         name = validated_data.get('name', None)
-        app_type = validated_data.get('app_type', 'pos')
+        app_type = validated_data.get('app_type', None)
         try:
-            device = Device.objects.get(dev_id=dev_id)
+            device = Device.objects.get(dev_id=dev_id, app_type=app_type)
             old_reg_id = device.reg_id
             device.user = user
             device.reg_id = reg_id

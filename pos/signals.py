@@ -8,7 +8,7 @@ from retailer_backend.common_function import po_pattern, grn_pattern, purchase_r
 from wms.models import PosInventory
 from wms.models import PosInventoryState
 from .models import RetailerProduct, PosCart, PosOrder, PosGRNOrder, PosCartProductMapping, PosGRNOrderProductMapping, PosReturnGRNOrder
-from .tasks import update_shop_retailer_product_es
+from .tasks import update_shop_retailer_product_es, update_shop_retailer_product_cart
 
 logger = logging.getLogger(__name__)
 
@@ -45,6 +45,14 @@ def update_elasticsearch(sender, instance=None, created=False, **kwargs):
     update_shop_retailer_product_es(instance.shop.id, instance.id)
     if instance.product_ref:
         update_shop_retailer_product_es(instance.shop.id, instance.product_ref.id)
+
+
+@receiver(post_save, sender=RetailerProduct)
+def update_cart(sender, instance=None, created=False, **kwargs):
+    """
+        Update cart data on RetailerProduct update
+    """
+    update_shop_retailer_product_cart(instance.shop.id, instance.id)
 
 
 @receiver(post_save, sender=PosInventory)
@@ -128,6 +136,7 @@ def mark_po_item_as_closed(sender, instance=None, created=False, **kwargs):
 @receiver(pre_save, sender=RetailerProduct)
 def set_online_price(sender, instance=None, created=False, **kwargs):
     if instance.online_enabled:
+        instance.online_disabled_status = None
         if instance.sku_type == 1 and not instance.online_price:
             instance.online_price = instance.selling_price
     else:
