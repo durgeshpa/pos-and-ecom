@@ -39,7 +39,7 @@ from shops.models import Shop, ParentRetailerMapping, ShopUserMapping, ShopMigra
 from brand.models import Brand
 from categories import models as categorymodel
 from common.common_utils import (create_file_name, single_pdf_file, create_merge_pdf_name, merge_pdf_files,
-                                 create_invoice_data, whatsapp_opt_in, whatsapp_order_cancel, whatsapp_order_refund, 
+                                 create_invoice_data, whatsapp_opt_in, whatsapp_order_cancel, whatsapp_order_refund,
                                  whatsapp_order_delivered)
 from common.constants import PREFIX_CREDIT_NOTE_FILE_NAME, ZERO, PREFIX_INVOICE_FILE_NAME, INVOICE_DOWNLOAD_ZIP_NAME
 from common.data_wrapper_view import DataWrapperViewSet
@@ -7408,10 +7408,17 @@ class ShipmentView(GenericAPIView):
                                                                              retailer_product_id=product_map['product_id'],
                                                                              product_type=1).last()
                     if cart_product_mapping and cart_product_mapping.qty > product_map['picked_qty'] \
-                            and product_map['product_type']==1:
+                            and product_map['product_type'] == 1:
                         retailer_product = RetailerProduct.objects.filter(id=product_map['product_id'], shop=shop).last()
                         retailer_product.online_enabled = False
                         retailer_product.online_disabled_status = product_map['online_disabled_status']
+                        retailer_product.save()
+                    elif cart_product_mapping and cart_product_mapping.qty == product_map['picked_qty'] \
+                            and product_map['product_type'] == 1:
+                        retailer_product = RetailerProduct.objects.filter(id=product_map['product_id'],
+                                                                          shop=shop).last()
+                        retailer_product.online_enabled = True
+                        retailer_product.online_disabled_status = None
                         retailer_product.save()
                     product_id, qty, product_type = product_map['product_id'], product_map['picked_qty'], product_map[
                         'product_type']
@@ -10673,7 +10680,7 @@ class PosOrderUserSearchView(generics.GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
     serializer_class = PosOrderUserSearchSerializer
-    
+
     def get(self, request, *args, **kwargs):
         search = request.query_params.get('search')
         shop_id = request.META.get('HTTP_SHOP_ID')
