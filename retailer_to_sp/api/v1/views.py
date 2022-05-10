@@ -5969,14 +5969,14 @@ def pdf_generation_retailer(request, order_id, delay=True):
     """
     file_prefix = PREFIX_INVOICE_FILE_NAME
     order = Order.objects.filter(id=order_id).last()
-    ordered_product = order.rt_order_order_product.all()[0]
-    filename = create_file_name(file_prefix, ordered_product)
+    #ordered_product = order.rt_order_order_product.all()[0]
+    filename = create_file_name(file_prefix, order.rt_order_order_product.all()[0])
     template_name = 'admin/invoice/invoice_retailer_3inch.html'
     # Don't create pdf if already created
-    if ordered_product.invoice and ordered_product.invoice.invoice_pdf and ordered_product.invoice.invoice_pdf.url:
+    if order.rt_order_order_product.all()[0].invoice and order.rt_order_order_product.all()[0].invoice.invoice_pdf and order.rt_order_order_product.all()[0].invoice.invoice_pdf.url:
         try:
             phone_number, shop_name = order.buyer.phone_number, order.seller_shop.shop_name
-            media_url, file_name, manager = ordered_product.invoice.invoice_pdf.url, ordered_product.invoice.invoice_no, \
+            media_url, file_name, manager = order.rt_order_order_product.all()[0].invoice.invoice_pdf.url, order.rt_order_order_product.all()[0].invoice.invoice_no, \
                                             order.ordered_cart.seller_shop.pos_shop.filter(
                                                 user_type='manager').last()
             if delay:
@@ -5999,7 +5999,7 @@ def pdf_generation_retailer(request, order_id, delay=True):
             logger.exception(e)
 
     else:
-        barcode = barcodeGen(ordered_product.invoice_no)
+        barcode = barcodeGen(order.rt_order_order_product.all()[0].invoice_no)
         # Products
         product_listing = []
         # Total invoice qty
@@ -6008,9 +6008,9 @@ def pdf_generation_retailer(request, order_id, delay=True):
         total_mrp = 0
         total = 0
         count = 0
-        for m in ordered_product.rt_order_product_order_product_mapping.filter(shipped_qty__gt=0):
+        for m in order.rt_order_order_product.all()[0].rt_order_product_order_product_mapping.filter(shipped_qty__gt=0):
             sum_qty += m.shipped_qty
-            cart_product_map = ordered_product.order.ordered_cart.rt_cart_list.filter(
+            cart_product_map = order.rt_order_order_product.all()[0].order.ordered_cart.rt_cart_list.filter(
                 retailer_product=m.retailer_product,
                 product_type=m.product_type
             ).last()
@@ -6038,10 +6038,10 @@ def pdf_generation_retailer(request, order_id, delay=True):
                 count = count + 2  # height of double line
             else:
                 count = count + 1  # height of sinlge line
-        cart = ordered_product.order.ordered_cart
+        cart = order.rt_order_order_product.all()[0].order.ordered_cart
         product_listing = sorted(product_listing, key=itemgetter('id'))
         # Total payable amount
-        total_amount = round(ordered_product.invoice_amount_final, 2)
+        total_amount = round(order.rt_order_order_product.all()[0].invoice_amount_final, 2)
         total_amount_int = int(round(total_amount))
         # redeem value
         redeem_value = round(cart.redeem_points / cart.redeem_factor, 2) if cart.redeem_factor else 0
@@ -6058,7 +6058,7 @@ def pdf_generation_retailer(request, order_id, delay=True):
         state = '-'
         pincode = '-'
         address_contact_number = ''
-        for z in ordered_product.order.seller_shop.shop_name_address_mapping.all():
+        for z in order.rt_order_order_product.all()[0].order.seller_shop.shop_name_address_mapping.all():
             nick_name, address_line1 = z.nick_name, z.address_line1
             city, state, pincode = z.city, z.state, z.pincode
             address_contact_number = z.address_contact_number
@@ -6086,7 +6086,7 @@ def pdf_generation_retailer(request, order_id, delay=True):
 
         height = 170 + 17 * count  # calculating page height of invoice 170 is base value
 
-        data = {"shipment": ordered_product, "order": ordered_product.order, "url": request.get_host(),
+        data = {"shipment": order.rt_order_order_product.all()[0], "order": order.rt_order_order_product.all()[0].order, "url": request.get_host(),
                 "scheme": request.is_secure() and "https" or "http", "total_amount": total_amount, 'total': total,
                 'discount': discount, "barcode": barcode, "product_listing": product_listing, "rupees": rupees,
                 "sum_qty": sum_qty, "nick_name": nick_name, "address_line1": address_line1, "city": city,
@@ -6094,7 +6094,7 @@ def pdf_generation_retailer(request, order_id, delay=True):
                 "pincode": pincode, "address_contact_number": address_contact_number, "reward_value": redeem_value,
                 "license_number": license_number, "retailer_gstin_number": retailer_gstin_number,
                 "cin": cin_number,
-                "payment_type": ordered_product.order.rt_payment_retailer_order.last().payment_type.type}
+                "payment_type": order.rt_order_order_product.all()[0].order.rt_payment_retailer_order.last().payment_type.type}
         cmd_option = {"margin-top": 2, "margin-left": 0, "margin-right": 0, "margin-bottom": 2, "javascript-delay": 0,
                       "page-height": height, "page-width": 70, "no-stop-slow-scripts": True, "quiet": True,'encoding': 'utf8 '
                       ,"dpi":300}
@@ -6108,12 +6108,12 @@ def pdf_generation_retailer(request, order_id, delay=True):
 
         try:
             # create_invoice_data(ordered_product)
-            ordered_product.invoice.invoice_pdf.save("{}".format(filename), ContentFile(response.rendered_content),
+            order.rt_order_order_product.all()[0].invoice.invoice_pdf.save("{}".format(filename), ContentFile(response.rendered_content),
                                                      save=True)
             phone_number = order.buyer.phone_number
             shop_name = order.seller_shop.shop_name
-            media_url = ordered_product.invoice.invoice_pdf.url
-            file_name = ordered_product.invoice.invoice_no
+            media_url = order.rt_order_order_product.all()[0].invoice.invoice_pdf.url
+            file_name = order.rt_order_order_product.all()[0].invoice.invoice_no
             manager = order.ordered_cart.seller_shop.pos_shop.filter(user_type='manager').last()
             # whatsapp api call for sending an invoice
             if delay:
