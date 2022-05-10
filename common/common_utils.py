@@ -197,8 +197,8 @@ def whatsapp_opt_in(phone_number, shop_name, media_url, file_name):
         whatsapp_user_password = WHATSAPP_API_PASSWORD
         data_string = "method=OPT_IN&format=json&password=" + whatsapp_user_password + "&phone_number=" + phone_number +" +&v=1.1&auth_scheme=plain&channel=whatsapp"
         opt_in_api = api_end_point + "userid=" + whatsapp_user_id + '&' + data_string
-        response = requests.get(opt_in_api)
-        if json.loads(response.text)['response']['status'] == 'success':
+        # response = requests.get(opt_in_api)
+        if requests.get(opt_in_api).status_code == 200:
             if whatsapp_invoice_send(phone_number, shop_name, media_url, file_name):
                 return True
             else:
