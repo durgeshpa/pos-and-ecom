@@ -578,7 +578,8 @@ class EcomShipmentSerializer(serializers.Serializer):
                 raise serializers.ValidationError("{} Invalid product info".format(key))
             if item['picked_qty'] > order_products[key][1]:
                 raise serializers.ValidationError("Picked quantity should be less than ordered quantity")
-            if item['picked_qty'] < order_products[key][1] and (not 'online_disabled_status' in item and not item['online_disabled_status']):
+            if item['picked_qty'] < order_products[key][1] and (not 'online_disabled_status' in item and
+                                                                not item['online_disabled_status']):
                 raise serializers.ValidationError("Picked quantity is less than ordered quantity please provide reason")
 
             given_products += [key]
