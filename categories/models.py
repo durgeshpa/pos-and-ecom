@@ -87,6 +87,23 @@ class Category(BaseTimestampUserStatusModel):
     #     order_insertion_by = ['category_name']
 
 
+class CategoryDisplayOrder(BaseTimestampUserStatusModel):
+    
+    category = models.OneToOneField(Category, 
+                                    related_name='category_view_order', 
+                                    on_delete=models.CASCADE,
+                                    limit_choices_to={'category_type': 'superstore'})
+    order_no = models.PositiveIntegerField(default=0)
+    
+    
+    def __str__(self) -> str:
+        return f"{self.category} | {self.order_no}"
+    
+    class Meta:
+        verbose_name = _('Category Display Order')
+        verbose_name_plural = _('Category Display Orders')
+
+
 class CategoryPosation(SortableMixin):
     posation_name = models.CharField(max_length=255)
     category_posation_order = models.PositiveIntegerField(default=0, editable=False, db_index=True)
