@@ -1816,7 +1816,7 @@ def bulk_reward_file_upload(request, file):
         
 
 
-def upload_retailer_products_list(request):
+def upload_retailer_reward_list(request):
     """
     Products Catalogue Upload View
     """

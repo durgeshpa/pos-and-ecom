@@ -40,7 +40,7 @@ from .views import upload_retailer_products_list, download_retailer_products_lis
     RetailerOrderProductInvoiceView, \
     RetailerOrderReturnCreditNoteView, posinventorychange_data_excel, RetailerPurchaseReportView, \
     RetailerPurchaseReportFormView, products_list_status, RetailerReturnReportView, download_reward_configuration,\
-    download_reward_configuration_sample_view, download_reward_configuration_csv_selected_shop
+    download_reward_configuration_sample_view, download_reward_configuration_csv_selected_shop,upload_retailer_reward_list
 from retailer_to_sp.models import Order, RoundAmount
 from shops.models import Shop
 from .filters import ShopFilter, ProductInvEanSearch, ProductEanSearch
@@ -1407,7 +1407,7 @@ class PosStoreRewardMappingsAdmin(admin.ModelAdmin):
         urls = super(PosStoreRewardMappingsAdmin, self).get_urls()
         urls = [
                    url(r'^upload_bulk_reward_configuration/',
-                       self.admin_site.admin_view(download_retailer_products_list_form_view),
+                       self.admin_site.admin_view(upload_retailer_reward_list),
                        name="upload_bulk_reward_configuration"),
 
                    url(r'^download_reward_configuration_sample/',
