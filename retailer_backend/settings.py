@@ -573,7 +573,7 @@ LOGGING = {
             'level': 'INFO',
             'propagate': True,
         },
-        'otp_issue_log': {
+        'otp_issue_log_file': {
             'handlers': ['otp_issue_log_file'],
             'level': 'INFO',
             'propagate': True,
