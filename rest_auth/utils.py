@@ -14,7 +14,7 @@ def import_callable(path_or_callable):
 
 
 def default_create_token(token_model, user):
-    token, _ = token_model.objects.get_or_create(user=user)
+    token = token_model.objects.create(user=user)
     return token
 
 
