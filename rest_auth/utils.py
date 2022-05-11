@@ -2,6 +2,7 @@ from six import string_types
 from importlib import import_module
 
 from accounts.models import User
+from .models import Token
 
 
 def import_callable(path_or_callable):
@@ -13,8 +14,8 @@ def import_callable(path_or_callable):
         return getattr(import_module(package), attr)
 
 
-def default_create_token(token_model, user):
-    token, _ = token_model.objects.get_or_create(user=user)
+def default_create_token(user):
+    token = Token.objects.create(user=user)
     return token
 
 
