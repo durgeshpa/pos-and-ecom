@@ -9,7 +9,7 @@ from django.utils.crypto import get_random_string
 from django.utils import timezone
 
 from retailer_backend.messages import *
-error_logger = logging.getLogger('file-error')
+error_logger = logging.getLogger('otp_issue_log_file')
 
 class PhoneOTP(models.Model):
     phone_regex = RegexValidator(regex=r'^[6-9]\d{9}$', message=VALIDATION_ERROR_MESSAGES['INVALID_MOBILE_NUMBER'])
