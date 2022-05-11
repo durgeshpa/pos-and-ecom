@@ -9445,6 +9445,40 @@ class LoadVerifyPackageView(generics.GenericAPIView):
         return get_response(serializer_error(serializer), False)
 
 
+class CurrentlyLoadingShipmentPackagesView(generics.GenericAPIView):
+    """
+       View to get all the packages of currently loading shipment.
+    """
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    queryset = ShipmentPackaging.objects.order_by('-id')
+    serializer_class = ShipmentPackageSerializer
+
+    def get_loading_shipment_by_trip_and_user(self, user, trip_id):
+        """
+            GET shipment by Trip id and the user
+        """
+        map_instance = DispatchTripShipmentMapping.objects.filter(
+            trip_id=trip_id, loaded_by=user, shipment_status=DispatchTripShipmentMapping.LOADING_FOR_DC).last()
+        return map_instance.shipment if map_instance else None
+
+    def get(self, request):
+        """ GET API for Shipment Packages """
+        info_logger.info("Shipment Packages GET api called.")
+        """ GET Shipment Packages List """
+        if not request.GET.get('trip_id'):
+            return get_response("'trip_id' | This is required.", False)
+
+        current_shipment = self.get_loading_shipment_by_trip_and_user(request.user, request.GET.get('trip_id'))
+        self.queryset = self.queryset.filter(shipment=current_shipment, movement_type=ShipmentPackaging.DISPATCH)
+        trip_total_count = self.queryset.count()
+        trips_data = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+
+        serializer = self.serializer_class(trips_data, many=True)
+        msg = f"total count {trip_total_count}" if trips_data else "no package found"
+        return get_response(msg, serializer.data, True)
+
+
 class UnloadVerifyPackageView(generics.GenericAPIView):
     """
        View to verify and unload packages from a trip.
