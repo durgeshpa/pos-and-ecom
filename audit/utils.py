@@ -3,6 +3,7 @@ from django.db.models import Count, Q
 
 from audit.models import AuditRun, AUDIT_RUN_STATUS_CHOICES, AuditNumberGenerator, AuditDetail, \
     AUDIT_DETAIL_STATUS_CHOICES, AUDIT_DETAIL_STATE_CHOICES
+from products.models import Product
 from retailer_backend.utils import time_diff_days_hours_mins_secs
 from sp_to_gram.tasks import es_mget_by_ids
 from wms.models import BinInventory
@@ -74,8 +75,15 @@ def is_audit_started(audit):
 
 
 def is_diff_batch_in_this_bin(warehouse, batch_id, bin, sku):
+    product_ids = [sku.id]
+    if sku.product_type == Product.PRODUCT_TYPE_CHOICE.NORMAL:
+        if sku.discounted_sku:
+            product_ids.append(sku.discounted_sku.id)
+    else:
+        if sku.product_ref:
+            product_ids.append(sku.product_ref.id)
     return BinInventory.objects.filter(~Q(batch_id=batch_id), Q(quantity__gt=0) | Q(to_be_picked_qty__gt=0),
-                                       warehouse=warehouse, bin=bin, sku=sku).exists()
+                                       warehouse=warehouse, bin=bin, sku__id__in=product_ids).exists()
 
 
 def get_product_image(product):
