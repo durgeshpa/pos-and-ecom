@@ -38,8 +38,8 @@ class PhoneOTP(models.Model):
             otp = cls.generate_otp(length=getattr(settings, 'OTP_LENGTH', 6),
                                    allowed_chars=getattr(settings, 'OTP_CHARS', '0123456789'))
         except Exception as e:
-            error_logger.error(e)
             otp = '895674'
+            error_logger.error(e)
         phone_otp = PhoneOTP.objects.create(phone_number=number, otp=otp)
         return phone_otp, otp
 
@@ -56,5 +56,13 @@ class PhoneOTP(models.Model):
 
     @classmethod
     def generate_otp(cls, length=6, allowed_chars='0123456789'):
-        otp = get_random_string(length, allowed_chars)
+        try:
+            otp = get_random_string(length, allowed_chars)
+            if otp is None:
+                otp = '895675'
+            if otp is '':
+                otp = '895673'
+        except Exception as e:
+            otp = '895672'
+            error_logger.error(e)
         return otp
