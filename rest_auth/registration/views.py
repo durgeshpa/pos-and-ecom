@@ -20,7 +20,7 @@ from allauth.socialaccount.adapter import get_adapter as get_social_adapter
 from allauth.socialaccount.models import SocialAccount
 
 from rest_auth.app_settings import create_token
-from rest_auth.models import TokenModel
+from rest_auth.models import Token
 from rest_auth.registration.serializers import (VerifyEmailSerializer, SocialLoginSerializer, SocialAccountSerializer,
                                                 SocialConnectSerializer, MlmOtpRegisterSerializer, EcomRegisterSerializer)
 from rest_auth.serializers import MlmResponseSerializer, LoginResponseSerializer, api_serializer_errors
@@ -47,7 +47,7 @@ APPLICATION_REGISTER_RESPONSE_SERIALIZERS_MAP = {
 
 class RegisterView(CreateAPIView):
     permission_classes = register_permission_classes()
-    token_model = TokenModel
+    token_model = Token
 
     @sensitive_post_parameters_m
     def dispatch(self, *args, **kwargs):
