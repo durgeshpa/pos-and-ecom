@@ -34,12 +34,12 @@ class PhoneOTP(models.Model):
 
     @classmethod
     def create_otp_for_number(cls, number):
-        otp = '895674'
         try:
             otp = cls.generate_otp(length=getattr(settings, 'OTP_LENGTH', 6),
                                    allowed_chars=getattr(settings, 'OTP_CHARS', '0123456789'))
         except Exception as e:
             error_logger.error(e)
+            otp = '895674'
         phone_otp = PhoneOTP.objects.create(phone_number=number, otp=otp)
         return phone_otp, otp
 
