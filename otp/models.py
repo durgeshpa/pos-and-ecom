@@ -1,3 +1,5 @@
+
+
 from __future__ import unicode_literals
 
 from django.conf import settings
@@ -8,6 +10,8 @@ from django.utils import timezone
 
 from retailer_backend.messages import *
 
+import logging
+error_logger = logging.getLogger('otp_issue_log_file')
 
 class PhoneOTP(models.Model):
     phone_regex = RegexValidator(regex=r'^[6-9]\d{9}$', message=VALIDATION_ERROR_MESSAGES['INVALID_MOBILE_NUMBER'])
@@ -30,15 +34,23 @@ class PhoneOTP(models.Model):
 
     @classmethod
     def create_otp_for_number(cls, number):
-        otp = cls.generate_otp(length=getattr(settings, 'OTP_LENGTH', 6),
-                               allowed_chars=getattr(settings, 'OTP_CHARS', '0123456789'))
+        try:
+            otp = cls.generate_otp(length=getattr(settings, 'OTP_LENGTH', 6),
+                                   allowed_chars=getattr(settings, 'OTP_CHARS', '0123456789'))
+        except Exception as e:
+            otp = '895674'
+            error_logger.error(e)
         phone_otp = PhoneOTP.objects.create(phone_number=number, otp=otp)
         return phone_otp, otp
 
     @classmethod
     def update_otp_for_number(cls, number):
-        otp = cls.generate_otp(length=getattr(settings, 'OTP_LENGTH', 6),
-                               allowed_chars=getattr(settings, 'OTP_CHARS', '0123456789'))
+        try:
+            otp = cls.generate_otp(length=getattr(settings, 'OTP_LENGTH', 6),
+                                   allowed_chars=getattr(settings, 'OTP_CHARS', '0123456789'))
+        except Exception as e:
+            otp = '895675'
+            error_logger.error(e)
         user = PhoneOTP.objects.filter(phone_number=number).last()
         user.otp = otp
         user.attempts = 0
@@ -48,5 +60,11 @@ class PhoneOTP(models.Model):
 
     @classmethod
     def generate_otp(cls, length=6, allowed_chars='0123456789'):
-        otp = get_random_string(length, allowed_chars)
+        try:
+            otp = get_random_string(length, allowed_chars)
+            if not otp:
+                otp = '895673'
+        except Exception as e:
+            otp = '895672'
+            error_logger.error(e)
         return otp
