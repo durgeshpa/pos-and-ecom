@@ -300,16 +300,16 @@ class RewardLog(models.Model):
         verbose_name_plural = " Reward Logs"
 
 
-class PhoneOTP(models.Model):
-    phone_regex = RegexValidator(regex=r'^[6-9]\d{9}$', message=VALIDATION_ERROR_MESSAGES['INVALID_MOBILE_NUMBER'])
-    phone_number = models.CharField(validators=[phone_regex], max_length=10, blank=False)
-    otp = models.CharField(max_length=10)
-    is_verified = models.BooleanField(default=False)
-    attempts = models.IntegerField(default=0)
-    expires_in = models.IntegerField(default=300)  # in seconds
-    created_at = models.DateTimeField(default=timezone.now)
-    last_otp = models.DateTimeField(default=timezone.now)
-    resend_in = models.IntegerField(default=getattr(settings, 'OTP_RESEND_IN', 30))  # in seconds
+# class PhoneOTP(models.Model):
+#     phone_regex = RegexValidator(regex=r'^[6-9]\d{9}$', message=VALIDATION_ERROR_MESSAGES['INVALID_MOBILE_NUMBER'])
+#     phone_number = models.CharField(validators=[phone_regex], max_length=10, blank=False)
+#     otp = models.CharField(max_length=10)
+#     is_verified = models.BooleanField(default=False)
+#     attempts = models.IntegerField(default=0)
+#     expires_in = models.IntegerField(default=300)  # in seconds
+#     created_at = models.DateTimeField(default=timezone.now)
+#     last_otp = models.DateTimeField(default=timezone.now)
+#     resend_in = models.IntegerField(default=getattr(settings, 'OTP_RESEND_IN', 30))  # in seconds
 
 
 class Token(models.Model):
