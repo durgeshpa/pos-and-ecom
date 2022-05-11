@@ -573,7 +573,11 @@ LOGGING = {
             'level': 'INFO',
             'propagate': True,
         },
-
+        'otp_issue_log': {
+            'handlers': ['otp_issue_log_file'],
+            'level': 'INFO',
+            'propagate': True,
+        },
    },
    'handlers': {
        # 'file-debug': {
@@ -612,7 +616,12 @@ LOGGING = {
             'filename': '/var/log/retailer-backend/elastic_search.log',
             'formatter': 'verbose'
         },
-
+        'otp_issue_log_file': {
+            'level': 'ERROR',
+            'class': 'logging.FileHandler',
+            'filename': '/var/log/retailer-backend/otp_issue.log',
+            'formatter': 'verbose'
+        },
 
     },
     'formatters': {
