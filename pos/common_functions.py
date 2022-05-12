@@ -530,10 +530,10 @@ class RewardCls(object):
         if app_type == "ECOM":
             count = Order.objects.filter(buyer=cart.buyer, ordered_cart__cart_type='ECOM',
                 order_status='delivered').count()
-            if count ==1:
+            if count == 0:
                 redeem_points = get_config_fofo_shop('Point_Redeemed_First_Order', shop.id)
                 flag = False
-            elif count ==1:
+            elif count == 1:
                 redeem_points = get_config_fofo_shop('Point_Redeemed_Second_Order', shop.id)
                 flag = False
         value_factor = 0
@@ -544,7 +544,11 @@ class RewardCls(object):
             if obj:
                 points = max(obj.direct_earned + obj.indirect_earned - obj.points_used, 0)
                 if use_all is not None:
-                    redeem_points = points if int(use_all) else 0
+                    if flag == False and points > redeem_points:
+                        pass
+                    else:
+                        redeem_points = points if int(use_all) else 0
+
                 redeem_points = min(redeem_points, points, int(cart.order_amount_after_discount * value_factor))
             else:
                 redeem_points = 0
@@ -631,13 +635,13 @@ class RewardCls(object):
         # check maximum point redeem add in a month by shop
         days = datetime.datetime.today().day
         date = get_back_date(days)
-        if shop.enable_loyalty_points:
+        if shop:
             uses_reward_point = RewardLog.objects.filter(reward_user=user, shop=shop,
                                                          transaction_type__in=['order_credit', 'order_return_debit',
                                                                                'order_cancel_debit'], modified_at__gte=date).\
             aggregate(Sum('points'))
         this_month_reward_point_credit = abs(uses_reward_point['points__sum']) if uses_reward_point.get('points__sum') else 0
-        if this_month_reward_point_credit and this_month_reward_point_credit + points > get_config_fofo_shop("Max_Monthly_Points_Added", shop.id):
+        if this_month_reward_point_credit + points > get_config_fofo_shop("Max_Monthly_Points_Added", shop.id):
             points = max(get_config_fofo_shop("Max_Monthly_Points_Added", shop.id) - this_month_reward_point_credit, 0)
             #message = "only {} Loyalty Point can be used in a month".format(max_month_limit)
 
