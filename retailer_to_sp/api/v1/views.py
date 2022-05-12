@@ -9465,6 +9465,51 @@ class LoadVerifyPackageView(generics.GenericAPIView):
         return get_response(serializer_error(serializer), False)
 
 
+class CurrentlyLoadingShipmentPackagesView(generics.GenericAPIView):
+    """
+       View to get all the packages of currently loading shipment.
+    """
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    queryset = ShipmentPackaging.objects.order_by('-id')
+    serializer_class = ShipmentPackageSerializer
+
+    def get_loading_shipment_by_trip_and_user(self, user, trip):
+        """
+            GET shipment by Trip id and the user
+        """
+        map_instance = DispatchTripShipmentMapping.objects.filter(
+            trip=trip, loaded_by=user, shipment_status=DispatchTripShipmentMapping.LOADING_FOR_DC).last()
+        return map_instance.shipment if map_instance else None
+
+    def get(self, request):
+        """ GET API for Shipment Packages """
+        info_logger.info("Shipment Packages GET api called.")
+        """ GET Shipment Packages List """
+        if not request.GET.get('trip_id'):
+            return get_response("'trip_id' | This is required.", False)
+
+        trip_instance = DispatchTrip.objects.filter(id=request.GET.get('trip_id')).last()
+        if not trip_instance:
+            return get_response("'trip_id' | Invalid Trip id.", False)
+        current_shipment = self.get_loading_shipment_by_trip_and_user(request.user, trip_instance)
+        if not current_shipment:
+            return get_response("There is no invoice currently being loaded in this trip. "
+                                "Please scan the package to start loading.", False)
+        self.queryset = self.queryset.filter(shipment=current_shipment)
+        if trip_instance.trip_type == DispatchTrip.FORWARD:
+            self.queryset = self.queryset.filter(movement_type__in=[
+                ShipmentPackaging.DISPATCH, ShipmentPackaging.RESCHEDULED, ShipmentPackaging.NOT_ATTEMPT])
+        if trip_instance.trip_type == DispatchTrip.BACKWARD:
+            self.queryset = self.queryset.filter(movement_type=ShipmentPackaging.RETURNED)
+        no_of_packages = self.queryset.count()
+        shipment_packages_data = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+
+        serializer = self.serializer_class(shipment_packages_data, many=True)
+        msg = f"total count {no_of_packages}" if shipment_packages_data else "no package found"
+        return get_response(msg, serializer.data, True)
+
+
 class UnloadVerifyPackageView(generics.GenericAPIView):
     """
        View to verify and unload packages from a trip.
