@@ -180,7 +180,7 @@ class Cart(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
     redeem_points = models.IntegerField(default=0)
-    redeem_factor = models.IntegerField(default=0)
+    redeem_factor = models.FloatField(default=0)
 
     class Meta:
         verbose_name = 'Order Items Detail'
