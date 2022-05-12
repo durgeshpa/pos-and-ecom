@@ -62,7 +62,7 @@ class RewardsSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = RewardPoint
-        fields = ('phone', 'email', 'referral_code', 'redeemable_points', 'redeemable_discount', 'direct_earned',
+        fields = ('phone', 'email', 'referral_code', 'redeemable_points', 'direct_earned',
                   'indirect_earned', 'points_used', 'welcome_points')
 
 
