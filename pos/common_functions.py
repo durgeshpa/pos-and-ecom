@@ -582,7 +582,7 @@ class RewardCls(object):
         max_month_limit = get_config_fofo_shop('Max_Monthly_Points_Redeemed', shop.id)
 
         max_month_limit = max_month_limit if max_month_limit else 500
-        if max_redeem_points and max_redeem_points:
+        if max_redeem_points and flag :
             if redeem_points > max_redeem_points:
                 redeem_points = max_redeem_points
 
