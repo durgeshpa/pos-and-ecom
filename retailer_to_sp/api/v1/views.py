@@ -9474,18 +9474,19 @@ class CurrentlyLoadingShipmentPackagesView(generics.GenericAPIView):
             return get_response("'trip_id' | Invalid Trip id.", False)
         current_shipment = self.get_loading_shipment_by_trip_and_user(request.user, trip_instance)
         if not current_shipment:
-            return get_response("You are not loading any shipment in the trip.", False)
+            return get_response("There is no invoice currently being loaded in this trip. "
+                                "Please scan the package to start loading.", False)
         self.queryset = self.queryset.filter(shipment=current_shipment)
         if trip_instance.trip_type == DispatchTrip.FORWARD:
             self.queryset = self.queryset.filter(movement_type__in=[
                 ShipmentPackaging.DISPATCH, ShipmentPackaging.RESCHEDULED, ShipmentPackaging.NOT_ATTEMPT])
         if trip_instance.trip_type == DispatchTrip.BACKWARD:
             self.queryset = self.queryset.filter(movement_type=ShipmentPackaging.RETURNED)
-        trip_total_count = self.queryset.count()
-        trips_data = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        no_of_packages = self.queryset.count()
+        shipment_packages_data = SmallOffsetPagination().paginate_queryset(self.queryset, request)
 
-        serializer = self.serializer_class(trips_data, many=True)
-        msg = f"total count {trip_total_count}" if trips_data else "no package found"
+        serializer = self.serializer_class(shipment_packages_data, many=True)
+        msg = f"total count {no_of_packages}" if shipment_packages_data else "no package found"
         return get_response(msg, serializer.data, True)
 
 
