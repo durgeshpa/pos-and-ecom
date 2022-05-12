@@ -111,7 +111,8 @@ class ENoteAdminInvoiceFilter(InputFilter):
 class BuyerTotalPurchaseFilter(SimpleListFilter):
     title = 'Total Purchase'
     parameter_name = 'purchase'
-    tcs_applicable_amt = get_config('TCS_B2B_APPLICABLE_AMT', 5000000)
+    tcs_config_params = get_config('TCS_CONFIG', {"TCS_B2B_APPLICABLE_AMT" : 5000000})
+    tcs_applicable_amt = tcs_config_params.get('TCS_B2B_APPLICABLE_AMT', 5000000)
 
     def lookups(self, request, model_admin):
         total_purchase = ((0, f'Less than {self.tcs_applicable_amt}'), (1, f'Greater than {self.tcs_applicable_amt}'))

@@ -560,9 +560,9 @@ class RewardCls(object):
             redeem_points = 0
             message = "Loyalty Point Can Not Be Used For This Shop"
 
-        elif app_type=="POS" and not get_config_fofo_shop('Is_Enable_Point_Redeemed_Pos', shop.id):
-            redeem_points = 0
-            message = "Loyalty Point Can Not Be Used For This Shop"
+        # elif app_type=="POS" and not get_config_fofo_shop('Is_Enable_Point_Redeemed_Pos', shop.id):
+        #     redeem_points = 0
+        #     message = "Loyalty Point Can Not Be Used For This Shop"
 
         days = datetime.datetime.today().day
         date = get_back_date(days)
@@ -726,7 +726,7 @@ class RewardCls(object):
         """
             Loyalty points for an amount based on percentage (key)
         """
-        factor = GlobalConfig.objects.get(key=key).value / 200
+        factor = GlobalConfig.objects.get(key=key).value / 100
         return int(float(amount) * factor)
 
     @classmethod
@@ -1267,3 +1267,14 @@ def check_fofo_shop(view_func):
         return view_func(self, request, *args, **kwargs)
 
     return _wrapped_view_func
+
+
+def mark_pos_product_online_enabled(product_id):
+    """
+        update product status on inventory update
+    """
+    instance = RetailerProduct.objects.filter(id=product_id).last()
+    if instance and instance.online_enabled is False and instance.online_disabled_status:
+        instance.online_enabled = True
+        instance.online_disabled_status = None
+        instance.save()
