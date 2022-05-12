@@ -9516,12 +9516,12 @@ class CurrentlyLoadingShipmentPackagesView(generics.GenericAPIView):
     queryset = ShipmentPackaging.objects.order_by('-id')
     serializer_class = ShipmentPackageSerializer
 
-    def get_loading_shipment_by_trip_and_user(self, user, trip_id):
+    def get_loading_shipment_by_trip_and_user(self, user, trip):
         """
             GET shipment by Trip id and the user
         """
         map_instance = DispatchTripShipmentMapping.objects.filter(
-            trip_id=trip_id, loaded_by=user, shipment_status=DispatchTripShipmentMapping.LOADING_FOR_DC).last()
+            trip=trip, loaded_by=user, shipment_status=DispatchTripShipmentMapping.LOADING_FOR_DC).last()
         return map_instance.shipment if map_instance else None
 
     def get(self, request):
@@ -9531,8 +9531,18 @@ class CurrentlyLoadingShipmentPackagesView(generics.GenericAPIView):
         if not request.GET.get('trip_id'):
             return get_response("'trip_id' | This is required.", False)
 
-        current_shipment = self.get_loading_shipment_by_trip_and_user(request.user, request.GET.get('trip_id'))
-        self.queryset = self.queryset.filter(shipment=current_shipment, movement_type=ShipmentPackaging.DISPATCH)
+        trip_instance = DispatchTrip.objects.filter(id=request.GET.get('trip_id')).last()
+        if not trip_instance:
+            return get_response("'trip_id' | Invalid Trip id.", False)
+        current_shipment = self.get_loading_shipment_by_trip_and_user(request.user, trip_instance)
+        if not current_shipment:
+            return get_response("You are not loading any shipment in the trip.", False)
+        self.queryset = self.queryset.filter(shipment=current_shipment)
+        if trip_instance.trip_type == DispatchTrip.FORWARD:
+            self.queryset = self.queryset.filter(movement_type__in=[
+                ShipmentPackaging.DISPATCH, ShipmentPackaging.RESCHEDULED, ShipmentPackaging.NOT_ATTEMPT])
+        if trip_instance.trip_type == DispatchTrip.BACKWARD:
+            self.queryset = self.queryset.filter(movement_type=ShipmentPackaging.RETURNED)
         trip_total_count = self.queryset.count()
         trips_data = SmallOffsetPagination().paginate_queryset(self.queryset, request)
 
