@@ -573,7 +573,7 @@ class RewardCls(object):
                                                                                'order_cancel_credit'],
                                                          modified_at__gte=date). \
                 aggregate(Sum('points'))
-        this_month_reward_point_used = abs(uses_reward_point['points__sum']) if uses_reward_point['points__sum'] else None
+        this_month_reward_point_used = abs(uses_reward_point['points__sum']) if uses_reward_point['points__sum'] else 0
         max_redeem_points = None
         if flag and app_type == "ECOM":
             max_redeem_points = get_config_fofo_shop('Max_Point_Redeemed_Ecom', shop.id)
@@ -582,7 +582,7 @@ class RewardCls(object):
         max_month_limit = get_config_fofo_shop('Max_Monthly_Points_Redeemed', shop.id)
 
         max_month_limit = max_month_limit if max_month_limit else 500
-        if max_redeem_points and max_redeem_points:
+        if max_redeem_points and flag :
             if redeem_points > max_redeem_points:
                 redeem_points = max_redeem_points
 
