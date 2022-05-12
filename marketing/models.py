@@ -143,8 +143,9 @@ class Referral(models.Model):
             shop_owner_obj = shop_obj_related_owner(parent_ref_obj.user)
             if shop_owner_obj:
                 referrer_points = int(get_global_config('referrer_points_to_be_added_on_signup', 10))
+                if shop_owner_obj.shop_type.shop_sub_type.retailer_type_name == 'foco':
+                    referrer_points = 0
                 ref_obj.user_linked_type = 'SHOP_OWNERS'
-
             elif has_gf_employee_permission(parent_ref_obj.user):
                 referrer_points = int(get_global_config('gf_employee_referrer_points_to_be_added_on_signup', 0))
                 if parent_ref_obj.user.groups.filter(name='Field Executive').exists():
@@ -162,7 +163,7 @@ class Referral(models.Model):
             user_reward = RewardPoint.objects.filter(reward_user=parent_ref_obj.user).last()
             user_reward.direct_earned += referrer_points
             user_reward.save()
-            
+
             ref_obj.referrer_reward_points = referrer_points
             ref_obj.referee_reward_points = int(get_global_config('referee_points_to_be_added_on_signup', 10))
 

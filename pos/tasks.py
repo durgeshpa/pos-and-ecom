@@ -15,6 +15,7 @@ from django.core.mail import EmailMessage
 
 from global_config.models import GlobalConfig
 from global_config.views import get_config
+from marketing.utils import has_gf_employee_permission, shop_obj_related_owner
 from retailer_backend.settings import ELASTICSEARCH_PREFIX as es_prefix, es
 from pos.models import RetailerProduct, PosCart, PosReturnGRNOrder, PosReturnItems, MeasurementUnit, \
     PosCartProductMapping
@@ -224,14 +225,22 @@ def order_loyalty_points_credit(amount, user_id, tid, t_type_b, t_type_i, change
             referral_obj = Referral.objects.filter(referral_to_user=user).last()
             if referral_obj:
                 parent_referrer = referral_obj.referral_by_user
-                # direct reward to user who referred buyer
-                RewardCls.order_direct_referrer_points(amount, parent_referrer, tid, t_type_i,
-                                                       referral_obj.user_count_considered,
-                                                       changed_by)
+                shop_owner_obj = shop_obj_related_owner(parent_referrer)
+                if shop_owner_obj and shop_owner_obj.shop_type.shop_sub_type.retailer_type_name == 'fofo':
+                    # direct reward to user who referred buyer
+                    RewardCls.order_direct_referrer_points(amount, parent_referrer, tid, t_type_i,
+                                                           referral_obj.user_count_considered,
+                                                           changed_by)
+                elif not (shop_owner_obj and shop_owner_obj.shop_type.shop_sub_type.retailer_type_name == 'foco') \
+                     or not has_gf_employee_permission(parent_referrer):
+                    # direct reward to user who referred buyer
+                    RewardCls.order_direct_referrer_points(amount, parent_referrer, tid, t_type_i,
+                                                           referral_obj.user_count_considered,
+                                                           changed_by)
 
-                # indirect reward to ancestor referrers
-                RewardCls.order_indirect_referrer_points(amount, parent_referrer, tid, t_type_i,
-                                                         referral_obj.user_count_considered, changed_by)
+                # # indirect reward to ancestor referrers
+                # RewardCls.order_indirect_referrer_points(amount, parent_referrer, tid, t_type_i,
+                #                                          referral_obj.user_count_considered, changed_by)
                 referral_obj.user_count_considered = True
                 referral_obj.save()
             return points_credit
