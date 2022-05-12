@@ -721,7 +721,7 @@ class RewardCls(object):
         """
             Loyalty points for an amount based on percentage (key)
         """
-        factor = GlobalConfig.objects.get(key=key).value / 200
+        factor = GlobalConfig.objects.get(key=key).value / 100
         return int(float(amount) * factor)
 
     @classmethod
