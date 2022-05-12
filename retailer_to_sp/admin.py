@@ -2749,6 +2749,32 @@ class ENoteAdmin(admin.ModelAdmin):
         return False
 
 
+
+class PickerUserFilter(AutocompleteFilter):
+    title = 'Picker User'
+    field_name = 'final_user'
+    autocomplete_url = 'all-picker-users-autocomplete'
+
+
+class PickerUserAssignmentLogAdmin(admin.ModelAdmin):
+    list_display = ('picker_dashboard', 'initial_user', 'final_user', 'created_by', 'created_at', )
+    list_filter = [PickerUserFilter, 'created_at']
+    list_per_page = 50
+    ordering = ('-picker_dashboard',)
+    readonly_fields = ('picker_dashboard', 'initial_user', 'final_user', 'created_by', 'created_at', )
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    class Media:
+        pass
+
 admin.site.register(Cart, CartAdmin)
 admin.site.register(BulkOrder, BulkOrderAdmin)
 admin.site.register(Order, OrderAdmin)
@@ -2770,3 +2796,4 @@ admin.site.register(ShopCrate, ShopCrateAdmin)
 admin.site.register(ShipmentPackagingMapping, ShipmentPackagingMappingAdmin)
 admin.site.register(EInvoiceData, EInvoiceAdmin)
 admin.site.register(ENoteData, ENoteAdmin)
+admin.site.register(PickerUserAssignmentLog, PickerUserAssignmentLogAdmin)
