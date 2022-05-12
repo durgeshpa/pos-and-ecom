@@ -638,7 +638,7 @@ class RewardCls(object):
             aggregate(Sum('points'))
         this_month_reward_point_credit = abs(uses_reward_point['points__sum']) if uses_reward_point.get('points__sum') else 0
         if this_month_reward_point_credit and this_month_reward_point_credit + points > get_config_fofo_shop("Max_Monthly_Points_Added", shop.id):
-            points = points-(this_month_reward_point_credit + points - get_config_fofo_shop("Max_Monthly_Points_Added", shop.id))
+            points = max(get_config_fofo_shop("Max_Monthly_Points_Added", shop.id) - this_month_reward_point_credit, 0)
             #message = "only {} Loyalty Point can be used in a month".format(max_month_limit)
 
         if not points:
