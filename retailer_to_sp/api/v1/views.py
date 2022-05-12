@@ -9483,10 +9483,9 @@ class CurrentlyLoadingShipmentPackagesView(generics.GenericAPIView):
         if trip_instance.trip_type == DispatchTrip.BACKWARD:
             self.queryset = self.queryset.filter(movement_type=ShipmentPackaging.RETURNED)
         no_of_packages = self.queryset.count()
-        shipment_packages_data = SmallOffsetPagination().paginate_queryset(self.queryset, request)
 
-        serializer = self.serializer_class(shipment_packages_data, many=True)
-        msg = f"total count {no_of_packages}" if shipment_packages_data else "no package found"
+        serializer = self.serializer_class(self.queryset, many=True)
+        msg = f"total count {no_of_packages}" if self.queryset.exists() else "no package found"
         return get_response(msg, serializer.data, True)
 
 
