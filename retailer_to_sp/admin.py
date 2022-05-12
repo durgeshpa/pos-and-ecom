@@ -2857,19 +2857,27 @@ class SearchKeywordLogAdmin(admin.ModelAdmin):
         return False
 
 
+class PickerDeashboardOrderNoSearch(InputFilter):
+    parameter_name = 'order_no'
+    title = 'Order No.(Comma seperated)'
 
-class PickerUserFilter(AutocompleteFilter):
-    title = 'Picker User'
-    field_name = 'final_user'
-    autocomplete_url = 'all-picker-users-autocomplete'
+    def queryset(self, request, queryset):
+        if self.value() is not None:
+            order_no = self.value()
+            order_nos = order_no.replace(" ", "").replace("\t","").split(',')
+            return queryset.filter(Q(picker_dashboard__order__order_no__in=order_nos))
 
 
 class PickerUserAssignmentLogAdmin(admin.ModelAdmin):
-    list_display = ('picker_dashboard', 'initial_user', 'final_user', 'created_by', 'created_at', )
-    list_filter = [PickerUserFilter, 'created_at']
+    list_display = ('get_order', 'picker_dashboard', 'initial_user', 'final_user', 'created_by', 'created_at', )
+    list_filter = [PickerDeashboardOrderNoSearch, 'created_at']
     list_per_page = 50
     ordering = ('-picker_dashboard',)
     readonly_fields = ('picker_dashboard', 'initial_user', 'final_user', 'created_by', 'created_at', )
+
+    def get_order(self, obj):
+        return obj.picker_dashboard.order
+    get_order.short_description = "Order"
 
     def has_add_permission(self, request, obj=None):
         return False
