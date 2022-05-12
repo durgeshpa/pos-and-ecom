@@ -556,9 +556,9 @@ class RewardCls(object):
             redeem_points = 0
             message = "Loyalty Point Can Not Be Used For This Shop"
 
-        elif app_type=="POS" and not get_config_fofo_shop('Is_Enable_Point_Redeemed_Pos', shop.id):
-            redeem_points = 0
-            message = "Loyalty Point Can Not Be Used For This Shop"
+        # elif app_type=="POS" and not get_config_fofo_shop('Is_Enable_Point_Redeemed_Pos', shop.id):
+        #     redeem_points = 0
+        #     message = "Loyalty Point Can Not Be Used For This Shop"
 
         days = datetime.datetime.today().day
         date = get_back_date(days)
