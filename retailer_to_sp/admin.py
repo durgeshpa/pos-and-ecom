@@ -2761,6 +2761,40 @@ class BuyerPurchaseDataAdmin(admin.ModelAdmin):
     list_display = ('seller_shop', 'buyer_shop', 'fin_year', 'total_purchase')
     list_filter = (SellerShopFilter, BuyerShopFilter, 'fin_year', BuyerTotalPurchaseFilter)
 
+class PickerDeashboardOrderNoSearch(InputFilter):
+    parameter_name = 'order_no'
+    title = 'Order No.(Comma seperated)'
+
+    def queryset(self, request, queryset):
+        if self.value() is not None:
+            order_no = self.value()
+            order_nos = order_no.replace(" ", "").replace("\t","").split(',')
+            return queryset.filter(Q(picker_dashboard__order__order_no__in=order_nos))
+
+
+class PickerUserAssignmentLogAdmin(admin.ModelAdmin):
+    list_display = ('get_order', 'picker_dashboard', 'initial_user', 'final_user', 'created_by', 'created_at', )
+    list_filter = [PickerDeashboardOrderNoSearch, 'created_at']
+    list_per_page = 50
+    ordering = ('-picker_dashboard',)
+    readonly_fields = ('picker_dashboard', 'initial_user', 'final_user', 'created_by', 'created_at', )
+
+    def get_order(self, obj):
+        return obj.picker_dashboard.order
+    get_order.short_description = "Order"
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    class Media:
+        pass
+
 admin.site.register(Cart, CartAdmin)
 admin.site.register(BulkOrder, BulkOrderAdmin)
 admin.site.register(Order, OrderAdmin)
@@ -2782,3 +2816,4 @@ admin.site.register(ShopCrate, ShopCrateAdmin)
 admin.site.register(ShipmentPackagingMapping, ShipmentPackagingMappingAdmin)
 admin.site.register(EInvoiceData, EInvoiceAdmin)
 admin.site.register(ENoteData, ENoteAdmin)
+admin.site.register(PickerUserAssignmentLog, PickerUserAssignmentLogAdmin)
