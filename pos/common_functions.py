@@ -626,13 +626,13 @@ class RewardCls(object):
 
         points = 0
         if key:
-            points = RewardCls.get_loyalty_points(amount, key, Shop)
+            points = RewardCls.get_loyalty_points(amount, key, shop)
 
         # check maximum point redeem add in a month by shop
         days = datetime.datetime.today().day
         date = get_back_date(days)
         if shop.enable_loyalty_points:
-            uses_reward_point = RewardLog.objects.filter(reward_user=cart.buyer, shop=shop,
+            uses_reward_point = RewardLog.objects.filter(reward_user=user, shop=shop,
                                                          transaction_type__in=['order_credit', 'order_return_debit',
                                                                                'order_cancel_debit'], modified_at__gte=date).\
             aggregate(Sum('points'))
@@ -709,7 +709,7 @@ class RewardCls(object):
                     RewardCls.create_reward_log(ancestor, t_type, tid, points_per_user, changed_by)
 
     @classmethod
-    def get_loyalty_points(cls, amount, key,shop=None):
+    def get_loyalty_points(cls, amount, key, shop=None):
         """
             Loyalty points for an amount based on percentage (key)
         """
