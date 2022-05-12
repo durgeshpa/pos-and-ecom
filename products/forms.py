@@ -527,10 +527,6 @@ class UploadParentProductAdminForm(forms.Form):
                 raise ValidationError(_(f"Row {row_id + 2} | 'Inner Case Size' can not be empty."))
             elif not re.match("^\d+$", row[9]):
                 raise ValidationError(_(f"Row {row_id + 2} | 'Inner Case Size' can only be a numeric value."))
-            if not row[10]:
-                raise ValidationError(_(f"Row {row_id + 2} | 'Product Type' can not be empty."))
-            elif row[10].lower() not in ['both', 'both b2b and b2c']:
-                raise ValidationError(_(f"Row {row_id + 2} | 'Product Type' can only 'Both B2B and B2C'."))
         return self.cleaned_data['file']
 
 
