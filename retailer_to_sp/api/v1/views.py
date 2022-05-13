@@ -3103,11 +3103,10 @@ class OrderCentral(APIView):
                 order.last_modified_by = self.request.user
                 if order_status == Order.DELIVERED:
                     shop = kwargs['shop']
-                    if shop.enable_loyalty_points: ## credit point on order delivery complete
-                        if ReferralCode.is_marketing_user(order.buyer):
-                            order.points_added = order_loyalty_points_credit(order.order_amount, order.buyer.id, order.order_no,
-                                                                            'order_credit', 'order_indirect_credit',
-                                                                            self.request.user.id, order.seller_shop, app_type="ECOM")
+                    if ReferralCode.is_marketing_user(order.buyer):
+                        order.points_added = order_loyalty_points_credit(order.order_amount, order.buyer.id, order.order_no,
+                                                                        'order_credit', 'order_indirect_credit',
+                                                                        self.request.user.id, order.seller_shop, app_type="ECOM")
                 order.save()
                 if order_status == Order.DELIVERED:
                     whatsapp_order_delivered(order.order_no, shop.shop_name, order.buyer.phone_number, order.points_added, shop.enable_loyalty_points)
@@ -3487,7 +3486,8 @@ class OrderCentral(APIView):
             return api_response(get_response)
         # Refresh redeem reward
         else:
-            RewardCls.checkout_redeem_points(cart, cart.redeem_points, shop, app_type="ECOM", use_all=1)
+            use_all = 1 if int(cart.redeem_points) !=0 else 0
+            RewardCls.checkout_redeem_points(cart, cart.redeem_points, shop, app_type="ECOM", use_all=use_all)
 
             order = self.create_basic_order(cart, shop, address, payment_type_id, delivery_option)
             payments = [
