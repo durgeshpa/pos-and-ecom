@@ -3488,7 +3488,7 @@ class OrderCentral(APIView):
             return api_response(get_response)
         # Refresh redeem reward
         else:
-            RewardCls.checkout_redeem_points(cart, cart.redeem_points, shop)
+            RewardCls.checkout_redeem_points(cart, cart.redeem_points, shop, app_type="ECOM", use_all=1)
 
             order = self.create_basic_order(cart, shop, address, payment_type_id, delivery_option)
             payments = [
