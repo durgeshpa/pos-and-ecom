@@ -488,10 +488,10 @@ class UploadParentProductAdminForm(forms.Form):
                 raise ValidationError(_(f"Row {row_id + 2} | 'Brand' can not be empty."))
             elif not Brand.objects.filter(brand_name=row[1].strip()).exists():
                 raise ValidationError(_(f"Row {row_id + 2} | 'Brand' doesn't exist in the system."))
-            if not row[2]:
-                raise ValidationError(_(f"Row {row_id + 2} | 'B2B Categories' can not be empty."))
-            if not row[3]:
-                raise ValidationError(_(f"Row {row_id + 2} | 'B2C Categories' can not be empty."))
+            # if not row[2]:
+            #     raise ValidationError(_(f"Row {row_id + 2} | 'B2B Categories' can not be empty."))
+            # if not row[3]:
+            #     raise ValidationError(_(f"Row {row_id + 2} | 'B2C Categories' can not be empty."))
             if row[2] and not Category.objects.filter(category_name=row[2].strip()).exists():
                 categories = row[2].split(',')
                 for cat in categories:
@@ -527,10 +527,6 @@ class UploadParentProductAdminForm(forms.Form):
                 raise ValidationError(_(f"Row {row_id + 2} | 'Inner Case Size' can not be empty."))
             elif not re.match("^\d+$", row[9]):
                 raise ValidationError(_(f"Row {row_id + 2} | 'Inner Case Size' can only be a numeric value."))
-            if not row[10]:
-                raise ValidationError(_(f"Row {row_id + 2} | 'Product Type' can not be empty."))
-            elif row[10].lower() not in ['both', 'both b2b and b2c']:
-                raise ValidationError(_(f"Row {row_id + 2} | 'Product Type' can only 'Both B2B and B2C'."))
         return self.cleaned_data['file']
 
 

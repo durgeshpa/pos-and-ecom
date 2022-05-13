@@ -27,7 +27,8 @@ from pos.tasks import mail_to_vendor_on_po_creation, mail_to_vendor_on_order_ret
 from retailer_to_sp.models import CartProductMapping, Cart, Order, OrderReturn, ReturnItems, \
     OrderedProductMapping, OrderedProduct
 from accounts.api.v1.serializers import PosUserSerializer, PosShopUserSerializer
-from pos.common_functions import RewardCls, PosInventoryCls, RetailerProductCls, get_default_qty, validate_data_format
+from pos.common_functions import RewardCls, PosInventoryCls, RetailerProductCls, get_default_qty, validate_data_format, \
+    mark_pos_product_online_enabled
 from pos.common_validators import get_validate_grn_order, get_validate_vendor
 from products.models import ParentProduct, Product
 from retailer_backend.validators import ProductNameValidator
@@ -427,7 +428,13 @@ class RetailerProductsSearchSerializer(serializers.ModelSerializer):
         model = RetailerProduct
         fields = ('id', 'name', 'selling_price', 'online_price', 'mrp', 'is_discounted', 'image',
                   'product_pack_type', 'measurement_category', 'default_measurement_unit', 'current_stock',
-                  'product_ean_code', 'category', 'category_id', 'brand', 'brand_id',)
+                  'product_ean_code', 'category', 'category_id', 'brand', 'brand_id', 'online_disabled_status')
+
+    def to_representation(self, instance):
+        response = super().to_representation(instance)
+        if response['online_disabled_status']:
+            response['online_disabled_status'] = instance.get_online_disabled_status_display()
+        return response
 
 
 class BasicCartProductMappingSerializer(serializers.ModelSerializer):
@@ -657,7 +664,7 @@ class CheckoutSerializer(serializers.ModelSerializer):
     def get_redeem_points_value(obj):
         redeem_points_value = 0
         if obj.redeem_factor:
-            redeem_points_value = round(obj.redeem_points / obj.redeem_factor, 2)
+            redeem_points_value = round(obj.redeem_points / obj.redeem_factor)
         return redeem_points_value
 
     @staticmethod
@@ -2537,6 +2544,7 @@ class PosGrnOrderCreateSerializer(serializers.ModelSerializer):
                                                   PosInventoryState.AVAILABLE, product['received_qty'], user,
                                                   grn_order.grn_id, PosInventoryChange.GRN_ADD,
                                                   product['pack_size'])
+                mark_pos_product_online_enabled(product['product_id'])
             total_grn_qty = PosGRNOrderProductMapping.objects.filter(grn_order__order=po.pos_po_order).aggregate(
                 Sum('received_qty')).get('received_qty__sum')
             total_grn_qty = total_grn_qty if total_grn_qty else 0
@@ -2544,6 +2552,7 @@ class PosGrnOrderCreateSerializer(serializers.ModelSerializer):
             total_po_qty = PosCartProductMapping.objects.filter(cart=po).aggregate(Sum('qty')).get('qty__sum')
             po.status = PosCart.DELIVERED if total_po_qty == total_grn_qty else po_status
             po.save()
+
             # Upload invoice
             if 'invoice' in validated_data and validated_data['invoice']:
                 Document.objects.create(grn_order=grn_order, document=validated_data['invoice'],

@@ -235,7 +235,7 @@ class UploadMasterData(object):
                 try:
                     parent_product = parent_pro.filter(parent_id=str(row['parent_id']).strip())
 
-                    fields = ['parent_name', 'product_type', 'hsn', 'tax_1(gst)', 'tax_2(cess)', 'status',
+                    fields = ['parent_name', 'hsn', 'tax_1(gst)', 'tax_2(cess)', 'status',
                               'tax_3(surcharge)', 'brand_case_size', 'inner_case_size', 'brand_id', 'sub_brand_id',
                               'b2b_category_id', 'b2b_sub_category_id', 'b2c_category_id', 'b2c_sub_category_id',
                               'is_ptr_applicable', 'ptr_type', 'brand_case_size', 'ptr_percent', 'is_ars_applicable',
@@ -282,9 +282,6 @@ class UploadMasterData(object):
 
                         if col == 'parent_name':
                             parent_product.update(name=str(row['parent_name']).strip())
-
-                        if col == 'product_type':
-                            parent_product.update(product_type=str(row['product_type'].lower()))
 
                         if col == 'status':
                             parent_product.update(status=True if str(row['status'].lower()) == 'active' else False)
@@ -1160,7 +1157,7 @@ class DownloadMasterData(object):
     @classmethod
     def update_parent_product_sample_file(cls, validated_data):
         response, writer = DownloadMasterData.response_workbook("parent_data_sample")
-        columns = ['parent_id', 'parent_name', 'product_type', 'hsn', 'tax_1(gst)', 'tax_2(cess)', 'tax_3(surcharge)',
+        columns = ['parent_id', 'parent_name', 'hsn', 'tax_1(gst)', 'tax_2(cess)', 'tax_3(surcharge)',
                    'inner_case_size', 'brand_case_size', 'brand_id', 'brand_name', 'sub_brand_id', 'sub_brand_name',
                    'b2b_category_id', 'b2b_category_name', 'b2b_sub_category_id', 'b2b_sub_category_name',
                    'b2c_category_id', 'b2c_category_name', 'b2c_sub_category_id', 'b2c_sub_category_name', 'status',
@@ -1171,7 +1168,7 @@ class DownloadMasterData(object):
         sub_cat = Category.objects.filter(category_parent=validated_data['category_id'])
 
         parent_products = ParentProductCategory.objects.values('parent_product__id', 'parent_product__parent_id',
-                                                               'parent_product__name', 'parent_product__product_type',
+                                                               'parent_product__name',
                                                                'parent_product__product_hsn__product_hsn_code',
                                                                'parent_product__inner_case_size',
                                                                'parent_product__brand_case_size',
@@ -1203,7 +1200,7 @@ class DownloadMasterData(object):
                 row.append(product['parent_product__name'][1:])
             else:
                 row.append(product['parent_product__name'])
-            row.append(product['parent_product__product_type'])
+            #row.append(product['parent_product__product_type'])
             row.append(product['parent_product__product_hsn__product_hsn_code'])
             taxes = ParentProductTaxMapping.objects.select_related('tax').filter(
                 parent_product=product['parent_product__id'])

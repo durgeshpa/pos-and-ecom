@@ -444,6 +444,7 @@ CRONJOBS = [
     ('0 */12 * * *', 'products.cron.pending_for_approval_products_csv_report'),
     ('0 */24 * * *', 'gram_to_brand.cron.po_tax_change_csv_report'),
     ('0 */1 * * *', 'shops.scripts.remove_duplicate_data.remove_duplicate_feedbacks'),
+    ('0 */1 * * *', 'shops.tasks.create_topics_on_fcm'),
 ]
 
 INTERNAL_IPS = ['127.0.0.1', 'localhost']

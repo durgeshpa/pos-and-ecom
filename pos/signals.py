@@ -8,7 +8,7 @@ from retailer_backend.common_function import po_pattern, grn_pattern, purchase_r
 from wms.models import PosInventory
 from wms.models import PosInventoryState
 from .models import RetailerProduct, PosCart, PosOrder, PosGRNOrder, PosCartProductMapping, PosGRNOrderProductMapping, PosReturnGRNOrder
-from .tasks import update_shop_retailer_product_es
+from .tasks import update_shop_retailer_product_es, update_shop_retailer_product_cart
 
 logger = logging.getLogger(__name__)
 
@@ -47,6 +47,14 @@ def update_elasticsearch(sender, instance=None, created=False, **kwargs):
         update_shop_retailer_product_es(instance.shop.id, instance.product_ref.id)
 
 
+@receiver(post_save, sender=RetailerProduct)
+def update_cart(sender, instance=None, created=False, **kwargs):
+    """
+        Update cart data on RetailerProduct update
+    """
+    update_shop_retailer_product_cart(instance.shop.id, instance.id)
+
+
 @receiver(post_save, sender=PosInventory)
 def update_elasticsearch_inv(sender, instance=None, created=False, **kwargs):
     """
@@ -55,6 +63,19 @@ def update_elasticsearch_inv(sender, instance=None, created=False, **kwargs):
     update_shop_retailer_product_es(instance.product.shop.id, instance.product.id)
     if instance.product.sku_type == 4:
         update_shop_retailer_product_es(instance.product.shop.id, instance.product.product_ref.id)
+
+#
+# @receiver(post_save, sender=PosInventory)
+# def update_product_online_disabled_status_on_inventory_update(sender, instance=None, created=False, **kwargs):
+#     """
+#         update product status on inventory update
+#     """
+#     if instance.product.online_enabled is False and instance.product.online_disabled_status and \
+#             instance.inventory_state.inventory_state == PosInventoryState.AVAILABLE:
+#         if instance.quantity > 0:
+#             instance.product.online_enabled = True
+#             instance.product.online_disabled_status = None
+#             instance.product.save()
 
 
 @receiver(post_save, sender=PosInventory)
@@ -115,6 +136,7 @@ def mark_po_item_as_closed(sender, instance=None, created=False, **kwargs):
 @receiver(pre_save, sender=RetailerProduct)
 def set_online_price(sender, instance=None, created=False, **kwargs):
     if instance.online_enabled:
+        instance.online_disabled_status = None
         if instance.sku_type == 1 and not instance.online_price:
             instance.online_price = instance.selling_price
     else:

@@ -180,7 +180,7 @@ class Cart(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
     redeem_points = models.IntegerField(default=0)
-    redeem_factor = models.IntegerField(default=0)
+    redeem_factor = models.FloatField(default=0)
 
     class Meta:
         verbose_name = 'Order Items Detail'
@@ -3849,6 +3849,13 @@ class ENoteData(Note):
         proxy = True
         verbose_name = 'e-note'
         verbose_name_plural = 'e-notes'
+
+
+class SearchKeywordLog(models.Model):
+    search_term = models.CharField(max_length=100,null=True)
+    search_frequency = models.IntegerField()
+    def __str__(self):
+        return self.search_term
 
 
 class BuyerPurchaseData(models.Model):
