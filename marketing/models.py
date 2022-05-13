@@ -140,7 +140,7 @@ class Referral(models.Model):
             ref_obj = Referral.objects.create(referral_to_user=child_ref_obj.user, referral_by_user=parent_ref_obj.user)
 
         if child_ref_obj.user.is_ecom_user:
-            shop_owner_obj = shop_obj_related_owner(parent_ref_obj.user)
+            shop_owner_obj = shop_obj_related_owner(parent_ref_obj.user).last()
             if shop_owner_obj:
                 referrer_points = int(get_global_config('referrer_points_to_be_added_on_signup', 10))
                 if shop_owner_obj.shop_type.shop_sub_type.retailer_type_name == 'foco':
