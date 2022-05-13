@@ -548,7 +548,9 @@ class TagProductSerializer(serializers.ModelSerializer):
 class EcomShipmentProductSerializer(serializers.Serializer):
     product_id = serializers.IntegerField(min_value=1)
     picked_qty = serializers.IntegerField(min_value=0)
-    online_disabled_status = serializers.ChoiceField(choices=RetailerProduct.ONLINE_DISABLED_CHOICES, allow_blank=True)
+    online_disabled_status = serializers.ChoiceField(choices=RetailerProduct.ONLINE_DISABLED_CHOICES, allow_blank=True,
+                                                     required=False)
+
 
 
 class EcomShipmentSerializer(serializers.Serializer):
