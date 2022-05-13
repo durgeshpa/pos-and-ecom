@@ -488,10 +488,10 @@ class UploadParentProductAdminForm(forms.Form):
                 raise ValidationError(_(f"Row {row_id + 2} | 'Brand' can not be empty."))
             elif not Brand.objects.filter(brand_name=row[1].strip()).exists():
                 raise ValidationError(_(f"Row {row_id + 2} | 'Brand' doesn't exist in the system."))
-            if not row[2]:
-                raise ValidationError(_(f"Row {row_id + 2} | 'B2B Categories' can not be empty."))
-            if not row[3]:
-                raise ValidationError(_(f"Row {row_id + 2} | 'B2C Categories' can not be empty."))
+            # if not row[2]:
+            #     raise ValidationError(_(f"Row {row_id + 2} | 'B2B Categories' can not be empty."))
+            # if not row[3]:
+            #     raise ValidationError(_(f"Row {row_id + 2} | 'B2C Categories' can not be empty."))
             if row[2] and not Category.objects.filter(category_name=row[2].strip()).exists():
                 categories = row[2].split(',')
                 for cat in categories:

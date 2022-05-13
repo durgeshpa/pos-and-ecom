@@ -444,6 +444,7 @@ CRONJOBS = [
     ('0 */12 * * *', 'products.cron.pending_for_approval_products_csv_report'),
     ('0 */24 * * *', 'gram_to_brand.cron.po_tax_change_csv_report'),
     ('0 */1 * * *', 'shops.scripts.remove_duplicate_data.remove_duplicate_feedbacks'),
+    ('0 */1 * * *', 'shops.tasks.create_topics_on_fcm'),
 ]
 
 INTERNAL_IPS = ['127.0.0.1', 'localhost']
@@ -573,6 +574,11 @@ LOGGING = {
             'level': 'INFO',
             'propagate': True,
         },
+        'otp_issue_log_file': {
+            'handlers': ['otp_issue_log_file'],
+            'level': 'INFO',
+            'propagate': True,
+        },
    },
    'handlers': {
        # 'file-debug': {
@@ -583,30 +589,38 @@ LOGGING = {
        # },
        'file-info': {
            'level': 'INFO',
-           'class': 'logging.FileHandler',
+           'class': 'logging.handlers.TimedRotatingFileHandler',
            'filename': '/var/log/retailer-backend/info.log',
+           'when': 'midnight',
+           'backupCount': 10,
            'formatter': 'verbose',
        },
        'file-error': {
            'level': 'ERROR',
-           'class': 'logging.FileHandler',
+           'class': 'logging.handlers.TimedRotatingFileHandler',
            'filename': '/var/log/retailer-backend/error.log',
+           'when': 'midnight',
+           'backupCount': 10,
            'formatter': 'verbose',
        },
-       # 'console': {
-       #     'class': 'logging.StreamHandler',
-       #     'formatter': 'simple',
-       # },
         'cron_log_file': {
              'level': 'INFO',
-             'class': 'logging.FileHandler',
+             'class': 'logging.handlers.TimedRotatingFileHandler',
              'filename': '/var/log/retailer-backend/scheduled_jobs.log',
+             'when': 'midnight',
+             'backupCount': 10,
              'formatter': 'verbose'
          },
         'elastic_log_file': {
             'level': 'INFO',
             'class': 'logging.FileHandler',
             'filename': '/var/log/retailer-backend/elastic_search.log',
+            'formatter': 'verbose'
+        },
+        'otp_issue_log_file': {
+            'level': 'ERROR',
+            'class': 'logging.FileHandler',
+            'filename': '/var/log/retailer-backend/otp_issue.log',
             'formatter': 'verbose'
         },
 
