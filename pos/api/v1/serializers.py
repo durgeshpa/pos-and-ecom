@@ -664,7 +664,7 @@ class CheckoutSerializer(serializers.ModelSerializer):
     def get_redeem_points_value(obj):
         redeem_points_value = 0
         if obj.redeem_factor:
-            redeem_points_value = round(obj.redeem_points / obj.redeem_factor, 2)
+            redeem_points_value = round(obj.redeem_points / obj.redeem_factor)
         return redeem_points_value
 
     @staticmethod

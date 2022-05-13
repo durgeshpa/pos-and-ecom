@@ -527,7 +527,7 @@ class RewardCls(object):
         percentage_value = get_config_fofo_shop('Percentage_Value_Of_Each_Point', shop.id)
         #value_factor = GlobalConfig.objects.get(key='used_reward_factor').value
         flag = True # this flag will remain false if Ecom order by user count is less or eqal 2
-        if app_type == "ECOM":
+        if app_type == "ECOM" and redeem_points:
             count = Order.objects.filter(buyer=cart.buyer, ordered_cart__cart_type='ECOM',
                 order_status='delivered').count()
             if count == 0:
@@ -610,6 +610,7 @@ class RewardCls(object):
             if data['max_applicable_points'] > max_redeem_points.value:
                 data['max_applicable_points'] = max_redeem_points.value
         data['cart_redeem_points'] = points
+        data['value_factor'] = cart.redeem_factor
         return data
 
     @classmethod
