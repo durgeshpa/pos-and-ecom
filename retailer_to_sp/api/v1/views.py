@@ -7413,9 +7413,9 @@ class ShipmentView(GenericAPIView):
                     shipment.save()
 
                 for product_map in products_info:
-                    cart_product_mapping = CartProductMapping.objects.filter(cart=order.ordered_cart,
-                                                                             retailer_product_id=product_map['product_id'],
-                                                                             product_type=1).last()
+                    # cart_product_mapping = CartProductMapping.objects.filter(cart=order.ordered_cart,
+                    #                                                          retailer_product_id=product_map['product_id'],
+                    #                                                          product_type=1).last()
                     # if cart_product_mapping and cart_product_mapping.qty > product_map['picked_qty'] \
                     #         and product_map['product_type'] == 1:
                     #     retailer_product = RetailerProduct.objects.filter(id=product_map['product_id'], shop=shop).last()
