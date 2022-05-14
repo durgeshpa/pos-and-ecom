@@ -2795,20 +2795,23 @@ class ShipmentDetailsByCrateSerializer(serializers.ModelSerializer):
 
     def get_shipment_crates_packaging(self, obj):
         if obj:
-            return ShipmentCratesSerializer(
-                obj.last_mile_trip_shipment.filter(~Q(shipment_status=LastMileTripShipmentMapping.CANCELLED)).last()
-                   .last_mile_trip_shipment_mapped_packages.filter(
-                                                    ~Q(package_status=LastMileTripShipmentPackages.CANCELLED),
-                                                    shipment_packaging__packaging_type=ShipmentPackaging.CRATE),
-                read_only=True, many=True).data
+            trip_shipment_map = obj.last_mile_trip_shipment.filter(
+                ~Q(shipment_status=LastMileTripShipmentMapping.CANCELLED)).last()
+            if trip_shipment_map:
+                return ShipmentCratesSerializer(
+                    trip_shipment_map.last_mile_trip_shipment_mapped_packages.filter(
+                        ~Q(package_status=LastMileTripShipmentPackages.CANCELLED),
+                        shipment_packaging__packaging_type=ShipmentPackaging.CRATE), read_only=True, many=True).data
         return None
 
     def get_total_shipment_crates(self, obj):
         if obj:
-            return obj.last_mile_trip_shipment.filter(~Q(shipment_status=LastMileTripShipmentMapping.CANCELLED)).last()\
-                .last_mile_trip_shipment_mapped_packages.filter(
-                                                    ~Q(package_status=LastMileTripShipmentPackages.CANCELLED),
-                                                    shipment_packaging__packaging_type=ShipmentPackaging.CRATE).count()
+            trip_shipment_map = obj.last_mile_trip_shipment.filter(
+                ~Q(shipment_status=LastMileTripShipmentMapping.CANCELLED)).last()
+            if trip_shipment_map:
+                return trip_shipment_map.last_mile_trip_shipment_mapped_packages.filter(
+                    ~Q(package_status=LastMileTripShipmentPackages.CANCELLED),
+                    shipment_packaging__packaging_type=ShipmentPackaging.CRATE).count()
         return None
 
     class Meta:
