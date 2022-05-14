@@ -7398,64 +7398,63 @@ class ShipmentView(GenericAPIView):
     @pos_check_permission_delivery_person
     def post(self, request, *args, **kwargs):
         return api_response("Pickup recorded", None, status.HTTP_200_OK, True)
-        # shop = kwargs['shop']
-        # serializer = self.serializer_class(data=self.request.data, context={'shop': shop})
-        # if serializer.is_valid():
-        #     with transaction.atomic():
-        #         data = serializer.validated_data
-        #         products_info, order_id = data['products'], data['order_id']
-        #         order = Order.objects.filter(pk=order_id, seller_shop=shop,
-        #                                      order_status__in=['ordered', Order.PICKUP_CREATED],
-        #                                      ordered_cart__cart_type='ECOM').last()
-        #         # Create shipment
-        #         shipment = OrderedProduct.objects.filter(order=order).last()
-        #         if not shipment:
-        #             shipment = OrderedProduct(order=order)
-        #             shipment.save()
-        #
-        #         for product_map in products_info:
-        #             cart_product_mapping = CartProductMapping.objects.filter(cart=order.ordered_cart,
-        #                                                                      retailer_product_id=product_map['product_id'],
-        #                                                                      product_type=1).last()
-        #             if cart_product_mapping and cart_product_mapping.qty > product_map['picked_qty'] \
-        #                     and product_map['product_type'] == 1:
-        #                 retailer_product = RetailerProduct.objects.filter(id=product_map['product_id'], shop=shop).last()
-        #                 retailer_product.online_enabled = False
-        #                 retailer_product.online_disabled_status = product_map['online_disabled_status']
-        #                 retailer_product.save()
-        #             elif cart_product_mapping and cart_product_mapping.qty == product_map['picked_qty'] \
-        #                     and product_map['product_type'] == 1:
-        #                 retailer_product = RetailerProduct.objects.filter(id=product_map['product_id'],
-        #                                                                   shop=shop).last()
-        #                 retailer_product.online_enabled = True
-        #                 retailer_product.online_disabled_status = None
-        #                 retailer_product.save()
-        #             product_id, qty, product_type = product_map['product_id'], product_map['picked_qty'], product_map[
-        #                 'product_type']
-        #             ordered_product_mapping, _ = ShipmentProducts.objects.get_or_create(ordered_product=shipment,
-        #                                                                                 retailer_product_id=product_id,
-        #                                                                                 product_type=product_type)
-        #             ordered_product_mapping.shipped_qty = qty
-        #             ordered_product_mapping.picked_pieces = qty
-        #             ordered_product_mapping.selling_price = product_map['selling_price']
-        #             ordered_product_mapping.save()
-        #             # Item Batch
-        #             batch = OrderedProductBatch.objects.filter(ordered_product_mapping=ordered_product_mapping).last()
-        #             if not batch:
-        #                 OrderedProductBatch.objects.create(ordered_product_mapping=ordered_product_mapping,
-        #                                                    pickup_quantity=qty, quantity=qty, delivered_qty=qty)
-        #             else:
-        #                 batch.pickup_quantity = qty
-        #                 batch.quantity = qty
-        #                 batch.delivered_qty = qty
-        #                 batch.save()
-        #
-        #         order.order_status = Order.PICKUP_CREATED
-        #         order.ordered_by = self.request.user
-        #         order.save()
-        #         return api_response("Pickup recorded", None, status.HTTP_200_OK, True)
-        # else:
-        #     return api_response(serializer_error(serializer))
+        shop = kwargs['shop']
+        if serializer.is_valid():
+            with transaction.atomic():
+                data = serializer.validated_data
+                products_info, order_id = data['products'], data['order_id']
+                order = Order.objects.filter(pk=order_id, seller_shop=shop,
+                                             order_status__in=['ordered', Order.PICKUP_CREATED],
+                                             ordered_cart__cart_type='ECOM').last()
+                # Create shipment
+                shipment = OrderedProduct.objects.filter(order=order).last()
+                if not shipment:
+                    shipment = OrderedProduct(order=order)
+                    shipment.save()
+
+                for product_map in products_info:
+                    cart_product_mapping = CartProductMapping.objects.filter(cart=order.ordered_cart,
+                                                                             retailer_product_id=product_map['product_id'],
+                                                                             product_type=1).last()
+                    # if cart_product_mapping and cart_product_mapping.qty > product_map['picked_qty'] \
+                    #         and product_map['product_type'] == 1:
+                    #     retailer_product = RetailerProduct.objects.filter(id=product_map['product_id'], shop=shop).last()
+                    #     retailer_product.online_enabled = False
+                    #     retailer_product.online_disabled_status = product_map['online_disabled_status']
+                    #     retailer_product.save()
+                    # elif cart_product_mapping and cart_product_mapping.qty == product_map['picked_qty'] \
+                    #         and product_map['product_type'] == 1:
+                    #     retailer_product = RetailerProduct.objects.filter(id=product_map['product_id'],
+                    #                                                       shop=shop).last()
+                    #     retailer_product.online_enabled = True
+                    #     retailer_product.online_disabled_status = None
+                    #     retailer_product.save()
+                    product_id, qty, product_type = product_map['product_id'], product_map['picked_qty'], product_map[
+                        'product_type']
+                    ordered_product_mapping, _ = ShipmentProducts.objects.get_or_create(ordered_product=shipment,
+                                                                                        retailer_product_id=product_id,
+                                                                                        product_type=product_type)
+                    ordered_product_mapping.shipped_qty = qty
+                    ordered_product_mapping.picked_pieces = qty
+                    ordered_product_mapping.selling_price = product_map['selling_price']
+                    ordered_product_mapping.save()
+                    # Item Batch
+                    batch = OrderedProductBatch.objects.filter(ordered_product_mapping=ordered_product_mapping).last()
+                    if not batch:
+                        OrderedProductBatch.objects.create(ordered_product_mapping=ordered_product_mapping,
+                                                           pickup_quantity=qty, quantity=qty, delivered_qty=qty)
+                    else:
+                        batch.pickup_quantity = qty
+                        batch.quantity = qty
+                        batch.delivered_qty = qty
+                        batch.save()
+
+                order.order_status = Order.PICKUP_CREATED
+                order.ordered_by = self.request.user
+                order.save()
+                return api_response("Pickup recorded", None, status.HTTP_200_OK, True)
+        else:
+            return api_response(serializer_error(serializer))
 
     def get_combo_offers(self, order):
         """
