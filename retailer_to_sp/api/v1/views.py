@@ -7398,6 +7398,7 @@ class ShipmentView(GenericAPIView):
     @pos_check_permission_delivery_person
     def post(self, request, *args, **kwargs):
         shop = kwargs['shop']
+        serializer = self.serializer_class(data=self.request.data, context={'shop': shop})
         if serializer.is_valid():
             with transaction.atomic():
                 data = serializer.validated_data
