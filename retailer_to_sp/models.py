@@ -3677,6 +3677,10 @@ class DispatchTrip(BaseTimestampUserModel):
             data['no_of_sacks'] += shipment_data['no_of_sacks'] if shipment_data.get('no_of_sacks') else 0
         return data
 
+    def total_empty_crates(self):
+        empty_crates = self.trip_empty_crates.all().count()
+        return empty_crates
+
 
 class DispatchTripShipmentMapping(BaseTimestampUserModel):
     LOADING_FOR_DC, LOADED_FOR_DC = 'LOADING_FOR_DC', 'LOADED_FOR_DC'
