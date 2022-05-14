@@ -39,7 +39,7 @@ from shops.models import Shop, ParentRetailerMapping, ShopUserMapping, ShopMigra
 from brand.models import Brand
 from categories import models as categorymodel
 from common.common_utils import (create_file_name, single_pdf_file, create_merge_pdf_name, merge_pdf_files,
-                                 create_invoice_data, whatsapp_opt_in, whatsapp_order_cancel, whatsapp_order_refund, 
+                                 create_invoice_data, whatsapp_opt_in, whatsapp_order_cancel, whatsapp_order_refund,
                                  whatsapp_order_delivered)
 from common.constants import PREFIX_CREDIT_NOTE_FILE_NAME, ZERO, PREFIX_INVOICE_FILE_NAME, INVOICE_DOWNLOAD_ZIP_NAME
 from common.data_wrapper_view import DataWrapperViewSet
@@ -160,20 +160,23 @@ def distance(shop_location, order_location):
     """
     lat1, lon1 = shop_location
     lat2, lon2 = order_location
-    radius = 6371 # km
+    radius = 6371  # km
 
-    dlat = math.radians(lat2-lat1)
-    dlon = math.radians(lon2-lon1)
-    a = math.sin(dlat/2) * math.sin(dlat/2) + math.cos(math.radians(lat1)) \
-        * math.cos(math.radians(lat2)) * math.sin(dlon/2) * math.sin(dlon/2)
-    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
+    dlat = math.radians(lat2 - lat1)
+    dlon = math.radians(lon2 - lon1)
+    a = math.sin(dlat / 2) * math.sin(dlat / 2) + math.cos(math.radians(lat1)) \
+        * math.cos(math.radians(lat2)) * math.sin(dlon / 2) * math.sin(dlon / 2)
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
     d = radius * c
     return d
+
+
 def get_order_location(shop):
     """
     Get shop location ...
     """
-    return float(shop.latitude),float(shop.longitude)
+    return float(shop.latitude), float(shop.longitude)
+
 
 class PickerDashboardViewSet(DataWrapperViewSet):
     '''
@@ -393,7 +396,7 @@ class SearchProducts(APIView):
         category_ids = self.request.GET.get('category_ids')
         sub_category_ids = self.request.GET.get('sub_category_ids')
         filter_list = [{"term": {"is_deleted": False}}]
-        if int(self.request.GET.get('online_enabled', 0) ) == 1:
+        if int(self.request.GET.get('online_enabled', 0)) == 1:
             filter_list.append({"term": {"online_enabled": True}})
             filter_list.append({"term": {"status": 'active'}})
         if int(self.request.GET.get('offline', 0)) == 1:
@@ -438,7 +441,8 @@ class SearchProducts(APIView):
                 for word in tokens:
                     keyword += "*" + word + "* "
                 keyword = keyword.strip()
-                query_string = {"query": "*" + keyword + "*", "fields": ["category","sub_category","brand","name"], "minimum_should_match": 2}
+                query_string = {"query": "*" + keyword + "*", "fields": ["category", "sub_category", "brand", "name"],
+                                "minimum_should_match": 2}
         if category_ids:
             category = category_ids.split(',')
             if app_type == '3':
@@ -453,8 +457,8 @@ class SearchProducts(APIView):
                 filter_list.append({"match": {"category": {"query": category_filter, "operator": "and"}}})
 
         if sub_category_ids:
-            #sub_category = sub_category_ids.split(',')
-            #sub_category_filter = str(categorymodel.Category.objects.filter(id__in=sub_category, status=True).last())
+            # sub_category = sub_category_ids.split(',')
+            # sub_category_filter = str(categorymodel.Category.objects.filter(id__in=sub_category, status=True).last())
             filter_list.append({"term": {"sub_category": sub_category_ids}})
 
         if filter_list and query_string:
@@ -1375,7 +1379,8 @@ class CartCentral(GenericAPIView):
         """
         serializer = GramMappedCartSerializer(GramMappedCart.objects.get(id=cart.id),
                                               context={'parent_mapping_id': seller_shop.id,
-                                                       'delivery_message': self.delivery_message(seller_shop.shop_type)})
+                                                       'delivery_message': self.delivery_message(
+                                                           seller_shop.shop_type)})
         return serializer.data
 
     def get_serialize_process_basic(self, cart, next_offer):
@@ -1517,10 +1522,10 @@ class CartCentral(GenericAPIView):
             try:
                 pid = Product.objects.filter(product_ean_code__startswith=product_info['ean']).last()
                 if pid:
-                    product_info['linked_pid'] = getattr(pid,'id')
+                    product_info['linked_pid'] = getattr(pid, 'id')
                     product_info['type'] = 2
             except:
-                 pass
+                pass
 
         product = RetailerProductCls.create_retailer_product(shop_id, product_info['name'], product_info['mrp'],
                                                              product_info['sp'], product_info['linked_pid'],
@@ -2003,11 +2008,12 @@ class CartCheckout(APIView):
 
             data['redeem_points_message'] = use_reward_this_month
             time = datetime.now().strftime("%H:%M:%S")
-            time = datetime.strptime(time,"%H:%M:%S").time()
+            time = datetime.strptime(time, "%H:%M:%S").time()
             fofo_config = get_config_fofo_shops(kwargs['shop'].id)
-            delivery_time = str(fofo_config.get('delivery_time')) + " " + 'min' if fofo_config.get('delivery_time', None) else None
+            delivery_time = str(fofo_config.get('delivery_time')) + " " + 'min' if fofo_config.get('delivery_time',
+                                                                                                   None) else None
 
-            if fofo_config.get('open_time',None) and fofo_config.get('close_time',None) and not (
+            if fofo_config.get('open_time', None) and fofo_config.get('close_time', None) and not (
                     fofo_config['open_time'] < time < fofo_config['close_time']):
                 delivery_time = "Your order will be deliverd tomorrow"
 
@@ -2081,11 +2087,12 @@ class CartCheckout(APIView):
             data.update({'default_address': address})
             delivery_time = get_config_fofo_shops(kwargs['shop'])
             time = datetime.now().strftime("%H:%M:%S")
-            time = datetime.strptime(time,"%H:%M:%S").time()
+            time = datetime.strptime(time, "%H:%M:%S").time()
             fofo_config = get_config_fofo_shops(kwargs['shop'].id)
-            delivery_time = str(fofo_config.get('delivery_time')) + " "+ 'min' if fofo_config.get('delivery_time', None) else None
+            delivery_time = str(fofo_config.get('delivery_time')) + " " + 'min' if fofo_config.get('delivery_time',
+                                                                                                   None) else None
 
-            if fofo_config.get('open_time',None) and fofo_config.get('close_time',None) and not (
+            if fofo_config.get('open_time', None) and fofo_config.get('close_time', None) and not (
                     fofo_config['open_time'] < time < fofo_config['close_time']):
                 delivery_time = "Your order will be deliverd tomorrow"
             data['estimate_delivery_time'] = delivery_time
@@ -2572,7 +2579,7 @@ class CartCheckout(APIView):
 #             return Response(msg, status=status.HTTP_200_OK)
 
 
-def order_pickup_genrate_invioce(request,order):
+def order_pickup_genrate_invioce(request, order):
     if order.ordered_cart.cart_type != 'ECOM':
         return api_response("Invalid action")
     # if order.order_status != Order.PICKUP_CREATED:
@@ -2583,7 +2590,7 @@ def order_pickup_genrate_invioce(request,order):
         return api_response("Please select a delivery person")
     order.order_status = Order.OUT_FOR_DELIVERY
     order.delivery_person = delivery_person
-                ###### trip me save created
+    ###### trip me save created
     order.save()
     shipment = OrderedProduct.objects.filter(order=order).last()
     shipment.shipment_status = OrderedProduct.MOVED_TO_DISPATCH
@@ -2597,7 +2604,7 @@ def order_pickup_genrate_invioce(request,order):
                                           shipment=shipment)
     pos_trip.trip_start_at = datetime.now()
     pos_trip.save()
-                # Inventory move from ordered to picked
+    # Inventory move from ordered to picked
     ordered_products = ShipmentProducts.objects.filter(ordered_product=shipment)
     for product_map in ordered_products:
         product_id = product_map.retailer_product_id
@@ -2607,8 +2614,8 @@ def order_pickup_genrate_invioce(request,order):
                                             product_map.shipped_qty,
                                             request.user, order.order_no, PosInventoryChange.SHIPPED)
         ordered_p = CartProductMapping.objects.get(cart=order.ordered_cart,
-                                                               retailer_product=product_map.retailer_product,
-                                                               product_type=product_map.product_type)
+                                                   retailer_product=product_map.retailer_product,
+                                                   product_type=product_map.product_type)
         if ordered_p.qty - product_map.shipped_qty > 0:
             PosInventoryCls.order_inventory(product_id, PosInventoryState.ORDERED,
                                             PosInventoryState.AVAILABLE,
@@ -2616,48 +2623,50 @@ def order_pickup_genrate_invioce(request,order):
                                             request.user, order.order_no, PosInventoryChange.SHIPPED)
     pdf_generation_retailer(request, order.id)
 
+
 def order_shipment(request, data, *args, **kwargs):
     shop = kwargs['shop']
     serializer = EcomShipmentSerializer(data=data, context={'shop': shop})
     if serializer.is_valid():
         with transaction.atomic():
-                data = serializer.validated_data
-                products_info, order_id = data['products'], data['order_id']
-                order = Order.objects.filter(pk=order_id, seller_shop=shop,
-                                             order_status__in=['ordered', Order.PICKUP_CREATED],
-                                             ordered_cart__cart_type='ECOM').last()
-                    # Create shipment
-                shipment = OrderedProduct.objects.filter(order=order).last()
-                if not shipment:
-                    shipment = OrderedProduct(order=order)
-                    shipment.save()
-                for product_map in products_info:
-                    product_id, qty, product_type = product_map['product_id'], product_map['picked_qty'], product_map[
-                        'product_type']
-                    ordered_product_mapping, _ = ShipmentProducts.objects.get_or_create(ordered_product=shipment,
-                                                                                        retailer_product_id=product_id,
-                                                                                        product_type=product_type)
-                    ordered_product_mapping.shipped_qty = qty
-                    ordered_product_mapping.picked_pieces = qty
-                    ordered_product_mapping.selling_price = product_map['selling_price']
-                    ordered_product_mapping.save()
-                    # Item Batch
-                    batch = OrderedProductBatch.objects.filter(ordered_product_mapping=ordered_product_mapping).last()
-                    if not batch:
-                        OrderedProductBatch.objects.create(ordered_product_mapping=ordered_product_mapping,
-                                                           pickup_quantity=qty, quantity=qty, delivered_qty=qty)
-                    else:
-                        batch.pickup_quantity = qty
-                        batch.quantity = qty
-                        batch.delivered_qty = qty
-                        batch.save()
+            data = serializer.validated_data
+            products_info, order_id = data['products'], data['order_id']
+            order = Order.objects.filter(pk=order_id, seller_shop=shop,
+                                         order_status__in=['ordered', Order.PICKUP_CREATED],
+                                         ordered_cart__cart_type='ECOM').last()
+            # Create shipment
+            shipment = OrderedProduct.objects.filter(order=order).last()
+            if not shipment:
+                shipment = OrderedProduct(order=order)
+                shipment.save()
+            for product_map in products_info:
+                product_id, qty, product_type = product_map['product_id'], product_map['picked_qty'], product_map[
+                    'product_type']
+                ordered_product_mapping, _ = ShipmentProducts.objects.get_or_create(ordered_product=shipment,
+                                                                                    retailer_product_id=product_id,
+                                                                                    product_type=product_type)
+                ordered_product_mapping.shipped_qty = qty
+                ordered_product_mapping.picked_pieces = qty
+                ordered_product_mapping.selling_price = product_map['selling_price']
+                ordered_product_mapping.save()
+                # Item Batch
+                batch = OrderedProductBatch.objects.filter(ordered_product_mapping=ordered_product_mapping).last()
+                if not batch:
+                    OrderedProductBatch.objects.create(ordered_product_mapping=ordered_product_mapping,
+                                                       pickup_quantity=qty, quantity=qty, delivered_qty=qty)
+                else:
+                    batch.pickup_quantity = qty
+                    batch.quantity = qty
+                    batch.delivered_qty = qty
+                    batch.save()
 
-                order.order_status = Order.PICKUP_CREATED
-                order.ordered_by = request.user
-                order.save()
-                return True
+            order.order_status = Order.PICKUP_CREATED
+            order.ordered_by = request.user
+            order.save()
+            return True
     else:
         return False
+
 
 class ReservedOrder(generics.ListAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
@@ -2994,8 +3003,9 @@ class OrderCentral(APIView):
                 order.save()
                 try:
                     trxn_id = order.ordered_cart
-                    payment_datails = PosPayment.objects.filter(order=order.id, transaction_id=trxn_id, payment_type__type='online',
-                                                                order__ordered_cart__cart_type='ECOM' ).first()
+                    payment_datails = PosPayment.objects.filter(order=order.id, transaction_id=trxn_id,
+                                                                payment_type__type='online',
+                                                                order__ordered_cart__cart_type='ECOM').first()
                     if payment_datails:
                         refund_amount = payment_datails.amount
                         payment_id = payment_datails.payment_id
@@ -3005,7 +3015,7 @@ class OrderCentral(APIView):
                             request_id = response.get('request_id')
                             payment_datails.is_refund = True
                             payment_datails.refund_status = 'queued'
-                            payment_datails.request_id= request_id
+                            payment_datails.request_id = request_id
                             payment_datails.refund_amount = refund_amount
                             payment_datails.save()
                 except  Exception as e:
@@ -3069,11 +3079,10 @@ class OrderCentral(APIView):
             else:
                 if order.delivery_option == '1':
                     data = {'order_id': order.id,
-                            'products':[]}
+                            'products': []}
                     for i in CartProductMapping.objects.filter(cart=order.ordered_cart, product_type=1):
-
-                        data['products'].append({'product_id':i.retailer_product_id,
-                                                  'picked_qty': i.qty})
+                        data['products'].append({'product_id': i.retailer_product_id,
+                                                 'picked_qty': i.qty})
                     order_shipment(request, data, *args, **kwargs)
                     order_pickup_genrate_invioce(request, order)
                 elif order.order_status not in [Order.OUT_FOR_DELIVERY, Order.DELIVERED]:
@@ -3082,14 +3091,16 @@ class OrderCentral(APIView):
                 order.last_modified_by = self.request.user
                 if order_status == Order.DELIVERED:
                     shop = kwargs['shop']
-                    if shop.enable_loyalty_points: ## credit point on order delivery complete
+                    if shop.enable_loyalty_points:  ## credit point on order delivery complete
                         if ReferralCode.is_marketing_user(order.buyer):
-                            order.points_added = order_loyalty_points_credit(order.order_amount, order.buyer.id, order.order_no,
-                                                                            'order_credit', 'order_indirect_credit',
-                                                                            self.request.user.id, order.seller_shop.id)
+                            order.points_added = order_loyalty_points_credit(order.order_amount, order.buyer.id,
+                                                                             order.order_no,
+                                                                             'order_credit', 'order_indirect_credit',
+                                                                             self.request.user.id, order.seller_shop.id)
                 order.save()
                 if order_status == Order.DELIVERED:
-                    whatsapp_order_delivered(order.order_no, shop.shop_name, order.buyer.phone_number, order.points_added, shop.enable_loyalty_points)
+                    whatsapp_order_delivered(order.order_no, shop.shop_name, order.buyer.phone_number,
+                                             order.points_added, shop.enable_loyalty_points)
                 try:
                     shipment = OrderedProduct.objects.filter(order=order).last()
                     shipment.shipment_status = order_status
@@ -3149,8 +3160,9 @@ class OrderCentral(APIView):
             response = None
             try:
                 trxn_id = order.ordered_cart
-                payment_datails = PosPayment.objects.filter(order=order.id, transaction_id=trxn_id, payment_type__type='online',
-                order__ordered_cart__cart_type='ECOM' ).first()
+                payment_datails = PosPayment.objects.filter(order=order.id, transaction_id=trxn_id,
+                                                            payment_type__type='online',
+                                                            order__ordered_cart__cart_type='ECOM').first()
                 if payment_datails:
                     refund_amount = payment_datails.amount
                     payment_id = payment_datails.payment_id
@@ -3160,7 +3172,7 @@ class OrderCentral(APIView):
                         request_id = response.get('request_id')
                         payment_datails.is_refund = True
                         payment_datails.refund_status = 'queued'
-                        payment_datails.request_id= request_id
+                        payment_datails.request_id = request_id
                         payment_datails.refund_amount = refund_amount
                         payment_datails.save()
             except Exception as e:
@@ -3261,7 +3273,7 @@ class OrderCentral(APIView):
             return api_response("Order Not Found!")
 
         return api_response('Order', self.get_serialize_process_pos_ecom(order), status.HTTP_200_OK, True,
-                            extra_params={"key_p": str(config('PAYU_KEY')),}
+                            extra_params={"key_p": str(config('PAYU_KEY')), }
                             )
 
     def post_retail_order(self):
@@ -3419,8 +3431,9 @@ class OrderCentral(APIView):
         # order_config = GlobalConfig.objects.filter(key='ecom_minimum_order_amount').last()
         # order_config = get_config_fofo_shop('Minimum order value', shop.id)
         fofo_config = get_config_fofo_shops(shop)
-        order_config = fofo_config.get('min_order_value',None)
-        order_config = order_config if order_config else GlobalConfig.objects.filter(key='ecom_minimum_order_amount').last().value
+        order_config = fofo_config.get('min_order_value', None)
+        order_config = order_config if order_config else GlobalConfig.objects.filter(
+            key='ecom_minimum_order_amount').last().value
         if order_config is not None:
             order_amount = cart.order_amount_after_discount
             if order_amount < order_config:
@@ -3497,7 +3510,7 @@ class OrderCentral(APIView):
             else:
                 msg = 'Ordered Successfully!'
             return api_response(msg, BasicOrderListSerializer(Order.objects.get(id=order.id)).data,
-                                 status.HTTP_200_OK, True)
+                                status.HTTP_200_OK, True)
 
     def get_retail_validate(self):
         """
@@ -3791,13 +3804,14 @@ class OrderCentral(APIView):
             order.delivery_option = delivery_option
             fofo_config = get_config_fofo_shops(shop)
             time = datetime.now().strftime("%H:%M:%S")
-            time = datetime.strptime(time,"%H:%M:%S").time()
-            msg = fofo_config.get('delivery_time',None)
-            if msg :
-                msg = str(msg)+" "+"min"
+            time = datetime.strptime(time, "%H:%M:%S").time()
+            msg = fofo_config.get('delivery_time', None)
+            if msg:
+                msg = str(msg) + " " + "min"
             if delivery_option and delivery_option == '1':
                 msg = None
-            if fofo_config.get('open_time',None) and fofo_config.get('close_time',None) and not (fofo_config['open_time']<time and fofo_config['close_time']>time):
+            if fofo_config.get('open_time', None) and fofo_config.get('close_time', None) and not (
+                    fofo_config['open_time'] < time and fofo_config['close_time'] > time):
                 msg = "Your order will be deliverd tomorrow"
                 if delivery_option and delivery_option == '1':
                     msg = "Please pickup your order tommorow"
@@ -3806,10 +3820,11 @@ class OrderCentral(APIView):
         order.save()
 
         if address:
-            EcomOrderAddress.objects.get_or_create(order=order, address=address.address, contact_name=address.contact_name,
-                                                    contact_number=address.contact_number, latitude=address.latitude,
-                                                    longitude=address.longitude, pincode=address.pincode,
-                                                    state=address.state, city=address.city)
+            EcomOrderAddress.objects.get_or_create(order=order, address=address.address,
+                                                   contact_name=address.contact_name,
+                                                   contact_number=address.contact_number, latitude=address.latitude,
+                                                   longitude=address.longitude, pincode=address.pincode,
+                                                   state=address.state, city=address.city)
         return order
 
     def update_ordered_reserve_sp(self, cart, parent_mapping, order):
@@ -3992,8 +4007,8 @@ class OrderCentral(APIView):
                 paid_by=order.buyer,
                 processed_by=self.request.user,
                 amount=payment['amount'],
-                payment_status = payment['payment_status'],
-                payment_mode = payment['payment_mode']
+                payment_status=payment['payment_status'],
+                payment_mode=payment['payment_mode']
             )
 
     def auto_process_pos_order(self, order):
@@ -4467,7 +4482,7 @@ class OrderedItemCentralDashBoard(APIView):
         invoices = OrderedProduct.objects.filter(order__seller_shop=shop).filter(
             ~Q(order__ordered_cart__cart_type='ECOM',
                order__rt_payment_retailer_order__payment_type__type__iexact='cod',
-               order__order_status=Order.OUT_FOR_DELIVERY))\
+               order__order_status=Order.OUT_FOR_DELIVERY)) \
             .exclude(order__order_status=Order.CANCELLED)
 
         # pos invoices for shop
@@ -4696,7 +4711,7 @@ class OrderedItemCentralDashBoard(APIView):
         pos_total_invoices_final_amount = 0
         for invoice in pos_invoices:
             pos_total_invoices_final_amount += round_half_down(invoice.invoice_amount_final)
-        pos_total_invoice_refund_amount = pos_invoice_returns.aggregate(Sum('order_return__refund_amount')).\
+        pos_total_invoice_refund_amount = pos_invoice_returns.aggregate(Sum('order_return__refund_amount')). \
             get('order_return__refund_amount__sum')
         if pos_total_invoice_refund_amount:
             pos_total_invoices_final_amount -= float(pos_total_invoice_refund_amount)
@@ -5415,26 +5430,29 @@ class CartStockCheckView(APIView):
         """"---------------------------------------------validation for fofo shop-----------------------------------------------"""
 
         time = datetime.now().strftime("%H:%M:%S")
-        time = datetime.strptime(time,"%H:%M:%S").time()
+        time = datetime.strptime(time, "%H:%M:%S").time()
         day = datetime.today().date()
 
         fofo_config = get_config_fofo_shops(shop)
         msg = 'Stock check completed'
-        if fofo_config.get('open_time',None) and fofo_config.get('close_time',None) and not (fofo_config['open_time']<time and fofo_config['close_time']>time):
+        if fofo_config.get('open_time', None) and fofo_config.get('close_time', None) and not (
+                fofo_config['open_time'] < time and fofo_config['close_time'] > time):
             msg = "Your Order Will Pick Up Tomorrow"
-            #return api_response("Sorry for the inconvenience, order acceptable b/w {} to {}".format(fofo_config['open_time'], fofo_config['close_time']))
+            # return api_response("Sorry for the inconvenience, order acceptable b/w {} to {}".format(fofo_config['open_time'], fofo_config['close_time']))
 
         start_off_day = fofo_config.get('working_off_start_date', None)
-        end_off_day = fofo_config.get('working_off_end_date',start_off_day)
-        if (start_off_day and end_off_day) and (start_off_day<= day and end_off_day >= day):
-            return api_response("Sorry for the inconvenience, Shop is non operational on {}".format(datetime.today().date()))
+        end_off_day = fofo_config.get('working_off_end_date', start_off_day)
+        if (start_off_day and end_off_day) and (start_off_day <= day and end_off_day >= day):
+            return api_response(
+                "Sorry for the inconvenience, Shop is non operational on {}".format(datetime.today().date()))
         # Check for changes in cart - price / offers / available inventory
         cart_products = cart.rt_cart_list.all()
         cart_products = PosCartCls.refresh_prices(cart_products)
         # Minimum Order Value
         # order_config = GlobalConfig.objects.filter(key='ecom_minimum_order_amount').last()
-        order_config = fofo_config.get('min_order_value',None)#get_config_fofo_shop('Minimum order value', shop.id)
-        order_config = order_config if order_config else GlobalConfig.objects.filter(key='ecom_minimum_order_amount').last().value
+        order_config = fofo_config.get('min_order_value', None)  # get_config_fofo_shop('Minimum order value', shop.id)
+        order_config = order_config if order_config else GlobalConfig.objects.filter(
+            key='ecom_minimum_order_amount').last().value
         if order_config is not None:
             order_amount = cart.order_amount_after_discount
             if order_amount < order_config:
@@ -5697,7 +5715,7 @@ def pdf_generation(request, ordered_product):
         ordered_product = ordered_product
 
     if ordered_product.invoice and ordered_product.invoice.invoice_pdf and ordered_product.invoice.invoice_pdf.url:
-            pass
+        pass
     else:
         barcode = barcodeGen(ordered_product.invoice_no)
         e_invoice_data = None
@@ -5730,10 +5748,10 @@ def pdf_generation(request, ordered_product):
         fin_year_start_dt = get_fin_year_start_date()
         paid_amount = OrderedProduct.objects.filter(order__buyer_shop_id=buyer_shop_id,
                                                     created_at__gte=fin_year_start_dt) \
-                                            .aggregate(paid_amount=RoundAmount(Sum(
-                                                F('rt_order_product_order_product_mapping__effective_price') *
-                                                F('rt_order_product_order_product_mapping__shipped_qty'),
-                                                output_field=FloatField())))['paid_amount']
+            .aggregate(paid_amount=RoundAmount(Sum(
+            F('rt_order_product_order_product_mapping__effective_price') *
+            F('rt_order_product_order_product_mapping__shipped_qty'),
+            output_field=FloatField())))['paid_amount']
 
         try:
             if ordered_product.order.buyer_shop.shop_timing:
@@ -6096,8 +6114,9 @@ def pdf_generation_retailer(request, order_id, delay=True):
                 "cin": cin_number,
                 "payment_type": ordered_product.order.rt_payment_retailer_order.last().payment_type.type}
         cmd_option = {"margin-top": 2, "margin-left": 0, "margin-right": 0, "margin-bottom": 2, "javascript-delay": 0,
-                      "page-height": height, "page-width": 70, "no-stop-slow-scripts": True, "quiet": True,'encoding': 'utf8 '
-                      ,"dpi":300}
+                      "page-height": height, "page-width": 70, "no-stop-slow-scripts": True, "quiet": True,
+                      'encoding': 'utf8 '
+            , "dpi": 300}
         response = PDFTemplateResponse(request=request, template=template_name, filename=filename,
                                        context=data, show_content_in_browser=False, cmd_options=cmd_option)
         # with open("heelo.pdf", "wb") as f:
@@ -6143,7 +6162,6 @@ def pdf_generation_return_retailer(request, order, ordered_product, order_return
     # template_name = 'admin/credit_note/credit_note_retailer.html'
     template_name = 'admin/credit_note/credit_retailer_3inch.html'
 
-
     # Don't create pdf if already created
     if credit_note_instance and credit_note_instance.credit_note_pdf and credit_note_instance.credit_note_pdf.url:
         try:
@@ -6168,7 +6186,7 @@ def pdf_generation_return_retailer(request, order, ordered_product, order_return
                 else:
                     info_logger.error("Email not present for Manager {}".format(str(manager)))
                 return whatsapp_order_refund(order_number, order_status, phone_number, refund_amount, media_url,
-                                                             file_name)
+                                             file_name)
                 # send mail to manager for return
         except Exception as e:
             logger.exception("Retailer Credit note send error order {} return {}".format(order.order_no,
@@ -6183,7 +6201,7 @@ def pdf_generation_return_retailer(request, order, ordered_product, order_return
         # Total Returned Amount
         total = 0
         return_qty = 0
-        count=0
+        count = 0
 
         for item in return_items:
             product = item.ordered_product.retailer_product
@@ -6280,7 +6298,7 @@ def pdf_generation_return_retailer(request, order, ordered_product, order_return
         }
 
         cmd_option = {"margin-top": 10, "margin-left": 0, "margin-right": 0, "javascript-delay": 0,
-                       "page-height": height, "page-width": 80,
+                      "page-height": height, "page-width": 80,
                       "no-stop-slow-scripts": True, "quiet": True, }
         response = PDFTemplateResponse(request=request, template=template_name, filename=filename,
                                        context=data, show_content_in_browser=False, cmd_options=cmd_option)
@@ -6981,14 +6999,15 @@ class RetailerList(generics.ListAPIView):
 
     def get_child_employee(self):
         return ShopUserMapping.objects.filter(Q(manager__in=self.get_manager()) | Q(employee=self.request.user,
-                                                      employee_group__permissions__codename='can_sales_person_add_shop'),
+                                                                                    employee_group__permissions__codename='can_sales_person_add_shop'),
                                               shop__shop_type__shop_type__in=['r', 'f', 'sp'], status=True)
 
     def get_shops(self):
         return ShopUserMapping.objects.filter(Q(manager__in=self.get_manager()) | Q(employee=self.request.user,
-                                                 employee_group__permissions__codename='can_sales_person_add_shop'),
-                                                 employee__in=self.get_child_employee().values('employee'),
+                                                                                    employee_group__permissions__codename='can_sales_person_add_shop'),
+                                              employee__in=self.get_child_employee().values('employee'),
                                               shop__shop_type__shop_type__in=['r', 'f', ], status=True)
+
     def get_queryset(self):
         shop_emp = self.get_child_employee()
         if not shop_emp.exists():
@@ -7570,7 +7589,7 @@ class ShipmentQCView(generics.GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
     serializer_class = ShipmentQCSerializer
-    queryset = OrderedProduct.objects. filter(~Q(order__order_status=Order.CANCELLED)).\
+    queryset = OrderedProduct.objects.filter(~Q(order__order_status=Order.CANCELLED)). \
         annotate(status=Case(
         When(shipment_status__in=[OrderedProduct.SHIPMENT_CREATED, OrderedProduct.QC_STARTED],
              then=Value(OrderedProduct.SHIPMENT_CREATED)),
@@ -8202,10 +8221,10 @@ class DispatchTripsCrudView(generics.GenericAPIView):
     permission_classes = (AllowAny,)
     queryset = DispatchTrip.objects. \
         annotate(status=Case(
-                         When(trip_status__in=[DispatchTrip.NEW, DispatchTrip.STARTED], then=Value("PENDING")),
-                         When(trip_status__in=[DispatchTrip.COMPLETED, DispatchTrip.UNLOADING,],
-                              then=Value("COMPLETED")),
-                         default=F('trip_status'))).\
+        When(trip_status__in=[DispatchTrip.NEW, DispatchTrip.STARTED], then=Value("PENDING")),
+        When(trip_status__in=[DispatchTrip.COMPLETED, DispatchTrip.UNLOADING, ],
+             then=Value("COMPLETED")),
+        default=F('trip_status'))). \
         select_related('seller_shop', 'seller_shop__shop_owner', 'seller_shop__shop_type',
                        'seller_shop__shop_type__shop_sub_type', 'source_shop', 'source_shop__shop_owner',
                        'source_shop__shop_type', 'source_shop__shop_type__shop_sub_type', 'destination_shop',
@@ -8229,7 +8248,7 @@ class DispatchTripsCrudView(generics.GenericAPIView):
              'completed_at', 'opening_kms', 'closing_kms', 'no_of_crates', 'no_of_packets', 'no_of_sacks',
              'no_of_crates_check', 'no_of_packets_check', 'no_of_sacks_check', 'created_at', 'updated_at',
              'created_by__id', 'created_by__first_name', 'created_by__last_name', 'created_by__phone_number',
-             'updated_by__id', 'updated_by__first_name', 'updated_by__last_name', 'updated_by__phone_number',). \
+             'updated_by__id', 'updated_by__first_name', 'updated_by__last_name', 'updated_by__phone_number', ). \
         order_by('-id')
     serializer_class = DispatchTripCrudSerializers
 
@@ -8414,7 +8433,7 @@ class DispatchTripStatusChangeView(generics.GenericAPIView):
              'completed_at', 'opening_kms', 'closing_kms', 'no_of_crates', 'no_of_packets', 'no_of_sacks',
              'no_of_crates_check', 'no_of_packets_check', 'no_of_sacks_check', 'created_at', 'updated_at',
              'created_by__id', 'created_by__first_name', 'created_by__last_name', 'created_by__phone_number',
-             'updated_by__id', 'updated_by__first_name', 'updated_by__last_name', 'updated_by__phone_number',). \
+             'updated_by__id', 'updated_by__first_name', 'updated_by__last_name', 'updated_by__phone_number', ). \
         order_by('-id')
     serializer_class = DispatchTripStatusChangeSerializers
 
@@ -8513,9 +8532,9 @@ class ShipmentPackagingView(generics.GenericAPIView):
     permission_classes = (AllowAny,)
     queryset = ShipmentPackaging.objects. \
         select_related('crate', 'warehouse', 'warehouse__shop_owner', 'shipment', 'shipment__invoice',
-                       'shipment__order',  'shipment__order__shipping_address', 'shipment__order__buyer_shop',
+                       'shipment__order', 'shipment__order__shipping_address', 'shipment__order__buyer_shop',
                        'shipment__order__shipping_address__shop_name', 'shipment__order__buyer_shop__shop_owner',
-                       'warehouse__shop_type',  'warehouse__shop_type__shop_sub_type', 'created_by', 'updated_by'). \
+                       'warehouse__shop_type', 'warehouse__shop_type__shop_sub_type', 'created_by', 'updated_by'). \
         prefetch_related('packaging_details', 'trip_packaging_details', 'shipment__trip_shipment',
                          'shipment__rescheduling_shipment', 'shipment__not_attempt_shipment',
                          'shipment__last_mile_trip_shipment'). \
@@ -8551,10 +8570,10 @@ class ShipmentPackagingView(generics.GenericAPIView):
 class ShipmentDetailsByCrateView(generics.GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
-    queryset = OrderedProduct.objects.\
+    queryset = OrderedProduct.objects. \
         select_related('order', 'order__seller_shop', 'order__shipping_address', 'order__shipping_address__city',
-                       'order__shipping_address__state', 'order__shipping_address__pincode_link', 'invoice', 'qc_area').\
-        prefetch_related('shipment_packaging').\
+                       'order__shipping_address__state', 'order__shipping_address__pincode_link', 'invoice', 'qc_area'). \
+        prefetch_related('shipment_packaging'). \
         only('id', 'order__order_no', 'order__seller_shop__id', 'order__seller_shop__shop_name',
              'order__buyer_shop__id', 'order__buyer_shop__shop_name', 'order__shipping_address__pincode',
              'order__dispatch_center__id', 'order__dispatch_center__shop_name', 'order__dispatch_delivery',
@@ -8563,7 +8582,7 @@ class ShipmentDetailsByCrateView(generics.GenericAPIView):
              'order__shipping_address__address_contact_number', 'order__shipping_address__address_type',
              'order__shipping_address__city_id', 'order__shipping_address__city__city_name',
              'order__shipping_address__state__state_name', 'shipment_status', 'invoice__invoice_no', 'qc_area__id',
-             'qc_area__area_id', 'qc_area__area_type', 'created_at').\
+             'qc_area__area_id', 'qc_area__area_type', 'created_at'). \
         order_by('-id')
     serializer_class = ShipmentDetailsByCrateSerializer
 
@@ -8573,7 +8592,7 @@ class ShipmentDetailsByCrateView(generics.GenericAPIView):
         if not (request.GET.get('crate_id') or request.GET.get('shipment_id') or request.GET.get('shipment_label_id')):
             return get_response("'crate_id/shipment_label_id/shipment_id' | This is mandatory.")
         """Get Shipment"""
-        if request.GET.get('crate_id') :
+        if request.GET.get('crate_id'):
             """ Get Shipment Details By Crate for specific ID """
             id_validation = get_shipment_by_crate_id(request.GET.get('crate_id'), Crate.DISPATCH)
         elif request.GET.get('shipment_label_id'):
@@ -8850,10 +8869,10 @@ class ShipmentCompleteVerifyView(generics.GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
     serializer_class = ShipmentCompleteVerifySerializer
-    queryset = OrderedProduct.objects.\
+    queryset = OrderedProduct.objects. \
         select_related('order', 'order__seller_shop', 'order__shipping_address', 'order__shipping_address__city',
-                       'order__shipping_address__state', 'order__shipping_address__pincode_link', 'invoice', 'qc_area').\
-        prefetch_related('qc_area__qc_desk_areas', 'qc_area__qc_desk_areas__qc_executive').\
+                       'order__shipping_address__state', 'order__shipping_address__pincode_link', 'invoice', 'qc_area'). \
+        prefetch_related('qc_area__qc_desk_areas', 'qc_area__qc_desk_areas__qc_executive'). \
         only('id', 'order__order_no', 'order__seller_shop__id', 'order__seller_shop__shop_name',
              'order__buyer_shop__id', 'order__buyer_shop__shop_name', 'order__shipping_address__pincode',
              'order__dispatch_center__id', 'order__dispatch_center__shop_name', 'order__dispatch_delivery',
@@ -8862,7 +8881,7 @@ class ShipmentCompleteVerifyView(generics.GenericAPIView):
              'order__shipping_address__address_contact_number', 'order__shipping_address__address_type',
              'order__shipping_address__city_id', 'order__shipping_address__city__city_name',
              'order__shipping_address__state__state_name', 'shipment_status', 'invoice__invoice_no', 'qc_area__id',
-             'qc_area__area_id', 'qc_area__area_type', 'created_at').\
+             'qc_area__area_id', 'qc_area__area_type', 'created_at'). \
         order_by('-id')
 
     @check_whc_manager_dispatch_executive
@@ -8938,10 +8957,10 @@ class TripSummaryView(generics.GenericAPIView):
                 'total_empty_crate_check': dispatch_trip_instance.no_of_empty_crates_check,
                 'remaining_invoices': dispatch_trip_instance.shipments_details.filter(
                     shipment_status=DispatchTripShipmentMapping.UNLOADING_AT_DC).count(),
-                'remaining_crates': dispatch_trip_instance.no_of_crates-dispatch_trip_instance.no_of_crates_check,
-                'remaining_packets': dispatch_trip_instance.no_of_packets-dispatch_trip_instance.no_of_packets_check,
-                'remaining_sacks': dispatch_trip_instance.no_of_sacks-dispatch_trip_instance.no_of_sacks_check,
-                'remaining_empty_crate': dispatch_trip_instance.no_of_empty_crates-dispatch_trip_instance.no_of_empty_crates_check,
+                'remaining_crates': dispatch_trip_instance.no_of_crates - dispatch_trip_instance.no_of_crates_check,
+                'remaining_packets': dispatch_trip_instance.no_of_packets - dispatch_trip_instance.no_of_packets_check,
+                'remaining_sacks': dispatch_trip_instance.no_of_sacks - dispatch_trip_instance.no_of_sacks_check,
+                'remaining_empty_crate': dispatch_trip_instance.no_of_empty_crates - dispatch_trip_instance.no_of_empty_crates_check,
             }
         else:
             trip_summary_data = {
@@ -9020,18 +9039,18 @@ class TripSummaryView(generics.GenericAPIView):
     def get_non_trip_data_backward_trip(self, request):
         dispatch_center = request.GET.get('dispatch_center')
         resp_data = ShipmentPackaging.objects.filter(
-                                        Q(trip_packaging_details__isnull=True)|
-                                        Q(trip_packaging_details__package_status=DispatchTripShipmentPackages.CANCELLED),
-                                        movement_type=ShipmentPackaging.RETURNED,
-                                        status=ShipmentPackaging.DISPATCH_STATUS_CHOICES.PACKED,
-                                        warehouse_id=dispatch_center,
-                                        shipment__shipment_status__in=[
-                                                  OrderedProduct.FULLY_RETURNED_AND_VERIFIED,
-                                                  OrderedProduct.PARTIALLY_DELIVERED_AND_VERIFIED]).\
+            Q(trip_packaging_details__isnull=True) |
+            Q(trip_packaging_details__package_status=DispatchTripShipmentPackages.CANCELLED),
+            movement_type=ShipmentPackaging.RETURNED,
+            status=ShipmentPackaging.DISPATCH_STATUS_CHOICES.PACKED,
+            warehouse_id=dispatch_center,
+            shipment__shipment_status__in=[
+                OrderedProduct.FULLY_RETURNED_AND_VERIFIED,
+                OrderedProduct.PARTIALLY_DELIVERED_AND_VERIFIED]). \
             aggregate(no_of_crates=Count(Case(When(packaging_type=ShipmentPackaging.CRATE, then=1))),
-                          no_of_packets=Count(Case(When(packaging_type=ShipmentPackaging.BOX, then=1))),
-                          no_of_sacks=Count(Case(When(packaging_type=ShipmentPackaging.SACK, then=1)))
-                          )
+                      no_of_packets=Count(Case(When(packaging_type=ShipmentPackaging.BOX, then=1))),
+                      no_of_sacks=Count(Case(When(packaging_type=ShipmentPackaging.SACK, then=1)))
+                      )
         trip_summary_data = {
             'total_invoices': 0,
             'total_crates': resp_data['no_of_crates'] if resp_data['no_of_crates'] else 0,
@@ -9073,7 +9092,7 @@ class DispatchCenterShipmentView(generics.GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
     serializer_class = DispatchInvoiceSerializer
-    queryset = OrderedProduct.objects.\
+    queryset = OrderedProduct.objects. \
         select_related('order', 'order__seller_shop', 'order__shipping_address', 'order__shipping_address__city',
                        'invoice'). \
         only('id', 'order__order_no', 'order__seller_shop__id', 'order__seller_shop__shop_name',
@@ -9085,7 +9104,6 @@ class DispatchCenterShipmentView(generics.GenericAPIView):
              'order__shipping_address__city_id', 'order__shipping_address__city__city_name',
              'order__shipping_address__state__state_name', 'shipment_status', 'invoice__invoice_no', 'created_at'). \
         order_by('-id')
-
 
     def get(self, request):
         validation_response = self.validate_get_request()
@@ -9101,18 +9119,17 @@ class DispatchCenterShipmentView(generics.GenericAPIView):
     def validate_get_request(self):
         try:
             if not self.request.GET.get('dispatch_center', None):
-                return {"error" : "'dispatch_center'| This is required"}
+                return {"error": "'dispatch_center'| This is required"}
             elif not self.request.GET.get('availability') \
                     or int(self.request.GET.get('availability')) not in INVOICE_AVAILABILITY_CHOICES._db_values:
                 return {"error": "'availability' | Invalid availability choice."}
             elif int(self.request.GET['availability']) in [INVOICE_AVAILABILITY_CHOICES.ADDED,
-                                                      INVOICE_AVAILABILITY_CHOICES.ALL] and \
+                                                           INVOICE_AVAILABILITY_CHOICES.ALL] and \
                     not self.request.GET.get('trip_id'):
                 return {"error": "'trip_id' | This is required."}
-            return {"data": self.request.data }
+            return {"data": self.request.data}
         except Exception as e:
             return {"error": "Invalid Request"}
-
 
     def search_filter_invoice_data(self):
         """ Filters the Shipment data based on request"""
@@ -9185,35 +9202,35 @@ class DispatchCenterShipmentView(generics.GenericAPIView):
             if availability == INVOICE_AVAILABILITY_CHOICES.ADDED:
                 self.queryset = self.queryset.filter(trip_shipment__trip_id=trip_id,
                                                      trip_shipment__shipment_status__in=[
-                                                     DispatchTripShipmentMapping.LOADED_FOR_DC,
-                                                     DispatchTripShipmentMapping.UNLOADING_AT_DC,
-                                                     DispatchTripShipmentMapping.UNLOADED_AT_DC],
+                                                         DispatchTripShipmentMapping.LOADED_FOR_DC,
+                                                         DispatchTripShipmentMapping.UNLOADING_AT_DC,
+                                                         DispatchTripShipmentMapping.UNLOADED_AT_DC],
                                                      )
             elif availability == INVOICE_AVAILABILITY_CHOICES.NOT_ADDED:
                 shipment_moved_to_dispatch = self.queryset.filter(shipment_status=OrderedProduct.MOVED_TO_DISPATCH)
                 shipment_not_added_in_any_trip = shipment_moved_to_dispatch.filter(trip_shipment__isnull=True)
                 shipment_added_in_some_other_trip = shipment_moved_to_dispatch.exclude(
-                                                                ~Q(trip_shipment__trip_id=trip_id),
-                                                                trip_shipment__isnull=False,
-                                                                trip_shipment__shipment_status__in=[
-                                                                 DispatchTripShipmentMapping.LOADING_FOR_DC,
-                                                                 DispatchTripShipmentMapping.LOADED_FOR_DC,
-                                                                 DispatchTripShipmentMapping.UNLOADING_AT_DC,
-                                                                 DispatchTripShipmentMapping.UNLOADED_AT_DC])
+                    ~Q(trip_shipment__trip_id=trip_id),
+                    trip_shipment__isnull=False,
+                    trip_shipment__shipment_status__in=[
+                        DispatchTripShipmentMapping.LOADING_FOR_DC,
+                        DispatchTripShipmentMapping.LOADED_FOR_DC,
+                        DispatchTripShipmentMapping.UNLOADING_AT_DC,
+                        DispatchTripShipmentMapping.UNLOADED_AT_DC])
 
                 self.queryset = shipment_not_added_in_any_trip.union(shipment_added_in_some_other_trip)
             elif availability == INVOICE_AVAILABILITY_CHOICES.ALL:
 
                 shipment_moved_to_dispatch = self.queryset.filter(shipment_status__in=[
-                                                                    OrderedProduct.MOVED_TO_DISPATCH,
-                                                                    OrderedProduct.READY_TO_DISPATCH]
-                                                                  )
+                    OrderedProduct.MOVED_TO_DISPATCH,
+                    OrderedProduct.READY_TO_DISPATCH]
+                )
                 self.queryset = shipment_moved_to_dispatch.exclude(~Q(trip_shipment__trip_id=trip_id),
                                                                    trip_shipment__shipment_status__in=[
-                                                                     DispatchTripShipmentMapping.LOADING_FOR_DC,
-                                                                     DispatchTripShipmentMapping.LOADED_FOR_DC,
-                                                                     DispatchTripShipmentMapping.UNLOADING_AT_DC,
-                                                                     DispatchTripShipmentMapping.UNLOADED_AT_DC])
+                                                                       DispatchTripShipmentMapping.LOADING_FOR_DC,
+                                                                       DispatchTripShipmentMapping.LOADED_FOR_DC,
+                                                                       DispatchTripShipmentMapping.UNLOADING_AT_DC,
+                                                                       DispatchTripShipmentMapping.UNLOADED_AT_DC])
                 # self.queryset = self.queryset.filter(Q(trip_shipment__isnull=True)|
                 #                                      ~Q(trip_shipment__trip=trip_id) &
                 #                                      Q(trip_shipment__shipment_status=
@@ -9233,7 +9250,7 @@ class DispatchCenterCrateView(generics.GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
     serializer_class = DispatchCenterCrateSerializer
-    queryset = ShopCrate.objects.\
+    queryset = ShopCrate.objects. \
         select_related('shop', 'crate'). \
         only('id', 'shop__id', 'shop__shop_name', 'crate', 'is_available', 'created_at', 'updated_at'). \
         order_by('-id')
@@ -9260,7 +9277,7 @@ class DispatchCenterCrateView(generics.GenericAPIView):
                                                            INVOICE_AVAILABILITY_CHOICES.ALL] and \
                     not self.request.GET.get('trip_id'):
                 return {"error": "'trip_id' | This is required."}
-            return {"data": self.request.data }
+            return {"data": self.request.data}
         except Exception as e:
             return {"error": "Invalid Request"}
 
@@ -9301,7 +9318,7 @@ class DispatchCenterShipmentPackageView(generics.GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
     serializer_class = DispatchCenterShipmentPackageSerializer
-    queryset = ShipmentPackaging.objects.\
+    queryset = ShipmentPackaging.objects. \
         select_related('warehouse', 'crate', 'shipment'). \
         only('id', 'warehouse__id', 'warehouse__shop_name', 'crate', 'shipment', 'created_at', 'updated_at'). \
         order_by('-id')
@@ -9328,7 +9345,7 @@ class DispatchCenterShipmentPackageView(generics.GenericAPIView):
                                                            INVOICE_AVAILABILITY_CHOICES.ALL] and \
                     not self.request.GET.get('trip_id'):
                 return {"error": "'trip_id' | This is required."}
-            return {"data": self.request.data }
+            return {"data": self.request.data}
         except Exception as e:
             return {"error": "Invalid Request"}
 
@@ -9578,7 +9595,7 @@ class RemoveInvoiceFromTripView(generics.GenericAPIView):
 
         # validations for input
         shipment_validation = self.validate_trip_invoice(int(modified_data['shipment_id']),
-                                                   int(modified_data['trip_id']))
+                                                         int(modified_data['trip_id']))
         if 'error' in shipment_validation:
             return get_response(shipment_validation['error'])
         trip_invoice_mapping = shipment_validation['data'].last()
@@ -9595,8 +9612,8 @@ class RemoveInvoiceFromTripView(generics.GenericAPIView):
         if not self.queryset.filter(~Q(shipment_status=DispatchTripShipmentMapping.CANCELLED),
                                     trip_id=trip_id, shipment_id=shipment_id).exists():
             return {"error": "invalid Shipment"}
-        return {"data" : self.queryset.filter(~Q(shipment_status=DispatchTripShipmentMapping.CANCELLED),
-                                              trip_id=trip_id, shipment_id=shipment_id)}
+        return {"data": self.queryset.filter(~Q(shipment_status=DispatchTripShipmentMapping.CANCELLED),
+                                             trip_id=trip_id, shipment_id=shipment_id)}
 
 
 class LastMileTripCrudView(generics.GenericAPIView):
@@ -9604,17 +9621,18 @@ class LastMileTripCrudView(generics.GenericAPIView):
     permission_classes = (AllowAny,)
     queryset = Trip.objects. \
         annotate(status=Case(
-                         When(trip_status__in=[Trip.READY, Trip.STARTED], then=Value("PENDING")),
-                         When(trip_status__in=[Trip.CANCELLED, Trip.PAYMENT_VERIFIED, Trip.RETURN_VERIFIED],
-                              then=Value("CLOSED")),
-                         default=F('trip_status'))).\
+        When(trip_status__in=[Trip.READY, Trip.STARTED], then=Value("PENDING")),
+        When(trip_status__in=[Trip.CANCELLED, Trip.PAYMENT_VERIFIED, Trip.RETURN_VERIFIED],
+             then=Value("CLOSED")),
+        default=F('trip_status'))). \
         select_related('seller_shop', 'source_shop', 'seller_shop__shop_owner', 'seller_shop__shop_type',
                        'seller_shop__shop_type__shop_sub_type', 'delivery_boy'). \
         only('id', 'dispatch_no', 'vehicle_no', 'seller_shop__id', 'seller_shop__status', 'seller_shop__shop_name',
              'seller_shop__shop_type', 'seller_shop__shop_type__shop_type', 'seller_shop__shop_type__shop_sub_type',
              'seller_shop__shop_type__shop_sub_type__retailer_type_name', 'seller_shop__shop_owner',
              'seller_shop__shop_owner__first_name', 'seller_shop__shop_owner__last_name',
-             'seller_shop__shop_owner__phone_number',  'source_shop__id', 'source_shop__status', 'source_shop__shop_name',
+             'seller_shop__shop_owner__phone_number', 'source_shop__id', 'source_shop__status',
+             'source_shop__shop_name',
              'source_shop__shop_type', 'source_shop__shop_type__shop_type', 'source_shop__shop_type__shop_sub_type',
              'source_shop__shop_type__shop_sub_type__retailer_type_name', 'source_shop__shop_owner',
              'source_shop__shop_owner__first_name', 'source_shop__shop_owner__last_name',
@@ -9778,7 +9796,7 @@ class LastMileTripShipmentsView(generics.GenericAPIView):
     queryset = OrderedProduct.objects.filter(~Q(shipment_status__in=[OrderedProduct.SHIPMENT_CREATED,
                                                                      OrderedProduct.QC_STARTED,
                                                                      OrderedProduct.QC_REJECTED,
-                                                                     OrderedProduct.READY_TO_SHIP])).\
+                                                                     OrderedProduct.READY_TO_SHIP])). \
         select_related('order', 'order__seller_shop', 'order__shipping_address', 'order__shipping_address__city',
                        'invoice'). \
         only('id', 'order__order_no', 'order__seller_shop__id', 'order__seller_shop__shop_name',
@@ -9896,7 +9914,7 @@ class LastMileTripShipmentsView(generics.GenericAPIView):
                     self.queryset = self.queryset.filter(
                         Q((Q(last_mile_trip_shipment__isnull=True) |
                            Q(last_mile_trip_shipment__shipment_status=LastMileTripShipmentMapping.CANCELLED)),
-                            shipment_status=OrderedProduct.MOVED_TO_DISPATCH) |
+                          shipment_status=OrderedProduct.MOVED_TO_DISPATCH) |
                         Q(~Q(last_mile_trip_shipment__trip__trip_status__in=[Trip.READY, Trip.STARTED, Trip.COMPLETED]),
                           shipment_status=OrderedProduct.NOT_ATTEMPT,
                           not_attempt_shipment__created_at__date__lt=current_date) |
@@ -10112,8 +10130,8 @@ class LoadInvoiceView(generics.GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
     serializer_class = DispatchTripShipmentMappingSerializer
-    queryset = DispatchTripShipmentMapping.objects.\
-                only('id', 'trip', 'shipment', 'shipment_status', 'shipment_health', 'trip_shipment_mapped_packages')
+    queryset = DispatchTripShipmentMapping.objects. \
+        only('id', 'trip', 'shipment', 'shipment_status', 'shipment_health', 'trip_shipment_mapped_packages')
 
     def put(self, request):
         """ POST API for Shipment Package Load Verification """
@@ -10160,11 +10178,11 @@ class PackagesUnderTripView(generics.GenericAPIView):
     def validate_request(self):
         try:
             if self.request.GET.get('is_return_verified') and \
-                    int(self.request.GET.get('is_return_verified')) not in [0,1]:
+                    int(self.request.GET.get('is_return_verified')) not in [0, 1]:
                 raise
         except:
-            return {'error' : "'is_return_verified' | Invalid value. Only 0 or 1 is allowed."}
-        return {'request' : self.request}
+            return {'error': "'is_return_verified' | Invalid value. Only 0 or 1 is allowed."}
+        return {'request': self.request}
 
     def filter_packaging_items(self, trip_instance):
         shipment_id = self.request.GET.get('shipment_id')
@@ -10174,16 +10192,18 @@ class PackagesUnderTripView(generics.GenericAPIView):
         if isinstance(trip_instance, DispatchTrip):
 
             package_ids = DispatchTripShipmentPackages.objects.filter(
-                    package_status__in=[DispatchTripShipmentPackages.LOADED,
-                                        DispatchTripShipmentPackages.UNLOADED,
-                                        DispatchTripShipmentPackages.VERIFIED,
-                                        DispatchTripShipmentPackages.PARTIALLY_VERIFIED],
-                    trip_shipment__trip=trip_instance).values_list('shipment_packaging_id', flat=True)
+                package_status__in=[DispatchTripShipmentPackages.LOADED,
+                                    DispatchTripShipmentPackages.UNLOADED,
+                                    DispatchTripShipmentPackages.VERIFIED,
+                                    DispatchTripShipmentPackages.PARTIALLY_VERIFIED],
+                trip_shipment__trip=trip_instance).values_list('shipment_packaging_id', flat=True)
             self.queryset = self.queryset.filter(id__in=package_ids,
-                shipment__trip_shipment__shipment_status__in=[
-                    DispatchTripShipmentMapping.LOADING_FOR_DC,DispatchTripShipmentMapping.LOADED_FOR_DC,
-                    DispatchTripShipmentMapping.UNLOADING_AT_DC, DispatchTripShipmentMapping.UNLOADED_AT_DC]
-                   )
+                                                 shipment__trip_shipment__shipment_status__in=[
+                                                     DispatchTripShipmentMapping.LOADING_FOR_DC,
+                                                     DispatchTripShipmentMapping.LOADED_FOR_DC,
+                                                     DispatchTripShipmentMapping.UNLOADING_AT_DC,
+                                                     DispatchTripShipmentMapping.UNLOADED_AT_DC]
+                                                 )
             if not trip_type or trip_type == TRIP_TYPE_CHOICE.DISPATCH_FORWARD:
                 self.queryset = self.queryset.filter(shipment__trip_shipment__trip=trip_instance,
                                                      movement_type=ShipmentPackaging.DISPATCH)
@@ -10192,14 +10212,14 @@ class PackagesUnderTripView(generics.GenericAPIView):
                                                      movement_type=ShipmentPackaging.RETURNED)
         elif isinstance(trip_instance, Trip):
             package_ids = LastMileTripShipmentPackages.objects.filter(
-                                                            ~Q(package_status=LastMileTripShipmentPackages.CANCELLED),
-                                                            trip_shipment__trip=trip_instance,
-                                                            trip_shipment__shipment_status__in=[
-                                                                LastMileTripShipmentMapping.TO_BE_LOADED,
-                                                                LastMileTripShipmentMapping.LOADING_FOR_DC,
-                                                                LastMileTripShipmentMapping.LOADED_FOR_DC]
-                                                        )\
-                                                .values_list('shipment_packaging_id', flat=True)
+                ~Q(package_status=LastMileTripShipmentPackages.CANCELLED),
+                trip_shipment__trip=trip_instance,
+                trip_shipment__shipment_status__in=[
+                    LastMileTripShipmentMapping.TO_BE_LOADED,
+                    LastMileTripShipmentMapping.LOADING_FOR_DC,
+                    LastMileTripShipmentMapping.LOADED_FOR_DC]
+            ) \
+                .values_list('shipment_packaging_id', flat=True)
             self.queryset = self.queryset.filter(id__in=package_ids)
 
         if shipment_id:
@@ -10208,7 +10228,8 @@ class PackagesUnderTripView(generics.GenericAPIView):
         if is_return_verified:
             is_return_verified = int(is_return_verified)
             if is_return_verified == 1:
-                self.queryset = self.queryset.filter(trip_packaging_details__package_status=DispatchTripShipmentPackages.VERIFIED)
+                self.queryset = self.queryset.filter(
+                    trip_packaging_details__package_status=DispatchTripShipmentPackages.VERIFIED)
             else:
                 self.queryset = self.queryset.filter(trip_packaging_details__package_status__in=[
                     DispatchTripShipmentPackages.PARTIALLY_VERIFIED, DispatchTripShipmentPackages.UNLOADED])
@@ -10447,9 +10468,9 @@ class LastMileTripSummaryView(generics.GenericAPIView):
                 'total_crates_check': last_mile_trip_instance.no_of_crates_check,
                 'total_packets_check': last_mile_trip_instance.no_of_packets_check,
                 'total_sack_check': last_mile_trip_instance.no_of_sacks_check,
-                'remaining_crates': last_mile_trip_instance.no_of_crates-last_mile_trip_instance.no_of_crates_check,
-                'remaining_packets': last_mile_trip_instance.no_of_packets-last_mile_trip_instance.no_of_packets_check,
-                'remaining_sacks': last_mile_trip_instance.no_of_sacks-last_mile_trip_instance.no_of_sacks_check,
+                'remaining_crates': last_mile_trip_instance.no_of_crates - last_mile_trip_instance.no_of_crates_check,
+                'remaining_packets': last_mile_trip_instance.no_of_packets - last_mile_trip_instance.no_of_packets_check,
+                'remaining_sacks': last_mile_trip_instance.no_of_sacks - last_mile_trip_instance.no_of_sacks_check,
             }
         else:
             trip_summary_data = {
@@ -10475,7 +10496,7 @@ class LastMileTripSummaryView(generics.GenericAPIView):
         shipment_qs = OrderedProduct.objects.filter(
             Q(shipment_status=OrderedProduct.MOVED_TO_DISPATCH) |
             Q(shipment_status=OrderedProduct.NOT_ATTEMPT, not_attempt_shipment__created_at__date__lt=current_date) |
-            Q(shipment_status=OrderedProduct.RESCHEDULED, rescheduling_shipment__rescheduling_date__gte=current_date)).\
+            Q(shipment_status=OrderedProduct.RESCHEDULED, rescheduling_shipment__rescheduling_date__gte=current_date)). \
             select_related('order', 'order__seller_shop'). \
             order_by('-id')
         shipment_qs = get_logged_user_wise_query_set_for_trip_invoices(request.user, shipment_qs)
@@ -10486,8 +10507,8 @@ class LastMileTripSummaryView(generics.GenericAPIView):
         resp_data['no_of_sacks'] = 0
         resp_data['weight'] = 0
         for ss in shipment_qs.all():
-            smt_pack_data = ss.shipment_packaging.\
-                exclude(last_mile_trip_packaging_details__trip_shipment__trip__trip_status=Trip.READY).\
+            smt_pack_data = ss.shipment_packaging. \
+                exclude(last_mile_trip_packaging_details__trip_shipment__trip__trip_status=Trip.READY). \
                 aggregate(no_of_crates=Count(Case(When(packaging_type=ShipmentPackaging.CRATE, then=1))),
                           no_of_packets=Count(Case(When(packaging_type=ShipmentPackaging.BOX, then=1))),
                           no_of_sacks=Count(Case(When(packaging_type=ShipmentPackaging.SACK, then=1)))
@@ -10583,6 +10604,7 @@ class LastMileLoadVerifyPackageView(generics.GenericAPIView):
             return get_response('Package loaded successfully!', serializer.data)
         return get_response(serializer_error(serializer), False)
 
+
 class VerifyBackwardTripItems(generics.GenericAPIView):
     """
     API view to verify Packages reaching warehouse in backward dispatch trip
@@ -10590,12 +10612,11 @@ class VerifyBackwardTripItems(generics.GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
     serializer_class = VerifyBackwardTripItemsSerializer
-    queryset = ShipmentPackagingMapping.objects\
-        .select_related('ordered_product','ordered_product__product')\
+    queryset = ShipmentPackagingMapping.objects \
+        .select_related('ordered_product', 'ordered_product__product') \
         .prefetch_related('shipment_packaging__trip_packaging_details__trip_shipment',
-                          'ordered_product__rt_ordered_product_mapping')\
+                          'ordered_product__rt_ordered_product_mapping') \
         .order_by('-id')
-
 
     def get(self, request):
 
@@ -10611,7 +10632,7 @@ class VerifyBackwardTripItems(generics.GenericAPIView):
             """ Get Item Data for specific trip and batch/ean """
             if not request.GET.get('trip_id'):
                 return get_response('trip_id is required', False)
-            elif not request.GET.get('package_id') :
+            elif not request.GET.get('package_id'):
                 return get_response('package_id is required', False)
             elif not (request.GET.get('batch_id') or request.GET.get('ean')):
                 return get_response('please batch_id id / ean  is required', False)
@@ -10657,7 +10678,8 @@ class VerifyBackwardTripItems(generics.GenericAPIView):
         ean = self.request.GET.get('ean')
 
         if trip_id:
-            self.queryset = self.queryset.filter(shipment_packaging__trip_packaging_details__trip_shipment__trip_id=trip_id)
+            self.queryset = self.queryset.filter(
+                shipment_packaging__trip_packaging_details__trip_shipment__trip_id=trip_id)
 
         if package_id:
             self.queryset = self.queryset.filter(shipment_packaging_id=package_id)
@@ -10699,7 +10721,7 @@ class PosOrderUserSearchView(generics.GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
     serializer_class = PosOrderUserSearchSerializer
-    
+
     def get(self, request, *args, **kwargs):
         search = request.query_params.get('search')
         shop_id = request.META.get('HTTP_SHOP_ID')
