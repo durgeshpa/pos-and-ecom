@@ -7397,7 +7397,6 @@ class ShipmentView(GenericAPIView):
     @check_pos_shop
     @pos_check_permission_delivery_person
     def post(self, request, *args, **kwargs):
-        return api_response("Pickup recorded", None, status.HTTP_200_OK, True)
         shop = kwargs['shop']
         if serializer.is_valid():
             with transaction.atomic():
