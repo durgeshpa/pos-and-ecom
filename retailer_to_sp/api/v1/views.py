@@ -3696,8 +3696,9 @@ class OrderCentral(APIView):
             for cart_price in cart.rt_cart_list.all():
                 cart_price.cart_product_price = None
                 cart_price.save()
-            return {'is_success': False, 'message': "Some products in cart aren’t available anymore, please update cart"
-                                                    " and remove product from cart upon revisiting it"}
+            return {'is_success': False,
+                    'message': "Some products in cart arenâ€™t available anymore, please update cart"
+                               " and remove product from cart upon revisiting it"}
         else:
             cart.offers = cart.offers_applied()
             cart.cart_status = 'ordered'
@@ -4142,7 +4143,7 @@ class OrderCentral(APIView):
 #                                 cart_price.cart_product_price = None
 #                                 cart_price.save()
 #                             msg['message'] = [
-#                                 "Some products in cart arenâ€™t available anymore, please update cart and remove product from cart upon revisiting it"]
+#                                 "Some products in cart arenÃ¢â‚¬â„¢t available anymore, please update cart and remove product from cart upon revisiting it"]
 #                             return Response(msg, status=status.HTTP_200_OK)
 #                         else:
 #                             cart.cart_status = 'ordered'
