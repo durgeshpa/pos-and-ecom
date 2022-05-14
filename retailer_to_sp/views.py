@@ -35,7 +35,7 @@ from retailer_to_sp.models import (CartProductMapping, Order, OrderedProduct, Or
                                    Shipment, populate_data_on_qc_pass, OrderedProductBatch, ShipmentPackaging,
                                    ShipmentNotAttempt, LastMileTripShipmentMapping, LastMileTripShipmentPackages,
                                    Invoice, DispatchTripShipmentMapping, DispatchTrip, DispatchTripShipmentPackages)
-from products.models import Product
+from products.models import Product, Category
 from retailer_to_sp.forms import (
     OrderedProductForm, OrderedProductMappingShipmentForm,
     TripForm, DispatchForm, AssignPickerForm, )
@@ -1709,7 +1709,7 @@ class OrderCancellation(object):
             .last().get('id')
         # creating note id
         note_id = brand_credit_note_pattern(Note, 'credit_note_id',
-                                            None, address_id)
+                                            self.last_shipment_instance, address_id)
 
         credit_amount = 0
 
@@ -2119,3 +2119,14 @@ def generate_e_invoice():
     except Exception as e:
         info_logger.error(e)
         info_logger.error('generate_e_invoice| Failed')
+
+
+class ProductCategoryAutocomplete(autocomplete.Select2QuerySetView):
+    """auto completion for category ..."""
+    def get_queryset(self, *args, **kwargs):
+        """return filter object ..."""
+        qs = Category.objects.all()
+        if self.q:
+           return Category.objects.filter(category_name__icontains=self.q)
+            # qs = Product.objects.filter(product_name__icontains=self.q)
+        return qs

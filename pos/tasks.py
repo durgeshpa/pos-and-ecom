@@ -15,13 +15,16 @@ from django.core.mail import EmailMessage
 
 from global_config.models import GlobalConfig
 from global_config.views import get_config
+from marketing.utils import has_gf_employee_permission, shop_obj_related_owner
 from retailer_backend.settings import ELASTICSEARCH_PREFIX as es_prefix, es
 from pos.models import RetailerProduct, PosCart, PosReturnGRNOrder, PosReturnItems, MeasurementUnit, \
     PosCartProductMapping
+from retailer_to_sp.models import Cart, CartProductMapping
 from wms.models import PosInventory, PosInventoryState
 from marketing.models import Referral
 from accounts.models import User
-from pos.common_functions import RewardCls, RetailerProductCls, generate_debit_note_number
+from pos.common_functions import RewardCls, RetailerProductCls, generate_debit_note_number, PosCartCls, \
+    delete_cart_mapping
 from marketing.sms import SendSms
 from pos.offers import BasicCartOffers
 
@@ -205,7 +208,7 @@ def update_es(products, shop_id):
         es.index(index=create_es_index('rp-{}'.format(shop_id)), id=params['id'], body=params)
 
 
-def order_loyalty_points_credit(amount, user_id, tid, t_type_b, t_type_i, changed_by=None, shop_id=None):
+def order_loyalty_points_credit(amount, user_id, tid, t_type_b, t_type_i, changed_by=None, shop=None,app_type="POS"):
     """
         Loyalty points to buyer, user who referred buyer and ancestor referrers of user who referred buyer
     """
@@ -216,20 +219,28 @@ def order_loyalty_points_credit(amount, user_id, tid, t_type_b, t_type_i, change
             if changed_by:
                 changed_by = User.objects.get(id=changed_by)
             # Buyer Rewards
-            points_credit = RewardCls.order_buyer_points(amount, user, tid, t_type_b, changed_by)
+            points_credit = RewardCls.order_buyer_points(amount, user, tid, t_type_b, changed_by, shop, app_type)
 
             # Reward Referrer Direct and Indirect
             referral_obj = Referral.objects.filter(referral_to_user=user).last()
             if referral_obj:
                 parent_referrer = referral_obj.referral_by_user
-                # direct reward to user who referred buyer
-                RewardCls.order_direct_referrer_points(amount, parent_referrer, tid, t_type_i,
-                                                       referral_obj.user_count_considered,
-                                                       changed_by)
+                shop_owner_obj = shop_obj_related_owner(parent_referrer)
+                if shop_owner_obj and shop_owner_obj.shop_type.shop_sub_type.retailer_type_name == 'fofo':
+                    # direct reward to user who referred buyer
+                    RewardCls.order_direct_referrer_points(amount, parent_referrer, tid, t_type_i,
+                                                           referral_obj.user_count_considered,
+                                                           changed_by)
+                elif not (shop_owner_obj and shop_owner_obj.shop_type.shop_sub_type.retailer_type_name == 'foco') \
+                     or not has_gf_employee_permission(parent_referrer):
+                    # direct reward to user who referred buyer
+                    RewardCls.order_direct_referrer_points(amount, parent_referrer, tid, t_type_i,
+                                                           referral_obj.user_count_considered,
+                                                           changed_by)
 
-                # indirect reward to ancestor referrers
-                RewardCls.order_indirect_referrer_points(amount, parent_referrer, tid, t_type_i,
-                                                         referral_obj.user_count_considered, changed_by)
+                # # indirect reward to ancestor referrers
+                # RewardCls.order_indirect_referrer_points(amount, parent_referrer, tid, t_type_i,
+                #                                          referral_obj.user_count_considered, changed_by)
                 referral_obj.user_count_considered = True
                 referral_obj.save()
             return points_credit
@@ -433,3 +444,25 @@ def generate_pdf_data(instance):
         "scheme": get_config('CONNECTION'),
     }
     return data
+
+
+def update_shop_retailer_product_cart(shop_id, product_id, **kwargs):
+    """
+        Update Cart Product Mapping & Offers when product online price get changed
+    """
+    try:
+        if shop_id and product_id:
+            product = RetailerProduct.objects.filter(id=product_id, shop_id=shop_id).last()
+            if product:
+                carts = Cart.objects.filter(cart_type='ECOM', cart_status='active', seller_shop_id=shop_id)
+                for cart in carts:
+                    if not product.online_enabled:
+                        delete_cart_mapping(cart, product, 'ecom')
+                    # Refresh cart prices
+                    PosCartCls.refresh_prices(cart.rt_cart_list.filter(retailer_product_id=product_id))
+                    # Refresh - add/remove/update combo
+                    BasicCartOffers.refresh_offers_cart_on_product_change(cart)
+                    # Get Offers Applicable, Verify applied offers, Apply the highest discount on cart if auto apply
+                    BasicCartOffers.refresh_offers_checkout(cart, False, None)
+    except Exception as e:
+        info_logger.info(e)

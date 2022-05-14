@@ -7,9 +7,21 @@ from pos.models import RetailerProduct
 from retailer_backend.settings import ELASTICSEARCH_PREFIX as es_prefix, es
 
 
-
-
 class BasicCartOffers(object):
+
+    @classmethod
+    def refresh_offers_cart_on_product_change(cls, cart):
+        """
+            Refresh Combo On all products
+            Get nearest cart offer
+        """
+        cart_products = cart.rt_cart_list.all()
+        if cart_products:
+            # Add/Remove/Update combo offers on all products
+            offers_list = BasicCartOffers.refresh_combo(cart, cart_products)
+            offers_list = BasicCartOffers.basic_cart_offers_check(cart, offers_list, cart.seller_shop.id)
+            cart.offers = offers_list
+            cart.save()
 
     @classmethod
     def refresh_offers_cart(cls, cart):
