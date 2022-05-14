@@ -379,8 +379,7 @@ class AuditEndView(APIView):
         batches_audited = AuditRunItem.objects.filter(audit_run=audit_run, bin__bin_id=bin_id)\
                                               .values_list('batch_id', flat=True)
         bi_qs = BinInventory.objects.filter(warehouse=audit.warehouse, bin__bin_id=bin_id,
-                                            inventory_type__in=inv_type_list,
-                                            sku__product_type=Product.PRODUCT_TYPE_CHOICE.NORMAL)
+                                            inventory_type__in=inv_type_list)
         for bi in bi_qs:
             if bi.batch_id in batches_audited:
                 continue
@@ -407,8 +406,7 @@ class AuditEndView(APIView):
         bins_audited = AuditRunItem.objects.filter(audit_run=audit_run, sku=sku)\
                                            .values_list('bin_id', flat=True)
         bi_qs = BinInventory.objects.filter(warehouse=audit.warehouse, sku_id=sku,
-                                            inventory_type__in=inv_type_list,
-                                            sku__product_type=Product.PRODUCT_TYPE_CHOICE.NORMAL)
+                                            inventory_type__in=inv_type_list)
         for bi in bi_qs:
             if bi.bin_id in bins_audited:
                 continue
@@ -498,7 +496,6 @@ class AuditBinsBySKUList(APIView):
             return Response(msg, status=status.HTTP_200_OK)
         product_image = get_product_image(product)
         bin_ids = BinInventory.objects.filter(Q(quantity__gt=0) | Q(to_be_picked_qty__gt=0),
-                                              sku__product_type=Product.PRODUCT_TYPE_CHOICE.NORMAL,
                                               warehouse=audit.warehouse, sku=audit_sku).values_list('bin_id', flat=True)
         bins_to_audit = Bin.objects.filter(id__in=bin_ids).values('bin_id')
         bins_audited = AuditRunItem.objects.filter(audit_run__audit=audit, sku=audit_sku)\
@@ -548,7 +545,6 @@ class AuditSKUsByBinList(APIView):
             msg = {'is_success': False, 'message': 'Invalid Bin', 'data': None}
             return Response(msg, status=status.HTTP_200_OK)
         bin_products = BinInventory.objects.filter(Q(quantity__gt=0) | Q(to_be_picked_qty__gt=0),
-                                                   sku__product_type=Product.PRODUCT_TYPE_CHOICE.NORMAL,
                                                    warehouse=audit.warehouse, bin=bin).only('sku', 'batch_id')\
                                            .values('sku_id', 'batch_id', 'sku__product_name', 'sku__product_mrp')\
                                            .distinct('sku_id')
@@ -610,7 +606,7 @@ class AuditInventory(APIView):
             batch_id = BinInventory.objects.filter(bin=bin, sku=sku).last().batch_id
         warehouse = audit.warehouse
         bin_inventory_dict = self.get_bin_inventory(warehouse, batch_id, bin)
-        product = self.get_sku_from_batch(batch_id)
+        product = self.get_sku_from_batch_and_bin(batch_id, bin_id)
         product_image = get_product_image(product)
         data = {'bin_id': bin_id, 'batch_id': batch_id, 'product_sku': product.product_sku,
                 'product_name': product.product_name, 'product_mrp': product.product_mrp,
@@ -647,6 +643,11 @@ class AuditInventory(APIView):
         if not batch_id:
             msg = {'is_success': False, 'message': ERROR_MESSAGES['EMPTY'] % 'batch_id', 'data': None}
             return Response(msg, status=status.HTTP_200_OK)
+        if len(batch_id) == 24 and str(batch_id).startswith('D'):
+            msg = {'is_success': False,
+                   'message': "Product being audited is discounted product, can not change the expiry date",
+                   'data': None}
+            return Response(msg, status=status.HTTP_200_OK)
         old_inventory = request.data.get('system_inventory')
         if not old_inventory:
             msg = {'is_success': False, 'message': ERROR_MESSAGES['EMPTY'] % 'system_inventory', 'data': None}
@@ -657,22 +658,24 @@ class AuditInventory(APIView):
             return Response(msg, status=status.HTTP_200_OK)
         retry = request.data.get('retry')
         warehouse = audit.warehouse
-        sku = self.get_sku_from_batch(batch_id)
+        sku = self.get_sku_from_batch_and_bin(batch_id, bin_id)
         if not sku:
             msg = {'is_success': False,
-                   'message': ERROR_MESSAGES['SOME_ISSUE'],
+                   'message': f'SKU not found in Bin {bin_id} for Batch {batch_id}',
                    'data': None}
             return Response(msg, status=status.HTTP_200_OK)
 
         expiry_date_string = get_expiry_date(batch_id)
         expiry_date = datetime.strptime(expiry_date_string, "%d/%m/%Y")
 
-        if expiry_date > datetime.today():
+        if (sku.product_type == Product.PRODUCT_TYPE_CHOICE.NORMAL and expiry_date > datetime.today()) or \
+                (sku.product_type == Product.PRODUCT_TYPE_CHOICE.DISCOUNTED and (expiry_date - timedelta(days=2)) > datetime.today()):
             if physical_inventory['expired'] > 0:
                 msg = {'is_success': False, 'message': ERROR_MESSAGES['EXPIRED_NON_ZERO'], 'data': None}
                 return Response(msg, status=status.HTTP_200_OK)
 
-        if expiry_date <= datetime.today():
+        if (sku.product_type == Product.PRODUCT_TYPE_CHOICE.NORMAL and expiry_date <= datetime.today()) or \
+                (sku.product_type == Product.PRODUCT_TYPE_CHOICE.DISCOUNTED and (expiry_date - timedelta(days=2)) <= datetime.today()):
             if (physical_inventory['normal']+physical_inventory['damaged']) > 0:
                 msg = {'is_success': False, 'message': ERROR_MESSAGES['NORMAL_NON_ZERO'], 'data': None}
                 return Response(msg, status=status.HTTP_200_OK)
@@ -749,6 +752,21 @@ class AuditInventory(APIView):
             sku = Product.objects.filter(product_sku=sku_id).last()
         return sku
 
+    def get_sku_from_batch_and_bin(self, batch_id, bin_id):
+        sku = None
+        bin_inventory = BinInventory.objects.filter(batch_id=batch_id, bin__bin_id=bin_id)
+        if bin_inventory:
+            dis_bin_inventory = bin_inventory.filter(sku__product_type=Product.PRODUCT_TYPE_CHOICE.DISCOUNTED).last()
+            sku = dis_bin_inventory.sku if dis_bin_inventory else bin_inventory.last().sku
+        else:
+            in_entry = In.objects.filter(batch_id=batch_id).last()
+            if in_entry:
+                sku = in_entry.sku
+        if not sku:
+            sku_id = batch_id[:-6]
+            sku = Product.objects.filter(product_sku=sku_id).last()
+        return sku
+
     @staticmethod
     def update_inventory(audit_no, warehouse, batch_id, bin, sku, inventory_type, inventory_state,
                          expected_qty, physical_qty):
@@ -814,9 +832,9 @@ class AuditInventory(APIView):
         damaged_type = InventoryType.objects.filter(inventory_type='damaged').last()
         expired_type = InventoryType.objects.filter(inventory_type='expired').last()
         inv_type_list = [normal_type, damaged_type, expired_type]
+        product = self.get_sku_from_batch_and_bin(batch_id, bin.bin_id)
         bin_inventory = BinInventory.objects.filter(warehouse=warehouse, bin=bin, batch_id=batch_id,
-                                                    sku__product_type=Product.PRODUCT_TYPE_CHOICE.NORMAL,
-                                                    inventory_type__in=inv_type_list) \
+                                                    sku=product, inventory_type__in=inv_type_list) \
                                             .values('inventory_type__inventory_type', 'quantity', 'to_be_picked_qty')
         bin_inventory_dict = {g['inventory_type__inventory_type']: g['quantity']+g['to_be_picked_qty'] for g in bin_inventory}
         self.initialize_inventory_dict(bin_inventory_dict, inv_type_list)
@@ -833,8 +851,7 @@ class AuditInventory(APIView):
 
     def get_pickup_blocked_quantity(self, warehouse, batch_id, bin, inventory_type):
         bin_inv_qs = BinInventory.objects.filter(warehouse=warehouse, bin_id=bin, batch_id=batch_id,
-                                                 inventory_type=inventory_type,
-                                                 sku__product_type=Product.PRODUCT_TYPE_CHOICE.NORMAL)
+                                                 inventory_type=inventory_type)
         if not bin_inv_qs.exists():
             return 0
         return bin_inv_qs.last().to_be_picked_qty

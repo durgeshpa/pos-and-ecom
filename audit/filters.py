@@ -64,8 +64,7 @@ class SKUComplete(autocomplete.Select2QuerySetView):
         warehouse = self.forwarded.get('warehouse', None)
         sku = BinInventory.objects.only('sku_id').filter(warehouse=warehouse)\
                                                  .values_list('sku_id', flat=True)
-        qs = Product.objects.filter(product_sku__in=sku, product_type=Product.PRODUCT_TYPE_CHOICE.NORMAL,
-                                    repackaging_type__in=['none', 'source', 'destination'])
+        qs = Product.objects.filter(product_sku__in=sku, repackaging_type__in=['none', 'source', 'destination'])
 
         if self.q:
             self.q=self.q.strip()
