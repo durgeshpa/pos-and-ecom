@@ -528,8 +528,9 @@ class RewardCls(object):
         #value_factor = GlobalConfig.objects.get(key='used_reward_factor').value
         flag = True # this flag will remain false if Ecom order by user count is less or eqal 2
         if app_type == "ECOM" and int(use_all) != 0:
-            count = Order.objects.filter(buyer=cart.buyer, ordered_cart__cart_type='ECOM',
-                order_status='delivered').count()
+            count = Order.objects.filter(buyer=cart.buyer, ordered_cart__cart_type='ECOM').filter(
+                ~Q(order_status__in=['CANCELLED','fully_returned'])).count()
+
             if count == 0:
                 redeem_points = get_config_fofo_shop('Point_Redeemed_First_Order', shop.id)
                 flag = False
