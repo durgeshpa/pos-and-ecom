@@ -871,8 +871,8 @@ def check_mandatory_columns(uploaded_data_list, header_list, upload_master_data,
                                       f"'product_name' getting repeated in csv file")
             product_name_list.append(row['product_name'].strip().lower())
 
-            if 'product_type'  in row.keys() and (row['product_type'] != '' or row['product_type'] != None):
-                raise ValidationError(f"Row {row_num} | 'product_type' should be empty")
+            # if 'product_type'  in row.keys() and (row['product_type'] != '' or row['product_type'] != None):
+            #     raise ValidationError(f"Row {row_num} | 'product_type' should be empty")
             #
             # elif row['product_type'].lower() !='both':
             #     raise ValidationError(f"Row {row_num} | {row['product_type']} | 'Product Type can only "
@@ -903,11 +903,11 @@ def check_mandatory_columns(uploaded_data_list, header_list, upload_master_data,
             if 'brand_id' not in row.keys() or row['brand_id'] == '':
                 raise ValidationError(f"Row {row_num} | 'brand_id' can't be empty")
 
-            if 'b2b_category_name' not in row.keys() or row['b2b_category_name'] == '':
-                raise ValidationError(f"Row {row_num} | 'b2b_category_name' can't be empty")
-
-            if 'b2c_category_name' not in row.keys() or row['b2c_category_name'] == '':
-                raise ValidationError(f"Row {row_num} | 'b2c_category_name' can't be empty")
+            # if 'b2b_category_name' not in row.keys() or row['b2b_category_name'] == '':
+            #     raise ValidationError(f"Row {row_num} | 'b2b_category_name' can't be empty")
+            #
+            # if 'b2c_category_name' not in row.keys() or row['b2c_category_name'] == '':
+            #     raise ValidationError(f"Row {row_num} | 'b2c_category_name' can't be empty")
 
             if 'is_ptr_applicable' not in row.keys() or row['is_ptr_applicable'] == '':
                 raise ValidationError(f"Row {row_num} | 'is_ptr_applicable' can't be empty")
