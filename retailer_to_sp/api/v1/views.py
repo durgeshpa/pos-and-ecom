@@ -5548,7 +5548,7 @@ class OrderReturnComplete(APIView):
             new_paid_amount = ordered_product.invoice_amount_final - refund_amount
             points_credit, points_debit, net_points = RewardCls.adjust_points_on_return_cancel(
                 order_return.refund_points, order.buyer, order_return.id, 'order_return_credit', 'order_return_debit',
-                self.request.user, new_paid_amount, order.order_no, return_ids)
+                self.request.user, new_paid_amount, order.order_no, return_ids, kwargs['shop'])
             # Update inventory
             returned_products = ReturnItems.objects.filter(return_id=order_return)
             for rp in returned_products:

@@ -755,7 +755,7 @@ class RewardCls(object):
 
     @classmethod
     def adjust_points_on_return_cancel(cls, points_credit, user, tid, t_type_credit, t_type_debit, changed_by,
-                                       new_order_value, order_no, return_ids=None):
+                                       new_order_value, order_no, return_ids=None, shop=None):
         # Credit redeem points
         if points_credit:
             # Undo from points used
@@ -763,14 +763,14 @@ class RewardCls(object):
             reward_obj.points_used -= points_credit
             reward_obj.save()
             # Log transaction
-            RewardCls.create_reward_log(user, t_type_credit, tid, points_credit, changed_by)
+            RewardCls.create_reward_log(user, t_type_credit, tid, points_credit, changed_by, discount=0, shop=shop)
 
         # Debit points (credited on placing order) based on remaining order value
         credit_log = RewardLog.objects.filter(transaction_id=order_no, transaction_type='order_credit').last()
         points_debit = credit_log.points if credit_log else 0
 
         if t_type_debit == 'order_return_debit' and points_debit:
-            points_debit -= RewardCls.get_loyalty_points(new_order_value, 'direct_reward_percent')
+            points_debit -= RewardCls.get_loyalty_points(new_order_value, 'Percentage_Point_Added_Ecom_Order_Amount', shop=shop)
 
             points_already_debited = 0
             points_already_debited_log = RewardLog.objects.filter(transaction_id__in=return_ids,
@@ -787,7 +787,7 @@ class RewardCls(object):
             reward_obj.save()
 
             # Log transaction
-            RewardCls.create_reward_log(user, t_type_debit, tid, points_debit * -1, changed_by)
+            RewardCls.create_reward_log(user, t_type_debit, tid, points_debit * -1, changed_by, discount=0, shop=shop)
 
         reward_obj = RewardPoint.objects.select_for_update().filter(reward_user=user).last()
         net_available = reward_obj.direct_earned + reward_obj.indirect_earned - reward_obj.points_used if reward_obj else 0
