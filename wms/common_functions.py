@@ -1177,7 +1177,8 @@ def cancel_pickup(pickup_object):
         if picked_qty is None:
             picked_qty = 0
         remaining_qty = item.quantity - picked_qty
-        CommonBinInventoryFunctions.move_to_to_be_picked(-1*remaining_qty, bi, pickup_id, tr_type)
+        if remaining_qty > 0:
+            CommonBinInventoryFunctions.move_to_to_be_picked(-1*remaining_qty, bi, pickup_id, tr_type)
         total_remaining += remaining_qty
         if picked_qty > 0:
             PutawayCommonFunctions.create_putaway_with_putaway_bin_inventory(
