@@ -3393,6 +3393,12 @@ class OrderCentral(APIView):
             obj.order_amount = round(obj.order_amount)
             obj.save()
             self.auto_process_pos_order(order)
+            if ReferralCode.is_marketing_user(order.buyer) and str(order.buyer.phone_number) != '9999999999':
+                order.points_added = order_loyalty_points_credit(order.order_amount, order.buyer.id, order.order_no,
+                                                                'order_credit', 'order_indirect_credit',
+                                                                self.request.user.id, order.seller_shop, app_type="POS")
+
+
             return api_response('Ordered Successfully!', BasicOrderListSerializer(Order.objects.get(id=order.id)).data,
                                 status.HTTP_200_OK, True)
 

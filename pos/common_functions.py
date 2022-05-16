@@ -768,9 +768,14 @@ class RewardCls(object):
         # Debit points (credited on placing order) based on remaining order value
         credit_log = RewardLog.objects.filter(transaction_id=order_no, transaction_type='order_credit').last()
         points_debit = credit_log.points if credit_log else 0
+        obj = Order.objects.filter(order_no=order_no).last()
+        if obj.order_app_type == 'pos_walkin':
+            key = 'Percentage_Point_Added_Pos_Order_Amount'
+        else:
+            key = 'Percentage_Point_Added_Ecom_Order_Amount'
 
         if t_type_debit == 'order_return_debit' and points_debit:
-            points_debit -= RewardCls.get_loyalty_points(new_order_value, 'Percentage_Point_Added_Ecom_Order_Amount', shop=shop)
+            points_debit -= RewardCls.get_loyalty_points(new_order_value, key, shop=shop)
 
             points_already_debited = 0
             points_already_debited_log = RewardLog.objects.filter(transaction_id__in=return_ids,
