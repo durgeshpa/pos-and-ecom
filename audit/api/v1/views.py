@@ -709,7 +709,7 @@ class AuditInventory(APIView):
                     inventory_type = InventoryType.objects.filter(inventory_type=inv_type).last()
                     self.log_audit_data(warehouse, audit_run, batch_id, bin, sku, inventory_type, inventory_state,
                                         current_inventory[inv_type], qty)
-
+                    qty_to_update_to_to_be_picked = 0
                     if self.picklist_cancel_required(warehouse, batch_id, bin,
                                                      inventory_type, qty):
                         qty_to_update_to_to_be_picked = self.refresh_pickup_data(audit, warehouse, batch_id, bin, qty)
@@ -783,16 +783,20 @@ class AuditInventory(APIView):
             tr_type = 'manual_audit_deduct'
 
         bin_inventory_object = CommonBinInventoryFunctions.filter_bin_inventory(warehouse, sku, batch_id, bin,
-                                                                                inventory_type)
+                                                                                inventory_type).last()
 
         AuditInventory.create_in_out_entry(warehouse, sku, batch_id, bin_inventory_object, tr_type, audit_no,
                                            inventory_type, abs(qty_diff))
         qty_to_update_in_available = abs(qty_diff) - qty_to_update_to_to_be_picked
-        if qty_to_update_in_available > 0:
+        if qty_diff < 0:
+            qty_to_update_in_available = -1 * qty_to_update_in_available
+            qty_to_update_to_to_be_picked = -1 * qty_to_update_to_to_be_picked
+        if abs(qty_to_update_in_available) > 0:
+
             bin_inventory_object = CommonBinInventoryFunctions.\
                         update_bin_inventory_with_transaction_log(warehouse, bin, sku, batch_id, initial_inventory_type,
-                                                                                              inventory_type, qty_diff,
-                                                                                              True, tr_type, audit_no)
+                                                                  inventory_type, qty_to_update_in_available, True,
+                                                                  tr_type, audit_no)
 
             ware_house_inventory_obj = WarehouseInventory.objects.filter(warehouse=warehouse, sku=sku,
                                                                          inventory_state=inventory_state,
@@ -806,25 +810,23 @@ class AuditInventory(APIView):
                 CommonWarehouseInventoryFunctions\
                     .create_warehouse_inventory_with_transaction_log(warehouse, sku, inventory_type, inventory_state,
                                                                      qty_to_update_in_available, tr_type, audit_no)
-        if qty_to_update_to_to_be_picked > 0:
+        if abs(qty_to_update_to_to_be_picked) > 0:
             state_to_be_picked = InventoryState.objects.filter(inventory_state='to_be_picked').last()
-            if qty_diff < 0:
-                qty_to_update_to_to_be_picked = -1*qty_to_update_to_to_be_picked
             # update to be picked quantity in Bin as well as warehouse
             CommonWarehouseInventoryFunctions\
                 .create_warehouse_inventory_with_transaction_log(warehouse, sku,
                                                                  inventory_type,
                                                                  state_to_be_picked,
-                                                                 qty_to_update_to_to_be_picked, 'manual_audit_deduct',
+                                                                 qty_to_update_to_to_be_picked, tr_type,
                                                                  audit_no)
             CommonWarehouseInventoryFunctions \
                 .create_warehouse_inventory_with_transaction_log(warehouse, sku,
                                                                  inventory_type,
                                                                  inventory_state,
-                                                                 qty_to_update_to_to_be_picked, 'manual_audit_deduct',
+                                                                 qty_to_update_to_to_be_picked, tr_type,
                                                                  audit_no)
             if qty_to_update_to_to_be_picked < 0 :
-                CommonBinInventoryFunctions.deduct_to_be_picked_from_bin(qty_to_update_to_to_be_picked,
+                CommonBinInventoryFunctions.deduct_to_be_picked_from_bin(abs(qty_to_update_to_to_be_picked),
                                                                          bin_inventory_object, audit_no, tr_type)
             else:
                 CommonBinInventoryFunctions.add_to_be_picked_to_bin(qty_to_update_to_to_be_picked, bin_inventory_object,
