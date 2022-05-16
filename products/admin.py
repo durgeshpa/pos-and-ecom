@@ -1396,7 +1396,7 @@ class ProductPriceAdmin(admin.ModelAdmin, ExportProductPrice):
     disapprove_product_price.allowed_permissions = ('change',)
 
     def has_add_permission(self, request, obj=None):
-        return True
+        return False
 
     def has_delete_permission(self, request, obj=None):
         # if request.user.is_superuser:
@@ -2172,7 +2172,7 @@ admin.site.register(Weight, WeightAdmin)
 admin.site.register(Tax, TaxAdmin)
 admin.site.register(Product, ProductAdmin)
 admin.site.register(DiscountedProduct, DiscountedProductsAdmin)
-admin.site.register(ProductPrice, ProductPriceAdmin)
+# admin.site.register(ProductPrice, ProductPriceAdmin)
 admin.site.register(ProductHSN, ProductHSNAdmin)
 admin.site.register(ProductCapping, ProductCappingAdmin)
 admin.site.register(ProductTaxMapping, ProductTaxAdmin)

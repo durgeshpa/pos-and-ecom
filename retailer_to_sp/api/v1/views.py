@@ -375,6 +375,7 @@ class SearchProducts(APIView):
             must_not = {"exists": {"field": "ean"}}
         if ean_code and ean_code != '':
             filter_list.append({"term": {"ean": ean_code}})
+        filter_list.append({"term": {"product_type": 'grocery'}})
         body = dict()
         if filter_list and must_not:
             body["query"] = {"bool": {"filter": filter_list, "must_not": must_not}}
@@ -456,7 +457,7 @@ class SearchProducts(APIView):
             #sub_category = sub_category_ids.split(',')
             #sub_category_filter = str(categorymodel.Category.objects.filter(id__in=sub_category, status=True).last())
             filter_list.append({"term": {"sub_category": sub_category_ids}})
-
+        filter_list.append({"term": {"product_type": 'grocery'}})
         if filter_list and query_string:
             body['query'] = {"bool": {"must": {"query_string": query_string}, "filter": filter_list}}
         elif query_string:
@@ -688,10 +689,13 @@ class SearchProducts(APIView):
         body["from"] = int(self.request.GET.get('offset', 0))
         body["size"] = int(self.request.GET.get('pro_count', 100))
         p_list = []
-        if app_type != '1':
-            es_index = 'all_b2c_product'
-        else:
+        if app_type == '1':
             es_index = 'all_products'
+        elif app_type == '4':
+            es_index = GlobalConfig.objects.get(key='current_wh_active').value
+        else:
+            es_index = 'all_b2c_product'
+
         # No Shop Id OR Store Inactive
         if not parent_shop:
             body["_source"] = {"includes": ["id", "name", "product_images", "pack_size", "brand_case_size",
@@ -733,8 +737,11 @@ class SearchProducts(APIView):
             filter_list = [
                 {"term": {"status": True}},
                 {"term": {"visible": True}},
-                {"range": {"available": {"gt": 0}}}
             ]
+        if self.request.META.get('HTTP_APP_TYPE', '1') != '4':
+            filter_list.append({"range": {"available": {"gt": 0}}})
+        if self.request.META.get('HTTP_APP_TYPE', '1') == '4':
+            filter_list.append({"term": {"product_type": 'superstore'}})
         if is_discounted:
             filter_list.append({"term": {"is_discounted": is_discounted}}, )
         if product_ids:
