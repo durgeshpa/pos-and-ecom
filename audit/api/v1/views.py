@@ -707,20 +707,22 @@ class AuditInventory(APIView):
                 inventory_state = InventoryState.objects.filter(inventory_state='total_available').last()
                 for inv_type, qty in physical_inventory.items():
                     inventory_type = InventoryType.objects.filter(inventory_type=inv_type).last()
-                    if self.picklist_cancel_required(warehouse, batch_id, bin,
-                                                     inventory_type, qty):
-                        self.refresh_pickup_data(audit, warehouse, batch_id, bin, qty)
-                        current_inventory = self.get_bin_inventory(warehouse, batch_id, bin)
-                    elif qty > current_inventory[inv_type]:
-                        add_on_qty = qty - current_inventory[inv_type]
-                        self.refresh_pickup_data_on_qty_up(audit, warehouse, batch_id, bin, sku, add_on_qty,
-                                                           inventory_type)
-                        current_inventory = self.get_bin_inventory(warehouse, batch_id, bin)
-
                     self.log_audit_data(warehouse, audit_run, batch_id, bin, sku, inventory_type, inventory_state,
                                         current_inventory[inv_type], qty)
+
+                    if self.picklist_cancel_required(warehouse, batch_id, bin,
+                                                     inventory_type, qty):
+                        qty_to_update_to_to_be_picked = self.refresh_pickup_data(audit, warehouse, batch_id, bin, qty)
+                        # current_inventory = self.get_bin_inventory(warehouse, batch_id, bin)
+                    elif qty > current_inventory[inv_type]:
+                        add_on_qty = qty - current_inventory[inv_type]
+                        qty_to_update_to_to_be_picked = self.refresh_pickup_data_on_qty_up(audit, warehouse, batch_id,
+                                                                                           bin, sku, add_on_qty,
+                                                                                           inventory_type)
+                        # current_inventory = self.get_bin_inventory(warehouse, batch_id, bin)
+
                     self.update_inventory(audit_no, warehouse, batch_id, bin, sku, inventory_type, inventory_state,
-                                          current_inventory[inv_type], qty)
+                                          current_inventory[inv_type], qty, qty_to_update_to_to_be_picked)
                 BlockUnblockProduct.release_product_from_audit(audit, audit_run, sku, warehouse)
         except Exception as e:
             error_logger.error(e)
@@ -769,7 +771,7 @@ class AuditInventory(APIView):
 
     @staticmethod
     def update_inventory(audit_no, warehouse, batch_id, bin, sku, inventory_type, inventory_state,
-                         expected_qty, physical_qty):
+                         expected_qty, physical_qty, qty_to_update_to_to_be_picked):
         info_logger.info('AuditInventory | update_inventory | started ')
         initial_inventory_type = InventoryType.objects.filter(inventory_type='new').last()
         if expected_qty == physical_qty:
@@ -780,34 +782,53 @@ class AuditInventory(APIView):
         if qty_diff < 0:
             tr_type = 'manual_audit_deduct'
 
-        bin_inventory_object = CommonBinInventoryFunctions.update_or_create_bin_inventory(warehouse, bin, sku, batch_id,
-                                                                                          inventory_type, qty_diff,
-                                                                                          True)
-        BinInternalInventoryChange.objects.create(warehouse=warehouse, sku=sku,
-                                                  batch_id=batch_id,
-                                                  final_bin=bin,
-                                                  initial_inventory_type=initial_inventory_type,
-                                                  final_inventory_type=inventory_type,
-                                                  transaction_type=tr_type,
-                                                  transaction_id=audit_no,
-                                                  quantity=abs(qty_diff))
+        bin_inventory_object = CommonBinInventoryFunctions.filter_bin_inventory(warehouse, sku, batch_id, bin,
+                                                                                inventory_type)
 
-        ware_house_inventory_obj = WarehouseInventory.objects.filter(warehouse=warehouse, sku=sku,
-                                                                     inventory_state=inventory_state,
-                                                                     inventory_type=inventory_type,
-                                                                     in_stock=True).last()
-        if ware_house_inventory_obj:
-            if ware_house_inventory_obj.quantity+qty_diff < 0:
-                qty_diff = -1*ware_house_inventory_obj.quantity
-        # update warehouse inventory
-        if qty_diff != 0:
-            CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(warehouse, sku,
-                                                                                              inventory_type,
-                                                                                              inventory_state,
-                                                                                              qty_diff, tr_type,
-                                                                                              audit_no)
         AuditInventory.create_in_out_entry(warehouse, sku, batch_id, bin_inventory_object, tr_type, audit_no,
                                            inventory_type, abs(qty_diff))
+        qty_to_update_in_available = abs(qty_diff) - qty_to_update_to_to_be_picked
+        if qty_to_update_in_available > 0:
+            bin_inventory_object = CommonBinInventoryFunctions.\
+                        update_bin_inventory_with_transaction_log(warehouse, bin, sku, batch_id, initial_inventory_type,
+                                                                                              inventory_type, qty_diff,
+                                                                                              True, tr_type, audit_no)
+
+            ware_house_inventory_obj = WarehouseInventory.objects.filter(warehouse=warehouse, sku=sku,
+                                                                         inventory_state=inventory_state,
+                                                                         inventory_type=inventory_type,
+                                                                         in_stock=True).last()
+            if ware_house_inventory_obj:
+                if ware_house_inventory_obj.quantity+qty_to_update_in_available < 0:
+                    qty_to_update_in_available = -1*ware_house_inventory_obj.quantity
+            # update warehouse inventory
+            if qty_diff != 0:
+                CommonWarehouseInventoryFunctions\
+                    .create_warehouse_inventory_with_transaction_log(warehouse, sku, inventory_type, inventory_state,
+                                                                     qty_to_update_in_available, tr_type, audit_no)
+        if qty_to_update_to_to_be_picked > 0:
+            state_to_be_picked = InventoryState.objects.filter(inventory_state='to_be_picked').last()
+            if qty_diff < 0:
+                qty_to_update_to_to_be_picked = -1*qty_to_update_to_to_be_picked
+            # update to be picked quantity in Bin as well as warehouse
+            CommonWarehouseInventoryFunctions\
+                .create_warehouse_inventory_with_transaction_log(warehouse, sku,
+                                                                 inventory_type,
+                                                                 state_to_be_picked,
+                                                                 qty_to_update_to_to_be_picked, 'manual_audit_deduct',
+                                                                 audit_no)
+            CommonWarehouseInventoryFunctions \
+                .create_warehouse_inventory_with_transaction_log(warehouse, sku,
+                                                                 inventory_type,
+                                                                 inventory_state,
+                                                                 qty_to_update_to_to_be_picked, 'manual_audit_deduct',
+                                                                 audit_no)
+            if qty_to_update_to_to_be_picked < 0 :
+                CommonBinInventoryFunctions.deduct_to_be_picked_from_bin(qty_to_update_to_to_be_picked,
+                                                                         bin_inventory_object)
+            else:
+                CommonBinInventoryFunctions.add_to_be_picked_to_bin(qty_to_update_to_to_be_picked, bin_inventory_object)
+
         info_logger.info('AuditInventory | update_inventory | completed')
 
     @staticmethod
@@ -867,6 +888,7 @@ class AuditInventory(APIView):
         """
         For any given batch and bin, refresh the picklist based on available stock for this particular batch and bin
         """
+        qty_to_deduct_from_to_be_picked = 0
         state_to_be_picked = InventoryState.objects.filter(inventory_state='to_be_picked').last()
         state_total_available = InventoryState.objects.filter(inventory_state='total_available').last()
         pickup_bin_qs = PickupBinInventory.objects.select_for_update()\
@@ -887,24 +909,27 @@ class AuditInventory(APIView):
                     qty_diff = pb.quantity - (picked_qty + physical_qty)
                     pb.quantity = picked_qty + physical_qty
                     pb.save()
-                    # update to be picked quantity in Bin as well as warehouse
-                    CommonWarehouseInventoryFunctions\
-                        .create_warehouse_inventory_with_transaction_log(warehouse, pb.pickup.sku,
-                                                                         pb.pickup.inventory_type,
-                                                                         state_to_be_picked,
-                                                                         -1 * qty_diff, 'manual_audit_deduct',
-                                                                         audit.audit_no)
-                    CommonWarehouseInventoryFunctions \
-                        .create_warehouse_inventory_with_transaction_log(warehouse, pb.pickup.sku,
-                                                                         pb.pickup.inventory_type,
-                                                                         state_total_available,
-                                                                         -1 * qty_diff, 'manual_audit_deduct',
-                                                                         audit.audit_no)
-                    CommonBinInventoryFunctions.deduct_to_be_picked_from_bin(qty_diff, pb.bin)
+                    qty_to_deduct_from_to_be_picked += qty_diff
+                    # # update to be picked quantity in Bin as well as warehouse
+                    # CommonWarehouseInventoryFunctions\
+                    #     .create_warehouse_inventory_with_transaction_log(warehouse, pb.pickup.sku,
+                    #                                                      pb.pickup.inventory_type,
+                    #                                                      state_to_be_picked,
+                    #                                                      -1 * qty_diff, 'manual_audit_deduct',
+                    #                                                      audit.audit_no)
+                    # CommonWarehouseInventoryFunctions \
+                    #     .create_warehouse_inventory_with_transaction_log(warehouse, pb.pickup.sku,
+                    #                                                      pb.pickup.inventory_type,
+                    #                                                      state_total_available,
+                    #                                                      -1 * qty_diff, 'manual_audit_deduct',
+                    #                                                      audit.audit_no)
+                    # CommonBinInventoryFunctions.deduct_to_be_picked_from_bin(qty_diff, pb.bin, audit.audit_no,
+                    #                                                          'manual_audit_deduct')
                 if physical_qty > 0:
                     physical_qty = physical_qty - (pb.quantity - picked_qty)
 
         info_logger.info('AuditInventory|refresh_pickup_data|picklist cancelled')
+        return qty_to_deduct_from_to_be_picked
 
 
     @classmethod
@@ -931,6 +956,7 @@ class AuditInventory(APIView):
     def refresh_pickup_data_on_qty_up(self, audit, warehouse, batch_id, bin, sku, qty_added, inventory_type):
 
         info_logger.info('AuditInventory | refresh_pickup_data_on_qty_up | started ')
+        qty_to_add_to_to_be_picked = 0
         state_to_be_picked = InventoryState.objects.filter(inventory_state='to_be_picked').last()
         state_total_available = InventoryState.objects.filter(inventory_state='total_available').last()
 
@@ -949,6 +975,8 @@ class AuditInventory(APIView):
 
             info_logger.info('AuditInventory | refresh_pickup_data_on_qty_up | pickup_id {}, qty_diff {} '
                              .format(pickup_id, qty_diff))
+            if qty_diff == 0:
+                continue
             # For a particular picklist get the entry for current batch and bin id if exists
             pick_bin_inventory = PickupBinInventory.objects.filter(pickup_id=pickup_id, batch_id=batch_id,
                                                                    bin__bin_id=bin).last()
@@ -970,23 +998,27 @@ class AuditInventory(APIView):
                 qty_added = 0
             pick_bin_inventory.quantity = pick_bin_inventory.quantity + addon_qty
             pick_bin_inventory.save()
+            qty_to_add_to_to_be_picked += addon_qty
 
-            CommonWarehouseInventoryFunctions \
-                .create_warehouse_inventory_with_transaction_log(warehouse, sku,
-                                                                 pick_bin_inventory.pickup.inventory_type,
-                                                                 state_to_be_picked, addon_qty, 'manual_audit_add',
-                                                                 audit.audit_no)
-            CommonWarehouseInventoryFunctions \
-                .create_warehouse_inventory_with_transaction_log(warehouse, sku,
-                                                                 pick_bin_inventory.pickup.inventory_type,
-                                                                 state_total_available, addon_qty, 'manual_audit_add',
-                                                                 audit.audit_no)
-            CommonBinInventoryFunctions.add_to_be_picked_to_bin(addon_qty, pick_bin_inventory.bin)
+            # CommonWarehouseInventoryFunctions \
+            #     .create_warehouse_inventory_with_transaction_log(warehouse, sku,
+            #                                                      pick_bin_inventory.pickup.inventory_type,
+            #                                                      state_to_be_picked, addon_qty, 'manual_audit_add',
+            #                                                      audit.audit_no)
+            # CommonWarehouseInventoryFunctions \
+            #     .create_warehouse_inventory_with_transaction_log(warehouse, sku,
+            #                                                      pick_bin_inventory.pickup.inventory_type,
+            #                                                      state_total_available, addon_qty, 'manual_audit_add',
+            #                                                      audit.audit_no)
+            # CommonBinInventoryFunctions.add_to_be_picked_to_bin(addon_qty, pick_bin_inventory.bin, audit.audit_no,
+            #                                                     'manual_audit_add')
 
+            info_logger.info('AuditInventory | refresh_pickup_data_on_qty_up | qty available for picklist {} '
+                             .format(qty_added))
             if qty_added == 0:
                 break
-
         info_logger.info('AuditInventory | refresh_pickup_data_on_qty_up | ended ')
+        return qty_to_add_to_to_be_picked
 
 
 
