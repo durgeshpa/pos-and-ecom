@@ -740,6 +740,7 @@ class SearchProducts(APIView):
             ]
         if self.request.META.get('HTTP_APP_TYPE', '1') != '4':
             filter_list.append({"range": {"available": {"gt": 0}}})
+            filter_list.append({"term": {"product_type": 'grocery'}})
         if self.request.META.get('HTTP_APP_TYPE', '1') == '4':
             filter_list.append({"term": {"product_type": 'superstore'}})
         if is_discounted:
