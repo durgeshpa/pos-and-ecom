@@ -376,9 +376,11 @@ class CommonBinInventoryFunctions(object):
 
                 if total_qty_to_move_from_pickup > 0:
                     CommonBinInventoryFunctions.deduct_to_be_picked_from_bin(total_qty_to_move_from_pickup,
-                                                                             source_bin_inv_object, tr_id, tr_type)
+                                                                             source_bin_inv_object, tr_id,
+                                                                             'bin_shift_deduct')
                     CommonBinInventoryFunctions.add_to_be_picked_to_bin(total_qty_to_move_from_pickup,
-                                                                            target_bin_inv_object, tr_id, tr_type)
+                                                                        target_bin_inv_object, tr_id,
+                                                                        'bin_shift_add')
                     pickup_bin_qs = PickupBinInventory.objects.select_for_update().filter(
                         warehouse=warehouse, batch_id=batch_id, bin=source_bin_inv_object,
                         pickup__status__in=['pickup_creation', 'picking_assigned'], quantity__gt=0,
