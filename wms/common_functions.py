@@ -305,7 +305,7 @@ class CommonBinInventoryFunctions(object):
                                                   final_inventory_type=bin_inv_obj.inventory_type,
                                                   transaction_type=tr_type,
                                                   transaction_id=tr_id,
-                                                  quantity=abs(qty),
+                                                  quantity=0,
                                                   to_be_picked_qty=abs(qty))
 
     @classmethod
