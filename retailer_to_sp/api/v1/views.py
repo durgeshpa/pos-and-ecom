@@ -641,7 +641,7 @@ class SearchProducts(APIView):
         ean_code = self.request.GET.get('ean_code')
         body = dict()
         if ean_code and ean_code != '':
-            body["query"] = {"bool": {"filter": [{"term": {"ean": ean_code}}]}}
+            body["query"] = {"bool": {"filter": [{"term": {"ean": ean_code}},{"term": {"product_type": 'grocery'}}]}}
         return self.process_gf(app_type, body)
 
     def gf_normal_search(self, app_type):
@@ -740,6 +740,7 @@ class SearchProducts(APIView):
             ]
         if self.request.META.get('HTTP_APP_TYPE', '1') != '4':
             filter_list.append({"range": {"available": {"gt": 0}}})
+            filter_list.append({"term": {"product_type": 'grocery'}})
         if self.request.META.get('HTTP_APP_TYPE', '1') == '4':
             filter_list.append({"term": {"product_type": 'superstore'}})
         if is_discounted:
