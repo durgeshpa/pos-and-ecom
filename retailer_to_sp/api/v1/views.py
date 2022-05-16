@@ -5551,7 +5551,7 @@ class OrderReturnComplete(APIView):
             new_paid_amount = ordered_product.invoice_amount_final - refund_amount
             points_credit, points_debit, net_points = RewardCls.adjust_points_on_return_cancel(
                 order_return.refund_points, order.buyer, order_return.id, 'order_return_credit', 'order_return_debit',
-                self.request.user, new_paid_amount, order.order_no, return_ids)
+                self.request.user, new_paid_amount, order.order_no, return_ids, kwargs['shop'])
             # Update inventory
             returned_products = ReturnItems.objects.filter(return_id=order_return)
             for rp in returned_products:
@@ -7413,22 +7413,22 @@ class ShipmentView(GenericAPIView):
                     shipment.save()
 
                 for product_map in products_info:
-                    cart_product_mapping = CartProductMapping.objects.filter(cart=order.ordered_cart,
-                                                                             retailer_product_id=product_map['product_id'],
-                                                                             product_type=1).last()
-                    if cart_product_mapping and cart_product_mapping.qty > product_map['picked_qty'] \
-                            and product_map['product_type'] == 1:
-                        retailer_product = RetailerProduct.objects.filter(id=product_map['product_id'], shop=shop).last()
-                        retailer_product.online_enabled = False
-                        retailer_product.online_disabled_status = product_map['online_disabled_status']
-                        retailer_product.save()
-                    elif cart_product_mapping and cart_product_mapping.qty == product_map['picked_qty'] \
-                            and product_map['product_type'] == 1:
-                        retailer_product = RetailerProduct.objects.filter(id=product_map['product_id'],
-                                                                          shop=shop).last()
-                        retailer_product.online_enabled = True
-                        retailer_product.online_disabled_status = None
-                        retailer_product.save()
+                    # cart_product_mapping = CartProductMapping.objects.filter(cart=order.ordered_cart,
+                    #                                                          retailer_product_id=product_map['product_id'],
+                    #                                                          product_type=1).last()
+                    # if cart_product_mapping and cart_product_mapping.qty > product_map['picked_qty'] \
+                    #         and product_map['product_type'] == 1:
+                    #     retailer_product = RetailerProduct.objects.filter(id=product_map['product_id'], shop=shop).last()
+                    #     retailer_product.online_enabled = False
+                    #     retailer_product.online_disabled_status = product_map['online_disabled_status']
+                    #     retailer_product.save()
+                    # elif cart_product_mapping and cart_product_mapping.qty == product_map['picked_qty'] \
+                    #         and product_map['product_type'] == 1:
+                    #     retailer_product = RetailerProduct.objects.filter(id=product_map['product_id'],
+                    #                                                       shop=shop).last()
+                    #     retailer_product.online_enabled = True
+                    #     retailer_product.online_disabled_status = None
+                    #     retailer_product.save()
                     product_id, qty, product_type = product_map['product_id'], product_map['picked_qty'], product_map[
                         'product_type']
                     ordered_product_mapping, _ = ShipmentProducts.objects.get_or_create(ordered_product=shipment,
