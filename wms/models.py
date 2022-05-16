@@ -548,6 +548,7 @@ class BinInternalInventoryChange(models.Model):
     transaction_type = models.CharField(max_length=25, null=True, blank=True, choices=bin_transaction_type)
     transaction_id = models.CharField(max_length=25, null=True, blank=True)
     quantity = models.PositiveIntegerField()
+    to_be_picked_qty = models.PositiveIntegerField(default=0, null=True)
     weight = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name='Weight In gm')
     inventory_csv = models.ForeignKey(StockMovementCSVUpload, null=True, blank=True, on_delete=models.DO_NOTHING)
     created_at = models.DateTimeField(auto_now_add=True)

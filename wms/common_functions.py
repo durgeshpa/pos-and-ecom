@@ -243,30 +243,70 @@ class CommonBinInventoryFunctions(object):
         return bin_inv_data
 
     @classmethod
-    def deduct_to_be_picked_from_bin(cls, qty_picked, bin_inv_obj):
+    def deduct_to_be_picked_from_bin(cls, qty_picked, bin_inv_obj, tr_id='', tr_type=''):
+        info_logger.info(f"deduct_to_be_picked_from_bin|bin-{bin_inv_obj.bin}, batch-{bin_inv_obj.batch_id},"
+                         f" tr qty-{qty_picked}, tr id-{tr_id}, tr type-{tr_type}")
         obj = BinInventory.objects.select_for_update().get(pk=bin_inv_obj.id)
         if obj.to_be_picked_qty - qty_picked < 0:
             raise ValidationError('Qty needs to be revised, Please try after some time.')
         obj.to_be_picked_qty = obj.to_be_picked_qty - qty_picked
         obj.save()
 
+        BinInternalInventoryChange.objects.create(warehouse=bin_inv_obj.warehouse, sku=bin_inv_obj.sku,
+                                                  batch_id=bin_inv_obj.batch_id,
+                                                  initial_bin=bin_inv_obj.bin,
+                                                  final_bin=bin_inv_obj.bin,
+                                                  initial_inventory_type=bin_inv_obj.inventory_type,
+                                                  final_inventory_type=bin_inv_obj.inventory_type,
+                                                  transaction_type=tr_type,
+                                                  transaction_id=tr_id,
+                                                  quantity=0,
+                                                  to_be_picked_qty=abs(qty_picked))
+
     @classmethod
-    def add_to_be_picked_to_bin(cls, qty, bin_inv_obj):
+    def add_to_be_picked_to_bin(cls, qty, bin_inv_obj, tr_id='', tr_type=''):
+        info_logger.info(f"add_to_be_picked_to_bin|bin-{bin_inv_obj.bin}, batch-{bin_inv_obj.batch_id},"
+                         f" tr qty-{qty}, tr id-{tr_id}, tr type-{tr_type}")
         obj = BinInventory.objects.select_for_update().get(pk=bin_inv_obj.id)
         if obj.to_be_picked_qty + qty < 0:
             raise ValidationError('Qty needs to be revised, Please try after some time.')
         obj.to_be_picked_qty = obj.to_be_picked_qty + qty
         obj.save()
 
+        BinInternalInventoryChange.objects.create(warehouse=bin_inv_obj.warehouse, sku=bin_inv_obj.sku,
+                                                  batch_id=bin_inv_obj.batch_id,
+                                                  initial_bin=bin_inv_obj.bin,
+                                                  final_bin=bin_inv_obj.bin,
+                                                  initial_inventory_type=bin_inv_obj.inventory_type,
+                                                  final_inventory_type=bin_inv_obj.inventory_type,
+                                                  transaction_type=tr_type,
+                                                  transaction_id=tr_id,
+                                                  quantity=0,
+                                                  to_be_picked_qty=abs(qty))
+
     @classmethod
     @transaction.atomic
-    def move_to_to_be_picked(cls, qty, bin_inv_obj):
+    def move_to_to_be_picked(cls, qty, bin_inv_obj, tr_id='', tr_type=''):
+
+        info_logger.info("move_to_to_be_picked | Bin-{}, batch-{}, quantity-{}, to_be_picked_qty-{}, transaction_qty {}"
+                         .format(bin_inv_obj.bin_id, bin_inv_obj.batch_id, bin_inv_obj.quantity,
+                                 bin_inv_obj.to_be_picked_qty, qty))
         obj = BinInventory.objects.select_for_update().get(pk=bin_inv_obj.id)
         if (obj.to_be_picked_qty + qty < 0) or (obj.quantity - qty < 0):
             raise ValidationError('Qty needs to be revised, Please try after some time.')
         obj.to_be_picked_qty = obj.to_be_picked_qty + qty
         obj.quantity = obj.quantity - qty
         obj.save()
+        BinInternalInventoryChange.objects.create(warehouse=bin_inv_obj.warehouse, sku=bin_inv_obj.sku,
+                                                  batch_id=bin_inv_obj.batch_id,
+                                                  initial_bin=bin_inv_obj.bin,
+                                                  final_bin=bin_inv_obj.bin,
+                                                  initial_inventory_type=bin_inv_obj.inventory_type,
+                                                  final_inventory_type=bin_inv_obj.inventory_type,
+                                                  transaction_type=tr_type,
+                                                  transaction_id=tr_id,
+                                                  quantity=abs(qty),
+                                                  to_be_picked_qty=abs(qty))
 
     @classmethod
     @transaction.atomic
@@ -338,9 +378,9 @@ class CommonBinInventoryFunctions(object):
 
                 if total_qty_to_move_from_pickup > 0:
                     CommonBinInventoryFunctions.deduct_to_be_picked_from_bin(total_qty_to_move_from_pickup,
-                                                                             source_bin_inv_object)
+                                                                             source_bin_inv_object, tr_id, tr_type)
                     CommonBinInventoryFunctions.add_to_be_picked_to_bin(total_qty_to_move_from_pickup,
-                                                                            target_bin_inv_object)
+                                                                            target_bin_inv_object, tr_id, tr_type)
                     pickup_bin_qs = PickupBinInventory.objects.select_for_update().filter(
                         warehouse=warehouse, batch_id=batch_id, bin=source_bin_inv_object,
                         pickup__status__in=['pickup_creation', 'picking_assigned'], quantity__gt=0,
@@ -1137,22 +1177,8 @@ def cancel_pickup(pickup_object):
         if picked_qty is None:
             picked_qty = 0
         remaining_qty = item.quantity - picked_qty
-        # total_remaining += remaining_qty
-        bin_quantity = bi.quantity + remaining_qty
-        to_be_picked_qty = bi.to_be_picked_qty - remaining_qty
-        if to_be_picked_qty < 0:
-            to_be_picked_qty = 0
-        info_logger.info("cancel_pickup | updated | Bin-{}, batch-{}, quantity-{}, to_be_picked_qty-{}"
-                         .format(bi.bin_id, bi.batch_id, bin_quantity, to_be_picked_qty))
-        bi_qs.update(quantity=bin_quantity, to_be_picked_qty=to_be_picked_qty)
-        if remaining_qty > 0:
-            InternalInventoryChange.create_bin_internal_inventory_change(bi.warehouse, bi.sku, bi.batch_id,
-                                                                         bi.bin,
-                                                                         type_normal, type_normal,
-                                                                         tr_type,
-                                                                         pickup_id,
-                                                                         remaining_qty)
-            total_remaining += remaining_qty
+        CommonBinInventoryFunctions.move_to_to_be_picked(-1*remaining_qty, bi, pickup_id, tr_type)
+        total_remaining += remaining_qty
         if picked_qty > 0:
             PutawayCommonFunctions.create_putaway_with_putaway_bin_inventory(
                 bi, type_normal, tr_type, pickup_id, picked_qty, False)
