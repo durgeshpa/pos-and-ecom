@@ -520,6 +520,7 @@ class BinInternalInventoryChange(models.Model):
         ('pickup_created', 'Pickup Created'),
         ('pickup_complete', 'Pickup Complete'),
         ('picking_cancelled', 'Pickup Cancelled'),
+        ('picked', 'Picked'),
         ('stock_correction_in_type', 'stock_correction_in_type'),
         ('stock_correction_out_type', 'stock_correction_out_type'),
         ('expired', 'expired'),
@@ -534,6 +535,8 @@ class BinInternalInventoryChange(models.Model):
         ('moved_to_discounted', 'Moved To Discounted'),
         ('added_as_discounted', 'Added As Discounted'),
         ('bin_shift', 'Bin Shift'),
+        ('bin_shift_add', 'Bin Shift Add'),
+        ('bin_shift_deduct', 'Bin Shift Deduct'),
 
     )
     warehouse = models.ForeignKey(Shop, null=True, blank=True, on_delete=models.DO_NOTHING)
