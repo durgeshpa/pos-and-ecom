@@ -909,6 +909,7 @@ class AuditInventory(APIView):
                     qty_diff = pb.quantity - (picked_qty + physical_qty)
                     pb.quantity = picked_qty + physical_qty
                     pb.save()
+                    qty_to_deduct_from_to_be_picked += qty_diff
                 if physical_qty > 0:
                     physical_qty = physical_qty - (pb.quantity - picked_qty)
 
