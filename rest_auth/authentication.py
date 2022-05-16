@@ -1,7 +1,7 @@
-import rest_framework.authentication
+from rest_framework.authentication import TokenAuthentication
 
 from .models import Token
 
 
-class TokenAuthentication(rest_framework.authentication.TokenAuthentication):
+class TokenAuthentication(TokenAuthentication):
     model = Token

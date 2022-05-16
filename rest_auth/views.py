@@ -4,7 +4,8 @@ from django.core.exceptions import ObjectDoesNotExist
 from django.utils.decorators import method_decorator
 from django.views.decorators.debug import sensitive_post_parameters
 
-from rest_framework import status, authentication
+from rest_framework import status
+from rest_auth import authentication
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.generics import GenericAPIView, RetrieveUpdateAPIView
@@ -132,7 +133,7 @@ class LogoutView(APIView):
 
     Accepts/Returns nothing.
     """
-    authentication_classes = (authentication.TokenAuthentication,)
+    authentication_classes = (TokenAuthentication,)
 
     def get(self, request, *args, **kwargs):
         if getattr(settings, 'ACCOUNT_LOGOUT_ON_GET', False):
@@ -148,7 +149,9 @@ class LogoutView(APIView):
     @staticmethod
     def logout(request):
         try:
-            request.user.auth_token.delete()
+            token = request.auth.key
+            instance = Token.objects.get(key=token)
+            instance.delete()
         except (AttributeError, ObjectDoesNotExist):
             pass
 

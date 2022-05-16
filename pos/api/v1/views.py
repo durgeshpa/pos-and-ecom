@@ -17,7 +17,8 @@ from django.db import transaction
 from django.db.models import Q, Sum, F, Count, Subquery, OuterRef, FloatField, ExpressionWrapper
 from django.db.models.functions import Coalesce
 from products.common_function import get_response
-from rest_framework import status, authentication, permissions, mixins, viewsets
+from rest_framework import status, permissions, mixins, viewsets
+from rest_auth import authentication
 from rest_framework.generics import GenericAPIView, ListAPIView
 from rest_framework.permissions import AllowAny
 from rest_framework.views import APIView
