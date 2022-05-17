@@ -709,7 +709,10 @@ class CheckoutSerializer(serializers.ModelSerializer):
             if self.context['app_type']=='2':
                 total_amount += Decimal(cart_pro.selling_price) * Decimal(cart_pro.qty)
             else:
-                total_amount += Decimal(cart_pro.retailer_product.online_price) * Decimal(cart_pro.qty)
+                if cart_pro.retailer_product.offer_end_date >= datetime.date.today():
+                    total_amount += Decimal(cart_pro.retailer_product.offer_price) * Decimal(cart_pro.qty)
+                else:
+                    total_amount += Decimal(cart_pro.selling_price) * Decimal(cart_pro.qty)
         return total_amount
 
     def get_total_mrp(self,obj):
