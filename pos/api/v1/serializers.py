@@ -639,7 +639,10 @@ class BasicCartSerializer(serializers.ModelSerializer):
         """
         total_amount = 0
         for cart_pro in obj.rt_cart_list.all():
-            total_amount += Decimal(cart_pro.selling_price) * Decimal(cart_pro.qty)
+            if cart_pro.retailer_product.offer_end_date >= datetime.date.today():
+                total_amount += Decimal(cart_pro.retailer_product.offer_price) * Decimal(cart_pro.qty)
+            else:
+                total_amount += Decimal(cart_pro.selling_price) * Decimal(cart_pro.qty)
         return total_amount
 
     @staticmethod
@@ -653,7 +656,6 @@ class BasicCartSerializer(serializers.ModelSerializer):
         return round(discount, 2)
 
     def get_amount_payable(self, obj):
-        sub_total = float(self.total_amount_dt(obj)) - self.get_total_discount(obj)
         if obj.cart_type == 'ECOM':
             sub_total = float(self.total_amount_dt(obj)) - (
                     float(self.get_total_discount(obj)))
