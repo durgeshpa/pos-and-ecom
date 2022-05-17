@@ -371,6 +371,7 @@ class ParentProductView(GenericAPIView):
         product_status = self.request.GET.get('status')
         tax_status = self.request.GET.get('tax_status')
         search_text = self.request.GET.get('search_text')
+        product_type = self.request.GET.get('product_type')
 
         # search using parent_id, name & category_name based on criteria that matches
         if search_text:
@@ -382,6 +383,8 @@ class ParentProductView(GenericAPIView):
             self.queryset = self.queryset.filter(status=product_status)
         if tax_status is not None:
             self.queryset = self.queryset.filter(tax_status=tax_status)
+        if product_type is not None:
+            self.queryset = self.queryset.filter(product_type=product_type)
         if category is not None:
             self.queryset = self.queryset.filter(
                 parent_product_pro_category__category__id=category)
