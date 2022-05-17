@@ -109,7 +109,7 @@ class LoginView(GenericAPIView):
         """
         Get Response Based on Authentication and App Type Requested
         """
-        token = token if getattr(settings, 'REST_USE_JWT', False) else Token.key
+        token = token if getattr(settings, 'REST_USE_JWT', False) else token.key
         app_type = self.request.data.get('app_type', 0)
         shop_object = None
         if app_type == '2':
