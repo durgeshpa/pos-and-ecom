@@ -349,6 +349,7 @@ class RetailerProductsSearchSerializer(serializers.ModelSerializer):
     category = serializers.SerializerMethodField()
     brand_id = serializers.SerializerMethodField()
     brand = serializers.SerializerMethodField()
+    online_price = serializers.SerializerMethodField()
 
 
     def get_brand(self, obj):
@@ -436,6 +437,17 @@ class RetailerProductsSearchSerializer(serializers.ModelSerializer):
                 current_stock = PosInventory.objects.filter(product=obj.id, inventory_state=
                 PosInventoryState.objects.get(inventory_state=PosInventoryState.AVAILABLE)).last().quantity
             return current_stock
+        except:
+            return ''
+
+    @staticmethod
+    def get_online_price(obj):
+        try:
+            if obj.offer_end_date >= datetime.date.today():
+                return Decimal(obj.offer_price)
+
+            else:
+                return Decimal(obj.selling_price)
         except:
             return ''
 
