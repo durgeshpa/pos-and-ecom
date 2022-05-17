@@ -279,13 +279,14 @@ class ParentProductSerializers(serializers.ModelSerializer):
         #     raise serializers.ValidationError(_('parent product category is required'))
         if not 'parent_product_pro_category' in self.initial_data or not self.initial_data['parent_product_pro_category']:
             raise serializers.ValidationError(_('parent product category is required'))
-        
-        if not 'parent_product_pro_b2c_category' in self.initial_data or not self.initial_data['parent_product_pro_b2c_category']:
-            raise serializers.ValidationError(_('parent product b2c category is required'))
 
         if self.initial_data.get('product_type') == 'grocery':
-            if not 'parent_product_pro_tax' in self.initial_data or not self.initial_data['parent_product_pro_tax']:
-                raise serializers.ValidationError(_('parent_product_pro_tax is required'))
+            if not 'parent_product_pro_b2c_category' in self.initial_data or not self.initial_data['parent_product_pro_b2c_category']:
+                raise serializers.ValidationError(_('parent product b2c category is required'))
+
+
+        if not 'parent_product_pro_tax' in self.initial_data or not self.initial_data['parent_product_pro_tax']:
+            raise serializers.ValidationError(_('parent_product_pro_tax is required'))
 
         if data.get('is_ptr_applicable'):
             is_ptr_applicable = is_ptr_applicable_validation(data)
