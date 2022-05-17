@@ -443,9 +443,12 @@ class RetailerProductsSearchSerializer(serializers.ModelSerializer):
     @staticmethod
     def get_online_price(obj):
         try:
-            if obj.offer_end_date >= datetime.date.today():
-                return Decimal(obj.offer_price)
+            if obj.offer_end_date:
+                if obj.offer_end_date >= datetime.date.today():
+                    return Decimal(obj.offer_price)
 
+                else:
+                    return Decimal(obj.selling_price)
             else:
                 return Decimal(obj.selling_price)
         except:
@@ -651,8 +654,11 @@ class BasicCartSerializer(serializers.ModelSerializer):
         """
         total_amount = 0
         for cart_pro in obj.rt_cart_list.all():
-            if cart_pro.retailer_product.offer_end_date >= datetime.date.today():
-                total_amount += Decimal(cart_pro.retailer_product.offer_price) * Decimal(cart_pro.qty)
+            if cart_pro.retailer_product.offer_end_date:
+                if cart_pro.retailer_product.offer_end_date >= datetime.date.today():
+                    total_amount += Decimal(cart_pro.retailer_product.offer_price) * Decimal(cart_pro.qty)
+                else:
+                    total_amount += Decimal(cart_pro.selling_price) * Decimal(cart_pro.qty)
             else:
                 total_amount += Decimal(cart_pro.selling_price) * Decimal(cart_pro.qty)
         return total_amount
@@ -709,8 +715,11 @@ class CheckoutSerializer(serializers.ModelSerializer):
             if self.context['app_type']=='2':
                 total_amount += Decimal(cart_pro.selling_price) * Decimal(cart_pro.qty)
             else:
-                if cart_pro.retailer_product.offer_end_date >= datetime.date.today():
-                    total_amount += Decimal(cart_pro.retailer_product.offer_price) * Decimal(cart_pro.qty)
+                if cart_pro.retailer_product.offer_end_date:
+                    if cart_pro.retailer_product.offer_end_date >= datetime.date.today():
+                        total_amount += Decimal(cart_pro.retailer_product.offer_price) * Decimal(cart_pro.qty)
+                    else:
+                        total_amount += Decimal(cart_pro.selling_price) * Decimal(cart_pro.qty)
                 else:
                     total_amount += Decimal(cart_pro.selling_price) * Decimal(cart_pro.qty)
         return total_amount
