@@ -3,7 +3,7 @@ import logging
 from django.db.models import F, Count, Q
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
-from rest_framework.authentication import TokenAuthentication
+from rest_auth.authentication import TokenAuthentication
 from rest_framework.generics import ListAPIView
 from rest_framework import status
 

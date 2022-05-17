@@ -19,6 +19,7 @@ class Token(rest_framework.authtoken.models.Token):
         on_delete=models.CASCADE, verbose_name=_("User")
     )
     name = models.CharField(_("Name"), max_length=64)
+    phone = models.CharField(_("Phone"), max_length=10)
 
 
     class Meta:

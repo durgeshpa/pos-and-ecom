@@ -22,7 +22,8 @@ from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from django.shortcuts import render
 from num2words import num2words
-from rest_framework import status, generics, permissions, authentication
+from rest_framework import status, generics, permissions
+from rest_auth import authentication
 from rest_framework.generics import GenericAPIView
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response

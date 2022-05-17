@@ -5,7 +5,7 @@ from django.http import HttpResponse
 from django.db import transaction
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework import authentication
+from rest_auth import authentication
 from rest_framework.generics import GenericAPIView, CreateAPIView
 
 from wms.common_functions import get_stock_available_brand_list
