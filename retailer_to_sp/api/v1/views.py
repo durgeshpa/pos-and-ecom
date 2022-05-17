@@ -9503,7 +9503,18 @@ class LoadVerifyPackageView(generics.GenericAPIView):
         if serializer.is_valid():
             serializer.save(created_by=request.user)
             info_logger.info("Package loaded Successfully.")
-            return get_response('Package loaded successfully!', serializer.data)
+            # return get_response('Package loaded successfully!', serializer.data)
+            packaging_data = ShipmentPackaging.objects.get(id=modified_data['package_id'])
+            return get_response('Package loaded successfully!', ShipmentPackageSerializer(
+                ShipmentPackaging.objects.filter(
+                    shipment=packaging_data.shipment, movement_type=packaging_data.movement_type).\
+                    select_related('crate', 'warehouse', 'warehouse__shop_owner', 'shipment', 'shipment__invoice',
+                                   'shipment__order', 'shipment__order__shipping_address',
+                                   'shipment__order__buyer_shop', 'shipment__order__shipping_address__shop_name',
+                                   'shipment__order__buyer_shop__shop_owner', 'warehouse__shop_type',
+                                   'warehouse__shop_type__shop_sub_type', 'created_by', 'updated_by').\
+                    prefetch_related('packaging_details', 'trip_packaging_details', 'shipment__trip_shipment',
+                                     'shipment__last_mile_trip_shipment'), many=True).data)
         return get_response(serializer_error(serializer), False)
 
 
