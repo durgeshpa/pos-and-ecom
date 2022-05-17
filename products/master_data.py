@@ -971,14 +971,14 @@ class DownloadMasterData(object):
         response, writer = DownloadMasterData.response_workbook("bulk_parent_product_create_sample")
 
         columns = ["product_name", "brand_id", "brand_name", "b2b_category_name", "b2c_category_name", "hsn", "gst",
-                   "cess", "surcharge", "inner_case_size", "brand_case_size", "product_type", "is_ptr_applicable",
+                   "cess", "surcharge", "inner_case_size", "brand_case_size", "is_ptr_applicable",
                    "ptr_type", "ptr_percent", "is_ars_applicable", "discounted_life_percent", "max_inventory_in_days", "is_lead_time_applicable",
                    "status"]
         writer.writerow(columns)
         data = [["parent1", "2", "Too Yumm", "Health Care, Beverages, Grocery & Staples", "Grocery & Staples", "123456",
-                 "18", "12", "100", "10", "2", "both", "yes", "Mark Up", "12", "yes", "2", "2", "yes", "deactivated"],
+                 "18", "12", "100", "10", "2", "yes", "Mark Up", "12", "yes", "2", "2", "yes", "deactivated"],
                 ["parent2", "2", "Too Yumm", "Health Care, Beverages", "Grocery & Staples", "123456", "18", "12", "100",
-                 "10", "2", "both", "yes", "Mark Up", "12", "yes", "0.0", "2", "yes", "active"]]
+                 "10", "2", "yes", "Mark Up", "12", "yes", "0.0", "2", "yes", "active"]]
 
         for row in data:
             writer.writerow(row)

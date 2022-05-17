@@ -7419,22 +7419,22 @@ class ShipmentView(GenericAPIView):
                     shipment.save()
 
                 for product_map in products_info:
-                    cart_product_mapping = CartProductMapping.objects.filter(cart=order.ordered_cart,
-                                                                             retailer_product_id=product_map['product_id'],
-                                                                             product_type=1).last()
-                    if cart_product_mapping and cart_product_mapping.qty > product_map['picked_qty'] \
-                            and product_map['product_type'] == 1:
-                        retailer_product = RetailerProduct.objects.filter(id=product_map['product_id'], shop=shop).last()
-                        retailer_product.online_enabled = False
-                        retailer_product.online_disabled_status = product_map['online_disabled_status']
-                        retailer_product.save()
-                    elif cart_product_mapping and cart_product_mapping.qty == product_map['picked_qty'] \
-                            and product_map['product_type'] == 1:
-                        retailer_product = RetailerProduct.objects.filter(id=product_map['product_id'],
-                                                                          shop=shop).last()
-                        retailer_product.online_enabled = True
-                        retailer_product.online_disabled_status = None
-                        retailer_product.save()
+                    # cart_product_mapping = CartProductMapping.objects.filter(cart=order.ordered_cart,
+                    #                                                          retailer_product_id=product_map['product_id'],
+                    #                                                          product_type=1).last()
+                    # if cart_product_mapping and cart_product_mapping.qty > product_map['picked_qty'] \
+                    #         and product_map['product_type'] == 1:
+                    #     retailer_product = RetailerProduct.objects.filter(id=product_map['product_id'], shop=shop).last()
+                    #     retailer_product.online_enabled = False
+                    #     retailer_product.online_disabled_status = product_map['online_disabled_status']
+                    #     retailer_product.save()
+                    # elif cart_product_mapping and cart_product_mapping.qty == product_map['picked_qty'] \
+                    #         and product_map['product_type'] == 1:
+                    #     retailer_product = RetailerProduct.objects.filter(id=product_map['product_id'],
+                    #                                                       shop=shop).last()
+                    #     retailer_product.online_enabled = True
+                    #     retailer_product.online_disabled_status = None
+                    #     retailer_product.save()
                     product_id, qty, product_type = product_map['product_id'], product_map['picked_qty'], product_map[
                         'product_type']
                     ordered_product_mapping, _ = ShipmentProducts.objects.get_or_create(ordered_product=shipment,
@@ -8382,6 +8382,7 @@ class DispatchTripsCrudView(generics.GenericAPIView):
         trip_status = self.request.GET.get('trip_status')
         trip_type = self.request.GET.get('trip_type')
         date = self.request.GET.get('date')
+        data_days = self.request.GET.get('data_days')
         status = self.request.GET.get('status')
 
         '''search using seller_shop name, source_shop's firstname  and destination_shop's firstname'''
@@ -8417,7 +8418,14 @@ class DispatchTripsCrudView(generics.GenericAPIView):
             self.queryset = self.queryset.filter(trip_status=trip_status)
 
         if date:
-            self.queryset = self.queryset.filter(created_at__date=date)
+            if data_days:
+                end_date = datetime.strptime(date, "%Y-%m-%d")
+                start_date = end_date - timedelta(days=int(data_days))
+                self.queryset = self.queryset.filter(
+                    created_at__date__gte=start_date.date(), created_at__date__lte=end_date.date())
+            else:
+                created_at = datetime.strptime(date, "%Y-%m-%d")
+                self.queryset = self.queryset.filter(created_at__date=created_at)
 
         if trip_type:
             self.queryset = self.queryset.filter(trip_type=trip_type)
