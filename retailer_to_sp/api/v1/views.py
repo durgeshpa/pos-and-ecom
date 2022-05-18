@@ -9505,7 +9505,14 @@ class CurrentlyLoadingShipmentPackagesView(generics.GenericAPIView):
     """
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
-    queryset = ShipmentPackaging.objects.order_by('-id')
+    queryset = ShipmentPackaging.objects.\
+        select_related('crate', 'warehouse', 'warehouse__shop_owner', 'shipment', 'shipment__invoice',
+                       'shipment__order', 'shipment__order__shipping_address',
+                       'shipment__order__buyer_shop', 'shipment__order__shipping_address__shop_name',
+                       'shipment__order__buyer_shop__shop_owner', 'warehouse__shop_type',
+                       'warehouse__shop_type__shop_sub_type', 'created_by', 'updated_by').\
+        prefetch_related('packaging_details', 'trip_packaging_details', 'shipment__trip_shipment',
+                         'shipment__last_mile_trip_shipment').order_by('-id')
     serializer_class = ShipmentPackageSerializer
 
     def get_loading_shipment_by_trip_and_user(self, user, trip):
