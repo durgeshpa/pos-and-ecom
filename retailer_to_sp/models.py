@@ -1078,6 +1078,8 @@ class Order(models.Model):
     delivery_option = models.CharField(max_length=50, choices=DELIVERY_CHOICE, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
+    latitude = models.DecimalField(max_digits=30, decimal_places=15, null=True,blank=True, verbose_name='Latitude For Ecommerce order')
+    longitude = models.DecimalField(max_digits=30, decimal_places=15, null=True,blank=True, verbose_name='Longitude For Ecommerce order')
 
     def __str__(self):
         return self.order_no or str(self.id)
