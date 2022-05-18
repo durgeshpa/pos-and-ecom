@@ -1394,6 +1394,9 @@ class PutawayActionSerializer(PutawayItemsCrudSerializer):
         try:
             putaway_instance = validated_data.pop('putaway')
             putaway_bin_data = validated_data.pop('putaway_bin_data')
+            qty = sum(item['qty'] for item in putaway_bin_data)
+            if putaway_instance.putaway_quantity + qty > putaway_instance.quantity:
+                return serializers.ValidationError({'message': "Invalid quantity"})
             putaway_instance = self.post_putaway_data_update(putaway_instance, putaway_bin_data)
             validated_data['putaway_quantity'] = putaway_instance.putaway_quantity
             if putaway_instance.quantity == putaway_instance.putaway_quantity:
