@@ -51,8 +51,7 @@ def get_products_by_audit(audit_detail):
         if audit_detail.audit_level == 1:
             products_to_update.extend(audit_detail.sku.all())
         elif audit_detail.audit_level == 0 and audit_detail.bin.count() != 0:
-            products = get_products_by_bin(audit_detail.warehouse, audit_detail.bin.all(), True)
-        products_to_update.extend(products)
+            products_to_update.extend(get_products_by_bin(audit_detail.warehouse, audit_detail.bin.all(), True))
     else:
         audit_product_list = AuditProduct.objects.filter(audit=audit_detail)
         products_to_update.extend([i.sku for i in audit_product_list])
