@@ -1,6 +1,6 @@
 from django.contrib import admin
 from adminsortable.admin import NonSortableParentAdmin, SortableStackedInline
-from .models import Category, CategoryData, CategoryPosation, B2cCategory, B2cCategoryData
+from .models import Category, CategoryData, CategoryPosation, B2cCategory, B2cCategoryData, CategoryDisplayOrder
 from import_export.admin import ExportActionMixin
 from .resources import CategoryResource, B2cCategoryResource
 from retailer_backend.admin import InputFilter
@@ -37,7 +37,7 @@ class CategoryParentSearch(InputFilter):
 
 class CategorySKUSearch(InputFilter):
     parameter_name = 'category_sku_part'
-    title = 'Category Name'
+    title = 'Category SKU'
 
     def queryset(self, request, queryset):
         if self.value() is not None:
@@ -62,13 +62,13 @@ admin.site.register(CategoryPosation, CategoryPosationAdmin)
 
 class CategoryAdmin(ExportActionMixin, admin.ModelAdmin):
     resource_class = CategoryResource
-    fields = ('category_name', 'category_slug', 'category_desc', 'category_sku_part',
-              'category_image', 'status', 'b2c_status')
-    list_display = ['id', 'category_name', 'category_slug', 'category_sku_part','b2c_status']
+    fields = ('category_name', 'category_slug', 'category_type', 'category_parent' ,'category_desc', 'category_sku_part',
+              'category_image', 'status')
+    list_display = ['id', 'category_name', 'category_slug', 'category_parent', 'category_type', 'category_sku_part']
     search_fields = ['category_name']
     prepopulated_fields = {'category_slug': ('category_name',)}
     search_fields = ('category_name',)
-    list_filter = [CategorySearch, CategoryParentSearch, CategorySKUSearch]
+    list_filter = [CategorySearch, CategoryParentSearch, CategorySKUSearch, 'category_type']
 
 
 class B2cCategoryAdmin(ExportActionMixin, admin.ModelAdmin):
@@ -80,6 +80,17 @@ class B2cCategoryAdmin(ExportActionMixin, admin.ModelAdmin):
     prepopulated_fields = {'category_slug': ('category_name',)}
     search_fields = ('category_name',)
     list_filter = [CategorySearch, CategoryParentSearch, CategorySKUSearch]
+
+
+@admin.register(CategoryDisplayOrder)
+class CategoryDisplayOrderAdmin(admin.ModelAdmin):
+    list_display = ('id', 'category', 'order_no', 'created_at', 'updated_at')
+    list_filter = [CategorySearch,]
+    readonly_fields = ('created_at', 'updated_at', 'created_by')
+    
+    def save_model(self, request, obj, form, change) -> None:
+        obj.created_by = request.user
+        return super().save_model(request, obj, form, change)
 
 
 admin.site.register(Category,CategoryAdmin)

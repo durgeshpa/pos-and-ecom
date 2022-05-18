@@ -81,7 +81,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'django.contrib.postgres',
     'rest_framework',
-    'rest_framework.authtoken',
+    # 'rest_framework.authtoken',
     'rest_auth',
     'django.contrib.sites',
     'allauth',
@@ -191,6 +191,7 @@ MIDDLEWARE += [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'accounts.middlewares.RequestMiddleware',
+    # 'accounts.middlewares.AuthenticationMiddleware',
     'drf_api_logger.middleware.api_logger_middleware.APILoggerMiddleware',
     'silk.middleware.SilkyMiddleware'
 ]
@@ -296,7 +297,7 @@ REST_FRAMEWORK = {
 }
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
-        'rest_framework.authentication.TokenAuthentication',
+        'rest_auth.authentication.TokenAuthentication',
     ),
     'DEFAULT_PERMISSION_CLASSES': (
         'rest_framework.permissions.IsAuthenticated',

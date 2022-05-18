@@ -22,7 +22,8 @@ from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from django.shortcuts import render
 from num2words import num2words
-from rest_framework import status, generics, permissions, authentication
+from rest_framework import status, generics, permissions
+from rest_auth import authentication
 from rest_framework.generics import GenericAPIView
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
@@ -108,7 +109,7 @@ from .serializers import (ProductsSearchSerializer, CartSerializer, OrderSeriali
                           OrderDetailSerializer, OrderedProductSerializer, OrderedProductMappingSerializer,
                           RetailerShopSerializer, SellerOrderListSerializer, OrderListSerializer,
                           ReadOrderedProductSerializer, FeedBackSerializer,
-                          ShipmentDetailSerializer, TripSerializer, ShipmentSerializer, PickerDashboardSerializer,
+                          ShipmentDetailSerializer, SuperStoreCartSerializer, TripSerializer, ShipmentSerializer, PickerDashboardSerializer,
                           ShipmentReschedulingSerializer, ShipmentReturnSerializer, ParentProductImageSerializer,
                           ShopSerializer, OrderPaymentStatusChangeSerializers,
                           ShipmentProductSerializer, RetailerOrderedProductMappingSerializer,
@@ -380,6 +381,7 @@ class SearchProducts(APIView):
             must_not = {"exists": {"field": "ean"}}
         if ean_code and ean_code != '':
             filter_list.append({"term": {"ean": ean_code}})
+        filter_list.append({"term": {"product_type": 'grocery'}})
         body = dict()
         if filter_list and must_not:
             body["query"] = {"bool": {"filter": filter_list, "must_not": must_not}}
@@ -469,6 +471,7 @@ class SearchProducts(APIView):
             #sub_category = sub_category_ids.split(',')
             #sub_category_filter = str(categorymodel.Category.objects.filter(id__in=sub_category, status=True).last())
             filter_list.append({"term": {"sub_category": sub_category_ids}})
+        filter_list.append({"term": {"product_type": 'grocery'}})
 
         elastic_logger.info("Filter list :: {}".format(filter_list))
         elastic_logger.info("Query string :: {}".format(query_string))
@@ -658,7 +661,7 @@ class SearchProducts(APIView):
         ean_code = self.request.GET.get('ean_code')
         body = dict()
         if ean_code and ean_code != '':
-            body["query"] = {"bool": {"filter": [{"term": {"ean": ean_code}}]}}
+            body["query"] = {"bool": {"filter": [{"term": {"ean": ean_code}},{"term": {"product_type": 'grocery'}}]}}
         return self.process_gf(app_type, body)
 
     def gf_normal_search(self, app_type):
@@ -706,10 +709,13 @@ class SearchProducts(APIView):
         body["from"] = int(self.request.GET.get('offset', 0))
         body["size"] = int(self.request.GET.get('pro_count', 100))
         p_list = []
-        if app_type != '1':
-            es_index = 'all_b2c_product'
-        else:
+        if app_type == '1':
             es_index = 'all_products'
+        elif app_type == '4':
+            es_index = GlobalConfig.objects.get(key='current_wh_active').value
+        else:
+            es_index = 'all_b2c_product'
+
         # No Shop Id OR Store Inactive
         if not parent_shop:
             body["_source"] = {"includes": ["id", "name", "product_images", "pack_size", "brand_case_size",
@@ -751,8 +757,12 @@ class SearchProducts(APIView):
             filter_list = [
                 {"term": {"status": True}},
                 {"term": {"visible": True}},
-                {"range": {"available": {"gt": 0}}}
             ]
+        if self.request.META.get('HTTP_APP_TYPE', '1') != '4':
+            filter_list.append({"range": {"available": {"gt": 0}}})
+            filter_list.append({"term": {"product_type": 'grocery'}})
+        if self.request.META.get('HTTP_APP_TYPE', '1') == '4':
+            filter_list.append({"term": {"product_type": 'superstore'}})
         if is_discounted:
             filter_list.append({"term": {"is_discounted": is_discounted}}, )
         if product_ids:
@@ -1092,6 +1102,8 @@ class CartCentral(GenericAPIView):
                 return self.get_basic_cart_list(request, *args, **kwargs)
         elif app_type == '3':
             return self.get_ecom_cart(request, *args, **kwargs)
+        elif app_type == '4':
+            return self.get_supermart_cart(request, *args, **kwargs)
         else:
             return api_response('Please provide a valid app_type')
 
@@ -1112,6 +1124,8 @@ class CartCentral(GenericAPIView):
             return self.basic_add_to_cart(request, *args, **kwargs)
         elif app_type == '3':
             return self.ecom_add_to_cart(request, *args, **kwargs)
+        elif app_type == '4':
+            return self.superstore_add_to_cart(request, *args, **kwargs)
         else:
             return api_response('Please provide a valid app_type')
 
@@ -1262,6 +1276,30 @@ class CartCentral(GenericAPIView):
             cart_data.update({'default_address': address})
             return api_response('Cart', cart_data, status.HTTP_200_OK, True)
 
+    @check_ecom_user_shop
+    def get_supermart_cart(self, request, *args, **kwargs):
+        """
+            Get cart api
+            for cart type : superstore
+        """
+        with transaction.atomic():
+            try:
+                cart = Cart.objects.get(cart_type='SUPERSTORE', buyer=self.request.user, cart_status='active',
+                                        seller_shop=kwargs['shop'])
+            except Cart.DoesNotExist:
+                return api_response("No items added in cart yet", {"rt_cart_list": []}, status.HTTP_200_OK, False)
+
+            # Refresh cart prices
+            PosCartCls.refresh_prices(cart.rt_cart_list.all())
+
+            # Refresh redeem reward
+            RewardCls.checkout_redeem_points(cart, 0, self.request.GET.get('use_rewards', 1))
+
+            cart_data = SuperStoreCartSerializer(cart).data
+            address = AddressCheckoutSerializer(cart.buyer.ecom_user_address.filter(default=True).last()).data
+            cart_data.update({'default_address': address})
+            return api_response('Cart', cart_data, status.HTTP_200_OK, True)
+
     @check_pos_shop
     def get_basic_cart_list(self, request, *args, **kwargs):
         """
@@ -1408,6 +1446,7 @@ class CartCentral(GenericAPIView):
         data['next_offer'] = next_offer
         return data
 
+
     def retail_add_to_cart(self):
         """
             Add To Cart
@@ -1519,7 +1558,8 @@ class CartCentral(GenericAPIView):
                 delete_cart_mapping(cart, product, 'ecom')
             else:
                 # Add quantity to cart
-                cart_mapping, _ = CartProductMapping.objects.get_or_create(cart=cart, retailer_product=product,
+                cart_mapping, _ = CartProductMapping.objects.get_or_create(cart=cart,
+                                                                           retailer_product=product,
                                                                            product_type=1)
                 cart_mapping.selling_price = product.online_price
                 cart_mapping.qty = qty
@@ -1530,6 +1570,30 @@ class CartCentral(GenericAPIView):
             if not CartProductMapping.objects.filter(cart=cart).exists():
                 return api_response("No items added in cart yet", {"rt_cart_list": []}, status.HTTP_200_OK, False)
             return api_response('Added To Cart', self.post_serialize_process_basic(cart), status.HTTP_200_OK, True)
+
+    @check_ecom_user_shop
+    @PosAddToCart.validate_request_body_superstore
+    def superstore_add_to_cart(self, request, *args, **kwargs):
+        """
+            Add to cart
+            Type (Super Store)
+        """
+        with transaction.atomic():
+            shop = kwargs['shop']
+            product, qty = kwargs['product'], kwargs['quantity']
+            cart = self.post_update_superstore_cart(shop)
+            if qty == 0:
+                delete_cart_mapping(cart, product, 'superstore')
+            else:
+                cart_mapping, _ = CartProductMapping.objects.get_or_create(cart=cart,
+                                                                           cart_product=product)
+                cart_mapping.selling_price = kwargs['selling_price']
+                cart_mapping.qty = qty
+                cart_mapping.no_of_pieces = int(qty)
+                cart_mapping.save()
+            if cart.rt_cart_list.filter(product_type=1).count() == 0:
+                return api_response("No items added in cart yet", {"rt_cart_list": []}, status.HTTP_200_OK, False)
+            return api_response('Added To Cart', SuperStoreCartSerializer(cart).data, status.HTTP_200_OK, True)
 
     def pos_cart_product_create(self, shop_id, product_info, cart_id):
 
@@ -1649,6 +1713,26 @@ class CartCentral(GenericAPIView):
                                                        seller_shop=seller_shop).last()
         if cart is None:
             cart, _ = Cart.objects.select_for_update().get_or_create(cart_type='ECOM', buyer=user, cart_status='active',
+                                                                     seller_shop=seller_shop)
+        if cart.seller_shop and cart.seller_shop.id != seller_shop.id:
+            CartProductMapping.objects.filter(cart=cart).delete()
+        cart.seller_shop = seller_shop
+        cart.save()
+        return cart
+
+    def post_update_superstore_cart(self, seller_shop):
+        """
+            Create or update/add product to super store cart
+        """
+        user = self.request.user
+        cart = Cart.objects.select_for_update().filter(cart_type='SUPERSTORE',
+                                                       buyer=user,
+                                                       cart_status='active',
+                                                       seller_shop=seller_shop).last()
+        if cart is None:
+            cart, _ = Cart.objects.select_for_update().get_or_create(cart_type='SUPERSTORE',
+                                                                     buyer=user,
+                                                                     cart_status='active',
                                                                      seller_shop=seller_shop)
         if cart.seller_shop and cart.seller_shop.id != seller_shop.id:
             CartProductMapping.objects.filter(cart=cart).delete()

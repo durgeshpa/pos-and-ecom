@@ -7,7 +7,8 @@ from django.http import HttpResponse
 import logging
 from django.shortcuts import render, redirect
 from django.utils import timezone
-from rest_framework import status, authentication, permissions
+from rest_framework import status, permissions
+from rest_auth import authentication
 from rest_framework.generics import ListCreateAPIView
 from rest_framework.response import Response
 from shops.models import Shop
