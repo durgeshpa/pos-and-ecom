@@ -15,6 +15,7 @@ from wms.models import PosInventory, PosInventoryState
 from retailer_to_sp.models import RoundAmount, OrderedProduct, Order
 from .models import Address
 from pos.models import RetailerProduct
+from global_config.views import get_config
 
 
 def api_response(msg, data=None, status_code=status.HTTP_406_NOT_ACCEPTABLE, success=False, extra_params=None):
@@ -50,6 +51,18 @@ def check_ecom_user_shop(view_func):
 
     return _wrapped_view_func
 
+
+# def set_shop_for_superstore(func):
+    
+#     @wraps(func)
+#     def _wrapper(self, request, *args, **kwargs):
+#         shop_id = get_config('superstore_seller_shop', 32153)
+#         # try:
+#         kwargs['shop'] = Shop.objects.get(id=shop_id)
+#         return func(self, request, *args, **kwargs)
+#         # except:
+#         #     return api_response("Shop not available!")
+#     return _wrapper
 
 def nearby_shops(lat, lng, radius=10, limit=10):
     """

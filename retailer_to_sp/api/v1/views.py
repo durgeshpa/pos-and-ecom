@@ -109,7 +109,7 @@ from .serializers import (ProductsSearchSerializer, CartSerializer, OrderSeriali
                           OrderDetailSerializer, OrderedProductSerializer, OrderedProductMappingSerializer,
                           RetailerShopSerializer, SellerOrderListSerializer, OrderListSerializer,
                           ReadOrderedProductSerializer, FeedBackSerializer,
-                          ShipmentDetailSerializer, TripSerializer, ShipmentSerializer, PickerDashboardSerializer,
+                          ShipmentDetailSerializer, SuperStoreCartSerializer, TripSerializer, ShipmentSerializer, PickerDashboardSerializer,
                           ShipmentReschedulingSerializer, ShipmentReturnSerializer, ParentProductImageSerializer,
                           ShopSerializer, OrderPaymentStatusChangeSerializers,
                           ShipmentProductSerializer, RetailerOrderedProductMappingSerializer,
@@ -1083,6 +1083,8 @@ class CartCentral(GenericAPIView):
                 return self.get_basic_cart_list(request, *args, **kwargs)
         elif app_type == '3':
             return self.get_ecom_cart(request, *args, **kwargs)
+        elif app_type == '4':
+            return self.get_supermart_cart(request, *args, **kwargs)
         else:
             return api_response('Please provide a valid app_type')
 
@@ -1103,6 +1105,8 @@ class CartCentral(GenericAPIView):
             return self.basic_add_to_cart(request, *args, **kwargs)
         elif app_type == '3':
             return self.ecom_add_to_cart(request, *args, **kwargs)
+        elif app_type == '4':
+            return self.superstore_add_to_cart(request, *args, **kwargs)
         else:
             return api_response('Please provide a valid app_type')
 
@@ -1253,6 +1257,30 @@ class CartCentral(GenericAPIView):
             cart_data.update({'default_address': address})
             return api_response('Cart', cart_data, status.HTTP_200_OK, True)
 
+    @check_ecom_user_shop
+    def get_supermart_cart(self, request, *args, **kwargs):
+        """
+            Get cart api
+            for cart type : superstore
+        """
+        with transaction.atomic():
+            try:
+                cart = Cart.objects.get(cart_type='SUPERSTORE', buyer=self.request.user, cart_status='active',
+                                        seller_shop=kwargs['shop'])
+            except Cart.DoesNotExist:
+                return api_response("No items added in cart yet", {"rt_cart_list": []}, status.HTTP_200_OK, False)
+
+            # Refresh cart prices
+            PosCartCls.refresh_prices(cart.rt_cart_list.all())
+            
+            # Refresh redeem reward
+            RewardCls.checkout_redeem_points(cart, 0, self.request.GET.get('use_rewards', 1))
+            
+            cart_data = SuperStoreCartSerializer(cart).data
+            address = AddressCheckoutSerializer(cart.buyer.ecom_user_address.filter(default=True).last()).data
+            cart_data.update({'default_address': address})
+            return api_response('Cart', cart_data, status.HTTP_200_OK, True)
+            
     @check_pos_shop
     def get_basic_cart_list(self, request, *args, **kwargs):
         """
@@ -1398,6 +1426,7 @@ class CartCentral(GenericAPIView):
                                                   'request': self.request}).data
         data['next_offer'] = next_offer
         return data
+    
 
     def retail_add_to_cart(self):
         """
@@ -1507,7 +1536,8 @@ class CartCentral(GenericAPIView):
                 delete_cart_mapping(cart, product, 'ecom')
             else:
                 # Add quantity to cart
-                cart_mapping, _ = CartProductMapping.objects.get_or_create(cart=cart, retailer_product=product,
+                cart_mapping, _ = CartProductMapping.objects.get_or_create(cart=cart, 
+                                                                           retailer_product=product,
                                                                            product_type=1)
                 cart_mapping.selling_price = product.online_price
                 cart_mapping.qty = qty
@@ -1520,6 +1550,30 @@ class CartCentral(GenericAPIView):
                 return api_response("No items added in cart yet", {"rt_cart_list": []}, status.HTTP_200_OK, False)
             return api_response('Added To Cart', self.post_serialize_process_basic(cart), status.HTTP_200_OK, True)
 
+    @check_ecom_user_shop
+    @PosAddToCart.validate_request_body_superstore
+    def superstore_add_to_cart(self, request, *args, **kwargs):
+        """
+            Add to cart
+            Type (Super Store)
+        """ 
+        with transaction.atomic():
+            shop = kwargs['shop']
+            product, qty = kwargs['product'], kwargs['quantity']
+            cart = self.post_update_superstore_cart(shop)
+            if qty == 0:
+                delete_cart_mapping(cart, product, 'superstore')
+            else:
+                cart_mapping, _ = CartProductMapping.objects.get_or_create(cart=cart, 
+                                                                           cart_product=product)
+                cart_mapping.selling_price = kwargs['selling_price']
+                cart_mapping.qty = qty
+                cart_mapping.no_of_pieces = int(qty)
+                cart_mapping.save()
+            if cart.rt_cart_list.filter(product_type=1).count() == 0:
+                return api_response("No items added in cart yet", {"rt_cart_list": []}, status.HTTP_200_OK, False)
+            return api_response('Added To Cart', SuperStoreCartSerializer(cart).data, status.HTTP_200_OK, True)     
+    
     def pos_cart_product_create(self, shop_id, product_info, cart_id):
 
         if product_info['ean'] and (not product_info['linked_pid'] or product_info['linked_pid'] == ''):
@@ -1644,6 +1698,26 @@ class CartCentral(GenericAPIView):
         cart.seller_shop = seller_shop
         cart.save()
         return cart
+
+    def post_update_superstore_cart(self, seller_shop):
+        """
+            Create or update/add product to super store cart
+        """
+        user = self.request.user
+        cart = Cart.objects.select_for_update().filter(cart_type='SUPERSTORE', 
+                                                       buyer=user, 
+                                                       cart_status='active',
+                                                       seller_shop=seller_shop).last()
+        if cart is None:
+            cart, _ = Cart.objects.select_for_update().get_or_create(cart_type='SUPERSTORE', 
+                                                                     buyer=user, 
+                                                                     cart_status='active',
+                                                                     seller_shop=seller_shop)
+        if cart.seller_shop and cart.seller_shop.id != seller_shop.id:
+            CartProductMapping.objects.filter(cart=cart).delete()
+        cart.seller_shop = seller_shop
+        cart.save()
+        return cart        
 
     @staticmethod
     def retail_ordered_quantity(capping, product, buyer_shop):

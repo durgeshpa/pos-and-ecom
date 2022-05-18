@@ -561,6 +561,88 @@ class CartSerializer(serializers.ModelSerializer):
         return self.context.get("delivery_message", None)
 
 
+class SuperStoreProductSearchSerializer(serializers.ModelSerializer):
+    """
+        Product Data for super store cart
+    """
+    image = serializers.SerializerMethodField()
+    product_price_detail = serializers.SerializerMethodField()
+    
+    def get_product_price_detail(self, instance):
+        price = instance.product_pro_price.filter(is_superstore=True, 
+                                                                 status=True,
+                                                                 approval_status=2).last()
+        if price:
+            return {'mrp': price.mrp, 'selling_price': price.selling_price}
+        return None
+    
+    def get_image(self, instance):
+        image = instance.product_pro_image.last() 
+        if not image:
+            if instance.use_parent_image:
+                image = instance.parent_product.parent_product_pro_image.last()
+                return ParentProductImageSerializer(image).data
+            else:
+                return None
+        else:
+            return ProductImageSerializer(image).data
+    
+    class Meta:
+        model = Product
+        fields = ('id', 'product_name', 'product_price_detail', 'image')
+
+
+class SuperStoreCartProductMappingSerializer(serializers.ModelSerializer):
+    cart_product = SuperStoreProductSearchSerializer()
+    
+    class Meta:
+        model = CartProductMapping
+        fields = ('id', 'cart_product', 'qty')
+
+
+class SuperStoreCartSerializer(serializers.ModelSerializer):
+    cart_product_list = serializers.SerializerMethodField()
+    items_count = serializers.SerializerMethodField()
+    total_quantity = serializers.SerializerMethodField()
+    total_discount = serializers.SerializerMethodField()
+    amount_payable = serializers.SerializerMethodField()
+    total_amount = serializers.SerializerMethodField()
+    
+    def get_cart_product_list(self, instance):
+        products = instance.rt_cart_list.filter(product_type=1).select_related('cart_product')
+        return SuperStoreCartProductMappingSerializer(products, many=True).data
+    
+    def get_items_count(self, instance):
+        return instance.rt_cart_list.filter(product_type=1).count()
+    
+    def get_total_quantity(self, instance):
+        return instance.rt_cart_list.filter(product_type=1).aggregate(total_quantity=Sum('qty')).get('total_quantity', 0)
+    
+    def get_total_discount(self, instance):
+        discount = 0
+        offers = instance.offers
+        if offers:
+            array = list(filter(lambda d: d['type'] in ['discount'], offers))
+            for i in array:
+                discount += i['discount_value']
+        return round(discount, 2)
+
+    def get_total_amount(self, instance):
+        return sum([Decimal(cart_pro.selling_price) * Decimal(cart_pro.qty) \
+            for cart_pro in instance.rt_cart_list.filter(product_type=1)])
+    
+    def get_amount_payable(self, instance):
+        return float(self.get_total_amount(instance)) - self.get_total_discount(instance)       
+                   
+    
+    class Meta:
+        model = Cart
+        fields = ('id', 'cart_no', 'total_amount',
+                  'cart_product_list', 'items_count', 
+                  'total_quantity', 'total_discount', 
+                  'amount_payable')
+
+    
 class NoteSerializer(serializers.ModelSerializer):
     note_link = serializers.SerializerMethodField('note_link_id')
     note_type = serializers.SerializerMethodField()
