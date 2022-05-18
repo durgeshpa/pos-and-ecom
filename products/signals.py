@@ -117,7 +117,7 @@ def update_product_image_elasticsearch(sender, instance=None, created=False, **k
         ]
         try:
             info_logger.info(kwargs)
-            details = es.get(index="sanket_es-600", id=product_id)['_source']
+            details = es.get(index=create_es_index(shop_id), id=product_id)['_source']
             details["product_images"] = product_images
             es.index(index=create_es_index(shop_id), doc_type='product', id=product_id, body=details)
             # es.update(index=create_es_index(shop_id), id=product_id, body={"doc": product_images}, doc_type='product')
