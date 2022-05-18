@@ -664,12 +664,12 @@ class BasicCartSerializer(serializers.ModelSerializer):
                 elif cart_pro.retailer_product.online_enabled is True:
                     total_amount += Decimal(cart_pro.retailer_product.online_price) * Decimal(cart_pro.qty)
                 else:
-                    total_amount += Decimal(cart_pro.selling_price) * Decimal(cart_pro.qty)
+                    total_amount += Decimal(cart_pro.retailer_product.selling_price) * Decimal(cart_pro.qty)
             else:
                 if cart_pro.retailer_product.online_enabled is True:
                     total_amount += Decimal(cart_pro.retailer_product.online_price) * Decimal(cart_pro.qty)
                 else:
-                    total_amount += Decimal(cart_pro.selling_price) * Decimal(cart_pro.qty)
+                    total_amount += Decimal(cart_pro.retailer_product.selling_price) * Decimal(cart_pro.qty)
         return total_amount
 
     @staticmethod
@@ -730,12 +730,12 @@ class CheckoutSerializer(serializers.ModelSerializer):
                     elif cart_pro.retailer_product.online_enabled is True:
                         total_amount += Decimal(cart_pro.retailer_product.online_price) * Decimal(cart_pro.qty)
                     else:
-                        total_amount += Decimal(cart_pro.selling_price) * Decimal(cart_pro.qty)
+                        total_amount += Decimal(cart_pro.retailer_product.selling_price) * Decimal(cart_pro.qty)
                 else:
                     if cart_pro.retailer_product.online_enabled is True:
                         total_amount += Decimal(cart_pro.retailer_product.online_price) * Decimal(cart_pro.qty)
                     else:
-                        total_amount += Decimal(cart_pro.selling_price) * Decimal(cart_pro.qty)
+                        total_amount += Decimal(cart_pro.retailer_product.selling_price) * Decimal(cart_pro.qty)
         return total_amount
 
     def get_total_mrp(self,obj):
