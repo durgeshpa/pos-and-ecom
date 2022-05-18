@@ -443,20 +443,9 @@ class RetailerProductsSearchSerializer(serializers.ModelSerializer):
     @staticmethod
     def get_online_price(obj):
         try:
-            if obj.offer_end_date:
-                if obj.offer_end_date >= datetime.date.today():
-                    return Decimal(obj.offer_price)
-                elif obj.online_enabled is True:
-                    return Decimal(obj.online_price)
-                else:
-                    return Decimal(obj.selling_price)
-            else:
-                if obj.online_enabled is True:
-                    return Decimal(obj.online_price)
-                else:
-                    return Decimal(obj.selling_price)
+            return Decimal(obj.rt_cart_retailer_product.last().selling_price)
         except:
-            return ''
+            return Decimal(0.0)
 
     class Meta:
         model = RetailerProduct
@@ -658,18 +647,7 @@ class BasicCartSerializer(serializers.ModelSerializer):
         """
         total_amount = 0
         for cart_pro in obj.rt_cart_list.all():
-            if cart_pro.retailer_product.offer_end_date:
-                if cart_pro.retailer_product.offer_end_date >= datetime.date.today():
-                    total_amount += Decimal(cart_pro.retailer_product.offer_price) * Decimal(cart_pro.qty)
-                elif cart_pro.retailer_product.online_enabled is True:
-                    total_amount += Decimal(cart_pro.retailer_product.online_price) * Decimal(cart_pro.qty)
-                else:
-                    total_amount += Decimal(cart_pro.selling_price) * Decimal(cart_pro.qty)
-            else:
-                if cart_pro.retailer_product.online_enabled is True:
-                    total_amount += Decimal(cart_pro.retailer_product.online_price) * Decimal(cart_pro.qty)
-                else:
-                    total_amount += Decimal(cart_pro.selling_price) * Decimal(cart_pro.qty)
+            total_amount += Decimal(cart_pro.selling_price) * Decimal(cart_pro.qty)
         return total_amount
 
     @staticmethod
@@ -724,18 +702,7 @@ class CheckoutSerializer(serializers.ModelSerializer):
             if self.context['app_type']=='2':
                 total_amount += Decimal(cart_pro.selling_price) * Decimal(cart_pro.qty)
             else:
-                if cart_pro.retailer_product.offer_end_date:
-                    if cart_pro.retailer_product.offer_end_date >= datetime.date.today():
-                        total_amount += Decimal(cart_pro.retailer_product.offer_price) * Decimal(cart_pro.qty)
-                    elif cart_pro.retailer_product.online_enabled is True:
-                        total_amount += Decimal(cart_pro.retailer_product.online_price) * Decimal(cart_pro.qty)
-                    else:
-                        total_amount += Decimal(cart_pro.selling_price) * Decimal(cart_pro.qty)
-                else:
-                    if cart_pro.retailer_product.online_enabled is True:
-                        total_amount += Decimal(cart_pro.retailer_product.online_price) * Decimal(cart_pro.qty)
-                    else:
-                        total_amount += Decimal(cart_pro.selling_price) * Decimal(cart_pro.qty)
+                total_amount += Decimal(cart_pro.selling_price) * Decimal(cart_pro.qty)
         return total_amount
 
     def get_total_mrp(self,obj):
