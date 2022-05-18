@@ -4,7 +4,8 @@ from django.core.exceptions import ObjectDoesNotExist
 from django.utils.decorators import method_decorator
 from django.views.decorators.debug import sensitive_post_parameters
 
-from rest_framework import status, authentication
+from rest_framework import status
+from rest_auth import authentication
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.generics import GenericAPIView, RetrieveUpdateAPIView
@@ -19,8 +20,9 @@ from .app_settings import (UserDetailsSerializer, LoginSerializer, PasswordReset
 from .serializers import (MlmOtpLoginSerializer, MlmResponseSerializer, LoginResponseSerializer,
                           PosLoginResponseSerializer, RetailUserDetailsSerializer, api_serializer_errors,
                           PosOtpLoginSerializer, EcomOtpLoginSerializer, EcomAccessSerializer)
-from .models import TokenModel
-from .utils import jwt_encode
+from .models import Token
+from .utils import jwt_encode, default_create_token
+from .authentication import TokenAuthentication
 
 UserModel = get_user_model()
 
@@ -58,8 +60,8 @@ class LoginView(GenericAPIView):
     Return the REST Framework Token Object's key.
     """
     permission_classes = (AllowAny,)
-    token_model = TokenModel
-    queryset = TokenModel.objects.all()
+    token_model = Token
+    queryset = Token.objects.all()
 
     @sensitive_post_parameters_m
     def dispatch(self, *args, **kwargs):
@@ -98,7 +100,7 @@ class LoginView(GenericAPIView):
         General Login Process
         """
         user = serializer.validated_data['user']
-        token = jwt_encode(user) if getattr(settings, 'REST_USE_JWT', False) else create_token(self.token_model, user)
+        token = jwt_encode(user) if getattr(settings, 'REST_USE_JWT', False) else default_create_token(user)
         if getattr(settings, 'REST_SESSION_LOGIN', True):
             django_login(self.request, user)
         return user, token
@@ -107,13 +109,16 @@ class LoginView(GenericAPIView):
         """
         Get Response Based on Authentication and App Type Requested
         """
-        token = token if getattr(settings, 'REST_USE_JWT', False) else user.auth_token.key
+        token = token if getattr(settings, 'REST_USE_JWT', False) else token.key
         app_type = self.request.data.get('app_type', 0)
         shop_object = None
         if app_type == '2':
             qs = filter_pos_shop(user)
             shop_object = qs.last()
-
+        if app_type == '3':
+            if user.is_ecom_user is False:
+                return Response({'is_success': False, 'message': ['You are not authorized please signup first !'],
+                                 'response_data': None}, status=status.HTTP_400_BAD_REQUEST)
         response_serializer_class = self.get_response_serializer()
         response_serializer = response_serializer_class(instance={'user': user, 'token': token,
                                                                   'shop_object': shop_object, 'action': 1})
@@ -128,7 +133,7 @@ class LogoutView(APIView):
 
     Accepts/Returns nothing.
     """
-    authentication_classes = (authentication.TokenAuthentication,)
+    authentication_classes = (TokenAuthentication,)
 
     def get(self, request, *args, **kwargs):
         if getattr(settings, 'ACCOUNT_LOGOUT_ON_GET', False):
@@ -144,7 +149,9 @@ class LogoutView(APIView):
     @staticmethod
     def logout(request):
         try:
-            request.user.auth_token.delete()
+            token = request.auth.key
+            instance = Token.objects.get(key=token)
+            instance.delete()
         except (AttributeError, ObjectDoesNotExist):
             pass
 

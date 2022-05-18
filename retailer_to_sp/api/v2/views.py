@@ -1,6 +1,7 @@
 import logging
 
-from rest_framework import permissions, authentication
+from rest_framework import permissions
+from rest_auth import authentication
 from rest_framework import status
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response

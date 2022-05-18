@@ -377,7 +377,7 @@ def delete_cart_mapping(cart, product, cart_type='retail'):
     """
         Delete Cart items
     """
-    if cart_type == 'retail':
+    if cart_type in ['retail', 'superstore']:
         if CartProductMapping.objects.filter(cart=cart, cart_product=product).exists():
             CartProductMapping.objects.filter(cart=cart, cart_product=product).delete()
     elif cart_type == 'retail_gf':
@@ -453,12 +453,16 @@ class PosCartCls(object):
     def refresh_prices(cls, cart_products):
         for cart_product in cart_products:
             product = cart_product.retailer_product
-            if product.offer_price and product.offer_start_date and product.offer_end_date and \
+            if product and product.offer_price and product.offer_start_date and product.offer_end_date and \
                     product.offer_start_date <= datetime.date.today() <= product.offer_end_date:
                 cart_product.selling_price = cart_product.retailer_product.offer_price
             elif cart_product.cart.cart_type == 'ECOM' and cart_product.retailer_product.online_enabled \
                     and cart_product.retailer_product.online_price:
                 cart_product.selling_price = cart_product.retailer_product.online_price
+            elif cart_product.cart.cart_type == 'SUPERSTORE':
+                cart_product.selling_price = cart_product.cart_product.product_pro_price.filter(is_superstore=True, 
+                                                                                                status=True,
+                                                                                                approval_status=2).last().selling_price
             else:
                 cart_product.selling_price = cart_product.retailer_product.selling_price
             cart_product.save()
@@ -562,9 +566,9 @@ class RewardCls(object):
             redeem_points = 0
             message = "Loyalty Point Can Not Be Used For This Shop"
 
-        elif app_type=="POS" and not get_config_fofo_shop('Is_Enable_Point_Redeemed_Pos', shop.id):
-            redeem_points = 0
-            message = "Loyalty Point Can Not Be Used For This Shop"
+        # elif app_type=="POS" and not get_config_fofo_shop('Is_Enable_Point_Redeemed_Pos', shop.id):
+        #     redeem_points = 0
+        #     message = "Loyalty Point Can Not Be Used For This Shop"
 
         days = datetime.datetime.today().day
         date = get_back_date(days)
@@ -728,7 +732,7 @@ class RewardCls(object):
         """
             Loyalty points for an amount based on percentage (key)
         """
-        factor = GlobalConfig.objects.get(key=key).value / 200
+        factor = GlobalConfig.objects.get(key=key).value / 100
         return int(float(amount) * factor)
 
     @classmethod
@@ -1190,6 +1194,40 @@ class PosAddToCart(object):
 
         return _wrapped_view_func
 
+    
+    def validate_request_body_superstore(view_func):
+        
+        @wraps(view_func)
+        def _inner_func(self, request, *args, **kwargs):
+            # quantity_check
+            qty = request.data.get('qty')
+            if not qty or int(qty) < 0:
+                return api_response("Qty is Invalid!")
+            else:
+                kwargs['quantity'] = qty
+            
+            #product_check
+            try:
+                product = Product.objects.get(id=request.data.get('product_id'),
+                                                        status='active',
+                                                        parent_product__product_type='superstore')
+                selling_price = product.product_pro_price.filter(is_superstore=True, 
+                                                                 status=True,
+                                                                 approval_status=2).last()
+                if selling_price and selling_price.selling_price:
+                    selling_price = selling_price.selling_price
+                else:
+                    return api_response(f"Please contact admin selling price not available for this product - {product.id}")
+                kwargs['product'] = product
+                kwargs['selling_price'] = selling_price
+            except Product.DoesNotExist:
+                return api_response("Product cannot be added")
+            
+            return view_func(self, request, *args, **kwargs)
+
+        return _inner_func
+                
+            
 
 def get_default_qty(given_qty_unit, product, qty):
     default_unit = MeasurementUnit.objects.get(category=product.measurement_category, default=True)
@@ -1274,3 +1312,14 @@ def check_fofo_shop(view_func):
         return view_func(self, request, *args, **kwargs)
 
     return _wrapped_view_func
+
+
+def mark_pos_product_online_enabled(product_id):
+    """
+        update product status on inventory update
+    """
+    instance = RetailerProduct.objects.filter(id=product_id).last()
+    if instance and instance.online_enabled is False and instance.online_disabled_status:
+        instance.online_enabled = True
+        instance.online_disabled_status = None
+        instance.save()

@@ -463,7 +463,18 @@ class ProductTaxMappingAdmin(admin.TabularInline):
 class ProductB2bCategoryFormSet(BaseInlineFormSet):
     def clean(self):
         super(ProductB2bCategoryFormSet, self).clean()
-        if self.instance.product_type == 'b2b' or self.instance.product_type == 'both':
+        non_empty_forms = 0
+        for form in self:
+            if form.cleaned_data:
+                non_empty_forms += 1
+        if non_empty_forms - len(self.deleted_forms) < 1:
+            raise ValidationError("Please fill at least one form.")
+
+
+class ProductB2cCategoryFormSet(BaseInlineFormSet):
+    def clean(self):
+        super(ProductB2cCategoryFormSet, self).clean()
+        if self.instance.product_type == 'grocery':
             non_empty_forms = 0
             for form in self:
                 if form.cleaned_data:
@@ -471,16 +482,6 @@ class ProductB2bCategoryFormSet(BaseInlineFormSet):
             if non_empty_forms - len(self.deleted_forms) < 1:
                 raise ValidationError("Please fill at least one form.")
 
-class ProductB2cCategoryFormSet(BaseInlineFormSet):
-    def clean(self):
-        super(ProductB2cCategoryFormSet, self).clean()
-        if self.instance.product_type == 'b2c' or self.instance.product_type == 'both':
-            non_empty_forms = 0
-            for form in self:
-                if form.cleaned_data:
-                    non_empty_forms += 1
-            if non_empty_forms - len(self.deleted_forms) < 1:
-                raise ValidationError("Please fill at least one form.")
 
 class ParentProductCategoryAdmin(TabularInline):
     model = ParentProductCategory
@@ -635,10 +636,10 @@ class ParentProductAdmin(admin.ModelAdmin):
         ParentProductCategoryAdmin, ParentProductB2cCategoryAdminInline, 
         ParentProductImageAdmin, ParentProductTaxMappingAdmin, ParentProductTaxApprovalLogAdmin
     ]
-    list_filter = [ParentCategorySearch, ParentBrandFilter, ParentIDFilter, 'status']
+    list_filter = [ParentCategorySearch, ParentBrandFilter, ParentIDFilter, 'status', 'product_type']
     list_per_page = 50
     autocomplete_fields = ['product_hsn', 'parent_brand']
-    readonly_fields = ['product_type']
+    # readonly_fields = ['product_type']
 
     @staticmethod
     def parent_product_discriptions(obj):

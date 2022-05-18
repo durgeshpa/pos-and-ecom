@@ -25,7 +25,7 @@ from retailer_to_sp.models import (CartProductMapping, Cart, Order, OrderedProdu
                                    DispatchTripShipmentPackages, ShipmentNotAttempt, PACKAGE_VERIFY_CHOICES,
                                    LastMileTripShipmentMapping, ShopCrate, DispatchTripCrateMapping,
                                    add_to_putaway_on_return, LastMileTripShipmentPackages, ShipmentPackagingBatch,
-                                   RETURN_REMARK_CHOICES)
+                                   RETURN_REMARK_CHOICES, add_to_putaway_on_partail)
 
 from retailer_to_gram.models import (Cart as GramMappedCart, CartProductMapping as GramMappedCartProductMapping,
                                      Order as GramMappedOrder, OrderedProduct as GramMappedOrderedProduct,
@@ -561,6 +561,88 @@ class CartSerializer(serializers.ModelSerializer):
         return self.context.get("delivery_message", None)
 
 
+class SuperStoreProductSearchSerializer(serializers.ModelSerializer):
+    """
+        Product Data for super store cart
+    """
+    image = serializers.SerializerMethodField()
+    product_price_detail = serializers.SerializerMethodField()
+    
+    def get_product_price_detail(self, instance):
+        price = instance.product_pro_price.filter(is_superstore=True, 
+                                                                 status=True,
+                                                                 approval_status=2).last()
+        if price:
+            return {'mrp': price.mrp, 'selling_price': price.selling_price}
+        return None
+    
+    def get_image(self, instance):
+        image = instance.product_pro_image.last() 
+        if not image:
+            if instance.use_parent_image:
+                image = instance.parent_product.parent_product_pro_image.last()
+                return ParentProductImageSerializer(image).data
+            else:
+                return None
+        else:
+            return ProductImageSerializer(image).data
+    
+    class Meta:
+        model = Product
+        fields = ('id', 'product_name', 'product_price_detail', 'image')
+
+
+class SuperStoreCartProductMappingSerializer(serializers.ModelSerializer):
+    cart_product = SuperStoreProductSearchSerializer()
+    
+    class Meta:
+        model = CartProductMapping
+        fields = ('id', 'cart_product', 'qty')
+
+
+class SuperStoreCartSerializer(serializers.ModelSerializer):
+    cart_product_list = serializers.SerializerMethodField()
+    items_count = serializers.SerializerMethodField()
+    total_quantity = serializers.SerializerMethodField()
+    total_discount = serializers.SerializerMethodField()
+    amount_payable = serializers.SerializerMethodField()
+    total_amount = serializers.SerializerMethodField()
+    
+    def get_cart_product_list(self, instance):
+        products = instance.rt_cart_list.filter(product_type=1).select_related('cart_product')
+        return SuperStoreCartProductMappingSerializer(products, many=True).data
+    
+    def get_items_count(self, instance):
+        return instance.rt_cart_list.filter(product_type=1).count()
+    
+    def get_total_quantity(self, instance):
+        return instance.rt_cart_list.filter(product_type=1).aggregate(total_quantity=Sum('qty')).get('total_quantity', 0)
+    
+    def get_total_discount(self, instance):
+        discount = 0
+        offers = instance.offers
+        if offers:
+            array = list(filter(lambda d: d['type'] in ['discount'], offers))
+            for i in array:
+                discount += i['discount_value']
+        return round(discount, 2)
+
+    def get_total_amount(self, instance):
+        return sum([Decimal(cart_pro.selling_price) * Decimal(cart_pro.qty) \
+            for cart_pro in instance.rt_cart_list.filter(product_type=1)])
+    
+    def get_amount_payable(self, instance):
+        return float(self.get_total_amount(instance)) - self.get_total_discount(instance)       
+                   
+    
+    class Meta:
+        model = Cart
+        fields = ('id', 'cart_no', 'total_amount',
+                  'cart_product_list', 'items_count', 
+                  'total_quantity', 'total_discount', 
+                  'amount_payable')
+
+    
 class NoteSerializer(serializers.ModelSerializer):
     note_link = serializers.SerializerMethodField('note_link_id')
     note_type = serializers.SerializerMethodField()
@@ -2075,6 +2157,7 @@ class ShipmentQCSerializer(serializers.ModelSerializer):
             self.update_order_status_post_qc_done(shipment_instance)
             info_logger.info(f"post_shipment_status_change|shipment_status {shipment_instance.shipment_status} "
                              f"|Picking Crates released|OrderNo {shipment_instance.order.order_no}")
+            add_to_putaway_on_partail(shipment_instance.id)
         elif shipment_instance.shipment_status == OrderedProduct.RESCHEDULED:
             if 'rescheduling_reason' in shipment_reschedule and 'rescheduling_date' in shipment_reschedule:
                 self.create_shipment_reschedule(
@@ -2794,20 +2877,23 @@ class ShipmentDetailsByCrateSerializer(serializers.ModelSerializer):
 
     def get_shipment_crates_packaging(self, obj):
         if obj:
-            return ShipmentCratesSerializer(
-                obj.last_mile_trip_shipment.filter(~Q(shipment_status=LastMileTripShipmentMapping.CANCELLED)).last()
-                   .last_mile_trip_shipment_mapped_packages.filter(
-                                                    ~Q(package_status=LastMileTripShipmentPackages.CANCELLED),
-                                                    shipment_packaging__packaging_type=ShipmentPackaging.CRATE),
-                read_only=True, many=True).data
+            trip_shipment_map = obj.last_mile_trip_shipment.filter(
+                ~Q(shipment_status=LastMileTripShipmentMapping.CANCELLED)).last()
+            if trip_shipment_map:
+                return ShipmentCratesSerializer(
+                    trip_shipment_map.last_mile_trip_shipment_mapped_packages.filter(
+                        ~Q(package_status=LastMileTripShipmentPackages.CANCELLED),
+                        shipment_packaging__packaging_type=ShipmentPackaging.CRATE), read_only=True, many=True).data
         return None
 
     def get_total_shipment_crates(self, obj):
         if obj:
-            return obj.last_mile_trip_shipment.filter(~Q(shipment_status=LastMileTripShipmentMapping.CANCELLED)).last()\
-                .last_mile_trip_shipment_mapped_packages.filter(
-                                                    ~Q(package_status=LastMileTripShipmentPackages.CANCELLED),
-                                                    shipment_packaging__packaging_type=ShipmentPackaging.CRATE).count()
+            trip_shipment_map = obj.last_mile_trip_shipment.filter(
+                ~Q(shipment_status=LastMileTripShipmentMapping.CANCELLED)).last()
+            if trip_shipment_map:
+                return trip_shipment_map.last_mile_trip_shipment_mapped_packages.filter(
+                    ~Q(package_status=LastMileTripShipmentPackages.CANCELLED),
+                    shipment_packaging__packaging_type=ShipmentPackaging.CRATE).count()
         return None
 
     class Meta:
@@ -3296,9 +3382,11 @@ class LoadVerifyCrateSerializer(serializers.ModelSerializer):
         info_logger.info(f"post_crate_load_trip_update|trip_crate_mapping {trip_crate_mapping}")
         # Update total no of empty crates
         trip = trip_crate_mapping.trip
-        if trip_crate_mapping.crate_status == DispatchTripCrateMapping.LOADED:
-            trip.no_of_empty_crates = (trip.no_of_empty_crates if trip.no_of_empty_crates else 0) + 1
-            trip.save()
+        trip.no_of_empty_crates = trip.total_empty_crates()
+        trip.save()
+        # if trip_crate_mapping.crate_status == DispatchTripCrateMapping.LOADED:
+        #     trip.no_of_empty_crates = (trip.no_of_empty_crates if trip.no_of_empty_crates else 0) + 1
+        #     trip.save()
 
         # Make crate used at source
         shop = trip_crate_mapping.trip.source_shop

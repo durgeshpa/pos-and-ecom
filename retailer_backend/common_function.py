@@ -100,20 +100,28 @@ def get_last_model_invoice(starts_with, field):
         return 0
 
 
-def common_pattern(model, field, instance_id, address, invoice_type, is_invoice=False, year=None):
+def common_pattern(model, field, instance, address, invoice_type, is_invoice=False, year=None):
     state_code, shop_code, shop_code_bulk, shop_code_discounted, warehouse_code = get_shop_warehouse_state_code(
         address)
+
     financial_year = year if year else get_financial_year()
+
+    if field == 'credit_note_id':
+        shop_code = instance.invoice_no[:1]
+        warehouse_code = instance.invoice_no[-9:-7]
+        state_code = instance.invoice_no[-11:-9]
+
     starts_with = "%s%s%s%s%s" % (
-        shop_code, invoice_type, financial_year,
-        state_code, warehouse_code)
+            shop_code, invoice_type, financial_year,
+            state_code, warehouse_code)
+
     try:
         last_number = cache.incr(starts_with)
     except:
         if is_invoice:
             last_number = get_last_model_invoice(starts_with, field)
         else:
-            last_number = get_last_no_to_increment(model, field, instance_id, starts_with)
+            last_number = get_last_no_to_increment(model, field, instance, starts_with)
         last_number += 1
         cache.set(starts_with, last_number)
         cache.persist(starts_with)
@@ -125,20 +133,27 @@ def common_pattern(model, field, instance_id, address, invoice_type, is_invoice=
     return "%s%s" % (starts_with, ends_with)
 
 
-def common_pattern_bulk(model, field, instance_id, address, invoice_type, is_invoice=False, year=None):
+def common_pattern_bulk(model, field, instance, address, invoice_type, is_invoice=False, year=None):
     state_code, shop_code, shop_code_bulk, shop_code_discounted, warehouse_code = get_shop_warehouse_state_code(
         address)
     financial_year = year if year else get_financial_year()
+
+    if field == 'credit_note_id':
+        shop_code_bulk = instance.invoice_no[:1]
+        warehouse_code = instance.invoice_no[-9:-7]
+        state_code = instance.invoice_no[-11:-9]
+
     starts_with = "%s%s%s%s%s" % (
-        shop_code_bulk, invoice_type, financial_year,
-        state_code, warehouse_code)
+            shop_code_bulk, invoice_type, financial_year,
+            state_code, warehouse_code)
+
     try:
         last_number = cache.incr(starts_with)
     except:
         if is_invoice:
             last_number = get_last_model_invoice(starts_with, field)
         else:
-            last_number = get_last_no_to_increment(model, field, instance_id, starts_with)
+            last_number = get_last_no_to_increment(model, field, instance, starts_with)
         last_number += 1
         cache.set(starts_with, last_number)
         cache.persist(starts_with)
@@ -146,20 +161,25 @@ def common_pattern_bulk(model, field, instance_id, address, invoice_type, is_inv
     return "%s%s" % (starts_with, ends_with)
 
 
-def common_pattern_discounted(model, field, instance_id, address, invoice_type, is_invoice=False, year=None):
+def common_pattern_discounted(model, field, instance, address, invoice_type, is_invoice=False, year=None):
     state_code, shop_code, shop_code_bulk, shop_code_discounted, warehouse_code = get_shop_warehouse_state_code(
         address)
     financial_year = year if year else get_financial_year()
+    if field == 'credit_note_id':
+        shop_code_discounted = instance.invoice_no[:1]
+        warehouse_code = instance.invoice_no[-9:-7]
+        state_code = instance.invoice_no[-11:-9]
+
     starts_with = "%s%s%s%s%s" % (
-        shop_code_discounted, invoice_type, financial_year,
-        state_code, warehouse_code)
+            shop_code_discounted, invoice_type, financial_year,
+            state_code, warehouse_code)
     try:
         last_number = cache.incr(starts_with)
     except:
         if is_invoice:
             last_number = get_last_model_invoice(starts_with, field)
         else:
-            last_number = get_last_no_to_increment(model, field, instance_id, starts_with)
+            last_number = get_last_no_to_increment(model, field, instance, starts_with)
         last_number += 1
         cache.set(starts_with, last_number)
         cache.persist(starts_with)
@@ -311,14 +331,18 @@ def get_tcs_data(shipment_instance):
         BuyerPurchaseData.objects.update_or_create(seller_shop_id=shipment_instance.order.seller_shop_id,
                                                    buyer_shop_id=shipment_instance.order.buyer_shop_id,
                                                    fin_year=get_financial_year('%Y'),
-                                                   defaults={'total_purchase': total_purchase})
-        if total_purchase >= get_config('TCS_B2B_APPLICABLE_AMT', 5000000):
+                                                   defaults={'total_purchase': round(total_purchase, 2)})
+        # Get TCS Specific Config
+        tcs_config_params = get_config('TCS_CONFIG', {"TCS_B2B_APPLICABLE_AMT" : 5000000,
+                                                      "TCS_PERCENT_IF_PAN_AVAILABLE": 0.1,
+                                                      "TCS_PERCENT": 1})
+        if total_purchase >= tcs_config_params.get('TCS_B2B_APPLICABLE_AMT', 5000000):
             is_tcs_applicable = True
-            buyer_shop_document = ShopDocument.objects.filter(shop_name_id=shipment_instance.order.buyer_shop_id,
-                                                              shop_document_type=ShopDocument.GSTIN).last()
-            is_buyer_gst_available = True if buyer_shop_document else False
-            tcs_percent = 0.75 if is_buyer_gst_available else 1
-            tcs_amount = invoice_amount * tcs_percent / 100
+            is_buyer_pan_available = ShopDocument.objects.filter(shop_name_id=shipment_instance.order.buyer_shop_id,
+                                                              shop_document_type=ShopDocument.PAN).last()
+            tcs_percent = tcs_config_params.get('TCS_PERCENT_IF_PAN_AVAILABLE', 0.1) if is_buyer_pan_available else \
+                          tcs_config_params.get('TCS_PERCENT', 1)
+            tcs_amount = round(invoice_amount * tcs_percent / 100, 2)
     return is_tcs_applicable, tcs_amount, tcs_percent
 
 

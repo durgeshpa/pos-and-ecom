@@ -7,7 +7,7 @@ from django.core.exceptions import ObjectDoesNotExist
 from django.http import HttpResponse
 from django.db.models import Q
 
-from rest_framework import authentication
+from rest_auth import authentication
 from rest_framework.generics import GenericAPIView, CreateAPIView, UpdateAPIView
 from rest_framework.permissions import AllowAny
 
@@ -313,7 +313,7 @@ class ParentProductView(GenericAPIView):
         if serializer.is_valid():
             serializer.save(created_by=request.user)
             info_logger.info("Parent Product Created Successfully.")
-            return get_response('parent product created successfully!', serializer.data)
+            return get_response('Parent product created successfully!', serializer.data)
         return get_response(serializer_error(serializer), False)
 
     def put(self, request):
@@ -371,6 +371,7 @@ class ParentProductView(GenericAPIView):
         product_status = self.request.GET.get('status')
         tax_status = self.request.GET.get('tax_status')
         search_text = self.request.GET.get('search_text')
+        product_type = self.request.GET.get('product_type')
 
         # search using parent_id, name & category_name based on criteria that matches
         if search_text:
@@ -382,6 +383,8 @@ class ParentProductView(GenericAPIView):
             self.queryset = self.queryset.filter(status=product_status)
         if tax_status is not None:
             self.queryset = self.queryset.filter(tax_status=tax_status)
+        if product_type is not None:
+            self.queryset = self.queryset.filter(product_type=product_type)
         if category is not None:
             self.queryset = self.queryset.filter(
                 parent_product_pro_category__category__id=category)

@@ -9,7 +9,7 @@ from rest_framework.decorators import api_view
 from rest_framework.views import APIView
 import datetime
 from rest_framework.permissions import IsAuthenticated, AllowAny
-from rest_framework import permissions, authentication
+from rest_auth import authentication
 from products.models import Product, ProductPrice
 from services.models import RetailerReports, OrderReports,GRNReports, MasterReports, OrderGrnReports, OrderDetailReports, CategoryProductReports
 from .serializers import ProductSerializer, ProductPriceSerializer, OrderSerializer, PurchaseOrderSerializer, ShopSerializer, ParentRetailerSerializer
