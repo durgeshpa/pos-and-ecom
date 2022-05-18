@@ -76,6 +76,7 @@ BULK = 'BULK'
 DISCOUNTED = 'DISCOUNTED'
 BASIC = 'BASIC'
 ECOM = 'EC0M'
+SUPERSTORE = 'SUPERSTORE'
 
 BULK_ORDER_STATUS = (
     (AUTO, 'Auto'),
@@ -109,7 +110,8 @@ CART_TYPES = (
     (BULK, 'Bulk'),
     (DISCOUNTED, 'Discounted'),
     (BASIC, 'Basic'),
-    (ECOM, 'Ecom')
+    (ECOM, 'Ecom'),
+    (SUPERSTORE, 'Super Store')
 )
 
 

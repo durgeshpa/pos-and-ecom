@@ -104,6 +104,25 @@ def update_b2c_category_elasticsearch(sender, instance=None, created=False, **kw
 def update_product_image_elasticsearch(sender, instance=None, created=False, **kwargs):
     for prod_price in instance.product.product_pro_price.filter(status=True).values('seller_shop', 'product'):
         update_shop_product_es.delay(prod_price['seller_shop'], prod_price['product'])
+    if instance.product.parent_product.product_type == 'superstore':
+        shop_id = GlobalConfig.objects.get(key='current_wh_active').value
+        product_id = instance.product.id
+        product_img = instance.product.product_pro_image.all()
+        product_images = [
+            {
+                "image_name": p_i.image_name,
+                "image_url": p_i.image.url
+            }
+            for p_i in product_img
+        ]
+        try:
+            info_logger.info(kwargs)
+            details = es.get(index="sanket_es-600", id=product_id)['_source']
+            details["product_images"] = product_images
+            es.index(index=create_es_index(shop_id), doc_type='product', id=product_id, body=details)
+            # es.update(index=create_es_index(shop_id), id=product_id, body={"doc": product_images}, doc_type='product')
+        except Exception as e:
+            info_logger.info("exception %s", e)
 
 
 @receiver(post_save, sender=Product)
@@ -123,21 +142,73 @@ def update_product_elasticsearch(sender, instance=None, created=False, **kwargs)
                 update_shop_product_es.delay(prod_price['seller_shop'], prod_id)
             else:
                 update_product_es.delay(prod_price['seller_shop'], prod_id, visible=visibility)
+        break
+    else:
+        if instance.parent_product.product_type == 'superstore':
+            prod_id = instance.id
+            shop_id = GlobalConfig.objects.get(key='current_wh_active').value
+            product_categories = [str(c.category) for c in
+                                  instance.parent_product.parent_product_pro_category.filter(status=True)]
+            user_selected_qty = None
+            ean = instance.product_ean_code
+            if ean and type(ean) == str:
+                ean = ean.split('_')[0]
+            available_qty = 0
+            status = True
+            if instance.use_parent_image:
+                product_images = [
+                    {
+                        "image_name": p_i.image_name,
+                        "image_url": p_i.image.url
+                    }
+                    for p_i in instance.parent_product.parent_product_pro_image.all()
+                ]
+            else:
+                product_images = []
+
+            product_details = {
+                "sku": instance.product_sku,
+                "parent_id": instance.parent_product.parent_id,
+                "parent_name": instance.parent_product.name,
+                "name": instance.product_name,
+                "product_type": instance.parent_product.product_type,
+                "name_lower": instance.product_name.lower(),
+                "brand": str(instance.product_brand),
+                "brand_lower": str(instance.product_brand).lower(),
+                "category": product_categories,
+                "mrp": instance.product_mrp,
+                "status": status,
+                "id": instance.id,
+                "product_images": product_images,
+                "weight_value": instance.weight_value,
+                "weight_unit": instance.weight_unit,
+                "user_selected_qty": user_selected_qty,
+                "pack_size": 1,
+                "brand_case_size": instance.parent_product.brand_case_size,
+                "margin": 0,
+                "available": available_qty,
+                "visible": True,
+                "ean": ean,
+                "is_discounted": False,
+            }
+            try:
+                es.index(index=create_es_index(shop_id), doc_type='product', id=prod_id, body=product_details)
+                info_logger.info(
+                    "Inside upload superstore, product id: " + str(prod_id) + ", product: " + str(product_details))
+            except Exception as e:
+                info_logger.info("error in upload_shop_stock index creation")
+                info_logger.info(e)
+
+
 
 
 @receiver(post_save, sender=ParentProduct)
 def update_parent_product_elasticsearch(sender, instance=None, created=False, **kwargs):
     info_logger.info("Updating ES of child products of parent {}".format(instance))
     child_skus = Product.objects.filter(parent_product=instance)
-    if instance.product_type == 'b2c':
-        child_categories = [str(c.category) for c in instance.parent_product_pro_b2c_category.filter(status=True)]
-    elif instance.product_type == 'b2b':
-        child_categories = [str(c.category) for c in instance.parent_product_pro_category.filter(status=True)]
-    elif instance.product_type == 'both':
-        child_categories = [str(c.category) for c in instance.parent_product_pro_b2c_category.filter(status=True)]
-        child_categories += [str(c.category) for c in instance.parent_product_pro_category.filter(status=True)]
-    else:
-        child_categories = []
+    child_categories = [str(c.category) for c in instance.parent_product_pro_category.filter(status=True)]
+    if instance.product_type == 'grocery':
+        child_categories += [str(c.category) for c in instance.parent_product_pro_b2c_category.filter(status=True)]
     for child in child_skus:
         product_images = []
         if child.use_parent_image:

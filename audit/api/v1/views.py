@@ -9,7 +9,8 @@ from rest_framework.mixins import UpdateModelMixin
 from rest_framework.response import Response
 from rest_framework import status, mixins
 from rest_framework.views import APIView
-from rest_framework import permissions, authentication
+from rest_framework import permissions
+from rest_auth import authentication
 
 from products.models import Product
 from retailer_backend.messages import ERROR_MESSAGES, SUCCESS_MESSAGES
