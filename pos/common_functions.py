@@ -460,9 +460,7 @@ class PosCartCls(object):
                     and cart_product.retailer_product.online_price:
                 cart_product.selling_price = cart_product.retailer_product.online_price
             elif cart_product.cart.cart_type == 'SUPERSTORE':
-                cart_product.selling_price = cart_product.cart_product.product_pro_price.filter(is_superstore=True, 
-                                                                                                status=True,
-                                                                                                approval_status=2).last().selling_price
+                cart_product.selling_price = cart_product.cart_product.super_store_product_price.last().selling_price
             else:
                 cart_product.selling_price = cart_product.retailer_product.selling_price
             cart_product.save()

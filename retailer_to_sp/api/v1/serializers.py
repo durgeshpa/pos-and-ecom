@@ -569,9 +569,7 @@ class SuperStoreProductSearchSerializer(serializers.ModelSerializer):
     product_price_detail = serializers.SerializerMethodField()
     
     def get_product_price_detail(self, instance):
-        price = instance.product_pro_price.filter(is_superstore=True, 
-                                                                 status=True,
-                                                                 approval_status=2).last()
+        price = instance.super_store_product_price.last()
         if price:
             return {'mrp': price.mrp, 'selling_price': price.selling_price}
         return None

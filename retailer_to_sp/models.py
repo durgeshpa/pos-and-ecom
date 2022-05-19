@@ -220,7 +220,7 @@ class Cart(models.Model):
     def order_amount_after_discount(self):
         item_effective_total = 0
         for m in self.rt_cart_list.all():
-            item_effective_total += (m.item_effective_prices * float(m.no_of_pieces))
+            item_effective_total += (float(m.item_effective_prices) * float(m.no_of_pieces))
         order_amount = round(float(item_effective_total), 2)
         return order_amount
 
