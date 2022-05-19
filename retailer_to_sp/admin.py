@@ -2850,6 +2850,7 @@ class BuyerPurchaseDataAdmin(admin.ModelAdmin):
     list_display = ('seller_shop', 'buyer_shop', 'fin_year', 'total_purchase')
     list_filter = (SellerShopFilter, BuyerShopFilter, 'fin_year', BuyerTotalPurchaseFilter)
 
+
 class SearchKeywordLogAdmin(admin.ModelAdmin):
     readonly_fields = ('search_term','search_frequency',)
 
