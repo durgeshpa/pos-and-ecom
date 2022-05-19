@@ -2135,8 +2135,7 @@ class CartCheckout(APIView):
         elif app_type == '3':
             return self.get_ecom_cart_checkout(request, *args, **kwargs)
         elif app_type == '4':
-            pass
-            # return self.get_superstore_cart_checkout(request, *args, **kwargs):
+            return self.get_superstore_cart_checkout(request, *args, **kwargs)
         else:
             return api_response('Please provide a valid app_type')
 
@@ -2200,6 +2199,26 @@ class CartCheckout(APIView):
             data.update({"redeem_points_message": use_reward_this_month if use_reward_this_month else ""})
             return api_response("Cart Checkout", data, status.HTTP_200_OK, True)
 
+    @check_ecom_user_shop
+    def get_superstore_cart_checkout(self, request, *args, **kwargs):
+        try:
+            cart = Cart.objects.filter(cart_type='SUPERSTORE', 
+                                       buyer=self.request.user, 
+                                       seller_shop=kwargs['shop'],
+                                       cart_status='active').last()
+        except ObjectDoesNotExist:
+            return api_response("No items added in cart yet")
+        with transaction.atomic():
+            use_reward_this_month = RewardCls.checkout_redeem_points(cart, 0, shop=kwargs['shop'],app_type="ECOM",use_all=self.request.GET.get('use_rewards', 1))
+            data = self.serialize(cart, None)
+            address = AddressCheckoutSerializer(cart.buyer.ecom_user_address.filter(default=True).last()).data
+            data.update({'default_address': address})
+            delivery_time = "5-7 days"
+            data['estimate_delivery_time'] = delivery_time
+            data.update({'saving': round(data['total_mrp'] - data['amount_payable'], 2)})
+            data.update({"redeem_points_message": use_reward_this_month if use_reward_this_month else ""})
+            return api_response("Cart Checkout", data, status.HTTP_200_OK, True)
+    
     def delete(self, request, *args, **kwargs):
         """
             Checkout
