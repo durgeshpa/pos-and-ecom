@@ -381,7 +381,6 @@ class SearchProducts(APIView):
             must_not = {"exists": {"field": "ean"}}
         if ean_code and ean_code != '':
             filter_list.append({"term": {"ean": ean_code}})
-        filter_list.append({"term": {"product_type": 'grocery'}})
         body = dict()
         if filter_list and must_not:
             body["query"] = {"bool": {"filter": filter_list, "must_not": must_not}}
@@ -471,7 +470,7 @@ class SearchProducts(APIView):
             #sub_category = sub_category_ids.split(',')
             #sub_category_filter = str(categorymodel.Category.objects.filter(id__in=sub_category, status=True).last())
             filter_list.append({"term": {"sub_category": sub_category_ids}})
-        filter_list.append({"term": {"product_type": 'grocery'}})
+
 
         elastic_logger.info("Filter list :: {}".format(filter_list))
         elastic_logger.info("Query string :: {}".format(query_string))
