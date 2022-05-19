@@ -12,7 +12,7 @@ from rest_framework.generics import GenericAPIView, CreateAPIView, UpdateAPIView
 from rest_framework.permissions import AllowAny
 
 from products.models import ParentProduct as ParentProducts, ProductHSN, ProductCapping as ProductCappings, \
-    ProductVendorMapping, Product as ChildProduct, Tax, Weight, ProductPrice, ParentProduct
+    ProductVendorMapping, Product as ChildProduct, Tax, Weight, ProductPrice, ParentProduct, SuperStoreProductPrice
 from categories.models import Category, B2cCategory
 from brand.models import Brand, Vendor
 from shops.models import Shop
@@ -29,7 +29,9 @@ from .serializers import ParentProductSerializers, BrandSerializers, ParentProdu
     ProductHSNCrudSerializers, HSNExportAsCSVSerializers, ProductPriceSerializers, CitySerializer, \
     ProductVendorMappingExportAsCSVSerializers, PinCodeSerializer, ShopsSerializer, \
     DisapproveSelectedProductPriceSerializers, ProductSlabPriceExportAsCSVSerializers, ImageProductSerializers, \
-    DiscountChildProductSerializers, HSNExportAsCSVUploadSerializer, ParentProductApprovalSerializers
+    DiscountChildProductSerializers, HSNExportAsCSVUploadSerializer, ParentProductApprovalSerializers, \
+    SuperStoreProductPriceSerializers, SuperStoreProductPriceAsCSVUploadSerializer, \
+    SuperStoreProductPriceDownloadSerializer
 from brand.api.v1.serializers import VendorSerializers
 from products.common_function import get_response, serializer_error, can_approve_product_tax
 from products.common_validators import validate_id, validate_data_format, validate_data_format_without_json
@@ -1692,3 +1694,168 @@ class BulkParentProductApprovalView(GenericAPIView):
         else:
             return get_response('All selected products approved', True)
 
+
+class SuperStoreProductListView(GenericAPIView):
+    """
+        Get Parent List
+    """
+    authentication_classes = (authentication.TokenAuthentication,)
+    queryset = ChildProduct.objects.filter(parent_product__product_type=ParentProducts.SUPERSTORE)
+    serializer_class = ProductSerializers
+
+    def get(self, request):
+        search_text = self.request.GET.get('search_text')
+        if search_text:
+            self.queryset = child_product_search(self.queryset, search_text)
+        product = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        serializer = self.serializer_class(product, many=True)
+        msg = "" if product else "no product found"
+        return get_response(msg, serializer.data, True)
+
+
+class SuperStoreProductPriceView(GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+
+    queryset = SuperStoreProductPrice.objects.select_related('product', 'seller_shop')\
+        .prefetch_related('product__parent_product', 'seller_shop__shop_type', 'seller_shop__shop_owner',
+                          'product__parent_product__parent_product_pro_category',
+                          'product__parent_product__parent_product_pro_b2c_category',). \
+        order_by('-updated_at')
+    serializer_class = SuperStoreProductPriceSerializers
+
+    def get(self, request):
+        """ GET API for SuperStore Product Price """
+
+        info_logger.info("SuperStoreProductPrice GET api called.")
+
+        price_count = 1
+        if request.GET.get('id'):
+            """ Get SuperStore Product Price for specific ID """
+            id_validation = validate_id(self.queryset, int(request.GET.get('id')))
+            if 'error' in id_validation:
+                return get_response(id_validation['error'])
+            product_price = id_validation['data']
+        else:
+            """ GET Product Price  List """
+            self.queryset = self.search_filter_super_store_product_price()
+            price_count = self.queryset.count()
+            product_price = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        msg = f"total count {price_count}" if product_price else "no product price found"
+        serializer = self.serializer_class(product_price, many=True)
+        return get_response(msg, serializer.data, True)
+
+    def post(self, request):
+        """ POST API for SuperStore Product Price """
+
+        info_logger.info("SuperStore Product Price POST api called.")
+        serializer = self.serializer_class(data=request.data)
+        if serializer.is_valid():
+            serializer.save(created_by=request.user)
+            return get_response('product price created successfully!', None, 200)
+        return get_response(serializer_error(serializer), False)
+
+    def put(self, request):
+        """ PUT API for SuperStore Product Price Update """
+
+        info_logger.info("SuperStore Product Price Updation PUT api called.")
+        if 'id' not in request.data:
+            return get_response('please provide id to update super store product price', False)
+
+        # validations for input id
+        id_instance = validate_id(self.queryset, int(request.data['id']))
+        if 'error' in id_instance:
+            return get_response(id_instance['error'])
+        product_price_instance = id_instance['data'].last()
+
+        serializer = self.serializer_class(instance=product_price_instance, data=request.data)
+        if serializer.is_valid():
+            serializer.save(updated_by=request.user)
+            info_logger.info("product price Updated Successfully.")
+            return get_response('product price updated Successfully!', None, 200)
+        return get_response(serializer_error(serializer), False)
+
+    def search_filter_super_store_product_price(self):
+
+        seller_shop_id = self.request.GET.get('seller_shop_id', None)
+        product_id = self.request.GET.get('product_id')
+        product_sku = self.request.GET.get('product_sku')
+        category_id = self.request.GET.get('category_id')
+        b2c_category_id = self.request.GET.get('b2c_category_id')
+        mrp = self.request.GET.get('mrp')
+        search_text = self.request.GET.get('search_text')
+
+        # search using product name and product sku based on criteria that matches
+        if search_text:
+            self.queryset = product_price_search(self.queryset, search_text.strip())
+
+        # filter using seller_shop_id, product_id, product_status, mrp & status exact match
+        if product_id is not None and product_id is not '':
+            self.queryset = self.queryset.filter(product_id=product_id)
+        if category_id is not None and not category_id is '':
+            self.queryset = self.queryset.filter(product__parent_product__parent_product_pro_category__category_id=
+                                                 category_id)
+        if b2c_category_id is not None and not b2c_category_id is '':
+            self.queryset = self.queryset.filter(product__parent_product__parent_product_pro_b2c_category__category_id=
+                                                 b2c_category_id)
+        if product_sku is not None and not product_sku is '':
+            self.queryset = self.queryset.filter(product__product_sku__icontains=product_sku)
+        if seller_shop_id is not None and not seller_shop_id is '':
+            self.queryset = self.queryset.filter(seller_shop_id=seller_shop_id)
+        if mrp is not None and not mrp is '':
+            self.queryset = self.queryset.filter(mrp__icontains=mrp)
+        return self.queryset
+
+    def delete(self, request):
+        """ Delete SuperStore Product Price """
+
+        info_logger.info("SuperStore Product Price DELETE api called.")
+        if not request.data.get('product_price_ids'):
+            return get_response('please select product price', False)
+        try:
+            for id in request.data.get('product_price_ids'):
+                product_price_id = self.queryset.get(id=int(id))
+                try:
+                    product_price_id.delete()
+                    info_logger.info(f"product price deleted by {request.user} product price id - {product_price_id}")
+                except Exception as er:
+                    return get_response(f'You can not delete product price {product_price_id}, '
+                                        f'because this product price is getting used', False)
+        except ObjectDoesNotExist as e:
+            error_logger.error(e)
+            return get_response(f'please provide a valid product price id {id}', False)
+        return get_response('product price were deleted successfully!', True)
+
+
+class SuperStoreProductPriceAsCSVUploadView(GenericAPIView):
+    """
+    This class is used to upload csv file for Super store product prices
+    """
+    authentication_classes = (authentication.TokenAuthentication,)
+    serializer_class = SuperStoreProductPriceAsCSVUploadSerializer
+
+    def post(self, request):
+        serializer = self.get_serializer(data=request.data, context={'user': self.request.user})
+        if serializer.is_valid():
+            serializer.save(created_by=request.user)
+            return get_response('data uploaded successfully!', serializer.data, True)
+        return get_response(serializer_error(serializer), False)
+
+
+class SuperStoreProductPriceAsCSVDownloadView(GenericAPIView):
+    """
+    This class is used to upload csv file for Super store product prices
+    """
+    authentication_classes = (authentication.TokenAuthentication,)
+    serializer_class = SuperStoreProductPriceDownloadSerializer
+
+    def post(self, request):
+        """ POST API for Download Sample CreateProductVendorMapping """
+
+        info_logger.info("CreateProductVendorMappingSample POST api called.")
+        serializer = self.serializer_class(data=request.data)
+        if serializer.is_valid():
+            response = serializer.save()
+            info_logger.info("CreateProductVendorMapping Downloaded successfully")
+            return HttpResponse(response, content_type='text/csv')
+        return get_response(serializer_error(serializer), False)

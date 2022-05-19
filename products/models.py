@@ -185,9 +185,10 @@ class ParentProduct(BaseTimestampUserStatusModel):
     parent_brand = models.ForeignKey(Brand, related_name='parent_brand_product', blank=False, on_delete=models.CASCADE)
     product_hsn = models.ForeignKey(ProductHSN, related_name='parent_hsn', blank=False, on_delete=models.CASCADE)
     inner_case_size = models.PositiveIntegerField(blank=False, default=1)
+    GROCERY, SUPERSTORE = 'grocery', 'superstore'
     PRODUCT_TYPE_CHOICES = (
-        ('grocery', 'Grocery'),
-        ('superstore', 'SuperStore'),
+        (GROCERY, 'Grocery'),
+        (SUPERSTORE, 'SuperStore'),
     )
     brand_case_size = models.PositiveIntegerField(blank=False)
     product_type = models.CharField(max_length=10, choices=PRODUCT_TYPE_CHOICES, default='grocery')
@@ -1253,3 +1254,53 @@ class CentralLog(models.Model):
         related_name='updated_by',
         on_delete=models.DO_NOTHING
     )
+
+
+class BaseTimestampUserModel(models.Model):
+    created_at = models.DateTimeField(verbose_name="Created at", auto_now_add=True)
+    updated_at = models.DateTimeField(verbose_name="Updated at", auto_now=True)
+    created_by = models.ForeignKey(
+        get_user_model(), null=True,
+        verbose_name="Created by",
+        related_name='super_store_created_by',
+        on_delete=models.DO_NOTHING
+    )
+    updated_by = models.ForeignKey(
+        get_user_model(), null=True,
+        related_name='super_store_updated_by',
+        verbose_name="Updated by",
+        on_delete=models.DO_NOTHING
+    )
+
+    class Meta:
+        abstract = True
+
+
+class SuperStoreProductPrice(BaseTimestampUserModel):
+    product = models.ForeignKey(Product, related_name='super_store_product_price',
+                                on_delete=models.CASCADE)
+    mrp = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    selling_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=False)
+    seller_shop = models.ForeignKey(Shop, related_name='super_store_product_price',
+                                    null=True, blank=True,
+                                    on_delete=models.CASCADE)
+
+    def __str__(self):
+        return "%s - %s" % (self.product.product_name, self.selling_price)
+
+
+class SuperStoreProductPriceLog(models.Model):
+    product_price_change = models.ForeignKey(SuperStoreProductPrice, related_name='product_price_change_log',
+                                           blank=True, null=True, on_delete=models.CASCADE)
+    old_selling_price = models.FloatField(null=True, blank=True)
+    new_selling_price = models.FloatField(null=True, blank=True)
+    update_at = models.DateTimeField(auto_now_add=True)
+    updated_by = models.ForeignKey(
+        get_user_model(), null=True,
+        related_name='super_store_price_changed_by',
+        on_delete=models.DO_NOTHING
+    )
+
+    def __str__(self):
+        return str(self.product_price_change.product)
+

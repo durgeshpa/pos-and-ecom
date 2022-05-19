@@ -9,7 +9,8 @@ from .views import ParentProductView, ParentProductExportAsCSVView, HSNListView,
     DisapproveSelectedProductPriceView, ProductSlabPriceExportAsCSVView, ProductListView, DiscountProductView, \
     DiscountProductListForManualPriceView, B2cCategoryListView, HSNExportAsCSVUploadView, \
     ParentProductsTaxStatusChoicesView, ParentProductApprovalView, HSNExportAsCSVSampleDownloadView, \
-    BulkParentProductApprovalView
+    BulkParentProductApprovalView, SuperStoreProductPriceView, SuperStoreProductListView, \
+    SuperStoreProductPriceAsCSVUploadView, SuperStoreProductPriceAsCSVDownloadView
 
 urlpatterns = [
     url(r'^parent-product/', ParentProductView.as_view(), name='parent-product'),
@@ -60,5 +61,10 @@ urlpatterns = [
     url(r'^parent-product-tax-status-list/', ParentProductsTaxStatusChoicesView.as_view(), name='tax-status-list'),
     url(r'^parent-product-approval/', ParentProductApprovalView.as_view(), name='parent-product-approval'),
     url(r'^bulk-parent-product-approval/', BulkParentProductApprovalView.as_view(), name='bulk-parent-product-approval'),
-
+    url(r'^super-store-products/', SuperStoreProductListView.as_view(), name='super-store-products'),
+    url(r'^super-store-product-price/', SuperStoreProductPriceView.as_view(), name='super-store-product-price'),
+    url(r'^upload-csv-super-store-products/', SuperStoreProductPriceAsCSVUploadView.as_view(),
+        name='upload-csv-super-store-products'),
+    url(r'^download-sample-csv-super-store-products/', SuperStoreProductPriceAsCSVDownloadView.as_view(),
+        name='download-sample-csv-super-store-products'),
 ]
