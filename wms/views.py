@@ -1166,7 +1166,7 @@ def pickup_entry_creation_with_cron():
                             # bin_inv.quantity = remaining_qty
                             # bin_inv.to_be_picked_qty += already_picked
                             # bin_inv.save()
-                            CommonBinInventoryFunctions.move_to_to_be_picked(already_picked, bin_inv)
+                            CommonBinInventoryFunctions.move_to_to_be_picked(already_picked, bin_inv, tr_id, tr_type)
                             qty = 0
                             total_to_be_picked += already_picked
                         else:
@@ -1175,7 +1175,7 @@ def pickup_entry_creation_with_cron():
                             # bin_inv.quantity = qty_in_bin - already_picked
                             # bin_inv.to_be_picked_qty += already_picked
                             # bin_inv.save()
-                            CommonBinInventoryFunctions.move_to_to_be_picked(already_picked, bin_inv)
+                            CommonBinInventoryFunctions.move_to_to_be_picked(already_picked, bin_inv, tr_id, tr_type)
                             qty = remaining_qty
                             total_to_be_picked += already_picked
 
