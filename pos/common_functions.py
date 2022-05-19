@@ -460,9 +460,7 @@ class PosCartCls(object):
                     and cart_product.retailer_product.online_price:
                 cart_product.selling_price = cart_product.retailer_product.online_price
             elif cart_product.cart.cart_type == 'SUPERSTORE':
-                cart_product.selling_price = cart_product.cart_product.product_pro_price.filter(is_superstore=True, 
-                                                                                                status=True,
-                                                                                                approval_status=2).last().selling_price
+                cart_product.selling_price = cart_product.cart_product.get_superstore_price.selling_price
             else:
                 cart_product.selling_price = cart_product.retailer_product.selling_price
             cart_product.save()
@@ -1211,9 +1209,7 @@ class PosAddToCart(object):
                 product = Product.objects.get(id=request.data.get('product_id'),
                                                         status='active',
                                                         parent_product__product_type='superstore')
-                selling_price = product.product_pro_price.filter(is_superstore=True, 
-                                                                 status=True,
-                                                                 approval_status=2).last()
+                selling_price = product.get_superstore_price
                 if selling_price and selling_price.selling_price:
                     selling_price = selling_price.selling_price
                 else:

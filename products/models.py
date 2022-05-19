@@ -613,7 +613,6 @@ class ProductPrice(models.Model):
     seller_shop = models.ForeignKey(Shop, related_name='shop_product_price',
                                     null=True, blank=True,
                                     on_delete=models.CASCADE)
-    is_superstore = models.BooleanField(default=False)
     buyer_shop = models.ForeignKey(Shop,
                                    related_name='buyer_shop_product_price',
                                    null=True, blank=True,
@@ -1304,4 +1303,3 @@ class SuperStoreProductPriceLog(models.Model):
 
     def __str__(self):
         return str(self.product_price_change.product)
-

@@ -1292,7 +1292,7 @@ class CartCentral(GenericAPIView):
             PosCartCls.refresh_prices(cart.rt_cart_list.all())
 
             # Refresh redeem reward
-            RewardCls.checkout_redeem_points(cart, 0, self.request.GET.get('use_rewards', 1))
+            RewardCls.checkout_redeem_points(cart, 0, kwargs['shop'], self.request.GET.get('use_rewards', 1))
 
             cart_data = SuperStoreCartSerializer(cart).data
             address = AddressCheckoutSerializer(cart.buyer.ecom_user_address.filter(default=True).last()).data
@@ -2134,6 +2134,8 @@ class CartCheckout(APIView):
             return self.get_pos_cart_checkout(request, *args, **kwargs)
         elif app_type == '3':
             return self.get_ecom_cart_checkout(request, *args, **kwargs)
+        elif app_type == '4':
+            return self.get_superstore_cart_checkout(request, *args, **kwargs)
         else:
             return api_response('Please provide a valid app_type')
 
@@ -2197,6 +2199,26 @@ class CartCheckout(APIView):
             data.update({"redeem_points_message": use_reward_this_month if use_reward_this_month else ""})
             return api_response("Cart Checkout", data, status.HTTP_200_OK, True)
 
+    @check_ecom_user_shop
+    def get_superstore_cart_checkout(self, request, *args, **kwargs):
+        try:
+            cart = Cart.objects.filter(cart_type='SUPERSTORE', 
+                                       buyer=self.request.user, 
+                                       seller_shop=kwargs['shop'],
+                                       cart_status='active').last()
+        except ObjectDoesNotExist:
+            return api_response("No items added in cart yet")
+        with transaction.atomic():
+            use_reward_this_month = RewardCls.checkout_redeem_points(cart, 0, shop=kwargs['shop'],app_type="ECOM",use_all=self.request.GET.get('use_rewards', 1))
+            data = self.serialize(cart, None)
+            address = AddressCheckoutSerializer(cart.buyer.ecom_user_address.filter(default=True).last()).data
+            data.update({'default_address': address})
+            delivery_time = "5-7 days"
+            data['estimate_delivery_time'] = delivery_time
+            data.update({'saving': round(data['total_mrp'] - data['amount_payable'], 2)})
+            data.update({"redeem_points_message": use_reward_this_month if use_reward_this_month else ""})
+            return api_response("Cart Checkout", data, status.HTTP_200_OK, True)
+    
     def delete(self, request, *args, **kwargs):
         """
             Checkout
@@ -3009,6 +3031,8 @@ class OrderCentral(APIView):
             return self.get_basic_order(request, *args, **kwargs)
         elif app_type == '3':
             return self.get_ecom_order(request, *args, **kwargs)
+        elif app_type == '4':
+            return self.get_superstore_order(request, *args, **kwargs)
         else:
             return api_response('Provide a valid app_type')
 
@@ -3311,6 +3335,8 @@ class OrderCentral(APIView):
             return self.post_pos_order(request, *args, **kwargs)
         elif app_type == '3':
             return self.post_ecom_order(request, *args, **kwargs)
+        elif app_type == '4':
+            return self.post_superstore_order(request, *args, **kwargs)
         else:
             return api_response('Provide a valid app_type')
 
@@ -3361,6 +3387,22 @@ class OrderCentral(APIView):
         try:
             order = Order.objects.get(pk=self.request.GET.get('order_id'),
                                       buyer=self.request.user, ordered_cart__cart_type='ECOM')
+        except ObjectDoesNotExist:
+            return api_response("Order Not Found!")
+
+        return api_response('Order', self.get_serialize_process_pos_ecom(order), status.HTTP_200_OK, True,
+                            extra_params={"key_p": str(config('PAYU_KEY')),}
+                            )
+    
+    @check_ecom_user
+    def get_superstore_order(self, request, *args, **kwargs):
+        """
+            Get Order
+            For SuperStore Cart
+        """
+        try:
+            order = Order.objects.get(pk=self.request.GET.get('order_id'),
+                                      buyer=self.request.user, ordered_cart__cart_type='SUPERSTORE')
         except ObjectDoesNotExist:
             return api_response("Order Not Found!")
 
@@ -3543,7 +3585,8 @@ class OrderCentral(APIView):
         order_config = GlobalConfig.objects.filter(key='ecom_order_count').last()
         if order_config.value is not None:
             order_count = Order.objects.filter(ecom_address_order__isnull=False, created_at__date=datetime.today(),
-                                               seller_shop=shop).exclude(order_status='CANCELLED').distinct().count()
+                                               seller_shop=shop, 
+                                               ordered_cart__cart_type='ECOM').exclude(order_status='CANCELLED').distinct().count()
             if order_count >= order_config.value:
                 return api_response('Because of the current surge in orders, we are not taking any more orders for '
                                     'today. We will start taking orders again tomorrow. We regret the inconvenience '
@@ -3613,6 +3656,57 @@ class OrderCentral(APIView):
             return api_response(msg, BasicOrderListSerializer(Order.objects.get(id=order.id)).data,
                                  status.HTTP_200_OK, True)
 
+    @check_ecom_user_shop
+    @transaction.atomic
+    def post_superstore_order(self, request, *args, **kwargs):
+        shop = kwargs['shop']
+        if not self.request.data.get('address_id'):
+            return api_response("Please select an address to place order")
+        try:
+            address = EcomAddress.objects.get(id=self.request.data.get('address_id'), user=self.request.user)
+        except:
+            return api_response("Please provide a valid address.")
+        
+        if address.pincode != shop.shop_name_address_mapping.filter(
+                address_type='shipping').last().pincode_link.pincode:
+            return api_response("This Shop is not serviceable at your delivery address.")
+        
+        cart = Cart.objects.filter(cart_type='SUPERSTORE', buyer=self.request.user, seller_shop=shop,
+                                   cart_status='active').last()
+        
+        if not cart:
+            return api_response('Please add items in your cart to place an order.')
+        
+        # set_payment_option
+        try:
+            payment_type_id = PaymentType.objects.get(id=self.request.data.get('payment_type', 4)).id
+        except PaymentType.DoesNotExist:
+            return api_response("Please select a valid payment method.")
+        
+        # get delivery option
+        delivery_option = request.data.get('delivery_option', None)
+        
+        err = self.update_cart_superstore(shop, cart)
+        if err:
+            return api_response(err)
+        else:
+            RewardCls.checkout_redeem_points(cart, cart.redeem_points, shop)
+            order = self.create_basic_order(cart, shop, address, payment_type_id, delivery_option)
+            payments = [
+                {
+                    "payment_type": payment_type_id,
+                    "amount": round(order.order_amount),
+                    "transaction_id": "",
+                    "payment_status": self.request.data.get('payment_status', None),
+                    "payment_mode": self.request.data.get('payment_mode', None)
+                }
+            ]
+            self.auto_process_order(order, payments, 'superstore')
+            self.process_superstore_order(order)
+            msg = 'Ordered Successfully!'
+            return api_response(msg, BasicOrderListSerializer(Order.objects.get(id=order.id)).data,
+                                        status.HTTP_200_OK, True)
+        
     def get_retail_validate(self):
         """
             Get Order
@@ -3851,6 +3945,23 @@ class OrderCentral(APIView):
         cart.cart_status = 'ordered'
         cart.last_modified_by = self.request.user
         cart.save()
+    
+    def update_cart_superstore(self, seller_shop, cart):
+        """
+            Place order
+            Update cart to ordered
+            For ecom cart
+        """
+        updated_cart = Cart.objects.filter(cart_type='SUPERSTORE', 
+                                           buyer=self.request.user, 
+                                           seller_shop=seller_shop,
+                                           cart_status='active').last()
+
+        if not updated_cart:
+            return "Please add items to proceed to order"
+        cart.cart_status = 'ordered'
+        cart.last_modified_by = self.request.user
+        cart.save()
 
     def create_retail_order_sp(self, cart, parent_mapping, billing_address, shipping_address):
         """
@@ -3893,10 +4004,11 @@ class OrderCentral(APIView):
         order.buyer = cart.buyer
         order.seller_shop = shop
         order.received_by = cart.buyer
-        order.order_app_type = Order.POS_ECOMM if cart.cart_type == 'ECOM' else Order.POS_WALKIN
+        order.order_app_type = Order.POS_WALKIN
         # order.total_tax_amount = float(self.request.data.get('total_tax_amount', 0))
         order.order_status = Order.ORDERED
         if cart.cart_type == 'ECOM':
+            order.order_app_type = Order.POS_ECOMM
             if payment_id and str(PaymentType.objects.get(id=payment_id).type).lower() != 'cod':
                 if self.request.data.get('payment_status') == 'payment_pending':
                     order.order_status = Order.PAYMENT_PENDING
@@ -3920,6 +4032,18 @@ class OrderCentral(APIView):
             order.latitude = self.request.data.get('latitude', None)
             order.longitude = self.request.data.get('longitude', None)
 
+        elif cart.cart_type == 'SUPERSTORE':
+            order.order_app_type = Order.POS_SUPERSTORE
+            if payment_id and str(PaymentType.objects.get(id=payment_id).type).lower() != 'cod':
+                if self.request.data.get('payment_status') == 'payment_pending':
+                    order.order_status = Order.PAYMENT_PENDING
+                elif self.request.data.get('payment_status') == 'payment_failed':
+                    order.order_status = Order.PAYMENT_FAILED
+            order.delivery_option = delivery_option
+            order.estimate_delivery_time = "5-7 days"
+            order.latitude = self.request.data.get('latitude', None)
+            order.longitude = self.request.data.get('longitude', None)
+            
         order.save()
 
         if address:
@@ -3928,6 +4052,7 @@ class OrderCentral(APIView):
                                                     longitude=address.longitude, pincode=address.pincode,
                                                     state=address.state, city=address.city)
         return order
+        
 
     def update_ordered_reserve_sp(self, cart, parent_mapping, order):
         """
@@ -4079,27 +4204,30 @@ class OrderCentral(APIView):
         # shops_str = str(shops_str) if shops_str else ''
         # if shops_str == 'all' or (shops_str and str(order.seller_shop.id) in shops_str.split(',')):
         # Add free products
-        offers = order.ordered_cart.offers
-        product_qty_map = {}
-        if offers:
-            for offer in offers:
-                if offer['type'] == 'combo':
-                    qty = offer['free_item_qty_added']
-                    product_qty_map[offer['free_item_id']] = product_qty_map[offer['free_item_id']] + qty if \
-                        offer['free_item_id'] in product_qty_map else qty
-                if offer['type'] == 'free_product':
-                    qty = offer['free_item_qty']
-                    product_qty_map[offer['free_item_id']] = product_qty_map[offer['free_item_id']] + qty if \
-                        offer['free_item_id'] in product_qty_map else qty
+        if app_type != 'superstore':
+            offers = order.ordered_cart.offers
+            product_qty_map = {}
+            if offers:
+                for offer in offers:
+                    if offer['type'] == 'combo':
+                        qty = offer['free_item_qty_added']
+                        product_qty_map[offer['free_item_id']] = product_qty_map[offer['free_item_id']] + qty if \
+                            offer['free_item_id'] in product_qty_map else qty
+                    if offer['type'] == 'free_product':
+                        qty = offer['free_item_qty']
+                        product_qty_map[offer['free_item_id']] = product_qty_map[offer['free_item_id']] + qty if \
+                            offer['free_item_id'] in product_qty_map else qty
 
-            for product_id in product_qty_map:
-                cart_map, _ = CartProductMapping.objects.get_or_create(cart=order.ordered_cart,
-                                                                       retailer_product_id=product_id,
-                                                                       product_type=0)
-                cart_map.selling_price = 0
-                cart_map.qty = product_qty_map[product_id]
-                cart_map.no_of_pieces = product_qty_map[product_id]
-                cart_map.save()
+                for product_id in product_qty_map:
+                    cart_map, _ = CartProductMapping.objects.get_or_create(cart=order.ordered_cart,
+                                                                        retailer_product_id=product_id,
+                                                                        product_type=0)
+                    cart_map.selling_price = 0
+                    cart_map.qty = product_qty_map[product_id]
+                    cart_map.no_of_pieces = product_qty_map[product_id]
+                    cart_map.save()
+        else:
+            pass
         # Create payment
         for payment in payments:
             PosPayment.objects.create(
@@ -4159,6 +4287,23 @@ class OrderCentral(APIView):
             product_id, qty = product_map['retailer_product'], product_map['qty']
             PosInventoryCls.order_inventory(product_id, PosInventoryState.AVAILABLE, PosInventoryState.ORDERED, qty,
                                             self.request.user, order.order_no, PosInventoryChange.ORDERED)
+    
+    def process_superstore_order(self, order):
+        cart_products = CartProductMapping.objects.filter(cart_id=order.ordered_cart.id
+                                                          ).values('cart_product', 'qty', 'product_type',
+                                                                   'selling_price')
+        for product in cart_products:
+            shipment = OrderedProduct(order=order)
+            shipment.save()
+            shipment_product = ShipmentProducts.objects.create(
+                ordered_product = shipment,
+                product_id = product['cart_product'],
+                product_type = product['selling_price'],
+                shipped_qty = product['qty']
+            )
+            OrderedProductBatch.objects.create(ordered_product_mapping=shipment_product, 
+                                               quantity=product['qty'],
+                                               pickup_quantity=product['qty'])
 
     def discounted_product_in_stock(self, cart_products):
         if cart_products.filter(retailer_product__sku_type=4).exists():

@@ -205,16 +205,14 @@ def create_cart_no(sender, instance=None, created=False, **kwargs):
 				cart_no = common_function.cart_no_pattern(sender, 'cart_no', instance.pk, bill_add_id)
 			instance.cart_no = cart_no
 		elif instance.cart_type in ['ECOM', 'SUPERSTORE']:
-			const = 'EC' if instance.cart_type == 'ECOM' else 'ST'
-			cart_no = common_function.cart_no_pattern(sender, 'cart_no', instance.pk, bill_add_id, const)
+			cart_no = common_function.cart_no_pattern(sender, 'cart_no', instance.pk, bill_add_id, "EC")
 			while Cart.objects.filter(cart_no=cart_no).exists():
-				cart_no = common_function.cart_no_pattern(sender, 'cart_no', instance.pk, bill_add_id, const)
+				cart_no = common_function.cart_no_pattern(sender, 'cart_no', instance.pk, bill_add_id, "EC")
 			instance.cart_no = cart_no
 		elif instance.cart_type == 'BULK':
 			instance.cart_no = common_function.cart_no_pattern_bulk(sender, 'cart_no', instance.pk, bill_add_id)
 		elif instance.cart_type == 'DISCOUNTED':
 			instance.cart_no = common_function.cart_no_pattern_discounted(sender, 'cart_no', instance.pk, bill_add_id)
-		# elif instance.cart_type == 'SUPERSTORE':
 			
 
 
