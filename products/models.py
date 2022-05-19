@@ -439,6 +439,10 @@ class Product(BaseTimestampUserStatusModel):
         return self.parent_product.ptr_percent \
             if self.parent_product and self.parent_product.is_ptr_applicable else ''
 
+    @property
+    def get_superstore_price(self):
+        return self.super_store_product_price.last()
+    
     def get_current_shop_price(self, seller_shop_id, buyer_shop_id):
         '''
         Firstly we will only filter using seller shop. If the queryset exists
