@@ -31,7 +31,7 @@ from marketing.models import ReferralCode
 from pos.common_functions import filter_pos_shop
 from shops.models import PosShopUserMapping
 
-from .models import TokenModel
+from .models import Token
 from .utils import import_callable
 
 UserModel = get_user_model()
@@ -309,7 +309,7 @@ class TokenSerializer(serializers.ModelSerializer):
     """
 
     class Meta:
-        model = TokenModel
+        model = Token
         fields = ('key',)
 
 

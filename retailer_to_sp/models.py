@@ -76,6 +76,7 @@ BULK = 'BULK'
 DISCOUNTED = 'DISCOUNTED'
 BASIC = 'BASIC'
 ECOM = 'EC0M'
+SUPERSTORE = 'SUPERSTORE'
 
 BULK_ORDER_STATUS = (
     (AUTO, 'Auto'),
@@ -109,7 +110,8 @@ CART_TYPES = (
     (BULK, 'Bulk'),
     (DISCOUNTED, 'Discounted'),
     (BASIC, 'Basic'),
-    (ECOM, 'Ecom')
+    (ECOM, 'Ecom'),
+    (SUPERSTORE, 'Super Store')
 )
 
 
@@ -3375,10 +3377,10 @@ def populate_data_on_qc_pass(order):
             pass
 
 
-@receiver(post_save, sender=OrderedProductBatch)
-def create_putaway(sender, created=False, instance=None, *args, **kwargs):
-    if instance.returned_qty == 0 and instance.delivered_qty == 0 and created == False and instance.ordered_product_mapping.ordered_product.order.ordered_cart.cart_type not in ['BASIC', 'ECOM']:
-        add_to_putaway_on_partail(instance.ordered_product_mapping.ordered_product.id)
+# @receiver(post_save, sender=OrderedProductBatch)
+# def create_putaway(sender, created=False, instance=None, *args, **kwargs):
+#     if instance.returned_qty == 0 and instance.delivered_qty == 0 and created == False and instance.ordered_product_mapping.ordered_product.order.ordered_cart.cart_type not in ['BASIC', 'ECOM']:
+#         add_to_putaway_on_partail(instance.ordered_product_mapping.ordered_product.id)
 
 
 @receiver(post_save, sender=OrderedProductBatch)
@@ -3678,6 +3680,10 @@ class DispatchTrip(BaseTimestampUserModel):
             data['no_of_packs'] += shipment_data['no_of_packs'] if shipment_data.get('no_of_packs') else 0
             data['no_of_sacks'] += shipment_data['no_of_sacks'] if shipment_data.get('no_of_sacks') else 0
         return data
+
+    def total_empty_crates(self):
+        empty_crates = self.trip_empty_crates.all().count()
+        return empty_crates
 
 
 class DispatchTripShipmentMapping(BaseTimestampUserModel):

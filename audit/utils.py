@@ -2,7 +2,8 @@ from django.db import transaction
 from django.db.models import Count, Q
 
 from audit.models import AuditRun, AUDIT_RUN_STATUS_CHOICES, AuditNumberGenerator, AuditDetail, \
-    AUDIT_DETAIL_STATUS_CHOICES, AUDIT_DETAIL_STATE_CHOICES
+    AUDIT_DETAIL_STATUS_CHOICES, AUDIT_DETAIL_STATE_CHOICES, AuditProduct
+from products.models import Product
 from retailer_backend.utils import time_diff_days_hours_mins_secs
 from sp_to_gram.tasks import es_mget_by_ids
 from wms.models import BinInventory
@@ -38,12 +39,22 @@ def get_next_audit_no(audit):
 
 
 def get_products_by_audit(audit_detail):
+    """
+        Returns the list of products covered in an audit
+        If its products wise audit then return all the products selected while creating the audit.
+        If its Bin wise audit the return all the products present in the bins selected while creating the audit with non zero quantity.
+    """
+
     products_to_update = []
-    if audit_detail.audit_level == 1:
-        products_to_update.extend(audit_detail.sku.all())
-    if audit_detail.audit_level == 0:
-        if audit_detail.bin.count() != 0:
-            products_to_update.extend(get_products_by_bin(audit_detail.warehouse, audit_detail.bin.all()))
+
+    if audit_detail.state == AUDIT_DETAIL_STATE_CHOICES.CREATED:
+        if audit_detail.audit_level == 1:
+            products_to_update.extend(audit_detail.sku.all())
+        elif audit_detail.audit_level == 0 and audit_detail.bin.count() != 0:
+            products_to_update.extend(get_products_by_bin(audit_detail.warehouse, audit_detail.bin.all(), True))
+    else:
+        audit_product_list = AuditProduct.objects.filter(audit=audit_detail)
+        products_to_update.extend([i.sku for i in audit_product_list])
     return products_to_update
 
 
@@ -62,8 +73,10 @@ def get_product_ids_from_product_list(product_list):
     return product_id_list
 
 
-def get_products_by_bin(warehouse, bins):
+def get_products_by_bin(warehouse, bins, non_zero_only=False):
     bin_inventory = BinInventory.objects.filter(warehouse=warehouse, bin_id__in=bins)
+    if non_zero_only:
+        bin_inventory = bin_inventory.filter(Q(quantity__gt=0)|Q(to_be_picked_qty__gt=0))
     product_list = []
     for b in bin_inventory:
         product_list.append(b.sku)
@@ -74,8 +87,15 @@ def is_audit_started(audit):
 
 
 def is_diff_batch_in_this_bin(warehouse, batch_id, bin, sku):
+    product_ids = [sku.id]
+    if sku.product_type == Product.PRODUCT_TYPE_CHOICE.NORMAL:
+        if sku.discounted_sku:
+            product_ids.append(sku.discounted_sku.id)
+    else:
+        if sku.product_ref:
+            product_ids.append(sku.product_ref.id)
     return BinInventory.objects.filter(~Q(batch_id=batch_id), Q(quantity__gt=0) | Q(to_be_picked_qty__gt=0),
-                                       warehouse=warehouse, bin=bin, sku=sku).exists()
+                                       warehouse=warehouse, bin=bin, sku__id__in=product_ids).exists()
 
 
 def get_product_image(product):

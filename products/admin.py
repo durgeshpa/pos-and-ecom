@@ -463,7 +463,18 @@ class ProductTaxMappingAdmin(admin.TabularInline):
 class ProductB2bCategoryFormSet(BaseInlineFormSet):
     def clean(self):
         super(ProductB2bCategoryFormSet, self).clean()
-        if self.instance.product_type == 'b2b' or self.instance.product_type == 'both':
+        non_empty_forms = 0
+        for form in self:
+            if form.cleaned_data:
+                non_empty_forms += 1
+        if non_empty_forms - len(self.deleted_forms) < 1:
+            raise ValidationError("Please fill at least one form.")
+
+
+class ProductB2cCategoryFormSet(BaseInlineFormSet):
+    def clean(self):
+        super(ProductB2cCategoryFormSet, self).clean()
+        if self.instance.product_type == 'grocery':
             non_empty_forms = 0
             for form in self:
                 if form.cleaned_data:
@@ -471,28 +482,18 @@ class ProductB2bCategoryFormSet(BaseInlineFormSet):
             if non_empty_forms - len(self.deleted_forms) < 1:
                 raise ValidationError("Please fill at least one form.")
 
-class ProductB2cCategoryFormSet(BaseInlineFormSet):
-    def clean(self):
-        super(ProductB2cCategoryFormSet, self).clean()
-        if self.instance.product_type == 'b2c' or self.instance.product_type == 'both':
-            non_empty_forms = 0
-            for form in self:
-                if form.cleaned_data:
-                    non_empty_forms += 1
-            if non_empty_forms - len(self.deleted_forms) < 1:
-                raise ValidationError("Please fill at least one form.")
 
 class ParentProductCategoryAdmin(TabularInline):
     model = ParentProductCategory
     autocomplete_fields = ['category', ]
     #formset = RequiredInlineFormSet  # or AtLeastOneFormSet
-    formset = ProductB2bCategoryFormSet
+    #formset = ProductB2bCategoryFormSet
 
 
 class ParentProductB2cCategoryAdminInline(TabularInline):
     model = ParentProductB2cCategory
     autocomplete_fields = ['category', ]
-    formset = ProductB2cCategoryFormSet
+    #formset = ProductB2cCategoryFormSet
 
 
 @admin.register(ParentProductB2cCategory)
@@ -635,10 +636,10 @@ class ParentProductAdmin(admin.ModelAdmin):
         ParentProductCategoryAdmin, ParentProductB2cCategoryAdminInline, 
         ParentProductImageAdmin, ParentProductTaxMappingAdmin, ParentProductTaxApprovalLogAdmin
     ]
-    list_filter = [ParentCategorySearch, ParentBrandFilter, ParentIDFilter, 'status']
+    list_filter = [ParentCategorySearch, ParentBrandFilter, ParentIDFilter, 'status', 'product_type']
     list_per_page = 50
     autocomplete_fields = ['product_hsn', 'parent_brand']
-    readonly_fields = ['product_type']
+    # readonly_fields = ['product_type']
 
     @staticmethod
     def parent_product_discriptions(obj):
@@ -2164,6 +2165,40 @@ class TaxGroupAdmin(admin.ModelAdmin, ExportCsvMixin):
         return obj
 
 
+class SuperStoreProductPriceLogAdmin(admin.TabularInline):
+    model = SuperStoreProductPriceLog
+    fields = ('updated_by', 'update_at', 'old_selling_price', 'new_selling_price')
+    readonly_fields = ('updated_by', 'update_at', 'old_selling_price', 'new_selling_price')
+    extra = 0
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+    def has_view_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
+class SuperStoreProductPriceAdmin(admin.ModelAdmin):
+    list_display = ('product', 'seller_shop',  'mrp', 'selling_price')
+    fields = ['product', 'seller_shop',  'mrp', 'selling_price']
+    list_per_page = 10
+    list_filter = [ShopFilter,]
+    search_fields = ('product__product_name',)
+    inlines = [SuperStoreProductPriceLogAdmin]
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
 admin.site.register(ProductImage, ProductImageMainAdmin)
 admin.site.register(ProductVendorMapping, ProductVendorMappingAdmin)
 admin.site.register(PackageSize, PackageSizeAdmin)
@@ -2183,3 +2218,5 @@ admin.site.register(ParentProduct, ParentProductAdmin)
 admin.site.register(SlabProductPrice, ProductSlabPriceAdmin)
 admin.site.register(DiscountedProductPrice, DiscountedProductSlabPriceAdmin)
 admin.site.register(TaxGroup, TaxGroupAdmin)
+admin.site.register(SuperStoreProductPrice, SuperStoreProductPriceAdmin)
+

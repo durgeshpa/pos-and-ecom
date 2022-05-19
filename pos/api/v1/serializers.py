@@ -27,7 +27,8 @@ from pos.tasks import mail_to_vendor_on_po_creation, mail_to_vendor_on_order_ret
 from retailer_to_sp.models import CartProductMapping, Cart, Order, OrderReturn, ReturnItems, \
     OrderedProductMapping, OrderedProduct
 from accounts.api.v1.serializers import PosUserSerializer, PosShopUserSerializer
-from pos.common_functions import RewardCls, PosInventoryCls, RetailerProductCls, get_default_qty, validate_data_format
+from pos.common_functions import RewardCls, PosInventoryCls, RetailerProductCls, get_default_qty, validate_data_format, \
+    mark_pos_product_online_enabled
 from pos.common_validators import get_validate_grn_order, get_validate_vendor
 from products.models import ParentProduct, Product
 from retailer_backend.validators import ProductNameValidator
@@ -348,6 +349,7 @@ class RetailerProductsSearchSerializer(serializers.ModelSerializer):
     category = serializers.SerializerMethodField()
     brand_id = serializers.SerializerMethodField()
     brand = serializers.SerializerMethodField()
+    online_price = serializers.SerializerMethodField()
 
 
     def get_brand(self, obj):
@@ -382,46 +384,68 @@ class RetailerProductsSearchSerializer(serializers.ModelSerializer):
 
     @staticmethod
     def get_default_measurement_unit(obj):
-        if obj.measurement_category:
-            return MeasurementUnit.objects.get(category=obj.measurement_category, default=True).unit
-        return None
+        try:
+            if obj.measurement_category:
+                return MeasurementUnit.objects.get(category=obj.measurement_category, default=True).unit
+            return None
+        except:
+            return ''
 
     @staticmethod
     def get_measurement_category(obj):
-        return obj.measurement_category.get_category_display() if obj.measurement_category else None
+        try:
+            return obj.measurement_category.get_category_display() if obj.measurement_category else None
+        except:
+            return ''
 
     @staticmethod
     def get_is_discounted(obj):
-        return obj.sku_type == 4
+        try:
+            return obj.sku_type == 4
+        except:
+            return ''
 
     @staticmethod
     def get_image(obj):
-        retailer_object = obj.retailer_product_image.last()
-        if retailer_object is None:
-            if obj.linked_product:
-                linked_product = obj.linked_product.product_pro_image.all()
-                if linked_product:
-                    image = linked_product[0].image.url
-                    return image
-                else:
-                    parent_product = obj.linked_product.parent_product.parent_product_pro_image.all()
-                    if parent_product:
-                        image = parent_product[0].image.url
+        try:
+            retailer_object = obj.retailer_product_image.last()
+            if retailer_object is None:
+                if obj.linked_product:
+                    linked_product = obj.linked_product.product_pro_image.all()
+                    if linked_product:
+                        image = linked_product[0].image.url
                         return image
+                    else:
+                        parent_product = obj.linked_product.parent_product.parent_product_pro_image.all()
+                        if parent_product:
+                            image = parent_product[0].image.url
+                            return image
+                else:
+                    return None
             else:
-                return None
-        else:
-            image = retailer_object.image.url
-            return image
+                image = retailer_object.image.url
+                return image
+        except:
+            return ''
 
     @staticmethod
     def get_current_stock(obj):
-        current_stock = 0
-        if PosInventory.objects.filter(product=obj.id, inventory_state=
-            PosInventoryState.objects.get(inventory_state=PosInventoryState.AVAILABLE)):
-            current_stock = PosInventory.objects.filter(product=obj.id, inventory_state=
-            PosInventoryState.objects.get(inventory_state=PosInventoryState.AVAILABLE)).last().quantity
-        return current_stock
+        try:
+            current_stock = 0
+            if PosInventory.objects.filter(product=obj.id, inventory_state=
+                PosInventoryState.objects.get(inventory_state=PosInventoryState.AVAILABLE)):
+                current_stock = PosInventory.objects.filter(product=obj.id, inventory_state=
+                PosInventoryState.objects.get(inventory_state=PosInventoryState.AVAILABLE)).last().quantity
+            return current_stock
+        except:
+            return ''
+
+    @staticmethod
+    def get_online_price(obj):
+        try:
+            return Decimal(obj.rt_cart_retailer_product.last().selling_price)
+        except:
+            return Decimal(0.0)
 
     class Meta:
         model = RetailerProduct
@@ -637,7 +661,6 @@ class BasicCartSerializer(serializers.ModelSerializer):
         return round(discount, 2)
 
     def get_amount_payable(self, obj):
-        sub_total = float(self.total_amount_dt(obj)) - self.get_total_discount(obj)
         if obj.cart_type == 'ECOM':
             sub_total = float(self.total_amount_dt(obj)) - (
                     float(self.get_total_discount(obj)))
@@ -679,7 +702,7 @@ class CheckoutSerializer(serializers.ModelSerializer):
             if self.context['app_type']=='2':
                 total_amount += Decimal(cart_pro.selling_price) * Decimal(cart_pro.qty)
             else:
-                total_amount += Decimal(cart_pro.retailer_product.online_price) * Decimal(cart_pro.qty)
+                total_amount += Decimal(cart_pro.selling_price) * Decimal(cart_pro.qty)
         return total_amount
 
     def get_total_mrp(self,obj):
@@ -818,7 +841,7 @@ class BasicOrderListSerializer(serializers.ModelSerializer):
         return order_product_mapping.ordered_product.id if order_product_mapping else None
 
     def payment_data(self, obj):
-        payment = obj.rt_payment_retailer_order.all()
+        payment = [obj.rt_payment_retailer_order.last()]
         return PaymentSerializer(payment, many=True).data if payment else None
 
     def get_delivery_persons(self, obj):
@@ -993,48 +1016,63 @@ class BasicOrderProductDetailSerializer(serializers.ModelSerializer):
         """
             qty purchased
         """
-        product = obj.retailer_product
-        cart_product = CartProductMapping.objects.filter(retailer_product=product,
-                                                         cart=obj.ordered_product.order.ordered_cart).last()
-        if product.product_pack_type == 'loose':
-            default_unit = MeasurementUnit.objects.get(category=product.measurement_category, default=True)
-            if cart_product.qty_conversion_unit:
-                return obj.shipped_qty * default_unit.conversion / cart_product.qty_conversion_unit.conversion
+        try:
+            product = obj.retailer_product
+            cart_product = CartProductMapping.objects.filter(retailer_product=product,
+                                                             cart=obj.ordered_product.order.ordered_cart).last()
+            if product.product_pack_type == 'loose':
+                default_unit = MeasurementUnit.objects.get(category=product.measurement_category, default=True)
+                if cart_product.qty_conversion_unit:
+                    return obj.shipped_qty * default_unit.conversion / cart_product.qty_conversion_unit.conversion
+                else:
+                    return obj.shipped_qty * default_unit.conversion / default_unit.conversion
             else:
-                return obj.shipped_qty * default_unit.conversion / default_unit.conversion
-        else:
-            return int(obj.shipped_qty)
+                return int(obj.shipped_qty)
+        except:
+            return ''
 
     @staticmethod
     def get_qty_unit(obj):
-        cart_product = CartProductMapping.objects.filter(retailer_product=obj.retailer_product,
-                                                         cart=obj.ordered_product.order.ordered_cart).last()
+        try:
+            cart_product = CartProductMapping.objects.filter(retailer_product=obj.retailer_product,
+                                                             cart=obj.ordered_product.order.ordered_cart).last()
 
-        if cart_product.retailer_product.product_pack_type == 'loose':
-            if cart_product.qty_conversion_unit:
-                return cart_product.qty_conversion_unit.unit
+            if cart_product.retailer_product.product_pack_type == 'loose':
+                if cart_product.qty_conversion_unit:
+                    return cart_product.qty_conversion_unit.unit
+                else:
+                    return MeasurementUnit.objects.get(category=cart_product.retailer_product.measurement_category, default=True).unit
             else:
-                return MeasurementUnit.objects.get(category=cart_product.retailer_product.measurement_category, default=True).unit
-        else:
-            return None
+                return None
+        except:
+            return ''
 
     def get_picked_qty(self, obj):
         """
             qty purchased
         """
-        return obj.shipped_qty
+        try:
+            return obj.shipped_qty
+        except:
+            return ''
 
     def get_product_subtotal(self, obj):
         """
             Received amount for product
         """
-        return obj.selling_price * obj.shipped_qty
+        try:
+            return obj.selling_price * obj.shipped_qty
+        except:
+            return ''
 
     def get_received_effective_price(self, obj):
         """
             Effective price for product after cart discount
         """
-        return obj.effective_price * obj.shipped_qty
+        try:
+            return obj.effective_price * obj.shipped_qty
+        except:
+            return ''
 
     class Meta:
         model = OrderedProductMapping
@@ -2543,6 +2581,7 @@ class PosGrnOrderCreateSerializer(serializers.ModelSerializer):
                                                   PosInventoryState.AVAILABLE, product['received_qty'], user,
                                                   grn_order.grn_id, PosInventoryChange.GRN_ADD,
                                                   product['pack_size'])
+                mark_pos_product_online_enabled(product['product_id'])
             total_grn_qty = PosGRNOrderProductMapping.objects.filter(grn_order__order=po.pos_po_order).aggregate(
                 Sum('received_qty')).get('received_qty__sum')
             total_grn_qty = total_grn_qty if total_grn_qty else 0
@@ -2550,6 +2589,7 @@ class PosGrnOrderCreateSerializer(serializers.ModelSerializer):
             total_po_qty = PosCartProductMapping.objects.filter(cart=po).aggregate(Sum('qty')).get('qty__sum')
             po.status = PosCart.DELIVERED if total_po_qty == total_grn_qty else po_status
             po.save()
+
             # Upload invoice
             if 'invoice' in validated_data and validated_data['invoice']:
                 Document.objects.create(grn_order=grn_order, document=validated_data['invoice'],

@@ -1,6 +1,6 @@
 from django.db.models import Q, Sum, F
 from retailer_backend.utils import SmallOffsetPagination
-from rest_framework import authentication
+from rest_auth import authentication
 from rest_framework.permissions import AllowAny
 from shops.models import Shop, FOFOConfigurations, FOFOConfigSubCategory
 from django.http import HttpResponse

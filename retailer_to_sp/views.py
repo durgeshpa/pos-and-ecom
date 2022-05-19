@@ -1709,7 +1709,7 @@ class OrderCancellation(object):
             .last().get('id')
         # creating note id
         note_id = brand_credit_note_pattern(Note, 'credit_note_id',
-                                            None, address_id)
+                                            self.last_shipment_instance, address_id)
 
         credit_amount = 0
 
@@ -1733,8 +1733,8 @@ class OrderCancellation(object):
         # update credit note amount
         credit_note.amount = credit_amount
         tcs_percent = self.last_shipment_instance.invoice.tcs_percent / 100
-        credit_note.tcs_amount = credit_amount * tcs_percent
-        credit_note.note_total = credit_amount * (1 + tcs_percent)
+        credit_note.tcs_amount = round(credit_amount * tcs_percent, 2)
+        credit_note.note_total = credit_amount + credit_note.tcs_amount
         credit_note.save()
 
     def update_sp_qty_from_cart_or_shipment(self):

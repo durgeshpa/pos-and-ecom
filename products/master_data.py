@@ -530,7 +530,7 @@ class UploadMasterData(object):
             cat_data = []
             if not b2c:
                 categories = Category.objects.all()
-                fields = ["name", "category_slug", "category_desc", "category_sku_part",
+                fields = ["name", "category_slug", "category_desc", "category_sku_part", "category_type",
                           "b2b_parent_category_id", "status"]
 
             else:
@@ -561,6 +561,8 @@ class UploadMasterData(object):
                             category.update(category_desc=row['category_desc'])
                         if col == 'category_sku_part':
                             category.update(category_sku_part=row['category_sku_part'])
+                        if col == 'category_type':
+                            category.update(category_type=row['category_type'])
                         if col == 'status':
                             category.update(status=True if str(row['status'].lower()) == 'active' else False)
                         if col == 'b2b_parent_category_id':
@@ -786,6 +788,7 @@ class UploadMasterData(object):
                         if row['b2b_parent_category_id'] else None,
                         category_desc=row['category_desc'],
                         category_sku_part=row['category_sku_part'],
+                        category_type = row['category_type'],
                         status=True if str(row['status'].lower()) == 'active' else False,
                         created_by=user)
                     CategoryCls.create_category_log(cat_obj, "created")
@@ -971,14 +974,14 @@ class DownloadMasterData(object):
         response, writer = DownloadMasterData.response_workbook("bulk_parent_product_create_sample")
 
         columns = ["product_name", "brand_id", "brand_name", "b2b_category_name", "b2c_category_name", "hsn", "gst",
-                   "cess", "surcharge", "inner_case_size", "brand_case_size", "product_type", "is_ptr_applicable",
+                   "cess", "surcharge", "inner_case_size", "brand_case_size", "is_ptr_applicable",
                    "ptr_type", "ptr_percent", "is_ars_applicable", "discounted_life_percent", "max_inventory_in_days", "is_lead_time_applicable",
                    "status"]
         writer.writerow(columns)
         data = [["parent1", "2", "Too Yumm", "Health Care, Beverages, Grocery & Staples", "Grocery & Staples", "123456",
-                 "18", "12", "100", "10", "2", "both", "yes", "Mark Up", "12", "yes", "2", "2", "yes", "deactivated"],
+                 "18", "12", "100", "10", "2", "yes", "Mark Up", "12", "yes", "2", "2", "yes", "deactivated"],
                 ["parent2", "2", "Too Yumm", "Health Care, Beverages", "Grocery & Staples", "123456", "18", "12", "100",
-                 "10", "2", "both", "yes", "Mark Up", "12", "yes", "0.0", "2", "yes", "active"]]
+                 "10", "2", "yes", "Mark Up", "12", "yes", "0.0", "2", "yes", "active"]]
 
         for row in data:
             writer.writerow(row)
@@ -1037,10 +1040,10 @@ class DownloadMasterData(object):
                        "category_sku_part", "status"]
         else:
             columns = ["name", "category_slug", "category_desc", "b2b_category_parent", "b2b_parent_category_id",
-                       "category_sku_part", "status"]
+                       "category_sku_part", "category_type", "status"]
         writer.writerow(columns)
-        data = [["Home Improvement", "home_improvement", "XYZ", "Processed Food", "2", "HMI", "active"],
-                ["Electronics", "electronics", "XYZ", "Processed Food", "2", "KGF", "deactivated"]]
+        data = [["Home Improvement", "home_improvement", "XYZ", "Processed Food", "2", "HMI", "grocery", "active"],
+                ["Electronics", "electronics", "XYZ", "Processed Food", "2", "KGF", "superstore", "deactivated"]]
         for row in data:
             writer.writerow(row)
 
@@ -1279,20 +1282,37 @@ class DownloadMasterData(object):
             categories = B2cCategory.objects.values('id', 'category_name', 'category_slug', 'category_desc', 'status',
                                                     'category_sku_part', 'category_parent',
                                                     'category_parent__category_name')
+            writer.writerow(columns)
+            for category in categories:
+                row = [category['id'], 
+                    category['category_name'], 
+                    category['category_slug'], 
+                    category['category_desc'],
+                    category['category_sku_part'],
+                    category['category_parent'],
+                    category['category_parent__category_name'],
+                    'active' if category['status'] is True else 'deactivated']
+
+                writer.writerow(row)
         else:
-            columns = ["b2b_category_id", "name", "category_slug", "category_desc", "category_sku_part",
+            columns = ["b2b_category_id", "name", "category_slug", "category_desc", "category_sku_part", "category_type"
                        "b2b_parent_category_id", "b2b_parent_category_name", "status"]
             categories = Category.objects.values('id', 'category_name', 'category_slug', 'category_desc', 'status',
-                                                 'category_sku_part', 'category_parent',
+                                                 'category_sku_part', 'category_type', 'category_parent',
                                                  'category_parent__category_name')
-        writer.writerow(columns)
-        for category in categories:
-            row = [category['id'], category['category_name'], category['category_slug'], category['category_desc'],
-                   category['category_sku_part'], category['category_parent'],
-                   category['category_parent__category_name'],
-                   'active' if category['status'] is True else 'deactivated']
+            writer.writerow(columns)
+            for category in categories:
+                row = [category['id'], 
+                    category['category_name'], 
+                    category['category_slug'], 
+                    category['category_desc'],
+                    category['category_sku_part'],
+                    category['category_type'],
+                    category['category_parent'],
+                    category['category_parent__category_name'],
+                    'active' if category['status'] is True else 'deactivated']
 
-            writer.writerow(row)
+                writer.writerow(row)
         info_logger.info("Update Category Sample File has been Successfully Downloaded")
         response.seek(0)
         return response

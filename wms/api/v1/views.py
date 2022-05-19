@@ -18,7 +18,8 @@ from shops.models import Shop
 from products.models import Repackaging
 from retailer_to_sp.models import Order, PickerDashboard, ShipmentPackaging
 from rest_framework.views import APIView
-from rest_framework import permissions, authentication
+from rest_framework import permissions
+from rest_auth import authentication
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.db.models import Q, Sum, Case, When, F
 from django.db import transaction, models
@@ -825,7 +826,8 @@ class PickupDetail(APIView):
                                 info_logger.info('PickupDetail|POST API| Bin Inventory Object not found, Bin Inv ID-{}'
                                                  .format(bin_inv_id))
                                 continue
-                            CommonBinInventoryFunctions.deduct_to_be_picked_from_bin(pickup_quantity, bin_inv_obj)
+                            CommonBinInventoryFunctions.deduct_to_be_picked_from_bin(pickup_quantity, bin_inv_obj,
+                                                                                     tr_id, tr_type)
 
                             CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
                                 warehouse, sku, inventory_type, state_to_be_picked, -1 * pickup_quantity, tr_type, tr_id)
@@ -935,7 +937,8 @@ class PickupComplete(APIView):
                                 info_logger.info('PickupComplete|POST API| Bin Inventory Object not found, '
                                                  'Bin Inv ID-{}'.format(bin_inv_id))
                                 continue
-                            CommonBinInventoryFunctions.deduct_to_be_picked_from_bin(reverse_quantity, bin_inv_obj)
+                            CommonBinInventoryFunctions.deduct_to_be_picked_from_bin(reverse_quantity, bin_inv_obj,
+                                                                                     pickup.pk, tr_type)
                             info_logger.info("PickupComplete : reverse quantity for SKU {} - {}"
                                              .format(pickup.sku, reverse_quantity))
 
