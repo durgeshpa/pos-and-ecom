@@ -947,7 +947,7 @@ class WarehouseInternalInventoryChangeAdmin(admin.ModelAdmin):
 class BinInternalInventoryChangeAdmin(admin.ModelAdmin):
     list_display = ('warehouse', 'sku', 'batch_id', 'initial_inventory_type', 'final_inventory_type', 'initial_bin',
                     'final_bin', 'transaction_type', 'transaction_id',
-                    'quantity_display', 'weight_in_kg', 'created_at', 'modified_at', 'inventory_csv')
+                    'quantity_display', 'to_be_picked_qty',  'weight_in_kg', 'created_at', 'modified_at', 'inventory_csv')
     list_filter = [Warehouse, SKUFilter, BatchIdFilter, InitialInventoryTypeFilter, FinalInventoryTypeFilter,
                    InitialBinIDFilter, FinalBinIDFilter, ('transaction_type', DropdownFilter),
                    TransactionIDFilter]

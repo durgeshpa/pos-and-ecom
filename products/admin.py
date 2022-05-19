@@ -487,13 +487,13 @@ class ParentProductCategoryAdmin(TabularInline):
     model = ParentProductCategory
     autocomplete_fields = ['category', ]
     #formset = RequiredInlineFormSet  # or AtLeastOneFormSet
-    formset = ProductB2bCategoryFormSet
+    #formset = ProductB2bCategoryFormSet
 
 
 class ParentProductB2cCategoryAdminInline(TabularInline):
     model = ParentProductB2cCategory
     autocomplete_fields = ['category', ]
-    formset = ProductB2cCategoryFormSet
+    #formset = ProductB2cCategoryFormSet
 
 
 @admin.register(ParentProductB2cCategory)

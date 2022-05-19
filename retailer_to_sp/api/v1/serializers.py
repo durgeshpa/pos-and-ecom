@@ -3663,15 +3663,46 @@ class LoadVerifyPackageSerializer(serializers.ModelSerializer):
                 trip_shipment.save()
 
 
+class DispatchTripShipmentMappingBasicSerializer(serializers.ModelSerializer):
+    trip = DispatchTripSerializers(read_only=True)
+    shipment = ShipmentSerializerForDispatch(read_only=True)
+    shipment_status = serializers.CharField(read_only=True)
+    shipment_health = serializers.CharField(read_only=True)
+
+    class Meta:
+        model = DispatchTripShipmentMapping
+        fields = ('id', 'trip', 'shipment', 'shipment_status', 'shipment_health',)
+
+
+class ShipmentPackagingBasicSerializer(serializers.ModelSerializer):
+    packaging_details = DispatchItemDetailsSerializer(many=True, read_only=True)
+    status = serializers.SerializerMethodField()
+    crate = CrateSerializer(read_only=True)
+    packaging_type = serializers.CharField(read_only=True)
+
+    @staticmethod
+    def get_status(obj):
+        return obj.get_status_display()
+
+    @staticmethod
+    def get_reason_for_rejection(obj):
+        return obj.get_reason_for_rejection_display()
+
+    class Meta:
+        model = ShipmentPackaging
+        fields = ('id', 'packaging_type', 'crate', 'status', 'reason_for_rejection', 'created_by', 'packaging_details')
+
 
 class UnloadVerifyPackageSerializer(serializers.ModelSerializer):
-    trip_shipment = DispatchTripShipmentMappingSerializer(read_only=True)
+    trip_shipment = DispatchTripShipmentMappingBasicSerializer(read_only=True)
+    shipment_packaging = ShipmentPackagingBasicSerializer(read_only=True)
+    package_status = serializers.CharField(read_only=True)
     created_by = UserSerializer(read_only=True)
     updated_by = UserSerializer(read_only=True)
 
     class Meta:
         model = DispatchTripShipmentPackages
-        fields = ('trip_shipment', 'created_by', 'updated_by')
+        fields = ('trip_shipment', 'shipment_packaging', 'package_status', 'created_by', 'updated_by')
 
     def validate(self, data):
         # Validate request data

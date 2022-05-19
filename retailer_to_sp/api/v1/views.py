@@ -381,7 +381,6 @@ class SearchProducts(APIView):
             must_not = {"exists": {"field": "ean"}}
         if ean_code and ean_code != '':
             filter_list.append({"term": {"ean": ean_code}})
-        filter_list.append({"term": {"product_type": 'grocery'}})
         body = dict()
         if filter_list and must_not:
             body["query"] = {"bool": {"filter": filter_list, "must_not": must_not}}
@@ -471,7 +470,7 @@ class SearchProducts(APIView):
             #sub_category = sub_category_ids.split(',')
             #sub_category_filter = str(categorymodel.Category.objects.filter(id__in=sub_category, status=True).last())
             filter_list.append({"term": {"sub_category": sub_category_ids}})
-        filter_list.append({"term": {"product_type": 'grocery'}})
+
 
         elastic_logger.info("Filter list :: {}".format(filter_list))
         elastic_logger.info("Query string :: {}".format(query_string))
@@ -9592,11 +9591,31 @@ class LoadVerifyPackageView(generics.GenericAPIView):
         validated_trip = validate_trip_user(modified_data['trip_id'], request.user)
         if 'error' in validated_trip:
             return get_response(validated_trip['error'])
+        return_all_pkgs = False
+        if 'return_all_pkgs' in modified_data and modified_data['return_all_pkgs'] is True:
+            return_all_pkgs = True
         serializer = self.serializer_class(data=modified_data, context={'current_user': request.user})
         if serializer.is_valid():
             serializer.save(created_by=request.user)
             info_logger.info("Package loaded Successfully.")
-            return get_response('Package loaded successfully!', serializer.data)
+            # return get_response('Package loaded successfully!', serializer.data)
+            query_set = ShipmentPackaging.objects.\
+                select_related('crate', 'warehouse', 'warehouse__shop_owner', 'shipment', 'shipment__invoice',
+                               'shipment__order', 'shipment__order__shipping_address',
+                               'shipment__order__buyer_shop', 'shipment__order__shipping_address__shop_name',
+                               'shipment__order__buyer_shop__shop_owner', 'warehouse__shop_type',
+                               'warehouse__shop_type__shop_sub_type', 'created_by', 'updated_by').\
+                prefetch_related('packaging_details', 'trip_packaging_details', 'shipment__trip_shipment',
+                                 'shipment__last_mile_trip_shipment')
+            if not return_all_pkgs:
+                query_set = query_set.get(id=modified_data['package_id'])
+                return get_response('Package loaded successfully!', ShipmentPackageSerializer(query_set).data)
+            else:
+                packaging_data = ShipmentPackaging.objects.get(id=modified_data['package_id'])
+                query_set = query_set.filter(shipment=packaging_data.shipment,
+                                             movement_type=packaging_data.movement_type)
+                return get_response('Package loaded successfully!',
+                                    ShipmentPackageSerializer(query_set, many=True).data)
         return get_response(serializer_error(serializer), False)
 
 
@@ -9606,7 +9625,14 @@ class CurrentlyLoadingShipmentPackagesView(generics.GenericAPIView):
     """
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
-    queryset = ShipmentPackaging.objects.order_by('-id')
+    queryset = ShipmentPackaging.objects.\
+        select_related('crate', 'warehouse', 'warehouse__shop_owner', 'shipment', 'shipment__invoice',
+                       'shipment__order', 'shipment__order__shipping_address',
+                       'shipment__order__buyer_shop', 'shipment__order__shipping_address__shop_name',
+                       'shipment__order__buyer_shop__shop_owner', 'warehouse__shop_type',
+                       'warehouse__shop_type__shop_sub_type', 'created_by', 'updated_by').\
+        prefetch_related('packaging_details', 'trip_packaging_details', 'shipment__trip_shipment',
+                         'shipment__last_mile_trip_shipment').order_by('-id')
     serializer_class = ShipmentPackageSerializer
 
     def get_loading_shipment_by_trip_and_user(self, user, trip):
@@ -9638,10 +9664,9 @@ class CurrentlyLoadingShipmentPackagesView(generics.GenericAPIView):
         if trip_instance.trip_type == DispatchTrip.BACKWARD:
             self.queryset = self.queryset.filter(movement_type=ShipmentPackaging.RETURNED)
         no_of_packages = self.queryset.count()
-        shipment_packages_data = SmallOffsetPagination().paginate_queryset(self.queryset, request)
 
-        serializer = self.serializer_class(shipment_packages_data, many=True)
-        msg = f"total count {no_of_packages}" if shipment_packages_data else "no package found"
+        serializer = self.serializer_class(self.queryset, many=True)
+        msg = f"total count {no_of_packages}" if self.queryset.exists() else "no package found"
         return get_response(msg, serializer.data, True)
 
 

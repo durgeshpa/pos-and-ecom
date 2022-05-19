@@ -437,7 +437,8 @@ def create_repackaging_pickup(sender, instance=None, created=False, **kwargs):
                             # bin_inv.quantity = remaining_qty
                             # bin_inv.to_be_picked_qty += already_picked
                             # bin_inv.save()
-                            CommonBinInventoryFunctions.move_to_to_be_picked(already_picked, bin_inv)
+                            CommonBinInventoryFunctions.move_to_to_be_picked(already_picked, bin_inv, pickup_obj.pk,
+                                                                             'pickup_created')
                             qty = 0
                             Out.objects.create(warehouse=rep_obj.seller_shop,
                                                out_type='repackaging',
@@ -462,7 +463,8 @@ def create_repackaging_pickup(sender, instance=None, created=False, **kwargs):
                             # bin_inv.quantity = qty_in_bin - already_picked
                             # bin_inv.to_be_picked_qty += already_picked
                             # bin_inv.save()
-                            CommonBinInventoryFunctions.move_to_to_be_picked(already_picked, bin_inv)
+                            CommonBinInventoryFunctions.move_to_to_be_picked(already_picked, bin_inv, pickup_obj.pk,
+                                                                             'pickup_created')
                             qty = remaining_qty
                             Out.objects.create(warehouse=rep_obj.seller_shop,
                                                out_type='repackaging',
