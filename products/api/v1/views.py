@@ -373,6 +373,7 @@ class ParentProductView(GenericAPIView):
         product_status = self.request.GET.get('status')
         tax_status = self.request.GET.get('tax_status')
         search_text = self.request.GET.get('search_text')
+        product_type = self.request.GET.get('product_type')
 
         # search using parent_id, name & category_name based on criteria that matches
         if search_text:
@@ -384,6 +385,8 @@ class ParentProductView(GenericAPIView):
             self.queryset = self.queryset.filter(status=product_status)
         if tax_status is not None:
             self.queryset = self.queryset.filter(tax_status=tax_status)
+        if product_type is not None:
+            self.queryset = self.queryset.filter(product_type=product_type)
         if category is not None:
             self.queryset = self.queryset.filter(
                 parent_product_pro_category__category__id=category)
@@ -429,6 +432,46 @@ class ProductPackingMappingView(GenericAPIView):
             pack_mat_product = SmallOffsetPagination().paginate_queryset(self.queryset, request)
         serializer = self.serializer_class(pack_mat_product, many=True)
         msg = "" if pack_mat_product else "no product package mapping found"
+        return get_response(msg, serializer.data, True)
+
+
+class SiblingProductView(GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    queryset = ChildProduct.objects.select_related('parent_product', 'updated_by', 'created_by') \
+        .prefetch_related('product_pro_image', 'product_vendor_mapping', 'parent_product__parent_product_pro_image',
+                          'parent_product__product_parent_product__product_pro_image',
+                          'child_product_log', 'child_product_log__updated_by', 'destination_product_pro',
+                          'parent_product__parent_product_pro_category', 'destination_product_pro__source_sku',
+                          'parent_product__parent_product_pro_category__category', 'packing_product_rt',
+                          'destination_product_repackaging', 'packing_product_rt__packing_sku',
+                          'parent_product__product_parent_product__product_vendor_mapping',
+                          'parent_product__parent_product_log', 'parent_product__parent_product_log__updated_by',
+                          'parent_product__product_parent_product__product_vendor_mapping__vendor', 'product_pro_tax',
+                          'parent_product__product_hsn', 'product_vendor_mapping__vendor', 'product_pro_tax__tax',
+                          'parent_product__product_parent_product__product_vendor_mapping',
+                          'parent_product__parent_brand', 'parent_product__parent_product_pro_tax',
+                          'parent_product__parent_product_pro_tax__tax', ).order_by('-id')
+
+    serializer_class = ChildProductSerializers
+
+    def get(self, request):
+        """"GET API for Sibling Product with Image Category & Tax """
+        if request.GET.get('id'):
+            """ Get Child Product for specific ID """
+            id_validation = validate_id(self.queryset, int(request.GET.get('id')))
+            if 'error' in id_validation:
+                return get_response(id_validation['error'])
+            child_product = id_validation['data']
+
+        serializer = self.serializer_class(child_product, many=True)
+        parent_id = serializer.data[0]["parent_product"]["parent_id"]
+        if parent_id:
+            self.queryset = self.queryset.filter(parent_product__parent_id=parent_id).exclude(id=request.GET.get('id'))
+            sib_pro_total_count = self.queryset.count()
+            sibling_product = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+            serializer = self.serializer_class(sibling_product, many=True)
+        msg = f"TOTAL SIBLING PRODUCT :: {sib_pro_total_count}" if sibling_product else "No sibling product found"
         return get_response(msg, serializer.data, True)
 
 

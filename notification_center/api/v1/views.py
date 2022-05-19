@@ -28,10 +28,11 @@ class DeviceViewSet(viewsets.ModelViewSet):
     def list(self,  request, *args, **kwargs):
 
         dev_id = request.GET.get('dev_id', None)
+        app_type = request.GET.get('app_type', None)
         if dev_id is None:
             return Response({'is_success': False, 'message': "Please Provide dev id", 'response_data': None},
                             status=status.HTTP_406_NOT_ACCEPTABLE)
-        queryset = self.queryset.filter(dev_id=dev_id)
+        queryset = self.queryset.filter(dev_id=dev_id, app_type=app_type)
         serializer = self.serializer_class(queryset, many=True)
         msg = {'is_success': True, 'message': None, 'response_data': serializer.data}
         return Response(msg, status=status.HTTP_200_OK)

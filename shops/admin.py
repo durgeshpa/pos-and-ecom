@@ -16,7 +16,7 @@ from .models import (
     PosShopUserMapping, Shop, ShopType, RetailerType, ParentRetailerMapping,
     ShopPhoto, ShopDocument, ShopInvoicePattern, ShopUserMapping,
     ShopRequestBrand, SalesAppVersion, ShopTiming, FavouriteProduct, BeatPlanning, DayBeatPlanning, ExecutiveFeedback,
-    ShopStatusLog, FOFOConfigCategory, FOFOConfigSubCategory, FOFOConfigurations, FOFOConfig)
+    ShopStatusLog, FOFOConfigCategory, FOFOConfigSubCategory, FOFOConfigurations, FOFOConfig, ShopFcmTopic)
 from addresses.models import Address, DispatchCenterCityMapping, DispatchCenterPincodeMapping, ShopRoute
 from addresses.forms import AddressForm, ShopRouteForm
 from .forms import (ParentRetailerMappingForm, PosShopUserMappingForm, ShopParentRetailerMappingForm,
@@ -276,7 +276,7 @@ class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
     resource_class = ShopResource
     form = ShopForm
     fields = ['shop_name', 'shop_owner', 'shop_type', 'status', 'pos_enabled', 'online_inventory_enabled',
-              'enable_loyalty_points',
+              'enable_loyalty_points', 'superstore_enable',
               'latitude', 'longitude', 'approval_status', 'cutoff_time', 'disapproval_status_reason']
     actions = ["export_as_csv", "disable_shop", "download_status_report", "download_shop_routes"]
     inlines = [
@@ -841,6 +841,23 @@ class ShopStatusLogAdmin(admin.ModelAdmin):
         return False
 
     def has_delete_permission(self, request, obj=None):
+        return False
+
+
+@admin.register(ShopFcmTopic)
+class ShopFcmTopicAdmin(admin.ModelAdmin):
+    fields = ('shop', 'topic_name', 'registration_ids', 'created_at', 'modified_at')
+    readonly_fields = ('shop', 'topic_name', 'registration_ids', 'created_at', 'modified_at')
+    search_fields = ('shop__shop_name', 'topic_name')
+    list_filter = [ShopFilter]
+    
+    def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+    
+    def has_change_permission(self, request, obj=None):
         return False
 
 

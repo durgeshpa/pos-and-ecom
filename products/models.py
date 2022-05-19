@@ -605,13 +605,15 @@ class ProductPrice(models.Model):
         (APPROVAL_PENDING, 'Approval Pending'),
         (DEACTIVATED, 'Deactivated'),
     )
-    product = models.ForeignKey(Product, related_name='product_pro_price',
+    product = models.ForeignKey(Product, 
+                                related_name='product_pro_price',
                                 on_delete=models.CASCADE)
     mrp = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     selling_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=False)
     seller_shop = models.ForeignKey(Shop, related_name='shop_product_price',
                                     null=True, blank=True,
                                     on_delete=models.CASCADE)
+    is_superstore = models.BooleanField(default=False)
     buyer_shop = models.ForeignKey(Shop,
                                    related_name='buyer_shop_product_price',
                                    null=True, blank=True,
@@ -1095,7 +1097,6 @@ def create_product_sku(sender, instance=None, created=False, **kwargs):
             instance.product_sku = "%s%s%s%s" % (cat_sku_code, parent_cat_sku_code, brand_sku_code, last_sku_increment)
         elif instance.product_type == Product.PRODUCT_TYPE_CHOICE.DISCOUNTED:
             instance.product_sku = 'D' + instance.product_ref.product_sku
-
 
 class ProductCapping(models.Model):
     product = models.ForeignKey(Product, related_name='product_pro_capping',

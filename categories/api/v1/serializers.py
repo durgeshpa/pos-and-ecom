@@ -145,24 +145,29 @@ class ParentCategorySerializers(serializers.ModelSerializer):
     class Meta:
         model = Category
 
-        fields = ('id', 'category_name', 'category_image')
+        fields = ('id', 'category_name', 'category_image', 'category_parent')
 
     def to_representation(self, instance):
         representation = super().to_representation(instance)
         if representation['category_image']:
             representation['category_image_png'] = representation['category_image']
+        if instance.category_parent:
+            representation['category_parent'] = ParentCategorySerializers(instance.category_parent).data
         return representation
 
 class B2cParentCategorySerializers(serializers.ModelSerializer):
+
     class Meta:
         model = B2cCategory
 
-        fields = ('id', 'category_name', 'category_image')
+        fields = ('id', 'category_name', 'category_image', 'category_parent')
 
     def to_representation(self, instance):
         representation = super().to_representation(instance)
         if representation['category_image']:
             representation['category_image_png'] = representation['category_image']
+        if instance.category_parent:
+            representation['category_parent'] = B2cParentCategorySerializers(instance.category_parent).data
         return representation
 
 

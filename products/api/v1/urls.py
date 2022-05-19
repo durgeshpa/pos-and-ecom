@@ -1,7 +1,7 @@
 from django.conf.urls import url
 from .views import ParentProductView, ParentProductExportAsCSVView, HSNListView, \
-    ActiveDeactiveSelectedParentProductView, ProductCappingView, ProductVendorMappingView, ChildProductView, TaxView, \
-    BrandListView, CategoryListView, ProductPackingMappingView, SourceProductMappingView, ParentProductListView, \
+    ActiveDeactiveSelectedParentProductView, ProductCappingView, ProductVendorMappingView, ChildProductView, SiblingProductView,\
+    TaxView, BrandListView, CategoryListView, ProductPackingMappingView, SourceProductMappingView, ParentProductListView, \
     ActiveDeactiveSelectedChildProductView, ChildProductExportAsCSVView, TaxListView, TaxExportAsCSVView, \
     WeightView, WeightExportAsCSVView, ProductHSNView, HSNExportAsCSVView, ChildProductListView, VendorListView, \
     ProductStatusListView, ProductVendorMappingExportAsCSVView, ActiveChildProductListView, SellerShopListView, \
@@ -16,6 +16,7 @@ urlpatterns = [
     url(r'^parent-product/', ParentProductView.as_view(), name='parent-product'),
     url(r'^get-parent-product/', ParentProductListView.as_view(), name='get-parent-product'),
     url(r'^child-product/', ChildProductView.as_view(), name='child-product'),
+    url(r'^sibling-product/', SiblingProductView.as_view(), name='child-product'),
     url(r'^discounted-child-product/', DiscountProductView.as_view(), name='discounted-child-product'),
     url(r'^parent-download-bulk-product/', ParentProductExportAsCSVView.as_view(), name='parent-download-bulk-product'),
     url(r'^parent-product-active-deactive/', ActiveDeactiveSelectedParentProductView.as_view(),

@@ -150,7 +150,8 @@ class RewardConfigShopListView(GenericAPIView):
         shop = self.request.GET.get('shop_id')
         '''search using shop_name and parent_shop based on criteria that matches'''
         if search_text:
-            self.queryset = shop_search(self.queryset, search_text)
+            self.queryset = self.queryset.filter(Q(shop_name__icontains=search_text) |
+                               Q(retiler_mapping__parent__shop_name__icontains=search_text))
 
         '''Filters using shop_type, shop_owner, pin_code, city, status, approval_status'''
         if shop:
@@ -173,9 +174,10 @@ class RewardConfigShopListView(GenericAPIView):
         return self.queryset.distinct('id')
 def create_or_update(id,data):
     data_list = data
-    for data in data_list:
+    for key in data_list.keys():
+        reward_configration_key = FOFOConfigSubCategory.objects.get(name=key)
         instance, created = FOFOConfigurations.objects.update_or_create(
-            shop=id, key_id=data['key_id'], defaults={'value': data['value']})
+            shop=id, key_id=reward_configration_key.id, defaults={"value":data[reward_configration_key.name]})
         instance.save()
 
 class RewardConfigShopCrudView(GenericAPIView):
@@ -299,3 +301,23 @@ class ShopRewardConfigKeys(GenericAPIView):
         serializer = self.serializer_class(shop_type, many=True)
         msg = "" if shop_type else "no shop found"
         return get_response(msg, serializer.data, True)
+
+class BulkUpdate(GenericAPIView):
+    """Bulk update reward configartions """
+    authentication_classes = (authentication.TokenAuthentication,)
+    queryset = FOFOConfigSubCategory.objects.all()
+    serializer_class = ShopRewardConfigKeySerilizer
+    def put(self, request):
+        """bulk update shop reward configration .."""
+        data = request.data
+        queryset = Shop.objects.filter(id__in=data.get('id'))
+        for obj in queryset:
+            try:
+                create_or_update(obj, data.get('shop_config'))
+                obj.enable_loyalty_points = data.get('enable_loyalty_points', obj.enable_loyalty_points)
+                obj.updated_by=request.user
+                obj.save()
+            except Exception as e:
+                error_logger.error(e)
+                return get_response(str(e), False)
+        return get_response("updated successfully", "", True)

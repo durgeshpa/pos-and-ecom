@@ -59,7 +59,7 @@ def rewards_account(sales_obj, shop_map):
         sales_user = User.objects.filter(phone_number=sales_obj.phone_number).last()
         if sales_user and ReferralCode.is_marketing_user(sales_user):
             order_loyalty_points_credit(sales_obj.amount, sales_user.id, sales_obj.id, 'purchase_reward',
-                                        'indirect_reward', None, shop_map.shop.id)
+                                        'indirect_reward', None, shop_map.shop)
             return True
     return False
 

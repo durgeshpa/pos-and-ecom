@@ -62,7 +62,7 @@ class RewardsSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = RewardPoint
-        fields = ('phone', 'email', 'referral_code', 'redeemable_points', 'redeemable_discount', 'direct_earned',
+        fields = ('phone', 'email', 'referral_code', 'redeemable_points', 'direct_earned',
                   'indirect_earned', 'points_used', 'welcome_points')
 
 
@@ -168,7 +168,7 @@ class ShopSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Shop
-        fields = ('id', 'shop_name', 'online_inventory_enabled', 'shipping_address','shop_config')
+        fields = ('id', 'shop_name', 'online_inventory_enabled', 'superstore_enable', 'shipping_address','shop_config')
 
 
 class AddressSerializer(serializers.ModelSerializer):
@@ -548,6 +548,9 @@ class TagProductSerializer(serializers.ModelSerializer):
 class EcomShipmentProductSerializer(serializers.Serializer):
     product_id = serializers.IntegerField(min_value=1)
     picked_qty = serializers.IntegerField(min_value=0)
+    online_disabled_status = serializers.ChoiceField(choices=RetailerProduct.ONLINE_DISABLED_CHOICES, allow_blank=True,
+                                                     required=False)
+
 
 
 class EcomShipmentSerializer(serializers.Serializer):
@@ -565,7 +568,8 @@ class EcomShipmentSerializer(serializers.Serializer):
 
         order_products = {str(i.retailer_product_id): (
             i.retailer_product_id, i.qty, i.selling_price) for i in
-            CartProductMapping.objects.filter(cart=order.ordered_cart, product_type=1)}
+            CartProductMapping.objects.filter(cart=order.ordered_cart,
+                                              product_type=1)}
 
         # validate given picked products info
         products_info = attrs['products']
@@ -576,6 +580,9 @@ class EcomShipmentSerializer(serializers.Serializer):
                 raise serializers.ValidationError("{} Invalid product info".format(key))
             if item['picked_qty'] > order_products[key][1]:
                 raise serializers.ValidationError("Picked quantity should be less than ordered quantity")
+            if item['picked_qty'] < order_products[key][1] and (not 'online_disabled_status' in item and
+                                                                not item['online_disabled_status']):
+                raise serializers.ValidationError("Picked quantity is less than ordered quantity please provide reason")
 
             given_products += [key]
             item['selling_price'] = order_products[key][2]

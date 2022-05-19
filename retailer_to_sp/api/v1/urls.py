@@ -27,8 +27,8 @@ from .views import (ProductsList, SearchProducts, CartCentral, CartCheckout, Ord
                     ShipmentPackageProductsView, RemoveInvoiceFromTripView, DispatchCenterCrateView,
                     DispatchCenterShipmentPackageView, LoadLastMileInvoiceView, LastMileTripSummaryView,
                     LastMileLoadVerifyPackageView, RemoveLastMileInvoiceFromTripView,
-                    VerifyNotAttemptShipmentPackagesView, VerifyBackwardTripItems, BackwardTripQCView, VehicleDriverList,
-                    PosOrderUserSearchView)
+                    VerifyNotAttemptShipmentPackagesView, VerifyBackwardTripItems, BackwardTripQCView,
+                    VehicleDriverList, PosOrderUserSearchView, CurrentlyLoadingShipmentPackagesView)
 
 from retailer_backend.cron import sync_es_products_api
 router = routers.DefaultRouter()
@@ -142,6 +142,7 @@ urlpatterns = [
     url('trip-load-empty-crate/', LoadVerifyCrateView.as_view()),
     url('trip-unload-empty-crate/', UnloadVerifyCrateView.as_view()),
     url('trip-load-shipment/', LoadVerifyPackageView.as_view()),
+    url('trip-current-loading-shipment/', CurrentlyLoadingShipmentPackagesView.as_view()),
     url('trip-add-invoice/', LoadInvoiceView.as_view()),
     url('trip-unload-shipment/', UnloadVerifyPackageView.as_view()),
     url('last-mile-trips/', LastMileTripCrudView.as_view(), name='last_mile_trips'),

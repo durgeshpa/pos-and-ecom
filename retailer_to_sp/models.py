@@ -76,6 +76,7 @@ BULK = 'BULK'
 DISCOUNTED = 'DISCOUNTED'
 BASIC = 'BASIC'
 ECOM = 'EC0M'
+SUPERSTORE = 'SUPERSTORE'
 
 BULK_ORDER_STATUS = (
     (AUTO, 'Auto'),
@@ -109,7 +110,8 @@ CART_TYPES = (
     (BULK, 'Bulk'),
     (DISCOUNTED, 'Discounted'),
     (BASIC, 'Basic'),
-    (ECOM, 'Ecom')
+    (ECOM, 'Ecom'),
+    (SUPERSTORE, 'Super Store')
 )
 
 
@@ -180,7 +182,7 @@ class Cart(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
     redeem_points = models.IntegerField(default=0)
-    redeem_factor = models.IntegerField(default=0)
+    redeem_factor = models.FloatField(default=0)
 
     class Meta:
         verbose_name = 'Order Items Detail'
@@ -1078,6 +1080,8 @@ class Order(models.Model):
     delivery_option = models.CharField(max_length=50, choices=DELIVERY_CHOICE, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
+    latitude = models.DecimalField(max_digits=30, decimal_places=15, null=True,blank=True, verbose_name='Latitude For Ecommerce order')
+    longitude = models.DecimalField(max_digits=30, decimal_places=15, null=True,blank=True, verbose_name='Longitude For Ecommerce order')
 
     def __str__(self):
         return self.order_no or str(self.id)
@@ -3677,6 +3681,10 @@ class DispatchTrip(BaseTimestampUserModel):
             data['no_of_sacks'] += shipment_data['no_of_sacks'] if shipment_data.get('no_of_sacks') else 0
         return data
 
+    def total_empty_crates(self):
+        empty_crates = self.trip_empty_crates.all().count()
+        return empty_crates
+
 
 class DispatchTripShipmentMapping(BaseTimestampUserModel):
     LOADING_FOR_DC, LOADED_FOR_DC = 'LOADING_FOR_DC', 'LOADED_FOR_DC'
@@ -3849,6 +3857,13 @@ class ENoteData(Note):
         proxy = True
         verbose_name = 'e-note'
         verbose_name_plural = 'e-notes'
+
+
+class SearchKeywordLog(models.Model):
+    search_term = models.CharField(max_length=100,null=True)
+    search_frequency = models.IntegerField()
+    def __str__(self):
+        return self.search_term
 
 
 class BuyerPurchaseData(models.Model):
