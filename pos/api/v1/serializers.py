@@ -842,7 +842,7 @@ class BasicOrderListSerializer(serializers.ModelSerializer):
 
     def payment_data(self, obj):
         payment = [obj.rt_payment_retailer_order.last()]
-        return PaymentSerializer(payment, many=True).data if payment else None
+        return PaymentSerializer(payment, many=True).data if payment[0] else None
 
     def get_delivery_persons(self, obj):
 
