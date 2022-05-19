@@ -697,3 +697,22 @@ def create_logs_for_qc_desk_area_mapping(sender, instance=None, created=False, *
                     new_selling_price=instance.selling_price, updated_by=instance.updated_by)
         except:
             pass
+
+
+@receiver(post_save, sender=SuperStoreProductPrice)
+def update_super_store_product_price_elasticsearch(sender, instance=None, created=False, **kwargs):
+    info_logger.info("Inside update_super_store_product_price_elasticsearch, instance: " + str(instance))
+    if instance.product.parent_product.product_type == 'superstore':
+        shop_id = instance.seller_shop.id
+        product_id = instance.product.id
+        product_price = [
+            {
+                "product_price": instance.selling_price,
+            }
+        ]
+        try:
+            details = es.get(index=create_es_index(shop_id), id=product_id)['_source']
+            details["product_price"] = product_price
+            es.index(index=create_es_index(shop_id), doc_type='product', id=product_id, body=details)
+        except Exception as e:
+            info_logger.info("exception %s", e)
