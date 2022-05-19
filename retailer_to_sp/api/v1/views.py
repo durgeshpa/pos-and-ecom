@@ -3918,6 +3918,9 @@ class OrderCentral(APIView):
                     msg = "Please pickup your order tomorrow"
 
             order.estimate_delivery_time = msg
+            order.latitude = self.request.data.get('latitude', None)
+            order.longitude = self.request.data.get('longitude', None)
+
         order.save()
 
         if address:
