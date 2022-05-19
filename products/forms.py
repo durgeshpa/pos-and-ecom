@@ -556,14 +556,14 @@ class ProductForm(forms.ModelForm):
             'product_special_cess',)
 
     def clean(self):
-        if 'status' in self.cleaned_data and self.cleaned_data['status'] == 'active' and self.cleaned_data['parent_product'].product_type == 'grocery':
+        if 'status' in self.cleaned_data and self.cleaned_data['status'] == 'active' and self.cleaned_data['parent_product'].product_type == ParentProduct.GROCERY:
             error = True
             if self.instance.id and ProductPrice.objects.filter(approval_status=ProductPrice.APPROVED,
                                                                 product_id=self.instance.id).exists():
                 error = False
             if error:
                 raise forms.ValidationError("Product cannot be made active until an active Product Price exists")
-        elif 'status' in self.cleaned_data and self.cleaned_data['status'] == 'active' and self.cleaned_data['parent_product'].product_type == 'superstore':
+        elif 'status' in self.cleaned_data and self.cleaned_data['status'] == 'active' and self.cleaned_data['parent_product'].product_type == ParentProduct.SUPERSTORE:
             error = True
             if self.instance.id and SuperStoreProductPrice.objects.filter(product_id=self.instance.id).exists():
                 error = False

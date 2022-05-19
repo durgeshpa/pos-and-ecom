@@ -3203,12 +3203,11 @@ def create_order_no(sender, instance=None, created=False, **kwargs):
                         address_type='billing').last().pk)
             instance.order_no = order_no
         if instance.ordered_cart.cart_type in ['ECOM', 'SUPERSTORE']:
-            const = "EO" if instance.ordered_cart.cart_type == 'ECOM' else "ST"
             instance.order_no = common_function.order_id_pattern(
                 sender, 'order_no', instance.pk,
                 instance.seller_shop.
                     shop_name_address_mapping.filter(
-                    address_type='billing').last().pk, const)
+                    address_type='billing').last().pk, "EO")
         elif instance.ordered_cart.cart_type == 'BULK':
             instance.order_no = common_function.order_id_pattern_bulk(
                 sender, 'order_no', instance.pk,

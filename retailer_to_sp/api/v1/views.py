@@ -4298,10 +4298,12 @@ class OrderCentral(APIView):
             shipment_product = ShipmentProducts.objects.create(
                 ordered_product = shipment,
                 product_id = product['cart_product'],
-                product_type = product['selling_price']
+                product_type = product['selling_price'],
+                shipped_qty = product['qty']
             )
             OrderedProductBatch.objects.create(ordered_product_mapping=shipment_product, 
-                                               quantity=product['qty'])
+                                               quantity=product['qty'],
+                                               pickup_quantity=product['qty'])
 
     def discounted_product_in_stock(self, cart_products):
         if cart_products.filter(retailer_product__sku_type=4).exists():

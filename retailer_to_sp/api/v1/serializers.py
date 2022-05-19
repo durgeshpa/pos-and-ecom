@@ -569,7 +569,7 @@ class SuperStoreProductSearchSerializer(serializers.ModelSerializer):
     product_price_detail = serializers.SerializerMethodField()
     
     def get_product_price_detail(self, instance):
-        price = instance.super_store_product_price.last()
+        price = instance.get_superstore_price
         if price:
             return {'mrp': price.mrp, 'selling_price': price.selling_price}
         return None

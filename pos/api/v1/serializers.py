@@ -708,7 +708,7 @@ class CheckoutSerializer(serializers.ModelSerializer):
     def get_total_mrp(self,obj):
         if obj.cart_type == 'SUPERSTORE':
             total = sum([
-                cart_pro.cart_product.super_store_product_price.last().selling_price for cart_pro in obj.rt_cart_list.all()
+                cart_pro.cart_product.get_superstore_price.selling_price for cart_pro in obj.rt_cart_list.all()
             ])
             return total
         else:
