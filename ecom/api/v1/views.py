@@ -14,7 +14,7 @@ from pos.models import RetailerProduct
 from retailer_backend.utils import SmallOffsetPagination
 from retailer_to_sp.models import Order
 from pos.models import ShopCustomerMap
-from global_config.views import get_config
+from global_config.views import get_config, get_config_fofo_shop
 from global_config.models import GlobalConfig
 
 
@@ -57,13 +57,18 @@ class RewardsView(APIView):
     authentication_classes = (TokenAuthentication,)
 
     @check_ecom_user
+    @check_ecom_user_shop
     def get(self, request, *args, **kwargs):
         """
         All Reward Credited/Used Details For User
         """
+        shop = kwargs['shop']
+        percentage_value = get_config_fofo_shop('Percentage_Value_Of_Each_Point', shop.id)
         serializer = self.serializer_class(RewardPoint.objects.filter(reward_user=self.request.user).
                                            select_related('reward_user').last())
-        return api_response("", serializer.data, status.HTTP_200_OK, True)
+        data = serializer.data
+        data['redeemable_discount'] = round((data.get('redeemable_points', 0)*percentage_value)/100)
+        return api_response("", data, status.HTTP_200_OK, True)
 
 
 class ReferAndEarnView(APIView):

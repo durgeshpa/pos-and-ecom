@@ -38,6 +38,7 @@ PAGE_STATE_CHOICES = (
 # Landing Page type
 PRODUCT, CATEGORY, BRAND = 'PRODUCT', 'CATEGORY', 'BRAND'
 LANDING_PAGE = 'LANDING_PAGE'
+CATEGORY_B2C = 'CATEGORY_B2C'
 LANDING_PAGE_TYPE_CHOICE = Choices(
     (1, PRODUCT, 'Product'), (2, CATEGORY, 'Category'), (3, BRAND, 'Brand')
 )
@@ -49,5 +50,6 @@ FUNTION_TYPE_CHOICE = Choices(
 
 # Image Type Choices
 IMAGE_TYPE_CHOICE = Choices(
-    (1, PRODUCT, 'Product'), (2, CATEGORY, 'Category'), (3, BRAND, 'Brand'), (4, LANDING_PAGE, 'Landing Page')
+    (1, PRODUCT, 'Product'), (2, CATEGORY, 'Category'), (3, BRAND, 'Brand'), (4, LANDING_PAGE, 'Landing Page'),
+    (5, CATEGORY_B2C, 'B2C Category')
 )

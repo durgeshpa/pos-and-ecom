@@ -140,13 +140,14 @@ class Referral(models.Model):
             ref_obj = Referral.objects.create(referral_to_user=child_ref_obj.user, referral_by_user=parent_ref_obj.user)
 
         if child_ref_obj.user.is_ecom_user:
-            shop_owner_obj = shop_obj_related_owner(parent_ref_obj.user)
+            shop_owner_obj = shop_obj_related_owner(parent_ref_obj.user).last()
             if shop_owner_obj:
                 referrer_points = int(get_global_config('referrer_points_to_be_added_on_signup', 10))
+                if shop_owner_obj.shop_type.shop_sub_type.retailer_type_name == 'foco':
+                    referrer_points = 0
                 ref_obj.user_linked_type = 'SHOP_OWNERS'
-
             elif has_gf_employee_permission(parent_ref_obj.user):
-                referrer_points = int(get_global_config('referrer_points_to_be_added_on_signup', 10))
+                referrer_points = int(get_global_config('gf_employee_referrer_points_to_be_added_on_signup', 0))
                 if parent_ref_obj.user.groups.filter(name='Field Executive').exists():
                     ref_obj.user_linked_type = 'FIELD_EXECUTIVE'
                 elif parent_ref_obj.user.groups.filter(name='Digital Marketing').exists():
@@ -162,7 +163,7 @@ class Referral(models.Model):
             user_reward = RewardPoint.objects.filter(reward_user=parent_ref_obj.user).last()
             user_reward.direct_earned += referrer_points
             user_reward.save()
-            
+
             ref_obj.referrer_reward_points = referrer_points
             ref_obj.referee_reward_points = int(get_global_config('referee_points_to_be_added_on_signup', 10))
 
@@ -300,16 +301,16 @@ class RewardLog(models.Model):
         verbose_name_plural = " Reward Logs"
 
 
-class PhoneOTP(models.Model):
-    phone_regex = RegexValidator(regex=r'^[6-9]\d{9}$', message=VALIDATION_ERROR_MESSAGES['INVALID_MOBILE_NUMBER'])
-    phone_number = models.CharField(validators=[phone_regex], max_length=10, blank=False)
-    otp = models.CharField(max_length=10)
-    is_verified = models.BooleanField(default=False)
-    attempts = models.IntegerField(default=0)
-    expires_in = models.IntegerField(default=300)  # in seconds
-    created_at = models.DateTimeField(default=timezone.now)
-    last_otp = models.DateTimeField(default=timezone.now)
-    resend_in = models.IntegerField(default=getattr(settings, 'OTP_RESEND_IN', 30))  # in seconds
+# class PhoneOTP(models.Model):
+#     phone_regex = RegexValidator(regex=r'^[6-9]\d{9}$', message=VALIDATION_ERROR_MESSAGES['INVALID_MOBILE_NUMBER'])
+#     phone_number = models.CharField(validators=[phone_regex], max_length=10, blank=False)
+#     otp = models.CharField(max_length=10)
+#     is_verified = models.BooleanField(default=False)
+#     attempts = models.IntegerField(default=0)
+#     expires_in = models.IntegerField(default=300)  # in seconds
+#     created_at = models.DateTimeField(default=timezone.now)
+#     last_otp = models.DateTimeField(default=timezone.now)
+#     resend_in = models.IntegerField(default=getattr(settings, 'OTP_RESEND_IN', 30))  # in seconds
 
 
 class Token(models.Model):

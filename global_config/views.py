@@ -14,7 +14,7 @@ def get_config(key, default_value=None):
 
 def get_config_fofo_shop(key, shop_id=None):
     config_object = FOFOConfigurations.objects.filter(key__name__iexact=key, shop_id=shop_id).last()
-    if config_object is None:
+    if config_object is None or not config_object.shop.enable_loyalty_points or  config_object.value ==None:
         config_object = FOFOConfigurations.objects.filter(key__name__iexact=key,
                                                           shop__shop_name__iexact="default fofo shop").last()
     if config_object:

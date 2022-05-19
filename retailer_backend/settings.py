@@ -429,8 +429,8 @@ CRONJOBS = [
     ('0 3 * * *', 'ars.cron.generate_po_cron'),
     ('0 2 * * *', 'ars.cron.daily_average_sales_cron'),
     ('30 23 * * *', 'ars.cron.daily_approved_po_mail'),
-    ('30 21 * * *', 'products.cron.update_price_discounted_product'),
-    ('30 1 * * *', 'wms.cron.create_update_discounted_products'),
+    ('50 20 * * *', 'products.cron.update_price_discounted_product'),
+    ('35 20 * * *', 'wms.cron.create_update_discounted_products'),
     ('0 2 * * *', 'ecom.cron.bestseller_product'),
     ('11 2 * * *', 'ecom.cron.past_purchases'),
     # ('0 * * * *', 'retailer_backend.cron.refresh_cron_es'),
@@ -446,6 +446,7 @@ CRONJOBS = [
     ('0 */12 * * *', 'products.cron.pending_for_approval_products_csv_report'),
     ('0 */24 * * *', 'gram_to_brand.cron.po_tax_change_csv_report'),
     ('0 */1 * * *', 'shops.scripts.remove_duplicate_data.remove_duplicate_feedbacks'),
+    ('0 */1 * * *', 'shops.tasks.create_topics_on_fcm'),
 ]
 
 INTERNAL_IPS = ['127.0.0.1', 'localhost']
@@ -546,6 +547,7 @@ CACHES = {
     }
 }
 #DataFlair #Logging Information
+
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
@@ -572,6 +574,11 @@ LOGGING = {
         },
         'elastic_log': {
             'handlers': ['elastic_log_file'],
+            'level': 'INFO',
+            'propagate': True,
+        },
+        'otp_issue_log_file': {
+            'handlers': ['otp_issue_log_file'],
             'level': 'INFO',
             'propagate': True,
         },
@@ -609,6 +616,12 @@ LOGGING = {
             'level': 'INFO',
             'class': 'logging.FileHandler',
             'filename': '/var/log/retailer-backend/elastic_search.log',
+            'formatter': 'verbose'
+        },
+        'otp_issue_log_file': {
+            'level': 'ERROR',
+            'class': 'logging.FileHandler',
+            'filename': '/var/log/retailer-backend/otp_issue.log',
             'formatter': 'verbose'
         },
 

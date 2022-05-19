@@ -5,7 +5,8 @@ import datetime
 from operator import or_
 from functools import reduce
 from dateutil.relativedelta import relativedelta
-
+from django.utils.safestring import SafeText
+from products.models import Category
 # django imports
 from admin_numeric_filter.admin import (NumericFilterModelAdmin, SliderNumericFilter)
 from dal_admin_filters import AutocompleteFilter
@@ -56,7 +57,7 @@ from .models import (Cart, CartProductMapping, Commercial, CustomerCare, Dispatc
                      ShipmentProductMapping, Trip, ShipmentRescheduling, Feedback, PickerDashboard, Invoice,
                      ResponseComment, BulkOrder, RoundAmount, OrderedProductBatch, DeliveryData, PickerPerformanceData,
                      ShipmentPackaging, ShipmentPackagingMapping, ShipmentNotAttempt, ShopCrate,
-                     PickerUserAssignmentLog, EInvoiceData, ENoteData, BuyerPurchaseData)
+                     PickerUserAssignmentLog, EInvoiceData, ENoteData, BuyerPurchaseData, SearchKeywordLog)
 from .resources import OrderResource
 from .signals import ReservedOrder
 from .utils import (GetPcsFromQty, add_cart_user, create_order_from_cart, create_order_data_excel,
@@ -420,12 +421,14 @@ class CartProductMappingAdmin(admin.TabularInline):
     form = CartProductMappingForm
     formset = AtLeastOneFormSet
     fields = ('cart', 'cart_product',  '_qty', '_no_of_pieces', 'product_case_size', 'product_inner_case_size',
-              'item_effective_prices', 'discounted_price',)
+              'item_effective_prices', 'discounted_price',"_product_mrp")
     autocomplete_fields = ('cart_product', )
     extra = 0
 
     def _qty(self, obj):
         return int(obj.qty)
+    def _product_mrp(self,obj):
+        return obj.cart_product.product_mrp 
 
     def _no_of_pieces(self, obj):
         return int(obj.no_of_pieces)
@@ -441,7 +444,7 @@ class CartProductMappingAdmin(admin.TabularInline):
             .get_readonly_fields(request, obj)
         if obj:
             readonly_fields = readonly_fields + (
-                'cart_product', '_qty', '_no_of_pieces', 'item_effective_prices', 'discounted_price'
+                'cart_product', '_qty', '_no_of_pieces', 'item_effective_prices', 'discounted_price', '_product_mrp'
             )
             # if obj.approval_status == True:
             #     readonly_fields = readonly_fields + (
@@ -498,6 +501,47 @@ class ExportCsvMixinCartProduct:
 
     export_as_csv_cart_product.short_description = "Download CSV of Paticular Cart Products"
 
+class CategoryFilter(AutocompleteFilter):
+    """filter according to category.."""
+    title = 'Category'
+    field_name = 'buyer'
+    autocomplete_url = 'products-category-autocomplete'
+    def queryset(self, request, queryset):
+        """filter product according to catagory .."""
+        if self.value():
+            obj = GlobalConfig.objects.get(key="days_category_filter")
+            day = obj.value if obj else 2
+            time_threshold = datetime.datetime.now() - datetime.timedelta(days=day)
+            queryset = queryset.filter(created_at__gt=time_threshold)
+            cart_list = self.category_filter(queryset, self.value())
+            self.rendered_widget = str(self.rendered_widget).split("\n")[0]
+            id  = self.used_parameters.get('buyer__id__exact', None)
+            if id :
+                obj = Category.objects.get(id=id)
+                self.rendered_widget +='\n<option value = "{}" selected> {}</option >'.format(obj.id,obj)
+            self.rendered_widget+=('\n<option value = "" >-----------</option>\n</select>')
+            self.rendered_widget = SafeText("".join(self.rendered_widget))
+
+            return queryset.filter(id__in=cart_list)
+
+        return queryset
+
+    def category_filter(self, queryset, value):
+        """filter cart list according to category """
+        cart_list = []
+        for obj in queryset:
+            for product in obj.rt_cart_list.prefetch_related("cart_product__parent_product__parent_product_pro_category__category"):
+                try:
+                    if product.cart_product.parent_product.parent_product_pro_category.select_related("category").first().category.id == int(value):
+                       cart_list.append(obj.id)
+                       break;
+                    pass
+                except:
+                    pass
+            else:
+                continue
+        return cart_list
+
 class CartAdmin(ExportCsvMixinCart, ExportCsvMixinCartProduct, admin.ModelAdmin):
     inlines = [CartProductMappingAdmin]
     fields = ('seller_shop', 'buyer_shop', 'offers', 'approval_status')
@@ -505,7 +549,7 @@ class CartAdmin(ExportCsvMixinCart, ExportCsvMixinCartProduct, admin.ModelAdmin)
     form = CartForm
     list_display = ('order_id', 'cart_type', 'approval_status', 'seller_shop','buyer_shop','cart_status','created_at',)
     #change_form_template = 'admin/sp_to_gram/cart/change_form.html'
-    list_filter = (SellerShopFilter, BuyerShopFilter,OrderIDFilter)
+    list_filter = (SellerShopFilter, BuyerShopFilter,OrderIDFilter,  CategoryFilter)
 
     class Media:
         css = {"all": ("admin/css/hide_admin_inline_object_name.css",)}
@@ -614,13 +658,58 @@ class CartAdmin(ExportCsvMixinCart, ExportCsvMixinCartProduct, admin.ModelAdmin)
                     return self.readonly_fields+ ('approval_status',)
         return self.readonly_fields
 
+def category_filter(queryset, value):
+    """return cart list according to category"""
+    cart_list = []
+    for obj in queryset:
+        for product in obj.cart.rt_cart_list.prefetch_related("cart_product__parent_product__parent_product_pro_category__category"):
+            try:
+                if product.cart_product.parent_product.parent_product_pro_category.select_related("category").first().category.id == int(value):
+                   cart_list.append(obj.cart.id)
+                   break;
+                pass
+            except:
+                pass
+        else:
+            continue
+    return cart_list
+
+
+class ShopFilter(AutocompleteFilter):
+    """return bulk order  according to category.."""
+    title = 'Category'
+    field_name = 'cart'
+    autocomplete_url = 'products-category-autocomplete'
+    def queryset(self, request, queryset):
+        """return bulk order  filter data according to category.."""
+        if self.value():
+            obj = GlobalConfig.objects.get(key="days_category_filter")
+            day = obj.value if obj else 2
+            time_threshold = datetime.datetime.now() - datetime.timedelta(days=day)
+            queryset = queryset.filter(created_at__gt=time_threshold)
+            cart_list = category_filter(queryset, self.value())
+            queryset = queryset.filter(cart__in=cart_list)
+            self.rendered_widget = str(self.rendered_widget).split("\n")[0]
+            id  = self.used_parameters.get('cart__id__exact', None)
+            if id :
+                obj = Category.objects.get(id=id)
+                self.rendered_widget +='\n<option value = "{}" selected> {}</option >'.format(obj.id,obj)
+            self.rendered_widget+=('\n<option value = "" >-----------</option>\n</select>')
+            self.rendered_widget = SafeText("".join(self.rendered_widget))
+
+
+        # else:
+        return queryset
+
+
+
 
 class BulkOrderAdmin(admin.ModelAdmin):
     fields = ('seller_shop', 'buyer_shop', 'shipping_address', 'billing_address', 'cart_products_csv', 'order_type')
     form = BulkCartForm
     list_display = ('cart', 'order_type', 'seller_shop', 'buyer_shop', 'shipping_address', 'billing_address',
                     'create_purchase_order', 'created_at')
-    list_filter = (SellerShopFilter, BuyerShopFilter)
+    list_filter = (SellerShopFilter, BuyerShopFilter, ShopFilter)
     list_per_page = 20
 
     class Media:
@@ -2761,6 +2850,13 @@ class BuyerPurchaseDataAdmin(admin.ModelAdmin):
     list_display = ('seller_shop', 'buyer_shop', 'fin_year', 'total_purchase')
     list_filter = (SellerShopFilter, BuyerShopFilter, 'fin_year', BuyerTotalPurchaseFilter)
 
+class SearchKeywordLogAdmin(admin.ModelAdmin):
+    readonly_fields = ('search_term','search_frequency',)
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+
 class PickerDeashboardOrderNoSearch(InputFilter):
     parameter_name = 'order_no'
     title = 'Order No.(Comma seperated)'
@@ -2816,4 +2912,5 @@ admin.site.register(ShopCrate, ShopCrateAdmin)
 admin.site.register(ShipmentPackagingMapping, ShipmentPackagingMappingAdmin)
 admin.site.register(EInvoiceData, EInvoiceAdmin)
 admin.site.register(ENoteData, ENoteAdmin)
+admin.site.register(SearchKeywordLog, SearchKeywordLogAdmin)
 admin.site.register(PickerUserAssignmentLog, PickerUserAssignmentLogAdmin)

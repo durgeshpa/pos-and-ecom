@@ -9,6 +9,9 @@ from django_ses.signals import bounce_received
 # from notification_center.utils import GetTemplateVariables
 from notification_center.models import Template
 
+from fcm.utils import get_device_model
+from shops.tasks import unsubscribe_inactive_token
+
 
 # @receiver(post_save, sender=Template)
 # def create_template_variables(sender, instance=None, created=False, **kwargs):
@@ -35,3 +38,9 @@ def delivery_handler(sender, *args, **kwargs):
 def bounce_handler(sender, *args, **kwargs):
     print("This is bounce email object")
     print(kwargs.get('mail_obj'))
+
+
+@receiver(post_save, sender=get_device_model())
+def post_save_device_model(sender, instance, created=False, **kwargs):
+    if instance.is_active == False:
+        unsubscribe_inactive_token(instance.reg_id)
