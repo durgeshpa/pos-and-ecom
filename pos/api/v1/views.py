@@ -2092,3 +2092,16 @@ class PosShopListView(GenericAPIView):
         serializer = self.serializer_class(qs, many=True)
         msg = 'success'
         return get_response(msg, serializer.data, True)
+
+
+class OnlineDisabledChoices(GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+
+    def get(self, request):
+        '''
+        API to get list of ONLINE DISABLED CHOICES list
+        '''
+        fields = ['id', 'value']
+        data = [dict(zip(fields, d)) for d in RetailerProduct.ONLINE_DISABLED_CHOICES]
+        msg = [""]
+        return get_response(msg, data, True)

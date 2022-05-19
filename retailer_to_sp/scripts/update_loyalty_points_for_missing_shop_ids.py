@@ -22,5 +22,5 @@ def run():
                                                                      payment.order.buyer.id,
                                                                      payment.order.order_no,
                                                                      'order_credit', 'order_indirect_credit',
-                                                                     9, payment.order.seller_shop.id)
+                                                                     9, payment.order.seller_shop)
             payment.order.save()

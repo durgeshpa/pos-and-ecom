@@ -39,7 +39,8 @@ from .views import upload_retailer_products_list, download_retailer_products_lis
     update_retailer_product_stock, RetailerOrderedReportView, RetailerOrderedReportFormView, RetailerReturnReportFormView, \
     RetailerOrderProductInvoiceView, \
     RetailerOrderReturnCreditNoteView, posinventorychange_data_excel, RetailerPurchaseReportView, \
-    RetailerPurchaseReportFormView, products_list_status, RetailerReturnReportView
+    RetailerPurchaseReportFormView, products_list_status, RetailerReturnReportView, download_reward_configuration,\
+    download_reward_configuration_sample_view, download_reward_configuration_csv_selected_shop,upload_retailer_reward_list
 from retailer_to_sp.models import Order, RoundAmount
 from shops.models import Shop
 from .filters import ShopFilter, ProductInvEanSearch, ProductEanSearch
@@ -117,12 +118,12 @@ class RetailerProductAdmin(admin.ModelAdmin):
                     'description', 'sku_type', 'status', 'product_pack_type', 'created_at', 'modified_at')
     fields = ('shop', 'linked_product', 'sku', 'name', 'mrp', 'selling_price', 'product_ean_code',
               'description', 'sku_type', 'status', 'is_deleted', 'purchase_pack_size', 'initial_purchase_value',
-              'online_enabled', 'online_price', 'created_at', 'modified_at', 'product_pack_type', 'measurement_category',
-              'offer_price', 'offer_start_date', 'offer_end_date')
+              'online_enabled', 'online_disabled_status', 'online_price', 'created_at', 'modified_at',
+              'product_pack_type', 'measurement_category', 'offer_price', 'offer_start_date', 'offer_end_date')
     readonly_fields = ('shop', 'sku', 'product_ean_code',
                        'purchase_pack_size', 'online_enabled', 'online_price', 'name', 'created_at',
                        'sku_type', 'mrp', 'modified_at', 'description', 'initial_purchase_value',
-                       'offer_price', 'offer_start_date', 'offer_end_date')
+                       'offer_price', 'offer_start_date', 'offer_end_date', 'online_disabled_status')
 
     def b2c_cat_sub_cat(self, obj):
         if obj.linked_product and obj.linked_product.parent_product.parent_product_pro_b2c_category.exists():
@@ -1380,13 +1381,16 @@ class ByPincodeFilter(InputFilter):
 
 
 class PosStoreRewardMappingsAdmin(admin.ModelAdmin):
+    change_list_template = 'admin/pos/pos_reward_mapping_list_change.html'
     inlines = [FOFOConfigurationsInline]
-    fields = ['status_reward_configuration', 'shop_name']
+    fields = ['enable_loyalty_points', 'shop_name']
     search_fields = ['shop_name']
     readonly_fields = ('shop_name',)
     list_filter = ('status','shop_type__shop_sub_type__retailer_type_name',
-                   CityFilter, ByPincodeFilter, 'status_reward_configuration',
+                   CityFilter, ByPincodeFilter, 'enable_loyalty_points',
                    )
+    actions = ["download_reward_configuration_csv"]
+
     def get_queryset(self ,request):
         qs = super(PosStoreRewardMappingsAdmin, self).get_queryset(request)
         
@@ -1398,6 +1402,27 @@ class PosStoreRewardMappingsAdmin(admin.ModelAdmin):
         return False
     def has_add_permission(self, request,  obj=None):
         return False
+
+    def get_urls(self):
+        urls = super(PosStoreRewardMappingsAdmin, self).get_urls()
+        urls = [
+                   url(r'^upload_bulk_reward_configuration/',
+                       self.admin_site.admin_view(upload_retailer_reward_list),
+                       name="upload_bulk_reward_configuration"),
+
+                   url(r'^download_reward_configuration_sample/',
+                       self.admin_site.admin_view(download_reward_configuration_sample_view),
+                       name="download_reward_configuration_sample/"),
+
+                   url(r'^download_reward_configuration/',
+                       self.admin_site.admin_view(download_reward_configuration),
+                       name="download_reward_configuration"),
+               ] + urls
+        return urls
+    def download_reward_configuration_csv(self, request, queryset):
+        return download_reward_configuration_csv_selected_shop(self, request, queryset)
+
+
 
 
 admin.site.register(PosStoreRewardMappings, PosStoreRewardMappingsAdmin)
