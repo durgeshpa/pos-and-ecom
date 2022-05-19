@@ -150,6 +150,7 @@ INSTALLED_APPS = [
     'tinymce',
     'drf_api_logger',
     'zoho',
+    'silk'
 ]
 
 # if ENVIRONMENT.lower() in ["production","qa"]:
@@ -191,6 +192,7 @@ MIDDLEWARE += [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'accounts.middlewares.RequestMiddleware',
     'drf_api_logger.middleware.api_logger_middleware.APILoggerMiddleware',
+    'silk.middleware.SilkyMiddleware'
 ]
 # if ENVIRONMENT.lower() in ["production", "qa"]:
 #     MIDDLEWARE += [
@@ -656,3 +658,14 @@ DRF_API_LOGGER_DATABASE = config('DRF_API_LOGGER_DATABASE')
 DRF_API_LOGGER_EXCLUDE_KEYS = ['password', 'token', 'access', 'refresh']
 DRF_API_LOGGER_SLOW_API_ABOVE = 200
 DRF_API_LOGGER_TIMEDELTA = 330
+
+# DJANGO SILK PROFILER
+SILKY_PYTHON_PROFILER = True
+# SILKY_PYTHON_PROFILER_BINARY = True
+SILKY_AUTHENTICATION = True  # User must login
+SILKY_AUTHORISATION = True  # User must have permissions
+SILKY_PERMISSIONS = lambda user: user.is_superuser
+SILKY_MAX_REQUEST_BODY_SIZE = -1  # Silk takes anything <0 as no limit
+SILKY_MAX_RESPONSE_BODY_SIZE = 1024  # If response body>1024 bytes, ignore
+SILKY_META = True
+SILKY_ANALYZE_QUERIES = False
