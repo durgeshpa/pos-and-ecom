@@ -122,9 +122,35 @@
                             <td class="text-center">PCS</td>
                            <div style="display:none"> {{m.returned_qty | total_returned_qty }}</div>
                            <div style="display:none"> {{m.product.product_inner_case_size | total_returned_qty}}</div>
-                            <td class="text-right">{% addMultiplicationcreditNote m.price_to_retailer m.discounted_price m.delivered_qty %}/</td>
+                            <td class="text-right">{% addMultiplicationcreditNote m.price_to_retailer m.discounted_price m.delivered_qty %}</td>
                          </tr>
                                 {% endfor %}
+
+                         <tr>
+                            <td class="no-line"></td>
+                            <td class="no-line"></td>
+                           <td class="no-line"></td>
+                           <td class="no-line"></td>
+                           <td class="no-line"></td>
+                            <td class="no-line"></td>
+                            <td class="no-line"></td>
+                            <td class="no-line"></td>
+                            <td class="thick-line text-center">TCS Rate</td>
+                            <td class="thick-line text-right">{{tcs_rate}}%</td>
+                         </tr>
+
+                         <tr>
+                            <td class="no-line"></td>
+                            <td class="no-line"></td>
+                           <td class="no-line"></td>
+                           <td class="no-line"></td>
+                           <td class="no-line"></td>
+                            <td class="no-line"></td>
+                            <td class="no-line"></td>
+                            <td class="no-line"></td>
+                            <td class="no-line">TCS Value</td>
+                            <td class="no-line text-right">{{tcs_tax | floatformat:2 | intcomma }}</td>
+                         </tr>
                          <tr>
                            <td></td>
                            <td></td>
@@ -135,7 +161,7 @@
                            <td></td>
                             <td class="thick-line text-center"><strong>{{sum_qty}} PCS</strong></td>
                             <td class="thick-line text-center">Total</td>
-                            <td class="thick-line text-right"><strong>₹{{ sum_amount| floatformat:2 | intcomma }}/-</strong></td>
+                            <td class="thick-line text-right"><strong>₹{{ total_amount| floatformat:2 | intcomma }}/-</strong></td>
                          </tr>
                          <tr>
                             <td class="no-line"></td>

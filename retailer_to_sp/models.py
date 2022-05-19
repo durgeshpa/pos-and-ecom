@@ -17,11 +17,12 @@ from django.utils.safestring import mark_safe
 from django.utils.translation import ugettext_lazy as _
 from django.utils.html import format_html_join, format_html
 from model_utils import Choices
-from django.core.validators import MinValueValidator
+from django.core.validators import MinValueValidator, MaxValueValidator
 
 from celery.task import task
 from accounts.middlewares import get_current_user
 from retailer_backend import common_function as CommonFunction
+from retailer_backend.validators import PercentageValidator
 from .bulk_order_clean import bulk_order_validation
 from .common_function import reserved_args_json_data
 from .utils import (order_invoices, order_shipment_status, order_shipment_amount, order_shipment_details_util,
@@ -1008,8 +1009,6 @@ class Order(models.Model):
         ('4','Retailer Order'),
         ('5','Others')
     )
-    POS_WALKIN = 'pos_walkin'
-    POS_ECOMM = 'pos_ecomm'
 
     DELIVERY_CHOICE = ( ('1', 'Self Pick'),
                         ('2', 'Home Delivery')
@@ -1448,9 +1447,7 @@ class Trip(models.Model):
     @property
     def trip_amount(self):
         return self.last_mile_trip_shipments_details.filter(~Q(shipment_status='CANCELLED')) \
-            .annotate(invoice_amount=RoundAmount(Sum(F(
-                'shipment__rt_order_product_order_product_mapping__effective_price') * F(
-                'shipment__rt_order_product_order_product_mapping__shipped_qty')))) \
+            .annotate(invoice_amount=RoundAmount(F('shipment__invoice__invoice_total'))) \
             .aggregate(trip_amount=Sum(F('invoice_amount'), output_field=FloatField())).get('trip_amount')
 
     @property
@@ -1798,17 +1795,21 @@ class OrderedProduct(models.Model):  # Shipment
 
     @property
     def invoice_amount(self):
+        if hasattr(self, 'invoice'):
+            return round(self.invoice.invoice_total)
+
         return self.rt_order_product_order_product_mapping.all() \
             .aggregate(
             inv_amt=RoundAmount(Sum(F('effective_price') * F('shipped_qty')), output_field=FloatField())).get('inv_amt')
 
     @property
     def credit_note_amount(self):
+        tcs_rate = self.invoice.tcs_percent/100
         credit_note_amount = self.rt_order_product_order_product_mapping.all().aggregate(cn_amt=RoundAmount(
             Sum((F('effective_price') * F('shipped_qty') - F('delivered_qty')), output_field=FloatField())))\
             .get('cn_amt')
         if credit_note_amount:
-            return credit_note_amount
+            return round(credit_note_amount*(1+tcs_rate), 2)
         else:
             return 0
 
@@ -1906,11 +1907,12 @@ class OrderedProduct(models.Model):  # Shipment
     def cash_to_be_collected(self):
         # fetch the amount to be collected
         cash_to_be_collected = 0
+        tcs_rate = self.invoice.tcs_percent / 100
         if self.order.ordered_cart.approval_status == False:
             for item in self.rt_order_product_order_product_mapping.all():
                 effective_price = item.effective_price if item.effective_price else 0
                 cash_to_be_collected = cash_to_be_collected + (item.delivered_qty * effective_price)
-            return round(cash_to_be_collected)
+            return round(float(cash_to_be_collected) * (1+tcs_rate))
         else:
             invoice_amount = self.rt_order_product_order_product_mapping.all() \
                 .aggregate(
@@ -1920,7 +1922,7 @@ class OrderedProduct(models.Model):  # Shipment
                 .aggregate(cn_amt=RoundAmount(Sum((F('discounted_price') * (F('shipped_qty') - F('delivered_qty')))), output_field=FloatField()))\
                 .get('cn_amt')
             if self.invoice_amount:
-                return (invoice_amount - credit_note_amount)
+                return round(float(invoice_amount - credit_note_amount) * (1+tcs_rate))
             else:
                 return 0
 
@@ -1993,43 +1995,31 @@ class OrderedProduct(models.Model):  # Shipment
         super().save(*args, **kwargs)
         if self.order.ordered_cart.cart_type == 'AUTO':
             if self.shipment_status == OrderedProduct.MOVED_TO_DISPATCH:
-                CommonFunction.generate_invoice_number(
-                    'invoice_no', self.pk,
-                    self.order.seller_shop.shop_name_address_mapping.filter(address_type='billing').last().pk,
-                    self.invoice_amount)
+                CommonFunction.generate_invoice_number(self,
+                            self.order.seller_shop.shop_name_address_mapping.filter(address_type='billing').last().pk)
         if self.order.ordered_cart.cart_type == 'BASIC':
             if self.shipment_status == OrderedProduct.MOVED_TO_DISPATCH:
-                CommonFunction.generate_invoice_number(
-                    'invoice_no', self.pk,
-                    self.order.seller_shop.shop_name_address_mapping.filter(address_type='billing').last().pk,
-                    self.invoice_amount)
+                CommonFunction.generate_invoice_number(self,
+                    self.order.seller_shop.shop_name_address_mapping.filter(address_type='billing').last().pk)
         elif self.order.ordered_cart.cart_type == 'ECOM':
             if self.shipment_status == OrderedProduct.MOVED_TO_DISPATCH:
-                CommonFunction.generate_invoice_number(
-                    'invoice_no', self.pk,
-                    self.order.seller_shop.shop_name_address_mapping.filter(address_type='billing').last().pk,
-                    self.invoice_amount, "EV")
+                CommonFunction.generate_invoice_number(self,
+                    self.order.seller_shop.shop_name_address_mapping.filter(address_type='billing').last().pk, "EV")
         elif self.order.ordered_cart.cart_type == 'RETAIL':
             if self.shipment_status == OrderedProduct.MOVED_TO_DISPATCH:
-                CommonFunction.generate_invoice_number(
-                    'invoice_no', self.pk,
-                    self.order.seller_shop.shop_name_address_mapping.filter(address_type='billing').last().pk,
-                    self.invoice_amount)
+                CommonFunction.generate_invoice_number(self,
+                    self.order.seller_shop.shop_name_address_mapping.filter(address_type='billing').last().pk)
                 # populate_data_on_qc_pass(self.order)
 
         elif self.order.ordered_cart.cart_type == 'DISCOUNTED':
             if self.shipment_status == OrderedProduct.MOVED_TO_DISPATCH:
-                CommonFunction.generate_invoice_number_discounted_order(
-                    'invoice_no', self.pk,
-                    self.order.seller_shop.shop_name_address_mapping.filter(address_type='billing').last().pk,
-                    self.invoice_amount)
+                CommonFunction.generate_invoice_number_discounted_order(self,
+                    self.order.seller_shop.shop_name_address_mapping.filter(address_type='billing').last().pk)
                 # populate_data_on_qc_pass(self.order)
         elif self.order.ordered_cart.cart_type == 'BULK':
             if self.shipment_status == OrderedProduct.MOVED_TO_DISPATCH:
-                CommonFunction.generate_invoice_number_bulk_order(
-                    'invoice_no', self.pk,
-                    self.order.seller_shop.shop_name_address_mapping.filter(address_type='billing').last().pk,
-                    self.invoice_amount)
+                CommonFunction.generate_invoice_number_bulk_order(self,
+                    self.order.seller_shop.shop_name_address_mapping.filter(address_type='billing').last().pk)
                 # populate_data_on_qc_pass(self.order)
 
         if self.no_of_crates == None:
@@ -2076,6 +2066,11 @@ class OrderedProduct(models.Model):  # Shipment
 class Invoice(models.Model):
     invoice_no = models.CharField(max_length=255, unique=True, db_index=True)
     shipment = models.OneToOneField(OrderedProduct, related_name='invoice', on_delete=models.DO_NOTHING)
+    invoice_sub_total = models.FloatField()
+    is_tcs_applicable = models.BooleanField(default=False)
+    tcs_percent = models.FloatField(default=0)
+    tcs_amount = models.FloatField(default=0)
+    invoice_total = models.FloatField()
     invoice_pdf = models.FileField(upload_to='shop_photos/shop_name/documents/', null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True, null=True)
     modified_at = models.DateTimeField(auto_now=True, null=True)
@@ -2093,13 +2088,7 @@ class Invoice(models.Model):
     
     @property
     def invoice_amount(self):
-        try:
-            inv_amount = self.shipment.rt_order_product_order_product_mapping.annotate(
-                item_amount=F('effective_price') * F('shipped_qty')).aggregate(invoice_amount=Sum('item_amount')).get(
-                'invoice_amount')
-        except:
-            inv_amount = self.shipment.invoice_amount
-        return inv_amount
+        return round(self.invoice_total)
 
     @property
     def is_igst_applicable(self):
@@ -2976,6 +2965,8 @@ class Note(models.Model):
         max_length=255, choices=NOTE_TYPE_CHOICES, default='credit_note'
     )
     amount = models.FloatField(default=0)
+    tcs_amount = models.FloatField(default=0)
+    note_total = models.FloatField()
     last_modified_by = models.ForeignKey(
         get_user_model(), related_name='rt_last_modified_user_note',
         null=True, blank=True, on_delete=models.DO_NOTHING
@@ -3000,7 +2991,7 @@ class Note(models.Model):
     @property
     def note_amount(self):
         if self.shipment:
-            return round(self.amount)
+            return round(self.note_total)
 
     @property
     def is_igst_applicable(self):
@@ -3382,10 +3373,10 @@ def populate_data_on_qc_pass(order):
             pass
 
 
-@receiver(post_save, sender=OrderedProductBatch)
-def create_putaway(sender, created=False, instance=None, *args, **kwargs):
-    if instance.returned_qty == 0 and instance.delivered_qty == 0 and created == False and instance.ordered_product_mapping.ordered_product.order.ordered_cart.cart_type not in ['BASIC', 'ECOM']:
-        add_to_putaway_on_partail(instance.ordered_product_mapping.ordered_product.id)
+# @receiver(post_save, sender=OrderedProductBatch)
+# def create_putaway(sender, created=False, instance=None, *args, **kwargs):
+#     if instance.returned_qty == 0 and instance.delivered_qty == 0 and created == False and instance.ordered_product_mapping.ordered_product.order.ordered_cart.cart_type not in ['BASIC', 'ECOM']:
+#         add_to_putaway_on_partail(instance.ordered_product_mapping.ordered_product.id)
 
 
 @receiver(post_save, sender=OrderedProductBatch)
@@ -3621,9 +3612,7 @@ class DispatchTrip(BaseTimestampUserModel):
     @property
     def trip_amount(self):
         return self.shipments_details.filter(~Q(shipment_status='CANCELLED')) \
-            .annotate(invoice_amount=RoundAmount(Sum(F(
-                'shipment__rt_order_product_order_product_mapping__effective_price') * F(
-                'shipment__rt_order_product_order_product_mapping__shipped_qty')))) \
+            .annotate(invoice_amount=RoundAmount(F('shipment__invoice__invoice_total')))\
             .aggregate(trip_amount=Sum(F('invoice_amount'), output_field=FloatField())).get('trip_amount')
 
     @property
@@ -3688,6 +3677,10 @@ class DispatchTrip(BaseTimestampUserModel):
             data['no_of_sacks'] += shipment_data['no_of_sacks'] if shipment_data.get('no_of_sacks') else 0
         return data
 
+    def total_empty_crates(self):
+        empty_crates = self.trip_empty_crates.all().count()
+        return empty_crates
+
 
 class DispatchTripShipmentMapping(BaseTimestampUserModel):
     LOADING_FOR_DC, LOADED_FOR_DC = 'LOADING_FOR_DC', 'LOADED_FOR_DC'
@@ -3716,6 +3709,8 @@ class DispatchTripShipmentMapping(BaseTimestampUserModel):
     shipment = models.ForeignKey(OrderedProduct, related_name='trip_shipment', on_delete=models.DO_NOTHING)
     shipment_status = models.CharField(max_length=100, choices=SHIPMENT_STATUS)
     shipment_health = models.CharField(max_length=100, choices=SHIPMENT_HEALTH)
+    loaded_by = models.ForeignKey(User, related_name='dc_shipments_loaded',
+                                  null=True, blank=True, on_delete=models.CASCADE)
 
 
 class DispatchTripShipmentPackages(BaseTimestampUserModel):
@@ -3776,6 +3771,8 @@ class LastMileTripShipmentMapping(BaseTimestampUserModel):
     shipment = models.ForeignKey(OrderedProduct, related_name='last_mile_trip_shipment', on_delete=models.DO_NOTHING)
     shipment_status = models.CharField(max_length=100, choices=SHIPMENT_STATUS)
     shipment_health = models.CharField(max_length=100, null=True, blank=True, choices=SHIPMENT_HEALTH)
+    loaded_by = models.ForeignKey(User, related_name='last_shipments_loaded',
+                                  null=True, blank=True, on_delete=models.CASCADE)
 
 
 class LastMileTripShipmentPackages(BaseTimestampUserModel):
@@ -3856,3 +3853,17 @@ class ENoteData(Note):
         proxy = True
         verbose_name = 'e-note'
         verbose_name_plural = 'e-notes'
+
+
+class BuyerPurchaseData(models.Model):
+    seller_shop = models.ForeignKey(Shop, related_name='shop_sale', on_delete=models.DO_NOTHING)
+    buyer_shop = models.ForeignKey(Shop, related_name='buyer_purchase', on_delete=models.DO_NOTHING)
+    fin_year = models.PositiveSmallIntegerField(validators=[MinValueValidator(2019),
+                                                            MaxValueValidator(datetime.datetime.now().year)])
+    total_purchase = models.FloatField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Buyer Purchase'
+        verbose_name_plural = 'Buyer Purchase'

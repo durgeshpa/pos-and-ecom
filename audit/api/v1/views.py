@@ -379,8 +379,7 @@ class AuditEndView(APIView):
         batches_audited = AuditRunItem.objects.filter(audit_run=audit_run, bin__bin_id=bin_id)\
                                               .values_list('batch_id', flat=True)
         bi_qs = BinInventory.objects.filter(warehouse=audit.warehouse, bin__bin_id=bin_id,
-                                            inventory_type__in=inv_type_list,
-                                            sku__product_type=Product.PRODUCT_TYPE_CHOICE.NORMAL)
+                                            inventory_type__in=inv_type_list)
         for bi in bi_qs:
             if bi.batch_id in batches_audited:
                 continue
@@ -388,7 +387,7 @@ class AuditEndView(APIView):
                                           bi.inventory_type, inventory_state, bi.quantity, 0)
 
             AuditInventory.update_inventory(audit.id, audit.warehouse, bi.batch_id, bi.bin, bi.sku,
-                                            bi.inventory_type, inventory_state, bi.quantity, 0)
+                                            bi.inventory_type, inventory_state, bi.quantity, 0, 0)
 
             BlockUnblockProduct.release_product_from_audit(audit, audit_run, bi.sku, audit.warehouse)
         AuditedBinRecord.objects.create(audit=audit, bin=bin)
@@ -407,8 +406,7 @@ class AuditEndView(APIView):
         bins_audited = AuditRunItem.objects.filter(audit_run=audit_run, sku=sku)\
                                            .values_list('bin_id', flat=True)
         bi_qs = BinInventory.objects.filter(warehouse=audit.warehouse, sku_id=sku,
-                                            inventory_type__in=inv_type_list,
-                                            sku__product_type=Product.PRODUCT_TYPE_CHOICE.NORMAL)
+                                            inventory_type__in=inv_type_list)
         for bi in bi_qs:
             if bi.bin_id in bins_audited:
                 continue
@@ -416,7 +414,7 @@ class AuditEndView(APIView):
                                           bi.inventory_type, inventory_state, bi.quantity, 0)
 
             AuditInventory.update_inventory(audit.id, audit.warehouse, bi.batch_id, bi.bin, bi.sku,
-                                            bi.inventory_type, inventory_state, bi.quantity, 0)
+                                            bi.inventory_type, inventory_state, bi.quantity, 0, 0)
         product = Product.objects.filter(product_sku=sku).last()
         BlockUnblockProduct.release_product_from_audit(audit, audit_run, product, audit.warehouse)
         AuditedProductRecord.objects.create(audit=audit, sku_id=sku)
@@ -498,7 +496,6 @@ class AuditBinsBySKUList(APIView):
             return Response(msg, status=status.HTTP_200_OK)
         product_image = get_product_image(product)
         bin_ids = BinInventory.objects.filter(Q(quantity__gt=0) | Q(to_be_picked_qty__gt=0),
-                                              sku__product_type=Product.PRODUCT_TYPE_CHOICE.NORMAL,
                                               warehouse=audit.warehouse, sku=audit_sku).values_list('bin_id', flat=True)
         bins_to_audit = Bin.objects.filter(id__in=bin_ids).values('bin_id')
         bins_audited = AuditRunItem.objects.filter(audit_run__audit=audit, sku=audit_sku)\
@@ -548,7 +545,6 @@ class AuditSKUsByBinList(APIView):
             msg = {'is_success': False, 'message': 'Invalid Bin', 'data': None}
             return Response(msg, status=status.HTTP_200_OK)
         bin_products = BinInventory.objects.filter(Q(quantity__gt=0) | Q(to_be_picked_qty__gt=0),
-                                                   sku__product_type=Product.PRODUCT_TYPE_CHOICE.NORMAL,
                                                    warehouse=audit.warehouse, bin=bin).only('sku', 'batch_id')\
                                            .values('sku_id', 'batch_id', 'sku__product_name', 'sku__product_mrp')\
                                            .distinct('sku_id')
@@ -610,7 +606,7 @@ class AuditInventory(APIView):
             batch_id = BinInventory.objects.filter(bin=bin, sku=sku).last().batch_id
         warehouse = audit.warehouse
         bin_inventory_dict = self.get_bin_inventory(warehouse, batch_id, bin)
-        product = self.get_sku_from_batch(batch_id)
+        product = self.get_sku_from_batch_and_bin(batch_id, bin_id)
         product_image = get_product_image(product)
         data = {'bin_id': bin_id, 'batch_id': batch_id, 'product_sku': product.product_sku,
                 'product_name': product.product_name, 'product_mrp': product.product_mrp,
@@ -647,6 +643,11 @@ class AuditInventory(APIView):
         if not batch_id:
             msg = {'is_success': False, 'message': ERROR_MESSAGES['EMPTY'] % 'batch_id', 'data': None}
             return Response(msg, status=status.HTTP_200_OK)
+        if len(batch_id) == 24 and str(batch_id).startswith('D'):
+            msg = {'is_success': False,
+                   'message': "Product being audited is discounted product, can not change the expiry date",
+                   'data': None}
+            return Response(msg, status=status.HTTP_200_OK)
         old_inventory = request.data.get('system_inventory')
         if not old_inventory:
             msg = {'is_success': False, 'message': ERROR_MESSAGES['EMPTY'] % 'system_inventory', 'data': None}
@@ -657,22 +658,24 @@ class AuditInventory(APIView):
             return Response(msg, status=status.HTTP_200_OK)
         retry = request.data.get('retry')
         warehouse = audit.warehouse
-        sku = self.get_sku_from_batch(batch_id)
+        sku = self.get_sku_from_batch_and_bin(batch_id, bin_id)
         if not sku:
             msg = {'is_success': False,
-                   'message': ERROR_MESSAGES['SOME_ISSUE'],
+                   'message': f'SKU not found in Bin {bin_id} for Batch {batch_id}',
                    'data': None}
             return Response(msg, status=status.HTTP_200_OK)
 
         expiry_date_string = get_expiry_date(batch_id)
         expiry_date = datetime.strptime(expiry_date_string, "%d/%m/%Y")
 
-        if expiry_date > datetime.today():
+        if (sku.product_type == Product.PRODUCT_TYPE_CHOICE.NORMAL and expiry_date > datetime.today()) or \
+                (sku.product_type == Product.PRODUCT_TYPE_CHOICE.DISCOUNTED and (expiry_date - timedelta(days=2)) > datetime.today()):
             if physical_inventory['expired'] > 0:
                 msg = {'is_success': False, 'message': ERROR_MESSAGES['EXPIRED_NON_ZERO'], 'data': None}
                 return Response(msg, status=status.HTTP_200_OK)
 
-        if expiry_date <= datetime.today():
+        if (sku.product_type == Product.PRODUCT_TYPE_CHOICE.NORMAL and expiry_date <= datetime.today()) or \
+                (sku.product_type == Product.PRODUCT_TYPE_CHOICE.DISCOUNTED and (expiry_date - timedelta(days=2)) <= datetime.today()):
             if (physical_inventory['normal']+physical_inventory['damaged']) > 0:
                 msg = {'is_success': False, 'message': ERROR_MESSAGES['NORMAL_NON_ZERO'], 'data': None}
                 return Response(msg, status=status.HTTP_200_OK)
@@ -704,20 +707,22 @@ class AuditInventory(APIView):
                 inventory_state = InventoryState.objects.filter(inventory_state='total_available').last()
                 for inv_type, qty in physical_inventory.items():
                     inventory_type = InventoryType.objects.filter(inventory_type=inv_type).last()
-                    if self.picklist_cancel_required(warehouse, batch_id, bin,
-                                                     inventory_type, qty):
-                        self.refresh_pickup_data(audit, warehouse, batch_id, bin, qty)
-                        current_inventory = self.get_bin_inventory(warehouse, batch_id, bin)
-                    elif qty > current_inventory[inv_type]:
-                        add_on_qty = qty - current_inventory[inv_type]
-                        self.refresh_pickup_data_on_qty_up(audit, warehouse, batch_id, bin, sku, add_on_qty,
-                                                           inventory_type)
-                        current_inventory = self.get_bin_inventory(warehouse, batch_id, bin)
-
                     self.log_audit_data(warehouse, audit_run, batch_id, bin, sku, inventory_type, inventory_state,
                                         current_inventory[inv_type], qty)
+                    qty_to_update_to_to_be_picked = 0
+                    if self.picklist_cancel_required(warehouse, batch_id, bin,
+                                                     inventory_type, qty):
+                        qty_to_update_to_to_be_picked = self.refresh_pickup_data(audit, warehouse, batch_id, bin, qty)
+                        # current_inventory = self.get_bin_inventory(warehouse, batch_id, bin)
+                    elif qty > current_inventory[inv_type]:
+                        add_on_qty = qty - current_inventory[inv_type]
+                        qty_to_update_to_to_be_picked = self.refresh_pickup_data_on_qty_up(audit, warehouse, batch_id,
+                                                                                           bin, sku, add_on_qty,
+                                                                                           inventory_type)
+                        # current_inventory = self.get_bin_inventory(warehouse, batch_id, bin)
+
                     self.update_inventory(audit_no, warehouse, batch_id, bin, sku, inventory_type, inventory_state,
-                                          current_inventory[inv_type], qty)
+                                          current_inventory[inv_type], qty, qty_to_update_to_to_be_picked)
                 BlockUnblockProduct.release_product_from_audit(audit, audit_run, sku, warehouse)
         except Exception as e:
             error_logger.error(e)
@@ -749,9 +754,24 @@ class AuditInventory(APIView):
             sku = Product.objects.filter(product_sku=sku_id).last()
         return sku
 
+    def get_sku_from_batch_and_bin(self, batch_id, bin_id):
+        sku = None
+        bin_inventory = BinInventory.objects.filter(batch_id=batch_id, bin__bin_id=bin_id)
+        if bin_inventory:
+            dis_bin_inventory = bin_inventory.filter(sku__product_type=Product.PRODUCT_TYPE_CHOICE.DISCOUNTED).last()
+            sku = dis_bin_inventory.sku if dis_bin_inventory else bin_inventory.last().sku
+        else:
+            in_entry = In.objects.filter(batch_id=batch_id).last()
+            if in_entry:
+                sku = in_entry.sku
+        if not sku:
+            sku_id = batch_id[:-6]
+            sku = Product.objects.filter(product_sku=sku_id).last()
+        return sku
+
     @staticmethod
     def update_inventory(audit_no, warehouse, batch_id, bin, sku, inventory_type, inventory_state,
-                         expected_qty, physical_qty):
+                         expected_qty, physical_qty, qty_to_update_to_to_be_picked):
         info_logger.info('AuditInventory | update_inventory | started ')
         initial_inventory_type = InventoryType.objects.filter(inventory_type='new').last()
         if expected_qty == physical_qty:
@@ -762,34 +782,55 @@ class AuditInventory(APIView):
         if qty_diff < 0:
             tr_type = 'manual_audit_deduct'
 
-        bin_inventory_object = CommonBinInventoryFunctions.update_or_create_bin_inventory(warehouse, bin, sku, batch_id,
-                                                                                          inventory_type, qty_diff,
-                                                                                          True)
-        BinInternalInventoryChange.objects.create(warehouse=warehouse, sku=sku,
-                                                  batch_id=batch_id,
-                                                  final_bin=bin,
-                                                  initial_inventory_type=initial_inventory_type,
-                                                  final_inventory_type=inventory_type,
-                                                  transaction_type=tr_type,
-                                                  transaction_id=audit_no,
-                                                  quantity=abs(qty_diff))
+        bin_inventory_object = CommonBinInventoryFunctions.filter_bin_inventory(warehouse, sku, batch_id, bin,
+                                                                                inventory_type).last()
 
-        ware_house_inventory_obj = WarehouseInventory.objects.filter(warehouse=warehouse, sku=sku,
-                                                                     inventory_state=inventory_state,
-                                                                     inventory_type=inventory_type,
-                                                                     in_stock=True).last()
-        if ware_house_inventory_obj:
-            if ware_house_inventory_obj.quantity+qty_diff < 0:
-                qty_diff = -1*ware_house_inventory_obj.quantity
-        # update warehouse inventory
-        if qty_diff != 0:
-            CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(warehouse, sku,
-                                                                                              inventory_type,
-                                                                                              inventory_state,
-                                                                                              qty_diff, tr_type,
-                                                                                              audit_no)
         AuditInventory.create_in_out_entry(warehouse, sku, batch_id, bin_inventory_object, tr_type, audit_no,
                                            inventory_type, abs(qty_diff))
+        qty_to_update_in_available = abs(qty_diff) - qty_to_update_to_to_be_picked
+        if qty_diff < 0:
+            qty_to_update_in_available = -1 * qty_to_update_in_available
+            qty_to_update_to_to_be_picked = -1 * qty_to_update_to_to_be_picked
+        if abs(qty_to_update_in_available) > 0:
+
+            bin_inventory_object = CommonBinInventoryFunctions.\
+                        update_bin_inventory_with_transaction_log(warehouse, bin, sku, batch_id, initial_inventory_type,
+                                                                  inventory_type, qty_to_update_in_available, True,
+                                                                  tr_type, audit_no)
+
+            ware_house_inventory_obj = WarehouseInventory.objects.filter(warehouse=warehouse, sku=sku,
+                                                                         inventory_state=inventory_state,
+                                                                         inventory_type=inventory_type,
+                                                                         in_stock=True).last()
+            if ware_house_inventory_obj:
+                if ware_house_inventory_obj.quantity+qty_to_update_in_available < 0:
+                    qty_to_update_in_available = -1*ware_house_inventory_obj.quantity
+            # update warehouse inventory
+            if qty_diff != 0:
+                CommonWarehouseInventoryFunctions\
+                    .create_warehouse_inventory_with_transaction_log(warehouse, sku, inventory_type, inventory_state,
+                                                                     qty_to_update_in_available, tr_type, audit_no)
+        if abs(qty_to_update_to_to_be_picked) > 0:
+            state_to_be_picked = InventoryState.objects.filter(inventory_state='to_be_picked').last()
+            # update to be picked quantity in Bin as well as warehouse
+            CommonWarehouseInventoryFunctions\
+                .create_warehouse_inventory_with_transaction_log(warehouse, sku,
+                                                                 inventory_type,
+                                                                 state_to_be_picked,
+                                                                 qty_to_update_to_to_be_picked, tr_type,
+                                                                 audit_no)
+            CommonWarehouseInventoryFunctions \
+                .create_warehouse_inventory_with_transaction_log(warehouse, sku,
+                                                                 inventory_type,
+                                                                 inventory_state,
+                                                                 qty_to_update_to_to_be_picked, tr_type,
+                                                                 audit_no)
+            if qty_to_update_to_to_be_picked < 0 :
+                CommonBinInventoryFunctions.deduct_to_be_picked_from_bin(abs(qty_to_update_to_to_be_picked),
+                                                                         bin_inventory_object, audit_no, tr_type)
+            else:
+                CommonBinInventoryFunctions.add_to_be_picked_to_bin(qty_to_update_to_to_be_picked, bin_inventory_object,
+                                                                    audit_no, tr_type)
         info_logger.info('AuditInventory | update_inventory | completed')
 
     @staticmethod
@@ -814,9 +855,9 @@ class AuditInventory(APIView):
         damaged_type = InventoryType.objects.filter(inventory_type='damaged').last()
         expired_type = InventoryType.objects.filter(inventory_type='expired').last()
         inv_type_list = [normal_type, damaged_type, expired_type]
+        product = self.get_sku_from_batch_and_bin(batch_id, bin.bin_id)
         bin_inventory = BinInventory.objects.filter(warehouse=warehouse, bin=bin, batch_id=batch_id,
-                                                    sku__product_type=Product.PRODUCT_TYPE_CHOICE.NORMAL,
-                                                    inventory_type__in=inv_type_list) \
+                                                    sku=product, inventory_type__in=inv_type_list) \
                                             .values('inventory_type__inventory_type', 'quantity', 'to_be_picked_qty')
         bin_inventory_dict = {g['inventory_type__inventory_type']: g['quantity']+g['to_be_picked_qty'] for g in bin_inventory}
         self.initialize_inventory_dict(bin_inventory_dict, inv_type_list)
@@ -833,8 +874,7 @@ class AuditInventory(APIView):
 
     def get_pickup_blocked_quantity(self, warehouse, batch_id, bin, inventory_type):
         bin_inv_qs = BinInventory.objects.filter(warehouse=warehouse, bin_id=bin, batch_id=batch_id,
-                                                 inventory_type=inventory_type,
-                                                 sku__product_type=Product.PRODUCT_TYPE_CHOICE.NORMAL)
+                                                 inventory_type=inventory_type)
         if not bin_inv_qs.exists():
             return 0
         return bin_inv_qs.last().to_be_picked_qty
@@ -850,6 +890,7 @@ class AuditInventory(APIView):
         """
         For any given batch and bin, refresh the picklist based on available stock for this particular batch and bin
         """
+        qty_to_deduct_from_to_be_picked = 0
         state_to_be_picked = InventoryState.objects.filter(inventory_state='to_be_picked').last()
         state_total_available = InventoryState.objects.filter(inventory_state='total_available').last()
         pickup_bin_qs = PickupBinInventory.objects.select_for_update()\
@@ -870,24 +911,12 @@ class AuditInventory(APIView):
                     qty_diff = pb.quantity - (picked_qty + physical_qty)
                     pb.quantity = picked_qty + physical_qty
                     pb.save()
-                    # update to be picked quantity in Bin as well as warehouse
-                    CommonWarehouseInventoryFunctions\
-                        .create_warehouse_inventory_with_transaction_log(warehouse, pb.pickup.sku,
-                                                                         pb.pickup.inventory_type,
-                                                                         state_to_be_picked,
-                                                                         -1 * qty_diff, 'manual_audit_deduct',
-                                                                         audit.audit_no)
-                    CommonWarehouseInventoryFunctions \
-                        .create_warehouse_inventory_with_transaction_log(warehouse, pb.pickup.sku,
-                                                                         pb.pickup.inventory_type,
-                                                                         state_total_available,
-                                                                         -1 * qty_diff, 'manual_audit_deduct',
-                                                                         audit.audit_no)
-                    CommonBinInventoryFunctions.deduct_to_be_picked_from_bin(qty_diff, pb.bin)
+                    qty_to_deduct_from_to_be_picked += qty_diff
                 if physical_qty > 0:
                     physical_qty = physical_qty - (pb.quantity - picked_qty)
 
         info_logger.info('AuditInventory|refresh_pickup_data|picklist cancelled')
+        return qty_to_deduct_from_to_be_picked
 
 
     @classmethod
@@ -914,6 +943,7 @@ class AuditInventory(APIView):
     def refresh_pickup_data_on_qty_up(self, audit, warehouse, batch_id, bin, sku, qty_added, inventory_type):
 
         info_logger.info('AuditInventory | refresh_pickup_data_on_qty_up | started ')
+        qty_to_add_to_to_be_picked = 0
         state_to_be_picked = InventoryState.objects.filter(inventory_state='to_be_picked').last()
         state_total_available = InventoryState.objects.filter(inventory_state='total_available').last()
 
@@ -932,6 +962,8 @@ class AuditInventory(APIView):
 
             info_logger.info('AuditInventory | refresh_pickup_data_on_qty_up | pickup_id {}, qty_diff {} '
                              .format(pickup_id, qty_diff))
+            if qty_diff == 0:
+                continue
             # For a particular picklist get the entry for current batch and bin id if exists
             pick_bin_inventory = PickupBinInventory.objects.filter(pickup_id=pickup_id, batch_id=batch_id,
                                                                    bin__bin_id=bin).last()
@@ -953,23 +985,14 @@ class AuditInventory(APIView):
                 qty_added = 0
             pick_bin_inventory.quantity = pick_bin_inventory.quantity + addon_qty
             pick_bin_inventory.save()
+            qty_to_add_to_to_be_picked += addon_qty
 
-            CommonWarehouseInventoryFunctions \
-                .create_warehouse_inventory_with_transaction_log(warehouse, sku,
-                                                                 pick_bin_inventory.pickup.inventory_type,
-                                                                 state_to_be_picked, addon_qty, 'manual_audit_add',
-                                                                 audit.audit_no)
-            CommonWarehouseInventoryFunctions \
-                .create_warehouse_inventory_with_transaction_log(warehouse, sku,
-                                                                 pick_bin_inventory.pickup.inventory_type,
-                                                                 state_total_available, addon_qty, 'manual_audit_add',
-                                                                 audit.audit_no)
-            CommonBinInventoryFunctions.add_to_be_picked_to_bin(addon_qty, pick_bin_inventory.bin)
-
+            info_logger.info('AuditInventory | refresh_pickup_data_on_qty_up | qty available for picklist {} '
+                             .format(qty_added))
             if qty_added == 0:
                 break
-
         info_logger.info('AuditInventory | refresh_pickup_data_on_qty_up | ended ')
+        return qty_to_add_to_to_be_picked
 
 
 

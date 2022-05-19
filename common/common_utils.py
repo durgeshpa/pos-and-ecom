@@ -139,40 +139,29 @@ def create_invoice_data(ordered_product):
     try:
         if ordered_product.order.ordered_cart.cart_type == 'AUTO':
             if ordered_product.shipment_status == "MOVED_TO_DISPATCH":
-                CommonFunction.generate_invoice_number(
-                    'invoice_no', ordered_product.pk,
-                    ordered_product.order.seller_shop.shop_name_address_mapping.filter(address_type='billing').last().pk,
-                    ordered_product.invoice_amount)
+                CommonFunction.generate_invoice_number(ordered_product,
+                    ordered_product.order.seller_shop.shop_name_address_mapping.filter(address_type='billing').last().pk)
         elif ordered_product.order.ordered_cart.cart_type == 'BASIC':
             if ordered_product.shipment_status == "FULLY_DELIVERED_AND_VERIFIED":
-                CommonFunction.generate_invoice_number(
-                    'invoice_no', ordered_product.pk,
-                    ordered_product.order.seller_shop.shop_name_address_mapping.filter(address_type='billing').last().pk,
-                    ordered_product.invoice_amount)
+                CommonFunction.generate_invoice_number(ordered_product,
+                    ordered_product.order.seller_shop.shop_name_address_mapping.filter(address_type='billing').last().pk)
         elif ordered_product.order.ordered_cart.cart_type == 'ECOM':
             if ordered_product.shipment_status == "MOVED_TO_DISPATCH":
-                CommonFunction.generate_invoice_number(
-                    'invoice_no', ordered_product.pk,
+                CommonFunction.generate_invoice_number(ordered_product,
                     ordered_product.order.seller_shop.shop_name_address_mapping.filter(address_type='billing').last().pk,
-                    ordered_product.invoice_amount, "EV")
+                                                       "EV")
         elif ordered_product.order.ordered_cart.cart_type == 'RETAIL':
             if ordered_product.shipment_status == "MOVED_TO_DISPATCH":
-                CommonFunction.generate_invoice_number(
-                    'invoice_no', ordered_product.pk,
-                    ordered_product.order.seller_shop.shop_name_address_mapping.filter(address_type='billing').last().pk,
-                    ordered_product.invoice_amount)
+                CommonFunction.generate_invoice_number(ordered_product,
+                    ordered_product.order.seller_shop.shop_name_address_mapping.filter(address_type='billing').last().pk)
         elif ordered_product.order.ordered_cart.cart_type == 'DISCOUNTED':
             if ordered_product.shipment_status == "MOVED_TO_DISPATCH":
-                CommonFunction.generate_invoice_number_discounted_order(
-                    'invoice_no', ordered_product.pk,
-                    ordered_product.order.seller_shop.shop_name_address_mapping.filter(address_type='billing').last().pk,
-                    ordered_product.invoice_amount)
+                CommonFunction.generate_invoice_number_discounted_order(ordered_product,
+                    ordered_product.order.seller_shop.shop_name_address_mapping.filter(address_type='billing').last().pk)
         elif ordered_product.order.ordered_cart.cart_type == 'BULK':
             if ordered_product.shipment_status == "MOVED_TO_DISPATCH":
-                CommonFunction.generate_invoice_number_bulk_order(
-                    'invoice_no', ordered_product.pk,
-                    ordered_product.order.seller_shop.shop_name_address_mapping.filter(address_type='billing').last().pk,
-                    ordered_product.invoice_amount)
+                CommonFunction.generate_invoice_number_bulk_order(ordered_product,
+                    ordered_product.order.seller_shop.shop_name_address_mapping.filter(address_type='billing').last().pk)
 
         if ordered_product.no_of_crates is None:
             ordered_product.no_of_crates = 0
@@ -331,3 +320,26 @@ def whatsapp_order_refund(order_number, order_status, phone_number, refund_amoun
         error_logger.error(e)
         return False
 
+
+@task()
+def whatsapp_order_delivered(order_number, shop_name, phone_number, points, credit):
+    try:
+        if phone_number == '9999999999':
+            return False
+        api_end_point = WHATSAPP_API_ENDPOINT
+        whatsapp_user_id = WHATSAPP_API_USERID
+        whatsapp_user_password = WHATSAPP_API_PASSWORD
+        if credit:
+            msg = urlencode({"msg":"Hi! Your Order no "+order_number+" is successfully delivered, "+str(points)+" reward points are credited in your account. Please shop again at "+shop_name+"."})
+        else:
+            msg = urlencode({"msg":"Hi! Your Order no "+order_number+" is successfully delivered. Please shop again at "+shop_name+"."})
+        data_string = "method=SendMessage&format=json&password=" + whatsapp_user_password + "&send_to=" + phone_number +" +&v=1.1&auth_scheme=plain&&msg_type=HSM&" + msg
+        order_delivered_api = api_end_point + "userid=" + whatsapp_user_id + '&' + data_string
+        response = requests.get(order_delivered_api)
+        if json.loads(response.text)['response']['status'] == 'success':
+            return True
+        else:
+            return False
+    except Exception as e:
+        error_logger.error(e)
+        return False

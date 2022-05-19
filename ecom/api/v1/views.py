@@ -1,12 +1,14 @@
+import datetime
+import logging
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.authentication import TokenAuthentication
 from rest_framework.generics import ListAPIView
 from rest_framework import status
 
+from accounts.models import User
 from categories.models import Category, B2cCategory
 from marketing.models import RewardPoint
-from shops.models import Shop
 from pos.common_functions import serializer_error, api_response
 from pos.models import RetailerProduct
 from retailer_backend.utils import SmallOffsetPagination
@@ -18,13 +20,22 @@ from global_config.models import GlobalConfig
 
 from ecom.utils import (check_ecom_user, nearby_shops, validate_address_id, check_ecom_user_shop,
                         get_categories_with_products, get_b2c_categories_with_products)
-from ecom.models import Address, Tag
+from ecom.models import Address, Tag, ShopUserLocationMappedLog
+from shops.models import Shop
 from .serializers import (AccountSerializer, RewardsSerializer, TagSerializer, UserLocationSerializer, ShopSerializer,
-                          AddressSerializer, CategorySerializer, B2cCategorySerializer, SubCategorySerializer, 
+                          AddressSerializer, CategorySerializer, B2cCategorySerializer, SubCategorySerializer,
                           B2cSubCategorySerializer, TagProductSerializer, Parent_Product_Serilizer,
-                          ShopInfoSerializer)
+                          ShopInfoSerializer, PastPurchasedProductSerializer, ReferAndEarnSerializer, RetailerProductSerializer)
 
 from pos.api.v1.serializers import ContectUs
+
+# Get an instance of a logger
+from ...common_function import create_shop_user_mapping
+
+info_logger = logging.getLogger('file-info')
+error_logger = logging.getLogger('file-error')
+debug_logger = logging.getLogger('file-debug')
+
 
 class AccountView(APIView):
     serializer_class = AccountSerializer
@@ -50,8 +61,23 @@ class RewardsView(APIView):
         """
         All Reward Credited/Used Details For User
         """
-        serializer = self.serializer_class(
-            RewardPoint.objects.filter(reward_user=self.request.user).select_related('reward_user').last())
+        serializer = self.serializer_class(RewardPoint.objects.filter(reward_user=self.request.user).
+                                           select_related('reward_user').last())
+        return api_response("", serializer.data, status.HTTP_200_OK, True)
+
+
+class ReferAndEarnView(APIView):
+    serializer_class = ReferAndEarnSerializer
+    permission_classes = (IsAuthenticated,)
+    authentication_classes = (TokenAuthentication,)
+
+    @check_ecom_user
+    def get(self, request, *args, **kwargs):
+        """
+        All Reward Credited on user refer
+        """
+        serializer = self.serializer_class(User.objects.filter(id=self.request.user.id).
+                                           prefetch_related('referral_by_user', 'referral_code_user').last())
         return api_response("", serializer.data, status.HTTP_200_OK, True)
 
 
@@ -70,12 +96,14 @@ class ShopView(APIView):
                                          ordered_cart__cart_type__in=['BASIC', 'ECOM'],
                                          seller_shop__online_inventory_enabled=True).order_by('id').last()
             if order:
+                create_shop_user_mapping(order.seller_shop, self.request.user)
                 return self.serialize(order.seller_shop)
 
             # check mapped pos shop
             shop_map = ShopCustomerMap.objects.filter(user=self.request.user,
                                                       shop__online_inventory_enabled=True).last()
             if shop_map:
+                create_shop_user_mapping(shop_map.shop, self.request.user)
                 return self.serialize(shop_map.shop)
 
             return api_response('No shop found!')
@@ -87,6 +115,8 @@ class ShopView(APIView):
             data = serializer.data
             radius = get_config('pos_ecom_delivery_radius', 10)
             shop = nearby_shops(data['latitude'], data['longitude'], radius)
+            if shop:
+                create_shop_user_mapping(shop, self.request.user)
             return self.serialize(shop) if shop else api_response('No shop found!')
         else:
             return api_response(serializer_error(serializer))
@@ -272,6 +302,7 @@ class TagProductView(APIView):
         if products.count() >= 3:
             products = self.pagination_class().paginate_queryset(products, self.request)
             serializer = TagProductSerializer(tag, context={'product': products})
+            # serializer = RetailerProductSerializer(products, many=True)
             is_success, data = True, serializer.data
         return api_response('Tag Found', data, status.HTTP_200_OK, is_success)
 
@@ -298,6 +329,19 @@ class UserShopView(APIView):
         if data:
             is_success, message = True, "Shop Found"
         return api_response(message, data, status.HTTP_200_OK, is_success)
+
+    def post(self, request, *args, **kwargs):
+        if not self.request.GET.get('shop_id'):
+            return api_response("please provide shop", "", status.HTTP_406_NOT_ACCEPTABLE, False)
+        shop_id = self.request.GET.get('shop_id')
+        try:
+            shop = Shop.objects.get(id=int(shop_id))
+        except:
+            info_logger.error(f"shop not found for shop id {shop_id}")
+            return api_response("Invalid shop has been selected", "", status.HTTP_406_NOT_ACCEPTABLE, False)
+        create_shop_user_mapping(shop, self.request.user)
+        return api_response("shop has been changed successfully", "", status.HTTP_200_OK, True)
+
 
 class Contect_Us(APIView):
     authentication_classes = (TokenAuthentication,)
@@ -330,3 +374,51 @@ class ParentProductDetails(APIView):
         serializer = RetailerProduct.objects.filter(id=pk, shop=shop, is_deleted=False, online_enabled=True)
         serializer = self.serializer_class(serializer, many=True)
         return api_response('products information',serializer.data,status.HTTP_200_OK, True)
+
+class PastPurchasedProducts(APIView):
+    """
+    API to get the products purchased by a user
+    """
+
+    authentication_classes = (TokenAuthentication,)
+    serializer_class = PastPurchasedProductSerializer
+    pagination_class = SmallOffsetPagination
+
+    @check_ecom_user_shop
+    def get(self, request, *args, **kwargs):
+        '''
+        Get retailer products purchase by a user for specific shop
+        '''
+        shop = kwargs['shop']
+        products = RetailerProduct.objects.filter(products_sold__user=request.user, products_sold__shop=shop,
+                                                  is_deleted=False, online_enabled=True,).order_by('-products_sold__id')
+        count = products.count()
+        products = self.pagination_class().paginate_queryset(products, self.request)
+        serializer = RetailerProductSerializer(products, many=True)
+        is_success, data, msg = True, serializer.data, f"{count} record/s found"
+        return api_response(msg, data, status.HTTP_200_OK, is_success)
+
+
+class ProductFunctionView(APIView):
+    """
+    Get Product by tag id
+    """
+    permission_classes = (IsAuthenticated,)
+    authentication_classes = (TokenAuthentication,)
+    pagination_class = SmallOffsetPagination
+
+    @check_ecom_user_shop
+    def get(self, request, pk, *args, **kwargs):
+        try:
+            tag = Tag.objects.get(id=pk)
+        except:
+            return api_response('Invalid Tag Id')
+        shop = kwargs['shop']
+        products = RetailerProduct.objects.filter(product_tag_ecom__tag=tag, shop=shop, is_deleted=False, online_enabled=True)
+        is_success, data = False, []
+        if products.count() >= 3:
+            products = self.pagination_class().paginate_queryset(products, self.request)
+            # serializer = TagProductSerializer(tag, context={'product': products})
+            serializer = RetailerProductSerializer(products, many=True)
+            is_success, data = True, serializer.data
+        return api_response('Tag Found', data, status.HTTP_200_OK, is_success)

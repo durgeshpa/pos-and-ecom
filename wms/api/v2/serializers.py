@@ -25,7 +25,7 @@ from shops.models import Shop, ShopUserMapping
 
 from wms.common_functions import ZoneCommonFunction, WarehouseAssortmentCommonFunction, PutawayCommonFunctions, \
     CommonBinInventoryFunctions, CommonWarehouseInventoryFunctions, get_sku_from_batch, post_picking_order_update, \
-    QCDeskCommonFunction
+    QCDeskCommonFunction, get_sku_from_batch_and_bin
 from global_config.views import get_config
 from wms.models import In, Out, InventoryType, Zone, WarehouseAssortment, Bin, BIN_TYPE_CHOICES, \
     ZonePutawayUserAssignmentMapping, Putaway, PutawayBinInventory, BinInventory, InventoryState, \
@@ -1290,19 +1290,30 @@ class BinShiftPostSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Invalid Inventory Type")
         data['inventory_type'] = inventory_type
 
+        sku = get_sku_from_batch_and_bin(self.initial_data['batch_id'], s_bin.bin_id)
+
         bin_inv = BinInventory.objects.filter(bin=s_bin, batch_id=self.initial_data['batch_id'],
-                                              inventory_type=inventory_type).last()
+                                              sku=sku, inventory_type=inventory_type).last()
         if bin_inv:
             if bin_inv.quantity+bin_inv.to_be_picked_qty < self.initial_data['qty']:
                 raise serializers.ValidationError(f"Invalid Quantity to move | "
                                                   f"Available Quantity {bin_inv.quantity+bin_inv.to_be_picked_qty}")
         else:
             raise serializers.ValidationError("Invalid s_bin or batch_id")
-        sku = get_sku_from_batch(self.initial_data['batch_id'])
-        if BinInventory.objects.filter(~Q(batch_id=self.initial_data['batch_id']),
-                                    Q(quantity__gt=0)|Q(to_be_picked_qty__gt=0), bin=t_bin, sku=sku).exists():
-            raise serializers.ValidationError("Invalid Movement | "
-                                              "Target bin already has same product with different batch ID")
+
+        product_id = [sku.id]
+        if sku.product_type == Product.PRODUCT_TYPE_CHOICE.NORMAL:
+            if sku.discounted_sku:
+                product_id.append(sku.discounted_sku.id)
+        else:
+            if sku.product_ref:
+                product_id.append(sku.product_ref.id)
+
+        if BinInventory.objects.filter(
+                ~Q(batch_id=self.initial_data['batch_id']), Q(quantity__gt=0) | Q(to_be_picked_qty__gt=0),
+                bin=t_bin, sku__id__in=product_id).exists():
+            raise serializers.ValidationError(
+                "Invalid Movement | Target bin already has same product with different batch ID")
         return data
 
     @transaction.atomic
@@ -1339,10 +1350,17 @@ class PutawayActionSerializer(PutawayItemsCrudSerializer):
 
                     bin = Bin.objects.filter(bin_id=item['bin'], warehouse=putaway_instance.warehouse,
                                              zone=zone, is_active=True).last()
-                    if BinInventory.objects.filter(~Q(batch_id=putaway_instance.batch_id), warehouse=putaway_instance.warehouse,
-                                                bin=bin, sku=putaway_instance.sku, quantity__gt=0).exists():
-                        raise serializers.ValidationError(f"Invalid bin {item['bin']}| This product with different expiry date "
-                                                          f"already present in bin")
+                    product_id = [putaway_instance.sku.id]
+                    if putaway_instance.sku.product_type == Product.PRODUCT_TYPE_CHOICE.NORMAL:
+                        if putaway_instance.sku.discounted_sku:
+                            product_id.append(putaway_instance.sku.discounted_sku.id)
+                    elif putaway_instance.sku.product_ref:
+                            product_id.append(putaway_instance.sku.product_ref.id)
+                    if BinInventory.objects.filter(
+                            ~Q(batch_id=putaway_instance.batch_id), warehouse=putaway_instance.warehouse, bin=bin,
+                            sku__id__in=product_id).filter(Q(quantity__gt=0) | Q(to_be_picked_qty__gt=0)).exists():
+                        raise serializers.ValidationError(f"Invalid bin {item['bin']}| This product with different "
+                                                          f"expiry date already present in bin")
                     if bin:
                         item['bin'] = bin
                     else:
@@ -1376,6 +1394,9 @@ class PutawayActionSerializer(PutawayItemsCrudSerializer):
         try:
             putaway_instance = validated_data.pop('putaway')
             putaway_bin_data = validated_data.pop('putaway_bin_data')
+            qty = sum(item['qty'] for item in putaway_bin_data)
+            if putaway_instance.putaway_quantity + qty > putaway_instance.quantity:
+                return serializers.ValidationError({'message': "Invalid quantity"})
             putaway_instance = self.post_putaway_data_update(putaway_instance, putaway_bin_data)
             validated_data['putaway_quantity'] = putaway_instance.putaway_quantity
             if putaway_instance.quantity == putaway_instance.putaway_quantity:

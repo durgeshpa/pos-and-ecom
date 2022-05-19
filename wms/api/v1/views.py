@@ -825,7 +825,8 @@ class PickupDetail(APIView):
                                 info_logger.info('PickupDetail|POST API| Bin Inventory Object not found, Bin Inv ID-{}'
                                                  .format(bin_inv_id))
                                 continue
-                            CommonBinInventoryFunctions.deduct_to_be_picked_from_bin(pickup_quantity, bin_inv_obj)
+                            CommonBinInventoryFunctions.deduct_to_be_picked_from_bin(pickup_quantity, bin_inv_obj,
+                                                                                     tr_id, tr_type)
 
                             CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
                                 warehouse, sku, inventory_type, state_to_be_picked, -1 * pickup_quantity, tr_type, tr_id)
@@ -836,9 +837,9 @@ class PickupDetail(APIView):
                             CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
                                 warehouse, sku, inventory_type, state_picked, pickup_quantity, tr_type, tr_id)
 
-                            picking_details.update(pickup_quantity=pickup_quantity + pick_qty,
-                                                   last_picked_at=timezone.now(),
-                                                   remarks=remarks_text)
+                            picking_details.filter(quantity__gte=pickup_quantity + pick_qty).\
+                                update(pickup_quantity=pickup_quantity + pick_qty,
+                                       last_picked_at=timezone.now(), remarks=remarks_text)
                             is_crate_applicable = False
                             if i['pickup_crates']['is_crate_applicable'] is True:
                                 is_crate_applicable = True
@@ -935,7 +936,8 @@ class PickupComplete(APIView):
                                 info_logger.info('PickupComplete|POST API| Bin Inventory Object not found, '
                                                  'Bin Inv ID-{}'.format(bin_inv_id))
                                 continue
-                            CommonBinInventoryFunctions.deduct_to_be_picked_from_bin(reverse_quantity, bin_inv_obj)
+                            CommonBinInventoryFunctions.deduct_to_be_picked_from_bin(reverse_quantity, bin_inv_obj,
+                                                                                     pickup.pk, tr_type)
                             info_logger.info("PickupComplete : reverse quantity for SKU {} - {}"
                                              .format(pickup.sku, reverse_quantity))
 
@@ -1067,13 +1069,18 @@ class DecodeBarcode(APIView):
                 if grn_product is None:
                     batch_id = id[6:]
                     product_id = id[1:6].lstrip("0")
-                    product_batch_ids = In.objects.filter(sku=Product.objects.filter(id=product_id).last()).values('batch_id').distinct()
-                    if product_batch_ids:
-                        for batch_ids in product_batch_ids:
-                            if batch_ids['batch_id'][-6:] == batch_id:
-                                barcode_data = {'type': 'batch', 'id': batch_ids['batch_id'], 'barcode': barcode}
-                                data_item = {'is_success': True, 'message': '', 'data': barcode_data}
-                                data.append(data_item)
+                    product = Product.objects.filter(id=product_id).last()
+                    product_batch_id = In.objects.filter(sku=product, batch_id__endswith=batch_id).last()
+                    if product_batch_id:
+                        barcode_data = {'type': 'batch', 'id': product_batch_id.batch_id, 'barcode': barcode}
+                        data_item = {'is_success': True, 'message': '', 'data': barcode_data}
+                        data.append(data_item)
+                    elif BinInventory.objects.filter(sku=product, batch_id__endswith=batch_id).exists():
+                        last__batch_id = BinInventory.objects.filter(sku=product,
+                                                                     batch_id__endswith=batch_id).last().batch_id
+                        barcode_data = {'type': 'batch', 'id': last__batch_id, 'barcode': barcode}
+                        data_item = {'is_success': True, 'message': '', 'data': barcode_data}
+                        data.append(data_item)
                     else:
                         barcode_data = {'type': None, 'id': None, 'barcode': barcode}
                         data_item = {'is_success': False, 'message': 'Batch Id not found', 'data': barcode_data}

@@ -4,6 +4,7 @@ from model_utils import Choices
 
 LIST, FUNCTION = 'LIST', 'FUNCTION'
 
+CARD_TYPE_PRODUCT, CARD_TYPE_CAREGORY, CARD_TYPE_BRAND, CARD_TYPE_IMAGE = 'product', 'category', 'brand', 'image'
 CARD_TYPE_CHOICES = [
     ('image', 'Image'),
     ('product', 'Product'),
@@ -36,6 +37,7 @@ PAGE_STATE_CHOICES = (
 
 # Landing Page type
 PRODUCT, CATEGORY, BRAND = 'PRODUCT', 'CATEGORY', 'BRAND'
+LANDING_PAGE = 'LANDING_PAGE'
 LANDING_PAGE_TYPE_CHOICE = Choices(
     (1, PRODUCT, 'Product'), (2, CATEGORY, 'Category'), (3, BRAND, 'Brand')
 )
@@ -43,4 +45,9 @@ LANDING_PAGE_TYPE_CHOICE = Choices(
 # Function Type Choices
 FUNTION_TYPE_CHOICE = Choices(
     (1, PRODUCT, 'Product'), (2, CATEGORY, 'Category'), (3, BRAND, 'Brand')
+)
+
+# Image Type Choices
+IMAGE_TYPE_CHOICE = Choices(
+    (1, PRODUCT, 'Product'), (2, CATEGORY, 'Category'), (3, BRAND, 'Brand'), (4, LANDING_PAGE, 'Landing Page')
 )

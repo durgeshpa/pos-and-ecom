@@ -3,6 +3,7 @@ from django.contrib.admin import SimpleListFilter
 from django_filters import rest_framework as filters
 from rangefilter.filter import DateTimeRangeFilter
 
+from global_config.views import get_config
 from retailer_backend.admin import InputFilter
 
 from retailer_to_sp.models import PickerDashboard
@@ -104,3 +105,22 @@ class ENoteAdminInvoiceFilter(InputFilter):
     def queryset(self, request, queryset):
         if self.value() is not None:
             return queryset.filter(shipment__invoice__invoice_no__icontains=self.value())
+
+
+
+class BuyerTotalPurchaseFilter(SimpleListFilter):
+    title = 'Total Purchase'
+    parameter_name = 'purchase'
+    tcs_config_params = get_config('TCS_CONFIG', {"TCS_B2B_APPLICABLE_AMT" : 5000000})
+    tcs_applicable_amt = tcs_config_params.get('TCS_B2B_APPLICABLE_AMT', 5000000)
+
+    def lookups(self, request, model_admin):
+        total_purchase = ((0, f'Less than {self.tcs_applicable_amt}'), (1, f'Greater than {self.tcs_applicable_amt}'))
+        return total_purchase
+
+    def queryset(self, request, queryset):
+        if self.value() == '0':
+            queryset = queryset.filter(total_purchase__lt=self.tcs_applicable_amt)
+        elif self.value() == '1':
+            queryset = queryset.filter(total_purchase__gte=self.tcs_applicable_amt)
+        return queryset

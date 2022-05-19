@@ -537,47 +537,47 @@ def retailer_report(id):
                                                               service_partner_contact=service_partner_contact)
 
 
-
 @task(queue='analytics_tasks', routing_key='analytics')
 def trip_report(trip_id):
-    trips = Trip.objects.get(pk=trip_id)
-    i=0
-    trip_id = trips.id
-    seller_shop = trips.seller_shop.shop_name
-    dispatch_no = trips.dispatch_no
-    delivery_boy = trips.delivery_boy.first_name
-    vehicle_no = trips.vehicle_no
-    trip_status = trips.trip_status
-    e_way_bill_no = trips.e_way_bill_no
-    starts_at = trips.starts_at
-    completed_at = trips.completed_at
-    trip_amount = ''
-    received_amount = trips.received_amount
-    created_at = trips.created_at
-    modified_at = trips.modified_at
-    total_crates_shipped = trips.total_crates_shipped
-    total_packets_shipped = trips.total_packets_shipped
-    total_sacks_shipped = trips.total_sacks_shipped
-    total_crates_collected = trips.total_crates_collected
-    total_packets_collected = trips.total_packets_shipped
-    total_sacks_collected = trips.total_sacks_collected
-    cash_to_be_collected = trips.cash_to_be_collected()
-    cash_collected_by_delivery_boy = trips.cash_collected_by_delivery_boy()
-    total_paid_amount = trips.total_paid_amount()
-    total_received_amount = trips.total_received_amount
-    received_cash_amount = trips.received_cash_amount
-    received_online_amount = trips.received_online_amount
-    cash_to_be_collected_value = trips.cash_to_be_collected_value
-    total_trip_shipments = trips.total_trip_shipments
-    total_trip_amount = trips.trip_amount
-    total_trip_amount_value = trips.total_trip_amount_value
-    trip_weight = trips.trip_weight()
+    trips = Trip.objects.filter(pk=trip_id).last()
+    if trips:
+        i = 0
+        trip_id = trips.id
+        seller_shop = trips.seller_shop.shop_name
+        dispatch_no = trips.dispatch_no
+        delivery_boy = trips.delivery_boy.first_name
+        vehicle_no = trips.vehicle_no
+        trip_status = trips.trip_status
+        e_way_bill_no = trips.e_way_bill_no
+        starts_at = trips.starts_at
+        completed_at = trips.completed_at
+        trip_amount = ''
+        received_amount = trips.received_amount
+        created_at = trips.created_at
+        modified_at = trips.modified_at
+        total_crates_shipped = trips.total_crates_shipped
+        total_packets_shipped = trips.total_packets_shipped
+        total_sacks_shipped = trips.total_sacks_shipped
+        total_crates_collected = trips.total_crates_collected
+        total_packets_collected = trips.total_packets_shipped
+        total_sacks_collected = trips.total_sacks_collected
+        cash_to_be_collected = trips.cash_to_be_collected()
+        cash_collected_by_delivery_boy = trips.cash_collected_by_delivery_boy()
+        total_paid_amount = trips.total_paid_amount()
+        total_received_amount = trips.total_received_amount
+        received_cash_amount = trips.received_cash_amount
+        received_online_amount = trips.received_online_amount
+        cash_to_be_collected_value = trips.cash_to_be_collected_value
+        total_trip_shipments = trips.total_trip_shipments
+        total_trip_amount = trips.trip_amount
+        total_trip_amount_value = trips.total_trip_amount_value
+        trip_weight = trips.trip_weight()
 
-    TriReport.objects.create(trip_id=trip_id,seller_shop=seller_shop,dispatch_no=dispatch_no,delivery_boy=delivery_boy,vehicle_no=vehicle_no,trip_status=trip_status,e_way_bill_no=e_way_bill_no,
-                                                    starts_at=starts_at,completed_at=completed_at,trip_amount=trip_amount,received_amount=received_amount,created_at=created_at,modified_at=modified_at,total_crates_shipped=total_crates_shipped,
-                                                    total_packets_shipped=total_packets_shipped,total_sacks_shipped=total_sacks_shipped,total_crates_collected=total_crates_collected,total_packets_collected=total_packets_collected,total_sacks_collected=total_sacks_collected,cash_to_be_collected=cash_to_be_collected,
-                                                    cash_collected_by_delivery_boy=cash_collected_by_delivery_boy,total_paid_amount=total_paid_amount,total_received_amount=total_received_amount,received_cash_amount=received_cash_amount,received_online_amount=received_online_amount,cash_to_be_collected_value=cash_to_be_collected_value,total_trip_shipments=total_trip_shipments,
-                                                    total_trip_amount=total_trip_amount,total_trip_amount_value=total_trip_amount_value,trip_weight=trip_weight)
+        TriReport.objects.create(trip_id=trip_id,seller_shop=seller_shop,dispatch_no=dispatch_no,delivery_boy=delivery_boy,vehicle_no=vehicle_no,trip_status=trip_status,e_way_bill_no=e_way_bill_no,
+                                                        starts_at=starts_at,completed_at=completed_at,trip_amount=trip_amount,received_amount=received_amount,created_at=created_at,modified_at=modified_at,total_crates_shipped=total_crates_shipped,
+                                                        total_packets_shipped=total_packets_shipped,total_sacks_shipped=total_sacks_shipped,total_crates_collected=total_crates_collected,total_packets_collected=total_packets_collected,total_sacks_collected=total_sacks_collected,cash_to_be_collected=cash_to_be_collected,
+                                                        cash_collected_by_delivery_boy=cash_collected_by_delivery_boy,total_paid_amount=total_paid_amount,total_received_amount=total_received_amount,received_cash_amount=received_cash_amount,received_online_amount=received_online_amount,cash_to_be_collected_value=cash_to_be_collected_value,total_trip_shipments=total_trip_shipments,
+                                                        total_trip_amount=total_trip_amount,total_trip_amount_value=total_trip_amount_value,trip_weight=trip_weight)
 
 
 # @periodic_task(run_every=(crontab(minute=2, hour=0)), name="getStock", ignore_result=True)

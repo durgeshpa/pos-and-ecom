@@ -10,7 +10,7 @@ from rest_framework.response import Response
 from rest_framework import status
 
 from global_config.views import get_config_fofo_shop
-from shops.models import Shop
+from shops.models import Shop, FOFOConfig
 from wms.models import PosInventory, PosInventoryState
 from retailer_to_sp.models import RoundAmount, OrderedProduct, Order
 from .models import Address
@@ -72,10 +72,15 @@ def nearby_shops(lat, lng, radius=10, limit=10):
 
     queryset = Shop.objects.raw(query)
     for shop in queryset:
-        shop_radius = get_config_fofo_shop('Delivery radius', shop.id)
+        obj = FOFOConfig.objects.filter(shop=shop).last()
+        shop_radius = 0
+        if obj:
+            shop_radius = obj.delivery_redius
+        # shop_radius = FOFOConfig.objects.filter(shop=shop) # get_config_fofo_shop('Delivery radius', shop.id)
         if not shop_radius:
-            shop_radius = get_config_fofo_shop('Delivery radius')
-        if shop_radius and float(shop.distance) < float(shop_radius):
+            obj = FOFOConfig.objects.filter(shop__shop_name__iexact="default fofo shop").last()
+            shop_radius = obj.delivery_redius
+        if shop_radius and float(shop.distance*1000) < float(shop_radius): #float(shop.distance*1000) convert km to mtrs
             return shop
     return None
 
@@ -134,8 +139,10 @@ def generate_ecom_order_csv_report(queryset):
         'Redeemed Points', 'Redeemed Points Value'
     ])
     orders = queryset \
-        .prefetch_related('order', 'invoice','pos_trips', 'order__ordered_cart__seller_shop', 'order__ordered_cart__seller_shop__shop_owner',
-                          'order__ordered_cart__seller_shop__shop_type__shop_sub_type', 'order__buyer', 'rt_order_product_order_product_mapping',
+        .prefetch_related('order', 'invoice','pos_trips', 'order__ordered_cart__seller_shop',
+                          'order__ordered_cart__seller_shop__shop_owner',
+                          'order__ordered_cart__seller_shop__shop_type__shop_sub_type', 'order__buyer',
+                          'rt_order_product_order_product_mapping',
                           'rt_order_product_order_product_mapping__retailer_product',
                           'rt_order_product_order_product_mapping__retailer_product__linked_product',
                           'rt_order_product_order_product_mapping__retailer_product__linked_product__parent_product',
@@ -148,9 +155,11 @@ def generate_ecom_order_csv_report(queryset):
                           'rt_payment_retailer_order__payment_type', 'ordered_cart', 'ordered_cart__rt_cart_list'
                           )\
         .annotate(
-            purchased_subtotal=RoundAmount(Sum(F('ordered_cart__rt_cart_list__qty') * F('ordered_cart__rt_cart_list__selling_price'),output_field=FloatField())),
+            purchased_subtotal=RoundAmount(Sum(F('ordered_cart__rt_cart_list__qty') *
+                                               F('ordered_cart__rt_cart_list__selling_price'),output_field=FloatField())),
             ) \
-        .values('id', 'order_no', 'rt_order_order_product__invoice__invoice_no', 'order_status', 'created_at', 'ordered_cart__seller_shop__id', 'ordered_cart__seller_shop__shop_name',
+        .values('id', 'order_no', 'rt_order_order_product__invoice__invoice_no', 'order_status', 'created_at',
+                'ordered_cart__seller_shop__id', 'ordered_cart__seller_shop__shop_name',
                 'ordered_cart__seller_shop__shop_owner__id', 'ordered_cart__seller_shop__shop_owner__first_name',
                 'ordered_cart__seller_shop__shop_owner__phone_number',
                 'ordered_cart__seller_shop__shop_type__shop_sub_type__retailer_type_name',
@@ -159,6 +168,7 @@ def generate_ecom_order_csv_report(queryset):
                 'rt_order_order_product__rt_order_product_order_product_mapping__delivered_qty',
                 'rt_order_order_product__rt_order_product_order_product_mapping__product_type',
                 'rt_order_order_product__rt_order_product_order_product_mapping__selling_price',
+                'rt_order_order_product__rt_order_product_order_product_mapping__created_at',
                 'rt_order_order_product__rt_order_product_order_product_mapping__retailer_product__id',
                 'rt_order_order_product__rt_order_product_order_product_mapping__retailer_product__sku',
                 'rt_order_order_product__rt_order_product_order_product_mapping__retailer_product__name',
@@ -292,7 +302,9 @@ def generate_ecom_order_csv_report(queryset):
                 if order.get('rt_order_order_product__pos_trips__trip_start_at') else '',
             order.get('rt_order_order_product__pos_trips__trip_end_at').strftime('%m/%d/%Y-%H-%M-%S') \
                 if order.get('rt_order_order_product__pos_trips__trip_end_at') else '',
-            order.get('created_at').strftime('%m/%d/%Y-%H-%M-%S'),
+            order.get('rt_order_order_product__rt_order_product_order_product_mapping__created_at').
+                strftime('%m/%d/%Y-%H-%M-%S') if
+            order.get('rt_order_order_product__rt_order_product_order_product_mapping__created_at') else '',
             order.get('ordered_cart__redeem_points'),
             redeem_points_value
         ])

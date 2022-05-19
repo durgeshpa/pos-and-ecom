@@ -25,7 +25,7 @@ from retailer_to_sp.models import (CartProductMapping, Cart, Order, OrderedProdu
                                    DispatchTripShipmentPackages, ShipmentNotAttempt, PACKAGE_VERIFY_CHOICES,
                                    LastMileTripShipmentMapping, ShopCrate, DispatchTripCrateMapping,
                                    add_to_putaway_on_return, LastMileTripShipmentPackages, ShipmentPackagingBatch,
-                                   RETURN_REMARK_CHOICES)
+                                   RETURN_REMARK_CHOICES, add_to_putaway_on_partail)
 
 from retailer_to_gram.models import (Cart as GramMappedCart, CartProductMapping as GramMappedCartProductMapping,
                                      Order as GramMappedOrder, OrderedProduct as GramMappedOrderedProduct,
@@ -60,6 +60,7 @@ class ChoicesSerializer(serializers.ChoiceField):
 class PickerDashboardSerializer(serializers.ModelSerializer):
     class Meta:
         model = PickerDashboard
+        ref_name = "PickerDashboardSerializer v1"
         fields = '__all__'
 
 
@@ -1539,6 +1540,7 @@ class OrderedProductBatchSerializer(serializers.ModelSerializer):
 class CrateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Crate
+        ref_name  = "CrateSerializer v1"
         fields = ('id', 'crate_id')
 
 
@@ -2073,6 +2075,7 @@ class ShipmentQCSerializer(serializers.ModelSerializer):
             self.update_order_status_post_qc_done(shipment_instance)
             info_logger.info(f"post_shipment_status_change|shipment_status {shipment_instance.shipment_status} "
                              f"|Picking Crates released|OrderNo {shipment_instance.order.order_no}")
+            add_to_putaway_on_partail(shipment_instance.id)
         elif shipment_instance.shipment_status == OrderedProduct.RESCHEDULED:
             if 'rescheduling_reason' in shipment_reschedule and 'rescheduling_date' in shipment_reschedule:
                 self.create_shipment_reschedule(
@@ -2122,7 +2125,7 @@ class CitySerializer(serializers.ModelSerializer):
     class Meta:
         model = City
         fields = ('id', 'city_name')
-
+        ref_name = "AddressCity v1"
 
 class ShipmentPincodeFilterSerializer(serializers.ModelSerializer):
     city = CitySerializer()
@@ -2269,6 +2272,7 @@ class DispatchDashboardSerializer(serializers.Serializer):
 class UserSerializers(serializers.ModelSerializer):
     class Meta:
         model = User
+        ref_name = " UserSerializers rp v1"
         fields = ('id', 'first_name', 'last_name', 'phone_number',)
 
 
@@ -3134,6 +3138,9 @@ class SummarySerializer(serializers.Serializer):
 
     weight = serializers.IntegerField()
 
+    class Meta:
+        ref_name = "SummarySerializer v1"
+
 
 class TripSummarySerializer(serializers.Serializer):
     trip_data = SummarySerializer(read_only=True)
@@ -3290,9 +3297,11 @@ class LoadVerifyCrateSerializer(serializers.ModelSerializer):
         info_logger.info(f"post_crate_load_trip_update|trip_crate_mapping {trip_crate_mapping}")
         # Update total no of empty crates
         trip = trip_crate_mapping.trip
-        if trip_crate_mapping.crate_status == DispatchTripCrateMapping.LOADED:
-            trip.no_of_empty_crates = (trip.no_of_empty_crates if trip.no_of_empty_crates else 0) + 1
-            trip.save()
+        trip.no_of_empty_crates = trip.total_empty_crates()
+        trip.save()
+        # if trip_crate_mapping.crate_status == DispatchTripCrateMapping.LOADED:
+        #     trip.no_of_empty_crates = (trip.no_of_empty_crates if trip.no_of_empty_crates else 0) + 1
+        #     trip.save()
 
         # Make crate used at source
         shop = trip_crate_mapping.trip.source_shop
@@ -3399,6 +3408,8 @@ class LoadVerifyPackageSerializer(serializers.ModelSerializer):
 
     def validate(self, data):
         # Validate request data
+        current_user = self.context.get('current_user')
+
         if 'id' in self.initial_data:
             raise serializers.ValidationError('Updating package is not allowed')
         if 'trip_id' not in self.initial_data or not self.initial_data['trip_id']:
@@ -3478,13 +3489,20 @@ class LoadVerifyPackageSerializer(serializers.ModelSerializer):
 
         trip_shipment = None
         if DispatchTripShipmentMapping.objects.filter(
-                trip=trip, shipment_status=DispatchTripShipmentMapping.LOADING_FOR_DC).exists():
+                trip=trip, loaded_by=current_user, shipment_status=DispatchTripShipmentMapping.LOADING_FOR_DC).exists():
             trip_shipment = DispatchTripShipmentMapping.objects.filter(
-                trip=trip, shipment_status=DispatchTripShipmentMapping.LOADING_FOR_DC).last()
+                trip=trip, loaded_by=current_user, shipment_status=DispatchTripShipmentMapping.LOADING_FOR_DC).last()
             current_invoice_being_loaded = trip_shipment.shipment
             if current_invoice_being_loaded != package.shipment:
                 raise serializers.ValidationError(f"Please scan the remaining box in invoice no."
                                                   f" {current_invoice_being_loaded.invoice_no}")
+        elif DispatchTripShipmentMapping.objects.filter(
+                ~Q(loaded_by=current_user), trip=trip, shipment=package.shipment,
+                shipment_status=DispatchTripShipmentMapping.LOADING_FOR_DC).exists():
+            loaded_by = DispatchTripShipmentMapping.objects.filter(
+                ~Q(loaded_by=current_user), trip=trip, shipment=package.shipment,
+                shipment_status=DispatchTripShipmentMapping.LOADING_FOR_DC).last().loaded_by
+            raise serializers.ValidationError(f"Invoice {package.shipment} is currently scanned by {loaded_by}")
 
         status = DispatchTripShipmentPackages.LOADED
         if self.initial_data['status'] == PACKAGE_VERIFY_CHOICES.DAMAGED:
@@ -3507,6 +3525,7 @@ class LoadVerifyPackageSerializer(serializers.ModelSerializer):
         data['trip_shipment_mapping']['shipment'] = package.shipment
         data['trip_shipment_mapping']['shipment_status'] = DispatchTripShipmentMapping.LOADING_FOR_DC
         data['trip_shipment_mapping']['shipment_health'] = shipment_health
+        data['trip_shipment_mapping']['loaded_by'] = current_user
 
         data['trip_package_mapping'] = {}
         data['trip_package_mapping']['trip_shipment'] = trip_shipment
@@ -3559,15 +3578,46 @@ class LoadVerifyPackageSerializer(serializers.ModelSerializer):
                 trip_shipment.save()
 
 
+class DispatchTripShipmentMappingBasicSerializer(serializers.ModelSerializer):
+    trip = DispatchTripSerializers(read_only=True)
+    shipment = ShipmentSerializerForDispatch(read_only=True)
+    shipment_status = serializers.CharField(read_only=True)
+    shipment_health = serializers.CharField(read_only=True)
+
+    class Meta:
+        model = DispatchTripShipmentMapping
+        fields = ('id', 'trip', 'shipment', 'shipment_status', 'shipment_health',)
+
+
+class ShipmentPackagingBasicSerializer(serializers.ModelSerializer):
+    packaging_details = DispatchItemDetailsSerializer(many=True, read_only=True)
+    status = serializers.SerializerMethodField()
+    crate = CrateSerializer(read_only=True)
+    packaging_type = serializers.CharField(read_only=True)
+
+    @staticmethod
+    def get_status(obj):
+        return obj.get_status_display()
+
+    @staticmethod
+    def get_reason_for_rejection(obj):
+        return obj.get_reason_for_rejection_display()
+
+    class Meta:
+        model = ShipmentPackaging
+        fields = ('id', 'packaging_type', 'crate', 'status', 'reason_for_rejection', 'created_by', 'packaging_details')
+
 
 class UnloadVerifyPackageSerializer(serializers.ModelSerializer):
-    trip_shipment = DispatchTripShipmentMappingSerializer(read_only=True)
+    trip_shipment = DispatchTripShipmentMappingBasicSerializer(read_only=True)
+    shipment_packaging = ShipmentPackagingBasicSerializer(read_only=True)
+    package_status = serializers.CharField(read_only=True)
     created_by = UserSerializer(read_only=True)
     updated_by = UserSerializer(read_only=True)
 
     class Meta:
         model = DispatchTripShipmentPackages
-        fields = ('trip_shipment', 'created_by', 'updated_by')
+        fields = ('trip_shipment', 'shipment_packaging', 'package_status', 'created_by', 'updated_by')
 
     def validate(self, data):
         # Validate request data
@@ -4181,7 +4231,7 @@ class VerifyReturnShipmentProductsSerializer(serializers.ModelSerializer):
             instance, created = ShipmentPackaging.objects.get_or_create(
                 shipment=shipment, packaging_type=packaging_type, warehouse_id=warehouse_id, crate=crate,
                 movement_type=movement_type, defaults={'created_by': updated_by, 'updated_by': updated_by})
-            # ShopCrateCommonFunctions.mark_crate_used(instance.shipment.current_shop.id, instance.crate.id)
+            ShopCrateCommonFunctions.mark_crate_used(instance.shipment.current_shop.id, instance.crate.id)
         else:
             instance = ShipmentPackaging.objects.create(
                 shipment=shipment, packaging_type=packaging_type, warehouse_id=warehouse_id, crate=crate,
@@ -4220,6 +4270,13 @@ class VerifyReturnShipmentProductsSerializer(serializers.ModelSerializer):
         movement_type = self.get_movement_type(shipment_map_instance.ordered_product)
         if ShipmentPackagingMapping.objects.filter(ordered_product=shipment_map_instance,
                                                    shipment_packaging__movement_type=movement_type).exists():
+            crates_to_free = ShipmentPackagingMapping.objects.filter(
+                ordered_product=shipment_map_instance, shipment_packaging__movement_type=movement_type,
+                shipment_packaging__packaging_type=ShipmentPackaging.CRATE).\
+                values_list('shipment_packaging__crate__id', flat=True)
+            for crate in crates_to_free:
+                ShopCrateCommonFunctions.mark_crate_available(
+                    shipment_map_instance.ordered_product.current_shop.id, crate)
             shipment_packaging_ids = list(ShipmentPackagingMapping.objects.filter(
                 ordered_product=shipment_map_instance, shipment_packaging__movement_type=movement_type) \
                                           .values_list('shipment_packaging_id', flat=True))
@@ -5023,6 +5080,8 @@ class LastMileLoadVerifyPackageSerializer(serializers.ModelSerializer):
 
     def validate(self, data):
         # Validate request data
+        current_user = self.context.get('current_user')
+
         if 'id' in self.initial_data:
             raise serializers.ValidationError('Updating package is not allowed')
         if 'trip_id' not in self.initial_data or not self.initial_data['trip_id']:
@@ -5077,10 +5136,17 @@ class LastMileLoadVerifyPackageSerializer(serializers.ModelSerializer):
 
         elif trip_shipment.shipment_status == LastMileTripShipmentMapping.TO_BE_LOADED:
             trip_shipment_running = LastMileTripShipmentMapping.objects.filter(
-                trip=trip, shipment_status=LastMileTripShipmentMapping.LOADING_FOR_DC).last()
+                trip=trip, loaded_by=current_user, shipment_status=LastMileTripShipmentMapping.LOADING_FOR_DC).last()
             if trip_shipment_running:
                 raise serializers.ValidationError(f"Please scan the remaining box in invoice no."
                                                   f" {trip_shipment_running.shipment.invoice_no}")
+        elif LastMileTripShipmentMapping.objects.filter(
+                ~Q(loaded_by=current_user), trip=trip, shipment=package.shipment,
+                shipment_status=LastMileTripShipmentMapping.LOADING_FOR_DC).exists():
+            loaded_by = LastMileTripShipmentMapping.objects.filter(
+                ~Q(loaded_by=current_user), trip=trip, shipment=package.shipment,
+                shipment_status=LastMileTripShipmentMapping.LOADING_FOR_DC).last().loaded_by
+            raise serializers.ValidationError(f"Invoice {package.shipment} is currently scanned by {loaded_by}")
 
         status = LastMileTripShipmentPackages.LOADED
         if self.initial_data['status'] == PACKAGE_VERIFY_CHOICES.DAMAGED:
@@ -5103,6 +5169,7 @@ class LastMileLoadVerifyPackageSerializer(serializers.ModelSerializer):
         data['trip_shipment_mapping']['shipment'] = package.shipment
         data['trip_shipment_mapping']['shipment_status'] = LastMileTripShipmentMapping.LOADING_FOR_DC
         data['trip_shipment_mapping']['shipment_health'] = shipment_health
+        data['trip_shipment_mapping']['loaded_by'] = current_user
 
         data['trip_package_mapping'] = {}
         data['trip_package_mapping']['trip_shipment'] = trip_shipment
@@ -5121,6 +5188,7 @@ class LastMileLoadVerifyPackageSerializer(serializers.ModelSerializer):
             else:
                 trip_shipment.shipment_status = validated_data['trip_shipment_mapping']['shipment_status']
                 trip_shipment.shipment_health = validated_data['trip_shipment_mapping']['shipment_health']
+                trip_shipment.loaded_by = validated_data['trip_shipment_mapping']['loaded_by']
                 trip_shipment.save()
             validated_data['trip_package_mapping']['trip_shipment'] = trip_shipment
             trip_package_mapping = LastMileTripShipmentPackages.objects.create(**validated_data['trip_package_mapping'])
@@ -5297,7 +5365,7 @@ class PosOrderUserSearchSerializer(serializers.ModelSerializer):
         elif instance.ecom_user_address.filter(type='Home').exists():
             return UserAddressSerializer(instance.ecom_user_address.filter(type='Home').last()).data
         else:
-            return UserAddressSerializer(instance.ecom_user_address.last())
+            return UserAddressSerializer(instance.ecom_user_address.last()).data
     
     class Meta:
         model = User

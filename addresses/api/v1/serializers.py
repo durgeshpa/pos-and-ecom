@@ -1,5 +1,9 @@
+import csv
+
+from django.core.exceptions import ObjectDoesNotExist
 from django.db import transaction
 from django.db.models import Q
+from django.http import HttpResponse
 from rest_framework import serializers
 
 from addresses.common_validators import get_validate_city_routes, get_validate_routes_mandatory_fields
@@ -48,6 +52,7 @@ class AddressSerializer(serializers.ModelSerializer):
     class Meta:
         model = Address
         fields = '__all__'
+        ref_name = "Address v1"
         extra_kwargs = {
             'city': {'required': True},
             'state': {'required': True},
@@ -205,4 +210,43 @@ class CityRouteSerializer(serializers.Serializer):
     @staticmethod
     def get_routes(obj):
         return RouteSerializer(Route.objects.filter(city=obj['city_id']), read_only=True, many=True).data
+
+
+class CityRouteExportAsCSVSerializers(serializers.ModelSerializer):
+    city_id_list = serializers.ListField(
+        child=serializers.IntegerField(required=True)
+    )
+
+    class Meta:
+        model = City
+        fields = ('city_id_list',)
+
+    def validate(self, data):
+
+        if len(data.get('city_id_list')) == 0:
+            raise serializers.ValidationError('Atleast one city id must be selected ')
+
+        for city_id in data.get('city_id_list'):
+            try:
+                City.objects.get(id=city_id)
+            except ObjectDoesNotExist:
+                raise serializers.ValidationError(f'city not found for id {city_id}')
+
+        return data
+
+    def create(self, validated_data):
+        meta = City._meta
+        field_names = ['state_id', 'state', 'city_id', 'city', 'route_id', 'route_name']
+
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename={}.csv'.format(meta)
+
+        writer = csv.writer(response)
+        writer.writerow(field_names)
+        queryset = City.objects.prefetch_related('city_routes').filter(id__in=validated_data['city_id_list']).\
+            values_list('state_id', 'state__state_name', 'id', 'city_name', 'city_routes__id', 'city_routes__name').\
+            order_by('id', 'city_routes__id')
+        for obj in queryset:
+            writer.writerow(list(obj))
+        return response
 

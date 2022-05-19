@@ -34,7 +34,7 @@ from retailer_to_sp.models import (CartProductMapping, Order, OrderedProduct, Or
                                    check_franchise_inventory_update, ShipmentNotAttempt, BASIC, ECOM,
                                    Shipment, populate_data_on_qc_pass, OrderedProductBatch, ShipmentPackaging,
                                    ShipmentNotAttempt, LastMileTripShipmentMapping, LastMileTripShipmentPackages,
-                                   Invoice)
+                                   Invoice, DispatchTripShipmentMapping, DispatchTrip, DispatchTripShipmentPackages)
 from products.models import Product
 from retailer_to_sp.forms import (
     OrderedProductForm, OrderedProductMappingShipmentForm,
@@ -190,8 +190,8 @@ class DownloadCreditNote(APIView):
         sum_qty, sum_basic_amount, sum_amount, tax_inline, total_product_tax_amount = 0, 0, 0, 0, 0
         taxes_list, gst_tax_list, cess_tax_list, surcharge_tax_list = [], [], [], []
         igst, cgst, sgst, cess, surcharge = 0, 0, 0, 0, 0
-        tcs_rate = 0
-        tcs_tax = 0
+        tcs_rate = credit_note.shipment.invoice.tcs_percent
+        tcs_tax = credit_note.tcs_amount
         taxes_list = []
         gst_tax_list = []
         cess_tax_list = []
@@ -325,15 +325,7 @@ class DownloadCreditNote(APIView):
                 igst, cgst, sgst, cess, surcharge = sum(gst_tax_list), (sum(gst_tax_list)) / 2, (sum(gst_tax_list)) / 2, sum(cess_tax_list), sum(surcharge_tax_list)
 
         total_amount = sum_amount
-        # if float(total_amount) + float(paid_amount) > 5000000:
-        #     if gstinn2 == 'Unregistered':
-        #         tcs_rate = 1
-        #         tcs_tax = total_amount * decimal.Decimal(tcs_rate / 100)
-        #     else:
-        #         tcs_rate = 0.075
-        #         tcs_tax = total_amount * decimal.Decimal(tcs_rate / 100)
 
-        tcs_tax = round(tcs_tax, 2)
         sum_amount = sum_amount
         amount = total_amount
         total_amount = total_amount + tcs_tax
@@ -757,10 +749,11 @@ def trip_planning_change(request, pk):
 
                     if selected_shipment_ids:
                         selected_shipment_list = selected_shipment_ids.split(',')
+                        selected_shipments = Dispatch.objects.filter(
+                            ~Q(shipment_status=OrderedProduct.CANCELLED), ~Q(order__order_status=Order.CANCELLED),
+                            pk__in=selected_shipment_list)
                         create_update_last_mile_trip_shipment_mapping(
-                            trip_instance.pk, selected_shipment_list, request.user)
-                        selected_shipments = Dispatch.objects.filter(~Q(shipment_status='CANCELLED'),
-                                                                     pk__in=selected_shipment_list)
+                            trip_instance.pk, selected_shipments.values_list('id', flat=True), request.user)
 
                         shipment_out_inventory_change(selected_shipments, TRIP_SHIPMENT_STATUS_MAP[current_trip_status])
                         if current_trip_status not in ['COMPLETED', 'CLOSED']:
@@ -891,6 +884,8 @@ class LoadDispatches(APIView):
             dispatches = dispatches.filter(order__dispatch_center__isnull=True)
 
         if dispatches and commercial:
+            dispatches = dispatches.exclude(shipment_status__in=[OrderedProduct.NOT_ATTEMPT,
+                                            OrderedProduct.RESCHEDULED])
             serializer = CommercialShipmentSerializer(dispatches, many=True)
             msg = {'is_success': True,
                    'message': None,
@@ -1714,14 +1709,14 @@ class OrderCancellation(object):
             .last().get('id')
         # creating note id
         note_id = brand_credit_note_pattern(Note, 'credit_note_id',
-                                            None, address_id)
+                                            self.last_shipment_instance, address_id)
 
         credit_amount = 0
 
         credit_note = Note.objects.create(shop_id=self.seller_shop_id,
                                           credit_note_id=note_id,
                                           shipment_id=self.last_shipment_id,
-                                          amount=0, status=True)
+                                          amount=0, note_total=0, status=True)
         # creating SP GRN
         credit_grn = SPOrderedProduct.objects.create(credit_note=credit_note)
 
@@ -1737,6 +1732,9 @@ class OrderCancellation(object):
 
         # update credit note amount
         credit_note.amount = credit_amount
+        tcs_percent = self.last_shipment_instance.invoice.tcs_percent / 100
+        credit_note.tcs_amount = round(credit_amount * tcs_percent, 2)
+        credit_note.note_total = credit_amount + credit_note.tcs_amount
         credit_note.save()
 
     def update_sp_qty_from_cart_or_shipment(self):
@@ -1752,11 +1750,20 @@ class OrderCancellation(object):
 
     def mark_trip_mapping_cancelled(self):
         trip_shipment = LastMileTripShipmentMapping.objects.filter(
-            shipment=self.last_shipment, trip__trip_status=Trip.READY).last()
+            shipment=self.last_shipment_id, trip__trip_status=Trip.READY).last()
         if trip_shipment:
             all_mapped_packages = trip_shipment.last_mile_trip_shipment_mapped_packages.all()
             all_mapped_packages.update(package_status=LastMileTripShipmentPackages.CANCELLED)
             trip_shipment.shipment_status = LastMileTripShipmentMapping.CANCELLED
+            trip_shipment.save()
+
+    def mark_dispatch_trip_mapping_cancelled(self):
+        trip_shipment = DispatchTripShipmentMapping.objects.filter(
+            shipment=self.last_shipment_id, trip__trip_status=DispatchTrip.NEW).last()
+        if trip_shipment:
+            all_mapped_packages = trip_shipment.trip_shipment_mapped_packages.all()
+            all_mapped_packages.update(package_status=DispatchTripShipmentPackages.CANCELLED)
+            trip_shipment.shipment_status = DispatchTripShipmentMapping.CANCELLED
             trip_shipment.save()
 
     def cancel(self):
@@ -1791,6 +1798,8 @@ class OrderCancellation(object):
 
                 # Mark All Last mile trip mappings as Cancelled
                 self.mark_trip_mapping_cancelled()
+                # Mark All Dispatch mile trip mappings as Cancelled
+                self.mark_dispatch_trip_mapping_cancelled()
                 self.cancel_shipment()
             else:
                 # can't cancel the order
@@ -2020,6 +2029,7 @@ def create_shipment(sender, instance=None, created=False, **kwargs):
 
 @transaction.atomic
 def create_order_shipment(order_instance):
+
     info_logger.info(f"create_order_shipment|order no{order_instance.order_no}")
     if OrderedProduct.objects.filter(order=order_instance).exists():
         info_logger.info(f"create_order_shipment|shipment already created for {order_instance.order_no}")

@@ -520,6 +520,7 @@ class BinInternalInventoryChange(models.Model):
         ('pickup_created', 'Pickup Created'),
         ('pickup_complete', 'Pickup Complete'),
         ('picking_cancelled', 'Pickup Cancelled'),
+        ('picked', 'Picked'),
         ('stock_correction_in_type', 'stock_correction_in_type'),
         ('stock_correction_out_type', 'stock_correction_out_type'),
         ('expired', 'expired'),
@@ -534,6 +535,8 @@ class BinInternalInventoryChange(models.Model):
         ('moved_to_discounted', 'Moved To Discounted'),
         ('added_as_discounted', 'Added As Discounted'),
         ('bin_shift', 'Bin Shift'),
+        ('bin_shift_add', 'Bin Shift Add'),
+        ('bin_shift_deduct', 'Bin Shift Deduct'),
 
     )
     warehouse = models.ForeignKey(Shop, null=True, blank=True, on_delete=models.DO_NOTHING)
@@ -548,6 +551,7 @@ class BinInternalInventoryChange(models.Model):
     transaction_type = models.CharField(max_length=25, null=True, blank=True, choices=bin_transaction_type)
     transaction_id = models.CharField(max_length=25, null=True, blank=True)
     quantity = models.PositiveIntegerField()
+    to_be_picked_qty = models.PositiveIntegerField(default=0, null=True)
     weight = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name='Weight In gm')
     inventory_csv = models.ForeignKey(StockMovementCSVUpload, null=True, blank=True, on_delete=models.DO_NOTHING)
     created_at = models.DateTimeField(auto_now_add=True)

@@ -13,10 +13,10 @@ from retailer_backend.utils import SmallOffsetPagination
 from .serializers import CardDataSerializer, CardSerializer, ApplicationSerializer, ApplicationDataSerializer, \
     PageSerializer, PageDetailSerializer, CardItemSerializer, PageLatestDetailSerializer, CategorySerializer, \
     SubCategorySerializer, BrandSerializer, SubBrandSerializer, LandingPageSerializer, PageFunctionSerializer
-from ...choices import CARD_TYPE_CHOICES, LANDING_PAGE_TYPE_CHOICE, LISTING_SUBTYPE_CHOICE
+from ...choices import CARD_TYPE_CHOICES, LANDING_PAGE_TYPE_CHOICE, LISTING_SUBTYPE_CHOICE, IMAGE_TYPE_CHOICE
 from ...models import Application, Card, CardVersion, Page, PageVersion, CardItem, ApplicationPage, LandingPage, \
     Functions
-from ...utils import api_response, get_response, serializer_error
+from ...utils import api_response, get_response, serializer_error, check_shop
 
 from .pagination import PaginationHandlerMixin
 from rest_framework.pagination import LimitOffsetPagination
@@ -104,6 +104,8 @@ class CardView(APIView, PaginationHandlerMixin):
         """Create a new card"""
         has_cards_create_permission(request.user)
         info_logger.info("CardView POST API called.")
+
+        request.META['HTTP_X_FORWARDED_PROTO'] = 'https'
         data = request.data
         card_data = data.pop("card_data")
         serializer = CardDataSerializer(data=card_data, context={'request': request})
@@ -514,7 +516,8 @@ class PageDetailView(APIView):
 
     def get(self, request, id, format = None):
         """Get page specific details"""
-        
+
+        request.META['HTTP_X_FORWARDED_PROTO'] = 'https'
         query_params = request.query_params
         try:
             page = Page.objects.get(id = id)
@@ -608,16 +611,18 @@ class PageVersionDetailView(APIView):
     serializer_class = PageLatestDetailSerializer
     permission_classes = (AllowAny,)
 
-    def get(self, request, id, format = None):
+    @check_shop
+    def get(self, request, id, *args, **kwargs):
         """Get Data of Latest Version"""
-
+        request.META['HTTP_X_FORWARDED_PROTO'] = 'https'
+        shop_id = kwargs.get('shop', None)
         try:
             page_key = f"latest_page_{id}"
-            cached_page = cache.get(page_key, None)
-            if(cached_page):
-                return Response(cached_page, status=status.HTTP_200_OK)
-            else:
-                page = Page.objects.get(id = id)
+            # cached_page = cache.get(page_key, None)
+            # if(cached_page):
+            #     return Response(cached_page, status=status.HTTP_200_OK)
+            # else:
+            page = Page.objects.get(id = id)
         except Exception:
             message = {
                 "is_success": False,
@@ -633,7 +638,7 @@ class PageVersionDetailView(APIView):
             }
             return Response(message)
         latest_page_version = PageVersion.objects.get(version_no = latest_page_version_no, page = page)
-        serializer = self.serializer_class(page, context = {'version': latest_page_version})
+        serializer = self.serializer_class(page, context = {'version': latest_page_version, 'shop_id': shop_id})
         message = {
             "is_success": True,
             "message": "OK",
@@ -754,18 +759,19 @@ class PageFunctionView(generics.GenericAPIView):
 class LandingPageView(generics.GenericAPIView):
 
     authentication_classes = (authentication.TokenAuthentication,)
-    permission_classes = (permissions.IsAuthenticated, IsCMSDesigner)
+    permission_classes = (permissions.IsAuthenticated, )
     queryset = LandingPage.objects.order_by('-id')
     serializer_class = LandingPageSerializer
 
-    def get(self, request):
+    @check_shop
+    def get(self, request, *args, **kwargs):
         if request.GET.get('id'):
-            landing_pages = LandingPage.objects.filter(app=request.GET.get('app'), id=request.GET.get('id'))
+            landing_pages = LandingPage.objects.filter(id=request.GET.get('id'))
         else:
             self.queryset = self.filter_landing_pages()
             landing_pages = SmallOffsetPagination().paginate_queryset(self.queryset, request)
-
-        serializer = self.serializer_class(landing_pages, many=True, context={'request':request})
+        shop_id = kwargs.get('shop', None)
+        serializer = self.serializer_class(landing_pages, many=True, context={'request':request, 'shop_id': shop_id})
         msg = "" if landing_pages else "no landing page found"
         return get_response(msg, serializer.data, True)
 
@@ -850,4 +856,14 @@ class LandingPageSubTypeList(GenericAPIView):
     def get(self, request):
         fields = ['id', 'value']
         data = [dict(zip(fields, d)) for d in LISTING_SUBTYPE_CHOICE]
+        return get_response('', data, True)
+
+
+class ImageTypeList(GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+
+    def get(self, request):
+        fields = ['id', 'value']
+        data = [dict(zip(fields, d)) for d in IMAGE_TYPE_CHOICE]
         return get_response('', data, True)
