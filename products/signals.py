@@ -2,9 +2,10 @@ from decimal import Decimal
 
 from products.common_function import get_b2c_product_details
 from products.models import Product, ProductPrice, ProductCategory, \
-    ProductTaxMapping, ProductImage, ParentProductTaxMapping, ParentProduct, Repackaging, SlabProductPrice, PriceSlab,\
+    ProductTaxMapping, ProductImage, ParentProductTaxMapping, ParentProduct, Repackaging, SlabProductPrice, PriceSlab, \
     ProductPackingMapping, DestinationRepackagingCostMapping, ProductSourceMapping, ProductB2cCategory, \
-        ParentProductB2cCategory, ParentProductCategory, ParentProductSKUGenerator
+    ParentProductB2cCategory, ParentProductCategory, ParentProductSKUGenerator, SuperStoreProductPrice, \
+    SuperStoreProductPriceLog
 from django.db.models.signals import post_save, post_delete, pre_save
 from django.dispatch import receiver
 from sp_to_gram.tasks import update_shop_product_es, update_product_es, update_shop_product_es_cat, \
@@ -683,3 +684,16 @@ def update_product_b2c_elasticsearch(sender, instance=None, created=False, **kwa
         except Exception as e:
             info_logger.info("error in update_product_b2c_elasticsearch index creation")
             info_logger.info(e)
+
+
+@receiver(pre_save, sender=SuperStoreProductPrice)
+def create_logs_for_qc_desk_area_mapping(sender, instance=None, created=False, **kwargs):
+    if not instance._state.adding:
+        try:
+            old_ins = SuperStoreProductPrice.objects.get(id=instance.id)
+            if instance.selling_price != old_ins.selling_price:
+                SuperStoreProductPriceLog.objects.create(
+                    product_price_change=old_ins, old_selling_price=old_ins.selling_price,
+                    new_selling_price=instance.selling_price, updated_by=instance.updated_by)
+        except:
+            pass
