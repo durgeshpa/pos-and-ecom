@@ -13,7 +13,8 @@ from sp_to_gram.tasks import update_shop_product_es, update_product_es, update_s
 from analytics.post_save_signal import get_category_product_report
 import logging
 from django.db import transaction
-from wms.models import Out, In, InventoryType, Pickup, WarehouseInventory, InventoryState, BinInventory, PutawayBinInventory, Putaway
+from wms.models import Out, In, InventoryType, Pickup, WarehouseInventory, InventoryState, BinInventory, \
+    PutawayBinInventory, Putaway
 from retailer_to_sp.models import generate_picklist_id, PickerDashboard
 from wms.common_functions import CommonPickupFunctions, CommonPickBinInvFunction, InternalInventoryChange, \
     CommonWarehouseInventoryFunctions, update_visibility, get_visibility_changes, get_manufacturing_date, \
@@ -86,7 +87,8 @@ def update_product_visibility(product_id, shop_id):
         sibling_product = Product.objects.filter(pk=prod_id).last()
         update_visibility(shop_id, sibling_product, visibility)
         if prod_id == product_id:
-            update_shop_product_es.delay(shop_id, prod_id)
+            update_shop_product_es.apply_async(args=[shop_id, prod_id], countdown=GlobalConfig.objects.get(
+                key='celery_countdown').value)
         else:
             update_product_es.delay(shop_id, prod_id, visible=visibility)
 
@@ -94,17 +96,22 @@ def update_product_visibility(product_id, shop_id):
 @receiver(post_save, sender=ProductCategory)
 def update_category_elasticsearch(sender, instance=None, created=False, **kwargs):
     for prod_price in instance.product.product_pro_price.filter(status=True).values('seller_shop', 'product'):
-        update_shop_product_es.delay(prod_price['seller_shop'], prod_price['product'])
+        update_shop_product_es.apply_async(args=[prod_price['seller_shop'], prod_price['product']],
+                                           countdown=GlobalConfig.objects.get(key='celery_countdown').value)
+
 
 @receiver(post_save, sender=ProductB2cCategory)
 def update_b2c_category_elasticsearch(sender, instance=None, created=False, **kwargs):
     for prod_price in instance.product.product_pro_price.filter(status=True).values('seller_shop', 'product'):
-        update_shop_product_es.delay(prod_price['seller_shop'], prod_price['product'])
+        update_shop_product_es.apply_async(args=[prod_price['seller_shop'], prod_price['product']],
+                                           countdown=GlobalConfig.objects.get(key='celery_countdown').value)
+
 
 @receiver(post_save, sender=ProductImage)
 def update_product_image_elasticsearch(sender, instance=None, created=False, **kwargs):
     for prod_price in instance.product.product_pro_price.filter(status=True).values('seller_shop', 'product'):
-        update_shop_product_es.delay(prod_price['seller_shop'], prod_price['product'])
+        update_shop_product_es.apply_async(args=[prod_price['seller_shop'], prod_price['product']],
+                                           countdown=GlobalConfig.objects.get(key='celery_countdown').value)
     if instance.product.parent_product.product_type == 'superstore':
         shop_id = GlobalConfig.objects.get(key='current_wh_active').value
         product_id = instance.product.id
@@ -129,7 +136,9 @@ def update_product_image_elasticsearch(sender, instance=None, created=False, **k
 @receiver(post_save, sender=Product)
 def update_product_elasticsearch(sender, instance=None, created=False, **kwargs):
     if not instance.parent_product:
-        info_logger.info("Post Save call being cancelled for product {} because Parent Product mapping doesn't exist".format(instance.id))
+        info_logger.info(
+            "Post Save call being cancelled for product {} because Parent Product mapping doesn't exist".format(
+                instance.id))
         return
     info_logger.info("Updating Tax Mappings of product")
     update_product_tax_mapping(instance)
@@ -140,7 +149,8 @@ def update_product_elasticsearch(sender, instance=None, created=False, **kwargs)
             sibling_product = Product.objects.filter(pk=prod_id).last()
             update_visibility(prod_price['seller_shop'], sibling_product, visibility)
             if prod_id == prod_price['product']:
-                update_shop_product_es.delay(prod_price['seller_shop'], prod_id)
+                update_shop_product_es.apply_async(args=[prod_price['seller_shop'], prod_id],
+                                                   countdown=GlobalConfig.objects.get(key='celery_countdown').value)
             else:
                 update_product_es.delay(prod_price['seller_shop'], prod_id, visible=visibility)
         break
@@ -201,8 +211,6 @@ def update_product_elasticsearch(sender, instance=None, created=False, **kwargs)
                 info_logger.info(e)
 
 
-
-
 @receiver(post_save, sender=ParentProduct)
 def update_parent_product_elasticsearch(sender, instance=None, created=False, **kwargs):
     info_logger.info("Updating ES of child products of parent {}".format(instance))
@@ -220,7 +228,9 @@ def update_parent_product_elasticsearch(sender, instance=None, created=False, **
                 }
                 for p_i in instance.parent_product_pro_image.all()
             ]
-        for prod_price in child.product_pro_price.filter(status=True).values('seller_shop', 'product', 'product__product_name', 'product__status'):
+        for prod_price in child.product_pro_price.filter(status=True).values('seller_shop', 'product',
+                                                                             'product__product_name',
+                                                                             'product__status'):
             if not product_images:
                 update_shop_product_es.delay(
                     prod_price['seller_shop'],
@@ -414,8 +424,8 @@ def create_repackaging_pickup(sender, instance=None, created=False, **kwargs):
                             bin_inv_dict = get_bin_inv_dict(k, bin_inv_dict)
                     else:
                         bin_lists = obj.sku.rt_product_sku.filter(quantity=0, warehouse=shop, bin__zone=obj.zone,
-                                                                      inventory_type__inventory_type='normal')\
-                                                              .order_by('-batch_id', 'quantity').last()
+                                                                  inventory_type__inventory_type='normal') \
+                            .order_by('-batch_id', 'quantity').last()
                         if not bin_lists:
                             bin_lists = obj.sku.rt_product_sku.filter(quantity=0, warehouse=shop,
                                                                       inventory_type__inventory_type='normal') \
@@ -448,9 +458,9 @@ def create_repackaging_pickup(sender, instance=None, created=False, **kwargs):
                                                inventory_type=type_normal)
                             CommonPickBinInvFunction.create_pick_bin_inventory_with_zone(
                                 shops, bin_inv.bin.zone, pickup_obj, batch_id, bin_inv,
-                                                                               quantity=already_picked,
-                                                                               bin_quantity=qty_in_bin,
-                                                                               pickup_quantity=None)
+                                quantity=already_picked,
+                                bin_quantity=qty_in_bin,
+                                pickup_quantity=None)
                             InternalInventoryChange.create_bin_internal_inventory_change(shops, obj.sku, batch_id,
                                                                                          bin_inv.bin,
                                                                                          type_normal, type_normal,
@@ -474,9 +484,9 @@ def create_repackaging_pickup(sender, instance=None, created=False, **kwargs):
                                                inventory_type=type_normal)
                             CommonPickBinInvFunction.create_pick_bin_inventory_with_zone(
                                 shops, bin_inv.bin.zone, pickup_obj, batch_id, bin_inv,
-                                                                               quantity=already_picked,
-                                                                               bin_quantity=qty_in_bin,
-                                                                               pickup_quantity=None)
+                                quantity=already_picked,
+                                bin_quantity=qty_in_bin,
+                                pickup_quantity=None)
                             InternalInventoryChange.create_bin_internal_inventory_change(shops, obj.sku, batch_id,
                                                                                          bin_inv.bin,
                                                                                          type_normal, type_normal,
@@ -493,7 +503,8 @@ def create_repackaging_pickup(sender, instance=None, created=False, **kwargs):
                 rep_obj.save()
 
                 manufacturing_date = get_manufacturing_date(rep_obj.destination_batch_id)
-                In.objects.create(warehouse=rep_obj.seller_shop, in_type='REPACKAGING', in_type_id=rep_obj.repackaging_no,
+                In.objects.create(warehouse=rep_obj.seller_shop, in_type='REPACKAGING',
+                                  in_type_id=rep_obj.repackaging_no,
                                   sku=rep_obj.destination_sku, batch_id=rep_obj.destination_batch_id,
                                   inventory_type=type_normal,
                                   quantity=rep_obj.destination_sku_quantity, expiry_date=rep_obj.expiry_date,
@@ -524,7 +535,8 @@ def update_packing_material_cost(sender, instance=None, created=False, **kwargs)
     if created:
         if instance.packing_sku.moving_average_buying_price:
             pack_m_cost = (
-                                  float(instance.packing_sku.moving_average_buying_price) / float(instance.packing_sku.weight_value)) * float(instance.packing_sku_weight_per_unit_sku)
+                                  float(instance.packing_sku.moving_average_buying_price) / float(
+                              instance.packing_sku.weight_value)) * float(instance.packing_sku_weight_per_unit_sku)
 
             DestinationRepackagingCostMapping.objects.filter(destination=instance.sku).update(
                 primary_pm_cost=round(Decimal(pack_m_cost), 2)
@@ -542,7 +554,8 @@ def update_raw_material_cost_save(sender, instance=None, created=False, **kwargs
             if source_sku.moving_average_buying_price:
                 count += 1
                 total_raw_material += (
-                                              float(source_sku.moving_average_buying_price) / float(source_sku.weight_value)) * float(instance.destination_sku.weight_value)
+                                              float(source_sku.moving_average_buying_price) / float(
+                                          source_sku.weight_value)) * float(instance.destination_sku.weight_value)
         raw_m_cost = total_raw_material / count if count > 0 else 0
         DestinationRepackagingCostMapping.objects.filter(destination=instance.destination_sku). \
             update(raw_material=round(Decimal(raw_m_cost), 2))
@@ -558,7 +571,8 @@ def update_raw_material_cost_delete(sender, instance=None, created=False, **kwar
         if source_sku.moving_average_buying_price:
             count += 1
             total_raw_material += (
-                                          float(source_sku.moving_average_buying_price) / float(source_sku.weight_value)) * float(instance.destination_sku.weight_value)
+                                          float(source_sku.moving_average_buying_price) / float(
+                                      source_sku.weight_value)) * float(instance.destination_sku.weight_value)
     raw_m_cost = total_raw_material / count if count > 0 else 0
     DestinationRepackagingCostMapping.objects.filter(destination=instance.destination_sku). \
         update(raw_material=round(Decimal(raw_m_cost), 2))
@@ -592,7 +606,7 @@ def update_parent_category_elasticsearch(sender, instance=None, created=False, *
 def update_product_on_category_update(instance, shops, b2c=False):
     if b2c:
         parent_pro_categories = instance.parent_category_pro_b2c_category.all()
-    else: 
+    else:
         parent_pro_categories = instance.parent_category_pro_category.all()
     for category in parent_pro_categories:
         parent_product = category.parent_product
@@ -643,6 +657,7 @@ def create_parent_product_id(sender, instance=None, created=False, **kwargs):
     parent_product.parent_id = "P%s%s%s" % (cat_sku_code, brand_sku_code, last_sku_increment)
     parent_product.save()
 
+
 @receiver(pre_save, sender=ParentProductB2cCategory)
 def create_parent_product_id_b2c(sender, instance=None, created=False, **kwargs):
     print('parent id generation started')
@@ -673,7 +688,8 @@ def update_product_b2c_elasticsearch(sender, instance=None, created=False, **kwa
         try:
             es.index(index=create_es_index(es_index), doc_type='product', id=product['id'], body=product)
             info_logger.info(
-                "Inside update_product_b2c_elasticsearch, product id: " + str(product['id']) + ", product: " + str(product))
+                "Inside update_product_b2c_elasticsearch, product id: " + str(product['id']) + ", product: " + str(
+                    product))
         except Exception as e:
             info_logger.info("error in upload_shop_stock index creation")
             info_logger.info(e)
@@ -682,7 +698,8 @@ def update_product_b2c_elasticsearch(sender, instance=None, created=False, **kwa
         try:
             es.delete(index=create_es_index(es_index), doc_type='product', id=instance.id)
             info_logger.info(
-                "Inside upload_shop_stock, deleting product from ES product id: " + str(instance) + ", product: " + str(instance),)
+                "Inside upload_shop_stock, deleting product from ES product id: " + str(instance) + ", product: " + str(
+                    instance), )
         except Exception as e:
             info_logger.info("error in update_product_b2c_elasticsearch index creation")
             info_logger.info(e)
