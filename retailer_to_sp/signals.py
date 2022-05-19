@@ -214,7 +214,6 @@ def create_cart_no(sender, instance=None, created=False, **kwargs):
 			instance.cart_no = common_function.cart_no_pattern_bulk(sender, 'cart_no', instance.pk, bill_add_id)
 		elif instance.cart_type == 'DISCOUNTED':
 			instance.cart_no = common_function.cart_no_pattern_discounted(sender, 'cart_no', instance.pk, bill_add_id)
-		# elif instance.cart_type == 'SUPERSTORE':
 			
 
 

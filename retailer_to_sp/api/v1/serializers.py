@@ -594,6 +594,10 @@ class SuperStoreProductSearchSerializer(serializers.ModelSerializer):
 
 class SuperStoreCartProductMappingSerializer(serializers.ModelSerializer):
     cart_product = SuperStoreProductSearchSerializer()
+    qty = serializers.SerializerMethodField()
+    
+    def get_qty(self, instance):
+        return int(instance.qty)
     
     class Meta:
         model = CartProductMapping

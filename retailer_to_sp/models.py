@@ -39,7 +39,7 @@ from wms.common_functions import common_on_return_and_partial, \
     get_expiry_date, OrderManagement, product_batch_inventory_update_franchise, get_stock
 from brand.models import Brand
 from otp.sms import SendSms
-from products.models import Product, ProductPrice, Repackaging
+from products.models import Product, ProductPrice, Repackaging, SuperStoreProductPrice
 from shops.models import Shop
 from accounts.models import UserWithName, User
 from coupon.models import Coupon, CusotmerCouponUsage
@@ -246,6 +246,8 @@ class Cart(models.Model):
                 return round(self.rt_cart_list.aggregate(
                     subtotal_sum=Sum(F('retailer_product__mrp') * F('no_of_pieces'), output_field=FloatField()))[
                                  'subtotal_sum'], 2)
+            elif self.cart_type == 'SUPERSTORE':
+                return 0.00
             else:
                 return round(self.rt_cart_list.aggregate(
                     subtotal_sum=Sum(F('cart_product_price__mrp') * F('no_of_pieces'), output_field=FloatField()))[
@@ -560,7 +562,7 @@ class Cart(models.Model):
 
     def save(self, *args, **kwargs):
         if self.cart_status == self.ORDERED:
-            if self.cart_type not in ['BASIC', 'ECOM']:
+            if self.cart_type not in ['BASIC', 'ECOM', 'SUPERSTORE']:
                 for cart_product in self.rt_cart_list.all():
                     cart_product.get_cart_product_price(self.seller_shop.id, self.buyer_shop.id)
         super().save(*args, **kwargs)
@@ -845,18 +847,21 @@ class CartProductMapping(models.Model):
             else:
                 item_effective_price = float(self.selling_price) if self.selling_price else 0
         else:
-            try:
-                if self.cart.offers:
-                    array = list(filter(lambda d: d['coupon_type'] in 'catalog', self.cart.offers))
-                    for i in array:
-                        if self.cart_product.id == i['item_id']:
-                            item_effective_price = (i.get('discounted_product_subtotal', 0)) / float(self.no_of_pieces)
-                else:
-                    product_price = self.cart_product.get_current_shop_price(self.cart.seller_shop_id,
-                                                                             self.cart.buyer_shop_id)
-                    item_effective_price = float(product_price.get_per_piece_price(self.qty))
-            except Exception as e:
-                logger.exception("Cart product price not found")
+            if self.cart.cart_type == 'SUPERSTORE':
+                item_effective_price =  self.cart_product.super_store_product_price.last().selling_price
+            else:
+                try:
+                    if self.cart.offers:
+                        array = list(filter(lambda d: d['coupon_type'] in 'catalog', self.cart.offers))
+                        for i in array:
+                            if self.cart_product.id == i['item_id']:
+                                item_effective_price = (i.get('discounted_product_subtotal', 0)) / float(self.no_of_pieces)
+                    else:
+                        product_price = self.cart_product.get_current_shop_price(self.cart.seller_shop_id,
+                                                                                self.cart.buyer_shop_id)
+                        item_effective_price = float(product_price.get_per_piece_price(self.qty))
+                except Exception as e:
+                    logger.exception("Cart product price not found")
         return item_effective_price
 
     @property
@@ -1018,10 +1023,12 @@ class Order(models.Model):
 
     POS_WALKIN = 'pos_walkin'
     POS_ECOMM = 'pos_ecomm'
+    POS_SUPERSTORE = 'pos_superstore'
 
     ORDER_APP_TYPE = (
         (POS_WALKIN, 'Pos Walkin'),  # 1
-        (POS_ECOMM, 'Pos Ecomm'),  # 2
+        (POS_ECOMM, 'Pos Ecomm'), # 2
+        (POS_SUPERSTORE, 'Pos Super Store')
     )
     # Todo Remove
     seller_shop = models.ForeignKey(
@@ -3195,12 +3202,13 @@ def create_order_no(sender, instance=None, created=False, **kwargs):
                         shop_name_address_mapping.filter(
                         address_type='billing').last().pk)
             instance.order_no = order_no
-        if instance.ordered_cart.cart_type in ['ECOM']:
+        if instance.ordered_cart.cart_type in ['ECOM', 'SUPERSTORE']:
+            const = "EO" if instance.ordered_cart.cart_type == 'ECOM' else "ST"
             instance.order_no = common_function.order_id_pattern(
                 sender, 'order_no', instance.pk,
                 instance.seller_shop.
                     shop_name_address_mapping.filter(
-                    address_type='billing').last().pk, "EO")
+                    address_type='billing').last().pk, const)
         elif instance.ordered_cart.cart_type == 'BULK':
             instance.order_no = common_function.order_id_pattern_bulk(
                 sender, 'order_no', instance.pk,

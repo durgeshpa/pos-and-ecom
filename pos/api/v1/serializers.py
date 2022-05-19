@@ -2166,7 +2166,7 @@ class BasicOrderDetailSerializer(serializers.ModelSerializer):
 class AddressCheckoutSerializer(serializers.ModelSerializer):
     class Meta:
         model = Address
-        fields = ('type', 'complete_address')
+        fields = ('type', 'complete_address', 'id')
 
 
 class VendorSerializer(serializers.ModelSerializer):
