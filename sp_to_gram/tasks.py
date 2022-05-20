@@ -498,16 +498,31 @@ def upload_super_shop_stock(shop_id=None, product=None):
 			ean = ean.split('_')[0]
 		available_qty = 0
 		status = True
-		if instance.use_parent_image:
-			product_images = [
-				{
-					"image_name": p_i.image_name,
-					"image_url": p_i.image.url
-				}
-				for p_i in instance.parent_product.parent_product_pro_image.all()
-			]
-		else:
-			product_images = []
+		product_img = instance.product_pro_image.all()
+		product_images = [
+			{
+				"image_name": p_i.image_name,
+				"image_url": p_i.image.url
+			}
+			for p_i in product_img
+		]
+		if not product_images:
+			if instance.use_parent_image:
+				product_images = [
+					{
+						"image_name": p_i.image_name,
+						"image_url": p_i.image.url
+					}
+					for p_i in instance.parent_product.parent_product_pro_image.all()
+				]
+			else:
+				product_images = [
+					{
+						"image_name": p_i.image_name,
+						"image_url": p_i.image.url
+					}
+					for p_i in instance.child_product_pro_image.all()
+				]
 		super_store_product_price = None
 		if shop_id:
 			super_store_product_price = get_super_store_product_price(shop_id, prod_id)
@@ -520,7 +535,7 @@ def upload_super_shop_stock(shop_id=None, product=None):
 			"name_lower": instance.product_name.lower(),
 			"brand": str(instance.product_brand),
 			"brand_lower": str(instance.product_brand).lower(),
-			"category": product_categories,
+			"category": ','.join(product_categories) if product_categories else None,
 			"mrp": instance.product_mrp,
 			"status": status,
 			"id": instance.id,
