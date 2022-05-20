@@ -6282,6 +6282,7 @@ def pdf_superstore_generation(request, ordered_product):
             shop = Shop.objects.get(id=shop_id)
             shop_name = shop.shop_name
         except Shop.DoesNotExist:
+            shop = None
             shop_name = "shop_id config missing"
         license_number = getShopLicenseNumber(shop_name)
         # CIN
@@ -6291,7 +6292,7 @@ def pdf_superstore_generation(request, ordered_product):
 
         seller_shop_gistin = 'unregistered'
         buyer_shop_gistin = 'unregistered'
-        if ordered_product.order.ordered_cart.seller_shop.shop_name_documents.exists():
+        if shop and shop.shop_name_documents.exists():
             seller_shop_gistin = ordered_product.order.ordered_cart.seller_shop.shop_name_documents.filter(
                 shop_document_type='gstin').last().shop_document_number if ordered_product.order.ordered_cart.seller_shop.shop_name_documents.filter(
                 shop_document_type='gstin').exists() else getGSTINNumber(shop_name)
@@ -6398,11 +6399,17 @@ def pdf_superstore_generation(request, ordered_product):
             basic_rate = (float(product_pro_price_ptr)) / (float(get_tax_val) + 1)
             base_price = (float(product_pro_price_ptr) * float(m.shipped_qty)) / (float(get_tax_val) + 1)
             product_tax_amount = round(float(base_price) * float(get_tax_val), 2)
-            for z in ordered_product.order.seller_shop.shop_name_address_mapping.all():
-                cin = 'U74999HR2018PTC075977' if z.shop_name == 'GFDN SERVICES PVT LTD (NOIDA)' or z.shop_name == 'GFDN SERVICES PVT LTD (DELHI)' else '---'
-                shop_name_gram = 'GFDN SERVICES PVT LTD' if z.shop_name == 'GFDN SERVICES PVT LTD (NOIDA)' or z.shop_name == 'GFDN SERVICES PVT LTD (DELHI)' else z.shop_name
-                nick_name_gram, address_line1_gram = z.nick_name, z.address_line1
-                city_gram, state_gram, pincode_gram = z.city, z.state, z.pincode
+            if shop:
+                for z in shop.shop_name_address_mapping.all():
+                    cin = 'U74999HR2018PTC075977' if z.shop_name == 'GFDN SERVICES PVT LTD (NOIDA)' or z.shop_name == 'GFDN SERVICES PVT LTD (DELHI)' else '---'
+                    shop_name_gram = 'GFDN SERVICES PVT LTD' if z.shop_name == 'GFDN SERVICES PVT LTD (NOIDA)' or z.shop_name == 'GFDN SERVICES PVT LTD (DELHI)' else z.shop_name
+                    nick_name_gram, address_line1_gram = z.nick_name, z.address_line1
+                    city_gram, state_gram, pincode_gram = z.city, z.state, z.pincode
+            else:
+                cin = None
+                shop_name_gram = None
+                nick_name_gram, address_line1_gram = None, None
+                city_gram, state_gram, pincode_gram = None, None, None
 
             ordered_prodcut = {
                 "product_sku": m.product.product_gf_code,
