@@ -1286,7 +1286,7 @@ class CartCentral(GenericAPIView):
                 cart = Cart.objects.get(cart_type='SUPERSTORE', buyer=self.request.user, cart_status='active',
                                         seller_shop=kwargs['shop'])
             except Cart.DoesNotExist:
-                return api_response("No items added in cart yet", {"rt_cart_list": []}, status.HTTP_200_OK, False)
+                return api_response("No items added in cart yet", {"cart_product_list": []}, status.HTTP_200_OK, False)
 
             # Refresh cart prices
             PosCartCls.refresh_prices(cart.rt_cart_list.all())
@@ -1591,7 +1591,7 @@ class CartCentral(GenericAPIView):
                 cart_mapping.no_of_pieces = int(qty)
                 cart_mapping.save()
             if cart.rt_cart_list.filter(product_type=1).count() == 0:
-                return api_response("No items added in cart yet", {"rt_cart_list": []}, status.HTTP_200_OK, False)
+                return api_response("No items added in cart yet", {"cart_product_list": []}, status.HTTP_200_OK, False)
             return api_response('Added To Cart', SuperStoreCartSerializer(cart).data, status.HTTP_200_OK, True)
 
     def pos_cart_product_create(self, shop_id, product_info, cart_id):
