@@ -85,6 +85,6 @@ def bulk_log_search(queryset, search_text):
 # search using product_name, parent_product_name & product_sku based on criteria that matches
 def product_price_search(queryset, search_text):
     queryset = queryset.filter(Q(product__product_name__icontains=search_text) |
-                               Q(parent_product__name__icontains=search_text) |
+                               Q(product__parent_product__name__icontains=search_text) |
                                Q(product__product_sku__icontains=search_text))
     return queryset
