@@ -10,7 +10,7 @@ from rest_framework.permissions import AllowAny
 
 from categories.models import Category
 from brand.models import Brand
-from retailer_backend.utils import SmallOffsetPagination
+from retailer_backend.utils import SmallOffsetPagination, OffsetPaginationDefault50
 from .serializers import CardDataSerializer, CardSerializer, ApplicationSerializer, ApplicationDataSerializer, \
     PageSerializer, PageDetailSerializer, CardItemSerializer, PageLatestDetailSerializer, CategorySerializer, \
     SubCategorySerializer, BrandSerializer, SubBrandSerializer, LandingPageSerializer, PageFunctionSerializer
@@ -732,7 +732,7 @@ class PageFunctionView(generics.GenericAPIView):
             page_functions = Functions.objects.filter(type=request.GET.get('type'), id=request.GET.get('id'))
         else:
             self.queryset = self.filter_page_functions()
-            page_functions = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+            page_functions = OffsetPaginationDefault50().paginate_queryset(self.queryset, request)
 
         serializer = self.serializer_class(page_functions, many=True)
         msg = "" if page_functions else "no page function found"
