@@ -648,7 +648,8 @@ class UploadMasterData(object):
                     name=row['product_name'].strip(),
                     parent_brand=Brand.objects.filter(id=int(row['brand_id'])).last(),
                     product_hsn=product_hsn_obj,
-                    inner_case_size=int(row['inner_case_size']), product_type=row['product_type'],
+                    inner_case_size=int(row['inner_case_size']),
+                    product_type=row['product_type'],
                     is_ptr_applicable=(True if row['is_ptr_applicable'].lower() == 'yes' else False),
                     ptr_type=(None if not row['is_ptr_applicable'].lower() == 'yes' else ParentProduct.PTR_TYPE_CHOICES.MARK_UP
                     if row['ptr_type'].lower() == 'mark up' else ParentProduct.PTR_TYPE_CHOICES.MARK_DOWN),
@@ -700,18 +701,19 @@ class UploadMasterData(object):
                                                                  category_name=cat).last())
                 ParentProductCls.update_tax_status_and_remark(parent_product)
 
-                if B2cCategory.objects.filter(category_name=row['b2c_category_name'].strip()).exists():
-                    ParentProductB2cCategory.objects.create(
-                        parent_product=parent_product,
-                        category=B2cCategory.objects.filter(category_name=row['b2c_category_name'].strip()).last())
+                if row["product_type"] == 'grocery':
+                    if B2cCategory.objects.filter(category_name=row['b2c_category_name'].strip()).exists():
+                        ParentProductB2cCategory.objects.create(
+                            parent_product=parent_product,
+                            category=B2cCategory.objects.filter(category_name=row['b2c_category_name'].strip()).last())
 
-                else:
-                    categories = row['b2c_category_name'].split(',')
-                    for cat in categories:
-                        cat = cat.strip().replace("'", '')
-                        ParentProductB2cCategory.objects.create(parent_product=parent_product,
-                                                                category=Category.objects.filter(
-                                                                 category_name=cat).last())
+                    else:
+                        categories = row['b2c_category_name'].split(',')
+                        for cat in categories:
+                            cat = cat.strip().replace("'", '')
+                            ParentProductB2cCategory.objects.create(parent_product=parent_product,
+                                                                    category=Category.objects.filter(
+                                                                     category_name=cat).last())
 
             info_logger.info("Method complete to create the Parent Product from csv file")
         except Exception as e:
@@ -974,14 +976,14 @@ class DownloadMasterData(object):
         response, writer = DownloadMasterData.response_workbook("bulk_parent_product_create_sample")
 
         columns = ["product_name", "brand_id", "brand_name", "b2b_category_name", "b2c_category_name", "hsn", "gst",
-                   "cess", "surcharge", "inner_case_size", "brand_case_size", "is_ptr_applicable",
+                   "cess", "surcharge", "inner_case_size", "brand_case_size", "product_type", "is_ptr_applicable",
                    "ptr_type", "ptr_percent", "is_ars_applicable", "discounted_life_percent", "max_inventory_in_days", "is_lead_time_applicable",
                    "status"]
         writer.writerow(columns)
         data = [["parent1", "2", "Too Yumm", "Health Care, Beverages, Grocery & Staples", "Grocery & Staples", "123456",
-                 "18", "12", "100", "10", "2", "yes", "Mark Up", "12", "yes", "2", "2", "yes", "deactivated"],
+                 "18", "12", "100", "10", "2", "grocery", "yes", "Mark Up", "12", "yes", "2", "2", "yes", "deactivated"],
                 ["parent2", "2", "Too Yumm", "Health Care, Beverages", "Grocery & Staples", "123456", "18", "12", "100",
-                 "10", "2", "yes", "Mark Up", "12", "yes", "0.0", "2", "yes", "active"]]
+                 "10", "2", "superstore" "yes", "Mark Up", "12", "yes", "0.0", "2", "yes", "active"]]
 
         for row in data:
             writer.writerow(row)
