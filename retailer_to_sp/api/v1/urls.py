@@ -28,7 +28,8 @@ from .views import (ProductsList, SearchProducts, CartCentral, CartCheckout, Ord
                     DispatchCenterShipmentPackageView, LoadLastMileInvoiceView, LastMileTripSummaryView,
                     LastMileLoadVerifyPackageView, RemoveLastMileInvoiceFromTripView,
                     VerifyNotAttemptShipmentPackagesView, VerifyBackwardTripItems, BackwardTripQCView,
-                    VehicleDriverList, PosOrderUserSearchView, CurrentlyLoadingShipmentPackagesView)
+                    VehicleDriverList, PosOrderUserSearchView, CurrentlyLoadingShipmentPackagesView,
+                    SuperStoreRefreshEs)
 
 from retailer_backend.cron import sync_es_products_api
 router = routers.DefaultRouter()
@@ -69,6 +70,7 @@ urlpatterns = [
     url('^pos-shop-users/$', PosShopUsersList.as_view()),
     # Products ES Refresh
     url('^refresh-es/$', RefreshEs.as_view()),
+    url('^refresh-es-super-store/$', SuperStoreRefreshEs.as_view()),
     url('^refresh-es-retailer/$', RefreshEsRetailer.as_view()),
     url('^cron-es/$', sync_es_products_api),
     # Shipment

@@ -3,7 +3,7 @@ import logging
 
 from gram_to_brand.models import GRNOrder, GRNOrderProductMapping
 from shops.models import Shop
-from products.models import Product, ProductPrice
+from products.models import Product, ProductPrice, SuperStoreProductPrice, ParentProduct
 from wms.common_functions import get_stock, CommonWarehouseInventoryFunctions as CWIF, get_earliest_expiry_date
 from retailer_backend.settings import ELASTICSEARCH_PREFIX as es_prefix, es
 from wms.models import InventoryType, WarehouseInventory, InventoryState
@@ -24,6 +24,17 @@ def create_slab_price_detail(price, mrp, case_size):
 			"margin": round((((float(mrp) - slab.ptr) / float(mrp)) * 100), 2)
 		})
 	return slab_price
+
+
+def get_super_store_product_price(shop_id, product):
+	info_logger.info("Inside get_product_price, shop_id: " + str(shop_id) + ", products: " +
+					 str(info_logger.info("Inside get_product_price, shop_id: " + str(shop_id) +
+										  ", products: " + str(product))))
+	if shop_id:
+		products_price = SuperStoreProductPrice.objects.filter(product=product, seller_shop_id=shop_id).last()
+		if products_price:
+			return products_price.selling_price
+	return None
 
 
 def get_product_price(shop_id, products):
@@ -94,8 +105,10 @@ def get_warehouse_stock(shop_id=None, product=None, inventory_type=None):
 		product_list = CWIF.filtered_warehouse_inventory_items().values('sku__id').distinct()
 	products = Product.objects.filter(pk__in=product_list).order_by('product_name')
 	product_price_dict = get_product_price(shop_id, products)
+
 	info_logger.info("inside get_warehouse_stock, products: " + str(products) + ", product_price_dict: " + str(product_price_dict))
 	for product in products:
+		super_store_product_price = get_super_store_product_price(shop_id, product)
 		user_selected_qty = None
 		no_of_pieces = None
 		sub_total = None
@@ -214,7 +227,8 @@ def get_warehouse_stock(shop_id=None, product=None, inventory_type=None):
 			"ean": ean,
 			"price_details": price_details,
 			"is_discounted": is_discounted,
-			"expiry_date": expiry_date
+			"expiry_date": expiry_date,
+			"super_store_product_price": super_store_product_price
 		}
 		info_logger.info("inside get_warehouse_stock, product_details: " + str(product_details))
 		yield(product_details)
@@ -222,6 +236,7 @@ def get_warehouse_stock(shop_id=None, product=None, inventory_type=None):
 
 def create_es_index(index):
 	return "{}-{}".format(es_prefix, index)
+
 
 def upload_shop_stock(shop=None,product=None):
 	info_logger.info("Inside upload_shop_stock, product: " + str(product) + ", shop: " + str(shop))
@@ -469,3 +484,63 @@ def get_all_products(shop_id=None, product=None, inventory_type=None):
 		}
 		info_logger.info("inside get_warehouse_stock, product_details: " + str(product_details))
 		yield(product_details)
+
+
+def upload_super_shop_stock(shop_id=None, product=None):
+	info_logger.info("Inside upload_shop_stock, product: " + str(product) + ", shop: " + str(shop_id))
+	all_child_products = Product.objects.filter(parent_product__product_type=ParentProduct.SUPERSTORE)
+	for instance in all_child_products:
+		prod_id = instance.id
+		product_categories = [str(c.category) for c in instance.parent_product.parent_product_pro_category.filter(status=True)]
+		user_selected_qty = None
+		ean = instance.product_ean_code
+		if ean and type(ean) == str:
+			ean = ean.split('_')[0]
+		available_qty = 0
+		status = True
+		if instance.use_parent_image:
+			product_images = [
+				{
+					"image_name": p_i.image_name,
+					"image_url": p_i.image.url
+				}
+				for p_i in instance.parent_product.parent_product_pro_image.all()
+			]
+		else:
+			product_images = []
+		super_store_product_price = None
+		if shop_id:
+			super_store_product_price = get_super_store_product_price(shop_id, prod_id)
+		product_details = {
+			"sku": instance.product_sku,
+			"parent_id": instance.parent_product.parent_id,
+			"parent_name": instance.parent_product.name,
+			"name": instance.product_name,
+			"product_type": instance.parent_product.product_type,
+			"name_lower": instance.product_name.lower(),
+			"brand": str(instance.product_brand),
+			"brand_lower": str(instance.product_brand).lower(),
+			"category": product_categories,
+			"mrp": instance.product_mrp,
+			"status": status,
+			"id": instance.id,
+			"product_images": product_images,
+			"weight_value": instance.weight_value,
+			"weight_unit": instance.weight_unit,
+			"user_selected_qty": user_selected_qty,
+			"pack_size": 1,
+			"brand_case_size": instance.parent_product.brand_case_size,
+			"margin": 0,
+			"available": available_qty,
+			"visible": True,
+			"ean": ean,
+			"is_discounted": False,
+			"super_store_product_selling_price": super_store_product_price
+		}
+		try:
+			es.index(index=create_es_index(shop_id), doc_type='product', id=prod_id, body=product_details)
+			info_logger.info(
+				"Inside upload superstore, product id: " + str(prod_id) + ", product: " + str(product_details))
+		except Exception as e:
+			info_logger.info("error in upload_shop_stock index creation")
+			info_logger.info(e)
