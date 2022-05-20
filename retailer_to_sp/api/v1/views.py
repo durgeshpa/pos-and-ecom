@@ -5232,7 +5232,7 @@ class OrderReturns(APIView):
         if return_reason and return_reason not in dict(OrderReturn.RETURN_REASON):
             return {'error': 'Provide a valid return reason'}
         # Check return item details
-        ordered_product = OrderedProduct.objects.get(order=order)
+        ordered_product = OrderedProduct.objects.filter(order=order).last()
         all_products = ordered_product.rt_order_product_order_product_mapping.filter(product_type=1)
         given_products = []
         for item in return_items:
@@ -6501,7 +6501,7 @@ def pdf_generation_retailer(request, order_id, delay=True):
     file_prefix = PREFIX_INVOICE_FILE_NAME
     order = Order.objects.filter(id=order_id).last()
     #ordered_product = order.rt_order_order_product.all()[0]
-    filename = create_file_name(file_prefix, order.rt_order_order_product.all()[0])
+    filename = create_file_name(file_prefix, order.rt_order_order_product.all()[0], with_timestamp=True)
     template_name = 'admin/invoice/invoice_retailer_3inch.html'
     # Don't create pdf if already created
     if order.rt_order_order_product.all()[0].invoice and order.rt_order_order_product.all()[0].invoice.invoice_pdf and order.rt_order_order_product.all()[0].invoice.invoice_pdf.url:
