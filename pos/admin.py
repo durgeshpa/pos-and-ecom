@@ -177,7 +177,7 @@ class RetailerProductAdmin(admin.ModelAdmin):
         return qs.filter(shop__pos_shop__user=request.user,
                          shop__pos_shop__status=True)
 
-    list_per_page = 50
+    list_per_page = 10
     search_fields = ('name', 'product_ean_code')
     list_filter = [ProductEanSearch, ShopFilter]
     inlines = [RetailerProductImageTabularAdmin]
