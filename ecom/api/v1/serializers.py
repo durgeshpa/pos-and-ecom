@@ -211,12 +211,6 @@ class AddressSerializer(serializers.ModelSerializer):
         add.save()
 
 
-class CategorySerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Category
-        fields = ('id', 'category_name', 'category_image')
-
-
 class B2cCategorySerializer(serializers.ModelSerializer):
     class Meta:
         model = B2cCategory
@@ -228,6 +222,13 @@ class SubCategorySerializer(serializers.ModelSerializer):
         model = Category
         fields = ('id', 'category_name', 'category_image')
 
+
+class CategorySerializer(serializers.ModelSerializer):
+    cat_parent = SubCategorySerializer(many=True, 
+                                       read_only=True)
+    class Meta:
+        model = Category
+        fields = ('id', 'category_name', 'category_image', 'cat_parent')
 
 
 class B2cSubCategorySerializer(serializers.ModelSerializer):
