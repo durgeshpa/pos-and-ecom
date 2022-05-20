@@ -186,7 +186,7 @@ def update_product_elasticsearch(sender, instance=None, created=False, **kwargs)
                 "name_lower": instance.product_name.lower(),
                 "brand": str(instance.product_brand),
                 "brand_lower": str(instance.product_brand).lower(),
-                "category": product_categories,
+                "category": ','.join(product_categories) if product_categories else None,
                 "mrp": instance.product_mrp,
                 "status": status,
                 "id": instance.id,
