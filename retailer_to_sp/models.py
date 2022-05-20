@@ -228,7 +228,7 @@ class Cart(models.Model):
     def order_amount(self):
         item_effective_total = 0
         for m in self.rt_cart_list.all():
-            item_effective_total += (m.item_effective_prices * float(m.no_of_pieces))
+            item_effective_total += (float(m.item_effective_prices) * float(m.no_of_pieces))
         redeem_points_value = 0
         if self.redeem_factor:
             redeem_points_value = round(self.redeem_points / self.redeem_factor, 2)
