@@ -10,6 +10,8 @@ from django.db.models import Q
 from rest_auth import authentication
 from rest_framework.generics import GenericAPIView, CreateAPIView, UpdateAPIView
 from rest_framework.permissions import AllowAny
+from rest_framework.response import Response
+from rest_framework import status
 
 from products.models import ParentProduct as ParentProducts, ProductHSN, ProductCapping as ProductCappings, \
     ProductVendorMapping, Product as ChildProduct, Tax, Weight, ProductPrice, ParentProduct, SuperStoreProductPrice
@@ -473,6 +475,29 @@ class SiblingProductView(GenericAPIView):
             serializer = self.serializer_class(sibling_product, many=True)
         msg = f"TOTAL SIBLING PRODUCT :: {sib_pro_total_count}" if sibling_product else "No sibling product found"
         return get_response(msg, serializer.data, True)
+
+
+def api_response(msg, data=None, status_code=status.HTTP_406_NOT_ACCEPTABLE, success=False, extra_params=None):
+    ret = {"is_success": success, "message": msg, "response_data": data}
+    if extra_params:
+        ret.update(extra_params)
+    return Response(ret, status=status_code)
+
+
+class ProductDetails(GenericAPIView):
+    """
+    retailer product details with parent product discriptions .....
+    """
+
+    authentication_classes = (authentication.TokenAuthentication,)
+    serializer_class = ChildProductSerializers
+
+    def get(self, request):
+        '''get superstore product details ....'''
+        id = request.GET.get('id')
+        serializer = ChildProduct.objects.filter(id=id)
+        serializer = self.serializer_class(serializer, many=True)
+        return api_response('products information',serializer.data,status.HTTP_200_OK, True)
 
 
 class ChildProductView(GenericAPIView):
