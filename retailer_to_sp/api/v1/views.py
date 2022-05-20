@@ -6261,17 +6261,17 @@ def pdf_superstore_generation(request, ordered_product):
         # Check if e-invoicing is done for this order
         # and get e-invocing details
         # details include QRCode, IRN, Ack No, Ack Date
-        zoho_invoice = ZohoInvoice.objects.filter(invoice_number=ordered_product.invoice_no).last()
-        if zoho_invoice and zoho_invoice.e_invoice_qr_raw_data:
-            try:
-                qrCode = qrCodeGen(ordered_product.invoice_no, zoho_invoice.e_invoice_qr_raw_data)
-                irn = zoho_invoice.e_invoice_reference_number
-                ack_no = zoho_invoice.e_invoice_ack_number
-                ack_date = zoho_invoice.e_invoice_ack_date
+        # zoho_invoice = ZohoInvoice.objects.filter(invoice_number=ordered_product.invoice_no).last()
+        # if zoho_invoice and zoho_invoice.e_invoice_qr_raw_data:
+        #     try:
+        #         qrCode = qrCodeGen(ordered_product.invoice_no, zoho_invoice.e_invoice_qr_raw_data)
+        #         irn = zoho_invoice.e_invoice_reference_number
+        #         ack_no = zoho_invoice.e_invoice_ack_number
+        #         ack_date = zoho_invoice.e_invoice_ack_date
 
-                e_invoice_data = {'qrCode': qrCode, 'irn': irn, 'ack_no': ack_no, 'ack_date': ack_date}
-            except Exception as e:
-                pass
+        #         e_invoice_data = {'qrCode': qrCode, 'irn': irn, 'ack_no': ack_no, 'ack_date': ack_date}
+        #     except Exception as e:
+        #         pass
         buyer_id = ordered_product.order.buyer_id
 
         # Licence
@@ -6294,10 +6294,10 @@ def pdf_superstore_generation(request, ordered_product):
                 shop_document_type='gstin').last().shop_document_number if ordered_product.order.ordered_cart.seller_shop.shop_name_documents.filter(
                 shop_document_type='gstin').exists() else getGSTINNumber(shop_name)
 
-        shop_mapping_list = ShopMigrationMapp.objects.filter(
-            new_sp_addistro_shop=ordered_product.order.ordered_cart.seller_shop.pk).all()
-        if shop_mapping_list.exists():
-            template_name = 'admin/invoice/invoice_addistro_sp.html'
+        # shop_mapping_list = ShopMigrationMapp.objects.filter(
+        #     new_sp_addistro_shop=ordered_product.order.ordered_cart.seller_shop.pk).all()
+        # if shop_mapping_list.exists():
+        #     template_name = 'admin/invoice/invoice_addistro_sp.html'
 
         product_listing = []
         taxes_list = []
@@ -6376,7 +6376,7 @@ def pdf_superstore_generation(request, ordered_product):
             basic_rate = 0
             inline_sum_amount = 0
             cart_product_map = ordered_product.order.ordered_cart.rt_cart_list.filter(cart_product=m.product).last()
-            product_price = cart_product_map.get_superstore_price.selling_price
+            product_price = cart_product_map.cart_product.get_superstore_price.selling_price
 
             if ordered_product.order.ordered_cart.cart_type != 'DISCOUNTED':
                 product_pro_price_ptr = m.effective_price
