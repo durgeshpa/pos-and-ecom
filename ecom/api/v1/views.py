@@ -221,7 +221,7 @@ class SuperStoreCategoriesView(APIView):
     
     @check_ecom_user
     def get(self, *args, **kwargs):
-        active_categories = Category.objects.filter(category_parent=None, 
+        active_categories = Category.objects.prefetch_related('cat_parent').filter(category_parent=None, 
                                                     category_type='superstore', 
                                                     status=True)\
                                                         .annotate(cat_order=F('category_view_order__order_no'))\
