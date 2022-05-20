@@ -1289,6 +1289,9 @@ class CartCentral(GenericAPIView):
                                         seller_shop=kwargs['shop'])
             except Cart.DoesNotExist:
                 return api_response("No items added in cart yet", {"cart_product_list": []}, status.HTTP_200_OK, False)
+            except Cart.MultipleObjectsReturned:
+                cart = Cart.objects.filter(cart_type='SUPERSTORE', buyer=self.request.user, cart_status='active',
+                                        seller_shop=kwargs['shop']).last()
 
             # Refresh cart prices
             PosCartCls.refresh_prices(cart.rt_cart_list.all())
@@ -4306,6 +4309,9 @@ class OrderCentral(APIView):
             OrderedProductBatch.objects.create(ordered_product_mapping=shipment_product, 
                                                quantity=product['qty'],
                                                pickup_quantity=product['qty'])
+            # Invoice Number Generate
+            shipment.shipment_status = OrderedProduct.MOVED_TO_DISPATCH
+            shipment.save()
 
     def discounted_product_in_stock(self, cart_products):
         if cart_products.filter(retailer_product__sku_type=4).exists():
@@ -6228,6 +6234,263 @@ def pdf_generation(request, ordered_product):
         except Exception as e:
             logger.exception(e)
 
+
+
+def pdf_superstore_generation(request, ordered_product):
+    """
+    :param request: request object
+    :param ordered_product: Order product object
+    :return: pdf instance
+    """
+    # get prefix of file name
+    file_prefix = PREFIX_INVOICE_FILE_NAME
+    # get the file name along with with prefix name
+    filename = create_file_name(file_prefix, ordered_product, with_timestamp=True)
+    # we will be changing based on shop name
+    template_name = 'admin/invoice/invoice_sp.html'
+    if type(request) is str:
+        request = None
+        ordered_product = get_object_or_404(OrderedProduct, pk=ordered_product)
+    else:
+        request = request
+        ordered_product = ordered_product
+
+    if ordered_product.invoice and ordered_product.invoice.invoice_pdf and ordered_product.invoice.invoice_pdf.url:
+            pass
+    else:
+        barcode = barcodeGen(ordered_product.invoice_no)
+        e_invoice_data = None
+        # Check if e-invoicing is done for this order
+        # and get e-invocing details
+        # details include QRCode, IRN, Ack No, Ack Date
+        zoho_invoice = ZohoInvoice.objects.filter(invoice_number=ordered_product.invoice_no).last()
+        if zoho_invoice and zoho_invoice.e_invoice_qr_raw_data:
+            try:
+                qrCode = qrCodeGen(ordered_product.invoice_no, zoho_invoice.e_invoice_qr_raw_data)
+                irn = zoho_invoice.e_invoice_reference_number
+                ack_no = zoho_invoice.e_invoice_ack_number
+                ack_date = zoho_invoice.e_invoice_ack_date
+
+                e_invoice_data = {'qrCode': qrCode, 'irn': irn, 'ack_no': ack_no, 'ack_date': ack_date}
+            except Exception as e:
+                pass
+        buyer_id = ordered_product.order.buyer_id
+
+        # Licence
+        shop_id = get_config('superstore_seller_shop_id', 50484)
+        try:
+            shop = Shop.objects.get(id=shop_id)
+            shop_name = shop.shop_name
+        except Shop.DoesNotExist:
+            shop_name = "shop_id config missing"
+        license_number = getShopLicenseNumber(shop_name)
+        # CIN
+        cin_number = getShopCINNumber(shop_name)
+        open_time = '-'
+        close_time = '-'
+
+        seller_shop_gistin = 'unregistered'
+        buyer_shop_gistin = 'unregistered'
+        if ordered_product.order.ordered_cart.seller_shop.shop_name_documents.exists():
+            seller_shop_gistin = ordered_product.order.ordered_cart.seller_shop.shop_name_documents.filter(
+                shop_document_type='gstin').last().shop_document_number if ordered_product.order.ordered_cart.seller_shop.shop_name_documents.filter(
+                shop_document_type='gstin').exists() else getGSTINNumber(shop_name)
+
+        shop_mapping_list = ShopMigrationMapp.objects.filter(
+            new_sp_addistro_shop=ordered_product.order.ordered_cart.seller_shop.pk).all()
+        if shop_mapping_list.exists():
+            template_name = 'admin/invoice/invoice_addistro_sp.html'
+
+        product_listing = []
+        taxes_list = []
+        gst_tax_list = []
+        cess_tax_list = []
+        surcharge_tax_list = []
+        sum_qty = 0
+        igst = sum(gst_tax_list)
+        cgst = (sum(gst_tax_list)) / 2
+        sgst = (sum(gst_tax_list)) / 2
+        cess = sum(cess_tax_list)
+        surcharge = sum(surcharge_tax_list)
+        open_time = '-'
+        close_time = '-'
+        sum_qty = 0
+        sum_basic_amount = 0
+        shop_name_gram = 'GFDN SERVICES PVT LTD'
+        nick_name_gram = '-'
+        address_line1_gram = '-'
+        city_gram = '-'
+        state_gram = '-'
+        pincode_gram = '-'
+        cin = '-'
+        list1 = []
+        for m in ordered_product.rt_order_product_order_product_mapping.filter(shipped_qty__gt=0):
+            dict1 = {}
+            flag = 0
+            if len(list1) > 0:
+                for i in list1:
+                    if i["hsn"] == m.product.product_hsn:
+                        i["taxable_value"] = i["taxable_value"] + m.base_price
+                        i["cgst"] = i["cgst"] + (m.base_price * m.get_products_gst()) / 200
+                        i["sgst"] = i["sgst"] + (m.base_price * m.get_products_gst()) / 200
+                        i["igst"] = i["igst"] + (m.base_price * m.get_products_gst()) / 100
+                        i["cess"] = i["cess"] + (m.base_price * m.get_products_gst_cess_tax()) / 100
+                        i["surcharge"] = i["surcharge"] + (m.base_price * m.get_products_gst_surcharge()) / 100
+                        if m.product.product_special_cess is None:
+                            i["product_special_cess"] = i["product_special_cess"] + 0.0
+                        else:
+                            i["product_special_cess"] = i["product_special_cess"] + m.total_product_cess_amount
+                        i["total"] = i["total"] + m.product_tax_amount
+                        flag = 1
+
+            if flag == 0:
+                dict1["hsn"] = m.product.product_hsn
+                dict1["taxable_value"] = m.base_price
+                dict1["cgst"] = (m.base_price * m.get_products_gst()) / 200
+                dict1["cgst_rate"] = m.get_products_gst() / 2
+                dict1["sgst"] = (m.base_price * m.get_products_gst()) / 200
+                dict1["sgst_rate"] = m.get_products_gst() / 2
+                dict1["igst"] = (m.base_price * m.get_products_gst()) / 100
+                dict1["igst_rate"] = m.get_products_gst()
+                dict1["cess"] = (m.base_price * m.get_products_gst_cess_tax()) / 100
+                dict1["cess_rate"] = m.get_products_gst_cess_tax()
+                dict1["surcharge"] = (m.base_price * m.get_products_gst_surcharge()) / 100
+                dict1["product_special_cess"] = m.product.product_special_cess
+                if dict1["product_special_cess"] is None:
+                    dict1["product_special_cess"] = 0.0
+                else:
+                    dict1["product_special_cess"] = m.total_product_cess_amount
+                dict1["surcharge_rate"] = m.get_products_gst_surcharge()
+                dict1["total"] = m.product_tax_amount
+                list1.append(dict1)
+
+            sum_qty += m.shipped_qty
+            sum_basic_amount += m.base_price
+            tax_sum = 0
+            basic_rate = 0
+            product_tax_amount = 0
+            product_pro_price_mrp = 0
+            product_pro_price_ptr = 0
+
+            no_of_pieces = 0
+            cart_qty = 0
+            product_tax_amount = 0
+            basic_rate = 0
+            inline_sum_amount = 0
+            cart_product_map = ordered_product.order.ordered_cart.rt_cart_list.filter(cart_product=m.product).last()
+            product_price = cart_product_map.get_superstore_price.selling_price
+
+            if ordered_product.order.ordered_cart.cart_type != 'DISCOUNTED':
+                product_pro_price_ptr = m.effective_price
+            else:
+                product_pro_price_ptr = cart_product_map.item_effective_prices
+            if m.product.product_mrp:
+                product_pro_price_mrp = m.product.product_mrp
+            else:
+                product_pro_price_mrp = round(product_price.mrp, 2)
+            no_of_pieces = m.product.rt_cart_product_mapping.last().no_of_pieces
+            cart_qty = m.product.rt_cart_product_mapping.last().qty
+
+            # new code for tax start
+            tax_sum = m.get_product_tax_json()
+
+            get_tax_val = tax_sum / 100
+            basic_rate = (float(product_pro_price_ptr)) / (float(get_tax_val) + 1)
+            base_price = (float(product_pro_price_ptr) * float(m.shipped_qty)) / (float(get_tax_val) + 1)
+            product_tax_amount = round(float(base_price) * float(get_tax_val), 2)
+            for z in ordered_product.order.seller_shop.shop_name_address_mapping.all():
+                cin = 'U74999HR2018PTC075977' if z.shop_name == 'GFDN SERVICES PVT LTD (NOIDA)' or z.shop_name == 'GFDN SERVICES PVT LTD (DELHI)' else '---'
+                shop_name_gram = 'GFDN SERVICES PVT LTD' if z.shop_name == 'GFDN SERVICES PVT LTD (NOIDA)' or z.shop_name == 'GFDN SERVICES PVT LTD (DELHI)' else z.shop_name
+                nick_name_gram, address_line1_gram = z.nick_name, z.address_line1
+                city_gram, state_gram, pincode_gram = z.city, z.state, z.pincode
+
+            ordered_prodcut = {
+                "product_sku": m.product.product_gf_code,
+                "product_short_description": m.product.product_short_description,
+                "product_ean_code": m.product.product_ean_code,
+                "product_hsn": m.product.product_hsn,
+                "product_tax_percentage": "" if tax_sum == 0 else str(tax_sum) + "%",
+                "product_mrp": product_pro_price_mrp,
+                "shipped_qty": m.shipped_qty,
+                "product_inner_case_size": m.product.product_inner_case_size,
+                "product_no_of_pices": int(m.shipped_qty) * int(m.product.product_inner_case_size),
+                "basic_rate": basic_rate,
+                "basic_amount": float(m.shipped_qty) * float(basic_rate),
+                "price_to_retailer": round(product_pro_price_ptr, 2),
+                "product_sub_total": float(m.shipped_qty) * float(product_pro_price_ptr),
+                "product_tax_amount": product_tax_amount
+            }
+            # total_tax_sum = total_tax_sum + product_tax_amount
+            # inline_sum_amount = inline_sum_amount + product_pro_price_ptr
+            product_listing.append(ordered_prodcut)
+            # New Code For Product Listing End
+
+            # sum_qty += int(m.shipped_qty)
+            # sum_amount += int(m.shipped_qty) * product_pro_price_ptr
+            inline_sum_amount += int(m.shipped_qty) * product_pro_price_ptr
+            gst_tax = (m.base_price * m.get_products_gst()) / 100
+            cess_tax = (m.base_price * m.get_products_gst_cess_tax()) / 100
+            surcharge_tax = (m.base_price * m.get_products_gst_surcharge()) / 100
+            product_special_cess = m.product.product_special_cess
+            if product_special_cess is None:
+                product_special_cess = 0.0
+            else:
+                product_special_cess = product_special_cess
+            gst_tax_list.append(gst_tax)
+            cess_tax_list.append(cess_tax)
+            surcharge_tax_list.append(surcharge_tax)
+            igst, cgst, sgst, cess, surcharge = sum(gst_tax_list), (sum(gst_tax_list)) / 2, (
+                sum(gst_tax_list)) / 2, sum(
+                cess_tax_list), sum(surcharge_tax_list)
+
+        total_amount = ordered_product.invoice.invoice_sub_total
+        tcs_rate = ordered_product.invoice.tcs_percent
+        tcs_tax = ordered_product.invoice.tcs_amount
+        total_tax_amount = ordered_product.sum_amount_tax()
+        try:
+            product_special_cess = round(m.total_product_cess_amount)
+        except:
+            product_special_cess = 0
+        amount = total_amount
+        total_amount = total_amount + tcs_tax
+        total_amount_int = round(total_amount)
+        total_tax_amount_int = round(total_tax_amount)
+
+        amt = [num2words(i) for i in str(total_amount_int).split('.')]
+        rupees = amt[0]
+
+        tax_amt = [num2words(i) for i in str(total_tax_amount_int).split('.')]
+        tax_rupees = tax_amt[0]
+
+        logger.info("createing invoice pdf")
+        logger.info(template_name)
+        logger.info(request.get_host())
+
+        data = {"shipment": ordered_product, "order": ordered_product.order,
+                "url": request.get_host(), "scheme": request.is_secure() and "https" or "http",
+                "igst": igst, "cgst": cgst, "sgst": sgst, "product_special_cess": product_special_cess,
+                "tcs_tax": tcs_tax, "tcs_rate": tcs_rate, "cess": cess,
+                "surcharge": surcharge, "total_amount": total_amount, "amount": amount,
+                "barcode": barcode, "product_listing": product_listing, "rupees": rupees, "tax_rupees": tax_rupees,
+                "seller_shop_gistin": seller_shop_gistin, "buyer_shop_gistin": buyer_shop_gistin,
+                "open_time": open_time, "close_time": close_time, "sum_qty": sum_qty,
+                "sum_basic_amount": sum_basic_amount,
+                "shop_name_gram": shop_name_gram, "nick_name_gram": nick_name_gram,
+                "address_line1_gram": address_line1_gram, "city_gram": city_gram, "state_gram": state_gram,
+                "pincode_gram": pincode_gram, "cin": cin_number,
+                "hsn_list": list1, "license_number": license_number, "e_invoice_data": e_invoice_data}
+
+        cmd_option = {"margin-top": 10, "zoom": 1, "javascript-delay": 1000, "footer-center": "[page]/[topage]",
+                      "no-stop-slow-scripts": True, "quiet": True}
+        response = PDFTemplateResponse(request=request, template=template_name, filename=filename,
+                                       context=data, show_content_in_browser=False, cmd_options=cmd_option)
+
+        try:
+            create_invoice_data(ordered_product)
+            ordered_product.invoice.invoice_pdf.save("{}".format(filename),
+                                                     ContentFile(response.rendered_content), save=True)
+        except Exception as e:
+            logger.exception(e)
 
 def pdf_generation_retailer(request, order_id, delay=True):
     """
@@ -8268,12 +8531,16 @@ class DownloadShipmentInvoice(APIView):
         :return: zip folder which contains the pdf files
         """
         shipment_ids = request.data.get('shipment_ids')
+        invoice_type = request.data.get('invoice_type', None)
         # check condition for single pdf download using download invoice link
         if len(shipment_ids) == 1:
             # check pk is exist or not for Order product model
             ordered_product = get_object_or_404(OrderedProduct, pk=shipment_ids[0])
             # call pdf generation method to generate pdf and download the pdf
-            pdf_generation(request, ordered_product)
+            if invoice_type == 'superstore':
+                pdf_superstore_generation(request, ordered_product)
+            else:
+                pdf_generation(request, ordered_product)
             result = requests.get(ordered_product.invoice.invoice_pdf.url)
             file_prefix = PREFIX_INVOICE_FILE_NAME
             # generate pdf file
@@ -8288,7 +8555,10 @@ class DownloadShipmentInvoice(APIView):
                 # check pk is exist or not for Order product model
                 ordered_product = get_object_or_404(OrderedProduct, pk=pk)
                 # call pdf generation method to generate and save pdf
-                pdf_generation(request, ordered_product)
+                if invoice_type == 'superstore':
+                    pdf_superstore_generation(request, ordered_product)
+                else:
+                    pdf_generation(request, ordered_product)
                 # append the pdf file path
                 file_path_list.append(ordered_product.invoice.invoice_pdf.url)
                 # append created date for pdf file
