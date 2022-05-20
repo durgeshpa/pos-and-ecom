@@ -2024,6 +2024,8 @@ class SuperStoreProductPriceDownloadSerializer(serializers.ModelSerializer):
                      obj.product.id, obj.product.product_sku, obj.product.product_name,
                      b2b.category.category_name if b2b else b2b, b2c.category.category_name if b2c else b2c,
                      obj.mrp, obj.selling_price])
-
-            return response
+        else:
+            writer.writerow(
+                [600, 'GFDN', 'PCBDPCO0074', '544', 'BEVBEVNIM00000001', 'maggie', 'Liquid Drinks', 'Liquid Drinks', 233, 200])
+        return response
 
