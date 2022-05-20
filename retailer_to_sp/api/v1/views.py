@@ -4987,7 +4987,7 @@ class OrderReturns(APIView):
         if return_reason and return_reason not in dict(OrderReturn.RETURN_REASON):
             return {'error': 'Provide a valid return reason'}
         # Check return item details
-        ordered_product = OrderedProduct.objects.get(order=order)
+        ordered_product = OrderedProduct.objects.filter(order=order).last()
         all_products = ordered_product.rt_order_product_order_product_mapping.filter(product_type=1)
         given_products = []
         for item in return_items:
