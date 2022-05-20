@@ -142,6 +142,7 @@ class Shop(models.Model):
     online_inventory_enabled = models.BooleanField(default=True, verbose_name='Online Inventory Enabled')
     cutoff_time = models.TimeField(null=True, blank=True)
     dynamic_beat = models.BooleanField(default=False)
+    superstore_enable = models.BooleanField(default=False)
     #status_reward_configuration = models.CharField(max_length=20, choices=Choices, default='deactive')
 
     # last_order_at = models.DateTimeField(auto_now_add=True)

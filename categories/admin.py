@@ -37,7 +37,7 @@ class CategoryParentSearch(InputFilter):
 
 class CategorySKUSearch(InputFilter):
     parameter_name = 'category_sku_part'
-    title = 'Category SKU'
+    title = 'Category SKU Part'
 
     def queryset(self, request, queryset):
         if self.value() is not None:
@@ -78,7 +78,6 @@ class B2cCategoryAdmin(ExportActionMixin, admin.ModelAdmin):
     list_display = ['id', 'category_name', 'category_slug', 'category_sku_part']
     search_fields = ['category_name']
     prepopulated_fields = {'category_slug': ('category_name',)}
-    search_fields = ('category_name',)
     list_filter = [CategorySearch, CategoryParentSearch, CategorySKUSearch]
 
 

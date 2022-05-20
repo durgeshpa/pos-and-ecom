@@ -487,13 +487,13 @@ class ParentProductCategoryAdmin(TabularInline):
     model = ParentProductCategory
     autocomplete_fields = ['category', ]
     #formset = RequiredInlineFormSet  # or AtLeastOneFormSet
-    formset = ProductB2bCategoryFormSet
+    #formset = ProductB2bCategoryFormSet
 
 
 class ParentProductB2cCategoryAdminInline(TabularInline):
     model = ParentProductB2cCategory
     autocomplete_fields = ['category', ]
-    formset = ProductB2cCategoryFormSet
+    #formset = ProductB2cCategoryFormSet
 
 
 @admin.register(ParentProductB2cCategory)
@@ -2165,6 +2165,40 @@ class TaxGroupAdmin(admin.ModelAdmin, ExportCsvMixin):
         return obj
 
 
+class SuperStoreProductPriceLogAdmin(admin.TabularInline):
+    model = SuperStoreProductPriceLog
+    fields = ('updated_by', 'update_at', 'old_selling_price', 'new_selling_price')
+    readonly_fields = ('updated_by', 'update_at', 'old_selling_price', 'new_selling_price')
+    extra = 0
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+    def has_view_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
+class SuperStoreProductPriceAdmin(admin.ModelAdmin):
+    list_display = ('product', 'seller_shop',  'mrp', 'selling_price')
+    fields = ['product', 'seller_shop',  'mrp', 'selling_price']
+    list_per_page = 10
+    list_filter = [ShopFilter,]
+    search_fields = ('product__product_name',)
+    inlines = [SuperStoreProductPriceLogAdmin]
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
 admin.site.register(ProductImage, ProductImageMainAdmin)
 admin.site.register(ProductVendorMapping, ProductVendorMappingAdmin)
 admin.site.register(PackageSize, PackageSizeAdmin)
@@ -2184,3 +2218,5 @@ admin.site.register(ParentProduct, ParentProductAdmin)
 admin.site.register(SlabProductPrice, ProductSlabPriceAdmin)
 admin.site.register(DiscountedProductPrice, DiscountedProductSlabPriceAdmin)
 admin.site.register(TaxGroup, TaxGroupAdmin)
+admin.site.register(SuperStoreProductPrice, SuperStoreProductPriceAdmin)
+

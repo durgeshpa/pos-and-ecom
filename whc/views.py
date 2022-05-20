@@ -264,7 +264,7 @@ class AutoOrderProcessor:
                 sku = pbi.bin.sku
                 inventory_type = pbi.bin.inventory_type
                 picked_qty += pbi.quantity
-                CommonBinInventoryFunctions.deduct_to_be_picked_from_bin(pbi.quantity, pbi.bin)
+                CommonBinInventoryFunctions.deduct_to_be_picked_from_bin(pbi.quantity, pbi.bin, tr_id, tr_type)
 
                 CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
                     warehouse, sku, inventory_type, state_to_be_picked, -1 * pbi.quantity, tr_type, tr_id)
@@ -334,10 +334,11 @@ class AutoOrderProcessor:
                                      "order id-{}, sku-{}, bin-{}, warehouse-{}"
                                      .format(order.order_no, sku_id, bin_id, shop.id))
                     raise Exception('Picklist Generation Failed')
-
-                bin_inventory_obj.quantity = bin_inventory_obj.quantity - qty_to_be_picked
-                bin_inventory_obj.to_be_picked_qty += qty_to_be_picked
-                bin_inventory_obj.save()
+                #
+                # bin_inventory_obj.quantity = bin_inventory_obj.quantity - qty_to_be_picked
+                # bin_inventory_obj.to_be_picked_qty += qty_to_be_picked
+                # bin_inventory_obj.save()
+                CommonBinInventoryFunctions.move_to_to_be_picked(qty_to_be_picked, bin_inventory_obj, tr_id, tr_type)
 
                 CommonPickBinInvFunction.create_pick_bin_inventory(shop, pickup_object, batch_id, bin_inventory_obj,
                                                                    quantity=qty_to_be_picked,

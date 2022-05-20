@@ -51,9 +51,10 @@ def validate_tax_name(tax_name, tax_id):
 
 def validate_id(queryset, s_id):
     """ validation only ids that belong to a selected related model """
-    if not queryset.filter(id=s_id).exists():
+    data = queryset.filter(id=s_id)
+    if not data:
         return {'error': 'please provide a valid id'}
-    return {'data': queryset.filter(id=s_id)}
+    return {'data': data}
 
 
 def get_validate_parent_brand(parent_brand):
@@ -170,6 +171,16 @@ def get_validate_product(product):
     """ validate product id that belong to a Product model"""
     try:
         product = Product.objects.get(id=product)
+    except Exception as e:
+        logger.error(e)
+        return {'error': 'please provide a valid product id'}
+    return {'product': product}
+
+
+def validate_superstore_product(product):
+    """ validate product id that belong to a Product model and of a superstore product"""
+    try:
+        product = Product.objects.get(id=product, parent_product__product_type=ParentProduct.SUPERSTORE)
     except Exception as e:
         logger.error(e)
         return {'error': 'please provide a valid product id'}
@@ -1883,5 +1894,68 @@ def read_product_hsn_file(csv_file):
     # Checking, whether the user uploaded the data below the headings or not!
     if uploaded_data_by_user_list:
         check_product_hsn_mandatory_columns(uploaded_data_by_user_list, csv_file_headers)
+    else:
+        raise ValidationError("Please add some data below the headers to upload it!")
+
+
+def check_super_store_product_price_mandatory_columns(uploaded_data_list, header_list):
+    """
+        This method will check that Data uploaded by user is not empty for mandatory fields.
+    """
+    row_num = 1
+    mandatory_columns = ["seller_shop_id", "product_id", "selling_price"]
+    for ele in mandatory_columns:
+        if ele not in header_list:
+            raise ValidationError(
+                f"{mandatory_columns} are mandatory columns for 'Create Product Price'")
+    for row in uploaded_data_list:
+        row_num += 1
+
+        if 'seller_shop_id' not in row.keys() or str(row['seller_shop_id']).strip() == '':
+            raise ValidationError(f"Row {row_num} | 'seller_shop_id' can't be empty")
+        else:
+            seller_shop_val = get_validate_seller_shop(str(row['seller_shop_id']).strip())
+            if 'error' in seller_shop_val:
+                raise ValidationError(seller_shop_val['error'])
+
+        if 'product_id' not in row.keys() or str(row['product_id']).strip() == '':
+            raise ValidationError(f"Row {row_num} | 'product_id' can't be empty")
+        else:
+            product_val = validate_superstore_product(str(row['product_id']).strip())
+            if 'error' in product_val:
+                raise ValidationError(product_val['error'])
+        if 'selling_price' not in row.keys() or str(row['selling_price']).strip() == '':
+            raise ValidationError(f"Row {row_num} | 'selling_price' can't be empty")
+        else:
+            if not re.match("^\d+[.]?[\d]{0,2}$", str(row['selling_price'])):
+                raise ValidationError(f"Row {row_num} | {row['selling_price']} | "
+                                      f"'selling_price' can only be a numeric value.")
+            if product_val['product'].product_mrp < float(row['selling_price']):
+                raise ValidationError(f"Row {row_num} | {row['selling_price']} | "
+                                      f"'selling_price' can not be greater than product mrp.")
+
+        # Validate non mandatory
+        if 'mrp' in row.keys() and str(row['mrp']).strip() != '':
+            if not re.match("^\d+[.]?[\d]{0,2}$", str(row['mrp'])):
+                raise ValidationError(f"Row {row_num} | {row['mrp']} | 'mrp' can only be a numeric value.")
+
+
+def read_super_store_product_price_file(csv_file):
+    """
+        Template Validation (Checking, whether the csv file uploaded by user is correct or not!)
+    """
+    csv_file_header_list = next(csv_file)  # headers of the uploaded csv file
+    # Converting headers into lowercase
+    csv_file_headers = [str(ele).split(' ')[0].strip().lower() for ele in csv_file_header_list]
+    required_header_list = ['seller_shop_id', 'seller_shop', 'parent_product_id', 'product_id', 'product_sku',
+                            'product_name', 'b2b_category', 'b2c_category', 'mrp', 'selling_price']
+    # ["seller_shop", "parent_product_id", "parent_product", "product_id", "product_name",
+    #                         "category", "mrp", "selling_price"]
+
+    check_headers(csv_file_headers, required_header_list)
+    uploaded_data_by_user_list = get_csv_file_data(csv_file, csv_file_headers)
+    # Checking, whether the user uploaded the data below the headings or not!
+    if uploaded_data_by_user_list:
+        check_super_store_product_price_mandatory_columns(uploaded_data_by_user_list, csv_file_headers)
     else:
         raise ValidationError("Please add some data below the headers to upload it!")
