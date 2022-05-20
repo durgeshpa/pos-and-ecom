@@ -148,7 +148,8 @@ def make_cms_item_redirect_url(request, card_type, image_data_type):
             2 : "/retailer/sp/api/v1/GRN/search/?index_type=3&search_type=1&&categories=",
             3 : "/retailer/sp/api/v1/GRN/search/?index_type=3&search_type=1&brands=",
             4 : "/cms/api/v1/landing-pages/?id="
-        }
+        },
+        "text" : "/retailer/sp/api/v1/GRN/search/?index_type=3&search_type=1&keyword="
     }
     if not isinstance(switcher.get(card_type), str):
         return switcher.get(card_type).get(image_data_type)
@@ -231,7 +232,10 @@ class CardDataSerializer(serializers.ModelSerializer):
 
         redirect_url_base = make_cms_item_redirect_url(request, card.type, card.image_data_type)
         for item in items:
-            item['action'] = request.build_absolute_uri(redirect_url_base + str(item['content_id']))
+            if card.type == "text":
+                item['action'] = request.build_absolute_uri(redirect_url_base + str(item['content']))
+            else:
+                item['action'] = request.build_absolute_uri(redirect_url_base + str(item['content_id']))
             CardItem.objects.create(card_data=new_card_data,**item)
 
         return new_card_data
