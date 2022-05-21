@@ -866,7 +866,8 @@ class LoadDispatches(APIView):
             'shipment', flat=True
         ).filter(shipment__shipment_status=OrderedProduct.NOT_ATTEMPT).filter(
             Q(created_at__date=datetime.date.today()) |
-            Q(shipment__last_mile_trip_shipment__trip__trip_status__in=[Trip.READY, Trip.STARTED, Trip.COMPLETED])
+            Q(shipment__last_mile_trip_shipment__trip__trip_status__in=[Trip.READY, Trip.STARTED, Trip.COMPLETED,
+                                                                        Trip.RETURN_VERIFIED])
         )
         dispatches = dispatches.exclude(id__in=not_attempt_dispatches)
 
@@ -875,7 +876,8 @@ class LoadDispatches(APIView):
             'shipment', flat=True
         ).filter(shipment__shipment_status=OrderedProduct.RESCHEDULED).filter(
             ~Q(rescheduling_date__lte=datetime.date.today()) |
-            Q(shipment__last_mile_trip_shipment__trip__trip_status__in=[Trip.READY, Trip.STARTED, Trip.COMPLETED])
+            Q(shipment__last_mile_trip_shipment__trip__trip_status__in=[Trip.READY, Trip.STARTED, Trip.COMPLETED,
+                                                                        Trip.RETURN_VERIFIED])
         )
         dispatches = dispatches.exclude(id__in=reschedule_dispatches)
         if source_shop and source_shop != seller_shop:
