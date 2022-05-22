@@ -10,13 +10,14 @@ from .views import ParentProductView, ParentProductExportAsCSVView, HSNListView,
     DiscountProductListForManualPriceView, B2cCategoryListView, HSNExportAsCSVUploadView, \
     ParentProductsTaxStatusChoicesView, ParentProductApprovalView, HSNExportAsCSVSampleDownloadView, \
     BulkParentProductApprovalView, SuperStoreProductPriceView, SuperStoreProductListView, \
-    SuperStoreProductPriceAsCSVUploadView, SuperStoreProductPriceAsCSVDownloadView
+    SuperStoreProductPriceAsCSVUploadView, SuperStoreProductPriceAsCSVDownloadView, ProductDetails
 
 urlpatterns = [
     url(r'^parent-product/', ParentProductView.as_view(), name='parent-product'),
     url(r'^get-parent-product/', ParentProductListView.as_view(), name='get-parent-product'),
     url(r'^child-product/', ChildProductView.as_view(), name='child-product'),
     url(r'^sibling-product/', SiblingProductView.as_view(), name='child-product'),
+    url(r'^product-details/', ProductDetails.as_view(), name='product-details'),
     url(r'^discounted-child-product/', DiscountProductView.as_view(), name='discounted-child-product'),
     url(r'^parent-download-bulk-product/', ParentProductExportAsCSVView.as_view(), name='parent-download-bulk-product'),
     url(r'^parent-product-active-deactive/', ActiveDeactiveSelectedParentProductView.as_view(),
