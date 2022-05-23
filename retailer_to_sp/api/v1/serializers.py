@@ -18,7 +18,7 @@ from products.models import (Product, ProductPrice, ProductImage, Tax, ProductTa
 from retailer_backend.utils import getStrToYearDate
 from retailer_to_sp.common_model_functions import ShopCrateCommonFunctions, OrderCommonFunction
 from retailer_to_sp.common_validators import validate_shipment_crates_list, validate_shipment_package_list
-from retailer_to_sp.models import (CartProductMapping, Cart, Order, OrderedProduct, Note, CustomerCare, Payment,
+from retailer_to_sp.models import (CartProductMapping, Cart, Invoice, Order, OrderedProduct, Note, CustomerCare, Payment,
                                    Dispatch, Feedback, OrderedProductMapping as RetailerOrderedProductMapping,
                                    Trip, PickerDashboard, ShipmentRescheduling, OrderedProductBatch, ShipmentPackaging,
                                    ShipmentPackagingMapping, DispatchTrip, DispatchTripShipmentMapping,
@@ -43,6 +43,8 @@ from wms.common_functions import release_picking_crates, send_update_to_qcdesk, 
     create_putaway
 from wms.models import Crate, WarehouseAssortment, Zone, InventoryType
 from ecom.models import Address as UserAddress
+from pos.api.v1.serializers import PaymentSerializer
+from accounts.api.v1.serializers import PosUserSerializer
 
 User = get_user_model()
 
@@ -5450,3 +5452,102 @@ class PosOrderUserSearchSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ('id', 'first_name', 'last_name', 'address', 'phone_number')
+
+
+class SuperStoreOrderListSerializer(serializers.ModelSerializer):
+    order_no = serializers.SerializerMethodField()
+    
+    def get_order_no(self, instance):
+        return instance.ordered_product.order.order_no
+    
+    qty_and_total_amount = serializers.SerializerMethodField()
+    def get_qty_and_total_amount(self, instance):
+        cart_product = instance.ordered_product.order.ordered_cart.rt_cart_list.filter(cart_product=instance.product).last()
+        if cart_product:
+            return {
+                'qty':cart_product.qty,
+                'total_amount': cart_product.qty * cart_product.selling_price
+            }
+        return None
+    
+    # ordered_from = serializers.SerializerMethodField()
+    # def get_ordered_from(self, instance):
+    #     return instance.ordered_product.order.ordered_cart.seller_shop.shop_name
+    
+    payment = serializers.SerializerMethodField()
+    def get_payment(self, instance):
+        payments = instance.ordered_product.order.rt_payment_retailer_order.all()
+        return PaymentSerializer(payments, many=True).data
+    
+    shipment_status = serializers.SerializerMethodField()
+    def get_shipment_status(self, instance):
+        return instance.ordered_product.shipment_status
+
+    buyer = serializers.SerializerMethodField()
+    def get_buyer(self, instance):
+        buyer = instance.ordered_product.order.buyer
+        return PosUserSerializer(buyer).data
+    
+    class Meta:
+        model = RetailerOrderedProductMapping
+        fields = ('id', 'order_no', 'shipment_status', 'qty_and_total_amount', 
+                  'payment', 'buyer',
+                  'created_at')
+
+
+class InvoiceDataSerializer(serializers.ModelSerializer):
+    invoice_pdf = serializers.SerializerMethodField()
+    
+    def get_invoice_pdf(self, instance):
+        return instance.invoice_pdf.url
+    
+    class Meta:
+        model = Invoice
+        fields = ('id', 'invoice_no', 'invoice_pdf', 'invoice_sub_total', 'invoice_total')
+
+
+class SuperStoreOrderDetailSerializer(serializers.ModelSerializer):
+    order_no = serializers.SerializerMethodField()
+    
+    def get_order_no(self, instance):
+        return instance.ordered_product.order.order_no
+    
+    invoice = serializers.SerializerMethodField()
+    
+    def get_invoice(self, instance):
+        return InvoiceDataSerializer(instance.ordered_product.invoice).data 
+    
+    qty_and_total_amount = serializers.SerializerMethodField()
+    def get_qty_and_total_amount(self, instance):
+        cart_product = instance.ordered_product.order.ordered_cart.rt_cart_list.filter(cart_product=instance.product).last()
+        if cart_product:
+            return {
+                'qty':cart_product.qty,
+                'total_amount': cart_product.qty * cart_product.selling_price
+            }
+        return None
+    
+    buyer = serializers.SerializerMethodField()
+    def get_buyer(self, instance):
+        buyer = instance.ordered_product.order.buyer
+        return PosUserSerializer(buyer).data
+    
+    payment = serializers.SerializerMethodField()
+    def get_payment(self, instance):
+        payments = instance.ordered_product.order.rt_payment_retailer_order.all()
+        return PaymentSerializer(payments, many=True).data
+    
+    shipment_status = serializers.SerializerMethodField()
+    def get_shipment_status(self, instance):
+        return instance.ordered_product.shipment_status
+    
+    ordered_from = serializers.SerializerMethodField()
+    def get_ordered_from(self, instance):
+        return instance.ordered_product.order.ordered_cart.seller_shop.shop_name
+    
+    class Meta:
+        model = RetailerOrderedProductMapping
+        fields = ('id', 'order_no', 'shipment_status', 
+                  'qty_and_total_amount', 'ordered_from',
+                  'payment', 'buyer', 'invoice',
+                  'created_at')
