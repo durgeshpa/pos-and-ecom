@@ -3892,24 +3892,32 @@ class BuyerPurchaseData(models.Model):
         verbose_name_plural = 'Buyer Purchase'
 
 
-@receiver(post_save, sender=Order)
-def create_retailer_orders_from_superstore_order(sender, instance=None, created=False, **kwargs):
+# @receiver(post_save, sender=Order)
+# def create_retailer_orders_from_superstore_order(sender, instance=None, created=False, **kwargs):
+def create_retailer_orders_from_superstore_order(instance=None, created=True):
     info_logger.info(f"create_retailer_orders_from_superstore_order|{instance}|Started")
-    with transaction.atomic():
-        if created and instance.order_app_type == Order.POS_SUPERSTORE:
+    # with transaction.atomic():
+    if 1:
+        if created and instance.ordered_cart.cart_type == SUPERSTORE:
             carp_pro_maps = instance.ordered_cart.rt_cart_list.all()
             if carp_pro_maps:
                 new_seller_shop = Shop.objects.get(id=GlobalConfig.objects.get(key='current_wh_active').value)
-                new_buyer_shop = instance.seller_shop
+                new_buyer_shop = instance.ordered_cart.seller_shop
                 new_billing_address = new_buyer_shop.shop_name_address_mapping.filter(address_type='billing').last()
                 new_shipping_address = new_buyer_shop.shop_name_address_mapping.filter(address_type='shipping').last()
+                user = instance.ordered_by
+                total_mrp = instance.total_mrp
+                order_amount = instance.order_amount
+                total_discount_amount = instance.total_discount_amount
+                total_tax_amount = instance.total_tax_amount
+                order_app_type = instance.order_app_type
                 for cart_pro in carp_pro_maps:
                     new_cart = Cart.objects.create(seller_shop=new_seller_shop, buyer_shop=new_buyer_shop,
                                                    cart_status='ordered', cart_type=SUPERSTORE_RETAIL)
                     product = cart_pro.cart_product
                     product_price = product.get_current_shop_price(new_seller_shop, new_buyer_shop)
                     ordered_qty = cart_pro.qty
-                    ordered_pieces = cart_pro.no_of_pieces
+                    ordered_pieces = int(cart_pro.no_of_pieces)
                     try:
                         CartProductMapping.objects.create(cart=new_cart, cart_product_id=product.id,
                                                           qty=ordered_qty,
@@ -3918,34 +3926,26 @@ def create_retailer_orders_from_superstore_order(sender, instance=None, created=
                     except Exception as error:
                         error_logger.info(f"create_retailer_orders_from_superstore_order|{instance}|Error while "
                                           f"creating CartProductMapping {error}")
-                    reserved_args = reserved_args_json_data(new_seller_shop.id, new_cart.cart_no,
-                                                            {product.id: ordered_pieces}, 'reserved', None, None)
-                    info_logger.info(f"create_retailer_orders_from_superstore_order|{instance}|"
-                                     f"reserve order:{reserved_args}")
-                    OrderManagement.create_reserved_order(reserved_args)
-                    info_logger.info(f"create_retailer_orders_from_superstore_order|{instance}|reserved order")
-                    # new_cart.offers = instance.cart_offers # cart offer will not apply for superstore to retail orders
-                    # new_cart.save()
+                    info_logger.info(f"create_retailer_orders_from_superstore_order|{instance}|Product Mapping order")
                     order, _ = Order.objects.get_or_create(ordered_cart=new_cart)
                     order.reference_order = instance
+                    order.total_mrp = total_mrp
+                    order.order_amount = order_amount
+                    order.total_discount_amount = total_discount_amount
+                    order.total_tax_amount = total_tax_amount
+                    order.order_app_type = order_app_type
                     order.ordered_cart = new_cart
                     order.seller_shop = new_seller_shop
                     order.buyer_shop = new_buyer_shop
                     order.billing_address = new_billing_address
                     order.shipping_address = new_shipping_address
-                    user = get_current_user()
                     order.ordered_by = user
                     order.last_modified_by = user
                     order.received_by = user
                     order.order_status = 'ordered'
                     order.save()
-                    reserved_args = reserved_args_json_data(new_seller_shop.id, new_cart.cart_no,
-                                                            None, 'ordered', order.order_status, order.order_no)
-                    sku_id = [i.cart_product.id for i in new_cart.rt_cart_list.all()]
                     info_logger.info(f"create_retailer_orders_from_superstore_order|{instance}|"
-                                     f"release_order:{reserved_args}")
-                    OrderManagement.release_blocking(reserved_args, sku_id)
-                    info_logger.info(f"create_retailer_orders_from_superstore_order|{instance}|Ended")
+                                     f"Retailer order created {order}")
             else:
                 error_logger.info(f"create_retailer_orders_from_superstore_order|{instance}|"
                                   f"No products available for which order can be placed.")

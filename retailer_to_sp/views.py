@@ -34,7 +34,8 @@ from retailer_to_sp.models import (CartProductMapping, Order, OrderedProduct, Or
                                    check_franchise_inventory_update, ShipmentNotAttempt, BASIC, ECOM,
                                    Shipment, populate_data_on_qc_pass, OrderedProductBatch, ShipmentPackaging,
                                    ShipmentNotAttempt, LastMileTripShipmentMapping, LastMileTripShipmentPackages,
-                                   Invoice, DispatchTripShipmentMapping, DispatchTrip, DispatchTripShipmentPackages)
+                                   Invoice, DispatchTripShipmentMapping, DispatchTrip, DispatchTripShipmentPackages,
+                                   create_retailer_orders_from_superstore_order, SUPERSTORE)
 from products.models import Product, Category
 from retailer_to_sp.forms import (
     OrderedProductForm, OrderedProductMappingShipmentForm,
@@ -2130,3 +2131,13 @@ class ProductCategoryAutocomplete(autocomplete.Select2QuerySetView):
            return Category.objects.filter(category_name__icontains=self.q)
             # qs = Product.objects.filter(product_name__icontains=self.q)
         return qs
+
+
+def generate_retail_orders_against_superstore_order():
+    current_time = datetime.datetime.now() - datetime.timedelta(minutes=1)
+    start_time = datetime.datetime.now() - datetime.timedelta(days=1)
+    orders = Order.objects.filter(order_app_type=Order.POS_SUPERSTORE, ref_order__isnull=True, order_closed=False,
+                                  ordered_cart__cart_type=SUPERSTORE,
+                                  created_at__lt=current_time, created_at__gt=start_time)
+    for instance in orders:
+        create_retailer_orders_from_superstore_order(instance)
