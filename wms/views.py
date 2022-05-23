@@ -1247,8 +1247,7 @@ def pickup_entry_creation_with_cron():
 def pickup_entry_for_superstore_order_creation_with_cron():
     cron_name = CronRunLog.CRON_CHOICE.PICKUP_SUPERSTORE_CREATION_CRON
     current_time = datetime.now() - timedelta(minutes=0)
-    # start_time = datetime.now() - timedelta(days=3)
-    start_time = datetime.now() - timedelta(minutes=10)
+    start_time = datetime.now() - timedelta(days=3)
     order_obj = Order.objects.filter(order_status='ordered',
                                      order_closed=False,
                                      created_at__lt=current_time,
@@ -1257,19 +1256,19 @@ def pickup_entry_for_superstore_order_creation_with_cron():
         cron_logger.info("{}| no orders to generate picklist for".format(cron_name))
         return
 
-    # if CronRunLog.objects.filter(cron_name=cron_name, status=CronRunLog.CRON_STATUS_CHOICES.STARTED).exists():
-    #     abort_minutes = get_config('PICKUP_CRON_ABORT_MINUTES', 30)
-    #     running_cron = CronRunLog.objects.filter(cron_name=cron_name, status=CronRunLog.CRON_STATUS_CHOICES.STARTED,
-    #                                              modified_at__lte=(datetime.now() - timedelta(minutes=abort_minutes)))
-    #     if running_cron:
-    #         running_cron.update(status=CronRunLog.CRON_STATUS_CHOICES.ABORTED, modified_at=datetime.now())
-    #         cron_logger.info("{} aborted running".format(cron_name))
-    #     else:
-    #         cron_logger.info("{} already running".format(cron_name))
-    #         return
+    if CronRunLog.objects.filter(cron_name=cron_name, status=CronRunLog.CRON_STATUS_CHOICES.STARTED).exists():
+        abort_minutes = get_config('PICKUP_CRON_ABORT_MINUTES', 30)
+        running_cron = CronRunLog.objects.filter(cron_name=cron_name, status=CronRunLog.CRON_STATUS_CHOICES.STARTED,
+                                                 modified_at__lte=(datetime.now() - timedelta(minutes=abort_minutes)))
+        if running_cron:
+            running_cron.update(status=CronRunLog.CRON_STATUS_CHOICES.ABORTED, modified_at=datetime.now())
+            cron_logger.info("{} aborted running".format(cron_name))
+        else:
+            cron_logger.info("{} already running".format(cron_name))
+            return
 
-    # cron_log_entry = CronRunLog.objects.create(cron_name=cron_name)
-    # cron_logger.info("{} started, cron log entry-{}" .format(cron_log_entry.cron_name, cron_log_entry.id))
+    cron_log_entry = CronRunLog.objects.create(cron_name=cron_name)
+    cron_logger.info("{} started, cron log entry-{}" .format(cron_log_entry.cron_name, cron_log_entry.id))
     inventory_type = InventoryType.objects.filter(inventory_type='normal').last()
     state_to_be_picked = InventoryState.objects.filter(inventory_state='to_be_picked').last()
     state_ordered = InventoryState.objects.filter(inventory_state='ordered').last()
@@ -1457,10 +1456,10 @@ def pickup_entry_for_superstore_order_creation_with_cron():
             cron_logger.info('Exception while creating pickup for order {}'.format(order.order_no))
             cron_logger.error(e)
 
-    # cron_log_entry.status = CronRunLog.CRON_STATUS_CHOICES.COMPLETED
-    # cron_log_entry.completed_at = timezone.now()
-    # cron_logger.info("{} completed, cron log entry-{}".format(cron_log_entry.cron_name, cron_log_entry.id))
-    # cron_log_entry.save()
+    cron_log_entry.status = CronRunLog.CRON_STATUS_CHOICES.COMPLETED
+    cron_log_entry.completed_at = timezone.now()
+    cron_logger.info("{} completed, cron log entry-{}".format(cron_log_entry.cron_name, cron_log_entry.id))
+    cron_log_entry.save()
 
 
 def assign_picker_user_to_pickup_created_orders():
