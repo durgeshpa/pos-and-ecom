@@ -639,7 +639,7 @@ class EcomShipmentSerializer(serializers.Serializer):
 class ShopInfoSerializer(serializers.ModelSerializer):
     class Meta:
         model = Shop
-        fields = ('id', 'shop_name',)
+        fields = ('id', 'shop_name', 'superstore_enable')
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
