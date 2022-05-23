@@ -21,6 +21,7 @@ from django.core.validators import MinValueValidator, MaxValueValidator
 
 from celery.task import task
 from accounts.middlewares import get_current_user
+from global_config.models import GlobalConfig
 from retailer_backend import common_function as CommonFunction
 from retailer_backend.validators import PercentageValidator
 from .bulk_order_clean import bulk_order_validation
@@ -77,6 +78,7 @@ DISCOUNTED = 'DISCOUNTED'
 BASIC = 'BASIC'
 ECOM = 'EC0M'
 SUPERSTORE = 'SUPERSTORE'
+SUPERSTORE_RETAIL = 'SUPERSTORE_RETAIL'
 
 BULK_ORDER_STATUS = (
     (AUTO, 'Auto'),
@@ -111,7 +113,8 @@ CART_TYPES = (
     (DISCOUNTED, 'Discounted'),
     (BASIC, 'Basic'),
     (ECOM, 'Ecom'),
-    (SUPERSTORE, 'Super Store')
+    (SUPERSTORE, 'Super Store'),
+    (SUPERSTORE_RETAIL, 'Super Store Retail')
 )
 
 
@@ -1089,6 +1092,8 @@ class Order(models.Model):
     modified_at = models.DateTimeField(auto_now=True)
     latitude = models.DecimalField(max_digits=30, decimal_places=15, null=True,blank=True, verbose_name='Latitude For Ecommerce order')
     longitude = models.DecimalField(max_digits=30, decimal_places=15, null=True,blank=True, verbose_name='Longitude For Ecommerce order')
+    reference_order = models.ForeignKey('self', related_name='ref_order', blank=True, null=True,
+                                        on_delete=models.CASCADE)
 
     def __str__(self):
         return self.order_no or str(self.id)
@@ -3885,3 +3890,62 @@ class BuyerPurchaseData(models.Model):
     class Meta:
         verbose_name = 'Buyer Purchase'
         verbose_name_plural = 'Buyer Purchase'
+
+
+@receiver(post_save, sender=Order)
+def create_retailer_orders_from_superstore_order(sender, instance=None, created=False, **kwargs):
+    info_logger.info(f"create_retailer_orders_from_superstore_order|{instance}|Started")
+    with transaction.atomic():
+        if created and instance.order_app_type == Order.POS_SUPERSTORE:
+            carp_pro_maps = instance.ordered_cart.rt_cart_list.all()
+            if carp_pro_maps:
+                new_seller_shop = Shop.objects.get(id=GlobalConfig.objects.get(key='current_wh_active').value)
+                new_buyer_shop = instance.seller_shop
+                new_billing_address = new_buyer_shop.shop_name_address_mapping.filter(address_type='billing').last()
+                new_shipping_address = new_buyer_shop.shop_name_address_mapping.filter(address_type='shipping').last()
+                for cart_pro in carp_pro_maps:
+                    new_cart = Cart.objects.create(seller_shop=new_seller_shop, buyer_shop=new_buyer_shop,
+                                                   cart_status='ordered', cart_type=SUPERSTORE_RETAIL)
+                    product = cart_pro.cart_product
+                    product_price = product.get_current_shop_price(new_seller_shop, new_buyer_shop)
+                    ordered_qty = cart_pro.qty
+                    ordered_pieces = cart_pro.no_of_pieces
+                    try:
+                        CartProductMapping.objects.create(cart=new_cart, cart_product_id=product.id,
+                                                          qty=ordered_qty,
+                                                          no_of_pieces=ordered_pieces,
+                                                          cart_product_price=product_price)
+                    except Exception as error:
+                        error_logger.info(f"create_retailer_orders_from_superstore_order|{instance}|Error while "
+                                          f"creating CartProductMapping {error}")
+                    reserved_args = reserved_args_json_data(new_seller_shop.id, new_cart.cart_no,
+                                                            {product.id: ordered_pieces}, 'reserved', None, None)
+                    info_logger.info(f"create_retailer_orders_from_superstore_order|{instance}|"
+                                     f"reserve order:{reserved_args}")
+                    OrderManagement.create_reserved_order(reserved_args)
+                    info_logger.info(f"create_retailer_orders_from_superstore_order|{instance}|reserved order")
+                    # new_cart.offers = instance.cart_offers # cart offer will not apply for superstore to retail orders
+                    # new_cart.save()
+                    order, _ = Order.objects.get_or_create(ordered_cart=new_cart)
+                    order.reference_order = instance
+                    order.ordered_cart = new_cart
+                    order.seller_shop = new_seller_shop
+                    order.buyer_shop = new_buyer_shop
+                    order.billing_address = new_billing_address
+                    order.shipping_address = new_shipping_address
+                    user = get_current_user()
+                    order.ordered_by = user
+                    order.last_modified_by = user
+                    order.received_by = user
+                    order.order_status = 'ordered'
+                    order.save()
+                    reserved_args = reserved_args_json_data(new_seller_shop.id, new_cart.cart_no,
+                                                            None, 'ordered', order.order_status, order.order_no)
+                    sku_id = [i.cart_product.id for i in new_cart.rt_cart_list.all()]
+                    info_logger.info(f"create_retailer_orders_from_superstore_order|{instance}|"
+                                     f"release_order:{reserved_args}")
+                    OrderManagement.release_blocking(reserved_args, sku_id)
+                    info_logger.info(f"create_retailer_orders_from_superstore_order|{instance}|Ended")
+            else:
+                error_logger.info(f"create_retailer_orders_from_superstore_order|{instance}|"
+                                  f"No products available for which order can be placed.")
