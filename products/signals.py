@@ -201,7 +201,7 @@ def update_product_elasticsearch(sender, instance=None, created=False, **kwargs)
                 "visible": True,
                 "ean": ean,
                 "is_discounted": False,
-                "super_store_product_price": None
+                "super_store_product_selling_price": None
             }
             try:
                 es.index(index=create_es_index(shop_id), doc_type='product', id=prod_id, body=product_details)
