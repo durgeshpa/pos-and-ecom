@@ -705,11 +705,18 @@ class DestinationRepackagingCostMappingSerializers(serializers.ModelSerializer):
                   'secondary_pm_cost')
 
 
+class SuperStorePriceSerializers(serializers.ModelSerializer):
+    class Meta:
+        model = SuperStoreProductPrice
+        fields = ('id', 'product', 'mrp', 'seller_shop', 'selling_price',)
+
+
 class ChildProductSerializers(serializers.ModelSerializer):
     """ Handles creating, reading and updating child product items."""
     parent_product = ParentProductSerializers(read_only=True)
     product_pro_tax = ProductTaxMappingSerializers(many=True, read_only=True)
     child_product_log = LogSerializers(many=True, read_only=True)
+    super_store_product_price = SuperStorePriceSerializers(many=True, read_only=True)
     product_vendor_mapping = ChildProductVendorMappingSerializers(many=True, required=False)
     product_sku = serializers.CharField(required=False)
     product_pro_image = ProductImageSerializers(many=True, read_only=True)
@@ -725,7 +732,7 @@ class ChildProductSerializers(serializers.ModelSerializer):
         ref_name = "ChildProduct v1"
         fields = ('id', 'product_sku', 'product_name', 'product_ean_code', 'status', 'product_mrp', 'weight_value',
                   'weight_unit', 'reason_for_child_sku', 'use_parent_image', 'product_special_cess', 'product_type',
-                  'is_manual_price_update', 'repackaging_type', 'product_pro_image', 'parent_product',
+                  'is_manual_price_update', 'repackaging_type', 'product_pro_image', 'parent_product', 'super_store_product_price',
                   'product_pro_tax', 'destination_product_pro', 'product_images', 'destination_product_repackaging',
                   'packing_product_rt', 'product_vendor_mapping', 'child_product_log',)
 
