@@ -3194,7 +3194,7 @@ def create_order_no(sender, instance=None, created=False, **kwargs):
         Cart order_id add
     """
     if not instance.order_no and instance.seller_shop and instance.seller_shop:
-        if instance.ordered_cart.cart_type in ['RETAIL', 'BASIC', 'AUTO']:
+        if instance.ordered_cart.cart_type in ['RETAIL', 'BASIC', 'AUTO', 'SUPERSTORE_RETAIL']:
             order_no = common_function.order_id_pattern(
                 sender, 'order_no', instance.pk,
                 instance.seller_shop.
@@ -3896,8 +3896,7 @@ class BuyerPurchaseData(models.Model):
 # def create_retailer_orders_from_superstore_order(sender, instance=None, created=False, **kwargs):
 def create_retailer_orders_from_superstore_order(instance=None, created=True):
     info_logger.info(f"create_retailer_orders_from_superstore_order|{instance}|Started")
-    # with transaction.atomic():
-    if 1:
+    with transaction.atomic():
         if created and instance.ordered_cart.cart_type == SUPERSTORE:
             carp_pro_maps = instance.ordered_cart.rt_cart_list.all()
             if carp_pro_maps:
