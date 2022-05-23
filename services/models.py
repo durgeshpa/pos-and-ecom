@@ -367,6 +367,7 @@ class BinInventoryHistoric(models.Model):
 
 class CronRunLog(models.Model):
     CRON_CHOICE = Choices(('PICKUP_CREATION_CRON', 'Picklist Generation Cron'),
+                          ('PICKUP_SUPERSTORE_CREATION_CRON', 'Super Store Picklist Generation Cron'),
                           ('AUDIT_PICKUP_REFRESH_CRON', 'Refresh Picklist After Audit Cron'),
                           ('FRANCHISE_SALES_RETURNS_CRON', 'Adjust Sales/Returns Franchise Inventory Cron'),
                           ('HDPOS_USERS_FETCH_CRON', 'Fetch Registered Customers on Hdpos'),
