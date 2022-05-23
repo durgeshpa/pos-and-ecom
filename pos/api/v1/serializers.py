@@ -841,7 +841,7 @@ class BasicOrderListSerializer(serializers.ModelSerializer):
         return order_product_mapping.ordered_product.id if order_product_mapping else None
 
     def payment_data(self, obj):
-        payment = [obj.rt_payment_retailer_order.last()]
+        payment = [obj.rt_payment_retailer_order.all().last()]
         return PaymentSerializer(payment, many=True).data if payment else None
 
     def get_delivery_persons(self, obj):
