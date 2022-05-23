@@ -130,8 +130,8 @@ from .serializers import (ProductsSearchSerializer, CartSerializer, OrderSeriali
                           LastMileLoadVerifyPackageSerializer, RemoveLastMileInvoiceFromTripSerializer,
                           VerifyNotAttemptShipmentPackageSerializer, VerifyShipmentPackageSerializer,
                           DetailedShipmentPackageInfoSerializer, DetailedShipmentPackagingMappingInfoSerializer,
-                          VerifyBackwardTripItemsSerializer, BackwardTripQCSerializer, PosOrderUserSearchSerializer
-                          )
+                          VerifyBackwardTripItemsSerializer, BackwardTripQCSerializer, PosOrderUserSearchSerializer,
+                          SuperStoreOrderListSerializer, SuperStoreOrderDetailSerializer)
 
 from ...common_validators import validate_shipment_dispatch_item, validate_trip_user, \
     get_shipment_by_crate_id, get_shipment_by_shipment_label, validate_shipment_id, validate_trip_shipment, \
@@ -3404,12 +3404,13 @@ class OrderCentral(APIView):
             For SuperStore Cart
         """
         try:
-            order = Order.objects.get(pk=self.request.GET.get('order_id'),
-                                      buyer=self.request.user, ordered_cart__cart_type='SUPERSTORE')
-        except ObjectDoesNotExist:
+            order = OrderedProductMapping.objects.get(pk=self.request.GET.get('product_mapping_id'),
+                                                        ordered_product__order__buyer=self.request.user, 
+                                                        ordered_product__order__ordered_cart__cart_type='SUPERSTORE')
+        except OrderedProductMapping.ObjectDoesNotExist:
             return api_response("Order Not Found!")
 
-        return api_response('Order', self.get_serialize_process_pos_ecom(order), status.HTTP_200_OK, True,
+        return api_response('Order', self.get_serialize_process_superstore(order), status.HTTP_200_OK, True,
                             extra_params={"key_p": str(config('PAYU_KEY')),}
                             )
 
@@ -4161,6 +4162,9 @@ class OrderCentral(APIView):
         if int(self.request.GET.get('summary', 0)) == 1:
             return PosEcomOrderDetailSerializer(order).data
         return BasicOrderSerializer(order).data
+    
+    def get_serialize_process_superstore(self, order_product_mapping):
+        return SuperStoreOrderDetailSerializer(order_product_mapping).data
 
     def post_serialize_process_sp(self, order, parent_mapping):
         """
@@ -4301,7 +4305,8 @@ class OrderCentral(APIView):
             shipment_product = ShipmentProducts.objects.create(
                 ordered_product = shipment,
                 product_id = product['cart_product'],
-                product_type = product['selling_price'],
+                product_type = product['product_type'],
+                selling_price = product['selling_price'],
                 shipped_qty = product['qty']
             )
             OrderedProductBatch.objects.create(ordered_product_mapping=shipment_product, 
@@ -4541,6 +4546,8 @@ class OrderListCentral(GenericAPIView):
             return self.get_basic_order_list(request, *args, **kwargs)
         elif app_type == '3':
             return self.get_ecom_order_list(request, *args, **kwargs)
+        elif app_type == '4':
+            return self.get_superstore_order_list(request, *args, **kwargs)
         else:
             return api_response('Provide a valid app_type')
 
@@ -4645,6 +4652,24 @@ class OrderListCentral(GenericAPIView):
 
         return api_response('Order', self.get_serialize_process_ecom(qs), status.HTTP_200_OK, True,
                             extra_params={"key_p": str(config('PAYU_KEY'))})
+    
+    @check_ecom_user
+    def get_superstore_order_list(self, request, *args, **kwargs):
+        shop = self.request.META.get('HTTP_SHOP_ID')
+        if shop:
+            orders = Order.objects.filter(ordered_cart__cart_type='SUPERSTORE', 
+                                          seller_shop_id=shop)
+        else:
+            orders = Order.objects.filter(ordered_cart__cart_type='SUPERSTORE', 
+                                          buyer=self.request.user)
+        search_text = self.request.GET.get('search_text')
+        if search_text:
+            orders = orders.filter(Q(order_no__icontains=search_text) |
+                            Q(ordered_cart__rt_cart_list__retailer_product__name__icontains=search_text))
+        shipment_products = ShipmentProducts.objects.filter(ordered_product__order__in=orders)
+        return api_response('Order Products', self.get_serialize_process_superstore(shipment_products), status.HTTP_200_OK, True,
+                            extra_params={"key_p": str(config('PAYU_KEY'))})
+        
 
     def get_serialize_process_sp(self, order, parent_mapping):
         """
@@ -4686,6 +4711,14 @@ class OrderListCentral(GenericAPIView):
         objects = self.pagination_class().paginate_queryset(order, self.request)
         return EcomOrderListSerializer(objects, many=True).data
 
+    def get_serialize_process_superstore(self, ordered_product):
+        """
+            Get Order
+            Cart type superstore
+        """
+        ordered_products = ordered_product.order_by('-created_at', '-ordered_product__order_id')
+        objects = self.pagination_class().paginate_queryset(ordered_products, self.request)
+        return SuperStoreOrderListSerializer(objects, many=True).data
 
 class OrderedItemCentralDashBoard(APIView):
     authentication_classes = (authentication.TokenAuthentication,)
@@ -6245,7 +6278,7 @@ def pdf_superstore_generation(request, ordered_product):
     # get the file name along with with prefix name
     filename = create_file_name(file_prefix, ordered_product, with_timestamp=True)
     # we will be changing based on shop name
-    template_name = 'admin/invoice/invoice_sp.html'
+    template_name = 'admin/invoice/invoice_sp_superstore.html'
     if type(request) is str:
         request = None
         ordered_product = get_object_or_404(OrderedProduct, pk=ordered_product)
@@ -6272,8 +6305,8 @@ def pdf_superstore_generation(request, ordered_product):
         #         e_invoice_data = {'qrCode': qrCode, 'irn': irn, 'ack_no': ack_no, 'ack_date': ack_date}
         #     except Exception as e:
         #         pass
-        buyer_id = ordered_product.order.buyer_id
-
+        # buyer = ordered_product.order.buyer
+        # ecom_address = ordered_product.order.ecom_address_order
         # Licence
         shop_id = get_config('superstore_seller_shop_id', 50484)
         try:
