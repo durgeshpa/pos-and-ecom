@@ -3915,17 +3915,13 @@ def create_retailer_orders_from_superstore_order(instance=None, created=True):
                                                    cart_status='ordered', cart_type=SUPERSTORE_RETAIL)
                     product = cart_pro.cart_product
                     product_price = product.get_current_shop_price(new_seller_shop, new_buyer_shop)
-                    ordered_qty = cart_pro.qty
+                    ordered_qty = int(cart_pro.qty)
                     ordered_pieces = int(cart_pro.no_of_pieces)
-                    try:
-                        CartProductMapping.objects.create(cart=new_cart, cart_product_id=product.id,
-                                                          qty=ordered_qty,
-                                                          no_of_pieces=ordered_pieces,
-                                                          cart_product_price=product_price)
-                    except Exception as error:
-                        error_logger.info(f"create_retailer_orders_from_superstore_order|{instance}|Error while "
-                                          f"creating CartProductMapping {error}")
-                    info_logger.info(f"create_retailer_orders_from_superstore_order|{instance}|Product Mapping order")
+                    new_cart_pro = CartProductMapping.objects.create(
+                        cart=new_cart, cart_product_id=product.id, qty=ordered_qty, no_of_pieces=ordered_pieces,
+                        cart_product_price=product_price)
+                    info_logger.info(f"create_retailer_orders_from_superstore_order|{instance}|"
+                                     f"Product Mapping {new_cart_pro.id}|Cart {new_cart}")
                     order, _ = Order.objects.get_or_create(ordered_cart=new_cart)
                     order.reference_order = instance
                     order.total_mrp = total_mrp
