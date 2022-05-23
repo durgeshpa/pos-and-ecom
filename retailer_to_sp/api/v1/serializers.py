@@ -92,8 +92,10 @@ class ProductSerializer(serializers.ModelSerializer):
         if ProductImage.objects.filter(product=obj).exists():
             product_image = ProductImage.objects.filter(product=obj)[0].image.url
             return product_image
-        else:
-            return None
+        elif obj.use_parent_image:
+            product_image = obj.parent_product.parent_product_pro_image.last()
+            return product_image.image.url if product_image else None
+        return None
 
     def get_product_brand(self, obj):
         return obj.product_brand.brand_name
@@ -5545,9 +5547,11 @@ class SuperStoreOrderDetailSerializer(serializers.ModelSerializer):
     def get_ordered_from(self, instance):
         return instance.ordered_product.order.ordered_cart.seller_shop.shop_name
     
+    product = ProductSerializer(read_only=True)
+    
     class Meta:
         model = RetailerOrderedProductMapping
         fields = ('id', 'order_no', 'shipment_status', 
                   'qty_and_total_amount', 'ordered_from',
-                  'payment', 'buyer', 'invoice',
+                  'payment', 'buyer', 'invoice', 'product',
                   'created_at')
