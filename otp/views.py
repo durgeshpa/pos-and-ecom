@@ -1,3 +1,4 @@
+import logging
 import datetime
 
 from django.contrib.auth import get_user_model
@@ -20,6 +21,10 @@ from .serializers import PhoneOTPValidateSerializer, ResendSmsOTPSerializer, Res
     SendSmsOTPSerializer, api_serializer_errors
 
 UserModel = get_user_model()
+
+info_logger = logging.getLogger('file-info')
+error_logger = logging.getLogger('file-error')
+debug_logger = logging.getLogger('file-debug')
 
 
 class ValidateOTP(CreateAPIView):
@@ -247,10 +252,13 @@ class SendSmsOTP(CreateAPIView):
 
     def post(self, request, *args, **kwargs):
         # Validate request data
+        info_logger.info("SendSmsOTP api called.")
         serializer = self.serializer_class(data=request.data, context={'request': request})
         if serializer.is_valid():
-            ph_no, otp_type, app_type = self.request.data.get("phone_number"), self.request.data.get('otp_type', "1") , request.data.get('app_type')
+            ph_no, otp_type, app_type = self.request.data.get("phone_number"), \
+                                        self.request.data.get('otp_type', "1"), request.data.get('app_type')
             msg, status_code = RequestOTPCls.process_otp_request(ph_no, otp_type, app_type)
+            info_logger.info("SendSmsOTP done")
             return Response(msg, status=status_code)
         else:
             return api_serializer_errors(serializer.errors)
@@ -293,7 +301,9 @@ class RequestOTPCls(object):
         """
             Generate and send new otp on sms
         """
+        info_logger.info(f"send_new_text_otp started")
         phone_otp, otp = PhoneOTP.create_otp_for_number(ph_no)
+        info_logger.info(f" phone_otp {phone_otp} - otp {otp}")
         date, time = datetime.datetime.now().strftime("%a(%d/%b/%y)"), datetime.datetime.now().strftime("%I:%M %p")
         sms_body = ''
         mask ='GRMFAC'
@@ -310,6 +320,7 @@ class RequestOTPCls(object):
         message.send()
         phone_otp.last_otp = timezone.now()
         phone_otp.save()
+        info_logger.info("SendSmsOTP GET api called.")
         msg = {'is_success': True, 'message': ["OTP sent to {}".format(ph_no)], 'response_data': None}
         return msg, status.HTTP_200_OK
 
