@@ -142,74 +142,24 @@ def update_product_elasticsearch(sender, instance=None, created=False, **kwargs)
         return
     info_logger.info("Updating Tax Mappings of product")
     update_product_tax_mapping(instance)
-    for prod_price in instance.product_pro_price.filter(status=True).values('seller_shop', 'product'):
-        info_logger.info(prod_price)
-        visibility_changes = get_visibility_changes(prod_price['seller_shop'], prod_price['product'])
-        for prod_id, visibility in visibility_changes.items():
-            sibling_product = Product.objects.filter(pk=prod_id).last()
-            update_visibility(prod_price['seller_shop'], sibling_product, visibility)
-            if prod_id == prod_price['product']:
-                update_shop_product_es.apply_async(args=[prod_price['seller_shop'], prod_id],
-                                                   countdown=GlobalConfig.objects.get(key='celery_countdown').value)
-            else:
-                update_product_es.delay(prod_price['seller_shop'], prod_id, visible=visibility)
-        break
+    if instance.parent_product.product_type != 'superstore':
+        for prod_price in instance.product_pro_price.filter(status=True).values('seller_shop', 'product'):
+            info_logger.info(prod_price)
+            visibility_changes = get_visibility_changes(prod_price['seller_shop'], prod_price['product'])
+            for prod_id, visibility in visibility_changes.items():
+                sibling_product = Product.objects.filter(pk=prod_id).last()
+                update_visibility(prod_price['seller_shop'], sibling_product, visibility)
+                if prod_id == prod_price['product']:
+                    update_shop_product_es.apply_async(args=[prod_price['seller_shop'], prod_id],
+                                                       countdown=GlobalConfig.objects.get(key='celery_countdown').value)
+                else:
+                    update_product_es.delay(prod_price['seller_shop'], prod_id, visible=visibility)
     else:
-        if instance.parent_product.product_type == 'superstore':
-            prod_id = instance.id
-            shop_id = GlobalConfig.objects.get(key='current_wh_active').value
-            product_categories = [str(c.category) for c in
-                                  instance.parent_product.parent_product_pro_category.filter(status=True)]
-            user_selected_qty = None
-            ean = instance.product_ean_code
-            if ean and type(ean) == str:
-                ean = ean.split('_')[0]
-            available_qty = 0
-            status = True
-            if instance.use_parent_image:
-                product_images = [
-                    {
-                        "image_name": p_i.image_name,
-                        "image_url": p_i.image.url
-                    }
-                    for p_i in instance.parent_product.parent_product_pro_image.all()
-                ]
-            else:
-                product_images = []
+        for prod_price in instance.super_store_product_price.values('seller_shop', 'product'):
+            info_logger.info(prod_price)
+            update_shop_product_es.apply_async(args=[prod_price['seller_shop'], prod_price['product']],
+                                               countdown=GlobalConfig.objects.get(key='celery_countdown').value)
 
-            product_details = {
-                "sku": instance.product_sku,
-                "parent_id": instance.parent_product.parent_id,
-                "parent_name": instance.parent_product.name,
-                "name": instance.product_name,
-                "product_type": instance.parent_product.product_type,
-                "name_lower": instance.product_name.lower(),
-                "brand": str(instance.product_brand),
-                "brand_lower": str(instance.product_brand).lower(),
-                "category": ','.join(product_categories) if product_categories else None,
-                "mrp": instance.product_mrp,
-                "status": status,
-                "id": instance.id,
-                "product_images": product_images,
-                "weight_value": instance.weight_value,
-                "weight_unit": instance.weight_unit,
-                "user_selected_qty": user_selected_qty,
-                "pack_size": 1,
-                "brand_case_size": instance.parent_product.brand_case_size,
-                "margin": 0,
-                "available": available_qty,
-                "visible": True,
-                "ean": ean,
-                "is_discounted": False,
-                "super_store_product_selling_price": None
-            }
-            try:
-                es.index(index=create_es_index(shop_id), doc_type='product', id=prod_id, body=product_details)
-                info_logger.info(
-                    "Inside upload superstore, product id: " + str(prod_id) + ", product: " + str(product_details))
-            except Exception as e:
-                info_logger.info("error in upload_shop_stock index creation")
-                info_logger.info(e)
 
 
 @receiver(post_save, sender=ParentProduct)
@@ -683,7 +633,7 @@ def create_parent_product_id_b2c(sender, instance=None, created=False, **kwargs)
 def update_product_b2c_elasticsearch(sender, instance=None, created=False, **kwargs):
     info_logger.info("Updating product in all_b2c_product")
     es_index = 'all_b2c_product'
-    if instance and instance.status == 'active':
+    if instance and instance.status == 'active' and instance.parent_product.product_type != 'superstore':
         product = get_b2c_product_details(instance)
         info_logger.info(product)
         try:
@@ -726,8 +676,13 @@ def update_super_store_product_price_elasticsearch(sender, instance=None, create
         shop_id = instance.seller_shop.id
         product_id = instance.product.id
         try:
-            details = es.get(index=create_es_index(shop_id), id=product_id)['_source']
-            details["super_store_product_selling_price"] = instance.selling_price
-            es.index(index=create_es_index(shop_id), doc_type='product', id=product_id, body=details)
+            if es.exists(index=create_es_index(shop_id), id=product_id):
+                details = es.get(index=create_es_index(shop_id), id=product_id)['_source']
+                details["super_store_product_selling_price"] = instance.selling_price
+                es.index(index=create_es_index(shop_id), doc_type='product', id=product_id, body=details)
+            else:
+                update_shop_product_es.apply_async(args=[shop_id, product_id],
+                                                   countdown=GlobalConfig.objects.get(key='celery_countdown').value)
+
         except Exception as e:
             info_logger.info("exception %s", e)

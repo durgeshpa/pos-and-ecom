@@ -92,12 +92,16 @@ def get_warehouse_stock(shop_id=None, product=None, inventory_type=None):
 		inventory_type = type_normal
 	product_dict = None
 	shop = None
+	product_type = product.parent_product.product_type
 	if shop_id:
 		shop = Shop.objects.get(id=shop_id)
 		if product is None:
 			product_dict = get_stock(shop, inventory_type)
 		else:
-			product_dict = get_stock(shop, inventory_type, [product.id])
+			if product_type == 'superstore':
+				product_dict = {product.id: 0}
+			else:
+				product_dict = get_stock(shop, inventory_type, [product.id])
 			if not product_dict.get(product.id):
 				product_dict = {product.id: 0}
 		product_list = product_dict.keys()
@@ -145,6 +149,8 @@ def get_warehouse_stock(shop_id=None, product=None, inventory_type=None):
 				status = False
 			else:
 				available_qty = int(int(product_dict[product.id]) / int(pack_size))
+		if product_type == "superstore":
+			status = True
 		try:
 			for p_o in product_opt:
 				weight_value = p_o.weight.weight_value if p_o.weight.weight_value else None
@@ -189,10 +195,13 @@ def get_warehouse_stock(shop_id=None, product=None, inventory_type=None):
 							  product.parent_product.parent_product_pro_category.filter(status=True)]
 		visible=False
 		if product_dict:
-			warehouse_visible = WarehouseInventory.objects.filter(warehouse=shop, sku=product, inventory_state=InventoryState.objects.filter(
-				inventory_state='total_available').last(), inventory_type=type_normal).last()
-			if warehouse_visible:
-				visible = warehouse_visible.visible
+			if product_type == "superstore":
+				visible = True
+			else:
+				warehouse_visible = WarehouseInventory.objects.filter(warehouse=shop, sku=product, inventory_state=InventoryState.objects.filter(
+					inventory_state='total_available').last(), inventory_type=type_normal).last()
+				if warehouse_visible:
+					visible = warehouse_visible.visible
 		else:
 			visible = True
 		ean = product.product_ean_code
@@ -205,7 +214,7 @@ def get_warehouse_stock(shop_id=None, product=None, inventory_type=None):
 			"parent_id": product.parent_product.parent_id,
 			"parent_name":product.parent_product.name,
 			"name": product.product_name,
-			"product_type": product.parent_product.product_type,
+			"product_type": product_type,
 			"name_lower": product.product_name.lower(),
 			"brand": str(product.product_brand),
 			"brand_lower": str(product.product_brand).lower(),
@@ -228,7 +237,7 @@ def get_warehouse_stock(shop_id=None, product=None, inventory_type=None):
 			"price_details": price_details,
 			"is_discounted": is_discounted,
 			"expiry_date": expiry_date,
-			"super_store_product_price": super_store_product_price
+			"super_store_product_selling_price": super_store_product_price
 		}
 		info_logger.info("inside get_warehouse_stock, product_details: " + str(product_details))
 		yield(product_details)
