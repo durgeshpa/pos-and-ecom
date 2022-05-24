@@ -3921,7 +3921,6 @@ def create_retailer_orders_from_superstore_order(instance=None, created=True):
                     order, _ = Order.objects.get_or_create(ordered_cart=new_cart)
                     order.reference_order = instance
                     order.total_mrp = float(product_price.mrp) * float(ordered_pieces)
-                    order.order_amount = get_product_tax_amount(product, float(product_price.selling_price), ordered_pieces)
                     order.total_discount_amount = (float(product_price.mrp) - float(product_price.selling_price)) * ordered_pieces
                     order.order_app_type = order_app_type
                     order.ordered_cart = new_cart
