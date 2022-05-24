@@ -45,6 +45,7 @@ from wms.models import Crate, WarehouseAssortment, Zone, InventoryType
 from ecom.models import Address as UserAddress
 from pos.api.v1.serializers import PaymentSerializer
 from accounts.api.v1.serializers import PosUserSerializer
+from ecom.api.v1.serializers import EcomOrderAddressSerializer
 
 User = get_user_model()
 
@@ -5490,10 +5491,16 @@ class SuperStoreOrderListSerializer(serializers.ModelSerializer):
         buyer = instance.ordered_product.order.buyer
         return PosUserSerializer(buyer).data
     
+    order_status = serializers.SerializerMethodField()
+    def get_order_status(self, instance):
+        return instance.ordered_product.order.order_status
+    
+    product = ProductSerializer(read_only=True)
+    
     class Meta:
         model = RetailerOrderedProductMapping
         fields = ('id', 'order_no', 'shipment_status', 'qty_and_total_amount', 
-                  'payment', 'buyer',
+                  'payment', 'buyer', 'product', 'order_status',
                   'created_at')
 
 
@@ -5549,9 +5556,26 @@ class SuperStoreOrderDetailSerializer(serializers.ModelSerializer):
     
     product = ProductSerializer(read_only=True)
     
+    address = serializers.SerializerMethodField()
+    def get_address(self, instance):
+        address = instance.ordered_product.order.ecom_address_order
+        return EcomOrderAddressSerializer(address).data
+    
+    loyalty_points = serializers.SerializerMethodField()
+    def get_loyalty_points(self, instance):
+        return instance.ordered_product.order.ordered_cart.redeem_points
+    
+    order_status = serializers.SerializerMethodField()
+    def get_order_status(self, instance):
+        return instance.ordered_product.order.order_status
+    
+    discount = serializers.SerializerMethodField()
+    def get_discount(self, instance):
+        return 0
+    
     class Meta:
         model = RetailerOrderedProductMapping
-        fields = ('id', 'order_no', 'shipment_status', 
-                  'qty_and_total_amount', 'ordered_from',
-                  'payment', 'buyer', 'invoice', 'product',
+        fields = ('id', 'order_no', 'shipment_status', 'loyalty_points',
+                  'qty_and_total_amount', 'ordered_from', 'address', 'discount',
+                  'payment', 'buyer', 'invoice', 'product', 'order_status',
                   'created_at')
