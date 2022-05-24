@@ -30,7 +30,7 @@ from .utils import (order_invoices, order_shipment_status, order_shipment_amount
                     order_shipment_date, order_delivery_date, order_cash_to_be_collected, order_cn_amount,
                     order_damaged_amount, order_delivered_value, order_shipment_status_reason,
                     picking_statuses, picker_boys, picklist_ids, picklist_refreshed_at, qc_areas, zones, qc_desks,
-                    qc_executives)
+                    qc_executives, get_product_tax_amount)
 
 from addresses.models import Address
 
@@ -3905,10 +3905,6 @@ def create_retailer_orders_from_superstore_order(instance=None, created=True):
                 new_billing_address = new_buyer_shop.shop_name_address_mapping.filter(address_type='billing').last()
                 new_shipping_address = new_buyer_shop.shop_name_address_mapping.filter(address_type='shipping').last()
                 user = instance.ordered_by
-                total_mrp = instance.total_mrp
-                order_amount = instance.order_amount
-                total_discount_amount = instance.total_discount_amount
-                total_tax_amount = instance.total_tax_amount
                 order_app_type = instance.order_app_type
                 for cart_pro in carp_pro_maps:
                     new_cart = Cart.objects.create(seller_shop=new_seller_shop, buyer_shop=new_buyer_shop,
@@ -3924,10 +3920,9 @@ def create_retailer_orders_from_superstore_order(instance=None, created=True):
                                      f"Product Mapping {new_cart_pro.id}|Cart {new_cart}")
                     order, _ = Order.objects.get_or_create(ordered_cart=new_cart)
                     order.reference_order = instance
-                    order.total_mrp = total_mrp
-                    order.order_amount = order_amount
-                    order.total_discount_amount = total_discount_amount
-                    order.total_tax_amount = total_tax_amount
+                    order.total_mrp = float(product_price.mrp) * float(ordered_pieces)
+                    order.order_amount = get_product_tax_amount(product, float(product_price.selling_price), ordered_pieces)
+                    order.total_discount_amount = (float(product_price.mrp) - float(product_price.selling_price)) * ordered_pieces
                     order.order_app_type = order_app_type
                     order.ordered_cart = new_cart
                     order.seller_shop = new_seller_shop
