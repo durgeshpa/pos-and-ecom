@@ -92,7 +92,7 @@ from retailer_to_sp.models import (Cart, CartProductMapping, CreditNote, Order, 
 from retailer_to_sp.tasks import send_invoice_pdf_email, insert_search_term
 from shops.api.v1.serializers import ShopBasicSerializer
 from sp_to_gram.models import OrderedProductReserved
-from sp_to_gram.tasks import es_search, upload_shop_stock, upload_all_products_in_es, upload_super_shop_stock
+from sp_to_gram.tasks import es_search, upload_shop_stock, upload_all_products_in_es
 from wms.common_functions import OrderManagement, get_stock, is_product_not_eligible, get_response, \
     get_logged_user_wise_query_set_for_shipment, get_logged_user_wise_query_set_for_dispatch, \
     get_logged_user_wise_query_set_for_dispatch_trip, get_logged_user_wise_query_set_for_dispatch_crates, \
@@ -7475,20 +7475,6 @@ class ReturnReason(generics.UpdateAPIView):
         else:
             msg = {'is_success': False, 'message': ['have some issue'], 'response_data': None}
         return Response(msg, status=status.HTTP_200_OK)
-
-
-class SuperStoreRefreshEs(APIView):
-    authentication_classes = (authentication.TokenAuthentication,)
-    permission_classes = (permissions.IsAuthenticated,)
-
-    def get(self, request, *args, **kwargs):
-        shop_id = self.request.GET.get('shop_id') if self.request.GET.get('shop_id') \
-            else GlobalConfig.objects.get(key='current_wh_active').value
-
-        info_logger.info('SuperStoreRefreshEs| shop {}, Started'.format(shop_id))
-        upload_super_shop_stock(shop_id)
-        info_logger.info('SuperStoreRefreshEs| shop {}, Ended'.format(shop_id))
-        return Response({"message": "Shop data updated on ES", "response_data": None, "is_success": True})
 
 
 class RefreshEs(APIView):

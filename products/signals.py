@@ -92,7 +92,6 @@ def update_product_elasticsearch(sender, instance=None, created=False, **kwargs)
                 instance.id))
         return
     info_logger.info("Updating Tax Mappings of product")
-    update_product_tax_mapping(instance)
     for prod_price in instance.super_store_product_price.values('seller_shop', 'product'):
         update_shop_product_es.apply_async(args=[prod_price['seller_shop'], prod_price['product']],
                                            countdown=GlobalConfig.objects.get(key='celery_countdown').value)
