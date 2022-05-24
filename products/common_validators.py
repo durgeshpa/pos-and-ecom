@@ -6,7 +6,7 @@ from django.core.exceptions import ValidationError
 from django.db.models import Q
 
 from brand.models import Brand, Vendor
-from products.models import Product, Tax, ParentProductTaxMapping, ParentProduct, ParentProductCategory, \
+from products.models import Product, ProductPrice, Tax, ParentProductTaxMapping, ParentProduct, ParentProductCategory, \
     ParentProductImage, ProductHSN, ProductCapping, ProductImage, ParentProductB2cCategory, ProductHsnGst, \
     ProductHsnCess, GST_CHOICE, CESS_CHOICE
 from categories.models import B2cCategory, Category
@@ -184,6 +184,16 @@ def validate_superstore_product(product):
     except Exception as e:
         logger.error(e)
         return {'error': 'please provide a valid product id'}
+    return {'product': product}
+
+
+def validate_retailer_price_exist(product):
+    """ validate product id has reatiler price before updating the customer price"""
+    try:
+        product = ProductPrice.objects.get(product_id=product)
+    except Exception as e:
+        logger.error(e)
+        return {'error': 'Please update retailer product price before adding customer price'}
     return {'product': product}
 
 
@@ -1908,36 +1918,50 @@ def check_super_store_product_price_mandatory_columns(uploaded_data_list, header
         if ele not in header_list:
             raise ValidationError(
                 f"{mandatory_columns} are mandatory columns for 'Create Product Price'")
+    validated_rows = []
+    error_list = []
     for row in uploaded_data_list:
         row_num += 1
-
+        error_msg = []
+        product_price = validate_retailer_price_exist(row['product_id'])
+        if 'error' in product_price:
+            error_msg.append(product_price['error'])
         if 'seller_shop_id' not in row.keys() or str(row['seller_shop_id']).strip() == '':
-            raise ValidationError(f"Row {row_num} | 'seller_shop_id' can't be empty")
+            error_msg.append(f"Row {row_num} | 'seller_shop_id' can't be empty")
         else:
             seller_shop_val = get_validate_seller_shop(str(row['seller_shop_id']).strip())
             if 'error' in seller_shop_val:
-                raise ValidationError(seller_shop_val['error'])
+                error_msg.append(seller_shop_val['error'])
 
         if 'product_id' not in row.keys() or str(row['product_id']).strip() == '':
-            raise ValidationError(f"Row {row_num} | 'product_id' can't be empty")
+            error_msg.append(f"Row {row_num} | 'product_id' can't be empty")
         else:
             product_val = validate_superstore_product(str(row['product_id']).strip())
             if 'error' in product_val:
-                raise ValidationError(product_val['error'])
+                error_msg.append(product_val['error'])
         if 'selling_price' not in row.keys() or str(row['selling_price']).strip() == '':
-            raise ValidationError(f"Row {row_num} | 'selling_price' can't be empty")
+            error_msg.append(f"Row {row_num} | 'selling_price' can't be empty")
         else:
             if not re.match("^\d+[.]?[\d]{0,2}$", str(row['selling_price'])):
-                raise ValidationError(f"Row {row_num} | {row['selling_price']} | "
+                error_msg.append(f"Row {row_num} | {row['selling_price']} | "
                                       f"'selling_price' can only be a numeric value.")
             if product_val['product'].product_mrp < float(row['selling_price']):
-                raise ValidationError(f"Row {row_num} | {row['selling_price']} | "
+                error_msg.append(f"Row {row_num} | {row['selling_price']} | "
                                       f"'selling_price' can not be greater than product mrp.")
 
         # Validate non mandatory
         if 'mrp' in row.keys() and str(row['mrp']).strip() != '':
             if not re.match("^\d+[.]?[\d]{0,2}$", str(row['mrp'])):
-                raise ValidationError(f"Row {row_num} | {row['mrp']} | 'mrp' can only be a numeric value.")
+                error_msg.append(f"Row {row_num} | {row['mrp']} | 'mrp' can only be a numeric value.")
+
+        if error_msg:
+            msg = ", ".join(list(map(str, error_msg)))
+            row_list = [v for k, v in row.items()]
+            error_list.append(row_list + [msg])
+        else:
+            validated_rows.append(row)
+
+    return error_list, validated_rows
 
 
 def read_super_store_product_price_file(csv_file):
@@ -1949,13 +1973,12 @@ def read_super_store_product_price_file(csv_file):
     csv_file_headers = [str(ele).split(' ')[0].strip().lower() for ele in csv_file_header_list]
     required_header_list = ['seller_shop_id', 'seller_shop', 'parent_product_id', 'product_id', 'product_sku',
                             'product_name', 'b2b_category', 'b2c_category', 'mrp', 'selling_price']
-    # ["seller_shop", "parent_product_id", "parent_product", "product_id", "product_name",
-    #                         "category", "mrp", "selling_price"]
 
     check_headers(csv_file_headers, required_header_list)
     uploaded_data_by_user_list = get_csv_file_data(csv_file, csv_file_headers)
     # Checking, whether the user uploaded the data below the headings or not!
     if uploaded_data_by_user_list:
-        check_super_store_product_price_mandatory_columns(uploaded_data_by_user_list, csv_file_headers)
+        errorlist, validated_data = check_super_store_product_price_mandatory_columns(uploaded_data_by_user_list, csv_file_headers)
     else:
         raise ValidationError("Please add some data below the headers to upload it!")
+    return errorlist, validated_data
