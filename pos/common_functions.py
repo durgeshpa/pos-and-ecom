@@ -527,6 +527,8 @@ class RewardCls(object):
 
     @classmethod
     def checkout_redeem_points(cls, cart, redeem_points, shop=None, app_type="POS", use_all=None):
+        if app_type == 'SUPERSTORE':
+            return cls.checkout_redeem_points_super_store(cart, redeem_points, shop, app_type, use_all)
         percentage_value = get_config_fofo_shop('Percentage_Value_Of_Each_Point', shop.id)
         #value_factor = GlobalConfig.objects.get(key='used_reward_factor').value
         flag = True # this flag will remain false if Ecom order by user count is less or eqal 2
@@ -799,6 +801,49 @@ class RewardCls(object):
         reward_obj = RewardPoint.objects.select_for_update().filter(reward_user=user).last()
         net_available = reward_obj.direct_earned + reward_obj.indirect_earned - reward_obj.points_used if reward_obj else 0
         return points_credit, points_debit, net_available
+    @staticmethod
+    def checkout_redeem_points_super_store( cart, redeem_points, shop=None, app_type="SUPERSTORE", use_all=None):
+        percentage_value = GlobalConfig.objects.get(key='super_store_percentage_value_of_each_point').value
+        #value_factor = GlobalConfig.objects.get(key='used_reward_factor').value
+        value_factor = 0
+        if percentage_value:
+            value_factor = 100/percentage_value
+        if cart.buyer and ReferralCode.is_marketing_user(cart.buyer):
+            obj = RewardPoint.objects.filter(reward_user=cart.buyer).last()
+            if obj:
+                points = max(obj.direct_earned + obj.indirect_earned - obj.points_used, 0)
+
+                redeem_points = points
+
+                redeem_points = min(redeem_points, points, int(cart.order_amount_after_discount * value_factor))
+            else:
+                redeem_points = 0
+        else:
+            redeem_points = 0
+
+        message = ""
+        days = datetime.datetime.today().day
+        date = get_back_date(days)
+        uses_reward_point = RewardLog.objects.filter(reward_user=cart.buyer, shop__superstore_enable=True,
+                                                         transaction_type__in=['order_debit', 'order_return_credit',
+                                                                               'order_cancel_credit'], modified_at__gte=date).\
+                                                    aggregate(Sum('points'))
+        this_month_reward_point_used = abs(uses_reward_point['points__sum']) if uses_reward_point['points__sum'] else 0
+        max_redeem_points = GlobalConfig.objects.get(key='max_redeem_points').value
+        max_month_limit = GlobalConfig.objects.get(key='max_month_limit_redeem_point').value
+
+        max_month_limit = max_month_limit if max_month_limit else 500
+        if max_redeem_points:
+            if redeem_points > max_redeem_points:
+                redeem_points = max_redeem_points
+
+        if this_month_reward_point_used and this_month_reward_point_used + redeem_points > max_month_limit:
+            redeem_points = 0
+            message = "only {} Loyalty Point can be used in a month".format(max_month_limit)
+        cart.redeem_points = redeem_points
+        cart.redeem_factor = value_factor
+        cart.save()
+        return message
 
 
 def filter_pos_shop(user):
