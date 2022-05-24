@@ -4656,7 +4656,10 @@ class OrderListCentral(GenericAPIView):
     @check_ecom_user
     def get_superstore_order_list(self, request, *args, **kwargs):
         shop = self.request.META.get('HTTP_SHOP_ID')
-        if shop:
+        list_type = self.request.META.get('HTTP_LIST_TYPE')
+        if list_type == 'pos':
+            if not shop:
+                return api_response("Provide shop id in api header")
             orders = Order.objects.filter(ordered_cart__cart_type='SUPERSTORE', 
                                           seller_shop_id=shop)
         else:
