@@ -532,9 +532,11 @@ class CategoryFilter(AutocompleteFilter):
         for obj in queryset:
             for product in obj.rt_cart_list.prefetch_related("cart_product__parent_product__parent_product_pro_category__category"):
                 try:
-                    if product.cart_product.parent_product.parent_product_pro_category.select_related("category").first().category.id == int(value):
-                       cart_list.append(obj.id)
-                       break;
+                    if product.cart_product.parent_product.parent_product_pro_category.select_related("category",
+                                                                                                      "category__category_parent").filter(
+                            Q(category_id=value) | Q(category__category_parent__id=value)):
+                        cart_list.append(obj.cart.id)
+                        break
                     pass
                 except:
                     pass
@@ -664,7 +666,7 @@ def category_filter(queryset, value):
     for obj in queryset:
         for product in obj.cart.rt_cart_list.prefetch_related("cart_product__parent_product__parent_product_pro_category__category"):
             try:
-                if product.cart_product.parent_product.parent_product_pro_category.select_related("category").first().category.id == int(value):
+                if product.cart_product.parent_product.parent_product_pro_category.select_related("category","category__category_parent").filter(Q(category_id=value)|Q(category__category_parent__id=value)):
                    cart_list.append(obj.cart.id)
                    break;
                 pass
