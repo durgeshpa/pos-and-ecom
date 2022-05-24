@@ -1246,8 +1246,9 @@ def pickup_entry_creation_with_cron():
 
 def pickup_entry_for_superstore_order_creation_with_cron():
     cron_name = CronRunLog.CRON_CHOICE.PICKUP_SUPERSTORE_CREATION_CRON
+    superstore_picklist_days = get_config("superstore_picklist_days", 3)
     current_time = datetime.now() - timedelta(minutes=0)
-    start_time = datetime.now() - timedelta(days=3)
+    start_time = datetime.now() - timedelta(days=superstore_picklist_days)
     order_obj = Order.objects.filter(order_status='ordered',
                                      order_closed=False,
                                      created_at__lt=current_time,
@@ -1289,6 +1290,7 @@ def pickup_entry_for_superstore_order_creation_with_cron():
                         can_process = False
                         break
                 if not can_process:
+                    info_logger.info(f"{order.order_no}|Not enough inventory to generate picklist.")
                     continue
 
                 order.order_status = Order.PICKING_ASSIGNED

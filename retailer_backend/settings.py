@@ -407,7 +407,7 @@ CRONJOBS = [
     ('*/1 * * * *', 'wms.views.release_blocking_with_cron', '>>/tmp/release.log'),
     ('45 18 * * *', 'wms.views.assign_picker_user_to_pickup_created_orders', '>>/tmp/picking'),
     ('*/10 * * * *', 'wms.views.pickup_entry_creation_with_cron', '>>/tmp/picking'),
-    ('*/10 * * * *', 'wms.views.pickup_entry_for_superstore_order_creation_with_cron', '>>/tmp/picking'),
+    ('*/9 * * * *', 'wms.views.pickup_entry_for_superstore_order_creation_with_cron'),
     # ('0 10 * * *', 'wms.views.mail_products_list_not_mapped_yet_to_any_zone', '>>/tmp/picking'),
     ('30 2 * * *', 'retailer_backend.cron.sync_es_products'),
     ('0 2 * * *', 'wms.views.archive_inventory_cron'),

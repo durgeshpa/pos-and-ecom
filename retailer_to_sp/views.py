@@ -2134,8 +2134,9 @@ class ProductCategoryAutocomplete(autocomplete.Select2QuerySetView):
 
 
 def generate_retail_orders_against_superstore_order():
+    superstore_order_creation_days = get_config("superstore_order_creation_days", 1)
     current_time = datetime.datetime.now() - datetime.timedelta(minutes=1)
-    start_time = datetime.datetime.now() - datetime.timedelta(days=1)
+    start_time = datetime.datetime.now() - datetime.timedelta(days=superstore_order_creation_days)
     orders = Order.objects.filter(order_app_type=Order.POS_SUPERSTORE, ref_order__isnull=True, order_closed=False,
                                   ordered_cart__cart_type=SUPERSTORE,
                                   created_at__lt=current_time, created_at__gt=start_time)
