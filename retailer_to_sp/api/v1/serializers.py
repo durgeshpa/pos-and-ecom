@@ -5524,7 +5524,10 @@ class SuperStoreOrderDetailSerializer(serializers.ModelSerializer):
     invoice = serializers.SerializerMethodField()
     
     def get_invoice(self, instance):
-        return InvoiceDataSerializer(instance.ordered_product.invoice).data 
+        try:
+            return InvoiceDataSerializer(instance.ordered_product.invoice).data 
+        except OrderedProduct.invoice.RelatedObjectDoesNotExist:
+            return None
     
     qty_and_total_amount = serializers.SerializerMethodField()
     def get_qty_and_total_amount(self, instance):
