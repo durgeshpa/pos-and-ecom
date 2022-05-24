@@ -4239,6 +4239,8 @@ class OrderCentral(APIView):
             pass
         # Create payment
         for payment in payments:
+            if app_type == 'ecom' and PosPayment.objects.filter(order=order).exists():
+                break
             PosPayment.objects.create(
                 order=order,
                 payment_type_id=payment['payment_type'],

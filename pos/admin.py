@@ -1282,7 +1282,7 @@ class PaymentStatusUpdateBYCronAdmin(admin.ModelAdmin):
     """add cron log on admin pannel
     """
     list_display = ('order', 'payment_status', 'order_status', 'seller_shop', 'payment_type',
-                     'transaction_id',)
+                     'transaction_id','created_at')
     list_per_page = 10
     search_fields = ('order__order_no', 'order__seller_shop__shop_name')
     list_filter = [('order__seller_shop', RelatedOnlyDropdownFilter),
