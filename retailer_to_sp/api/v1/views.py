@@ -3054,6 +3054,8 @@ class OrderCentral(APIView):
             return self.put_basic_order(request, *args, **kwargs)
         elif app_type == '3':
             return self.put_ecom_order(request, *args, **kwargs)
+        elif app_type == '4':
+            return self.put_superstore_order(request, *args, **kwargs)
         else:
             return api_response('Provide a valid app_type')
 
@@ -3298,6 +3300,52 @@ class OrderCentral(APIView):
                 pass
         return api_response("Order cancelled successfully!", response, status.HTTP_200_OK, True)
 
+    @check_pos_shop
+    def put_superstore_order(self, request, *args, **kwargs):
+        """
+            update status for super store type orders
+        """
+        with transaction.atomic():
+            try:
+                order_product_mapping = OrderedProductMapping.objects.select_for_update().get(pk=kwargs['pk'], 
+                                                              ordered_product__order__seller_shop=kwargs['shop'],
+                                                              ordered_product__order__ordered_cart__cart_type='SUPERSTORE')
+                shipment = order_product_mapping.ordered_product
+            except OrderedProductMapping.DoesNotExist:
+                return api_response("Order not found")
+
+            order_status = self.request.data.get('status')
+            allowed_status = [OrderedProduct.OUT_FOR_DELIVERY, OrderedProduct.DELIVERED]
+            if order_status not in allowed_status:
+                return api_response("Please Provide valid status for order updation")
+            if order_status == OrderedProduct.OUT_FOR_DELIVERY:
+                retail_delivery_check = True
+                if not shipment.order.delivery_option == 2:
+                    return api_response("Self pick up orders cannot be marked as out for delivered")
+                    
+                if not retail_delivery_check:
+                    return api_response("Order cannot be marked as out for delivery as product is not delivered to your shop.")
+                try:
+                    delivery_person = User.objects.get(id=self.request.data.get('delivery_person'))
+                except:
+                    return api_response("Please select a delivery person")
+                
+                #invoice no generation
+                shipment.shipment_status = OrderedProduct.MOVED_TO_DISPATCH
+                shipment.save()
+                shipment.shipment_status = order_status
+                shipment.save()
+                if shipment.pos_trips.filter(trip_type='SUPERSTORE').exists():
+                    pos_trip = shipment.pos_trips.filter(trip_type='SUPERSTORE').last()
+                else:
+                    pos_trip = PosTrip.objects.create(trip_type='SUPERSTORE',
+                                                        shipment=shipment)
+                pos_trip.trip_start_at = datetime.now()
+                pos_trip.save()
+            else:
+                pass
+                 
+    
     def put_retail_order(self, pk):
         """
             Cancel retailer order
@@ -4656,15 +4704,22 @@ class OrderListCentral(GenericAPIView):
     @check_ecom_user
     def get_superstore_order_list(self, request, *args, **kwargs):
         shop = self.request.META.get('HTTP_SHOP_ID')
-        list_type = self.request.query_params.get('list-type')
+        list_type = self.request.query_params.get('list_type')
+        order_status = self.request.GET.get('order_status')
         if list_type == 'pos':
             if not shop:
                 return api_response("Provide shop id in api header")
             orders = Order.objects.filter(ordered_cart__cart_type='SUPERSTORE', 
                                           seller_shop_id=shop)
+            if order_status:
+                order_status_actual = ONLINE_ORDER_STATUS_MAP.get(int(order_status), None)
+                orders = orders.filter(order_status__in=order_status_actual) if order_status_actual else orders
         else:
             orders = Order.objects.filter(ordered_cart__cart_type='SUPERSTORE', 
                                           buyer=self.request.user)
+            if order_status:
+                order_status_actual = ECOM_ORDER_STATUS_MAP.get(int(order_status), None)
+                orders = orders.filter(order_status__in=order_status_actual) if order_status_actual else orders
         search_text = self.request.GET.get('search_text')
         if search_text:
             orders = orders.filter(Q(order_no__icontains=search_text) |
