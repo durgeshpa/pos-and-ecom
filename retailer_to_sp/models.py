@@ -247,7 +247,9 @@ class Cart(models.Model):
                     subtotal_sum=Sum(F('retailer_product__mrp') * F('no_of_pieces'), output_field=FloatField()))[
                                  'subtotal_sum'], 2)
             elif self.cart_type == 'SUPERSTORE':
-                return 0.00
+                return round(self.rt_cart_list.aggregate(
+                    subtotal_sum=Sum(F('cart_product_price__mrp') * F('no_of_pieces'), output_field=FloatField()))[
+                                 'subtotal_sum'], 2)
             else:
                 return round(self.rt_cart_list.aggregate(
                     subtotal_sum=Sum(F('cart_product_price__mrp') * F('no_of_pieces'), output_field=FloatField()))[
