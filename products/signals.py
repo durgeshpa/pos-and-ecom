@@ -31,38 +31,6 @@ logger = logging.getLogger(__name__)
 info_logger = logging.getLogger('file-info')
 
 
-@receiver(post_save, sender=ProductPrice)
-def update_elasticsearch(sender, instance=None, created=False, **kwargs):
-    info_logger.info("Inside update_elasticsearch, instance: " + str(instance))
-    product = Product.objects.filter(pk=instance.product.id).last()
-    if product.status != 'active' and instance.approval_status == 2 and instance.status and \
-            product.repackaging_type == Product.NONE:
-        info_logger.info("Inside update_elasticsearch, update active flag for instance: " + str(instance))
-        product.status = 'active'
-        product.save()
-    else:
-        info_logger.info("Inside update_elasticsearch, update product visibility for instance: " + str(instance))
-        shop_id = instance.seller_shop.id
-        product_id = instance.product.id
-        update_product_visibility(product_id, shop_id)
-
-
-@receiver(post_save, sender=SlabProductPrice)
-def update_elasticsearch_on_price_update(sender, instance=None, created=False, **kwargs):
-    info_logger.info("Inside update_elasticsearch_on_price_update, instance: " + str(instance))
-    product = Product.objects.filter(pk=instance.product.id).last()
-    if product.status != 'active' and instance.approval_status == 2 and instance.status and \
-            product.repackaging_type == Product.NONE:
-        info_logger.info("Inside update_elasticsearch, update active flag for instance: " + str(instance))
-        product.status = 'active'
-        product.save()
-    else:
-        info_logger.info("Inside update_elasticsearch, update product visibility for instance: " + str(instance))
-        shop_id = instance.seller_shop.id
-        product_id = instance.product.id
-        update_product_visibility(product_id, shop_id)
-
-
 @receiver(post_save, sender=PriceSlab)
 def update_elasticsearch_on_price_slab_add(sender, instance=None, created=False, **kwargs):
     info_logger.info("Inside update_elasticsearch_on_price_slab_add, instance: " + str(instance))
@@ -74,14 +42,16 @@ def update_elasticsearch_on_price_slab_add(sender, instance=None, created=False,
         product.save()
     else:
         info_logger.info("Inside update_elasticsearch, update product visibility for instance: " + str(instance))
-        shop_id = instance.product_price.seller_shop.id
-        product_id = instance.product_price.product.id
-        update_product_visibility(product_id, shop_id)
+        update_product_visibility(instance.product_price.product.id, instance.product_price.seller_shop.id)
 
 
 def update_product_visibility(product_id, shop_id):
     info_logger.info("Inside update_product_visibility, product_id: " + str(product_id) + ", shop_id: " + str(shop_id))
-    update_shop_product_es(shop_id, product_id)
+    product = Product.objects.filter(id=product_id).last()
+    if product.parent_product.product_type == 'superstore':
+        update_shop_product_es.apply_async(args=[shop_id, product_id], countdown=GlobalConfig.objects.get(
+            key='celery_countdown').value)
+        return
     visibility_changes = get_visibility_changes(shop_id, product_id)
     for prod_id, visibility in visibility_changes.items():
         sibling_product = Product.objects.filter(pk=prod_id).last()
@@ -112,25 +82,6 @@ def update_product_image_elasticsearch(sender, instance=None, created=False, **k
     for prod_price in instance.product.product_pro_price.filter(status=True).values('seller_shop', 'product'):
         update_shop_product_es.apply_async(args=[prod_price['seller_shop'], prod_price['product']],
                                            countdown=GlobalConfig.objects.get(key='celery_countdown').value)
-    if instance.product.parent_product.product_type == 'superstore':
-        shop_id = GlobalConfig.objects.get(key='current_wh_active').value
-        product_id = instance.product.id
-        product_img = instance.product.product_pro_image.all()
-        product_images = [
-            {
-                "image_name": p_i.image_name,
-                "image_url": p_i.image.url
-            }
-            for p_i in product_img
-        ]
-        try:
-            info_logger.info(kwargs)
-            details = es.get(index=create_es_index(shop_id), id=product_id)['_source']
-            details["product_images"] = product_images
-            es.index(index=create_es_index(shop_id), doc_type='product', id=product_id, body=details)
-            # es.update(index=create_es_index(shop_id), id=product_id, body={"doc": product_images}, doc_type='product')
-        except Exception as e:
-            info_logger.info("exception %s", e)
 
 
 @receiver(post_save, sender=Product)
@@ -142,65 +93,19 @@ def update_product_elasticsearch(sender, instance=None, created=False, **kwargs)
         return
     info_logger.info("Updating Tax Mappings of product")
     update_product_tax_mapping(instance)
-    if instance.parent_product.product_type != 'superstore':
-        for prod_price in instance.product_pro_price.filter(status=True).values('seller_shop', 'product'):
-            info_logger.info(prod_price)
-            visibility_changes = get_visibility_changes(prod_price['seller_shop'], prod_price['product'])
-            for prod_id, visibility in visibility_changes.items():
-                sibling_product = Product.objects.filter(pk=prod_id).last()
-                update_visibility(prod_price['seller_shop'], sibling_product, visibility)
-                if prod_id == prod_price['product']:
-                    update_shop_product_es.apply_async(args=[prod_price['seller_shop'], prod_id],
-                                                       countdown=GlobalConfig.objects.get(key='celery_countdown').value)
-                else:
-                    update_product_es.delay(prod_price['seller_shop'], prod_id, visible=visibility)
-    else:
-        for prod_price in instance.super_store_product_price.values('seller_shop', 'product'):
-            info_logger.info(prod_price)
-            update_shop_product_es.apply_async(args=[prod_price['seller_shop'], prod_price['product']],
-                                               countdown=GlobalConfig.objects.get(key='celery_countdown').value)
-
+    for prod_price in instance.super_store_product_price.values('seller_shop', 'product'):
+        update_shop_product_es.apply_async(args=[prod_price['seller_shop'], prod_price['product']],
+                                           countdown=GlobalConfig.objects.get(key='celery_countdown').value)
 
 
 @receiver(post_save, sender=ParentProduct)
 def update_parent_product_elasticsearch(sender, instance=None, created=False, **kwargs):
     info_logger.info("Updating ES of child products of parent {}".format(instance))
-    child_skus = Product.objects.filter(parent_product=instance)
-    child_categories = [str(c.category) for c in instance.parent_product_pro_category.filter(status=True)]
-    if instance.product_type == 'grocery':
-        child_categories += [str(c.category) for c in instance.parent_product_pro_b2c_category.filter(status=True)]
-    for child in child_skus:
-        product_images = []
-        if child.use_parent_image:
-            product_images = [
-                {
-                    "image_name": p_i.image_name,
-                    "image_url": p_i.image.url
-                }
-                for p_i in instance.parent_product_pro_image.all()
-            ]
-        for prod_price in child.product_pro_price.filter(status=True).values('seller_shop', 'product',
-                                                                             'product__product_name',
-                                                                             'product__status'):
-            if not product_images:
-                update_shop_product_es.delay(
-                    prod_price['seller_shop'],
-                    prod_price['product'],
-                    name=prod_price['product__product_name'],
-                    pack_size=instance.inner_case_size,
-                    status=True if (prod_price['product__status'] in ['active', True]) else False,
-                    category=child_categories
-                )
-            else:
-                update_shop_product_es.delay(
-                    prod_price['seller_shop'],
-                    prod_price['product'],
-                    name=prod_price['product__product_name'],
-                    pack_size=instance.inner_case_size,
-                    status=True if (prod_price['product__status'] in ['active', True]) else False,
-                    category=child_categories,
-                    product_images=product_images
-                )
+    child_products = Product.objects.filter(parent_product=instance)
+    for child_product in child_products:
+        for prod_price in child_product.super_store_product_price.values('seller_shop', 'product'):
+            update_shop_product_es.apply_async(args=[prod_price['seller_shop'], prod_price['product']],
+                                               countdown=GlobalConfig.objects.get(key='celery_countdown').value)
 
 
 @receiver(post_save, sender=ParentProductTaxMapping)
@@ -672,17 +577,5 @@ def create_logs_for_qc_desk_area_mapping(sender, instance=None, created=False, *
 @receiver(post_save, sender=SuperStoreProductPrice)
 def update_super_store_product_price_elasticsearch(sender, instance=None, created=False, **kwargs):
     info_logger.info("Inside update_super_store_product_price_elasticsearch, instance: " + str(instance))
-    if instance.product.parent_product.product_type == 'superstore':
-        shop_id = instance.seller_shop.id
-        product_id = instance.product.id
-        try:
-            if es.exists(index=create_es_index(shop_id), id=product_id):
-                details = es.get(index=create_es_index(shop_id), id=product_id)['_source']
-                details["super_store_product_selling_price"] = instance.selling_price
-                es.index(index=create_es_index(shop_id), doc_type='product', id=product_id, body=details)
-            else:
-                update_shop_product_es.apply_async(args=[shop_id, product_id],
-                                                   countdown=GlobalConfig.objects.get(key='celery_countdown').value)
-
-        except Exception as e:
-            info_logger.info("exception %s", e)
+    update_shop_product_es.apply_async(args=[instance.seller_shop.id, instance.seller_shop.id],
+                                       countdown=GlobalConfig.objects.get(key='celery_countdown').value)
