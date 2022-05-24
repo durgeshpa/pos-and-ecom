@@ -4102,7 +4102,7 @@ class OrderCentral(APIView):
                 cart_map.save()
         # Create payment
         for payment in payments:
-            if app_type == "ECOM" and PosPayment.objects.filter(order=order).exists():
+            if app_type == 'ecom' and PosPayment.objects.filter(order=order).exists():
                 break
             PosPayment.objects.create(
                 order=order,
