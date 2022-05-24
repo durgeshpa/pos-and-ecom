@@ -85,7 +85,7 @@ def update_product_visibility(product_id, shop_id):
         sibling_product = Product.objects.filter(pk=prod_id).last()
         update_visibility(shop_id, sibling_product, visibility)
         if prod_id == product_id:
-            update_shop_product_es.delay(shop_id, prod_id)
+            update_shop_product_es.apply_async(shop_id, prod_id)
         else:
             update_product_es.delay(shop_id, prod_id, visible=visibility)
 
@@ -93,17 +93,17 @@ def update_product_visibility(product_id, shop_id):
 @receiver(post_save, sender=ProductCategory)
 def update_category_elasticsearch(sender, instance=None, created=False, **kwargs):
     for prod_price in instance.product.product_pro_price.filter(status=True).values('seller_shop', 'product'):
-        update_shop_product_es.delay(prod_price['seller_shop'], prod_price['product'])
+        update_shop_product_es.apply_async(prod_price['seller_shop'], prod_price['product'])
 
 @receiver(post_save, sender=ProductB2cCategory)
 def update_b2c_category_elasticsearch(sender, instance=None, created=False, **kwargs):
     for prod_price in instance.product.product_pro_price.filter(status=True).values('seller_shop', 'product'):
-        update_shop_product_es.delay(prod_price['seller_shop'], prod_price['product'])
+        update_shop_product_es.apply_async(prod_price['seller_shop'], prod_price['product'])
 
 @receiver(post_save, sender=ProductImage)
 def update_product_image_elasticsearch(sender, instance=None, created=False, **kwargs):
     for prod_price in instance.product.product_pro_price.filter(status=True).values('seller_shop', 'product'):
-        update_shop_product_es.delay(prod_price['seller_shop'], prod_price['product'])
+        update_shop_product_es.apply_async(prod_price['seller_shop'], prod_price['product'])
 
 
 @receiver(post_save, sender=Product)
@@ -120,7 +120,7 @@ def update_product_elasticsearch(sender, instance=None, created=False, **kwargs)
             sibling_product = Product.objects.filter(pk=prod_id).last()
             update_visibility(prod_price['seller_shop'], sibling_product, visibility)
             if prod_id == prod_price['product']:
-                update_shop_product_es.delay(prod_price['seller_shop'], prod_id)
+                update_shop_product_es.apply_async(prod_price['seller_shop'], prod_id)
             else:
                 update_product_es.delay(prod_price['seller_shop'], prod_id, visible=visibility)
 
