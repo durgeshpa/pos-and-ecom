@@ -5508,7 +5508,7 @@ class InvoiceDataSerializer(serializers.ModelSerializer):
     invoice_pdf = serializers.SerializerMethodField()
     
     def get_invoice_pdf(self, instance):
-        return instance.invoice_pdf.url
+        return instance.invoice_pdf.url if instance.invoice_pdf else None
     
     class Meta:
         model = Invoice
