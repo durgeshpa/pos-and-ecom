@@ -535,7 +535,7 @@ class CategoryFilter(AutocompleteFilter):
                     if product.cart_product.parent_product.parent_product_pro_category.select_related("category",
                                                                                                       "category__category_parent").filter(
                             Q(category_id=value) | Q(category__category_parent__id=value)):
-                        cart_list.append(obj.cart.id)
+                        cart_list.append(obj.id)
                         break
                     pass
                 except:
