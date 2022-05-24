@@ -434,7 +434,6 @@ class SuperStoreProductPriceCommonFunction(object):
         except Exception as e:
             error_logger.info(f"Something went wrong, while working with create SuperStore Product Price {str(e)}")
 
-
 def get_response(msg, data=None, success=False, status_code=status.HTTP_200_OK):
     """
         General Response For API
