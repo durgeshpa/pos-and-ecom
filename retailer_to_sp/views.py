@@ -58,7 +58,7 @@ from common.constants import ZERO, PREFIX_PICK_LIST_FILE_NAME, PICK_LIST_DOWNLOA
 from common.common_utils import create_file_name, create_merge_pdf_name, merge_pdf_files, single_pdf_file
 from wms.models import Pickup, WarehouseInternalInventoryChange, PickupBinInventory
 from wms.common_functions import cancel_order, cancel_order_with_pick, get_expiry_date, release_qc_area_on_order_cancel, \
-    get_response
+    get_response, release_picking_crates
 from wms.views import shipment_out_inventory_change, shipment_reschedule_inventory_change, shipment_not_attempt_inventory_change
 from pos.models import RetailerProduct
 from pos.common_functions import create_po_franchise
@@ -1835,6 +1835,19 @@ def order_cancellation(sender, instance=None, created=False, **kwargs):
         order = OrderCancellation(instance)
         order.cancel()
         release_qc_area_on_order_cancel(instance.order_no)
+        release_picking_crates(instance)
+        release_dispatch_crates(instance)
+
+
+def release_dispatch_crates(order_instance):
+    """
+    Release the dispatch crates used in the order
+    """
+    info_logger.info(f"release_dispatch_crates|started|order no{order_instance.order_no}")
+    order_shipment = order_instance.rt_order_order_product.last()
+    if order_shipment:
+        release_dispatch_crates_used_in_shipment(order_shipment)
+    info_logger.info(f"release_dispatch_crates|ended|order no{order_instance.order_no}")
 
 
 @receiver(post_save, sender=Order)
@@ -2130,3 +2143,4 @@ class ProductCategoryAutocomplete(autocomplete.Select2QuerySetView):
            return Category.objects.filter(category_name__icontains=self.q)
             # qs = Product.objects.filter(product_name__icontains=self.q)
         return qs
+
