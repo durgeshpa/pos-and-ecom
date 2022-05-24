@@ -549,7 +549,7 @@ class CartAdmin(ExportCsvMixinCart, ExportCsvMixinCartProduct, admin.ModelAdmin)
     fields = ('seller_shop', 'buyer_shop', 'offers', 'approval_status')
     actions = ["export_as_csv_cart", "export_as_csv_cart_product" ]
     form = CartForm
-    list_display = ('order_id', 'cart_type', 'approval_status', 'created_at', 'seller_shop','buyer_shop','cart_status')
+    list_display = ('order_id', 'cart_type', 'approval_status', 'created_at', 'buyer_shop', 'seller_shop','cart_status')
     #change_form_template = 'admin/sp_to_gram/cart/change_form.html'
     list_filter = (SellerShopFilter, BuyerShopFilter,OrderIDFilter,  CategoryFilter)
 
