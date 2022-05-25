@@ -23,6 +23,7 @@ from products.models import Product
 
 from retailer_backend.utils import CustomOffsetPaginationDefault25, SmallOffsetPagination, OffsetPaginationDefault50
 from retailer_to_sp.models import PickerDashboard, OrderedProduct, PickerUserAssignmentLog
+from retailer_to_sp.views import generate_retail_orders_against_superstore_order
 from shops.models import Shop
 from wms.common_functions import get_response, serializer_error, get_logged_user_wise_query_set, \
     picker_dashboard_search, get_logged_user_wise_query_set_for_picker, \
@@ -1555,7 +1556,7 @@ class PickupEntryCreationView(generics.GenericAPIView):
 
     def get(self, request):
         """ GET User Details post login """
-        pickup_entry_creation_with_cron()
+        generate_retail_orders_against_superstore_order()
         return get_response("", {}, True)
 
 
