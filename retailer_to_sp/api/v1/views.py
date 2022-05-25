@@ -8793,13 +8793,17 @@ class OrderPaymentStatusChangeView(generics.GenericAPIView):
             sub_app_type = 'ecom'
 
         try:
-            ordered_product_mapping = OrderedProductMapping.objects.get(pk=int(modified_data['id']), 
-                                                                        ordered_product__order__seller_shop=shop, 
-                                                                        ordered_product__order__ordered_cart__cart_type='SUPERSTORE')
-            if sub_app_type == 'ecom':
-                ordered_product_mapping = ordered_product_mapping.filter(ordered_product__order__buyer=request.user)
+            if sub_app_type == 'pos':
+                ordered_product_mapping = OrderedProductMapping.objects.get(pk=int(modified_data['id']), 
+                                                                            ordered_product__order__seller_shop=shop, 
+                                                                            ordered_product__order__ordered_cart__cart_type='SUPERSTORE')
+            else:
+                ordered_product_mapping = OrderedProductMapping.objects.get(pk=int(modified_data['id']), 
+                                                                            ordered_product__order__seller_shop=shop, 
+                                                                            ordered_product__order__ordered_cart__cart_type='SUPERSTORE',
+                                                                            ordered_product__order__buyer=request.user)
             order = ordered_product_mapping.ordered_product.order
-        except OrderedProductMapping.ObjectDoesNotExist:
+        except OrderedProductMapping.DoesNotExist:
             return api_response('Order Not Found!')
 
         serializer = self.serializer_class(instance=order, data=modified_data, context={'app-type': 4, 'sub-app-type': sub_app_type})
