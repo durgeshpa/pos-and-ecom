@@ -1905,8 +1905,11 @@ class SuperStoreProductPriceAsCSVUploadView(GenericAPIView):
     def post(self, request):
         serializer = self.get_serializer(data=request.data, context={'user': self.request.user})
         if serializer.is_valid():
-            serializer.save(created_by=request.user)
-            return get_response('data uploaded successfully!', serializer.data, True)
+            response_file = serializer.save(created_by=request.user)
+            info_logger.info("Superstore Product Price Uploaded successfully")
+            if isinstance(response_file, HttpResponse):
+                return response_file
+
         return get_response(serializer_error(serializer), False)
 
 
@@ -1924,6 +1927,6 @@ class SuperStoreProductPriceAsCSVDownloadView(GenericAPIView):
         serializer = self.serializer_class(data=request.data)
         if serializer.is_valid():
             response = serializer.save()
-            info_logger.info("CreateProductVendorMapping Downloaded successfully")
+            info_logger.info("Superstore Product Price Downloaded successfully")
             return HttpResponse(response, content_type='text/csv')
         return get_response(serializer_error(serializer), False)

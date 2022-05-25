@@ -34,7 +34,7 @@ from products.common_validators import get_validate_parent_brand, get_validate_p
     validate_child_product_name, validate_tax_name, get_validate_slab_price, b2b_category, b2c_category, \
     get_validate_hsn_gsts, get_validate_gsts_mandatory_fields, get_validate_hsn_cess, \
     get_validate_cess_mandatory_fields, \
-    read_product_hsn_file, read_super_store_product_price_file, validate_superstore_product
+    read_product_hsn_file, read_super_store_product_price_file, validate_superstore_product, validate_retailer_price_exist
 from products.common_function import ParentProductCls, ProductCls, ProductHSNCommonFunction, \
     SuperStoreProductPriceCommonFunction
 from shops.common_validators import get_validate_city_id, get_validate_pin_code
@@ -1898,6 +1898,9 @@ class SuperStoreProductPriceSerializers(serializers.ModelSerializer):
         product_val = validate_superstore_product(self.initial_data['product'])
         if 'error' in product_val:
             raise serializers.ValidationError(product_val['error'])
+        product_price = validate_retailer_price_exist(self.initial_data['product'])
+        if 'error' in product_price:
+            raise serializers.ValidationError(product_price['error'])
         data['product'] = product_val['product']
 
         if product_val['product'] and product_val['product'].product_mrp:
@@ -1970,23 +1973,36 @@ class SuperStoreProductPriceAsCSVUploadSerializer(serializers.ModelSerializer):
         csv_file_data = csv.reader(codecs.iterdecode(data['file'], 'utf-8', errors='ignore'))
         # Checking, whether csv file is empty or not!
         if csv_file_data:
-            read_super_store_product_price_file(csv_file_data)
+            errorlist, validated_data = read_super_store_product_price_file(csv_file_data)
         else:
             raise serializers.ValidationError(
                 "CSV File cannot be empty.Please add some data to upload it!")
 
-        return data
+        return {"ErrorData": errorlist, "SuccessData": validated_data}
 
     @transaction.atomic
     def create(self, validated_data):
         try:
-            SuperStoreProductPriceCommonFunction.create_product_price(validated_data, self.context['request'].user)
+            # Store valid data in model
+            SuperStoreProductPriceCommonFunction.create_product_price(validated_data["SuccessData"], self.context['request'].user)
+
+            # Write error list into csv file
+            filename = f"super_store_product_price-upload.csv"
+            response = HttpResponse(content_type='text/csv')
+            response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
+            writer = csv.writer(response)
+            writer.writerow(
+                ['seller_shop_id', 'seller_shop', 'parent_product_id', 'product_id', 'product_sku', 'product_name',
+                 'b2b_category', 'b2c_category', 'mrp', 'selling_price', 'upload_status'])
+            if len(validated_data["ErrorData"]):
+                for row in validated_data["ErrorData"]:
+                    writer.writerow(row)
         except Exception as e:
             error = {'message': ",".join(e.args) if len(
                 e.args) > 0 else 'Unknown Error'}
             raise serializers.ValidationError(error)
 
-        return validated_data
+        return response
 
 
 class SuperStoreProductPriceDownloadSerializer(serializers.ModelSerializer):
