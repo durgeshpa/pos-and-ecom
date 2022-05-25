@@ -399,6 +399,7 @@ CRONJOBS = [
     ('*/3 * * * *', 'pos.cron.payment_refund_status_update'),
     ('*/10 * * * *', 'pos.cron.payment_reconsilation_per_ten_minutes'),
     ('0 0 12 * * ?', 'pos.cron.payment_reconsilation_per_24_hours'),
+    ('0 0 12 * * ?', 'retailer_to_sp.cron.get_super_store_order'),
     ('* * * * *', 'retailer_backend.cron.discounted_order_cancellation', '>> /tmp/discounted_cancellation.log'),
     ('* * * * *', 'retailer_backend.cron.delete_ordered_reserved_products'),
     ('2 0 * * *', 'analytics.api.v1.views.getStock'),

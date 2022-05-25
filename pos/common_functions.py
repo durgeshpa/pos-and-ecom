@@ -634,22 +634,35 @@ class RewardCls(object):
             key = "Percentage_Point_Added_Ecom_Order_Amount"
         elif app_type == "POS" and get_config_fofo_shop("Is_Enable_Point_Added_Pos_Order", shop.id):
             key = "Percentage_Point_Added_Pos_Order_Amount"
+        elif app_type == "SUPERSTORE":
+            key = 'percentage_point_add_superstore'
 
         points = 0
-        if key:
+        if key and app_type != "SUPERSTORE":
             points = RewardCls.get_loyalty_points(amount, key, shop)
-
+        elif key and app_type == "SUPERSTORE":
+            factor = GlobalConfig.objects.get(key=key).value
+            points = int(float(amount) * factor)
         # check maximum point redeem add in a month by shop
         days = datetime.datetime.today().day
         date = get_back_date(days)
-        if shop:
+        if shop and app_type != "SUPERSTORE":
             uses_reward_point = RewardLog.objects.filter(reward_user=user, shop=shop,
                                                          transaction_type__in=['order_credit', 'order_return_debit',
                                                                                'order_cancel_debit'], modified_at__gte=date).\
             aggregate(Sum('points'))
+        elif app_type == "SUPERSTORE":
+            uses_reward_point = RewardLog.objects.filter(reward_user=user,
+                                                         transaction_type__in=['order_credit', 'order_return_debit',
+                                                                               'order_cancel_debit'], modified_at__gte=date).\
+            aggregate(Sum('points'))
+
         this_month_reward_point_credit = abs(uses_reward_point['points__sum']) if uses_reward_point.get('points__sum') else 0
-        if this_month_reward_point_credit + points > get_config_fofo_shop("Max_Monthly_Points_Added", shop.id):
+        if app_type != "SUPERSTORE" and this_month_reward_point_credit + points > get_config_fofo_shop("Max_Monthly_Points_Added", shop.id):
             points = max(get_config_fofo_shop("Max_Monthly_Points_Added", shop.id) - this_month_reward_point_credit, 0)
+            #message = "only {} Loyalty Point can be used in a month".format(max_month_limit)
+        elif app_type == "SUPERSTORE" and this_month_reward_point_credit + points > GlobalConfig(key = "max_monthly_points_added_super_store").value:
+            points = max(GlobalConfig("max_monthly_points_added_super_store").value - this_month_reward_point_credit, 0)
             #message = "only {} Loyalty Point can be used in a month".format(max_month_limit)
 
         if not points:
