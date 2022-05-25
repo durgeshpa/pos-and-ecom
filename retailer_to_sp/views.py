@@ -2154,20 +2154,21 @@ def create_retailer_orders_from_superstore_order(instance=None):
                     product_price = product.get_current_shop_price(new_seller_shop, new_buyer_shop)
                     ordered_qty = int(cart_pro.qty)
                     ordered_pieces = int(cart_pro.no_of_pieces)
-                    if not product_price or not product_price.selling_price:
+                    product_selling_price = product_price.get_per_piece_price(ordered_pieces)
+                    if not product_price or not product_selling_price:
                         info_logger.error(f"product {product} | No product price or selling price for the respected shop")
                         return None
                     new_cart = Cart.objects.create(seller_shop=new_seller_shop, buyer_shop=new_buyer_shop,
                                                    cart_status='ordered', cart_type=SUPERSTORE_RETAIL)
                     new_cart_pro = CartProductMapping.objects.create(
                         cart=new_cart, cart_product_id=product.id, qty=ordered_qty, no_of_pieces=ordered_pieces,
-                        cart_product_price=product_price)
+                        cart_product_price=product_price, selling_price=product_selling_price)
                     info_logger.info(f"create_retailer_orders_from_superstore_order|{instance}|"
                                      f"Product Mapping {new_cart_pro.id}|Cart {new_cart}")
                     order, _ = Order.objects.get_or_create(ordered_cart=new_cart)
                     order.reference_order = instance
                     order.total_mrp = float(product_price.mrp) * float(ordered_pieces)
-                    order.total_discount_amount = (float(product_price.mrp) - float(product_price.selling_price)) * ordered_pieces
+                    order.total_discount_amount = (float(product_price.mrp) - float(product_selling_price)) * ordered_pieces
                     order.order_app_type = order_app_type
                     order.ordered_cart = new_cart
                     order.seller_shop = new_seller_shop
