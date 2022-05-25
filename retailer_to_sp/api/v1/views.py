@@ -471,7 +471,6 @@ class SearchProducts(APIView):
             #sub_category_filter = str(categorymodel.Category.objects.filter(id__in=sub_category, status=True).last())
             filter_list.append({"term": {"sub_category": sub_category_ids}})
 
-
         elastic_logger.info("Filter list :: {}".format(filter_list))
         elastic_logger.info("Query string :: {}".format(query_string))
 
@@ -660,7 +659,14 @@ class SearchProducts(APIView):
         ean_code = self.request.GET.get('ean_code')
         body = dict()
         if ean_code and ean_code != '':
-            body["query"] = {"bool": {"filter": [{"term": {"ean": ean_code}},{"term": {"product_type": 'grocery'}}]}}
+            filters = [{"term": {"ean": ean_code}}]
+            if app_type != 4:
+                filters.append({"term": {"product_type": 'grocery'}})
+            else:
+                filters.append({"term": {"product_type": 'superstore'}})
+
+            body["query"] = {"bool": {"filter": filters}}
+
         return self.process_gf(app_type, body)
 
     def gf_normal_search(self, app_type):
@@ -718,12 +724,10 @@ class SearchProducts(APIView):
         # No Shop Id OR Store Inactive
         if not parent_shop:
             body["_source"] = {"includes": ["id", "name", "product_images", "pack_size", "brand_case_size",
-                                            "weight_unit", "weight_value", "visible", "mrp", "ean",
-                                            "super_store_product_selling_price"]}
+                                            "weight_unit", "weight_value", "visible", "mrp", "ean"]}
             products_list = es_search(index=es_index, body=body)
             for p in products_list['hits']['hits']:
                 p["_source"]["description"] = p["_source"]["name"]
-                p["_source"]["super_store_product_selling_price"] = p["_source"]["super_store_product_selling_price"]
                 p_list.append(p["_source"])
             return p_list
         # Active Store
@@ -753,17 +757,22 @@ class SearchProducts(APIView):
         keyword = self.request.GET.get('keyword', None)
         is_discounted = self.request.GET.get('is_discounted', None)
         filter_list = []
-        # if self.request.GET.get('app_type') != '2':
-        if self.request.META.get('HTTP_APP_TYPE', '1') != '2':
+        app_type = self.request.META.get('HTTP_APP_TYPE', '1')
+        if app_type == 4:
             filter_list = [
                 {"term": {"status": True}},
                 {"term": {"visible": True}},
+                {"term": {"product_type": 'superstore'}}
             ]
-        if self.request.META.get('HTTP_APP_TYPE', '1') != '4':
-            filter_list.append({"range": {"available": {"gt": 0}}})
+        else:
+            if app_type != '2':
+                filter_list = [
+                    {"term": {"status": True}},
+                    {"term": {"visible": True}},
+                    {"range": {"available": {"gt": 0}}}
+                ]
             filter_list.append({"term": {"product_type": 'grocery'}})
-        if self.request.META.get('HTTP_APP_TYPE', '1') == '4':
-            filter_list.append({"term": {"product_type": 'superstore'}})
+
         if is_discounted:
             filter_list.append({"term": {"is_discounted": is_discounted}}, )
         if product_ids:
