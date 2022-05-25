@@ -3,14 +3,14 @@ import urllib
 from datetime import datetime
 
 from django.db import transaction
-from django.db.models import OuterRef, Exists
+from django.db.models import OuterRef, Exists, Q
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
 from rest_framework.exceptions import NotFound, ValidationError
 
 from global_config.views import get_config
 from pos.models import RetailerProduct
-from products.models import Product
+from products.models import Product, SuperStoreProductPrice, ParentProduct
 from retailer_backend.common_function import isBlank
 from ...choices import LANDING_PAGE_TYPE_CHOICE, LISTING_SUBTYPE_CHOICE, FUNTION_TYPE_CHOICE, \
     CARD_TYPE_PRODUCT, CARD_TYPE_CAREGORY, CARD_TYPE_BRAND, CARD_TYPE_IMAGE, IMAGE_TYPE_CHOICE, LIST
@@ -101,7 +101,7 @@ class CardItemSerializer(serializers.ModelSerializer):
         card = self.context['card']
         try:
             if card.type == CARD_TYPE_PRODUCT:
-                return ProductSerializer(Product.objects.get(id=obj.content_id)).data
+                return ProductSerializer(Product.objects.get(id=obj.content_id), context=self.context).data
             elif card.type == CARD_TYPE_CAREGORY:
                 return CategorySerializer(Category.objects.get(id=obj.content_id)).data
             elif card.type == CARD_TYPE_BRAND:
@@ -398,8 +398,15 @@ class PageCardDataSerializer(serializers.ModelSerializer):
                             or (card.type == CARD_TYPE_IMAGE and card.image_data_type == IMAGE_TYPE_CHOICE.PRODUCT)):
             sub_query = RetailerProduct.objects.filter(linked_product_id=OuterRef('content_id'), shop_id=shop_id,
                                                        is_deleted=False, online_enabled=True)
-            items = check_inventory(obj.items.annotate(retailer_product_exists=Exists(sub_query))
-                                   .filter(retailer_product_exists=True))
+            superstore_query = Product.objects.filter(id=OuterRef('content_id'), status='active',
+                                                      parent_product__product_type=ParentProduct.SUPERSTORE)
+            card_items = obj.items.annotate(retailer_product_exists=Exists(sub_query),
+                                            superstore_product_exists=Exists(superstore_query))
+
+            retailer_items = card_items.filter(retailer_product_exists=True)
+            superstore_items = card_items.filter(superstore_product_exists=True)
+            items = check_inventory(retailer_items)
+            items = items.union(superstore_items)
             return CardItemSerializer(items, many=True, context=self.context).data
         return CardItemSerializer(obj.items, many=True, context=self.context).data
 
@@ -591,9 +598,9 @@ class PageLatestDetailSerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         data =  super().to_representation(instance)
-        data['latest_version'] = PageVersionDetailSerializer(self.context.pop('version'), context=self.context).data
         apps = ApplicationPage.objects.get(page__id = instance.id).app
         data['applications'] = PageApplicationSerializer(apps).data
+        data['latest_version'] = PageVersionDetailSerializer(self.context.pop('version'), context=self.context).data
         return data
 
 class CategorySerializer(serializers.ModelSerializer):
@@ -667,11 +674,12 @@ class ProductSerializer(serializers.ModelSerializer):
     category_id = serializers.SerializerMethodField()
     sub_category = serializers.SerializerMethodField()
     sub_category_id = serializers.SerializerMethodField()
+    super_store_product_selling_price = serializers.SerializerMethodField()
 
     class Meta:
         model = Product
         fields = ('id', 'online_price', 'product_images', 'category', 'category_id', 'brand', 'brand_id',
-                  'sub_category', 'sub_category_id')
+                  'sub_category', 'sub_category_id', 'super_store_product_selling_price')
 
     def get_product_images(self, obj):
         images = obj.product_pro_image.all()
@@ -735,6 +743,14 @@ class ProductSerializer(serializers.ModelSerializer):
             return retailer_product.last().online_price
         return None
 
+    def get_super_store_product_selling_price(self, obj):
+        seller_shop_id = self.context.get('shop_id')
+        if seller_shop_id:
+            superstore_price = SuperStoreProductPrice.objects.filter(product_id=obj.id,
+                                                                     seller_shop_id=self.context.get('shop_id'))
+            if superstore_price.exists():
+                return superstore_price.last().selling_price
+        return None
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
