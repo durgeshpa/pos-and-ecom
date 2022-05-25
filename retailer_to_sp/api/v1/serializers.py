@@ -4605,11 +4605,18 @@ class OrderPaymentStatusChangeSerializers(serializers.ModelSerializer):
 
     def validate(self, data):
         if 'id' in self.initial_data and self.initial_data['id']:
-            if Order.objects.filter(id=self.initial_data['id'],
-                                    ordered_cart__cart_type='ECOM').exists():
-                order_instance = Order.objects.filter(id=self.initial_data['id']).last()
+            if self.context.get('app-type', None) != 4:
+                if Order.objects.filter(id=self.initial_data['id'],
+                                        ordered_cart__cart_type='ECOM').exists():
+                    order_instance = Order.objects.filter(id=self.initial_data['id']).last()
+                else:
+                    raise serializers.ValidationError(f"Order not found for Id {self.initial_data['id']}.")
             else:
-                raise serializers.ValidationError(f"Order not found for Id {self.initial_data['id']}.")
+                if RetailerOrderedProductMapping.objects.filter(id=self.initial_data['id'], 
+                                                        ordered_product__order__ordered_cart__cart_type='SUPERSTORE').exists():
+                    order_instance = RetailerOrderedProductMapping.objects.filter(id=self.initial_data['id']).last().ordered_product.order
+                else:
+                    raise serializers.ValidationError(f"Order not found for Id {self.initial_data['id']}.")
 
         else:
             raise serializers.ValidationError("'id' | This is mandatory")
