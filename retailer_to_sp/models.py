@@ -1732,6 +1732,11 @@ class OrderedProduct(models.Model):  # Shipment
         Shop, related_name='shop_shipments',
         null=True, blank=True, on_delete=models.DO_NOTHING
     )
+    delivery_person = models.ForeignKey(UserWithName, 
+                                        null=True, 
+                                        on_delete=models.DO_NOTHING, 
+                                        verbose_name='Delivery Boy',
+                                        related_name='shipment_deliveries')
     created_at = models.DateTimeField(
         auto_now_add=True, verbose_name="Invoice Date")
 

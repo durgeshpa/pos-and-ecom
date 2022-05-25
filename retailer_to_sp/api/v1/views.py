@@ -3306,6 +3306,7 @@ class OrderCentral(APIView):
             update status for super store type orders
         """
         with transaction.atomic():
+            response = None
             try:
                 order_product_mapping = OrderedProductMapping.objects.select_for_update().get(pk=kwargs['pk'], 
                                                               ordered_product__order__seller_shop=kwargs['shop'],
@@ -3330,6 +3331,7 @@ class OrderCentral(APIView):
                 except:
                     return api_response("Please select a delivery person")
                 
+                shipment.delivery_person = delivery_person
                 #invoice no generation
                 shipment.shipment_status = OrderedProduct.MOVED_TO_DISPATCH
                 shipment.save()
@@ -3343,8 +3345,22 @@ class OrderCentral(APIView):
                 pos_trip.trip_start_at = datetime.now()
                 pos_trip.save()
             else:
-                pass
-                 
+                if shipment.order.delivery_option == '1':
+                    shipment.shipment_status = order_status
+                    shipment.save()
+                else:
+                    shipment.shipment_status = order_status
+                    shipment.save()
+                    order_product_mapping.delivered_qty=F('shipped_qty')
+                    order_product_mapping.save()
+                    if shipment.pos_trips.filter(trip_type='SUPERSTORE').exists():
+                        pos_trip = shipment.pos_trips.filter(trip_type='SUPERSTORE').last()
+                    else:
+                        pos_trip = PosTrip.objects.create(trip_type='SUPERSTORE',
+                                                          shipment=shipment)
+                    pos_trip.trip_end_at = datetime.now()
+                    pos_trip.save()
+            return api_response("Order updated successfully!", response, status.HTTP_200_OK, True)
     
     def put_retail_order(self, pk):
         """
@@ -3737,6 +3753,11 @@ class OrderCentral(APIView):
         
         # get delivery option
         delivery_option = request.data.get('delivery_option', None)
+        if delivery_option == 1:
+            address = shop.shop_name_address_mapping.filter(
+                address_type='shipping').last()
+            if not address:
+                return api_response("Shipping address not present for this shop. Contact shop manager.")
         
         err = self.update_cart_superstore(shop, cart)
         if err:
@@ -4092,7 +4113,9 @@ class OrderCentral(APIView):
                 elif self.request.data.get('payment_status') == 'payment_failed':
                     order.order_status = Order.PAYMENT_FAILED
             order.delivery_option = delivery_option
-            order.estimate_delivery_time = "5-7 days"
+            delivery_buffer = get_config("superstore_delivery_buffer", 7)
+            delivery_date_expected = (datetime.now() + timedelta(delivery_buffer)).date()
+            order.estimate_delivery_time = delivery_date_expected
             order.latitude = self.request.data.get('latitude', None)
             order.longitude = self.request.data.get('longitude', None)
             

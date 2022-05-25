@@ -739,6 +739,7 @@ class RetailerOrderedReport(Order):
 class PosTrip(models.Model):
     ORDER_TRIP_TYPE = (
         ('ECOM', 'Ecom'),
+        ('SUPERSTORE', 'SUPERSTORE')
     )
     shipment = models.ForeignKey(OrderedProduct,
                                  related_name='pos_trips',
