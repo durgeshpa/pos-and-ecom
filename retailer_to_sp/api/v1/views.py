@@ -8726,6 +8726,8 @@ class OrderPaymentStatusChangeView(generics.GenericAPIView):
             return self.put_ecom_order_status_from_pos_app(request, *args, **kwargs)
         elif app_type == '3':
             return self.put_ecom_order_status(request, *args, **kwargs)
+        elif app_type == '4':
+            return self.put_superstore_order_status(request, *args, **kwargs)
         else:
             return api_response('Provide a valid app_type')
 
@@ -8780,7 +8782,37 @@ class OrderPaymentStatusChangeView(generics.GenericAPIView):
             return api_response('order updated!', serializer.data, status.HTTP_200_OK, True)
         return api_response(serializer_error(serializer), success=False)
 
+    @check_pos_shop
+    def put_superstore_order_status(self, request, *args, **kwargs):
+        shop = kwargs['shop']
+        modified_data = validate_data_format(self.request)
+        if 'error' in modified_data:
+            return api_response(modified_data['error'])
 
+        if 'id' not in modified_data:
+            return api_response('please provide id to update order')
+        if 'sub_app_type' in modified_data and modified_data['sub_app_type'] == 'pos':
+            sub_app_type = 'pos'
+        else:
+            sub_app_type = 'ecom'
+
+        try:
+            ordered_product_mapping = OrderedProductMapping.objects.get(pk=int(modified_data['id']), 
+                                                                        ordered_product__order__seller_shop=shop, 
+                                                                        ordered_product__order__ordered_cart__cart_type='SUPERSTORE')
+            if sub_app_type == 'ecom':
+                ordered_product_mapping = ordered_product_mapping.filter(ordered_product__order__buyer=request.user)
+            order = ordered_product_mapping.ordered_product.order
+        except OrderedProductMapping.ObjectDoesNotExist:
+            return api_response('Order Not Found!')
+
+        serializer = self.serializer_class(instance=order, data=modified_data, context={'app-type': 4, 'sub-app-type': sub_app_type})
+        if serializer.is_valid():
+            serializer.save(updated_by=request.user)
+            info_logger.info("Order Updated Successfully.")
+            return api_response('order updated!', serializer.data, status.HTTP_200_OK, True)
+        return api_response(serializer_error(serializer), success=False)
+    
 class OrderStatusChoicesList(GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
