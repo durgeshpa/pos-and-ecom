@@ -641,7 +641,7 @@ class RewardCls(object):
         if key and app_type != "SUPERSTORE":
             points = RewardCls.get_loyalty_points(amount, key, shop)
         elif key and app_type == "SUPERSTORE":
-            factor = GlobalConfig.objects.get(key=key).value
+            factor = GlobalConfig.objects.get(key=key).value/100
             points = int(float(amount) * factor)
         # check maximum point redeem add in a month by shop
         days = datetime.datetime.today().day
@@ -661,8 +661,8 @@ class RewardCls(object):
         if app_type != "SUPERSTORE" and this_month_reward_point_credit + points > get_config_fofo_shop("Max_Monthly_Points_Added", shop.id):
             points = max(get_config_fofo_shop("Max_Monthly_Points_Added", shop.id) - this_month_reward_point_credit, 0)
             #message = "only {} Loyalty Point can be used in a month".format(max_month_limit)
-        elif app_type == "SUPERSTORE" and this_month_reward_point_credit + points > GlobalConfig(key = "max_monthly_points_added_super_store").value:
-            points = max(GlobalConfig("max_monthly_points_added_super_store").value - this_month_reward_point_credit, 0)
+        elif app_type == "SUPERSTORE" and this_month_reward_point_credit + points > GlobalConfig.objects.get(key="max_monthly_points_added_super_store").value:
+            points = max(GlobalConfig.objects.get(key = "max_monthly_points_added_super_store").value - this_month_reward_point_credit, 0)
             #message = "only {} Loyalty Point can be used in a month".format(max_month_limit)
 
         if not points:

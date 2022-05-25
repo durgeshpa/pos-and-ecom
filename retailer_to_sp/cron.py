@@ -3,7 +3,7 @@ import logging
 
 from retailer_to_sp.views import generate_e_invoice
 from sp_to_gram.tasks import upload_all_products_in_es
-from retailer_to_sp.models import Order
+from retailer_to_sp.models import Order, OrderReturn, OrderedProduct
 from global_config.models import GlobalConfig
 from pos.tasks import order_loyalty_points_credit
 from marketing.models import ReferralCode
@@ -36,12 +36,13 @@ def order_point_credit(order):
         ordered_product = OrderedProduct.objects.get(order=order)
         for ret in returns:
             return_amount += ret.refund_amount
-        new_paid_amount = ordered_product.invoice_amount_final - refund_amount
+        new_paid_amount = ordered_product.invoice_amount_final - return_amount
 
         if ReferralCode.is_marketing_user(order.buyer):
             order.points_added = order_loyalty_points_credit(new_paid_amount, order.buyer.id, order.order_no,
                                                             'order_credit', 'order_indirect_credit',
                                                             order.buyer.id, order.seller_shop, app_type="SUPERSTORE")
+        order.save()
     except Exception as e:
         info_logger.error(e)
 
