@@ -1172,7 +1172,7 @@ def product_csv_upload(request):
                             continue
                         if '' in row:
                             if (row[0] == '' and row[1] == '' and row[2] == '' and row[3] == '' and row[4] == '' and
-                                    row[5] == '' and row[6] == '' and row[7] == ''):
+                                    row[5] == '' and row[6] == ''):
                                 continue
                         source_map = []
                         if row[8] == 'destination':
