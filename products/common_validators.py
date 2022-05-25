@@ -1479,6 +1479,9 @@ def validate_row(uploaded_data_list, header_list, category, b2c_category):
                     raise ValidationError(f"Row {row_num} | {row['product_type']} | 'Product Type can either be "
                                           f"'b2b', 'b2c' or 'both'!")
 
+            if 'use_parent_image' in header_list and 'use_parent_image' in row.keys() \
+                    and str(row['use_parent_image']).lower() not in ['yes', 'no']:
+                raise ValidationError(f"Row {row['use_parent_image']} | 'use_parent_image' only allowed 'yes' or 'no'")
             if 'parent_id' in header_list and 'parent_id' in row.keys() and \
                     str(row['parent_id']).strip() != '' and 'use_parent_image' in header_list and 'use_parent_image' in row.keys() \
                     and str(row['use_parent_image']).lower() == 'yes':
