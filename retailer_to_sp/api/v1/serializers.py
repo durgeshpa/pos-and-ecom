@@ -4635,6 +4635,14 @@ class OrderPaymentStatusChangeSerializers(serializers.ModelSerializer):
         elif self.context.get('app-type', None) == 2 and order_instance.order_status == Order.PAYMENT_PENDING and \
                 order_status != Order.PAYMENT_COD:
             raise serializers.ValidationError(f"Please Provide valid Payment status")
+        elif self.context.get('app-type', None) == 4:
+            if self.context.get('sub-app-type', None) == 'ecom' and order_instance.order_status == Order.PAYMENT_PENDING and \
+                order_status not in [Order.PAYMENT_FAILED, Order.PAYMENT_APPROVED, Order.PAYMENT_COD]:
+                raise serializers.ValidationError(f"Please Provide valid Payment status")
+            elif self.context.get('sub-app-type', None) == 'pos' and order_instance.order_status == Order.PAYMENT_PENDING and \
+                order_status != Order.PAYMENT_COD:
+                raise serializers.ValidationError(f"Please Provide valid Payment status")
+                
 
         if 'payment_id' not in self.initial_data and not self.initial_data['payment_id']:
             raise serializers.ValidationError("'payment_id' | This is mandatory.")
@@ -4668,7 +4676,10 @@ class OrderPaymentStatusChangeSerializers(serializers.ModelSerializer):
                 if payment_type_instance.app != 'ecom':
                     raise serializers.ValidationError(f"'payment_type_id' | Invalid choice "
                                                       f"{self.initial_data['payment_type_id']}.")
-
+            if order_instance.order_app_type == Order.POS_SUPERSTORE:
+                if payment_type_instance.app != 'ecom':
+                    raise serializers.ValidationError(f"'payment_type_id' | Invalid choice "
+                                                      f"{self.initial_data['payment_type_id']}.")
         transaction_id = ""
         if 'transaction_id' in self.initial_data and self.initial_data['transaction_id']:
             transaction_id = self.initial_data['transaction_id']
