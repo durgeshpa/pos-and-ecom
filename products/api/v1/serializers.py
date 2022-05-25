@@ -1991,10 +1991,10 @@ class SuperStoreProductPriceAsCSVUploadSerializer(serializers.ModelSerializer):
             response = HttpResponse(content_type='text/csv')
             response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
             writer = csv.writer(response)
-            writer.writerow(
-                ['seller_shop_id', 'seller_shop', 'parent_product_id', 'product_id', 'product_sku', 'product_name',
-                 'b2b_category', 'b2c_category', 'mrp', 'selling_price', 'upload_status'])
             if len(validated_data["ErrorData"]):
+                writer.writerow(
+                    ['seller_shop_id', 'seller_shop', 'parent_product_id', 'product_id', 'product_sku', 'product_name',
+                     'b2b_category', 'b2c_category', 'mrp', 'selling_price', 'upload_status'])
                 for row in validated_data["ErrorData"]:
                     writer.writerow(row)
         except Exception as e:
