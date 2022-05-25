@@ -251,7 +251,7 @@ class Cart(models.Model):
                                  'subtotal_sum'], 2)
             elif self.cart_type == 'SUPERSTORE':
                 return round(self.rt_cart_list.aggregate(
-                    subtotal_sum=Sum(F('cart_product_price__mrp') * F('no_of_pieces'), output_field=FloatField()))[
+                    subtotal_sum=Sum(F('cart_product__product_mrp') * F('qty'), output_field=FloatField()))[
                                  'subtotal_sum'], 2)
             else:
                 return round(self.rt_cart_list.aggregate(
@@ -1737,6 +1737,11 @@ class OrderedProduct(models.Model):  # Shipment
         Shop, related_name='shop_shipments',
         null=True, blank=True, on_delete=models.DO_NOTHING
     )
+    delivery_person = models.ForeignKey(UserWithName, 
+                                        null=True, 
+                                        on_delete=models.DO_NOTHING, 
+                                        verbose_name='Delivery Boy',
+                                        related_name='shipment_deliveries')
     created_at = models.DateTimeField(
         auto_now_add=True, verbose_name="Invoice Date")
 

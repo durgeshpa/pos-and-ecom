@@ -532,9 +532,11 @@ class CategoryFilter(AutocompleteFilter):
         for obj in queryset:
             for product in obj.rt_cart_list.prefetch_related("cart_product__parent_product__parent_product_pro_category__category"):
                 try:
-                    if product.cart_product.parent_product.parent_product_pro_category.select_related("category").first().category.id == int(value):
-                       cart_list.append(obj.id)
-                       break;
+                    if product.cart_product.parent_product.parent_product_pro_category.select_related("category",
+                                                                                                      "category__category_parent").filter(
+                            Q(category_id=value) | Q(category__category_parent__id=value)):
+                        cart_list.append(obj.id)
+                        break
                     pass
                 except:
                     pass
@@ -547,7 +549,7 @@ class CartAdmin(ExportCsvMixinCart, ExportCsvMixinCartProduct, admin.ModelAdmin)
     fields = ('seller_shop', 'buyer_shop', 'offers', 'approval_status')
     actions = ["export_as_csv_cart", "export_as_csv_cart_product" ]
     form = CartForm
-    list_display = ('order_id', 'cart_type', 'approval_status', 'seller_shop','buyer_shop','cart_status','created_at',)
+    list_display = ('order_id', 'cart_type', 'approval_status', 'created_at', 'buyer_shop', 'seller_shop','cart_status')
     #change_form_template = 'admin/sp_to_gram/cart/change_form.html'
     list_filter = (SellerShopFilter, BuyerShopFilter,OrderIDFilter,  CategoryFilter)
 
@@ -664,7 +666,7 @@ def category_filter(queryset, value):
     for obj in queryset:
         for product in obj.cart.rt_cart_list.prefetch_related("cart_product__parent_product__parent_product_pro_category__category"):
             try:
-                if product.cart_product.parent_product.parent_product_pro_category.select_related("category").first().category.id == int(value):
+                if product.cart_product.parent_product.parent_product_pro_category.select_related("category","category__category_parent").filter(Q(category_id=value)|Q(category__category_parent__id=value)):
                    cart_list.append(obj.cart.id)
                    break;
                 pass

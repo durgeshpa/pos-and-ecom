@@ -2145,22 +2145,30 @@ def create_retailer_orders_from_superstore_order(instance=None):
                 new_shipping_address = new_buyer_shop.shop_name_address_mapping.filter(address_type='shipping').last()
                 user = instance.ordered_by
                 order_app_type = instance.order_app_type
+                if not user or not new_seller_shop or not new_buyer_shop or not order_app_type:
+                    info_logger.error(f"user {user} - new_seller_shop {new_seller_shop} - new_buyer_shop "
+                                      f"{new_buyer_shop} - order_app_type {order_app_type} | Any one is None.")
+                    return None
                 for cart_pro in carp_pro_maps:
-                    new_cart = Cart.objects.create(seller_shop=new_seller_shop, buyer_shop=new_buyer_shop,
-                                                   cart_status='ordered', cart_type=SUPERSTORE_RETAIL)
                     product = cart_pro.cart_product
                     product_price = product.get_current_shop_price(new_seller_shop, new_buyer_shop)
                     ordered_qty = int(cart_pro.qty)
                     ordered_pieces = int(cart_pro.no_of_pieces)
+                    product_selling_price = product_price.get_per_piece_price(ordered_pieces)
+                    if not product_price or not product_selling_price:
+                        info_logger.error(f"product {product} | No product price or selling price for the respected shop")
+                        return None
+                    new_cart = Cart.objects.create(seller_shop=new_seller_shop, buyer_shop=new_buyer_shop,
+                                                   cart_status='ordered', cart_type=SUPERSTORE_RETAIL)
                     new_cart_pro = CartProductMapping.objects.create(
                         cart=new_cart, cart_product_id=product.id, qty=ordered_qty, no_of_pieces=ordered_pieces,
-                        cart_product_price=product_price)
+                        cart_product_price=product_price, selling_price=product_selling_price)
                     info_logger.info(f"create_retailer_orders_from_superstore_order|{instance}|"
                                      f"Product Mapping {new_cart_pro.id}|Cart {new_cart}")
                     order, _ = Order.objects.get_or_create(ordered_cart=new_cart)
                     order.reference_order = instance
                     order.total_mrp = float(product_price.mrp) * float(ordered_pieces)
-                    order.total_discount_amount = (float(product_price.mrp) - float(product_price.selling_price)) * ordered_pieces
+                    order.total_discount_amount = (float(product_price.mrp) - float(product_selling_price)) * ordered_pieces
                     order.order_app_type = order_app_type
                     order.ordered_cart = new_cart
                     order.seller_shop = new_seller_shop

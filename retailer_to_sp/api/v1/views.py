@@ -92,7 +92,7 @@ from retailer_to_sp.models import (Cart, CartProductMapping, CreditNote, Order, 
 from retailer_to_sp.tasks import send_invoice_pdf_email, insert_search_term
 from shops.api.v1.serializers import ShopBasicSerializer
 from sp_to_gram.models import OrderedProductReserved
-from sp_to_gram.tasks import es_search, upload_shop_stock, upload_all_products_in_es, upload_super_shop_stock
+from sp_to_gram.tasks import es_search, upload_shop_stock, upload_all_products_in_es
 from wms.common_functions import OrderManagement, get_stock, is_product_not_eligible, get_response, \
     get_logged_user_wise_query_set_for_shipment, get_logged_user_wise_query_set_for_dispatch, \
     get_logged_user_wise_query_set_for_dispatch_trip, get_logged_user_wise_query_set_for_dispatch_crates, \
@@ -3056,6 +3056,8 @@ class OrderCentral(APIView):
             return self.put_basic_order(request, *args, **kwargs)
         elif app_type == '3':
             return self.put_ecom_order(request, *args, **kwargs)
+        elif app_type == '4':
+            return self.put_superstore_order(request, *args, **kwargs)
         else:
             return api_response('Provide a valid app_type')
 
@@ -3300,6 +3302,68 @@ class OrderCentral(APIView):
                 pass
         return api_response("Order cancelled successfully!", response, status.HTTP_200_OK, True)
 
+    @check_pos_shop
+    def put_superstore_order(self, request, *args, **kwargs):
+        """
+            update status for super store type orders
+        """
+        with transaction.atomic():
+            response = None
+            try:
+                order_product_mapping = OrderedProductMapping.objects.select_for_update().get(pk=kwargs['pk'], 
+                                                              ordered_product__order__seller_shop=kwargs['shop'],
+                                                              ordered_product__order__ordered_cart__cart_type='SUPERSTORE')
+                shipment = order_product_mapping.ordered_product
+            except OrderedProductMapping.DoesNotExist:
+                return api_response("Order not found")
+
+            order_status = self.request.data.get('status')
+            allowed_status = [OrderedProduct.OUT_FOR_DELIVERY, OrderedProduct.DELIVERED]
+            if order_status not in allowed_status:
+                return api_response("Please Provide valid status for order updation")
+            if order_status == OrderedProduct.OUT_FOR_DELIVERY:
+                retail_delivery_check = True
+                if not shipment.order.delivery_option == 2:
+                    return api_response("Self pick up orders cannot be marked as out for delivered")
+                    
+                if not retail_delivery_check:
+                    return api_response("Order cannot be marked as out for delivery as product is not delivered to your shop.")
+                try:
+                    delivery_person = User.objects.get(id=self.request.data.get('delivery_person'))
+                except:
+                    return api_response("Please select a delivery person")
+                
+                shipment.delivery_person = delivery_person
+                #invoice no generation
+                shipment.shipment_status = OrderedProduct.MOVED_TO_DISPATCH
+                shipment.save()
+                shipment.shipment_status = order_status
+                shipment.save()
+                if shipment.pos_trips.filter(trip_type='SUPERSTORE').exists():
+                    pos_trip = shipment.pos_trips.filter(trip_type='SUPERSTORE').last()
+                else:
+                    pos_trip = PosTrip.objects.create(trip_type='SUPERSTORE',
+                                                        shipment=shipment)
+                pos_trip.trip_start_at = datetime.now()
+                pos_trip.save()
+            else:
+                if shipment.order.delivery_option == '1':
+                    shipment.shipment_status = order_status
+                    shipment.save()
+                else:
+                    shipment.shipment_status = order_status
+                    shipment.save()
+                    order_product_mapping.delivered_qty=F('shipped_qty')
+                    order_product_mapping.save()
+                    if shipment.pos_trips.filter(trip_type='SUPERSTORE').exists():
+                        pos_trip = shipment.pos_trips.filter(trip_type='SUPERSTORE').last()
+                    else:
+                        pos_trip = PosTrip.objects.create(trip_type='SUPERSTORE',
+                                                          shipment=shipment)
+                    pos_trip.trip_end_at = datetime.now()
+                    pos_trip.save()
+            return api_response("Order updated successfully!", response, status.HTTP_200_OK, True)
+    
     def put_retail_order(self, pk):
         """
             Cancel retailer order
@@ -3691,6 +3755,11 @@ class OrderCentral(APIView):
         
         # get delivery option
         delivery_option = request.data.get('delivery_option', None)
+        if delivery_option == 1:
+            address = shop.shop_name_address_mapping.filter(
+                address_type='shipping').last()
+            if not address:
+                return api_response("Shipping address not present for this shop. Contact shop manager.")
         
         err = self.update_cart_superstore(shop, cart)
         if err:
@@ -4046,7 +4115,9 @@ class OrderCentral(APIView):
                 elif self.request.data.get('payment_status') == 'payment_failed':
                     order.order_status = Order.PAYMENT_FAILED
             order.delivery_option = delivery_option
-            order.estimate_delivery_time = "5-7 days"
+            delivery_buffer = get_config("superstore_delivery_buffer", 7)
+            delivery_date_expected = (datetime.now() + timedelta(delivery_buffer)).date()
+            order.estimate_delivery_time = delivery_date_expected
             order.latitude = self.request.data.get('latitude', None)
             order.longitude = self.request.data.get('longitude', None)
             
@@ -4660,12 +4731,22 @@ class OrderListCentral(GenericAPIView):
     @check_ecom_user
     def get_superstore_order_list(self, request, *args, **kwargs):
         shop = self.request.META.get('HTTP_SHOP_ID')
-        if shop:
+        list_type = self.request.query_params.get('list_type')
+        order_status = self.request.GET.get('order_status')
+        if list_type == 'pos':
+            if not shop:
+                return api_response("Provide shop id in api header")
             orders = Order.objects.filter(ordered_cart__cart_type='SUPERSTORE', 
                                           seller_shop_id=shop)
+            if order_status:
+                order_status_actual = ONLINE_ORDER_STATUS_MAP.get(int(order_status), None)
+                orders = orders.filter(order_status__in=order_status_actual) if order_status_actual else orders
         else:
             orders = Order.objects.filter(ordered_cart__cart_type='SUPERSTORE', 
                                           buyer=self.request.user)
+            if order_status:
+                order_status_actual = ECOM_ORDER_STATUS_MAP.get(int(order_status), None)
+                orders = orders.filter(order_status__in=order_status_actual) if order_status_actual else orders
         search_text = self.request.GET.get('search_text')
         if search_text:
             orders = orders.filter(Q(order_no__icontains=search_text) |
@@ -7780,20 +7861,6 @@ class ReturnReason(generics.UpdateAPIView):
         else:
             msg = {'is_success': False, 'message': ['have some issue'], 'response_data': None}
         return Response(msg, status=status.HTTP_200_OK)
-
-
-class SuperStoreRefreshEs(APIView):
-    authentication_classes = (authentication.TokenAuthentication,)
-    permission_classes = (permissions.IsAuthenticated,)
-
-    def get(self, request, *args, **kwargs):
-        shop_id = self.request.GET.get('shop_id') if self.request.GET.get('shop_id') \
-            else GlobalConfig.objects.get(key='current_wh_active').value
-
-        info_logger.info('SuperStoreRefreshEs| shop {}, Started'.format(shop_id))
-        upload_super_shop_stock(shop_id)
-        info_logger.info('SuperStoreRefreshEs| shop {}, Ended'.format(shop_id))
-        return Response({"message": "Shop data updated on ES", "response_data": None, "is_success": True})
 
 
 class RefreshEs(APIView):

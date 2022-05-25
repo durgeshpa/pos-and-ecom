@@ -5524,7 +5524,10 @@ class SuperStoreOrderDetailSerializer(serializers.ModelSerializer):
     invoice = serializers.SerializerMethodField()
     
     def get_invoice(self, instance):
-        return InvoiceDataSerializer(instance.ordered_product.invoice).data 
+        try:
+            return InvoiceDataSerializer(instance.ordered_product.invoice).data 
+        except OrderedProduct.invoice.RelatedObjectDoesNotExist:
+            return None
     
     qty_and_total_amount = serializers.SerializerMethodField()
     def get_qty_and_total_amount(self, instance):
@@ -5573,9 +5576,21 @@ class SuperStoreOrderDetailSerializer(serializers.ModelSerializer):
     def get_discount(self, instance):
         return 0
     
+    delivery_type = serializers.SerializerMethodField()
+    def get_delivery_type(self, instance):
+        type_dict = {
+            '1': 'Self Pick',
+            '2': 'Home delivery',
+        }
+        return type_dict.get(instance.ordered_product.order.delivery_option, 'Not Provided')
+    
+    expected_delivery_date = serializers.SerializerMethodField()
+    def get_expected_delivery_date(self, instance):
+        return instance.ordered_product.order.estimate_delivery_time
+    
     class Meta:
         model = RetailerOrderedProductMapping
-        fields = ('id', 'order_no', 'shipment_status', 'loyalty_points',
+        fields = ('id', 'order_no', 'shipment_status', 'loyalty_points', 'delivery_type',
                   'qty_and_total_amount', 'ordered_from', 'address', 'discount',
-                  'payment', 'buyer', 'invoice', 'product', 'order_status',
+                  'payment', 'buyer', 'invoice', 'product', 'order_status', 'expected_delivery_date',
                   'created_at')
