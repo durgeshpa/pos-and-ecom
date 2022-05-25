@@ -185,7 +185,7 @@ def remove_offers(sender, instance=None, created=False, **kwargs):
 		Update offers on cart after any product is deleted
 		Remove combo on this product, check cart level discount
 	"""
-	if instance.qty and instance.no_of_pieces and instance.cart.cart_type not in ('AUTO', 'DISCOUNTED', 'BASIC', 'ECOM'):
+	if instance.qty and instance.no_of_pieces and instance.cart.cart_type not in ('AUTO', 'DISCOUNTED', 'BASIC', 'ECOM', 'SUPERSTORE'):
 		Cart.objects.filter(id=instance.cart.id).update(offers=instance.cart.offers_applied())
 	elif instance.cart.cart_type in ['BASIC', 'ECOM'] and instance.product_type:
 		# Remove if any combo products added
