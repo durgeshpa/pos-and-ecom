@@ -21,6 +21,7 @@ from django.core.validators import MinValueValidator, MaxValueValidator
 
 from celery.task import task
 from accounts.middlewares import get_current_user
+from global_config.models import GlobalConfig
 from retailer_backend import common_function as CommonFunction
 from retailer_backend.validators import PercentageValidator
 from .bulk_order_clean import bulk_order_validation
@@ -29,7 +30,7 @@ from .utils import (order_invoices, order_shipment_status, order_shipment_amount
                     order_shipment_date, order_delivery_date, order_cash_to_be_collected, order_cn_amount,
                     order_damaged_amount, order_delivered_value, order_shipment_status_reason,
                     picking_statuses, picker_boys, picklist_ids, picklist_refreshed_at, qc_areas, zones, qc_desks,
-                    qc_executives)
+                    qc_executives, get_product_tax_amount)
 
 from addresses.models import Address
 
@@ -77,6 +78,7 @@ DISCOUNTED = 'DISCOUNTED'
 BASIC = 'BASIC'
 ECOM = 'EC0M'
 SUPERSTORE = 'SUPERSTORE'
+SUPERSTORE_RETAIL = 'SUPERSTORE_RETAIL'
 
 BULK_ORDER_STATUS = (
     (AUTO, 'Auto'),
@@ -111,7 +113,8 @@ CART_TYPES = (
     (DISCOUNTED, 'Discounted'),
     (BASIC, 'Basic'),
     (ECOM, 'Ecom'),
-    (SUPERSTORE, 'Super Store')
+    (SUPERSTORE, 'Super Store'),
+    (SUPERSTORE_RETAIL, 'Super Store Retail')
 )
 
 
@@ -247,7 +250,9 @@ class Cart(models.Model):
                     subtotal_sum=Sum(F('retailer_product__mrp') * F('no_of_pieces'), output_field=FloatField()))[
                                  'subtotal_sum'], 2)
             elif self.cart_type == 'SUPERSTORE':
-                return 0.00
+                return round(self.rt_cart_list.aggregate(
+                    subtotal_sum=Sum(F('cart_product__product_mrp') * F('qty'), output_field=FloatField()))[
+                                 'subtotal_sum'], 2)
             else:
                 return round(self.rt_cart_list.aggregate(
                     subtotal_sum=Sum(F('cart_product_price__mrp') * F('no_of_pieces'), output_field=FloatField()))[
@@ -1089,6 +1094,8 @@ class Order(models.Model):
     modified_at = models.DateTimeField(auto_now=True)
     latitude = models.DecimalField(max_digits=30, decimal_places=15, null=True,blank=True, verbose_name='Latitude For Ecommerce order')
     longitude = models.DecimalField(max_digits=30, decimal_places=15, null=True,blank=True, verbose_name='Longitude For Ecommerce order')
+    reference_order = models.ForeignKey('self', related_name='ref_order', blank=True, null=True,
+                                        on_delete=models.CASCADE)
 
     def __str__(self):
         return self.order_no or str(self.id)
@@ -1730,6 +1737,11 @@ class OrderedProduct(models.Model):  # Shipment
         Shop, related_name='shop_shipments',
         null=True, blank=True, on_delete=models.DO_NOTHING
     )
+    delivery_person = models.ForeignKey(UserWithName, 
+                                        null=True, 
+                                        on_delete=models.DO_NOTHING, 
+                                        verbose_name='Delivery Boy',
+                                        related_name='shipment_deliveries')
     created_at = models.DateTimeField(
         auto_now_add=True, verbose_name="Invoice Date")
 
@@ -3189,7 +3201,7 @@ def create_order_no(sender, instance=None, created=False, **kwargs):
         Cart order_id add
     """
     if not instance.order_no and instance.seller_shop and instance.seller_shop:
-        if instance.ordered_cart.cart_type in ['RETAIL', 'BASIC', 'AUTO']:
+        if instance.ordered_cart.cart_type in ['RETAIL', 'BASIC', 'AUTO', 'SUPERSTORE_RETAIL']:
             order_no = common_function.order_id_pattern(
                 sender, 'order_no', instance.pk,
                 instance.seller_shop.

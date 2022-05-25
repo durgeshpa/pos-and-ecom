@@ -639,7 +639,7 @@ class ParentProductAdmin(admin.ModelAdmin):
     list_filter = [ParentCategorySearch, ParentBrandFilter, ParentIDFilter, 'status', 'product_type']
     list_per_page = 50
     autocomplete_fields = ['product_hsn', 'parent_brand']
-    # readonly_fields = ['product_type']
+    readonly_fields = ['product_type']
 
     @staticmethod
     def parent_product_discriptions(obj):

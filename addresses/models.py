@@ -132,6 +132,18 @@ class Address(models.Model):
                 raise ValidationError(_('Pincode is required'))
         super(Address, self).save(*args, **kwargs)
 
+    @property
+    def address(self):
+        return self.address_line1
+    
+    @property
+    def contact_name(self):
+        return self.address_contact_name if self.address_contact_name else self.shop.shop_name
+    
+    @property
+    def contact_number(self):
+        return self.address_contact_number
+    
     @classmethod
     def check_warehouse_code(cls, obj):
         shop = obj.shop_name

@@ -1257,7 +1257,7 @@ class PosAddToCart(object):
         def _inner_func(self, request, *args, **kwargs):
             # quantity_check
             qty = request.data.get('qty')
-            if not qty or int(qty) < 0:
+            if qty is None or int(qty) < 0:
                 return api_response("Qty is Invalid!")
             else:
                 kwargs['quantity'] = qty
