@@ -326,6 +326,7 @@ class ParentProductSerializers(serializers.ModelSerializer):
             pro_obj = validate_parent_product_name(self.initial_data['name'], parent_pro_id)
             if pro_obj is not None and 'error' in pro_obj:
                 raise serializers.ValidationError(pro_obj['error'])
+        data["product_type"] = self.initial_data.get('product_type')
 
         return data
 
