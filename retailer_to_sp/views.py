@@ -2154,9 +2154,11 @@ def create_retailer_orders_from_superstore_order(instance=None):
                     product_price = product.get_current_shop_price(new_seller_shop, new_buyer_shop)
                     ordered_qty = int(cart_pro.qty)
                     ordered_pieces = int(cart_pro.no_of_pieces)
+                    if not product_price:
+                        info_logger.error(f"product {product} | No product price for the respected shop")
                     product_selling_price = product_price.get_per_piece_price(ordered_pieces)
-                    if not product_price or not product_selling_price:
-                        info_logger.error(f"product {product} | No product price or selling price for the respected shop")
+                    if not product_selling_price:
+                        info_logger.error(f"product {product} | No selling price for the product")
                         return None
                     new_cart = Cart.objects.create(seller_shop=new_seller_shop, buyer_shop=new_buyer_shop,
                                                    cart_status='ordered', cart_type=SUPERSTORE_RETAIL)
