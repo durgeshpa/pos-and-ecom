@@ -13,8 +13,7 @@ from pos.models import RetailerProduct
 from products.models import Product, SuperStoreProductPrice, ParentProduct
 from retailer_backend.common_function import isBlank
 from ...choices import LANDING_PAGE_TYPE_CHOICE, LISTING_SUBTYPE_CHOICE, FUNTION_TYPE_CHOICE, \
-    CARD_TYPE_PRODUCT, CARD_TYPE_CAREGORY, CARD_TYPE_BRAND, CARD_TYPE_IMAGE, IMAGE_TYPE_CHOICE, LIST, RETAILER, \
-    SUPERSTORE, INDEX_TYPE_ONE, INDEX_TYPE_THREE
+    CARD_TYPE_PRODUCT, CARD_TYPE_CAREGORY, CARD_TYPE_BRAND, CARD_TYPE_IMAGE, IMAGE_TYPE_CHOICE, LIST
 from ...common_functions import check_inventory
 from ...models import CardData, Card, CardVersion, CardItem, Application, Page, PageCard, PageVersion, ApplicationPage, \
     LandingPage, Functions, LandingPageProducts
@@ -139,28 +138,18 @@ class CardItemSerializer(serializers.ModelSerializer):
         return new_card_item
 
 
-def get_index_type(app):
-    if app.name in [RETAILER, SUPERSTORE]:
-        index_type = INDEX_TYPE_ONE
-    else:
-        index_type = INDEX_TYPE_THREE
-    return index_type
-
-
-def make_cms_item_redirect_url(request, card_type, image_data_type, app):
-    index_type = get_index_type(app)
-    search_url = "/retailer/sp/api/v1/GRN/search/?index_type="
+def make_cms_item_redirect_url(request, card_type, image_data_type):
     switcher = {
         "product" : "/product/api/v1/child-product/?product_type=0&id=",
         "category" : "/category/api/v1/category/?id=",
         "brand" : "/brand/api/v1/brand/?id=",
         "image" : {
             1 : "/product/api/v1/child-product/?product_type=0&id=",
-            2 : search_url + index_type + "&search_type=1&&categories=",
-            3 : search_url + index_type + "&search_type=1&brands=",
+            2 : "/retailer/sp/api/v1/GRN/search/?index_type=3&search_type=1&&categories=",
+            3 : "/retailer/sp/api/v1/GRN/search/?index_type=3&search_type=1&brands=",
             4 : "/cms/api/v1/landing-pages/?id="
         },
-        "text" : search_url + index_type + "&search_type=1&keyword="
+        "text" : "/retailer/sp/api/v1/GRN/search/?index_type=3&search_type=1&keyword="
     }
     if not isinstance(switcher.get(card_type), str):
         return switcher.get(card_type).get(image_data_type)
@@ -241,7 +230,7 @@ class CardDataSerializer(serializers.ModelSerializer):
                                                             )
             info_logger.info(f"Created New Card with ID {card.id}")
 
-        redirect_url_base = make_cms_item_redirect_url(request, card.type, card.image_data_type, app)
+        redirect_url_base = make_cms_item_redirect_url(request, card.type, card.image_data_type)
         for item in items:
             if card.type == "text":
                 item['action'] = request.build_absolute_uri(redirect_url_base + str(item['content']))
