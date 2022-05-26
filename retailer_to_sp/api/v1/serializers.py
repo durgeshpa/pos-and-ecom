@@ -576,7 +576,7 @@ class SuperStoreProductSearchSerializer(serializers.ModelSerializer):
     def get_product_price_detail(self, instance):
         price = instance.get_superstore_price
         if price:
-            return {'mrp': instance.mrp, 'selling_price': price.selling_price}
+            return {'mrp': instance.product_mrp, 'selling_price': price.selling_price}
         return None
     
     def get_image(self, instance):
