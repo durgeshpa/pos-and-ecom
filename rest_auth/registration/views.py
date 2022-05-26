@@ -24,7 +24,7 @@ from rest_auth.models import Token
 from rest_auth.registration.serializers import (VerifyEmailSerializer, SocialLoginSerializer, SocialAccountSerializer,
                                                 SocialConnectSerializer, MlmOtpRegisterSerializer, EcomRegisterSerializer)
 from rest_auth.serializers import MlmResponseSerializer, LoginResponseSerializer, api_serializer_errors
-from rest_auth.utils import jwt_encode
+from rest_auth.utils import jwt_encode, default_create_token
 from rest_auth.views import LoginView
 
 from .app_settings import RegisterSerializer, register_permission_classes
@@ -81,7 +81,7 @@ class RegisterView(CreateAPIView):
 
     def perform_create(self, serializer):
         user = serializer.save(self.request)
-        token = jwt_encode(user) if getattr(settings, 'REST_USE_JWT', False) else create_token(self.token_model, user)
+        token = jwt_encode(user) if getattr(settings, 'REST_USE_JWT', False) else default_create_token(user)
         data = serializer.data
         if 'user_exists' in data and data['user_exists'] and getattr(settings, 'REST_SESSION_LOGIN', True):
             django_login(self.request, user)

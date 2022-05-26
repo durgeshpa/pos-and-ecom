@@ -2004,7 +2004,14 @@ class SuperStoreProductPriceAsCSVUploadSerializer(serializers.ModelSerializer):
             response = HttpResponse(content_type='text/csv')
             response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
             writer = csv.writer(response)
+            total_data = len(validated_data["ErrorData"]) + len(validated_data["SuccessData"])
+            fail_data = len(validated_data["ErrorData"])
+            pass_data = len(validated_data["SuccessData"])
             if len(validated_data["ErrorData"]):
+                writer.writerow(['Total Data:', total_data])
+                writer.writerow(['Pass Data:', pass_data])
+                writer.writerow(['Fail Data:', fail_data])
+                writer.writerow([])
                 writer.writerow(
                     ['seller_shop_id', 'seller_shop', 'parent_product_id', 'product_id', 'product_sku', 'product_name',
                      'b2b_category', 'b2c_category', 'mrp', 'selling_price', 'upload_status'])

@@ -1909,7 +1909,6 @@ class SuperStoreProductPriceAsCSVUploadView(GenericAPIView):
             info_logger.info("Superstore Product Price Uploaded successfully")
             if isinstance(response_file, HttpResponse):
                 return response_file
-
         return get_response(serializer_error(serializer), False)
 
 
