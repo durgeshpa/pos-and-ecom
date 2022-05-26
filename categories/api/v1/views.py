@@ -3,6 +3,7 @@ from datetime import datetime
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import transaction
 from django.http import HttpResponse
+from ecom.utils import api_response
 
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -18,7 +19,7 @@ from .serializers import CategorySerializer, CategoryDataSerializer, BrandSerial
         B2cCategoryExportAsCSVSerializers, B2cCategorySerializer, B2cParentCategorySerializers, B2cSubCategorySerializer,\
             B2cSubCategorySerializers, AllB2cCategorySerializer, B2cCategoryDataSerializer
 from categories.models import Category, CategoryData, CategoryPosation, B2cCategory,B2cCategoryData
-from rest_framework import viewsets
+from rest_framework import viewsets, status
 from rest_framework.decorators import list_route
 from rest_framework.permissions import (AllowAny, IsAuthenticated)
 from brand.models import Brand
@@ -407,3 +408,16 @@ class B2cCategoryExportAsCSVView(CreateAPIView):
         else:
             return get_response(serializer_error(serializer), False)
         
+
+class ActivateDeactivateCategories(APIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    
+    def post(self, request):
+        categories = request.data.get('category_ids')
+        active_status = request.data.get('is_active')
+        if not categories:
+            return api_response("Please select atleast one category.")
+        else:
+            ct = Category.objects.filter(id__in=categories).update(status=active_status)
+            msg = 'Activated' if active_status else 'Deactivated'
+            return api_response(f"Categories {msg} successfully.", '', status.HTTP_200_OK, True)

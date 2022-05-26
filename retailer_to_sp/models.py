@@ -853,7 +853,7 @@ class CartProductMapping(models.Model):
                 item_effective_price = float(self.selling_price) if self.selling_price else 0
         else:
             if self.cart.cart_type == 'SUPERSTORE':
-                item_effective_price =  self.cart_product.super_store_product_price.last().selling_price
+                item_effective_price =  float(self.selling_price)
             else:
                 try:
                     if self.cart.offers:
