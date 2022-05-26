@@ -251,20 +251,20 @@ class ParentProductSerializers(serializers.ModelSerializer):
         """
             is_ptr_applicable validation.
         """
-        # if not 'parent_product_pro_image' in self.initial_data or not self.initial_data['parent_product_pro_image']:
-        #     if not 'product_images' in self.initial_data or not self.initial_data['product_images']:
-        #         raise serializers.ValidationError(_('product image is required'))
-        #
-        # if 'parent_product_pro_image' in self.initial_data and self.initial_data['parent_product_pro_image']:
-        #     image_val = get_validate_parent_product_image_ids(self.initial_data['id'],
-        #                                                       self.initial_data['parent_product_pro_image'])
-        #     if 'error' in image_val:
-        #         raise serializers.ValidationError(_(image_val["error"]))
-        #
-        # if 'product_images' in self.initial_data and self.initial_data['product_images']:
-        #     image_val = get_validate_images(self.initial_data['product_images'])
-        #     if 'error' in image_val:
-        #         raise serializers.ValidationError(_(image_val["error"]))
+        if not 'parent_product_pro_image' in self.initial_data or not self.initial_data['parent_product_pro_image']:
+            if not 'product_images' in self.initial_data or not self.initial_data['product_images']:
+                raise serializers.ValidationError(_('product image is required'))
+
+        if 'parent_product_pro_image' in self.initial_data and self.initial_data['parent_product_pro_image']:
+            image_val = get_validate_parent_product_image_ids(self.initial_data['id'],
+                                                              self.initial_data['parent_product_pro_image'])
+            if 'error' in image_val:
+                raise serializers.ValidationError(_(image_val["error"]))
+
+        if 'product_images' in self.initial_data and self.initial_data['product_images']:
+            image_val = get_validate_images(self.initial_data['product_images'])
+            if 'error' in image_val:
+                raise serializers.ValidationError(_(image_val["error"]))
 
         if not 'parent_brand' in self.initial_data or not self.initial_data['parent_brand']:
             raise serializers.ValidationError(_('parent_brand is required'))
