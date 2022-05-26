@@ -1,8 +1,9 @@
-(function ($) {
-   $(document).ready(function() {
+window.addEventListener("load", function() {
+    (function ($) {
         var row = 0
         var dt = ""
         var host = location.protocol + '//' + location.hostname + (location.port ? ':' + location.port : '')+'/';
+        console.log(host);
         $.ajax({ data: ({'order_no':$('#id_order_no').val()}) ,
                 type: 'GET',
                 dataType: 'json',
@@ -21,7 +22,5 @@
                      console.log(request.responseText);
                 }
             });
-
-    });
-
-})(django.jQuery);
+    })(django.jQuery);
+});
