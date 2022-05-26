@@ -1,3 +1,5 @@
+from ast import Or
+from itertools import product
 import logging
 import math
 import datetime
@@ -19,7 +21,7 @@ from retailer_backend.utils import getStrToYearDate
 from retailer_to_sp.common_model_functions import ShopCrateCommonFunctions, OrderCommonFunction
 from retailer_to_sp.common_validators import validate_shipment_crates_list, validate_shipment_package_list
 from retailer_to_sp.models import (CartProductMapping, Cart, Invoice, Order, OrderedProduct, Note, CustomerCare, Payment,
-                                   Dispatch, Feedback, OrderedProductMapping as RetailerOrderedProductMapping,
+                                   Dispatch, Feedback, OrderedProductMapping as RetailerOrderedProductMapping, Shipment,
                                    Trip, PickerDashboard, ShipmentRescheduling, OrderedProductBatch, ShipmentPackaging,
                                    ShipmentPackagingMapping, DispatchTrip, DispatchTripShipmentMapping,
                                    DispatchTripShipmentPackages, ShipmentNotAttempt, PACKAGE_VERIFY_CHOICES,
@@ -576,7 +578,7 @@ class SuperStoreProductSearchSerializer(serializers.ModelSerializer):
     def get_product_price_detail(self, instance):
         price = instance.get_superstore_price
         if price:
-            return {'mrp': price.mrp, 'selling_price': price.selling_price}
+            return {'mrp': instance.mrp, 'selling_price': price.selling_price}
         return None
     
     def get_image(self, instance):
@@ -5586,10 +5588,6 @@ class SuperStoreOrderDetailSerializer(serializers.ModelSerializer):
     def get_loyalty_points(self, instance):
         return instance.ordered_product.order.ordered_cart.redeem_points
     
-    order_status = serializers.SerializerMethodField()
-    def get_order_status(self, instance):
-        return instance.ordered_product.order.order_status
-    
     discount = serializers.SerializerMethodField()
     def get_discount(self, instance):
         return 0
@@ -5605,6 +5603,42 @@ class SuperStoreOrderDetailSerializer(serializers.ModelSerializer):
     expected_delivery_date = serializers.SerializerMethodField()
     def get_expected_delivery_date(self, instance):
         return instance.ordered_product.order.estimate_delivery_time
+    
+    order_status = serializers.SerializerMethodField()
+    def get_order_status(self, instance):
+        retailer_order = instance.ordered_product.order.ref_order.filter(ordered_cart__rt_cart_list__cart_product=instance.product).last()
+        order_status = instance.ordered_product.order.order_status
+        if order_status in [Order.PAYMENT_FAILED, 
+                            Order.PAYMENT_PENDING]:
+            return Order.PAYMENT_PENDING
+        elif retailer_order:
+            retailer_order_status = retailer_order.order_status
+            if retailer_order_status in [Order.PICKING_ASSIGNED, 
+                                         Order.PICKED, 
+                                         Order.PICKUP_CREATED,
+                                         Order.PICKING_COMPLETE, 
+                                         Order.PICKING_PARTIAL_COMPLETE, 
+                                         Order.MOVED_TO_QC,
+                                         Order.PARTIAL_SHIPMENT_CREATED, 
+                                         Order.FULL_SHIPMENT_CREATED]:
+                
+                return 'in_transit'
+            elif retailer_order_status == Order.DISPATCHED:
+                return Order.DISPATCHED
+            elif retailer_order_status == Order.COMPLETED:
+                shipment_status = instance.ordered_product.shipment_status
+                if shipment_status in [OrderedProduct.OUT_FOR_DELIVERY,
+                                       OrderedProduct.DELIVERED,
+                                       OrderedProduct.RESCHEDULED]: 
+                                                                
+                    return shipment_status
+                else:
+                    return Order.COMPLETED
+            else:
+                return Order.ORDERED
+        else:
+            return Order.ORDERED
+        
     
     class Meta:
         model = RetailerOrderedProductMapping
