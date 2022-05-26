@@ -3,7 +3,6 @@ window.addEventListener("load", function() {
         var row = 0
         var dt = ""
         var host = location.protocol + '//' + location.hostname + (location.port ? ':' + location.port : '')+'/';
-        console.log(host);
         $.ajax({ data: ({'order_no':$('#id_order_no').val()}) ,
                 type: 'GET',
                 dataType: 'json',
