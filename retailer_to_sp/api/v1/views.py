@@ -4016,9 +4016,7 @@ class OrderCentral(APIView):
                 cart_map.save()
         # Create payment
         for payment in payments:
-            if app_type == 'ecom' and PosPayment.objects.filter(order=order).exists():
-                break
-            PosPayment.objects.create(
+            PosPayment.objects.get_or_create(
                 order=order,
                 payment_type_id=payment['payment_type'],
                 transaction_id=payment['transaction_id'],
