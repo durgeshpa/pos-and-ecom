@@ -709,7 +709,7 @@ class DestinationRepackagingCostMappingSerializers(serializers.ModelSerializer):
 class SuperStorePriceSerializers(serializers.ModelSerializer):
     class Meta:
         model = SuperStoreProductPrice
-        fields = ('id', 'product', 'mrp', 'seller_shop', 'selling_price',)
+        fields = ('id', 'product', 'seller_shop', 'selling_price',)
 
 
 class ChildProductSerializers(serializers.ModelSerializer):
@@ -1904,10 +1904,10 @@ class SuperStoreProductPriceSerializers(serializers.ModelSerializer):
             raise serializers.ValidationError(product_price['error'])
         data['product'] = product_val['product']
 
-        if product_val['product'] and product_val['product'].product_mrp:
-            data['mrp'] = product_val['product'].product_mrp
+        # if product_val['product'] and product_val['product'].product_mrp:
+        #     data['mrp'] = product_val['product'].product_mrp
 
-        if data['selling_price'] > data['mrp']:
+        if data['selling_price'] > product_val['product'].product_mrp:
             raise serializers.ValidationError("selling price can not be greater than product mrp")
 
         if self.initial_data['seller_shop'] is None:
@@ -1931,7 +1931,7 @@ class SuperStoreProductPriceSerializers(serializers.ModelSerializer):
 
     class Meta:
         model = SuperStoreProductPrice
-        fields = ('id', 'product', 'mrp', 'seller_shop', 'selling_price', 'product_price_change_log')
+        fields = ('id', 'product', 'seller_shop', 'selling_price', 'product_price_change_log')
 
     @transaction.atomic
     def create(self, validated_data):

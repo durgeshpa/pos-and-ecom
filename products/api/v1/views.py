@@ -1850,7 +1850,7 @@ class SuperStoreProductPriceView(GenericAPIView):
         product_sku = self.request.GET.get('product_sku')
         category_id = self.request.GET.get('category_id')
         b2c_category_id = self.request.GET.get('b2c_category_id')
-        mrp = self.request.GET.get('mrp')
+        # mrp = self.request.GET.get('mrp')
         search_text = self.request.GET.get('search_text')
 
         # search using product name and product sku based on criteria that matches
@@ -1870,8 +1870,8 @@ class SuperStoreProductPriceView(GenericAPIView):
             self.queryset = self.queryset.filter(product__product_sku__icontains=product_sku)
         if seller_shop_id is not None and not seller_shop_id is '':
             self.queryset = self.queryset.filter(seller_shop_id=seller_shop_id)
-        if mrp is not None and not mrp is '':
-            self.queryset = self.queryset.filter(mrp__icontains=mrp)
+        # if mrp is not None and not mrp is '':
+        #     self.queryset = self.queryset.filter(mrp__icontains=mrp)
         return self.queryset
 
     def delete(self, request):

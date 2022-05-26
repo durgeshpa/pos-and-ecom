@@ -1959,9 +1959,10 @@ def check_super_store_product_price_mandatory_columns(uploaded_data_list, header
             if not re.match("^\d+[.]?[\d]{0,2}$", str(row['selling_price'])):
                 error_msg.append(f"Row {row_num} | {row['selling_price']} | "
                                       f"'selling_price' can only be a numeric value.")
-            if product_val['product'].product_mrp < float(row['selling_price']):
-                error_msg.append(f"Row {row_num} | {row['selling_price']} | "
-                                      f"'selling_price' can not be greater than product mrp.")
+            if 'error' not in product_val:
+                if product_val['product'].product_mrp < float(row['selling_price']):
+                    error_msg.append(f"Row {row_num} | {row['selling_price']} | "
+                                          f"'selling_price' can not be greater than product mrp.")
 
         # Validate non mandatory
         if 'mrp' in row.keys() and str(row['mrp']).strip() != '':
