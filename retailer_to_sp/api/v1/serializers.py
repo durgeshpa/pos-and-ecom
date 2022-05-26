@@ -1,5 +1,3 @@
-from ast import Or
-from itertools import product
 import logging
 import math
 import datetime
@@ -5493,10 +5491,6 @@ class SuperStoreOrderListSerializer(serializers.ModelSerializer):
             }
         return None
     
-    # ordered_from = serializers.SerializerMethodField()
-    # def get_ordered_from(self, instance):
-    #     return instance.ordered_product.order.ordered_cart.seller_shop.shop_name
-    
     payment = serializers.SerializerMethodField()
     def get_payment(self, instance):
         payments = instance.ordered_product.order.rt_payment_retailer_order.all()
@@ -5513,7 +5507,36 @@ class SuperStoreOrderListSerializer(serializers.ModelSerializer):
     
     order_status = serializers.SerializerMethodField()
     def get_order_status(self, instance):
-        return instance.ordered_product.order.order_status
+        retailer_order = instance.ordered_product.order.ref_order.filter(ordered_cart__rt_cart_list__cart_product=instance.product).last()
+        order_status = instance.ordered_product.order.order_status
+        if order_status in [Order.PAYMENT_FAILED,
+                            Order.PAYMENT_PENDING]:
+            return Order.PAYMENT_PENDING
+        elif retailer_order:
+            retailer_order_status = retailer_order.order_status
+            if retailer_order_status in [Order.PICKING_ASSIGNED,
+                                         Order.PICKED,
+                                         Order.PICKUP_CREATED,
+                                         Order.PICKING_COMPLETE,
+                                         Order.PICKING_PARTIAL_COMPLETE,
+                                         Order.MOVED_TO_QC,
+                                         Order.PARTIAL_SHIPMENT_CREATED,
+                                         Order.FULL_SHIPMENT_CREATED]:
+                return 'in_transit'
+            elif retailer_order_status == Order.DISPATCHED:
+                return Order.DISPATCHED
+            elif retailer_order_status == Order.COMPLETED:
+                shipment_status = instance.ordered_product.shipment_status
+                if shipment_status in [OrderedProduct.OUT_FOR_DELIVERY,
+                                       OrderedProduct.DELIVERED,
+                                       OrderedProduct.RESCHEDULED]:
+                    return shipment_status
+                else:
+                    return Order.COMPLETED
+            else:
+                return Order.ORDERED
+        else:
+            return Order.ORDERED
     
     product = ProductSerializer(read_only=True)
     
@@ -5608,20 +5631,19 @@ class SuperStoreOrderDetailSerializer(serializers.ModelSerializer):
     def get_order_status(self, instance):
         retailer_order = instance.ordered_product.order.ref_order.filter(ordered_cart__rt_cart_list__cart_product=instance.product).last()
         order_status = instance.ordered_product.order.order_status
-        if order_status in [Order.PAYMENT_FAILED, 
+        if order_status in [Order.PAYMENT_FAILED,
                             Order.PAYMENT_PENDING]:
             return Order.PAYMENT_PENDING
         elif retailer_order:
             retailer_order_status = retailer_order.order_status
-            if retailer_order_status in [Order.PICKING_ASSIGNED, 
-                                         Order.PICKED, 
+            if retailer_order_status in [Order.PICKING_ASSIGNED,
+                                         Order.PICKED,
                                          Order.PICKUP_CREATED,
-                                         Order.PICKING_COMPLETE, 
-                                         Order.PICKING_PARTIAL_COMPLETE, 
+                                         Order.PICKING_COMPLETE,
+                                         Order.PICKING_PARTIAL_COMPLETE,
                                          Order.MOVED_TO_QC,
-                                         Order.PARTIAL_SHIPMENT_CREATED, 
+                                         Order.PARTIAL_SHIPMENT_CREATED,
                                          Order.FULL_SHIPMENT_CREATED]:
-                
                 return 'in_transit'
             elif retailer_order_status == Order.DISPATCHED:
                 return Order.DISPATCHED
@@ -5629,8 +5651,7 @@ class SuperStoreOrderDetailSerializer(serializers.ModelSerializer):
                 shipment_status = instance.ordered_product.shipment_status
                 if shipment_status in [OrderedProduct.OUT_FOR_DELIVERY,
                                        OrderedProduct.DELIVERED,
-                                       OrderedProduct.RESCHEDULED]: 
-                                                                
+                                       OrderedProduct.RESCHEDULED]:
                     return shipment_status
                 else:
                     return Order.COMPLETED
