@@ -1036,7 +1036,13 @@ class AutoSuggest(APIView):
     permission_classes = (AllowAny,)
 
     def search_query(self, keyword):
-        filter_list = [{"term": {"status": True}}, {"term": {"visible": True}}, {"range": {"available": {"gt": 0}}}]
+        app_type = self.request.META.get('HTTP_APP_TYPE', '1')
+        filter_list = [{"term": {"status": True}}, {"term": {"visible": True}}]
+        if app_type == '4':
+            filter_list.append({"term": {"product_type": "superstore"}})
+        else:
+            filter_list.append({"term": {"product_type": "grocery"}})
+            filter_list.append({"range": {"available": {"gt": 0}}})
         query = {"bool": {"filter": filter_list}}
         q = {
             "match": {
