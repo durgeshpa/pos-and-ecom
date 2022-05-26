@@ -41,7 +41,8 @@ from brand.models import Brand
 from categories import models as categorymodel
 from common.common_utils import (create_file_name, single_pdf_file, create_merge_pdf_name, merge_pdf_files,
                                  create_invoice_data, whatsapp_opt_in, whatsapp_order_cancel, whatsapp_order_refund,
-                                 whatsapp_order_delivered)
+                                 whatsapp_order_delivered, sms_order_delivered, sms_out_for_delivery,
+                                 sms_order_dispatch, sms_order_placed)
 from common.constants import PREFIX_CREDIT_NOTE_FILE_NAME, ZERO, PREFIX_INVOICE_FILE_NAME, INVOICE_DOWNLOAD_ZIP_NAME
 from common.data_wrapper_view import DataWrapperViewSet
 from coupon.models import Coupon, CusotmerCouponUsage
@@ -3365,6 +3366,7 @@ class OrderCentral(APIView):
                                                         shipment=shipment)
                 pos_trip.trip_start_at = datetime.now()
                 pos_trip.save()
+                sms_out_for_delivery(shipment.order.buyer.first_name, shipment.order.buyer.phone_number)
             else:
                 if shipment.order.delivery_option == '1':
                     shipment.shipment_status = order_status
@@ -3381,6 +3383,7 @@ class OrderCentral(APIView):
                                                           shipment=shipment)
                     pos_trip.trip_end_at = datetime.now()
                     pos_trip.save()
+                    sms_order_delivered(shipment.order.buyer.first_name, shipment.order.buyer.phone_number)
             return api_response("Order updated successfully!", response, status.HTTP_200_OK, True)
 
     def put_retail_order(self, pk):
@@ -3798,6 +3801,7 @@ class OrderCentral(APIView):
             ]
             self.auto_process_order(order, payments, 'superstore')
             self.process_superstore_order(order)
+            sms_order_placed(order.buyer.first_name, order.buyer.phone_number)
             msg = 'Ordered Successfully!'
             return api_response(msg, BasicOrderListSerializer(Order.objects.get(id=order.id)).data,
                                         status.HTTP_200_OK, True)
