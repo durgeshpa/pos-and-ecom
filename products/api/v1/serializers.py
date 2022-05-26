@@ -251,20 +251,20 @@ class ParentProductSerializers(serializers.ModelSerializer):
         """
             is_ptr_applicable validation.
         """
-        if not 'parent_product_pro_image' in self.initial_data or not self.initial_data['parent_product_pro_image']:
-            if not 'product_images' in self.initial_data or not self.initial_data['product_images']:
-                raise serializers.ValidationError(_('product image is required'))
-
-        if 'parent_product_pro_image' in self.initial_data and self.initial_data['parent_product_pro_image']:
-            image_val = get_validate_parent_product_image_ids(self.initial_data['id'],
-                                                              self.initial_data['parent_product_pro_image'])
-            if 'error' in image_val:
-                raise serializers.ValidationError(_(image_val["error"]))
-
-        if 'product_images' in self.initial_data and self.initial_data['product_images']:
-            image_val = get_validate_images(self.initial_data['product_images'])
-            if 'error' in image_val:
-                raise serializers.ValidationError(_(image_val["error"]))
+        # if not 'parent_product_pro_image' in self.initial_data or not self.initial_data['parent_product_pro_image']:
+        #     if not 'product_images' in self.initial_data or not self.initial_data['product_images']:
+        #         raise serializers.ValidationError(_('product image is required'))
+        #
+        # if 'parent_product_pro_image' in self.initial_data and self.initial_data['parent_product_pro_image']:
+        #     image_val = get_validate_parent_product_image_ids(self.initial_data['id'],
+        #                                                       self.initial_data['parent_product_pro_image'])
+        #     if 'error' in image_val:
+        #         raise serializers.ValidationError(_(image_val["error"]))
+        #
+        # if 'product_images' in self.initial_data and self.initial_data['product_images']:
+        #     image_val = get_validate_images(self.initial_data['product_images'])
+        #     if 'error' in image_val:
+        #         raise serializers.ValidationError(_(image_val["error"]))
 
         if not 'parent_brand' in self.initial_data or not self.initial_data['parent_brand']:
             raise serializers.ValidationError(_('parent_brand is required'))
@@ -727,6 +727,8 @@ class ChildProductSerializers(serializers.ModelSerializer):
     packing_product_rt = ProductPackingMappingSerializers(many=True, required=False)
     destination_product_repackaging = DestinationRepackagingCostMappingSerializers(many=True,
                                                                                    required=False)
+    off_percentage = serializers.SerializerMethodField()
+    parent_product_discription = serializers.SerializerMethodField()
 
     class Meta:
         model = Product
@@ -735,7 +737,8 @@ class ChildProductSerializers(serializers.ModelSerializer):
                   'weight_unit', 'reason_for_child_sku', 'use_parent_image', 'product_special_cess', 'product_type',
                   'is_manual_price_update', 'repackaging_type', 'product_pro_image', 'parent_product', 'super_store_product_price',
                   'product_pro_tax', 'destination_product_pro', 'product_images', 'destination_product_repackaging',
-                  'packing_product_rt', 'product_vendor_mapping', 'child_product_log',)
+                  'packing_product_rt', 'product_vendor_mapping', 'child_product_log','parent_product_discription',
+                  'off_percentage')
 
     def validate(self, data):
         if not 'parent_product' in self.initial_data or self.initial_data['parent_product'] is None:
@@ -870,6 +873,15 @@ class ChildProductSerializers(serializers.ModelSerializer):
                                                                     destination_product_repack)
 
         return child_product
+
+    def get_off_percentage(self,obj):
+        price = obj.get_superstore_price
+        return round(100-((price.selling_price*100)/obj.product_mrp),2) if price else None
+
+    def get_parent_product_discription(self, obj):
+        """Return Parent product discription ...."""
+        if obj:
+            return obj.parent_product.product_discription
 
     def create_source_packing_material_destination_product(self, child_product, destination_product_repack):
         ProductCls.create_source_product_mapping(child_product, self.initial_data['destination_product_pro'])
