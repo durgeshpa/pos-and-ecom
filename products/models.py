@@ -1283,7 +1283,7 @@ class BaseTimestampUserModel(models.Model):
 class SuperStoreProductPrice(BaseTimestampUserModel):
     product = models.ForeignKey(Product, related_name='super_store_product_price',
                                 on_delete=models.CASCADE)
-    mrp = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    # mrp = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     selling_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=False)
     seller_shop = models.ForeignKey(Shop, related_name='super_store_product_price',
                                     null=True, blank=True,

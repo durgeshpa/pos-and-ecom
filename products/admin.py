@@ -2186,8 +2186,8 @@ class SuperStoreProductPriceLogAdmin(admin.TabularInline):
 
 
 class SuperStoreProductPriceAdmin(admin.ModelAdmin):
-    list_display = ('product', 'seller_shop',  'mrp', 'selling_price')
-    fields = ['product', 'seller_shop',  'mrp', 'selling_price']
+    list_display = ('product', 'seller_shop', 'selling_price')
+    fields = ['product', 'seller_shop', 'selling_price']
     list_per_page = 10
     list_filter = [ShopFilter,]
     search_fields = ('product__product_name',)
