@@ -694,11 +694,11 @@ class UploadChildProductAdminForm(forms.Form):
             if not row[7]:
                 raise ValidationError(_(f"Row {row_id + 1} | 'Use Parent Image' can not be empty."))
             elif str(row[7]).lower() not in ['yes', 'no']:
-                raise ValidationError(f"Row {row_id} | 'use_parent_image' only allowed 'yes' or 'no'")
+                raise ValidationError(f"ow {row_id + 1} | 'use_parent_image' only allowed 'yes' or 'no'")
             if row[0] and str(row[7]).lower() == 'yes':
                 if not ParentProduct.objects.filter(parent_id=row[0]).last()\
                         .parent_product_pro_image.exists():
-                    raise ValidationError(_(f"Parent Product Image Not Available for Parent Product {row[0]}."))
+                    raise ValidationError(_(f"Row {row_id + 1} | Parent Product Image Not Available for Parent Product {row[0]}."))
             if not row[8]:
                 raise ValidationError(_(f"Row {row_id + 1} | 'Repackaging Type' can not be empty."))
             elif row[8] not in [lis[0] for lis in Product.REPACKAGING_TYPES]:
