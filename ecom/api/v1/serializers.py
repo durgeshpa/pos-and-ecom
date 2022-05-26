@@ -186,7 +186,7 @@ class AddressSerializer(serializers.ModelSerializer):
         # Validate Pin Code
         pin_code_obj = Pincode.objects.filter(pincode=attrs.get('pincode')).select_related('city', 'city__state').last()
         if not pin_code_obj:
-            raise serializers.ValidationError("Invalid Pin Code")
+            raise serializers.ValidationError("Currently not servicing to this Pincode.")
         # Check for address id in case of update
         pk = self.context.get('pk', None)
         user = self.context.get('user')
