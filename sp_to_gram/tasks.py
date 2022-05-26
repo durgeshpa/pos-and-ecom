@@ -210,7 +210,7 @@ def get_warehouse_stock(shop_id=None, product=None, inventory_type=None):
         is_discounted = True if product.product_type == Product.PRODUCT_TYPE_CHOICE.DISCOUNTED else False
         expiry_date = get_earliest_expiry_date(product, shop, type_normal, is_discounted) if is_discounted else None
 
-        if product_type == "superstore":
+        if product_type == "superstore" and product.status in ['active', True]:
             if super_store_product_price is None:
                 status = False
                 visible = False
