@@ -660,7 +660,7 @@ class SearchProducts(APIView):
         body = dict()
         if ean_code and ean_code != '':
             filters = [{"term": {"ean": ean_code}}]
-            if app_type != 4:
+            if app_type != '4':
                 filters.append({"term": {"product_type": 'grocery'}})
             else:
                 filters.append({"term": {"product_type": 'superstore'}})
@@ -724,10 +724,12 @@ class SearchProducts(APIView):
         # No Shop Id OR Store Inactive
         if not parent_shop:
             body["_source"] = {"includes": ["id", "name", "product_images", "pack_size", "brand_case_size",
-                                            "weight_unit", "weight_value", "visible", "mrp", "ean"]}
+                                            "weight_unit", "weight_value", "visible", "mrp", "ean",
+                                            "super_store_product_selling_price"]}
             products_list = es_search(index=es_index, body=body)
             for p in products_list['hits']['hits']:
                 p["_source"]["description"] = p["_source"]["name"]
+                p["_source"]["super_store_product_selling_price"] = p["_source"]["super_store_product_selling_price"]
                 p_list.append(p["_source"])
             return p_list
         # Active Store
@@ -758,7 +760,7 @@ class SearchProducts(APIView):
         is_discounted = self.request.GET.get('is_discounted', None)
         filter_list = []
         app_type = self.request.META.get('HTTP_APP_TYPE', '1')
-        if app_type == 4:
+        if app_type == '4':
             filter_list = [
                 {"term": {"status": True}},
                 {"term": {"visible": True}},
