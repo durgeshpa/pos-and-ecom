@@ -416,7 +416,8 @@ class UploadMasterData(object):
                     fields = ['sku_id', 'sku_name', 'ean', 'mrp', 'weight_unit', 'weight_value', 'parent_id',
                               'status', 'repackaging_type', 'source_sku_id', 'status', 'product_special_cess',
                               'raw_material', 'wastage', 'fumigation', 'label_printing', 'packing_labour',
-                              'primary_pm_cost', 'secondary_pm_cost', "packing_sku_id", "packing_material_weight"]
+                              'primary_pm_cost', 'secondary_pm_cost', "packing_sku_id", "packing_material_weight",
+                              "use_parent_image"]
 
                     available_fields = []
                     for col in fields:
@@ -442,6 +443,9 @@ class UploadMasterData(object):
 
                     if 'mrp' in row and row['mrp']:
                         child_obj['product_mrp'] = float(row['mrp'])
+
+                    if 'use_parent_image' in row and row['use_parent_image']:
+                        child_obj['use_parent_image'] = True if str(row['use_parent_image']).lower() == 'yes' else False
 
                     if 'weight_unit' in row and row['weight_unit']:
                         child_obj['weight_unit'] = row['weight_unit']
@@ -733,6 +737,7 @@ class UploadMasterData(object):
                     reason_for_child_sku=(row['reason_for_child_sku'].lower()), product_name=row['product_name'],
                     product_ean_code=row['ean'].replace("'", ''), product_mrp=float(row['mrp']),
                     weight_value=float(row['weight_value']), weight_unit=str(row['weight_unit'].lower()),
+                    use_parent_image=True if str(row['use_parent_image']).lower() == 'yes' else False,
                     repackaging_type=row['repackaging_type'], created_by=user,
                     status='pending_approval' if row['status'].lower() is None else row['status'].lower(),
                     product_special_cess=(
@@ -999,13 +1004,14 @@ class DownloadMasterData(object):
 
         writer.writerow(
             ["product_name", "reason_for_child_sku", "parent_id", "ean", "mrp", "weight_value", "weight_unit",
-             "repackaging_type", "product_special_cess", 'status', "source_sku_id", 'raw_material', 'wastage',
-             'fumigation', 'label_printing', 'packing_labour', 'primary_pm_cost', 'secondary_pm_cost', "packing_sku_id",
-             "packing_material_weight"])
-        data = [["TestChild1", "Default", "PHEAMGI0001", "abcdefgh", "50", "20", "gm", "none", " ", "pending_approval"],
-                ["TestChild2", "Default", "PHEAMGI0001", "abcdefgh", "50", "20", "gm", "source", " ",
+             "use_parent_image", "repackaging_type", "product_special_cess", 'status', "source_sku_id", 'raw_material',
+             'wastage', 'fumigation', 'label_printing', 'packing_labour', 'primary_pm_cost', 'secondary_pm_cost',
+             "packing_sku_id", "packing_material_weight"])
+        data = [["TestChild1", "Default", "PHEAMGI0001", "abcdefgh", "50", "20", "gm", "yes", "none", " ",
                  "pending_approval"],
-                ["TestChild3", "Default", "PHEAMGI0001", "abcdefgh", "50", "20", "gm", "destination", " ",
+                ["TestChild2", "Default", "PHEAMGI0001", "abcdefgh", "50", "20", "gm", "no", "source", " ",
+                 "pending_approval"],
+                ["TestChild3", "Default", "PHEAMGI0001", "abcdefgh", "50", "20", "gm", "yes", "destination", " ",
                  "deactivated",
                  "SNGSNGGMF00000016, SNGSNGGMF00000016", "10.22", "2.33", "7", "4.33", "5.33", "10.22", "5.22",
                  "BPOBLKREG00000001", "10.00"]]
@@ -1058,14 +1064,14 @@ class DownloadMasterData(object):
     def update_child_product_sample_file(cls, validated_data):
         response, writer = DownloadMasterData.response_workbook("child_data_sample")
         columns = ['sku_id', 'sku_name', 'parent_id', 'parent_name', 'ean', 'mrp', 'weight_unit', 'weight_value',
-                   'status', 'product_special_cess', 'repackaging_type', 'b2b_category_name', 'b2c_category_name',
-                   'source_sku_id', 'raw_material', 'wastage', 'fumigation', 'label_printing', 'packing_labour',
-                   'primary_pm_cost', 'secondary_pm_cost', "packing_sku_id", "packing_material_weight"]
+                   'status', 'product_special_cess', "use_parent_image", 'repackaging_type', 'b2b_category_name',
+                   'b2c_category_name', 'source_sku_id', 'raw_material', 'wastage', 'fumigation', 'label_printing',
+                   'packing_labour', 'primary_pm_cost', 'secondary_pm_cost', "packing_sku_id", "packing_material_weight"]
 
         writer.writerow(columns)
         sub_cat = Category.objects.filter(category_parent=validated_data['category_id'])
         products = Product.objects.values('id', 'product_sku', 'product_name', 'product_ean_code', 'product_mrp',
-                                          'weight_unit', 'weight_value', 'status', 'repackaging_type',
+                                          'weight_unit', 'weight_value', 'status', 'repackaging_type', 'use_parent_image',
                                           'parent_product__parent_id', 'parent_product__name', 'product_special_cess',
                                           'parent_product__parent_product_pro_category__category__category_name',
                                           'parent_product__parent_product_pro_b2c_category__category__category_name') \
@@ -1090,6 +1096,10 @@ class DownloadMasterData(object):
             row.append(product['weight_value'])
             row.append(product['status'])
             row.append(product['product_special_cess'])
+            if product['use_parent_image']:
+                row.append("yes")
+            else:
+                row.append("no")
             row.append(product['repackaging_type'])
             row.append(product['parent_product__parent_product_pro_category__category__category_name'])
             b2c_cat = ParentProductB2cCategory.objects.filter(

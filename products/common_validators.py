@@ -410,7 +410,8 @@ def read_file(csv_file, upload_master_data, category, b2c_category):
                                 'weight_value', 'status', 'product_special_cess', 'repackaging_type',
                                 'b2b_category_name', 'b2c_category_name', 'source_sku_id', 'raw_material',
                                 'wastage', 'fumigation', 'label_printing', 'packing_labour', 'primary_pm_cost',
-                                'secondary_pm_cost', "packing_sku_id", "packing_material_weight", 'status']
+                                'secondary_pm_cost', "packing_sku_id", "packing_material_weight", 'status',
+                                'use_parent_image']
     if upload_master_data == "brand_update":
         required_header_list = ["brand_id", "name", "brand_slug", "brand_description", "brand_code",
                                 "brand_parent_id", "brand_parent", 'status']
@@ -431,7 +432,7 @@ def read_file(csv_file, upload_master_data, category, b2c_category):
                                 'weight_value', 'status', 'repackaging_type', 'source_sku_id', 'packing_sku_id',
                                 'packing_material_weight', 'raw_material', 'wastage', 'fumigation', 'label_printing',
                                 'packing_labour', 'primary_pm_cost', 'secondary_pm_cost', 'product_special_cess',
-                                'status']
+                                'status', 'use_parent_image']
     if upload_master_data == "create_brand":
         required_header_list = ['name', 'brand_slug', 'brand_parent', 'brand_parent_id', 'brand_description',
                                 'brand_code', 'status']
@@ -952,7 +953,7 @@ def check_mandatory_columns(uploaded_data_list, header_list, upload_master_data,
     if upload_master_data == "create_child_product":
         row_num = 1
         mandatory_columns = ['parent_id', 'product_name', 'reason_for_child_sku', 'ean', 'mrp', 'weight_unit',
-                             'weight_value', 'repackaging_type', 'status']
+                             'weight_value', 'repackaging_type', 'status', 'use_parent_image']
 
         for ele in mandatory_columns:
             if ele not in header_list:
@@ -995,6 +996,9 @@ def check_mandatory_columns(uploaded_data_list, header_list, upload_master_data,
 
             if 'repackaging_type' not in row.keys() or row['repackaging_type'] == '':
                 raise ValidationError(f"Row {row_num} | 'repackaging_type' can't be empty")
+
+            if 'use_parent_image' not in row.keys() or row['use_parent_image'] == '':
+                raise ValidationError(f"Row {row_num} | 'use_parent_image' is a mandatory field")
 
     if upload_master_data == "create_brand":
         row_num = 1
@@ -1500,6 +1504,16 @@ def validate_row(uploaded_data_list, header_list, category, b2c_category):
                 if row['product_type'].lower() not in product_type_list:
                     raise ValidationError(f"Row {row_num} | {row['product_type']} | 'Product Type can either be "
                                           f"'grocery', or 'superstore'!")
+
+            if 'use_parent_image' in header_list and 'use_parent_image' in row.keys() \
+                    and str(row['use_parent_image']).lower() not in ['yes', 'no']:
+                raise ValidationError(f"Row {row['use_parent_image']} | 'use_parent_image' only allowed 'yes' or 'no'")
+            if 'parent_id' in header_list and 'parent_id' in row.keys() and \
+                    str(row['parent_id']).strip() != '' and 'use_parent_image' in header_list and 'use_parent_image' in row.keys() \
+                    and str(row['use_parent_image']).lower() == 'yes':
+                if not ParentProduct.objects.filter(
+                        parent_id=str(row['parent_id']).strip()).last().parent_product_pro_image.exists():
+                    raise ValidationError(f"Parent Product Image Not Available for parent product {row['parent_id']}")
 
             if 'discounted_life_percent' in header_list and 'discounted_life_percent' in row.keys() and row[
                 'discounted_life_percent'] != '':

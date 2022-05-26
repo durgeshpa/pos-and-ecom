@@ -1073,7 +1073,7 @@ def parent_product_upload(request):
                                     )
                                     parent_product_category.save()
                         ParentProductCls.update_tax_status_and_remark(parent_product)
-                        
+
             except Exception as e:
                 return render(request, 'admin/products/parent-product-upload.html', {
                     'form': form,
@@ -1126,13 +1126,13 @@ def ChildProductsDownloadSampleCSV(request):
     response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
     writer = csv.writer(response)
     writer.writerow(["Parent Product ID", "Reason for Child SKU", "Product Name", "Product EAN Code",
-                     "Product MRP", "Weight Value", "Weight Unit", "Repackaging Type", "Map Source SKU",
-                     'Raw Material Cost', 'Wastage Cost', 'Fumigation Cost', 'Label Printing Cost',
+                     "Product MRP", "Weight Value", "Weight Unit", "Use Parent Image", "Repackaging Type",
+                     "Map Source SKU", 'Raw Material Cost', 'Wastage Cost', 'Fumigation Cost', 'Label Printing Cost',
                      'Packing Labour Cost', 'Primary PM Cost', 'Secondary PM Cost', "Packing SKU",
                      "Packing Sku Weight (gm) Per Unit (Qty) Destination Sku"])
-    writer.writerow(["PHEAMGI0001", "Default", "TestChild1", "abcdefgh", "50", "20", "Gram", "none"])
-    writer.writerow(["PHEAMGI0001", "Default", "TestChild2", "abcdefgh", "50", "20", "Gram", "source"])
-    writer.writerow(["PHEAMGI0001", "Default", "TestChild3", "abcdefgh", "50", "20", "Gram", "destination",
+    writer.writerow(["PHEAMGI0001", "Default", "TestChild1", "abcdefgh", "50", "20", "Gram", "yes", "none"])
+    writer.writerow(["PHEAMGI0001", "Default", "TestChild2", "abcdefgh", "50", "20", "Gram", "yes", "source"])
+    writer.writerow(["PHEAMGI0001", "Default", "TestChild3", "abcdefgh", "50", "20", "Gram", "no", "destination",
                      "SNGSNGGMF00000016, SNGSNGGMF00000016", "10.22", "2.33", "7", "4.33", "5.33", "10.22", "5.22",
                      "BPOBLKREG00000001", "10.00"])
     return response
@@ -1175,8 +1175,8 @@ def product_csv_upload(request):
                                     row[5] == '' and row[6] == ''):
                                 continue
                         source_map = []
-                        if row[7] == 'destination':
-                            for pro in row[8].split(','):
+                        if row[8] == 'destination':
+                            for pro in row[9].split(','):
                                 pro = pro.strip()
                                 if pro is not '' and pro not in source_map and \
                                         Product.objects.filter(product_sku=pro, repackaging_type='source').exists():
@@ -1190,10 +1190,11 @@ def product_csv_upload(request):
                             product_mrp=float(row[4]),
                             weight_value=float(row[5]),
                             weight_unit='gm' if 'gram' in row[6].lower() else 'gm',
-                            repackaging_type=row[7]
+                            use_parent_image=True if str(row[7]).lower() == 'yes' else False,
+                            repackaging_type=row[8]
                         )
                         product.save()
-                        if row[7] == 'destination':
+                        if row[8] == 'destination':
                             for sku in source_map:
                                 psm = ProductSourceMapping.objects.create(
                                     destination_sku=product,
@@ -1204,19 +1205,19 @@ def product_csv_upload(request):
                                 psm.save()
                             dcm = DestinationRepackagingCostMapping.objects.create(
                                 destination=product,
-                                raw_material=float(row[9]),
-                                wastage=float(row[10]),
-                                fumigation=float(row[11]),
-                                label_printing=float(row[12]),
-                                packing_labour=float(row[13]),
-                                primary_pm_cost=float(row[14]),
-                                secondary_pm_cost=float(row[15])
+                                raw_material=float(row[10]),
+                                wastage=float(row[11]),
+                                fumigation=float(row[12]),
+                                label_printing=float(row[13]),
+                                packing_labour=float(row[14]),
+                                primary_pm_cost=float(row[15]),
+                                secondary_pm_cost=float(row[16])
                             )
                             dcm.save()
                             ProductPackingMapping.objects.create(
                                 sku=product,
-                                packing_sku=Product.objects.get(product_sku=row[16]),
-                                packing_sku_weight_per_unit_sku=row[17]
+                                packing_sku=Product.objects.get(product_sku=row[17]),
+                                packing_sku_weight_per_unit_sku=row[18]
                             )
                 error = ''
             except Exception as e:
