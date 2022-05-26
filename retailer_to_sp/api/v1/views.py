@@ -2231,7 +2231,7 @@ class CartCheckout(APIView):
         except ObjectDoesNotExist:
             return api_response("No items added in cart yet")
         with transaction.atomic():
-            use_reward_this_month = RewardCls.checkout_redeem_points(cart, 0, shop=kwargs['shop'],app_type="ECOM",use_all=self.request.GET.get('use_rewards', 1))
+            use_reward_this_month = RewardCls.checkout_redeem_points(cart, 0, shop=kwargs['shop'],app_type="SUPERSTORE",use_all=self.request.GET.get('use_rewards', 1))
             data = self.serialize(cart, None)
             address = AddressCheckoutSerializer(cart.buyer.ecom_user_address.filter(default=True).last()).data
             data.update({'default_address': address})
@@ -3782,7 +3782,8 @@ class OrderCentral(APIView):
         if err:
             return api_response(err)
         else:
-            RewardCls.checkout_redeem_points(cart, cart.redeem_points, shop)
+            use_all = 1 if int(cart.redeem_points) !=0 else 0
+            RewardCls.checkout_redeem_points(cart, cart.redeem_points, shop, app_type='SUPERSTORE', use_all=None)
             order = self.create_basic_order(cart, shop, address, payment_type_id, delivery_option)
             payments = [
                 {
