@@ -313,7 +313,7 @@ def order_picklist(order_id, zone_id=None):
         prod_list = {"product": product, "sku": sku, "mrp": mrp, "qty": qty, "batch_id": batch_id, "bin": bin_id,
                      "zone": zone}
         data_list.append(prod_list)
-    if order.ordered_cart.cart_type == 'SUPERSTORE' and order.ordered_cart.cart_type == 'ECOM':
+    if order.ordered_cart.cart_type == 'SUPERSTORE' or order.ordered_cart.cart_type == 'ECOM':
         buyer_shop_name = order.ecom_address_order.contact_name
         buyer_contact_number = order.ecom_address_order.contact_number
         buyer_shipping_address = order.ecom_address_order.address
