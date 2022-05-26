@@ -2224,8 +2224,8 @@ class CartCheckout(APIView):
     @check_ecom_user_shop
     def get_superstore_cart_checkout(self, request, *args, **kwargs):
         try:
-            cart = Cart.objects.filter(cart_type='SUPERSTORE', 
-                                       buyer=self.request.user, 
+            cart = Cart.objects.filter(cart_type='SUPERSTORE',
+                                       buyer=self.request.user,
                                        seller_shop=kwargs['shop'],
                                        cart_status='active').last()
         except ObjectDoesNotExist:
@@ -2240,7 +2240,7 @@ class CartCheckout(APIView):
             data.update({'saving': round(data['total_mrp'] - data['amount_payable'], 2)})
             data.update({"redeem_points_message": use_reward_this_month if use_reward_this_month else ""})
             return api_response("Cart Checkout", data, status.HTTP_200_OK, True)
-    
+
     def delete(self, request, *args, **kwargs):
         """
             Checkout
@@ -3327,7 +3327,7 @@ class OrderCentral(APIView):
         with transaction.atomic():
             response = None
             try:
-                order_product_mapping = OrderedProductMapping.objects.select_for_update().get(pk=kwargs['pk'], 
+                order_product_mapping = OrderedProductMapping.objects.select_for_update().get(pk=kwargs['pk'],
                                                               ordered_product__order__seller_shop=kwargs['shop'],
                                                               ordered_product__order__ordered_cart__cart_type='SUPERSTORE')
                 shipment = order_product_mapping.ordered_product
@@ -3342,14 +3342,14 @@ class OrderCentral(APIView):
                 retail_delivery_check = True
                 if not shipment.order.delivery_option == 2:
                     return api_response("Self pick up orders cannot be marked as out for delivered")
-                    
+
                 if not retail_delivery_check:
                     return api_response("Order cannot be marked as out for delivery as product is not delivered to your shop.")
                 try:
                     delivery_person = User.objects.get(id=self.request.data.get('delivery_person'))
                 except:
                     return api_response("Please select a delivery person")
-                
+
                 shipment.delivery_person = delivery_person
                 #invoice no generation
                 shipment.shipment_status = OrderedProduct.MOVED_TO_DISPATCH
@@ -3380,7 +3380,7 @@ class OrderCentral(APIView):
                     pos_trip.trip_end_at = datetime.now()
                     pos_trip.save()
             return api_response("Order updated successfully!", response, status.HTTP_200_OK, True)
-    
+
     def put_retail_order(self, pk):
         """
             Cancel retailer order
@@ -3479,7 +3479,7 @@ class OrderCentral(APIView):
         return api_response('Order', self.get_serialize_process_pos_ecom(order), status.HTTP_200_OK, True,
                             extra_params={"key_p": str(config('PAYU_KEY')),}
                             )
-    
+
     @check_ecom_user
     def get_superstore_order(self, request, *args, **kwargs):
         """
@@ -3488,7 +3488,7 @@ class OrderCentral(APIView):
         """
         try:
             order = OrderedProductMapping.objects.get(pk=self.request.GET.get('product_mapping_id'),
-                                                        ordered_product__order__buyer=self.request.user, 
+                                                        ordered_product__order__buyer=self.request.user,
                                                         ordered_product__order__ordered_cart__cart_type='SUPERSTORE')
         except OrderedProductMapping.ObjectDoesNotExist:
             return api_response("Order Not Found!")
@@ -3672,7 +3672,7 @@ class OrderCentral(APIView):
         order_config = GlobalConfig.objects.filter(key='ecom_order_count').last()
         if order_config.value is not None:
             order_count = Order.objects.filter(ecom_address_order__isnull=False, created_at__date=datetime.today(),
-                                               seller_shop=shop, 
+                                               seller_shop=shop,
                                                ordered_cart__cart_type='ECOM').exclude(order_status='CANCELLED').distinct().count()
             if order_count >= order_config.value:
                 return api_response('Because of the current surge in orders, we are not taking any more orders for '
@@ -3753,23 +3753,23 @@ class OrderCentral(APIView):
             address = EcomAddress.objects.get(id=self.request.data.get('address_id'), user=self.request.user)
         except:
             return api_response("Please provide a valid address.")
-        
+
         if address.pincode != shop.shop_name_address_mapping.filter(
                 address_type='shipping').last().pincode_link.pincode:
             return api_response("This Shop is not serviceable at your delivery address.")
-        
+
         cart = Cart.objects.filter(cart_type='SUPERSTORE', buyer=self.request.user, seller_shop=shop,
                                    cart_status='active').last()
-        
+
         if not cart:
             return api_response('Please add items in your cart to place an order.')
-        
+
         # set_payment_option
         try:
             payment_type_id = PaymentType.objects.get(id=self.request.data.get('payment_type', 4)).id
         except PaymentType.DoesNotExist:
             return api_response("Please select a valid payment method.")
-        
+
         # get delivery option
         delivery_option = request.data.get('delivery_option', None)
         if delivery_option == 1:
@@ -3777,7 +3777,7 @@ class OrderCentral(APIView):
                 address_type='shipping').last()
             if not address:
                 return api_response("Shipping address not present for this shop. Contact shop manager.")
-        
+
         err = self.update_cart_superstore(shop, cart)
         if err:
             return api_response(err)
@@ -3799,7 +3799,7 @@ class OrderCentral(APIView):
             msg = 'Ordered Successfully!'
             return api_response(msg, BasicOrderListSerializer(Order.objects.get(id=order.id)).data,
                                         status.HTTP_200_OK, True)
-        
+
     def get_retail_validate(self):
         """
             Get Order
@@ -4038,15 +4038,15 @@ class OrderCentral(APIView):
         cart.cart_status = 'ordered'
         cart.last_modified_by = self.request.user
         cart.save()
-    
+
     def update_cart_superstore(self, seller_shop, cart):
         """
             Place order
             Update cart to ordered
             For ecom cart
         """
-        updated_cart = Cart.objects.filter(cart_type='SUPERSTORE', 
-                                           buyer=self.request.user, 
+        updated_cart = Cart.objects.filter(cart_type='SUPERSTORE',
+                                           buyer=self.request.user,
                                            seller_shop=seller_shop,
                                            cart_status='active').last()
 
@@ -4138,7 +4138,7 @@ class OrderCentral(APIView):
             order.estimate_delivery_time = delivery_date_expected
             order.latitude = self.request.data.get('latitude', None)
             order.longitude = self.request.data.get('longitude', None)
-            
+
         order.save()
 
         if address:
@@ -4147,7 +4147,7 @@ class OrderCentral(APIView):
                                                     longitude=address.longitude, pincode=address.pincode,
                                                     state=address.state, city=address.city)
         return order
-        
+
 
     def update_ordered_reserve_sp(self, cart, parent_mapping, order):
         """
@@ -4253,7 +4253,7 @@ class OrderCentral(APIView):
         if int(self.request.GET.get('summary', 0)) == 1:
             return PosEcomOrderDetailSerializer(order).data
         return BasicOrderSerializer(order).data
-    
+
     def get_serialize_process_superstore(self, order_product_mapping):
         return SuperStoreOrderDetailSerializer(order_product_mapping).data
 
@@ -4328,9 +4328,7 @@ class OrderCentral(APIView):
             pass
         # Create payment
         for payment in payments:
-            if app_type == 'ecom' and PosPayment.objects.filter(order=order).exists():
-                break
-            PosPayment.objects.create(
+            PosPayment.objects.get_or_create(
                 order=order,
                 payment_type_id=payment['payment_type'],
                 transaction_id=payment['transaction_id'],
@@ -4387,7 +4385,7 @@ class OrderCentral(APIView):
             product_id, qty = product_map['retailer_product'], product_map['qty']
             PosInventoryCls.order_inventory(product_id, PosInventoryState.AVAILABLE, PosInventoryState.ORDERED, qty,
                                             self.request.user, order.order_no, PosInventoryChange.ORDERED)
-    
+
     def process_superstore_order(self, order):
         cart_products = CartProductMapping.objects.filter(cart_id=order.ordered_cart.id
                                                           ).values('cart_product', 'qty', 'product_type',
@@ -4402,7 +4400,7 @@ class OrderCentral(APIView):
                 selling_price = product['selling_price'],
                 shipped_qty = product['qty']
             )
-            OrderedProductBatch.objects.create(ordered_product_mapping=shipment_product, 
+            OrderedProductBatch.objects.create(ordered_product_mapping=shipment_product,
                                                quantity=product['qty'],
                                                pickup_quantity=product['qty'])
             # Invoice Number Generate
@@ -4745,7 +4743,7 @@ class OrderListCentral(GenericAPIView):
 
         return api_response('Order', self.get_serialize_process_ecom(qs), status.HTTP_200_OK, True,
                             extra_params={"key_p": str(config('PAYU_KEY'))})
-    
+
     @check_ecom_user
     def get_superstore_order_list(self, request, *args, **kwargs):
         shop = self.request.META.get('HTTP_SHOP_ID')
@@ -4754,13 +4752,13 @@ class OrderListCentral(GenericAPIView):
         if list_type == 'pos':
             if not shop:
                 return api_response("Provide shop id in api header")
-            orders = Order.objects.filter(ordered_cart__cart_type='SUPERSTORE', 
+            orders = Order.objects.filter(ordered_cart__cart_type='SUPERSTORE',
                                           seller_shop_id=shop)
             if order_status:
                 order_status_actual = ONLINE_ORDER_STATUS_MAP.get(int(order_status), None)
                 orders = orders.filter(order_status__in=order_status_actual) if order_status_actual else orders
         else:
-            orders = Order.objects.filter(ordered_cart__cart_type='SUPERSTORE', 
+            orders = Order.objects.filter(ordered_cart__cart_type='SUPERSTORE',
                                           buyer=self.request.user)
             if order_status:
                 order_status_actual = ECOM_ORDER_STATUS_MAP.get(int(order_status), None)
@@ -4772,7 +4770,7 @@ class OrderListCentral(GenericAPIView):
         shipment_products = ShipmentProducts.objects.filter(ordered_product__order__in=orders)
         return api_response('Order Products', self.get_serialize_process_superstore(shipment_products), status.HTTP_200_OK, True,
                             extra_params={"key_p": str(config('PAYU_KEY'))})
-        
+
 
     def get_serialize_process_sp(self, order, parent_mapping):
         """
@@ -8816,12 +8814,12 @@ class OrderPaymentStatusChangeView(generics.GenericAPIView):
 
         try:
             if sub_app_type == 'pos':
-                ordered_product_mapping = OrderedProductMapping.objects.get(pk=int(modified_data['id']), 
-                                                                            ordered_product__order__seller_shop=shop, 
+                ordered_product_mapping = OrderedProductMapping.objects.get(pk=int(modified_data['id']),
+                                                                            ordered_product__order__seller_shop=shop,
                                                                             ordered_product__order__ordered_cart__cart_type='SUPERSTORE')
             else:
-                ordered_product_mapping = OrderedProductMapping.objects.get(pk=int(modified_data['id']), 
-                                                                            ordered_product__order__seller_shop=shop, 
+                ordered_product_mapping = OrderedProductMapping.objects.get(pk=int(modified_data['id']),
+                                                                            ordered_product__order__seller_shop=shop,
                                                                             ordered_product__order__ordered_cart__cart_type='SUPERSTORE',
                                                                             ordered_product__order__buyer=request.user)
             order = ordered_product_mapping.ordered_product.order
@@ -8834,7 +8832,7 @@ class OrderPaymentStatusChangeView(generics.GenericAPIView):
             info_logger.info("Order Updated Successfully.")
             return api_response('order updated!', serializer.data, status.HTTP_200_OK, True)
         return api_response(serializer_error(serializer), success=False)
-    
+
 class OrderStatusChoicesList(GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)

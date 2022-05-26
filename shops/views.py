@@ -180,11 +180,11 @@ class ShopMappedProduct(ExportMixin, SingleTableView, FilterView):
 
                     brand = myproduct.sku.parent_product.parent_brand
                 except:
-                    parent_id = ''
-                    parent_name = ''
-                    case_size = ''
+                    parent_id = myproduct.sku.parent_product.parent_id
+                    parent_name = myproduct.sku.parent_product.name
+                    case_size = myproduct.sku.parent_product.inner_case_size
                     category = ''
-                    brand = ''
+                    brand = myproduct.sku.parent_product.parent_brand
 
                 binproducts = myproduct.sku.rt_product_sku.filter(inventory_type=inventory_type_normal, quantity__gt=0)
                 if not binproducts.exists():
