@@ -504,8 +504,6 @@ def get_all_products(shop_id=None, product=None, inventory_type=None):
 
 def get_all_superstore_products(shop):
     # function to create inventory like structure for superstpre products so that it can be merged in ES refresh
-    product_prices = SuperStoreProductPrice.objects.filter(seller_shop_id=shop)
-    sku_qty_dict = {}
-    for product_price in product_prices:
-        sku_qty_dict[product_price.product.id] = 0
+    products = Product.objects.filter(parent_product__product_type=ParentProduct.SUPERSTORE).values_list('pk', flat=True)
+    sku_qty_dict = dict.fromkeys(products, 0)
     return sku_qty_dict
