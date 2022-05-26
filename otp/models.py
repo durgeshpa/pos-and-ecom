@@ -44,6 +44,7 @@ class PhoneOTP(models.Model):
         except Exception as e:
             otp = '895674'
             error_logger.error(e)
+            info_logger.error(f"create_otp_for_number|Error while creating otp for number {number}|Msg: {e}")
         phone_otp = PhoneOTP.objects.create(phone_number=number, otp=otp)
         info_logger.info(f"create_otp_for_number|{number} - {otp}|phone_otp {phone_otp}")
         return phone_otp, otp
@@ -53,16 +54,17 @@ class PhoneOTP(models.Model):
         try:
             otp = cls.generate_otp(length=getattr(settings, 'OTP_LENGTH', 6),
                                    allowed_chars=getattr(settings, 'OTP_CHARS', '0123456789'))
-            info_logger.error(f"update_otp_for_number {otp}")
+            info_logger.error(f"update_otp_for_number|Generating otp {otp}")
         except Exception as e:
             otp = '895675'
             error_logger.error(e)
+            info_logger.error(f"update_otp_for_number|Error while updating otp for number {number}|Msg: {e}")
         user = PhoneOTP.objects.filter(phone_number=number).last()
         user.otp = otp
         user.attempts = 0
         user.created_at = timezone.now()
         user.save()
-        info_logger.info(f"user {user} & otp {otp}")
+        info_logger.info(f"update_otp_for_number|user {user} & otp {otp}")
         return user, otp
 
     @classmethod
@@ -71,8 +73,9 @@ class PhoneOTP(models.Model):
             otp = get_random_string(length, allowed_chars)
             if not otp:
                 otp = '895673'
-            info_logger.error(f"generate_otp {otp}")
+            info_logger.error(f"generate_otp|generated otp {otp}")
         except Exception as e:
             otp = '895672'
             error_logger.error(e)
+            info_logger.error(f"generate_otp|Error while generating otp|Msg: {e}")
         return otp
