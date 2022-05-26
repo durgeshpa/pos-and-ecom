@@ -261,6 +261,7 @@ class SendSmsOTP(CreateAPIView):
             info_logger.info(f"SendSmsOTP|done|{msg}")
             return Response(msg, status=status_code)
         else:
+            info_logger.error(f"SendSmsOTP|validation failed|{serializer.errors}")
             return api_serializer_errors(serializer.errors)
 
 
@@ -303,7 +304,7 @@ class RequestOTPCls(object):
         """
         info_logger.info(f"send_new_text_otp|started|{ph_no}|{app_type}")
         phone_otp, otp = PhoneOTP.create_otp_for_number(ph_no)
-        info_logger.info(f"phone_otp {phone_otp}|otp {otp}")
+        info_logger.info(f"send_new_text_otp|phone_otp {phone_otp}|otp {otp}")
         date, time = datetime.datetime.now().strftime("%a(%d/%b/%y)"), datetime.datetime.now().strftime("%I:%M %p")
         sms_body = ''
         mask ='GRMFAC'
@@ -320,7 +321,7 @@ class RequestOTPCls(object):
         message.send()
         phone_otp.last_otp = timezone.now()
         phone_otp.save()
-        info_logger.info(f"SendSmsOTP otp {phone_otp.otp} sent to {phone_otp.phone_number}.")
+        info_logger.info(f"send_new_text_otp|SendSmsOTP otp {phone_otp.otp} sent to {phone_otp.phone_number}.")
         msg = {'is_success': True, 'message': ["OTP sent to {}".format(ph_no)], 'response_data': None}
         return msg, status.HTTP_200_OK
 
