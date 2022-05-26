@@ -399,7 +399,9 @@ class PageCardDataSerializer(serializers.ModelSerializer):
             sub_query = RetailerProduct.objects.filter(linked_product_id=OuterRef('content_id'), shop_id=shop_id,
                                                        is_deleted=False, online_enabled=True)
             superstore_query = Product.objects.filter(id=OuterRef('content_id'), status='active',
-                                                      parent_product__product_type=ParentProduct.SUPERSTORE)
+                                                      parent_product__product_type=ParentProduct.SUPERSTORE,
+                                                      super_store_product_price__isnull=False,
+                                                      super_store_product_price__seller_shop_id=shop_id)
             card_items = obj.items.annotate(retailer_product_exists=Exists(sub_query),
                                             superstore_product_exists=Exists(superstore_query))
 
