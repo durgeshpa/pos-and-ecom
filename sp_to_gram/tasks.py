@@ -210,7 +210,7 @@ def get_warehouse_stock(shop_id=None, product=None, inventory_type=None):
         is_discounted = True if product.product_type == Product.PRODUCT_TYPE_CHOICE.DISCOUNTED else False
         expiry_date = get_earliest_expiry_date(product, shop, type_normal, is_discounted) if is_discounted else None
 
-        if product_type == "superstore":
+        if product_type == "superstore" and product.status in ['active', True]:
             if super_store_product_price is None:
                 status = False
                 visible = False
@@ -504,8 +504,6 @@ def get_all_products(shop_id=None, product=None, inventory_type=None):
 
 def get_all_superstore_products(shop):
     # function to create inventory like structure for superstpre products so that it can be merged in ES refresh
-    product_prices = SuperStoreProductPrice.objects.filter(seller_shop_id=shop)
-    sku_qty_dict = {}
-    for product_price in product_prices:
-        sku_qty_dict[product_price.product.id] = 0
+    products = Product.objects.filter(parent_product__product_type=ParentProduct.SUPERSTORE).values_list('pk', flat=True)
+    sku_qty_dict = dict.fromkeys(products, 0)
     return sku_qty_dict

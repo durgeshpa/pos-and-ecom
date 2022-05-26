@@ -1067,6 +1067,7 @@ class ProductVendorMapping(BaseTimestampUserStatusModel):
 def create_product_sku(sender, instance=None, created=False, **kwargs):
     # product = Product.objects.get(pk=instance.product_id)
     # if not product.product_sku:
+    parent_product_category = None
     if not instance.product_sku:
         if instance.product_type == Product.PRODUCT_TYPE_CHOICE.NORMAL:
             # cat_sku_code = instance.category.category_sku_part
@@ -1085,19 +1086,20 @@ def create_product_sku(sender, instance=None, created=False, **kwargs):
                 elif ParentProductB2cCategory.objects.filter(parent_product=instance.parent_product).exists():
                     parent_product_category = ParentProductB2cCategory.objects.filter(
                         parent_product=instance.parent_product).first().category
-            cat_sku_code = parent_product_category.category_sku_part
-            parent_cat_sku_code = parent_product_category.category_parent.category_sku_part if parent_product_category.category_parent else cat_sku_code
-            brand_sku_code = instance.product_brand.brand_code
-            last_sku = ProductSKUGenerator.objects.filter(cat_sku_code=cat_sku_code,
-                                                          parent_cat_sku_code=parent_cat_sku_code,
-                                                          brand_sku_code=brand_sku_code).last()
-            if last_sku:
-                last_sku_increment = str(int(last_sku.last_auto_increment) + 1).zfill(len(last_sku.last_auto_increment))
-            else:
-                last_sku_increment = '00000001'
-            ProductSKUGenerator.objects.create(cat_sku_code=cat_sku_code, parent_cat_sku_code=parent_cat_sku_code,
-                                               brand_sku_code=brand_sku_code, last_auto_increment=last_sku_increment)
-            instance.product_sku = "%s%s%s%s" % (cat_sku_code, parent_cat_sku_code, brand_sku_code, last_sku_increment)
+            if parent_product_category:
+                cat_sku_code = parent_product_category.category_sku_part
+                parent_cat_sku_code = parent_product_category.category_parent.category_sku_part if parent_product_category.category_parent else cat_sku_code
+                brand_sku_code = instance.product_brand.brand_code
+                last_sku = ProductSKUGenerator.objects.filter(cat_sku_code=cat_sku_code,
+                                                              parent_cat_sku_code=parent_cat_sku_code,
+                                                              brand_sku_code=brand_sku_code).last()
+                if last_sku:
+                    last_sku_increment = str(int(last_sku.last_auto_increment) + 1).zfill(len(last_sku.last_auto_increment))
+                else:
+                    last_sku_increment = '00000001'
+                ProductSKUGenerator.objects.create(cat_sku_code=cat_sku_code, parent_cat_sku_code=parent_cat_sku_code,
+                                                   brand_sku_code=brand_sku_code, last_auto_increment=last_sku_increment)
+                instance.product_sku = "%s%s%s%s" % (cat_sku_code, parent_cat_sku_code, brand_sku_code, last_sku_increment)
         elif instance.product_type == Product.PRODUCT_TYPE_CHOICE.DISCOUNTED:
             instance.product_sku = 'D' + instance.product_ref.product_sku
 

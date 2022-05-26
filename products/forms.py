@@ -702,16 +702,23 @@ class UploadChildProductAdminForm(forms.Form):
             elif row[6].lower() not in ['gram']:
                 raise ValidationError(_(f"Row {row_id + 1} | 'Weight Unit' can only be 'Gram'."))
             if not row[7]:
+                raise ValidationError(_(f"Row {row_id + 1} | 'Use Parent Image' can not be empty."))
+            elif str(row[7]).lower() not in ['yes', 'no']:
+                raise ValidationError(f"Row {row_id} | 'use_parent_image' only allowed 'yes' or 'no'")
+            if row[0] and str(row[7]).lower() == 'yes':
+                if not ParentProduct.objects.filter(parent_id=row[0]).last().parent_product_pro_image.exists():
+                    raise ValidationError(_(f"Parent Product Image Not Available cant user 'User Parent Image'."))
+            if not row[8]:
                 raise ValidationError(_(f"Row {row_id + 1} | 'Repackaging Type' can not be empty."))
-            elif row[7] not in [lis[0] for lis in Product.REPACKAGING_TYPES]:
+            elif row[8] not in [lis[0] for lis in Product.REPACKAGING_TYPES]:
                 raise ValidationError(_(f"Row {row_id + 1} | 'Repackaging Type' is invalid."))
-            if row[7] == 'destination':
-                if not row[8]:
+            if row[8] == 'destination':
+                if not row[9]:
                     raise ValidationError(_(f"Row {row_id + 1} | 'Source SKU Mapping' is required for Repackaging"
                                             f" Type 'destination'."))
                 else:
                     there = False
-                    for pro in row[8].split(','):
+                    for pro in row[9].split(','):
                         pro = pro.strip()
                         if pro is not '':
                             if Product.objects.filter(product_sku=pro, repackaging_type='source').exists():
@@ -722,26 +729,26 @@ class UploadChildProductAdminForm(forms.Form):
                         raise ValidationError(_(f"Row {row_id + 1} | 'Source SKU Mapping' is required for Repackaging"
                                                 f" Type 'destination'."))
 
-                if not row[16]:
+                if not row[17]:
                     raise ValidationError(_(f"Row {row_id + 1} | 'Packing SKU' is required for Repackaging"
                                             f" Type 'destination'."))
-                elif not Product.objects.filter(product_sku=row[16], repackaging_type='packing_material').exists():
+                elif not Product.objects.filter(product_sku=row[17], repackaging_type='packing_material').exists():
                     raise ValidationError(_(f"Row {row_id + 1} | Invalid Packing Sku"))
 
-                if not row[17]:
+                if not row[18]:
                     raise ValidationError(_(f"Row {row_id + 1} | 'Packing Material Weight (gm) per unit (Qty) Of "
                                             f"Destination Sku' is required for Repackaging Type 'destination'."))
-                elif not re.match("^[0-9]{0,}(\.\d{0,2})?$", row[17]):
+                elif not re.match("^[0-9]{0,}(\.\d{0,2})?$", row[18]):
                     raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Packing Material Weight (gm) per unit (Qty)"
                                             f" Of Destination Sku'"))
 
                 dest_cost_fields = ['Raw Material Cost', 'Wastage Cost', 'Fumigation Cost', 'Label Printing Cost',
                                     'Packing Labour Cost', 'Primary PM Cost', 'Secondary PM Cost']
                 for i in range(0, 7):
-                    if not row[i + 9]:
+                    if not row[i + 10]:
                         raise ValidationError(_(f"Row {row_id + 1} | {dest_cost_fields[i]} required for Repackaging"
                                                 f" Type 'destination'."))
-                    elif not re.match("^[0-9]{0,}(\.\d{0,2})?$", row[i + 9]):
+                    elif not re.match("^[0-9]{0,}(\.\d{0,2})?$", row[i + 10]):
                         raise ValidationError(_(f"Row {row_id + 1} | {dest_cost_fields[i]} is Invalid"))
         return self.cleaned_data['file']
 
