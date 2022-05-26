@@ -313,12 +313,22 @@ def order_picklist(order_id, zone_id=None):
         prod_list = {"product": product, "sku": sku, "mrp": mrp, "qty": qty, "batch_id": batch_id, "bin": bin_id,
                      "zone": zone}
         data_list.append(prod_list)
+    if order.ordered_cart.cart_type == 'SUPERSTORE' and order.ordered_cart.cart_type == 'ECOM':
+        buyer_shop_name = order.ecom_address_order.contact_name
+        buyer_contact_number = order.ecom_address_order.contact_number
+        buyer_shipping_address = order.ecom_address_order.address
+        buyer_shipping_city = order.ecom_address_order.city.city_name
+    else:
+        buyer_shop_name = order.ordered_cart.buyer_shop.shop_name
+        buyer_contact_number = order.ordered_cart.buyer_shop.shop_owner.phone_number
+        buyer_shipping_address = order.shipping_address.address_line1
+        buyer_shipping_city = order.shipping_address.city.city_name
     pdf_data['data'] = {
         "data_list": data_list,
-        "buyer_shop": order.ordered_cart.buyer_shop.shop_name,
-        "buyer_contact_no": order.ordered_cart.buyer_shop.shop_owner.phone_number,
-        "buyer_shipping_address": order.shipping_address.address_line1,
-        "buyer_shipping_city": order.shipping_address.city.city_name,
+        "buyer_shop": buyer_shop_name,
+        "buyer_contact_no": buyer_contact_number,
+        "buyer_shipping_address": buyer_shipping_address,
+        "buyer_shipping_city": buyer_shipping_city,
         "barcode": barcode,
         "order_obj": order,
         "type": 'Order'
