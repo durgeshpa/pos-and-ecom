@@ -746,10 +746,10 @@ class ProductSerializer(serializers.ModelSerializer):
         return None
 
     def get_super_store_product_selling_price(self, obj):
-        seller_shop_id = self.context.get('shop_id')
-        if seller_shop_id:
+        seller_shop = self.context.get('parent_shop')
+        if seller_shop:
             superstore_price = SuperStoreProductPrice.objects.filter(product_id=obj.id,
-                                                                     seller_shop_id=self.context.get('shop_id'))
+                                                                     seller_shop=seller_shop)
             if superstore_price.exists():
                 return superstore_price.last().selling_price
         return None

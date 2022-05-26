@@ -617,6 +617,7 @@ class PageVersionDetailView(APIView):
         """Get Data of Latest Version"""
         request.META['HTTP_X_FORWARDED_PROTO'] = 'https'
         shop_id = kwargs.get('shop', None)
+        parent_shop = kwargs.get('parent_shop', None)
         try:
             page_key = f"latest_page_{id}"
             # cached_page = cache.get(page_key, None)
@@ -639,7 +640,8 @@ class PageVersionDetailView(APIView):
             }
             return Response(message)
         latest_page_version = PageVersion.objects.get(version_no = latest_page_version_no, page = page)
-        serializer = self.serializer_class(page, context = {'version': latest_page_version, 'shop_id': shop_id})
+        serializer = self.serializer_class(page, context = {'version': latest_page_version, 'shop_id': shop_id,
+                                                            'parent_shop': parent_shop})
         message = {
             "is_success": True,
             "message": "OK",
