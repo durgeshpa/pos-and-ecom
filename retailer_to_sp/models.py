@@ -2028,7 +2028,7 @@ class OrderedProduct(models.Model):  # Shipment
             if self.shipment_status == OrderedProduct.MOVED_TO_DISPATCH:
                 CommonFunction.generate_invoice_number(self,
                     self.order.seller_shop.shop_name_address_mapping.filter(address_type='billing').last().pk, "EV")
-        elif self.order.ordered_cart.cart_type == 'RETAIL':
+        elif self.order.ordered_cart.cart_type in ['RETAIL', 'SUPERSTORE_RETAIL']:
             if self.shipment_status == OrderedProduct.MOVED_TO_DISPATCH:
                 CommonFunction.generate_invoice_number(self,
                     self.order.seller_shop.shop_name_address_mapping.filter(address_type='billing').last().pk)
