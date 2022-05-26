@@ -53,3 +53,13 @@ IMAGE_TYPE_CHOICE = Choices(
     (1, PRODUCT, 'Product'), (2, CATEGORY, 'Category'), (3, BRAND, 'Brand'), (4, LANDING_PAGE, 'Landing Page'),
     (5, CATEGORY_B2C, 'B2C Category')
 )
+
+RETAILER, ECOMMERCE, SUPERSTORE, POS = 'RETAILER', 'ECOMMERCE', 'SUPERSTORE', 'POS'
+APP_TYPE_CHOICE = Choices(
+    (1, RETAILER, 'Retailer'),
+    (2, ECOMMERCE, 'E-Commerce'),
+    (3, POS, 'POS'),
+    (4, SUPERSTORE, 'SuperStore')
+)
+
+INDEX_TYPE_ONE, INDEX_TYPE_TWO, INDEX_TYPE_THREE, INDEX_TYPE_FOUR = '1', '2', '3', '4'
