@@ -416,7 +416,8 @@ class UploadMasterData(object):
                     fields = ['sku_id', 'sku_name', 'ean', 'mrp', 'weight_unit', 'weight_value', 'parent_id',
                               'status', 'repackaging_type', 'source_sku_id', 'status', 'product_special_cess',
                               'raw_material', 'wastage', 'fumigation', 'label_printing', 'packing_labour',
-                              'primary_pm_cost', 'secondary_pm_cost', "packing_sku_id", "packing_material_weight"]
+                              'primary_pm_cost', 'secondary_pm_cost', "packing_sku_id", "packing_material_weight",
+                              "use_parent_image"]
 
                     available_fields = []
                     for col in fields:
@@ -442,6 +443,9 @@ class UploadMasterData(object):
 
                     if 'mrp' in row and row['mrp']:
                         child_obj['product_mrp'] = float(row['mrp'])
+
+                    if 'use_parent_image' in row and row['use_parent_image']:
+                        child_obj['use_parent_image'] = True if str(row['use_parent_image']).lower() == 'yes' else False
 
                     if 'weight_unit' in row and row['weight_unit']:
                         child_obj['weight_unit'] = row['weight_unit']
@@ -530,7 +534,7 @@ class UploadMasterData(object):
             cat_data = []
             if not b2c:
                 categories = Category.objects.all()
-                fields = ["name", "category_slug", "category_desc", "category_sku_part",
+                fields = ["name", "category_slug", "category_desc", "category_sku_part", "category_type",
                           "b2b_parent_category_id", "status"]
 
             else:
@@ -561,6 +565,8 @@ class UploadMasterData(object):
                             category.update(category_desc=row['category_desc'])
                         if col == 'category_sku_part':
                             category.update(category_sku_part=row['category_sku_part'])
+                        if col == 'category_type':
+                            category.update(category_type=row['category_type'])
                         if col == 'status':
                             category.update(status=True if str(row['status'].lower()) == 'active' else False)
                         if col == 'b2b_parent_category_id':
@@ -646,7 +652,8 @@ class UploadMasterData(object):
                     name=row['product_name'].strip(),
                     parent_brand=Brand.objects.filter(id=int(row['brand_id'])).last(),
                     product_hsn=product_hsn_obj,
-                    inner_case_size=int(row['inner_case_size']), product_type=row['product_type'],
+                    inner_case_size=int(row['inner_case_size']),
+                    product_type=row['product_type'],
                     is_ptr_applicable=(True if row['is_ptr_applicable'].lower() == 'yes' else False),
                     ptr_type=(None if not row['is_ptr_applicable'].lower() == 'yes' else ParentProduct.PTR_TYPE_CHOICES.MARK_UP
                     if row['ptr_type'].lower() == 'mark up' else ParentProduct.PTR_TYPE_CHOICES.MARK_DOWN),
@@ -698,18 +705,19 @@ class UploadMasterData(object):
                                                                  category_name=cat).last())
                 ParentProductCls.update_tax_status_and_remark(parent_product)
 
-                if B2cCategory.objects.filter(category_name=row['b2c_category_name'].strip()).exists():
-                    ParentProductB2cCategory.objects.create(
-                        parent_product=parent_product,
-                        category=B2cCategory.objects.filter(category_name=row['b2c_category_name'].strip()).last())
+                if row["product_type"] == 'grocery':
+                    if B2cCategory.objects.filter(category_name=row['b2c_category_name'].strip()).exists():
+                        ParentProductB2cCategory.objects.create(
+                            parent_product=parent_product,
+                            category=B2cCategory.objects.filter(category_name=row['b2c_category_name'].strip()).last())
 
-                else:
-                    categories = row['b2c_category_name'].split(',')
-                    for cat in categories:
-                        cat = cat.strip().replace("'", '')
-                        ParentProductB2cCategory.objects.create(parent_product=parent_product,
-                                                                category=Category.objects.filter(
-                                                                 category_name=cat).last())
+                    else:
+                        categories = row['b2c_category_name'].split(',')
+                        for cat in categories:
+                            cat = cat.strip().replace("'", '')
+                            ParentProductB2cCategory.objects.create(parent_product=parent_product,
+                                                                    category=Category.objects.filter(
+                                                                     category_name=cat).last())
 
             info_logger.info("Method complete to create the Parent Product from csv file")
         except Exception as e:
@@ -729,6 +737,7 @@ class UploadMasterData(object):
                     reason_for_child_sku=(row['reason_for_child_sku'].lower()), product_name=row['product_name'],
                     product_ean_code=row['ean'].replace("'", ''), product_mrp=float(row['mrp']),
                     weight_value=float(row['weight_value']), weight_unit=str(row['weight_unit'].lower()),
+                    use_parent_image=True if str(row['use_parent_image']).lower() == 'yes' else False,
                     repackaging_type=row['repackaging_type'], created_by=user,
                     status='pending_approval' if row['status'].lower() is None else row['status'].lower(),
                     product_special_cess=(
@@ -786,6 +795,7 @@ class UploadMasterData(object):
                         if row['b2b_parent_category_id'] else None,
                         category_desc=row['category_desc'],
                         category_sku_part=row['category_sku_part'],
+                        category_type = row['category_type'],
                         status=True if str(row['status'].lower()) == 'active' else False,
                         created_by=user)
                     CategoryCls.create_category_log(cat_obj, "created")
@@ -971,14 +981,14 @@ class DownloadMasterData(object):
         response, writer = DownloadMasterData.response_workbook("bulk_parent_product_create_sample")
 
         columns = ["product_name", "brand_id", "brand_name", "b2b_category_name", "b2c_category_name", "hsn", "gst",
-                   "cess", "surcharge", "inner_case_size", "brand_case_size", "is_ptr_applicable",
+                   "cess", "surcharge", "inner_case_size", "brand_case_size", "product_type", "is_ptr_applicable",
                    "ptr_type", "ptr_percent", "is_ars_applicable", "discounted_life_percent", "max_inventory_in_days", "is_lead_time_applicable",
                    "status"]
         writer.writerow(columns)
         data = [["parent1", "2", "Too Yumm", "Health Care, Beverages, Grocery & Staples", "Grocery & Staples", "123456",
-                 "18", "12", "100", "10", "2", "yes", "Mark Up", "12", "yes", "2", "2", "yes", "deactivated"],
+                 "18", "12", "100", "10", "2", "grocery", "yes", "Mark Up", "12", "yes", "2", "2", "yes", "deactivated"],
                 ["parent2", "2", "Too Yumm", "Health Care, Beverages", "Grocery & Staples", "123456", "18", "12", "100",
-                 "10", "2", "yes", "Mark Up", "12", "yes", "0.0", "2", "yes", "active"]]
+                 "10", "2", "superstore" "yes", "Mark Up", "12", "yes", "0.0", "2", "yes", "active"]]
 
         for row in data:
             writer.writerow(row)
@@ -994,13 +1004,14 @@ class DownloadMasterData(object):
 
         writer.writerow(
             ["product_name", "reason_for_child_sku", "parent_id", "ean", "mrp", "weight_value", "weight_unit",
-             "repackaging_type", "product_special_cess", 'status', "source_sku_id", 'raw_material', 'wastage',
-             'fumigation', 'label_printing', 'packing_labour', 'primary_pm_cost', 'secondary_pm_cost', "packing_sku_id",
-             "packing_material_weight"])
-        data = [["TestChild1", "Default", "PHEAMGI0001", "abcdefgh", "50", "20", "gm", "none", " ", "pending_approval"],
-                ["TestChild2", "Default", "PHEAMGI0001", "abcdefgh", "50", "20", "gm", "source", " ",
+             "use_parent_image", "repackaging_type", "product_special_cess", 'status', "source_sku_id", 'raw_material',
+             'wastage', 'fumigation', 'label_printing', 'packing_labour', 'primary_pm_cost', 'secondary_pm_cost',
+             "packing_sku_id", "packing_material_weight"])
+        data = [["TestChild1", "Default", "PHEAMGI0001", "abcdefgh", "50", "20", "gm", "yes", "none", " ",
                  "pending_approval"],
-                ["TestChild3", "Default", "PHEAMGI0001", "abcdefgh", "50", "20", "gm", "destination", " ",
+                ["TestChild2", "Default", "PHEAMGI0001", "abcdefgh", "50", "20", "gm", "no", "source", " ",
+                 "pending_approval"],
+                ["TestChild3", "Default", "PHEAMGI0001", "abcdefgh", "50", "20", "gm", "yes", "destination", " ",
                  "deactivated",
                  "SNGSNGGMF00000016, SNGSNGGMF00000016", "10.22", "2.33", "7", "4.33", "5.33", "10.22", "5.22",
                  "BPOBLKREG00000001", "10.00"]]
@@ -1037,10 +1048,10 @@ class DownloadMasterData(object):
                        "category_sku_part", "status"]
         else:
             columns = ["name", "category_slug", "category_desc", "b2b_category_parent", "b2b_parent_category_id",
-                       "category_sku_part", "status"]
+                       "category_sku_part", "category_type", "status"]
         writer.writerow(columns)
-        data = [["Home Improvement", "home_improvement", "XYZ", "Processed Food", "2", "HMI", "active"],
-                ["Electronics", "electronics", "XYZ", "Processed Food", "2", "KGF", "deactivated"]]
+        data = [["Home Improvement", "home_improvement", "XYZ", "Processed Food", "2", "HMI", "grocery", "active"],
+                ["Electronics", "electronics", "XYZ", "Processed Food", "2", "KGF", "superstore", "deactivated"]]
         for row in data:
             writer.writerow(row)
 
@@ -1053,14 +1064,14 @@ class DownloadMasterData(object):
     def update_child_product_sample_file(cls, validated_data):
         response, writer = DownloadMasterData.response_workbook("child_data_sample")
         columns = ['sku_id', 'sku_name', 'parent_id', 'parent_name', 'ean', 'mrp', 'weight_unit', 'weight_value',
-                   'status', 'product_special_cess', 'repackaging_type', 'b2b_category_name', 'b2c_category_name',
-                   'source_sku_id', 'raw_material', 'wastage', 'fumigation', 'label_printing', 'packing_labour',
-                   'primary_pm_cost', 'secondary_pm_cost', "packing_sku_id", "packing_material_weight"]
+                   'status', 'product_special_cess', "use_parent_image", 'repackaging_type', 'b2b_category_name',
+                   'b2c_category_name', 'source_sku_id', 'raw_material', 'wastage', 'fumigation', 'label_printing',
+                   'packing_labour', 'primary_pm_cost', 'secondary_pm_cost', "packing_sku_id", "packing_material_weight"]
 
         writer.writerow(columns)
         sub_cat = Category.objects.filter(category_parent=validated_data['category_id'])
         products = Product.objects.values('id', 'product_sku', 'product_name', 'product_ean_code', 'product_mrp',
-                                          'weight_unit', 'weight_value', 'status', 'repackaging_type',
+                                          'weight_unit', 'weight_value', 'status', 'repackaging_type', 'use_parent_image',
                                           'parent_product__parent_id', 'parent_product__name', 'product_special_cess',
                                           'parent_product__parent_product_pro_category__category__category_name',
                                           'parent_product__parent_product_pro_b2c_category__category__category_name') \
@@ -1085,6 +1096,10 @@ class DownloadMasterData(object):
             row.append(product['weight_value'])
             row.append(product['status'])
             row.append(product['product_special_cess'])
+            if product['use_parent_image']:
+                row.append("yes")
+            else:
+                row.append("no")
             row.append(product['repackaging_type'])
             row.append(product['parent_product__parent_product_pro_category__category__category_name'])
             b2c_cat = ParentProductB2cCategory.objects.filter(
@@ -1279,20 +1294,37 @@ class DownloadMasterData(object):
             categories = B2cCategory.objects.values('id', 'category_name', 'category_slug', 'category_desc', 'status',
                                                     'category_sku_part', 'category_parent',
                                                     'category_parent__category_name')
+            writer.writerow(columns)
+            for category in categories:
+                row = [category['id'], 
+                    category['category_name'], 
+                    category['category_slug'], 
+                    category['category_desc'],
+                    category['category_sku_part'],
+                    category['category_parent'],
+                    category['category_parent__category_name'],
+                    'active' if category['status'] is True else 'deactivated']
+
+                writer.writerow(row)
         else:
-            columns = ["b2b_category_id", "name", "category_slug", "category_desc", "category_sku_part",
+            columns = ["b2b_category_id", "name", "category_slug", "category_desc", "category_sku_part", "category_type"
                        "b2b_parent_category_id", "b2b_parent_category_name", "status"]
             categories = Category.objects.values('id', 'category_name', 'category_slug', 'category_desc', 'status',
-                                                 'category_sku_part', 'category_parent',
+                                                 'category_sku_part', 'category_type', 'category_parent',
                                                  'category_parent__category_name')
-        writer.writerow(columns)
-        for category in categories:
-            row = [category['id'], category['category_name'], category['category_slug'], category['category_desc'],
-                   category['category_sku_part'], category['category_parent'],
-                   category['category_parent__category_name'],
-                   'active' if category['status'] is True else 'deactivated']
+            writer.writerow(columns)
+            for category in categories:
+                row = [category['id'], 
+                    category['category_name'], 
+                    category['category_slug'], 
+                    category['category_desc'],
+                    category['category_sku_part'],
+                    category['category_type'],
+                    category['category_parent'],
+                    category['category_parent__category_name'],
+                    'active' if category['status'] is True else 'deactivated']
 
-            writer.writerow(row)
+                writer.writerow(row)
         info_logger.info("Update Category Sample File has been Successfully Downloaded")
         response.seek(0)
         return response

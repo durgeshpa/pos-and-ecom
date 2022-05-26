@@ -51,9 +51,12 @@ def check_shop(view_func):
     def _wrapped_view_func(self, request, *args, **kwargs):
         try:
             shop = Shop.objects.get(id=request.META.get('HTTP_SHOP_ID', None), status=True, approval_status=2)
+            parent_shop = shop.get_shop_parent
         except:
             shop = None
+            parent_shop = None
         kwargs['shop'] = shop
+        kwargs['parent_shop'] = parent_shop
         kwargs['app_type'] = request.META.get('HTTP_APP_TYPE', None)
         return view_func(self, request, *args, **kwargs)
 

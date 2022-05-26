@@ -34,7 +34,8 @@ from retailer_to_sp.models import (CartProductMapping, Order, OrderedProduct, Or
                                    check_franchise_inventory_update, ShipmentNotAttempt, BASIC, ECOM,
                                    Shipment, populate_data_on_qc_pass, OrderedProductBatch, ShipmentPackaging,
                                    ShipmentNotAttempt, LastMileTripShipmentMapping, LastMileTripShipmentPackages,
-                                   Invoice, DispatchTripShipmentMapping, DispatchTrip, DispatchTripShipmentPackages)
+                                   Invoice, DispatchTripShipmentMapping, DispatchTrip, DispatchTripShipmentPackages,
+                                   SUPERSTORE, SUPERSTORE_RETAIL, Cart)
 from products.models import Product, Category
 from retailer_to_sp.forms import (
     OrderedProductForm, OrderedProductMappingShipmentForm,
@@ -58,7 +59,7 @@ from common.constants import ZERO, PREFIX_PICK_LIST_FILE_NAME, PICK_LIST_DOWNLOA
 from common.common_utils import create_file_name, create_merge_pdf_name, merge_pdf_files, single_pdf_file
 from wms.models import Pickup, WarehouseInternalInventoryChange, PickupBinInventory
 from wms.common_functions import cancel_order, cancel_order_with_pick, get_expiry_date, release_qc_area_on_order_cancel, \
-    get_response, release_picking_crates
+    get_response
 from wms.views import shipment_out_inventory_change, shipment_reschedule_inventory_change, shipment_not_attempt_inventory_change
 from pos.models import RetailerProduct
 from pos.common_functions import create_po_franchise
@@ -2144,3 +2145,69 @@ class ProductCategoryAutocomplete(autocomplete.Select2QuerySetView):
             # qs = Product.objects.filter(product_name__icontains=self.q)
         return qs
 
+
+def create_retailer_orders_from_superstore_order(instance=None):
+    info_logger.info(f"create_retailer_orders_from_superstore_order|{instance}|Started")
+    with transaction.atomic():
+        if instance.ordered_cart.cart_type == SUPERSTORE:
+            carp_pro_maps = instance.ordered_cart.rt_cart_list.all()
+            if carp_pro_maps:
+                new_seller_shop = Shop.objects.get(id=get_config('current_wh_active', 50484))
+                new_buyer_shop = instance.ordered_cart.seller_shop
+                new_billing_address = new_buyer_shop.shop_name_address_mapping.filter(address_type='billing').last()
+                new_shipping_address = new_buyer_shop.shop_name_address_mapping.filter(address_type='shipping').last()
+                user = instance.ordered_by
+                order_app_type = instance.order_app_type
+                if not user or not new_seller_shop or not new_buyer_shop or not order_app_type:
+                    info_logger.error(f"user {user} - new_seller_shop {new_seller_shop} - new_buyer_shop "
+                                      f"{new_buyer_shop} - order_app_type {order_app_type} | Any one is None.")
+                    return None
+                for cart_pro in carp_pro_maps:
+                    product = cart_pro.cart_product
+                    product_price = product.get_current_shop_price(new_seller_shop, new_buyer_shop)
+                    ordered_qty = int(cart_pro.qty)
+                    ordered_pieces = int(cart_pro.no_of_pieces)
+                    if not product_price:
+                        info_logger.error(f"product {product} | No product price for the respected shop")
+                    product_selling_price = product_price.get_per_piece_price(ordered_pieces)
+                    if not product_selling_price:
+                        info_logger.error(f"product {product} | No selling price for the product")
+                        return None
+                    new_cart = Cart.objects.create(seller_shop=new_seller_shop, buyer_shop=new_buyer_shop,
+                                                   cart_status='ordered', cart_type=SUPERSTORE_RETAIL)
+                    new_cart_pro = CartProductMapping.objects.create(
+                        cart=new_cart, cart_product_id=product.id, qty=ordered_qty, no_of_pieces=ordered_pieces,
+                        cart_product_price=product_price, selling_price=product_selling_price)
+                    info_logger.info(f"create_retailer_orders_from_superstore_order|{instance}|"
+                                     f"Product Mapping {new_cart_pro.id}|Cart {new_cart}")
+                    order, _ = Order.objects.get_or_create(ordered_cart=new_cart)
+                    order.reference_order = instance
+                    order.total_mrp = float(product_price.mrp) * float(ordered_pieces)
+                    order.total_discount_amount = (float(product_price.mrp) - float(product_selling_price)) * ordered_pieces
+                    order.order_app_type = order_app_type
+                    order.ordered_cart = new_cart
+                    order.seller_shop = new_seller_shop
+                    order.buyer_shop = new_buyer_shop
+                    order.billing_address = new_billing_address
+                    order.shipping_address = new_shipping_address
+                    order.ordered_by = user
+                    order.last_modified_by = user
+                    order.received_by = user
+                    order.order_status = 'ordered'
+                    order.save()
+                    info_logger.info(f"create_retailer_orders_from_superstore_order|{instance}|"
+                                     f"Retailer order created {order}")
+            else:
+                info_logger.error(f"create_retailer_orders_from_superstore_order|{instance}|"
+                                  f"No products available for which order can be placed.")
+
+
+def generate_retail_orders_against_superstore_order():
+    superstore_order_creation_days = get_config("superstore_order_creation_days", 1)
+    current_time = datetime.datetime.now() - datetime.timedelta(minutes=1)
+    start_time = datetime.datetime.now() - datetime.timedelta(days=superstore_order_creation_days)
+    orders = Order.objects.filter(order_app_type=Order.POS_SUPERSTORE, ref_order__isnull=True, order_closed=False,
+                                  ordered_cart__cart_type=SUPERSTORE,
+                                  created_at__lt=current_time, created_at__gt=start_time)
+    for instance in orders:
+        create_retailer_orders_from_superstore_order(instance)

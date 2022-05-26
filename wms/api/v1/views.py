@@ -18,7 +18,8 @@ from shops.models import Shop
 from products.models import Repackaging
 from retailer_to_sp.models import Order, PickerDashboard, ShipmentPackaging
 from rest_framework.views import APIView
-from rest_framework import permissions, authentication
+from rest_framework import permissions
+from rest_auth import authentication
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.db.models import Q, Sum, Case, When, F
 from django.db import transaction, models

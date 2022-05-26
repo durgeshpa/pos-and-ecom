@@ -13,7 +13,8 @@ from .serializers import (CountrySerializer, StateSerializer, CitySerializer,
                           StateBasicSerializer, CityBasicSerializer, CityRouteExportAsCSVSerializers)
 from rest_framework import generics
 from rest_framework import status
-from rest_framework import permissions, authentication
+from rest_framework import permissions
+from rest_auth import authentication
 from shops.models import Shop, ShopUserMapping
 from django.http import Http404, HttpResponse
 from rest_framework import serializers

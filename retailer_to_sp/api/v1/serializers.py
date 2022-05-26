@@ -18,8 +18,8 @@ from products.models import (Product, ProductPrice, ProductImage, Tax, ProductTa
 from retailer_backend.utils import getStrToYearDate
 from retailer_to_sp.common_model_functions import ShopCrateCommonFunctions, OrderCommonFunction
 from retailer_to_sp.common_validators import validate_shipment_crates_list, validate_shipment_package_list
-from retailer_to_sp.models import (CartProductMapping, Cart, Order, OrderedProduct, Note, CustomerCare, Payment,
-                                   Dispatch, Feedback, OrderedProductMapping as RetailerOrderedProductMapping,
+from retailer_to_sp.models import (CartProductMapping, Cart, Invoice, Order, OrderedProduct, Note, CustomerCare, Payment,
+                                   Dispatch, Feedback, OrderedProductMapping as RetailerOrderedProductMapping, Shipment,
                                    Trip, PickerDashboard, ShipmentRescheduling, OrderedProductBatch, ShipmentPackaging,
                                    ShipmentPackagingMapping, DispatchTrip, DispatchTripShipmentMapping,
                                    DispatchTripShipmentPackages, ShipmentNotAttempt, PACKAGE_VERIFY_CHOICES,
@@ -43,6 +43,9 @@ from wms.common_functions import release_picking_crates, send_update_to_qcdesk, 
     create_putaway
 from wms.models import Crate, WarehouseAssortment, Zone, InventoryType
 from ecom.models import Address as UserAddress
+from pos.api.v1.serializers import PaymentSerializer
+from accounts.api.v1.serializers import PosUserSerializer
+from ecom.api.v1.serializers import EcomOrderAddressSerializer
 
 User = get_user_model()
 
@@ -90,8 +93,10 @@ class ProductSerializer(serializers.ModelSerializer):
         if ProductImage.objects.filter(product=obj).exists():
             product_image = ProductImage.objects.filter(product=obj)[0].image.url
             return product_image
-        else:
-            return None
+        elif obj.use_parent_image:
+            product_image = obj.parent_product.parent_product_pro_image.last()
+            return product_image.image.url if product_image else None
+        return None
 
     def get_product_brand(self, obj):
         return obj.product_brand.brand_name
@@ -561,6 +566,90 @@ class CartSerializer(serializers.ModelSerializer):
         return self.context.get("delivery_message", None)
 
 
+class SuperStoreProductSearchSerializer(serializers.ModelSerializer):
+    """
+        Product Data for super store cart
+    """
+    image = serializers.SerializerMethodField()
+    product_price_detail = serializers.SerializerMethodField()
+    
+    def get_product_price_detail(self, instance):
+        price = instance.get_superstore_price
+        if price:
+            return {'mrp': instance.product_mrp, 'selling_price': price.selling_price}
+        return None
+    
+    def get_image(self, instance):
+        image = instance.product_pro_image.last() 
+        if not image:
+            if instance.use_parent_image:
+                image = instance.parent_product.parent_product_pro_image.last()
+                return ParentProductImageSerializer(image).data
+            else:
+                return None
+        else:
+            return ProductImageSerializer(image).data
+    
+    class Meta:
+        model = Product
+        fields = ('id', 'product_name', 'product_price_detail', 'image')
+
+
+class SuperStoreCartProductMappingSerializer(serializers.ModelSerializer):
+    cart_product = SuperStoreProductSearchSerializer()
+    qty = serializers.SerializerMethodField()
+    
+    def get_qty(self, instance):
+        return int(instance.qty)
+    
+    class Meta:
+        model = CartProductMapping
+        fields = ('id', 'cart_product', 'qty')
+
+
+class SuperStoreCartSerializer(serializers.ModelSerializer):
+    cart_product_list = serializers.SerializerMethodField()
+    items_count = serializers.SerializerMethodField()
+    total_quantity = serializers.SerializerMethodField()
+    total_discount = serializers.SerializerMethodField()
+    amount_payable = serializers.SerializerMethodField()
+    total_amount = serializers.SerializerMethodField()
+    
+    def get_cart_product_list(self, instance):
+        products = instance.rt_cart_list.filter(product_type=1).select_related('cart_product')
+        return SuperStoreCartProductMappingSerializer(products, many=True).data
+    
+    def get_items_count(self, instance):
+        return instance.rt_cart_list.filter(product_type=1).count()
+    
+    def get_total_quantity(self, instance):
+        return instance.rt_cart_list.filter(product_type=1).aggregate(total_quantity=Sum('qty')).get('total_quantity', 0)
+    
+    def get_total_discount(self, instance):
+        discount = 0
+        offers = instance.offers
+        if offers:
+            array = list(filter(lambda d: d['type'] in ['discount'], offers))
+            for i in array:
+                discount += i['discount_value']
+        return round(discount, 2)
+
+    def get_total_amount(self, instance):
+        return sum([Decimal(cart_pro.selling_price) * Decimal(cart_pro.qty) \
+            for cart_pro in instance.rt_cart_list.filter(product_type=1)])
+    
+    def get_amount_payable(self, instance):
+        return float(self.get_total_amount(instance)) - self.get_total_discount(instance)       
+                   
+    
+    class Meta:
+        model = Cart
+        fields = ('id', 'cart_no', 'total_amount',
+                  'cart_product_list', 'items_count', 
+                  'total_quantity', 'total_discount', 
+                  'amount_payable')
+
+    
 class NoteSerializer(serializers.ModelSerializer):
     note_link = serializers.SerializerMethodField('note_link_id')
     note_type = serializers.SerializerMethodField()
@@ -4523,11 +4612,18 @@ class OrderPaymentStatusChangeSerializers(serializers.ModelSerializer):
 
     def validate(self, data):
         if 'id' in self.initial_data and self.initial_data['id']:
-            if Order.objects.filter(id=self.initial_data['id'],
-                                    ordered_cart__cart_type='ECOM').exists():
-                order_instance = Order.objects.filter(id=self.initial_data['id']).last()
+            if self.context.get('app-type', None) != 4:
+                if Order.objects.filter(id=self.initial_data['id'],
+                                        ordered_cart__cart_type='ECOM').exists():
+                    order_instance = Order.objects.filter(id=self.initial_data['id']).last()
+                else:
+                    raise serializers.ValidationError(f"Order not found for Id {self.initial_data['id']}.")
             else:
-                raise serializers.ValidationError(f"Order not found for Id {self.initial_data['id']}.")
+                if RetailerOrderedProductMapping.objects.filter(id=self.initial_data['id'], 
+                                                        ordered_product__order__ordered_cart__cart_type='SUPERSTORE').exists():
+                    order_instance = RetailerOrderedProductMapping.objects.filter(id=self.initial_data['id']).last().ordered_product.order
+                else:
+                    raise serializers.ValidationError(f"Order not found for Id {self.initial_data['id']}.")
 
         else:
             raise serializers.ValidationError("'id' | This is mandatory")
@@ -4553,6 +4649,14 @@ class OrderPaymentStatusChangeSerializers(serializers.ModelSerializer):
         elif self.context.get('app-type', None) == 2 and order_instance.order_status == Order.PAYMENT_PENDING and \
                 order_status != Order.PAYMENT_COD:
             raise serializers.ValidationError(f"Please Provide valid Payment status")
+        elif self.context.get('app-type', None) == 4:
+            if self.context.get('sub-app-type', None) == 'ecom' and order_instance.order_status == Order.PAYMENT_PENDING and \
+                order_status not in [Order.PAYMENT_FAILED, Order.PAYMENT_APPROVED, Order.PAYMENT_COD]:
+                raise serializers.ValidationError(f"Please Provide valid Payment status")
+            elif self.context.get('sub-app-type', None) == 'pos' and order_instance.order_status == Order.PAYMENT_PENDING and \
+                order_status != Order.PAYMENT_COD:
+                raise serializers.ValidationError(f"Please Provide valid Payment status")
+                
 
         if 'payment_id' not in self.initial_data and not self.initial_data['payment_id']:
             raise serializers.ValidationError("'payment_id' | This is mandatory.")
@@ -4586,7 +4690,10 @@ class OrderPaymentStatusChangeSerializers(serializers.ModelSerializer):
                 if payment_type_instance.app != 'ecom':
                     raise serializers.ValidationError(f"'payment_type_id' | Invalid choice "
                                                       f"{self.initial_data['payment_type_id']}.")
-
+            if order_instance.order_app_type == Order.POS_SUPERSTORE:
+                if payment_type_instance.app != 'ecom':
+                    raise serializers.ValidationError(f"'payment_type_id' | Invalid choice "
+                                                      f"{self.initial_data['payment_type_id']}.")
         transaction_id = ""
         if 'transaction_id' in self.initial_data and self.initial_data['transaction_id']:
             transaction_id = self.initial_data['transaction_id']
@@ -5373,3 +5480,197 @@ class PosOrderUserSearchSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ('id', 'first_name', 'last_name', 'address', 'phone_number')
+
+
+class SuperStoreOrderListSerializer(serializers.ModelSerializer):
+    order_no = serializers.SerializerMethodField()
+    
+    def get_order_no(self, instance):
+        return instance.ordered_product.order.order_no
+    
+    qty_and_total_amount = serializers.SerializerMethodField()
+    def get_qty_and_total_amount(self, instance):
+        cart_product = instance.ordered_product.order.ordered_cart.rt_cart_list.filter(cart_product=instance.product).last()
+        if cart_product:
+            return {
+                'qty':cart_product.qty,
+                'total_amount': cart_product.qty * cart_product.selling_price
+            }
+        return None
+    
+    payment = serializers.SerializerMethodField()
+    def get_payment(self, instance):
+        payments = instance.ordered_product.order.rt_payment_retailer_order.all()
+        return PaymentSerializer(payments, many=True).data
+    
+    shipment_status = serializers.SerializerMethodField()
+    def get_shipment_status(self, instance):
+        return instance.ordered_product.shipment_status
+
+    buyer = serializers.SerializerMethodField()
+    def get_buyer(self, instance):
+        buyer = instance.ordered_product.order.buyer
+        return PosUserSerializer(buyer).data
+    
+    order_status = serializers.SerializerMethodField()
+    def get_order_status(self, instance):
+        retailer_order = instance.ordered_product.order.ref_order.filter(ordered_cart__rt_cart_list__cart_product=instance.product).last()
+        order_status = instance.ordered_product.order.order_status
+        if order_status in [Order.PAYMENT_FAILED,
+                            Order.PAYMENT_PENDING]:
+            return Order.PAYMENT_PENDING
+        elif retailer_order:
+            retailer_order_status = retailer_order.order_status
+            if retailer_order_status in [Order.PICKING_ASSIGNED,
+                                         Order.PICKED,
+                                         Order.PICKUP_CREATED,
+                                         Order.PICKING_COMPLETE,
+                                         Order.PICKING_PARTIAL_COMPLETE,
+                                         Order.MOVED_TO_QC,
+                                         Order.PARTIAL_SHIPMENT_CREATED,
+                                         Order.FULL_SHIPMENT_CREATED]:
+                return 'in_transit'
+            elif retailer_order_status == Order.DISPATCHED:
+                return Order.DISPATCHED
+            elif retailer_order_status == Order.COMPLETED:
+                shipment_status = instance.ordered_product.shipment_status
+                if shipment_status in [OrderedProduct.OUT_FOR_DELIVERY,
+                                       OrderedProduct.DELIVERED,
+                                       OrderedProduct.RESCHEDULED]:
+                    return shipment_status
+                else:
+                    return Order.COMPLETED
+            else:
+                return Order.ORDERED
+        else:
+            return Order.ORDERED
+    
+    product = ProductSerializer(read_only=True)
+    
+    class Meta:
+        model = RetailerOrderedProductMapping
+        fields = ('id', 'order_no', 'shipment_status', 'qty_and_total_amount', 
+                  'payment', 'buyer', 'product', 'order_status',
+                  'created_at')
+
+
+class InvoiceDataSerializer(serializers.ModelSerializer):
+    invoice_pdf = serializers.SerializerMethodField()
+    
+    def get_invoice_pdf(self, instance):
+        return instance.invoice_pdf.url if instance.invoice_pdf else None
+    
+    class Meta:
+        model = Invoice
+        fields = ('id', 'invoice_no', 'invoice_pdf', 'invoice_sub_total', 'invoice_total')
+
+
+class SuperStoreOrderDetailSerializer(serializers.ModelSerializer):
+    order_no = serializers.SerializerMethodField()
+    
+    def get_order_no(self, instance):
+        return instance.ordered_product.order.order_no
+    
+    invoice = serializers.SerializerMethodField()
+    
+    def get_invoice(self, instance):
+        try:
+            return InvoiceDataSerializer(instance.ordered_product.invoice).data 
+        except OrderedProduct.invoice.RelatedObjectDoesNotExist:
+            return None
+    
+    qty_and_total_amount = serializers.SerializerMethodField()
+    def get_qty_and_total_amount(self, instance):
+        cart_product = instance.ordered_product.order.ordered_cart.rt_cart_list.filter(cart_product=instance.product).last()
+        if cart_product:
+            return {
+                'qty':cart_product.qty,
+                'total_amount': cart_product.qty * cart_product.selling_price
+            }
+        return None
+    
+    buyer = serializers.SerializerMethodField()
+    def get_buyer(self, instance):
+        buyer = instance.ordered_product.order.buyer
+        return PosUserSerializer(buyer).data
+    
+    payment = serializers.SerializerMethodField()
+    def get_payment(self, instance):
+        payments = instance.ordered_product.order.rt_payment_retailer_order.all()
+        return PaymentSerializer(payments, many=True).data
+    
+    shipment_status = serializers.SerializerMethodField()
+    def get_shipment_status(self, instance):
+        return instance.ordered_product.shipment_status
+    
+    ordered_from = serializers.SerializerMethodField()
+    def get_ordered_from(self, instance):
+        return instance.ordered_product.order.ordered_cart.seller_shop.shop_name
+    
+    product = ProductSerializer(read_only=True)
+    
+    address = serializers.SerializerMethodField()
+    def get_address(self, instance):
+        address = instance.ordered_product.order.ecom_address_order
+        return EcomOrderAddressSerializer(address).data
+    
+    loyalty_points = serializers.SerializerMethodField()
+    def get_loyalty_points(self, instance):
+        return instance.ordered_product.order.ordered_cart.redeem_points
+    
+    discount = serializers.SerializerMethodField()
+    def get_discount(self, instance):
+        return 0
+    
+    delivery_type = serializers.SerializerMethodField()
+    def get_delivery_type(self, instance):
+        type_dict = {
+            '1': 'Self Pick',
+            '2': 'Home delivery',
+        }
+        return type_dict.get(instance.ordered_product.order.delivery_option, 'Not Provided')
+    
+    expected_delivery_date = serializers.SerializerMethodField()
+    def get_expected_delivery_date(self, instance):
+        return instance.ordered_product.order.estimate_delivery_time
+    
+    order_status = serializers.SerializerMethodField()
+    def get_order_status(self, instance):
+        retailer_order = instance.ordered_product.order.ref_order.filter(ordered_cart__rt_cart_list__cart_product=instance.product).last()
+        order_status = instance.ordered_product.order.order_status
+        if order_status in [Order.PAYMENT_FAILED,
+                            Order.PAYMENT_PENDING]:
+            return Order.PAYMENT_PENDING
+        elif retailer_order:
+            retailer_order_status = retailer_order.order_status
+            if retailer_order_status in [Order.PICKING_ASSIGNED,
+                                         Order.PICKED,
+                                         Order.PICKUP_CREATED,
+                                         Order.PICKING_COMPLETE,
+                                         Order.PICKING_PARTIAL_COMPLETE,
+                                         Order.MOVED_TO_QC,
+                                         Order.PARTIAL_SHIPMENT_CREATED,
+                                         Order.FULL_SHIPMENT_CREATED]:
+                return 'in_transit'
+            elif retailer_order_status == Order.DISPATCHED:
+                return Order.DISPATCHED
+            elif retailer_order_status == Order.COMPLETED:
+                shipment_status = instance.ordered_product.shipment_status
+                if shipment_status in [OrderedProduct.OUT_FOR_DELIVERY,
+                                       OrderedProduct.DELIVERED,
+                                       OrderedProduct.RESCHEDULED]:
+                    return shipment_status
+                else:
+                    return Order.COMPLETED
+            else:
+                return Order.ORDERED
+        else:
+            return Order.ORDERED
+        
+    
+    class Meta:
+        model = RetailerOrderedProductMapping
+        fields = ('id', 'order_no', 'shipment_status', 'loyalty_points', 'delivery_type',
+                  'qty_and_total_amount', 'ordered_from', 'address', 'discount',
+                  'payment', 'buyer', 'invoice', 'product', 'order_status', 'expected_delivery_date',
+                  'created_at')

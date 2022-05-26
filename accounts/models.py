@@ -12,7 +12,7 @@ from otp.sms import SendSms
 import datetime
 from .tasks import phone_otp_instance
 from django.db import transaction
-from rest_framework.authtoken.models import Token
+from rest_auth.authentication import Token
 
 #from notification_center.utils import SendNotification
 

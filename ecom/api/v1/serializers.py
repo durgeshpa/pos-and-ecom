@@ -168,7 +168,7 @@ class ShopSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Shop
-        fields = ('id', 'shop_name', 'online_inventory_enabled', 'shipping_address','shop_config')
+        fields = ('id', 'shop_name', 'online_inventory_enabled', 'superstore_enable', 'shipping_address','shop_config')
 
 
 class AddressSerializer(serializers.ModelSerializer):
@@ -186,7 +186,7 @@ class AddressSerializer(serializers.ModelSerializer):
         # Validate Pin Code
         pin_code_obj = Pincode.objects.filter(pincode=attrs.get('pincode')).select_related('city', 'city__state').last()
         if not pin_code_obj:
-            raise serializers.ValidationError("Invalid Pin Code")
+            raise serializers.ValidationError("Currently not servicing to this Pincode.")
         # Check for address id in case of update
         pk = self.context.get('pk', None)
         user = self.context.get('user')
@@ -211,12 +211,6 @@ class AddressSerializer(serializers.ModelSerializer):
         add.save()
 
 
-class CategorySerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Category
-        fields = ('id', 'category_name', 'category_image')
-
-
 class B2cCategorySerializer(serializers.ModelSerializer):
     class Meta:
         model = B2cCategory
@@ -228,6 +222,13 @@ class SubCategorySerializer(serializers.ModelSerializer):
         model = Category
         fields = ('id', 'category_name', 'category_image')
 
+
+class CategorySerializer(serializers.ModelSerializer):
+    cat_parent = SubCategorySerializer(many=True, 
+                                       read_only=True)
+    class Meta:
+        model = Category
+        fields = ('id', 'category_name', 'category_image', 'cat_parent')
 
 
 class B2cSubCategorySerializer(serializers.ModelSerializer):
@@ -638,7 +639,7 @@ class EcomShipmentSerializer(serializers.Serializer):
 class ShopInfoSerializer(serializers.ModelSerializer):
     class Meta:
         model = Shop
-        fields = ('id', 'shop_name',)
+        fields = ('id', 'shop_name', 'superstore_enable')
 
     def to_representation(self, instance):
         data = super().to_representation(instance)

@@ -15,7 +15,7 @@ from offer.models import OfferBannerPosition, OfferBannerData, OfferBannerSlot, 
 
 from shops.models import Shop, ParentRetailerMapping
 from products.models import Product
-from rest_framework import authentication
+from rest_auth import authentication
 from rest_framework.generics import GenericAPIView, CreateAPIView, UpdateAPIView
 from rest_framework.permissions import AllowAny
 from retailer_backend.utils import SmallOffsetPagination

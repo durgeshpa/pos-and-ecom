@@ -85,7 +85,7 @@ class GetAllCategoryListView(APIView):
         else:
             # get list of category ids with available inventory
             categories_with_products = get_stock_available_category_list()
-        all_active_categories = Category.objects.filter(category_parent=None, status=True)
+        all_active_categories = Category.objects.filter(category_parent=None, status=True, category_type='grocery')
         for c in all_active_categories:
             if c.id in categories_with_products:
                 categories_to_return.append(c)

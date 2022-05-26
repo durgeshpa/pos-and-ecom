@@ -706,9 +706,15 @@ class CheckoutSerializer(serializers.ModelSerializer):
         return total_amount
 
     def get_total_mrp(self,obj):
-        total=0
-        for cart_pro in obj.rt_cart_list.all():
-            total  +=(cart_pro.retailer_product.mrp * cart_pro.qty)
+        if obj.cart_type == 'SUPERSTORE':
+            total = sum([
+                cart_pro.cart_product.get_superstore_price.selling_price for cart_pro in obj.rt_cart_list.all()
+            ])
+            return total
+        else:
+            total=0
+            for cart_pro in obj.rt_cart_list.all():
+                total  +=(cart_pro.retailer_product.mrp * cart_pro.qty)
 
         return total
 
@@ -842,7 +848,7 @@ class BasicOrderListSerializer(serializers.ModelSerializer):
 
     def payment_data(self, obj):
         payment = [obj.rt_payment_retailer_order.last()]
-        return PaymentSerializer(payment, many=True).data if payment else None
+        return PaymentSerializer(payment, many=True).data if payment[0] else None
 
     def get_delivery_persons(self, obj):
 
@@ -2166,7 +2172,7 @@ class BasicOrderDetailSerializer(serializers.ModelSerializer):
 class AddressCheckoutSerializer(serializers.ModelSerializer):
     class Meta:
         model = Address
-        fields = ('type', 'complete_address')
+        fields = ('type', 'complete_address', 'id')
 
 
 class VendorSerializer(serializers.ModelSerializer):

@@ -17,7 +17,8 @@ from products.models import Product, ParentProductTaxMapping, ParentProduct, Par
     ProductTaxMapping, ProductCapping, ProductVendorMapping, \
     ProductImage, ProductPrice, ProductHSN, Tax, \
     ProductSourceMapping, ProductPackingMapping, DestinationRepackagingCostMapping, \
-    Weight, CentralLog, PriceSlab, ProductHsnCess, ProductHsnGst, GST_CHOICE
+    Weight, CentralLog, PriceSlab, ProductHsnCess, ProductHsnGst, GST_CHOICE, SuperStoreProductPrice, \
+    SuperStoreProductPriceLog
 from categories.models import Category, B2cCategory
 from addresses.models import Pincode, City
 from brand.models import Brand, Vendor
@@ -31,9 +32,11 @@ from products.common_validators import get_validate_parent_brand, get_validate_p
     product_gst, product_cess, product_surcharge, product_image, get_validate_vendor, get_validate_buyer_shop, \
     get_validate_parent_product_image_ids, get_validate_child_product_image_ids, validate_parent_product_name, \
     validate_child_product_name, validate_tax_name, get_validate_slab_price, b2b_category, b2c_category, \
-    get_validate_hsn_gsts, get_validate_gsts_mandatory_fields, get_validate_hsn_cess, get_validate_cess_mandatory_fields,\
-    read_product_hsn_file
-from products.common_function import ParentProductCls, ProductCls, ProductHSNCommonFunction
+    get_validate_hsn_gsts, get_validate_gsts_mandatory_fields, get_validate_hsn_cess, \
+    get_validate_cess_mandatory_fields, \
+    read_product_hsn_file, read_super_store_product_price_file, validate_superstore_product, validate_retailer_price_exist
+from products.common_function import ParentProductCls, ProductCls, ProductHSNCommonFunction, \
+    SuperStoreProductPriceCommonFunction
 from shops.common_validators import get_validate_city_id, get_validate_pin_code
 
 info_logger = logging.getLogger('file-info')
@@ -279,9 +282,11 @@ class ParentProductSerializers(serializers.ModelSerializer):
         #     raise serializers.ValidationError(_('parent product category is required'))
         if not 'parent_product_pro_category' in self.initial_data or not self.initial_data['parent_product_pro_category']:
             raise serializers.ValidationError(_('parent product category is required'))
-        
-        if not 'parent_product_pro_b2c_category' in self.initial_data or not self.initial_data['parent_product_pro_b2c_category']:
-            raise serializers.ValidationError(_('parent product b2c category is required'))
+
+        if self.initial_data.get('product_type') == 'grocery':
+            if not 'parent_product_pro_b2c_category' in self.initial_data or not self.initial_data['parent_product_pro_b2c_category']:
+                raise serializers.ValidationError(_('parent product b2c category is required'))
+
 
         if not 'parent_product_pro_tax' in self.initial_data or not self.initial_data['parent_product_pro_tax']:
             raise serializers.ValidationError(_('parent_product_pro_tax is required'))
@@ -302,19 +307,11 @@ class ParentProductSerializers(serializers.ModelSerializer):
         data['product_hsn'] = product_hsn_val['product_hsn']
         b2b_category_val = None
         b2c_category_val = None
-        if self.initial_data.get('product_type') == 'b2b':
+        if 'parent_product_pro_category' in self.initial_data and self.initial_data['parent_product_pro_category']:
             b2b_category_val = get_validate_categories(self.initial_data['parent_product_pro_category'])
             if 'error' in b2b_category_val:
                 raise serializers.ValidationError(_(b2b_category_val["error"]))
-        elif self.initial_data.get('product_type') == 'b2c':
-            b2c_category_val = get_validate_categories(self.initial_data['parent_product_pro_b2c_category'], True)
-            if 'error' in b2c_category_val:
-                raise serializers.ValidationError(_(b2c_category_val["error"]))
-        else:
-            if 'parent_product_pro_category' in self.initial_data and self.initial_data['parent_product_pro_category']:
-                b2b_category_val = get_validate_categories(self.initial_data['parent_product_pro_category'])
-                if 'error' in b2b_category_val:
-                    raise serializers.ValidationError(_(b2b_category_val["error"]))
+        if self.initial_data.get('product_type') == 'grocery':
             if 'parent_product_pro_b2c_category' in self.initial_data and \
                     self.initial_data['parent_product_pro_b2c_category']:
                 b2c_category_val = get_validate_categories(self.initial_data['parent_product_pro_b2c_category'], True)
@@ -329,6 +326,7 @@ class ParentProductSerializers(serializers.ModelSerializer):
             pro_obj = validate_parent_product_name(self.initial_data['name'], parent_pro_id)
             if pro_obj is not None and 'error' in pro_obj:
                 raise serializers.ValidationError(pro_obj['error'])
+        data["product_type"] = self.initial_data.get('product_type')
 
         return data
 
@@ -505,7 +503,7 @@ class ActiveDeactiveSelectedParentProductSerializers(serializers.ModelSerializer
 
         try:
             parent_products = ParentProduct.objects.filter(id__in=validated_data['parent_product_id_list'])
-            parent_products.update(status=parent_product_status, product_type='both', updated_by=validated_data['updated_by'],
+            parent_products.update(status=parent_product_status, updated_by=validated_data['updated_by'],
                                    updated_at=timezone.now())
             for parent_product_obj in parent_products:
                 Product.objects.filter(parent_product=parent_product_obj).update(status=product_status,
@@ -708,11 +706,18 @@ class DestinationRepackagingCostMappingSerializers(serializers.ModelSerializer):
                   'secondary_pm_cost')
 
 
+class SuperStorePriceSerializers(serializers.ModelSerializer):
+    class Meta:
+        model = SuperStoreProductPrice
+        fields = ('id', 'product', 'seller_shop', 'selling_price',)
+
+
 class ChildProductSerializers(serializers.ModelSerializer):
     """ Handles creating, reading and updating child product items."""
     parent_product = ParentProductSerializers(read_only=True)
     product_pro_tax = ProductTaxMappingSerializers(many=True, read_only=True)
     child_product_log = LogSerializers(many=True, read_only=True)
+    super_store_product_price = SuperStorePriceSerializers(many=True, read_only=True)
     product_vendor_mapping = ChildProductVendorMappingSerializers(many=True, required=False)
     product_sku = serializers.CharField(required=False)
     product_pro_image = ProductImageSerializers(many=True, read_only=True)
@@ -722,15 +727,18 @@ class ChildProductSerializers(serializers.ModelSerializer):
     packing_product_rt = ProductPackingMappingSerializers(many=True, required=False)
     destination_product_repackaging = DestinationRepackagingCostMappingSerializers(many=True,
                                                                                    required=False)
+    off_percentage = serializers.SerializerMethodField()
+    parent_product_discription = serializers.SerializerMethodField()
 
     class Meta:
         model = Product
         ref_name = "ChildProduct v1"
         fields = ('id', 'product_sku', 'product_name', 'product_ean_code', 'status', 'product_mrp', 'weight_value',
                   'weight_unit', 'reason_for_child_sku', 'use_parent_image', 'product_special_cess', 'product_type',
-                  'is_manual_price_update', 'repackaging_type', 'product_pro_image', 'parent_product',
+                  'is_manual_price_update', 'repackaging_type', 'product_pro_image', 'parent_product', 'super_store_product_price',
                   'product_pro_tax', 'destination_product_pro', 'product_images', 'destination_product_repackaging',
-                  'packing_product_rt', 'product_vendor_mapping', 'child_product_log',)
+                  'packing_product_rt', 'product_vendor_mapping', 'child_product_log','parent_product_discription',
+                  'off_percentage')
 
     def validate(self, data):
         if not 'parent_product' in self.initial_data or self.initial_data['parent_product'] is None:
@@ -865,6 +873,15 @@ class ChildProductSerializers(serializers.ModelSerializer):
                                                                     destination_product_repack)
 
         return child_product
+
+    def get_off_percentage(self,obj):
+        price = obj.get_superstore_price
+        return round(100-((price.selling_price*100)/obj.product_mrp),2) if price else None
+
+    def get_parent_product_discription(self, obj):
+        """Return Parent product discription ...."""
+        if obj:
+            return obj.parent_product.product_discription
 
     def create_source_packing_material_destination_product(self, child_product, destination_product_repack):
         ProductCls.create_source_product_mapping(child_product, self.initial_data['destination_product_pro'])
@@ -1826,3 +1843,232 @@ class ParentProductApprovalSerializers(serializers.ModelSerializer):
             send_mail_on_product_tax_declined(parent_product)
 
         return parent_product
+
+
+class CategoryBasicSerializers(serializers.ModelSerializer):
+    class Meta:
+        model = Category
+        fields = ('id', 'category_name',)
+
+
+class B2BCategoryBasicSerializer(serializers.ModelSerializer):
+    category = CategoryBasicSerializers(read_only=True)
+
+    class Meta:
+        model = ParentProductCategory
+        fields = ('id', 'category',)
+
+
+class B2CCategoryBasicSerializers(serializers.ModelSerializer):
+    class Meta:
+        model = B2cCategory
+        fields = ('id', 'category_name',)
+
+
+class B2CCategoryBasicSerializer(serializers.ModelSerializer):
+    category = CategoryBasicSerializers(read_only=True)
+
+    class Meta:
+        model = ParentProductB2cCategory
+        fields = ('id', 'category',)
+
+
+class ParentProductBasicSerializer(serializers.ModelSerializer):
+    parent_product_pro_category = B2BCategoryBasicSerializer(many=True, read_only=True)
+    parent_product_pro_b2c_category = B2CCategoryBasicSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = ParentProduct
+        fields = ('id', 'parent_id', 'name', 'parent_product_pro_category', 'parent_product_pro_b2c_category')
+
+
+class ChildProductsSerializers(serializers.ModelSerializer):
+    parent_product = ParentProductBasicSerializer(read_only=True)
+
+    class Meta:
+        model = Product
+        fields = ('id', 'product_sku', 'product_name', 'product_mrp', 'parent_product')
+
+
+class SuperStoreProductPriceLogSerializer(serializers.ModelSerializer):
+    updated_by = UserSerializers(read_only=True)
+
+    class Meta:
+        model = SuperStoreProductPriceLog
+        fields = ('updated_by', 'update_at', 'old_selling_price', 'new_selling_price',)
+
+
+class SuperStoreProductPriceSerializers(serializers.ModelSerializer):
+    product = ChildProductsSerializers(read_only=True)
+    seller_shop = ShopsSerializer(read_only=True)
+    selling_price = serializers.DecimalField(max_digits=6, decimal_places=2, required=True, min_value=0.01)
+    product_price_change_log = SuperStoreProductPriceLogSerializer(read_only=True, many=True)
+
+    def validate(self, data):
+
+        if self.initial_data['product'] is None:
+            raise serializers.ValidationError("please select product")
+        product_val = validate_superstore_product(self.initial_data['product'])
+        if 'error' in product_val:
+            raise serializers.ValidationError(product_val['error'])
+        product_price = validate_retailer_price_exist(self.initial_data['product'])
+        if 'error' in product_price:
+            raise serializers.ValidationError(product_price['error'])
+        data['product'] = product_val['product']
+
+        # if product_val['product'] and product_val['product'].product_mrp:
+        #     data['mrp'] = product_val['product'].product_mrp
+
+        if data['selling_price'] > product_val['product'].product_mrp:
+            raise serializers.ValidationError("selling price can not be greater than product mrp")
+
+        if self.initial_data['seller_shop'] is None:
+            raise serializers.ValidationError("please select seller shop")
+        seller_shop_val = get_validate_seller_shop(self.initial_data['seller_shop'])
+        if 'error' in seller_shop_val:
+            raise serializers.ValidationError(seller_shop_val['error'])
+        data['seller_shop'] = seller_shop_val['seller_shop']
+
+        if not 'id' in self.initial_data or not self.initial_data['id']:
+            if SuperStoreProductPrice.objects.filter(seller_shop=data['seller_shop'],
+                                                     product=data['product']).exists():
+                raise serializers.ValidationError("You have already created price for this product!!!")
+
+        if 'id' in self.initial_data and self.initial_data['id']:
+            if not SuperStoreProductPrice.objects.filter(seller_shop=data['seller_shop'],
+                                                         product=data['product'], id=self.initial_data['id']):
+                raise serializers.ValidationError("You can't change product or seller shop!!!")
+
+        return data
+
+    class Meta:
+        model = SuperStoreProductPrice
+        fields = ('id', 'product', 'seller_shop', 'selling_price', 'product_price_change_log')
+
+    @transaction.atomic
+    def create(self, validated_data):
+        """ create product price mapping """
+        try:
+            product_price = SuperStoreProductPrice.objects.create(**validated_data)
+        except Exception as e:
+            error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
+            raise serializers.ValidationError(error)
+        return product_price
+
+    @transaction.atomic
+    def update(self, instance, validated_data):
+        """ This method is used to update an instance of the Child Product's price attribute."""
+        try:
+            # call super to save modified instance along with the validated data
+            product_price = super().update(instance, validated_data)
+        except Exception as e:
+            error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
+            raise serializers.ValidationError(error)
+
+        return product_price
+
+
+class SuperStoreProductPriceAsCSVUploadSerializer(serializers.ModelSerializer):
+    file = serializers.FileField(
+        label='Upload Product Price', required=True, write_only=True)
+
+    def __init__(self, *args, **kwargs):
+        super(SuperStoreProductPriceAsCSVUploadSerializer, self).__init__(*args, **kwargs)  # call the super()
+
+    class Meta:
+        model = SuperStoreProductPrice
+        fields = ('file',)
+
+    def validate(self, data):
+        if not data['file'].name[-4:] in '.csv':
+            raise serializers.ValidationError(
+                _('Sorry! Only csv file accepted.'))
+        csv_file_data = csv.reader(codecs.iterdecode(data['file'], 'utf-8', errors='ignore'))
+        # Checking, whether csv file is empty or not!
+        if csv_file_data:
+            errorlist, validated_data = read_super_store_product_price_file(csv_file_data)
+        else:
+            raise serializers.ValidationError(
+                "CSV File cannot be empty.Please add some data to upload it!")
+
+        return {"ErrorData": errorlist, "SuccessData": validated_data}
+
+    @transaction.atomic
+    def create(self, validated_data):
+        try:
+            # Store valid data in model
+            SuperStoreProductPriceCommonFunction.create_product_price(validated_data["SuccessData"], self.context['request'].user)
+
+            # Write error list into csv file
+            filename = f"super_store_product_price-upload.csv"
+            response = HttpResponse(content_type='text/csv')
+            response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
+            writer = csv.writer(response)
+            total_data = len(validated_data["ErrorData"]) + len(validated_data["SuccessData"])
+            fail_data = len(validated_data["ErrorData"])
+            pass_data = len(validated_data["SuccessData"])
+            if len(validated_data["ErrorData"]):
+                writer.writerow(['Total Data:', total_data])
+                writer.writerow(['Pass Data:', pass_data])
+                writer.writerow(['Fail Data:', fail_data])
+                writer.writerow([])
+                writer.writerow(
+                    ['seller_shop_id', 'seller_shop', 'parent_product_id', 'product_id', 'product_sku', 'product_name',
+                     'b2b_category', 'b2c_category', 'mrp', 'selling_price', 'upload_status'])
+                for row in validated_data["ErrorData"]:
+                    writer.writerow(row)
+        except Exception as e:
+            error = {'message': ",".join(e.args) if len(
+                e.args) > 0 else 'Unknown Error'}
+            raise serializers.ValidationError(error)
+
+        return response
+
+
+class SuperStoreProductPriceDownloadSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SuperStoreProductPrice
+        fields = ('seller_shop_id',)
+
+    def validate(self, data):
+
+        if not 'seller_shop_id' in self.initial_data:
+            raise serializers.ValidationError(_('Please Select One seller shop id!'))
+
+        elif 'seller_shop_id' in self.initial_data and self.initial_data['seller_shop_id']:
+            seller_shop_val = get_validate_seller_shop(self.initial_data['seller_shop_id'])
+            if 'error' in seller_shop_val:
+                raise serializers.ValidationError(_(seller_shop_val["error"]))
+            data['seller_shop_id'] = seller_shop_val['seller_shop']
+
+        return data
+
+    def create(self, validated_data):
+        shop = validated_data['seller_shop_id']
+        filename = f"super_store_product_price-{shop.id}.csv"
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
+        writer = csv.writer(response)
+        writer.writerow(
+            ['seller_shop_id', 'seller_shop', 'parent_product_id', 'product_id', 'product_sku', 'product_name',
+             'b2b_category', 'b2c_category', 'mrp', 'selling_price'])
+
+        price_product_qs = SuperStoreProductPrice.objects.filter(seller_shop=shop).\
+            select_related('product', 'seller_shop', 'product__parent_product').\
+            prefetch_related('product__parent_product', 'seller_shop__shop_type', 'seller_shop__shop_owner',
+                             'product__parent_product__parent_product_pro_category',
+                             'product__parent_product__parent_product_pro_b2c_category').order_by('-updated_at')
+        if price_product_qs.exists():
+            for obj in price_product_qs:
+                b2b = obj.product.parent_product.parent_product_pro_category.last()
+                b2c = obj.product.parent_product.parent_product_pro_b2c_category.last()
+                writer.writerow(
+                    [obj.seller_shop.pk, obj.seller_shop.shop_name, obj.product.parent_product.parent_id,
+                     obj.product.id, obj.product.product_sku, obj.product.product_name,
+                     b2b.category.category_name if b2b else b2b, b2c.category.category_name if b2c else b2c,
+                     obj.mrp, obj.selling_price])
+        else:
+            writer.writerow(
+                [600, 'GFDN', 'PCBDPCO0074', '544', 'BEVBEVNIM00000001', 'maggie', 'Liquid Drinks', 'Liquid Drinks', 233, 200])
+        return response
+

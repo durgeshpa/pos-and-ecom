@@ -4,12 +4,13 @@ from rest_framework.generics import RetrieveAPIView, GenericAPIView
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
-from rest_framework import status, authentication, permissions, generics
+from rest_framework import status, permissions, generics
+from rest_auth import authentication
 from rest_framework.permissions import AllowAny
 
 from categories.models import Category
 from brand.models import Brand
-from retailer_backend.utils import SmallOffsetPagination
+from retailer_backend.utils import SmallOffsetPagination, OffsetPaginationDefault50
 from .serializers import CardDataSerializer, CardSerializer, ApplicationSerializer, ApplicationDataSerializer, \
     PageSerializer, PageDetailSerializer, CardItemSerializer, PageLatestDetailSerializer, CategorySerializer, \
     SubCategorySerializer, BrandSerializer, SubBrandSerializer, LandingPageSerializer, PageFunctionSerializer
@@ -616,6 +617,7 @@ class PageVersionDetailView(APIView):
         """Get Data of Latest Version"""
         request.META['HTTP_X_FORWARDED_PROTO'] = 'https'
         shop_id = kwargs.get('shop', None)
+        parent_shop = kwargs.get('parent_shop', None)
         try:
             page_key = f"latest_page_{id}"
             # cached_page = cache.get(page_key, None)
@@ -638,7 +640,8 @@ class PageVersionDetailView(APIView):
             }
             return Response(message)
         latest_page_version = PageVersion.objects.get(version_no = latest_page_version_no, page = page)
-        serializer = self.serializer_class(page, context = {'version': latest_page_version, 'shop_id': shop_id})
+        serializer = self.serializer_class(page, context = {'version': latest_page_version, 'shop_id': shop_id,
+                                                            'parent_shop': parent_shop})
         message = {
             "is_success": True,
             "message": "OK",
@@ -731,7 +734,7 @@ class PageFunctionView(generics.GenericAPIView):
             page_functions = Functions.objects.filter(type=request.GET.get('type'), id=request.GET.get('id'))
         else:
             self.queryset = self.filter_page_functions()
-            page_functions = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+            page_functions = OffsetPaginationDefault50().paginate_queryset(self.queryset, request)
 
         serializer = self.serializer_class(page_functions, many=True)
         msg = "" if page_functions else "no page function found"

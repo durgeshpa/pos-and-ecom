@@ -313,12 +313,22 @@ def order_picklist(order_id, zone_id=None):
         prod_list = {"product": product, "sku": sku, "mrp": mrp, "qty": qty, "batch_id": batch_id, "bin": bin_id,
                      "zone": zone}
         data_list.append(prod_list)
+    if order.ordered_cart.cart_type == 'SUPERSTORE' or order.ordered_cart.cart_type == 'ECOM':
+        buyer_shop_name = order.ecom_address_order.contact_name
+        buyer_contact_number = order.ecom_address_order.contact_number
+        buyer_shipping_address = order.ecom_address_order.address
+        buyer_shipping_city = order.ecom_address_order.city.city_name
+    else:
+        buyer_shop_name = order.ordered_cart.buyer_shop.shop_name
+        buyer_contact_number = order.ordered_cart.buyer_shop.shop_owner.phone_number
+        buyer_shipping_address = order.shipping_address.address_line1
+        buyer_shipping_city = order.shipping_address.city.city_name
     pdf_data['data'] = {
         "data_list": data_list,
-        "buyer_shop": order.ordered_cart.buyer_shop.shop_name,
-        "buyer_contact_no": order.ordered_cart.buyer_shop.shop_owner.phone_number,
-        "buyer_shipping_address": order.shipping_address.address_line1,
-        "buyer_shipping_city": order.shipping_address.city.city_name,
+        "buyer_shop": buyer_shop_name,
+        "buyer_contact_no": buyer_contact_number,
+        "buyer_shipping_address": buyer_shipping_address,
+        "buyer_shipping_city": buyer_shipping_city,
         "barcode": barcode,
         "order_obj": order,
         "type": 'Order'
@@ -1043,7 +1053,7 @@ def pickup_entry_creation_with_cron():
                                      order_closed=False,
                                      created_at__lt=current_time,
                                      created_at__gt=start_time)\
-                             .exclude(Q(ordered_cart__cart_type__in=['AUTO', 'BASIC', 'ECOM'])|
+                             .exclude(Q(ordered_cart__cart_type__in=['AUTO', 'BASIC', 'ECOM', 'SUPERSTORE', 'SUPERSTORE_RETAIL']) |
                                       Q(ordered_cart__cart_type='DISCOUNTED', ordered_cart__approval_status=False))
     if order_obj.count() == 0:
         cron_logger.info("{}| no orders to generate picklist for".format(cron_name))
@@ -1186,6 +1196,226 @@ def pickup_entry_creation_with_cron():
                             warehouse, obj.sku, batch_id, bin_inv.bin, inventory_type, inventory_type, tr_type,
                             tr_id, already_picked)
 
+
+                    CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
+                        warehouse, obj.sku, inventory_type, state_to_be_picked, total_to_be_picked,
+                        tr_type, tr_id)
+                if Order.objects.filter(id=order.id).filter(~Q(order_status='ordered')).exists():
+                    raise ValidationError(f"{order.id}|{order.order_no}|Picklist already generated.")
+
+                # Zone wise Picker Dashboard Entry along with auto picker user assignment
+                for zone_id in zones_list:
+                    if not pickup_entry_exists_for_order_zone(order.id, zone_id):
+                        # Get user and update last_assigned_at of ZonePickerUserAssignmentMapping
+                        picker_user_assigned = False
+                        order_dispatch_center = Order.objects.get(id=order.pk).dispatch_center
+                        if order_dispatch_center:
+                            order.dispatch_center = order_dispatch_center
+                            order.dispatch_delivery = True
+                        if not order_dispatch_center or order_dispatch_center.cutoff_time is None or \
+                                order_dispatch_center.cutoff_time > datetime.now().time():
+                            zone_picker_assigned_user = ZonePickerUserAssignmentMapping.objects.filter(
+                                user_enabled=True, zone_id=zone_id, last_assigned_at=None).last()
+                            if not zone_picker_assigned_user:
+                                zone_picker_assigned_user = ZonePickerUserAssignmentMapping.objects.filter(
+                                    user_enabled=True, zone_id=zone_id). \
+                                    order_by('-last_assigned_at').last()
+                            if zone_picker_assigned_user:
+                                picker_user = zone_picker_assigned_user.user
+                                zone_picker_assigned_user.last_assigned_at = datetime.now()
+                                zone_picker_assigned_user.save()
+                                # Create Entry in PickerDashboard with PICKING_ASSIGNED status
+                                PickerDashboard.objects.create(
+                                    order=order, picking_status=PickerDashboard.PICKING_ASSIGNED, zone_id=zone_id,
+                                    picker_boy=picker_user, picklist_id=generate_picklist_id(pincode))
+                                picker_user_assigned = True
+                        if not picker_user_assigned:
+                            order.order_status = Order.PICKUP_CREATED
+                            cron_logger.info('Picker user not found for zone {}'.format(zone_id))
+                            # Create Entry in PickerDashboard with PICKING_PENDING status
+                            PickerDashboard.objects.create(
+                                order=order, picking_status="picking_pending", zone_id=zone_id,
+                                picker_boy=None, picklist_id=generate_picklist_id(pincode))
+                        cron_logger.info(
+                            'picker dashboard entry created for order {} & zone {}, order status updated to {}'
+                                .format(order.id, zone_id, order.order_status))
+
+                info_logger.info("pickup_entry_creation_with_cron | " + str(order.order_no) + " | " +
+                                 str(order.order_status))
+                order.save()
+                cron_logger.info('pickup entry created for order {}'.format(order.order_no))
+        except Exception as e:
+            cron_logger.info('Exception while creating pickup for order {}'.format(order.order_no))
+            cron_logger.error(e)
+
+    cron_log_entry.status = CronRunLog.CRON_STATUS_CHOICES.COMPLETED
+    cron_log_entry.completed_at = timezone.now()
+    cron_logger.info("{} completed, cron log entry-{}".format(cron_log_entry.cron_name, cron_log_entry.id))
+    cron_log_entry.save()
+
+
+def pickup_entry_for_superstore_order_creation_with_cron():
+    cron_name = CronRunLog.CRON_CHOICE.PICKUP_SUPERSTORE_CREATION_CRON
+    superstore_picklist_days = get_config("superstore_picklist_days", 3)
+    current_time = datetime.now() - timedelta(minutes=0)
+    start_time = datetime.now() - timedelta(days=superstore_picklist_days)
+    order_obj = Order.objects.filter(order_status='ordered',
+                                     order_closed=False,
+                                     created_at__lt=current_time,
+                                     created_at__gt=start_time, ordered_cart__cart_type='SUPERSTORE_RETAIL')
+    if order_obj.count() == 0:
+        cron_logger.info("{}| no orders to generate picklist for".format(cron_name))
+        return
+
+    if CronRunLog.objects.filter(cron_name=cron_name, status=CronRunLog.CRON_STATUS_CHOICES.STARTED).exists():
+        abort_minutes = get_config('PICKUP_CRON_ABORT_MINUTES', 30)
+        running_cron = CronRunLog.objects.filter(cron_name=cron_name, status=CronRunLog.CRON_STATUS_CHOICES.STARTED,
+                                                 modified_at__lte=(datetime.now() - timedelta(minutes=abort_minutes)))
+        if running_cron:
+            running_cron.update(status=CronRunLog.CRON_STATUS_CHOICES.ABORTED, modified_at=datetime.now())
+            cron_logger.info("{} aborted running".format(cron_name))
+        else:
+            cron_logger.info("{} already running".format(cron_name))
+            return
+
+    cron_log_entry = CronRunLog.objects.create(cron_name=cron_name)
+    cron_logger.info("{} started, cron log entry-{}" .format(cron_log_entry.cron_name, cron_log_entry.id))
+    inventory_type = InventoryType.objects.filter(inventory_type='normal').last()
+    state_to_be_picked = InventoryState.objects.filter(inventory_state='to_be_picked').last()
+    state_ordered = InventoryState.objects.filter(inventory_state='ordered').last()
+
+    for order in order_obj:
+        try:
+            inventory = get_stock(
+                order.seller_shop, inventory_type,
+                product_id_list=order.ordered_cart.rt_cart_list.values_list('cart_product_id', flat=True))
+
+            assign_dispatch_center_to_order_by_pincode(order.pk)
+            with transaction.atomic():
+                cart_product_mapping_instances = order.ordered_cart.rt_cart_list
+                can_process = True
+                for map in cart_product_mapping_instances.all():
+                    inv_total = inventory[int(map.cart_product.id)] if inventory and int(map.cart_product.id) in inventory else 0
+                    if map.qty > inv_total:
+                        can_process = False
+                        break
+                if not can_process:
+                    info_logger.info(f"{order.order_no}|Not enough inventory to generate picklist.")
+                    continue
+
+                order.order_status = Order.PICKING_ASSIGNED
+                pincode = "00"
+                warehouse = order.seller_shop
+
+                parent_product_objs = cart_product_mapping_instances. \
+                    values_list('cart_product__parent_product', flat=True). \
+                    annotate(total_items=Count('cart_product__parent_product')). \
+                    order_by('-cart_product__parent_product')
+
+                zones_list = cart_product_mapping_instances.filter(
+                    cart_product__parent_product__product_zones__warehouse=warehouse).values_list(
+                    'cart_product__parent_product__product_zones__zone', flat=True).\
+                    distinct('cart_product__parent_product__product_zones__zone')
+
+                zone_product = cart_product_mapping_instances.filter(
+                    cart_product__parent_product__product_zones__warehouse=warehouse).values(
+                    'cart_product__parent_product__product_zones__zone',
+                    'cart_product__parent_product__product_zones__product')
+
+                product_zone_dict = {zp['cart_product__parent_product__product_zones__product']: zp[
+                                'cart_product__parent_product__product_zones__zone'] for zp in list(zone_product)}
+
+                if len(product_zone_dict) != parent_product_objs.count():
+                    cron_logger.info("{}| some/all products of order no {} does not mapped to any zone"
+                                     .format(cron_name, order.order_no))
+                    try:
+                        mp = zone_product.values_list('cart_product__parent_product__product_zones__product', flat=True)
+                        product_ids_list = list(set(parent_product_objs) - set(mp))
+                        mail_warehouse_team_for_product_mappings(order.order_no, product_ids_list)
+                    except:
+                        cron_logger.info("{}| Exception occurred while sending non mapped products list for order no {}"
+                                         .format(cron_name, order.order_no))
+                    continue
+                for order_product in order.ordered_cart.rt_cart_list.all():
+
+                    # Pickup Entry
+                    zone = Zone.objects.get(
+                        pk=product_zone_dict[order_product.cart_product.parent_product.pk]) \
+                        if order_product.cart_product.parent_product.pk in product_zone_dict else None
+                    obj = CommonPickupFunctions.create_pickup_entry_with_zone(
+                        warehouse, zone, 'Order', order.order_no, order_product.cart_product,
+                        order_product.no_of_pieces, 'pickup_creation', inventory_type)
+
+                    tr_type = "pickup_created"
+                    tr_id = obj.pk
+                    # CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
+                    #     warehouse, obj.sku, inventory_type, state_ordered, -1 * order_product.no_of_pieces,
+                    #     tr_type, tr_id)
+
+                    cron_logger.info('pickup entry created for order {}, order_product {}, inventory_type {}'
+                                     .format(order.id, order_product.cart_product, inventory_type))
+
+                    # Inventory Management
+                    bin_inv_dict = {}
+                    qty = obj.quantity
+                    total_to_be_picked = 0
+                    bin_lists = BinInventory.objects.filter(
+                        sku=obj.sku, warehouse=warehouse, bin__zone=obj.zone, quantity__gt=0,
+                        inventory_type=inventory_type)
+                    if not bin_lists.exists():
+                        cron_logger.info("{}| bin mapping seem to be missing for this product {} and zone {}"
+                                         .format(cron_name, obj.sku_id, obj.zone))
+                        bin_lists = BinInventory.objects.filter(
+                            sku=obj.sku, warehouse=warehouse, quantity__gt=0, inventory_type=inventory_type)
+                    if not bin_lists.exists():
+                        bin_lists = BinInventory.objects.filter(
+                            sku=obj.sku, warehouse=warehouse, quantity=0,
+                            inventory_type=inventory_type)[:1]
+
+                    for k in bin_lists:
+                        if len(k.batch_id) == 23:
+                            bin_inv_dict[k] = str(
+                                datetime.strptime(k.batch_id[17:19] + '-' + k.batch_id[19:21] + '-' + '20' +
+                                                  k.batch_id[21:23], "%d-%m-%Y"))
+                        else:
+                            bin_inv_dict[k] = str(
+                                datetime.strptime('30-' + k.batch_id[17:19] + '-20' + k.batch_id[19:21],
+                                                  "%d-%m-%Y"))
+
+                    bin_inv_list = list(bin_inv_dict.items())
+                    bin_inv_dict = dict(sorted(dict(bin_inv_list).items(), key=lambda x: x[1]))
+                    for bin_inv in bin_inv_dict.keys():
+                        if qty == 0:
+                            break
+                        already_picked = 0
+                        batch_id = bin_inv.batch_id if bin_inv else None
+                        qty_in_bin = bin_inv.quantity if bin_inv else 0
+                        # bin_id = bin_inv.bin.bin_id if bin_inv else None
+                        if qty - already_picked <= qty_in_bin:
+                            already_picked += qty
+                            remaining_qty = qty_in_bin - already_picked
+                            # bin_inv.quantity = remaining_qty
+                            # bin_inv.to_be_picked_qty += already_picked
+                            # bin_inv.save()
+                            CommonBinInventoryFunctions.move_to_to_be_picked(already_picked, bin_inv, tr_id, tr_type)
+                            qty = 0
+                            total_to_be_picked += already_picked
+                        else:
+                            already_picked = qty_in_bin
+                            remaining_qty = qty - already_picked
+                            # bin_inv.quantity = qty_in_bin - already_picked
+                            # bin_inv.to_be_picked_qty += already_picked
+                            # bin_inv.save()
+                            CommonBinInventoryFunctions.move_to_to_be_picked(already_picked, bin_inv, tr_id, tr_type)
+                            qty = remaining_qty
+                            total_to_be_picked += already_picked
+
+                        CommonPickBinInvFunction.create_pick_bin_inventory_with_zone(
+                            warehouse, bin_inv.bin.zone, obj, batch_id, bin_inv, quantity=already_picked,
+                            bin_quantity=qty_in_bin, pickup_quantity=None)
+                        InternalInventoryChange.create_bin_internal_inventory_change(
+                            warehouse, obj.sku, batch_id, bin_inv.bin, inventory_type, inventory_type, tr_type,
+                            tr_id, already_picked)
 
                     CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
                         warehouse, obj.sku, inventory_type, state_to_be_picked, total_to_be_picked,
