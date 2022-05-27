@@ -2230,6 +2230,12 @@ class CartCheckout(APIView):
                                        cart_status='active').last()
         except ObjectDoesNotExist:
             return api_response("No items added in cart yet")
+        order_amount = cart.order_amount_after_discount
+        min_order_value = GlobalConfig.objects.get(key='min_order_value_super_store').value
+        if order_amount < min_order_value:
+            return api_response(
+                "A minimum total purchase amount of {} is required to checkout.".format(min_order_value),
+                None, status.HTTP_200_OK, False)
         with transaction.atomic():
             use_reward_this_month = RewardCls.checkout_redeem_points(cart, 0, shop=kwargs['shop'],app_type="SUPERSTORE", use_all=self.request.GET.get('use_rewards', 1))
             data = self.serialize(cart, None)
@@ -3766,6 +3772,12 @@ class OrderCentral(APIView):
         if not cart:
             return api_response('Please add items in your cart to place an order.')
 
+        order_amount = cart.order_amount_after_discount
+        min_order_value = GlobalConfig.objects.get(key='min_order_value_super_store').value
+        if order_amount < min_order_value:
+            return api_response(
+                "A minimum total purchase amount of {} is required to checkout.".format(min_order_value),
+                None, status.HTTP_200_OK, False)
         # set_payment_option
         try:
             payment_type_id = PaymentType.objects.get(id=self.request.data.get('payment_type', 4)).id
