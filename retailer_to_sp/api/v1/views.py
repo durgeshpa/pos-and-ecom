@@ -1314,7 +1314,7 @@ class CartCentral(GenericAPIView):
             PosCartCls.refresh_prices(cart.rt_cart_list.all())
 
             # Refresh redeem reward
-            #RewardCls.checkout_redeem_points(cart, 0, kwargs['shop'], self.request.GET.get('use_rewards', 0))
+            RewardCls.checkout_redeem_points(cart, 0, kwargs['shop'], app_type="SUPERSTORE" , use_all=self.request.GET.get('use_rewards', 1))
 
             cart_data = SuperStoreCartSerializer(cart).data
             address = AddressCheckoutSerializer(cart.buyer.ecom_user_address.filter(default=True).last()).data
