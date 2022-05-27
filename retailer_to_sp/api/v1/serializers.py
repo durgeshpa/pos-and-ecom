@@ -5544,9 +5544,13 @@ class SuperStoreOrderListSerializer(serializers.ModelSerializer):
     def get_expected_delivery_date(self, instance):
         return instance.ordered_product.order.estimate_delivery_time
     
+    ordered_cart = serializers.SerializerMethodField()
+    def get_ordered_cart(self, instance):
+        return instance.ordered_product.order.ordered_cart.id
+    
     class Meta:
         model = RetailerOrderedProductMapping
-        fields = ('id', 'order_no', 'shipment_status', 'qty_and_total_amount', 
+        fields = ('id', 'order_no', 'shipment_status', 'qty_and_total_amount', 'ordered_cart',
                   'payment', 'buyer', 'product', 'order_status', 'expected_delivery_date',
                   'created_at')
 
@@ -5648,7 +5652,7 @@ class SuperStoreOrderDetailSerializer(serializers.ModelSerializer):
                                          Order.MOVED_TO_QC,
                                          Order.PARTIAL_SHIPMENT_CREATED,
                                          Order.FULL_SHIPMENT_CREATED]:
-                return 'in_transit'
+                return 'IN_TRANSIT'
             elif retailer_order_status == Order.DISPATCHED:
                 return Order.DISPATCHED
             elif retailer_order_status == Order.COMPLETED:
