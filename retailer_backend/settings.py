@@ -150,7 +150,6 @@ INSTALLED_APPS = [
     'tinymce',
     'drf_api_logger',
     'zoho',
-    'silk'
 ]
 
 # if ENVIRONMENT.lower() in ["production","qa"]:
@@ -193,7 +192,6 @@ MIDDLEWARE += [
     'accounts.middlewares.RequestMiddleware',
     # 'accounts.middlewares.AuthenticationMiddleware',
     'drf_api_logger.middleware.api_logger_middleware.APILoggerMiddleware',
-    'silk.middleware.SilkyMiddleware'
 ]
 # if ENVIRONMENT.lower() in ["production", "qa"]:
 #     MIDDLEWARE += [
