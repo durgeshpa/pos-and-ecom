@@ -5547,10 +5547,14 @@ class SuperStoreOrderListSerializer(serializers.ModelSerializer):
     
     product = ProductSerializer(read_only=True)
     
+    expected_delivery_date = serializers.SerializerMethodField()
+    def get_expected_delivery_date(self, instance):
+        return instance.ordered_product.order.estimate_delivery_time
+    
     class Meta:
         model = RetailerOrderedProductMapping
         fields = ('id', 'order_no', 'shipment_status', 'qty_and_total_amount', 
-                  'payment', 'buyer', 'product', 'order_status',
+                  'payment', 'buyer', 'product', 'order_status', 'expected_delivery_date',
                   'created_at')
 
 
