@@ -3342,7 +3342,7 @@ class OrderCentral(APIView):
                 return api_response("Please Provide valid status for order updation")
             if order_status == OrderedProduct.OUT_FOR_DELIVERY:
                 retail_delivery_check = True
-                if not shipment.order.delivery_option == 1:
+                if shipment.order.delivery_option == '1':
                     return api_response("Self pick up orders cannot be marked as out for delivered")
 
                 if not retail_delivery_check:
