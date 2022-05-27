@@ -4,7 +4,7 @@ from functools import wraps
 from copy import deepcopy
 from decimal import Decimal
 import datetime
-from global_config.views import get_config_fofo_shop
+from global_config.views import get_config, get_config_fofo_shop
 from django.db import transaction
 from rest_framework.response import Response
 from rest_framework import status
@@ -560,7 +560,6 @@ class RewardCls(object):
                 redeem_points = 0
         else:
             redeem_points = 0
-
         message = ""
         if app_type=="ECOM" and not get_config_fofo_shop('Is_Enable_Point_Redeemed_Ecom', shop.id):
             redeem_points = 0
@@ -589,6 +588,7 @@ class RewardCls(object):
             max_redeem_points = get_config_fofo_shop('Max_Point_Redeemed_Ecom', shop.id)
         elif app_type == "POS":
             max_redeem_points = get_config_fofo_shop('Max_Point_Redeemed_Pos', shop.id)
+        
         max_month_limit = get_config_fofo_shop('Max_Monthly_Points_Redeemed', shop.id)
 
         max_month_limit = max_month_limit if max_month_limit else 500
@@ -825,9 +825,8 @@ class RewardCls(object):
             obj = RewardPoint.objects.filter(reward_user=cart.buyer).last()
             if obj:
                 points = max(obj.direct_earned + obj.indirect_earned - obj.points_used, 0)
-
-                redeem_points = points
-
+                if use_all is not None:
+                    redeem_points = points if int(use_all) else 0
                 redeem_points = min(redeem_points, points, int(cart.order_amount_after_discount * value_factor))
             else:
                 redeem_points = 0
