@@ -576,5 +576,5 @@ def create_logs_for_qc_desk_area_mapping(sender, instance=None, created=False, *
 @receiver(post_save, sender=SuperStoreProductPrice)
 def update_super_store_product_price_elasticsearch(sender, instance=None, created=False, **kwargs):
     info_logger.info("Inside update_super_store_product_price_elasticsearch, instance: " + str(instance))
-    update_shop_product_es.apply_async(args=[instance.seller_shop.id, instance.seller_shop.id],
+    update_shop_product_es.apply_async(args=[instance.seller_shop.id, instance.product.id],
                                        countdown=GlobalConfig.objects.get(key='celery_countdown').value)
