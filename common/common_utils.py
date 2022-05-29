@@ -377,7 +377,7 @@ def sms_out_for_delivery(name, number):
 def sms_order_delivered(name, number):
     '''Send sms affter delivered order...'''
     try:
-        url = "https://play.google.com/store/apps/details?id=com.peppertap.store"
+        url = "shorturl.at/lsBFI"
         body = f"YAY! Your PepperTap order has been successfully delivered. Please click here - {url} to rate us on PlayStore."
         message = SendSms(phone=number, body=body, mask="PEPTAB")
         message.send()
