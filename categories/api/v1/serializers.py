@@ -300,7 +300,7 @@ class CategoryCrudSerializers(serializers.ModelSerializer):
 
         cat_id = self.instance.id if self.instance else None
         if 'category_name' in self.initial_data and self.initial_data['category_name'] is not None:
-            cat_obj = validate_category_name(self.initial_data['category_name'], cat_id)
+            cat_obj = validate_category_name(self.initial_data['category_name'], cat_id, self.initial_data['category_type'])
             if cat_obj is not None and 'error' in cat_obj:
                 raise serializers.ValidationError(cat_obj['error'])
 
@@ -310,7 +310,7 @@ class CategoryCrudSerializers(serializers.ModelSerializer):
                 raise serializers.ValidationError(cat_obj['error'])
 
         if 'category_slug' in self.initial_data and self.initial_data['category_slug'] is not None:
-            cat_obj = validate_category_slug(self.initial_data['category_slug'], cat_id)
+            cat_obj = validate_category_slug(self.initial_data['category_slug'], cat_id, self.initial_data['category_type'])
             if cat_obj is not None and 'error' in cat_obj:
                 raise serializers.ValidationError(cat_obj['error'])
         

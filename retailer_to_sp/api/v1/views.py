@@ -41,7 +41,8 @@ from brand.models import Brand
 from categories import models as categorymodel
 from common.common_utils import (create_file_name, single_pdf_file, create_merge_pdf_name, merge_pdf_files,
                                  create_invoice_data, whatsapp_opt_in, whatsapp_order_cancel, whatsapp_order_refund,
-                                 whatsapp_order_delivered)
+                                 whatsapp_order_delivered, sms_order_delivered, sms_out_for_delivery,
+                                 sms_order_dispatch, sms_order_placed)
 from common.constants import PREFIX_CREDIT_NOTE_FILE_NAME, ZERO, PREFIX_INVOICE_FILE_NAME, INVOICE_DOWNLOAD_ZIP_NAME
 from common.data_wrapper_view import DataWrapperViewSet
 from coupon.models import Coupon, CusotmerCouponUsage
@@ -1318,7 +1319,7 @@ class CartCentral(GenericAPIView):
             PosCartCls.refresh_prices(cart.rt_cart_list.all())
 
             # Refresh redeem reward
-            RewardCls.checkout_redeem_points(cart, 0, kwargs['shop'], self.request.GET.get('use_rewards', 1))
+            RewardCls.checkout_redeem_points(cart, 0, kwargs['shop'], app_type="SUPERSTORE" , use_all=self.request.GET.get('use_rewards', 1))
 
             cart_data = SuperStoreCartSerializer(cart).data
             address = AddressCheckoutSerializer(cart.buyer.ecom_user_address.filter(default=True).last()).data
@@ -2237,12 +2238,20 @@ class CartCheckout(APIView):
                                        cart_status='active').last()
         except ObjectDoesNotExist:
             return api_response("No items added in cart yet")
+        order_amount = cart.order_amount_after_discount
+        min_order_value = GlobalConfig.objects.get(key='min_order_value_super_store').value
+        if order_amount < min_order_value:
+            return api_response(
+                "A minimum total purchase amount of {} is required to checkout.".format(min_order_value),
+                None, status.HTTP_200_OK, False)
         with transaction.atomic():
-            use_reward_this_month = RewardCls.checkout_redeem_points(cart, 0, shop=kwargs['shop'],app_type="SUPERSTORE",use_all=self.request.GET.get('use_rewards', 1))
+            use_reward_this_month = RewardCls.checkout_redeem_points(cart, 0, shop=kwargs['shop'],app_type="SUPERSTORE", use_all=self.request.GET.get('use_rewards', 1))
             data = self.serialize(cart, None)
             address = AddressCheckoutSerializer(cart.buyer.ecom_user_address.filter(default=True).last()).data
             data.update({'default_address': address})
-            delivery_time = "5-7 days"
+            delivery_buffer = get_config("superstore_delivery_buffer", 7)
+            delivery_date_expected = (datetime.now() + timedelta(delivery_buffer)).date()
+            delivery_time = delivery_date_expected
             data['estimate_delivery_time'] = delivery_time
             data.update({'saving': round(data['total_mrp'] - data['amount_payable'], 2)})
             data.update({"redeem_points_message": use_reward_this_month if use_reward_this_month else ""})
@@ -3351,7 +3360,7 @@ class OrderCentral(APIView):
                 return api_response("Please Provide valid status for order updation")
             if order_status == OrderedProduct.OUT_FOR_DELIVERY:
                 retail_delivery_check = True
-                if not shipment.order.delivery_option == 2:
+                if shipment.order.delivery_option == '1':
                     return api_response("Self pick up orders cannot be marked as out for delivered")
 
                 if not retail_delivery_check:
@@ -3374,6 +3383,7 @@ class OrderCentral(APIView):
                                                         shipment=shipment)
                 pos_trip.trip_start_at = datetime.now()
                 pos_trip.save()
+                sms_out_for_delivery(shipment.order.buyer.first_name, shipment.order.buyer.phone_number)
             else:
                 if shipment.order.delivery_option == '1':
                     shipment.shipment_status = order_status
@@ -3390,6 +3400,7 @@ class OrderCentral(APIView):
                                                           shipment=shipment)
                     pos_trip.trip_end_at = datetime.now()
                     pos_trip.save()
+                    sms_order_delivered(shipment.order.buyer.first_name, shipment.order.buyer.phone_number)
             return api_response("Order updated successfully!", response, status.HTTP_200_OK, True)
 
     def put_retail_order(self, pk):
@@ -3775,6 +3786,12 @@ class OrderCentral(APIView):
         if not cart:
             return api_response('Please add items in your cart to place an order.')
 
+        order_amount = cart.order_amount_after_discount
+        min_order_value = GlobalConfig.objects.get(key='min_order_value_super_store').value
+        if order_amount < min_order_value:
+            return api_response(
+                "A minimum total purchase amount of {} is required to checkout.".format(min_order_value),
+                None, status.HTTP_200_OK, False)
         # set_payment_option
         try:
             payment_type_id = PaymentType.objects.get(id=self.request.data.get('payment_type', 4)).id
@@ -3807,6 +3824,7 @@ class OrderCentral(APIView):
             ]
             self.auto_process_order(order, payments, 'superstore')
             self.process_superstore_order(order)
+            sms_order_placed(order.buyer.first_name, order.buyer.phone_number)
             msg = 'Ordered Successfully!'
             return api_response(msg, BasicOrderListSerializer(Order.objects.get(id=order.id)).data,
                                         status.HTTP_200_OK, True)

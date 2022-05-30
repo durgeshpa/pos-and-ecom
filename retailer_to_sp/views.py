@@ -3,7 +3,7 @@ import jsonpickle
 import logging
 from dal import autocomplete
 from wkhtmltopdf.views import PDFTemplateResponse
-
+from common.common_utils import sms_order_dispatch
 from products.models import *
 from num2words import num2words
 from barCodeGenerator import barcodeGen, merged_barcode_gen
@@ -2198,6 +2198,7 @@ def create_retailer_orders_from_superstore_order(instance=None):
                     order.received_by = user
                     order.order_status = 'ordered'
                     order.save()
+                    sms_order_dispatch(order.buyer.first_name, order.buyer.phone_number)
                     info_logger.info(f"create_retailer_orders_from_superstore_order|{instance}|"
                                      f"Retailer order created {order}")
             else:
