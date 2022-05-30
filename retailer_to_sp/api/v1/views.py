@@ -9,6 +9,7 @@ from datetime import datetime, timedelta
 from decimal import Decimal
 from hashlib import sha512
 from operator import itemgetter
+from decimal import Decimal
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
@@ -11507,7 +11508,7 @@ def generate_superstore_shipment_label(order_id, request):
             route = f"{route.route.name, route.route.city}"
         else:
             route = "N/A"
-        barcode = barcodeGen(retailer_shipment.id)
+        barcode = barcodeGen('0' * (12 - len(str(retailer_shipment.id))) + str(retailer_shipment.id))
         data = {
             'product': product,
             'customer_order': customer_order,
@@ -11537,6 +11538,6 @@ class DownloadSuperStoreShipmentLabel(generics.GenericAPIView):
     def get(self, request, *args, **kwargs):
         order_id = self.request.query_params.get('order_id')
         if not order_id:
-            raise api_response("Order id is mandatory in url params")
+            return api_response("Order id is mandatory in url params")
         else:
             return generate_superstore_shipment_label(order_id, request)
