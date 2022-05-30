@@ -21,14 +21,20 @@
             </div>
 			<div class="items">
 				<table>
+					<th>{{product.product_name}}</th>
 					<tr>
-						<td>{{product.product_name}}</td>
-                        <td>Customer Order no :: {{customer_order.order_no}}</td>
-                        <td>Customer :: {{customer_order.buyer.first_name}}, 
-                                        {{customer_order_address.address}}, {{customer_order_address.city}} {{customer_order_address.state}}
-                        </td>
-                        <td>Partner Order no :: {{retailer_order.order_no}}</td>
-                        <td>Route :: {{route}}</td>
+						<td>Customer Order no :: {{customer_order.order_no}}</td>
+					</tr>
+					<tr>
+						<td>Customer :: {{customer_order.buyer.first_name}}, 
+							{{customer_order_address.address}}, {{customer_order_address.city}} {{customer_order_address.state}}
+						</td>
+					</tr>
+					<tr>
+						<td>Partner Order no :: {{retailer_order.order_no}}</td>
+					</tr>
+					<tr>
+						<td>Route :: {{route}}</td>
 					</tr>
 				</table>
 			</div>
