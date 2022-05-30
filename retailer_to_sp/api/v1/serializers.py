@@ -5586,7 +5586,8 @@ class SuperStoreOrderDetailSerializer(serializers.ModelSerializer):
         if cart_product:
             return {
                 'qty':cart_product.qty,
-                'total_amount': cart_product.qty * cart_product.selling_price
+                'total_amount': cart_product.qty * cart_product.selling_price,
+                'selling_price': cart_product.selling_price
             }
         return None
     
