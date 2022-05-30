@@ -2182,7 +2182,7 @@ def create_retailer_orders_from_superstore_order(instance=None):
                     order.received_by = user
                     order.order_status = 'ordered'
                     order.save()
-                    sms_order_dispatch(order.buyer.first_name, order.buyer.phone_number)
+                    sms_order_dispatch(instance.buyer.first_name, instance.buyer.phone_number)
                     info_logger.info(f"create_retailer_orders_from_superstore_order|{instance}|"
                                      f"Retailer order created {order}")
             else:
