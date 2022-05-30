@@ -1,0 +1,37 @@
+{% load i18n %}
+{% load static %}
+{% load staticfiles %}
+{% load app_filters_invoice_sp %}
+{% load humanize %}
+{% load mathfilters %}
+
+<html>
+	<head>
+		<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+		<title>invoice</title>
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<link rel="stylesheet" type="text/css" href="{{scheme}}://{{url}}/static/admin/css/superstore_shipment_label.css">
+	</head>
+	<body>
+		<div>
+            <div class="col-md-12">
+                <div class="barcode">
+                    <div class="pull-right"><img src="data:image/png;base64,{{barcode}}" height="80px"></div>
+                </div>
+            </div>
+			<div class="items">
+				<table>
+					<tr>
+						<td>{{product.product_name}}</td>
+                        <td>Customer Order no :: {{customer_order.order_no}}</td>
+                        <td>Customer :: {{customer_order.buyer.first_name}}, 
+                                        {{customer_order_address.address}}, {{customer_order_address.city}} {{customer_order_address.state}}
+                        </td>
+                        <td>Partner Order no :: {{retailer_order.order_no}}</td>
+                        <td>Route :: {{route}}</td>
+					</tr>
+				</table>
+			</div>
+		</div>
+	</body>
+</html>
