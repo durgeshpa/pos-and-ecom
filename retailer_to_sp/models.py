@@ -79,6 +79,7 @@ BASIC = 'BASIC'
 ECOM = 'EC0M'
 SUPERSTORE = 'SUPERSTORE'
 SUPERSTORE_RETAIL = 'SUPERSTORE_RETAIL'
+KIRANA_MART = 'KIRANA_MART'
 
 BULK_ORDER_STATUS = (
     (AUTO, 'Auto'),
@@ -1022,6 +1023,14 @@ class Order(models.Model):
         ('5','Others')
     )
 
+    ORDER_TYPE = (
+        (RETAIL, 'Retailer'),
+        (BULK, 'Bulk'),
+        (SUPERSTORE, 'Superstore'),
+        (KIRANA_MART, 'Kirana Mart'),
+        (SUPERSTORE_RETAIL, 'Superstore retailer'),
+    )
+
     DELIVERY_CHOICE = ( ('1', 'Self Pick'),
                         ('2', 'Home Delivery')
                        )
@@ -1064,6 +1073,10 @@ class Order(models.Model):
     total_discount_amount = models.FloatField(default=0)
     total_tax_amount = models.FloatField(default=0)
     order_status = models.CharField(max_length=50, choices=ORDER_STATUS)
+    order_type = models.CharField(
+        max_length=50, choices=ORDER_TYPE,
+        null=True, blank=True, verbose_name='Order Type',
+    )
     cancellation_reason = models.CharField(
         max_length=50, choices=CANCELLATION_REASON,
         null=True, blank=True, verbose_name='Reason for Cancellation',
