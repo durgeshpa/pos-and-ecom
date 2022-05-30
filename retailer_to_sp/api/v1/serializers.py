@@ -5521,7 +5521,8 @@ class SuperStoreOrderListSerializer(serializers.ModelSerializer):
                                          Order.PICKING_PARTIAL_COMPLETE,
                                          Order.MOVED_TO_QC,
                                          Order.PARTIAL_SHIPMENT_CREATED,
-                                         Order.FULL_SHIPMENT_CREATED]:
+                                         Order.FULL_SHIPMENT_CREATED, 
+                                         Order.READY_TO_DISPATCH]:
                 return 'in_transit'
             elif retailer_order_status == Order.DISPATCHED:
                 return Order.DISPATCHED
@@ -5652,7 +5653,8 @@ class SuperStoreOrderDetailSerializer(serializers.ModelSerializer):
                                          Order.PICKING_PARTIAL_COMPLETE,
                                          Order.MOVED_TO_QC,
                                          Order.PARTIAL_SHIPMENT_CREATED,
-                                         Order.FULL_SHIPMENT_CREATED]:
+                                         Order.FULL_SHIPMENT_CREATED, 
+                                         Order.READY_TO_DISPATCH]:
                 return 'IN_TRANSIT'
             elif retailer_order_status == Order.DISPATCHED:
                 return Order.DISPATCHED
