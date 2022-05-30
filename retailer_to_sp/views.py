@@ -1789,7 +1789,10 @@ class OrderCancellation(object):
                 # updating shipment status
                 # self.get_shipment_queryset().update(shipment_status='CANCELLED')
                 self.cancel_shipment()
-
+            elif self.last_shipment_status == OrderedProduct.READY_TO_DISPATCH and not self.trip_status:
+                # Mark All Dispatch mile trip mappings as Cancelled
+                self.mark_dispatch_trip_mapping_cancelled()
+                self.cancel_shipment()
             elif self.trip_status and self.trip_status == Trip.READY:
                 # cancel order and generate credit note and
                 # remove shipment from trip
