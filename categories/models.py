@@ -40,8 +40,8 @@ class Category(BaseTimestampUserStatusModel):
         ('grocery', 'Grocery'),
         ('superstore', 'SuperStore')
     )
-    category_name = models.CharField(max_length=255, unique=True)
-    category_slug = models.SlugField(unique=True)
+    category_name = models.CharField(max_length=255)
+    category_slug = models.SlugField()
     category_desc = models.TextField(null=True, blank=True)
     category_parent = models.ForeignKey('self', related_name='cat_parent', blank=True, null=True,
                                         on_delete=models.CASCADE)
@@ -80,7 +80,7 @@ class Category(BaseTimestampUserStatusModel):
             super(Category, self).clean(*args, **kwargs)
 
     class Meta:
-        unique_together = ('category_slug', 'category_parent',)
+        unique_together = (('category_slug', 'category_parent',), ('category_name', 'category_type'))
         verbose_name_plural = _("Categories")
 
     # class MPTTMeta:
