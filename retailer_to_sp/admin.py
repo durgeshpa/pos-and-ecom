@@ -1180,7 +1180,8 @@ class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
                        'ordered_cart', 'ordered_by', 'last_modified_by',
                        'total_mrp', 'total_discount_amount',
                        'total_tax_amount', 'total_final_amount', 'total_mrp_amount')
-    list_filter = [PhoneNumberFilter, SKUFilter, 'order_type', GFCodeFilter,  ProductNameFilter, SellerShopFilter, BuyerShopFilter,
+    list_filter = [PhoneNumberFilter, SKUFilter, 'ordered_cart__cart_type', GFCodeFilter,
+                   ProductNameFilter, SellerShopFilter, BuyerShopFilter,
                    OrderNoSearch, OrderInvoiceSearch, Pincode, ('order_status', ChoiceDropdownFilter),
                    ('shipping_address__city', RelatedDropdownFilter), OrderZoneFilter, OrderQCAreaFilter,
                    'dispatch_delivery', ('created_at', DateTimeRangeFilter)]
@@ -1191,12 +1192,12 @@ class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
     def get_queryset(self, request):
         qs = super(OrderAdmin, self).get_queryset(request)
         qs = qs.exclude(ordered_cart__cart_type='BASIC')
-        user_type = request.user.user_type
+        res = request.user.groups
         if request.user.is_superuser:
             return qs
-        elif user_type == 8:
-            qs = qs.exclude(pick_list_pdf=None)
-            return qs.filter(Q(order_type='SUPERSTORE_RETAIL'))
+        elif res.filter(name='Superstore Warehouse User').exists():
+            qs = qs.exclude(picker_order=None)
+            return qs.filter(Q(ordered_cart__cart_type='SUPERSTORE_RETAIL'))
         return qs.filter(
             Q(seller_shop__related_users=request.user) |
             Q(seller_shop__shop_owner=request.user)
@@ -1221,6 +1222,9 @@ class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
 
     def buyer_shop_type(self, obj):
         return obj.buyer_shop.shop_type if obj.buyer_shop else None
+
+    def order_type(self, obj):
+        return obj.ordered_cart.cart_type if obj.ordered_cart else None
 
     def app_type(self, obj):
         """

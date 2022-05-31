@@ -25,7 +25,6 @@ USER_TYPE_CHOICES = (
         (5, 'Operation Manager'),
         (6, 'Sales Executive'),
         (7, 'Sales Manager'),
-        (8, 'Superstore Warehouse')
     )
 
 USER_DOCUMENTS_TYPE_CHOICES = (
