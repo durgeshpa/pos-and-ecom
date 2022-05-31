@@ -11521,9 +11521,12 @@ def generate_superstore_shipment_label(order_id, request):
         }
         # cmd_option = {"margin-top": 10, "zoom": 1, "javascript-delay": 1000, "footer-center": "[page]/[topage]",
         #               "no-stop-slow-scripts": True, "quiet": True}
-        cmd_option = {"margin-top": 2, "margin-left": 0, "margin-right": 0, "margin-bottom": 2, "javascript-delay": 0,
-                      "page-height": 38, "page-width": 70, "no-stop-slow-scripts": True, "quiet": True,'encoding': 'utf8 '
-                      ,"dpi":300}
+        # cmd_option = {"margin-top": 2, "margin-left": 0, "margin-right": 0, "margin-bottom": 2, "javascript-delay": 0,
+        #               "page-height": 55, "page-width": 70, "no-stop-slow-scripts": True, "quiet": True,'encoding': 'utf8 '
+        #               ,"dpi":300}
+        cmd_option = {"margin-top": 2, "margin-left": 4, "margin-right": 4, "margin-bottom": 0, "zoom": 1,
+                        "javascript-delay": 0, "footer-center": "[page]/[topage]", "page-height": 38, "page-width": 76,
+                        "no-stop-slow-scripts": True, "quiet": True}
         response = PDFTemplateResponse(request=request, template=template_name, filename=filename,
                                        context=data, show_content_in_browser=False, cmd_options=cmd_option)
         
