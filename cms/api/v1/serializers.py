@@ -122,7 +122,7 @@ class CardItemSerializer(serializers.ModelSerializer):
     class Meta:
         model = CardItem
         fields = ('id', 'image', 'content_id', 'content', 'item_content', 'action', 'priority', 'row', 'subcategory',
-                  'subbrand')
+                  'subbrand', 'image_data_type')
     
     def create(self, validated_data):
         card_id = self.context.get("card_id")
@@ -234,8 +234,8 @@ class CardDataSerializer(serializers.ModelSerializer):
                                                             )
             info_logger.info(f"Created New Card with ID {card.id}")
 
-        redirect_url_base = make_cms_item_redirect_url(request, card.type, card.image_data_type, app)
         for item in items:
+            redirect_url_base = make_cms_item_redirect_url(request, card.type, item['image_data_type'], app)
             if card.type == "text":
                 item['action'] = request.build_absolute_uri(redirect_url_base + str(item['content']))
             else:
