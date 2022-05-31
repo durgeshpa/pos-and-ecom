@@ -16,29 +16,16 @@
 		<div>
             <div class="col-md-12">
                 <div class="barcode">
-                    <div class="pull-right"><img src="data:image/png;base64,{{barcode}}" height="95px"></div>
+                    <div><img src="data:image/png;base64,{{barcode}}" height="95px"></div>
                 </div>
             </div>
-			<div class="items">
-				<table>
-					<th>{{product.product_name}}</th>
-					<tr>
-						<td>Customer Order no :: {{customer_order.order_no}}</td>
-					</tr>
-					<tr>
-						<td>Customer :: {{customer_order.buyer.first_name}}, 
-							{{customer_order.ecom_address_order.address}}, <br>
-							{{customer_order.ecom_address_order.city}}, {{customer_order.ecom_address_order.state}}
-						</td>
-					</tr>
-					<tr>
-						<td>Partner Order no :: {{retailer_order.order_no}}</td>
-					</tr>
-					<tr>
-						<td>Route :: {{route}}</td>
-					</tr>
-				</table>
-			</div>
+			<div style="font-size:12px;">{{product.product_name}}</div>
+			<div style="font-size:12px;">Customer Order no :: {{customer_order.order_no}}</div>
+			<div style="font-size:12px;">Customer :: {{customer_order.buyer.first_name}}, 
+				{{customer_order.ecom_address_order.address}}, <br>
+				{{customer_order.ecom_address_order.city}}, {{customer_order.ecom_address_order.state}}</div>
+			<div style="font-size:12px;">Partner Order no :: {{retailer_order.order_no}}</div>
+			<div style="font-size:12px;">Route :: {{route}}</div>
 		</div>
 	</body>
 </html>
