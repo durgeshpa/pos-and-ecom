@@ -785,8 +785,6 @@ class AuditInventory(APIView):
         bin_inventory_object = CommonBinInventoryFunctions.filter_bin_inventory(warehouse, sku, batch_id, bin,
                                                                                 inventory_type).last()
 
-        AuditInventory.create_in_out_entry(warehouse, sku, batch_id, bin_inventory_object, tr_type, audit_no,
-                                           inventory_type, abs(qty_diff))
         qty_to_update_in_available = abs(qty_diff) - qty_to_update_to_to_be_picked
         if qty_diff < 0:
             qty_to_update_in_available = -1 * qty_to_update_in_available
@@ -825,12 +823,15 @@ class AuditInventory(APIView):
                                                                  inventory_state,
                                                                  qty_to_update_to_to_be_picked, tr_type,
                                                                  audit_no)
-            if qty_to_update_to_to_be_picked < 0 :
+            if qty_to_update_to_to_be_picked < 0:
                 CommonBinInventoryFunctions.deduct_to_be_picked_from_bin(abs(qty_to_update_to_to_be_picked),
                                                                          bin_inventory_object, audit_no, tr_type)
             else:
                 CommonBinInventoryFunctions.add_to_be_picked_to_bin(qty_to_update_to_to_be_picked, bin_inventory_object,
                                                                     audit_no, tr_type)
+
+        AuditInventory.create_in_out_entry(warehouse, sku, batch_id, bin_inventory_object, tr_type, audit_no,
+                                           inventory_type, abs(qty_diff))
         info_logger.info('AuditInventory | update_inventory | completed')
 
     @staticmethod
