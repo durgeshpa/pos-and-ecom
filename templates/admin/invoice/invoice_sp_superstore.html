@@ -97,14 +97,14 @@ table tr td,th,h4,span,address{
 							<address>
 								<span>Dispatch To :</span>
 								<br/>
-    							<strong>{{shipment.order.shipping_address.shop_name.shop_name}}</strong>
+    							<strong>{{shipment.order.seller_shop.shop_name}}</strong>
     							<br/>
-    								{{shipment.order.shipping_address.nick_name}}, {{shipment.order.shipping_address.address_line1}}, {{shipment.order.shipping_address.city}}
+    								{{dispatch_address.nick_name}}, {{dispatch_address.address_line1}}, {{dispatch_address.city}}
 								<br/>
-								{{shipment.order.shipping_address.address_contact_number}}
+								{{dispatch_address.address_contact_number}}
 								<br/>
-								<strong>State Name:</strong> <span>{{shipment.order.shipping_address.state}} </span><strong>Pincode:</strong> <span>{{shipment.order.shipping_address.pincode}}</span><br>
-								<strong>Shop ID:</strong><span><strong>{{ shipment.order.buyer_shop_id }}</strong></span>
+								<strong>State Name:</strong> <span>{{dispatch_address.state}} </span><strong>Pincode:</strong> <span>{{dispatch_address.pincode}}</span><br>
+								<strong>Shop ID:</strong><span><strong>{{ shipment.order.seller_shop_id }}</strong></span>
     						</address>
 						</div>
 						<div class="col-xs-4">
@@ -113,7 +113,7 @@ table tr td,th,h4,span,address{
     						<strong>{{shipment.order.buyer.name}}</strong><br>
     						{{shipment.order.ecom_address_order.address}}, {{shipment.order.ecom_address_order.city.city_name}}<br>
 							{{shipment.order.buyer.phone_number}}<br>
-							<strong>State Name:</strong> <span>{{shipment.order.ecom_address_order.state.state_name}} </span><strong>Pincode:</strong> <span>{{shipment.order.billing_address.pincode}}</span><br>
+							<strong>State Name:</strong> <span>{{shipment.order.ecom_address_order.state}} </span><strong>Pincode:</strong> <span>{{shipment.order.ecom_address_order.pincode}}</span><br>
     				</address>
 
 					</div>
