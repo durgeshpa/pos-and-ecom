@@ -6430,13 +6430,8 @@ def pdf_superstore_generation(request, ordered_product):
         # buyer = ordered_product.order.buyer
         # ecom_address = ordered_product.order.ecom_address_order
         # Licence
-        shop_id = get_config('superstore_seller_shop_id', 50484)
-        try:
-            shop = Shop.objects.get(id=shop_id)
-            shop_name = shop.shop_name
-        except Shop.DoesNotExist:
-            shop = None
-            shop_name = "shop_id config missing"
+        shop = ordered_product.order.seller_shop
+        shop_name = shop.shop_name
         license_number = getShopLicenseNumber(shop_name)
         # CIN
         cin_number = getShopCINNumber(shop_name)
