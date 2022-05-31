@@ -421,7 +421,7 @@ class SuperStoreProductPriceCommonFunction(object):
                 obj, created = SuperStoreProductPrice.objects.update_or_create(
                     product=product, seller_shop_id=int(row['seller_shop_id']),
                     defaults={'selling_price': float(row['selling_price']), 'updated_by': user,
-                              'mrp': product.product_mrp})
+                              })
                 if created:
                     obj.created_by = user
                     obj.save()
