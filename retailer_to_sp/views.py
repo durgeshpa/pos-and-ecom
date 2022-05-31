@@ -22,6 +22,7 @@ from rest_framework import status
 from celery.task import task
 from django.http import JsonResponse
 from django.urls import reverse
+from pos.common_functions import api_response
 
 from retailer_to_sp.api.v1.views import pdf_generation
 from retailer_to_sp.common_model_functions import ShopCrateCommonFunctions
@@ -71,6 +72,45 @@ info_logger = logging.getLogger('file-info')
 cron_logger = logging.getLogger('cron_log')
 
 
+def generate_superstore_shipment_label(order_id, request):
+    try:
+        template_name = 'admin/superstore_shipment_label.html'
+        retailer_order = Order.objects.get(id=order_id)
+        order_no = retailer_order.order_no
+        filename = f"{order_no}.pdf"
+        retailer_shipment = retailer_order.rt_order_order_product.last()
+        product = retailer_shipment.rt_order_product_order_product_mapping.last().product
+        customer_order = retailer_order.reference_order
+        route = retailer_order.buyer_shop.shop_routes.last()
+        if route:
+            route = f"{route.route.name, route.route.city}"
+        else:
+            route = "N/A"
+        barcode = barcodeGen('0' * (12 - len(str(retailer_shipment.id))) + str(retailer_shipment.id))
+        data = {
+            'product': product,
+            'customer_order': customer_order,
+            'retailer_order': retailer_order,
+            'route': route,
+            'barcode': barcode
+        }
+        cmd_option = {"margin-top": 2, "margin-left": 4, "margin-right": 4, "margin-bottom": 0, "zoom": 1,
+                        "javascript-delay": 0, "footer-center": "[page]/[topage]", "page-height": 43, "page-width": 71,
+                        "no-stop-slow-scripts": True, "quiet": True}
+        response = PDFTemplateResponse(request=request, template=template_name, filename=filename,
+                                       context=data, show_content_in_browser=False, cmd_options=cmd_option)
+        
+        try:
+            retailer_shipment.shipment_label_pdf.save("{}".format(filename),
+                                                     ContentFile(response.rendered_content), save=True)
+            return response
+        except Exception as e:
+            logger.exception(e)
+            return api_response(e)
+    except Order.DoesNotExist:
+        return api_response("Order not found")
+
+
 class ShipmentMergedBarcode(APIView):
     permission_classes = (AllowAny,)
 
@@ -81,6 +121,8 @@ class ShipmentMergedBarcode(APIView):
         shipment = OrderedProduct.objects.filter(pk=pk).last()
         if not shipment:
             return get_response("Shipment not found for pk: " + str(pk) + ".")
+        if shipment.order.ordered_cart.cart_type == 'SUPERSTORE_RETAIL':
+            return generate_superstore_shipment_label(shipment.order.id, request)
         if movement_type and movement_type == ShipmentPackaging.RETURNED:
             shipment_packagings = shipment.shipment_packaging.filter(movement_type=ShipmentPackaging.RETURNED)
         else:
