@@ -6438,23 +6438,6 @@ def pdf_superstore_generation(request, ordered_product):
     else:
         barcode = barcodeGen(ordered_product.invoice_no)
         e_invoice_data = None
-        # Check if e-invoicing is done for this order
-        # and get e-invocing details
-        # details include QRCode, IRN, Ack No, Ack Date
-        # zoho_invoice = ZohoInvoice.objects.filter(invoice_number=ordered_product.invoice_no).last()
-        # if zoho_invoice and zoho_invoice.e_invoice_qr_raw_data:
-        #     try:
-        #         qrCode = qrCodeGen(ordered_product.invoice_no, zoho_invoice.e_invoice_qr_raw_data)
-        #         irn = zoho_invoice.e_invoice_reference_number
-        #         ack_no = zoho_invoice.e_invoice_ack_number
-        #         ack_date = zoho_invoice.e_invoice_ack_date
-
-        #         e_invoice_data = {'qrCode': qrCode, 'irn': irn, 'ack_no': ack_no, 'ack_date': ack_date}
-        #     except Exception as e:
-        #         pass
-        # buyer = ordered_product.order.buyer
-        # ecom_address = ordered_product.order.ecom_address_order
-        # Licence
         shop = ordered_product.order.seller_shop
         shop_name = shop.shop_name
         license_number = getShopLicenseNumber(shop_name)
@@ -6645,7 +6628,6 @@ def pdf_superstore_generation(request, ordered_product):
         logger.info("createing invoice pdf")
         logger.info(template_name)
         logger.info(request.get_host())
-
         data = {"shipment": ordered_product, "order": ordered_product.order,
                 "url": request.get_host(), "scheme": request.is_secure() and "https" or "http",
                 "igst": igst, "cgst": cgst, "sgst": sgst, "product_special_cess": product_special_cess,
@@ -6671,9 +6653,10 @@ def pdf_superstore_generation(request, ordered_product):
         try:
             create_invoice_data(ordered_product)
             ordered_product.invoice.invoice_pdf.save("{}".format(filename),
-                                                     ContentFile(response.rendered_content), save=True)
+                                                        ContentFile(response.rendered_content), save=True)
         except Exception as e:
             logger.exception(e)
+    return ordered_product
 
 def pdf_generation_retailer(request, order_id, delay=True):
     """
@@ -8707,7 +8690,7 @@ class DownloadShipmentInvoice(APIView):
             ordered_product = get_object_or_404(OrderedProduct, pk=shipment_ids[0])
             # call pdf generation method to generate pdf and download the pdf
             if invoice_type == 'superstore':
-                pdf_superstore_generation(request, ordered_product)
+                ordered_product = pdf_superstore_generation(request, ordered_product)
             else:
                 pdf_generation(request, ordered_product)
             result = requests.get(ordered_product.invoice.invoice_pdf.url)
@@ -8725,7 +8708,7 @@ class DownloadShipmentInvoice(APIView):
                 ordered_product = get_object_or_404(OrderedProduct, pk=pk)
                 # call pdf generation method to generate and save pdf
                 if invoice_type == 'superstore':
-                    pdf_superstore_generation(request, ordered_product)
+                    ordered_product = pdf_superstore_generation(request, ordered_product)
                 else:
                     pdf_generation(request, ordered_product)
                 # append the pdf file path
