@@ -5557,7 +5557,7 @@ class SuperStoreOrderListSerializer(serializers.ModelSerializer):
     def get_delivery_persons(self, instance):
 
         if instance.ordered_product.shipment_status == "OUT_FOR_DELIVERY":
-            x = User.objects.filter(id=instance.delivery_person_id)[:1:]
+            x = User.objects.filter(id=instance.ordered_product.delivery_person_id)[:1:]
             return {"name": x[0].first_name, "phone_number": x[0].phone_number}
         return None
     
@@ -5697,7 +5697,7 @@ class SuperStoreOrderDetailSerializer(serializers.ModelSerializer):
     def get_delivery_persons(self, instance):
 
         if instance.ordered_product.shipment_status == "OUT_FOR_DELIVERY":
-            x = User.objects.filter(id=instance.delivery_person_id)[:1:]
+            x = User.objects.filter(id=instance.ordered_product.delivery_person_id)[:1:]
             return {"name": x[0].first_name, "phone_number": x[0].phone_number}
         return None
         
