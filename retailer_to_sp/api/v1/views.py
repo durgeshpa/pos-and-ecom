@@ -11497,7 +11497,7 @@ def generate_superstore_shipment_label(order_id, request):
         template_name = 'admin/superstore_shipment_label.html'
         retailer_order = Order.objects.get(id=order_id)
         order_no = retailer_order.order_no
-        filename = f"{order_no}xx.pdf"
+        filename = f"{order_no}.pdf"
         retailer_shipment = retailer_order.rt_order_order_product.last()
         product = retailer_shipment.rt_order_product_order_product_mapping.last().product
         customer_order = retailer_order.reference_order
