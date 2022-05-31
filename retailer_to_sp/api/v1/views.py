@@ -6454,7 +6454,7 @@ def pdf_superstore_generation(request, ordered_product):
         #     new_sp_addistro_shop=ordered_product.order.ordered_cart.seller_shop.pk).all()
         # if shop_mapping_list.exists():
         #     template_name = 'admin/invoice/invoice_addistro_sp.html'
-
+        dispatch_address = ordered_product.order.seller_shop.shop_name_address_mapping.filter(address_type='shipping').last()
         product_listing = []
         taxes_list = []
         gst_tax_list = []
@@ -6638,7 +6638,10 @@ def pdf_superstore_generation(request, ordered_product):
                 "shop_name_gram": shop_name_gram, "nick_name_gram": nick_name_gram,
                 "address_line1_gram": address_line1_gram, "city_gram": city_gram, "state_gram": state_gram,
                 "pincode_gram": pincode_gram, "cin": cin_number,
-                "hsn_list": list1, "license_number": license_number, "e_invoice_data": e_invoice_data}
+                "hsn_list": list1, 
+                "license_number": license_number, 
+                "e_invoice_data": e_invoice_data, 
+                "dispatch_address": dispatch_address}
 
         cmd_option = {"margin-top": 10, "zoom": 1, "javascript-delay": 1000, "footer-center": "[page]/[topage]",
                       "no-stop-slow-scripts": True, "quiet": True}
