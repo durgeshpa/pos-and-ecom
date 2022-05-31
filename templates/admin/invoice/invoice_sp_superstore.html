@@ -88,9 +88,6 @@ table tr td,th,h4,span,address{
 							<td class="text-center">
 								<strong>Invoice Date <br>{{shipment.created_at}}</strong>
 							</td>
-							<td class="text-center">
-								<strong>FSSAI License No. <br>{{license_number}}</strong>
-							</td>
                         </tr>
 					</table>
     			</div>
@@ -100,27 +97,21 @@ table tr td,th,h4,span,address{
 							<address>
 								<span>Dispatch To :</span>
 								<br/>
-    							<strong>{{shipment.order.shipping_address.shop_name.shop_name}}</strong>
-    							<br/>
-    								{{shipment.order.shipping_address.nick_name}}, {{shipment.order.shipping_address.address_line1}}, {{shipment.order.shipping_address.city}}
-								<br/>
-								{{shipment.order.shipping_address.address_contact_number}}
-								<br/>
-								<strong>GSTIN:</strong> <span>{{ buyer_shop_gistin }}</span><br>
-								<strong>State Name:</strong> <span>{{shipment.order.shipping_address.state}} </span><strong>Pincode:</strong> <span>{{shipment.order.shipping_address.pincode}}</span><br>
-								<strong>Shop ID:</strong><span><strong>{{ shipment.order.buyer_shop_id }}</strong></span>
+								<strong>{{shipment.order.buyer.first_name}}</strong><br>
+    						{{shipment.order.ecom_address_order.address}}, {{shipment.order.ecom_address_order.city.city_name}}<br>
+							{{shipment.order.buyer.phone_number}}<br>
+							<strong>State Name:</strong> <span>{{shipment.order.ecom_address_order.state}} </span><strong>Pincode:</strong> <span>{{shipment.order.ecom_address_order.pincode}}</span><br>
     						</address>
 						</div>
 						<div class="col-xs-4">
 							<address>
 							<span>Invoice To :</span><br>
-    						<strong>{{shipment.order.buyer.name}}</strong><br>
+    						<strong>{{shipment.order.buyer.first_name}}</strong><br>
     						{{shipment.order.ecom_address_order.address}}, {{shipment.order.ecom_address_order.city.city_name}}<br>
 							{{shipment.order.buyer.phone_number}}<br>
-							<strong>State Name:</strong> <span>{{shipment.order.ecom_address_order.state.state_name}} </span><strong>Pincode:</strong> <span>{{shipment.order.billing_address.pincode}}</span><br>
-    				</address>
-
-					</div>
+							<strong>State Name:</strong> <span>{{shipment.order.ecom_address_order.state}} </span><strong>Pincode:</strong> <span>{{shipment.order.ecom_address_order.pincode}}</span><br>
+    						</address>
+						</div>
 
 
 
@@ -128,12 +119,11 @@ table tr td,th,h4,span,address{
 					<address>
 						<span>Supplier :</span><br>
 
-    				<strong>{{shop_name_gram}}</strong><br>
-    				{{nick_name_gram}}, {{address_line1_gram}}, {{city_gram}}<br>
-						{{address_contact_number}}<br>
+    				<strong>{{shipment.order.seller_shop.shop_name}}</strong><br>
+    				{{dispatch_address.nick_name}}, {{dispatch_address.address_line1}}, {{dispatch_address.city}}<br>
+					{{dispatch_address.address_contact_number}}<br>
 						<strong>GSTIN:</strong> <span>{{seller_shop_gistin}}</span><br>
-						<strong>State Name:</strong> <span>{{state_gram}} </span><strong>Pincode:</strong> <span>{{pincode_gram}}</span><br>
-						<strong>CIN No.:</strong> <span>{{cin}}</span>
+						<strong>State Name:</strong> <span>{{dispatch_address.state}} </span><strong>Pincode:</strong> <span>{{dispatch_address.pincode}}</span><br>
     				</address>
 
 					</div>
@@ -220,8 +210,6 @@ table tr td,th,h4,span,address{
 									<td class="no-line text-center"></td>
 									<td class="no-line text-center"></td>
 									<td class="no-line text-center"></td>
-									<td class="no-line text-center">TCS Rate</td>
-									<td class="no-line text-center">{{tcs_rate}} %</td>
 								</tr>
 								<tr>
 									<td class="no-line text-center"></td>
@@ -235,8 +223,6 @@ table tr td,th,h4,span,address{
 									<td class="no-line text-center"></td>
 									<td class="no-line text-center"></td>
 									<td class="no-line text-center"></td>
-									<td class="no-line text-center">TCS Value</td>
-									<td class="no-line text-center">{{tcs_tax}}</td>
 								</tr>
 								<tr>
 									<td class="no-line text-center"></td>
@@ -520,15 +506,15 @@ table tr td,th,h4,span,address{
 
 <strong style = "font-size:11px">Note: This is a computer generated invoice </strong><br><br>
 
-										<strong style="font-size:16px">नोट: कृप्या डिलीवरी लेते समय सामान को भलीभाँति जाँच लें | डिलीवरी स्वीकार होने के &nbsp;बाद सामान वापस नहीं होगा | धन्यवाद !!</strong>
+										<!-- <strong style="font-size:16px">नोट: कृप्या डिलीवरी लेते समय सामान को भलीभाँति जाँच लें | डिलीवरी स्वीकार होने के &nbsp;बाद सामान वापस नहीं होगा | धन्यवाद !!</strong> -->
 
 									</td>
-        							<td class="text-center" colspan="4" height="100">
+        							<!-- <td class="text-center" colspan="4" height="100">
 										<strong>For GFDN Service Pvt. Ltd.</strong></br>
 										<img src="{{scheme}}://{{url}}/static/admin/img/stamp.png" width="80" height="80" style="text-align: center">
 										<br>
 										Authorised Signatory
-									</td>
+									</td> -->
 								</tr>
 								<tr>
                                 </tr>
@@ -540,9 +526,9 @@ table tr td,th,h4,span,address{
     			</div>
     		</div>
     	</div>
-			<tr>
+			<!-- <tr>
 				<strong>No. of Crates:</strong>{{ shipment.no_of_crates }} <strong> No. of Packets: </strong>{{ shipment.no_of_packets }}  <storng> No. of Sacks: </strong>{{ shipment.no_of_sacks }}
-			</tr>
+			</tr> -->
     	</div>
 </div>
 	</div>

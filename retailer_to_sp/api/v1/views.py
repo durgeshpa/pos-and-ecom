@@ -9,6 +9,7 @@ from datetime import datetime, timedelta
 from decimal import Decimal
 from hashlib import sha512
 from operator import itemgetter
+from decimal import Decimal
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
@@ -3388,10 +3389,12 @@ class OrderCentral(APIView):
                 if shipment.order.delivery_option == '1':
                     shipment.shipment_status = order_status
                     shipment.save()
+                    order_product_mapping.delivered_qty= order_product_mapping.shipped_qty
+                    order_product_mapping.save()
                 else:
                     shipment.shipment_status = order_status
                     shipment.save()
-                    order_product_mapping.delivered_qty=F('shipped_qty')
+                    order_product_mapping.delivered_qty=order_product_mapping.shipped_qty
                     order_product_mapping.save()
                     if shipment.pos_trips.filter(trip_type='SUPERSTORE').exists():
                         pos_trip = shipment.pos_trips.filter(trip_type='SUPERSTORE').last()
@@ -3512,7 +3515,7 @@ class OrderCentral(APIView):
             order = OrderedProductMapping.objects.get(pk=self.request.GET.get('product_mapping_id'),
                                                         ordered_product__order__buyer=self.request.user,
                                                         ordered_product__order__ordered_cart__cart_type='SUPERSTORE')
-        except OrderedProductMapping.ObjectDoesNotExist:
+        except OrderedProductMapping.DoesNotExist:
             return api_response("Order Not Found!")
 
         return api_response('Order', self.get_serialize_process_superstore(order), status.HTTP_200_OK, True,
@@ -6442,13 +6445,8 @@ def pdf_superstore_generation(request, ordered_product):
         # buyer = ordered_product.order.buyer
         # ecom_address = ordered_product.order.ecom_address_order
         # Licence
-        shop_id = get_config('superstore_seller_shop_id', 50484)
-        try:
-            shop = Shop.objects.get(id=shop_id)
-            shop_name = shop.shop_name
-        except Shop.DoesNotExist:
-            shop = None
-            shop_name = "shop_id config missing"
+        shop = ordered_product.order.seller_shop
+        shop_name = shop.shop_name
         license_number = getShopLicenseNumber(shop_name)
         # CIN
         cin_number = getShopCINNumber(shop_name)
@@ -6466,7 +6464,7 @@ def pdf_superstore_generation(request, ordered_product):
         #     new_sp_addistro_shop=ordered_product.order.ordered_cart.seller_shop.pk).all()
         # if shop_mapping_list.exists():
         #     template_name = 'admin/invoice/invoice_addistro_sp.html'
-
+        dispatch_address = ordered_product.order.seller_shop.shop_name_address_mapping.filter(address_type='shipping').last()
         product_listing = []
         taxes_list = []
         gst_tax_list = []
@@ -6629,10 +6627,10 @@ def pdf_superstore_generation(request, ordered_product):
         total_tax_amount_int = round(total_tax_amount)
 
         amt = [num2words(i) for i in str(total_amount_int).split('.')]
-        rupees = amt[0]
+        rupees = amt[0].capitalize()
 
         tax_amt = [num2words(i) for i in str(total_tax_amount_int).split('.')]
-        tax_rupees = tax_amt[0]
+        tax_rupees = tax_amt[0].capitalize()
 
         logger.info("createing invoice pdf")
         logger.info(template_name)
@@ -6650,7 +6648,10 @@ def pdf_superstore_generation(request, ordered_product):
                 "shop_name_gram": shop_name_gram, "nick_name_gram": nick_name_gram,
                 "address_line1_gram": address_line1_gram, "city_gram": city_gram, "state_gram": state_gram,
                 "pincode_gram": pincode_gram, "cin": cin_number,
-                "hsn_list": list1, "license_number": license_number, "e_invoice_data": e_invoice_data}
+                "hsn_list": list1, 
+                "license_number": license_number, 
+                "e_invoice_data": e_invoice_data, 
+                "dispatch_address": dispatch_address}
 
         cmd_option = {"margin-top": 10, "zoom": 1, "javascript-delay": 1000, "footer-center": "[page]/[topage]",
                       "no-stop-slow-scripts": True, "quiet": True}
@@ -11508,3 +11509,58 @@ class PosOrderUserSearchView(generics.GenericAPIView):
         else:
             msg = 'Search to get Buyers.'
             return get_response(msg, '', True)
+
+
+def generate_superstore_shipment_label(order_id, request):
+    try:
+        template_name = 'admin/superstore_shipment_label.html'
+        retailer_order = Order.objects.get(id=order_id)
+        order_no = retailer_order.order_no
+        filename = f"{order_no}.pdf"
+        retailer_shipment = retailer_order.rt_order_order_product.last()
+        product = retailer_shipment.rt_order_product_order_product_mapping.last().product
+        customer_order = retailer_order.reference_order
+        route = retailer_order.buyer_shop.shop_routes.last()
+        if route:
+            route = f"{route.route.name, route.route.city}"
+        else:
+            route = "N/A"
+        barcode = barcodeGen('0' * (12 - len(str(retailer_shipment.id))) + str(retailer_shipment.id))
+        data = {
+            'product': product,
+            'customer_order': customer_order,
+            'retailer_order': retailer_order,
+            'route': route,
+            'barcode': barcode
+        }
+        # cmd_option = {"margin-top": 10, "zoom": 1, "javascript-delay": 1000, "footer-center": "[page]/[topage]",
+        #               "no-stop-slow-scripts": True, "quiet": True}
+        # cmd_option = {"margin-top": 2, "margin-left": 0, "margin-right": 0, "margin-bottom": 2, "javascript-delay": 0,
+        #               "page-height": 55, "page-width": 70, "no-stop-slow-scripts": True, "quiet": True,'encoding': 'utf8 '
+        #               ,"dpi":300}
+        cmd_option = {"margin-top": 2, "margin-left": 4, "margin-right": 4, "margin-bottom": 0, "zoom": 1,
+                        "javascript-delay": 0, "footer-center": "[page]/[topage]", "page-height": 43, "page-width": 71,
+                        "no-stop-slow-scripts": True, "quiet": True}
+        response = PDFTemplateResponse(request=request, template=template_name, filename=filename,
+                                       context=data, show_content_in_browser=False, cmd_options=cmd_option)
+        
+        try:
+            retailer_shipment.shipment_label_pdf.save("{}".format(filename),
+                                                     ContentFile(response.rendered_content), save=True)
+            return response
+        except Exception as e:
+            logger.exception(e)
+            return api_response(e)
+    except Order.DoesNotExist:
+        return api_response("Order not found")
+
+
+class DownloadSuperStoreShipmentLabel(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    
+    def get(self, request, *args, **kwargs):
+        order_id = self.request.query_params.get('order_id')
+        if not order_id:
+            return api_response("Order id is mandatory in url params")
+        else:
+            return generate_superstore_shipment_label(order_id, request)
