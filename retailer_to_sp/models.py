@@ -1022,6 +1022,7 @@ class Order(models.Model):
         ('5','Others')
     )
 
+
     DELIVERY_CHOICE = ( ('1', 'Self Pick'),
                         ('2', 'Home Delivery')
                        )
