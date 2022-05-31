@@ -3378,12 +3378,12 @@ class OrderCentral(APIView):
                 if shipment.order.delivery_option == '1':
                     shipment.shipment_status = order_status
                     shipment.save()
-                    order_product_mapping.delivered_qty=F('shipped_qty')
+                    order_product_mapping.delivered_qty= order_product_mapping.shipped_qty
                     order_product_mapping.save()
                 else:
                     shipment.shipment_status = order_status
                     shipment.save()
-                    order_product_mapping.delivered_qty=F('shipped_qty')
+                    order_product_mapping.delivered_qty=order_product_mapping.shipped_qty
                     order_product_mapping.save()
                     if shipment.pos_trips.filter(trip_type='SUPERSTORE').exists():
                         pos_trip = shipment.pos_trips.filter(trip_type='SUPERSTORE').last()
@@ -11520,7 +11520,7 @@ def generate_superstore_shipment_label(order_id, request):
         #               "page-height": 55, "page-width": 70, "no-stop-slow-scripts": True, "quiet": True,'encoding': 'utf8 '
         #               ,"dpi":300}
         cmd_option = {"margin-top": 2, "margin-left": 4, "margin-right": 4, "margin-bottom": 0, "zoom": 1,
-                        "javascript-delay": 0, "footer-center": "[page]/[topage]", "page-height": 43, "page-width": 72,
+                        "javascript-delay": 0, "footer-center": "[page]/[topage]", "page-height": 43, "page-width": 71,
                         "no-stop-slow-scripts": True, "quiet": True}
         response = PDFTemplateResponse(request=request, template=template_name, filename=filename,
                                        context=data, show_content_in_browser=False, cmd_options=cmd_option)
