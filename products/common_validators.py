@@ -1060,7 +1060,7 @@ def check_mandatory_columns(uploaded_data_list, header_list, upload_master_data,
             if 'name' not in row.keys() or row['name'] == '':
                 raise ValidationError(f"Row {row_num} | 'name' can't be empty")
 
-            cat_obj = validate_category_name(row['name'].strip(), None)
+            cat_obj = validate_category_name(row['name'].strip(), None, row["category_type"], None)
             if cat_obj is not None and 'error' in cat_obj:
                 raise ValidationError(f"Row {row_num} | {row['name']} | {cat_obj['error']}")
             elif row['name'].strip().lower() in category_name_list:
@@ -1071,7 +1071,7 @@ def check_mandatory_columns(uploaded_data_list, header_list, upload_master_data,
             if 'category_slug' not in row.keys() or row['category_slug'] == '':
                 raise ValidationError(f"Row {row_num} | 'category_slug' can't be empty")
 
-            cat_obj = validate_category_slug(row['category_slug'].strip(), None)
+            cat_obj = validate_category_slug(row['category_slug'].strip(),None, row["category_type"], None)
             if cat_obj is not None and 'error' in cat_obj:
                 raise ValidationError(f"Row {row_num} | {row['category_slug']} | {cat_obj['error']} ")
 
