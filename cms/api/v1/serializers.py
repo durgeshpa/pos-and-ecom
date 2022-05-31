@@ -17,7 +17,7 @@ from ...choices import LANDING_PAGE_TYPE_CHOICE, LISTING_SUBTYPE_CHOICE, FUNTION
     SUPERSTORE, INDEX_TYPE_ONE, INDEX_TYPE_THREE
 from ...common_functions import check_inventory
 from ...models import CardData, Card, CardVersion, CardItem, Application, Page, PageCard, PageVersion, ApplicationPage, \
-    LandingPage, Functions, LandingPageProducts
+    LandingPage, Functions, LandingPageProducts, Template
 from cms.messages import VALIDATION_ERROR_MESSAGES, ERROR_MESSAGES
 from categories.models import Category
 from brand.models import Brand
@@ -205,14 +205,6 @@ class CardDataSerializer(serializers.ModelSerializer):
                 raise NotFound(detail=ERROR_MESSAGES["CARD_ID_NOT_FOUND"].format(card_id))
 
         new_card_data = CardData.objects.create(**validated_data)
-        # redirect_url_base = make_cms_item_redirect_url(request, card.card_type, card.image_data_type)
-        # for item in items:
-        #     item['action_url'] = request.build_absolute_uri(redirect_url_base + str(item['content_id']))
-        #     CardItem.objects.create(card_data=new_card_data,**item)
-
-        
-        
-
         if card:
             latest_version = card.versions.all().order_by('-version_number').first().version_number + 1
             CardVersion.objects.create(version_number=latest_version,
@@ -939,3 +931,8 @@ class LandingPageSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(error)
         return landing_page
 
+
+class TemplateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Template
+        fields = ('app', 'name')
