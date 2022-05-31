@@ -1022,6 +1022,7 @@ class Order(models.Model):
         ('5','Others')
     )
 
+
     DELIVERY_CHOICE = ( ('1', 'Self Pick'),
                         ('2', 'Home Delivery')
                        )
@@ -1744,7 +1745,9 @@ class OrderedProduct(models.Model):  # Shipment
                                         related_name='shipment_deliveries')
     created_at = models.DateTimeField(
         auto_now_add=True, verbose_name="Invoice Date")
-
+    shipment_label_pdf = models.FileField(upload_to='supermart/shipment/label/documents/', 
+                                      null=True, 
+                                      blank=True)
     qc_started_at = models.DateTimeField(null=True, blank=True)
     qc_completed_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Invoice Date")

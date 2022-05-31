@@ -5521,7 +5521,8 @@ class SuperStoreOrderListSerializer(serializers.ModelSerializer):
                                          Order.PICKING_PARTIAL_COMPLETE,
                                          Order.MOVED_TO_QC,
                                          Order.PARTIAL_SHIPMENT_CREATED,
-                                         Order.FULL_SHIPMENT_CREATED]:
+                                         Order.FULL_SHIPMENT_CREATED, 
+                                         Order.READY_TO_DISPATCH]:
                 return 'in_transit'
             elif retailer_order_status == Order.DISPATCHED:
                 return Order.DISPATCHED
@@ -5586,7 +5587,8 @@ class SuperStoreOrderDetailSerializer(serializers.ModelSerializer):
         if cart_product:
             return {
                 'qty':cart_product.qty,
-                'total_amount': cart_product.qty * cart_product.selling_price
+                'total_amount': cart_product.qty * cart_product.selling_price,
+                'selling_price': cart_product.selling_price
             }
         return None
     
@@ -5651,7 +5653,8 @@ class SuperStoreOrderDetailSerializer(serializers.ModelSerializer):
                                          Order.PICKING_PARTIAL_COMPLETE,
                                          Order.MOVED_TO_QC,
                                          Order.PARTIAL_SHIPMENT_CREATED,
-                                         Order.FULL_SHIPMENT_CREATED]:
+                                         Order.FULL_SHIPMENT_CREATED, 
+                                         Order.READY_TO_DISPATCH]:
                 return 'IN_TRANSIT'
             elif retailer_order_status == Order.DISPATCHED:
                 return Order.DISPATCHED
