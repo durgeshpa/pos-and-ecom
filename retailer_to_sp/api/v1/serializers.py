@@ -5539,6 +5539,14 @@ class SuperStoreOrderListSerializer(serializers.ModelSerializer):
         else:
             return Order.ORDERED
     
+    delivery_persons = serializers.SerializerMethodField()
+    def get_delivery_persons(self, instance):
+
+        if instance.ordered_product.shipment_status == "OUT_FOR_DELIVERY":
+            x = User.objects.filter(id=instance.delivery_person_id)[:1:]
+            return {"name": x[0].first_name, "phone_number": x[0].phone_number}
+        return None
+    
     product = ProductSerializer(read_only=True)
     
     expected_delivery_date = serializers.SerializerMethodField()
@@ -5552,7 +5560,7 @@ class SuperStoreOrderListSerializer(serializers.ModelSerializer):
     class Meta:
         model = RetailerOrderedProductMapping
         fields = ('id', 'order_no', 'shipment_status', 'qty_and_total_amount', 'ordered_cart',
-                  'payment', 'buyer', 'product', 'order_status', 'expected_delivery_date',
+                  'payment', 'buyer', 'product', 'order_status', 'expected_delivery_date', 'delivery_persons',
                   'created_at')
 
 
@@ -5670,11 +5678,19 @@ class SuperStoreOrderDetailSerializer(serializers.ModelSerializer):
                 return Order.ORDERED
         else:
             return Order.ORDERED
+    
+    delivery_persons = serializers.SerializerMethodField()
+    def get_delivery_persons(self, instance):
+
+        if instance.ordered_product.shipment_status == "OUT_FOR_DELIVERY":
+            x = User.objects.filter(id=instance.delivery_person_id)[:1:]
+            return {"name": x[0].first_name, "phone_number": x[0].phone_number}
+        return None
         
     
     class Meta:
         model = RetailerOrderedProductMapping
         fields = ('id', 'order_no', 'shipment_status', 'loyalty_points', 'delivery_type',
-                  'qty_and_total_amount', 'ordered_from', 'address', 'discount',
+                  'qty_and_total_amount', 'ordered_from', 'address', 'discount', 'delivery_persons',
                   'payment', 'buyer', 'invoice', 'product', 'order_status', 'expected_delivery_date',
                   'created_at')
