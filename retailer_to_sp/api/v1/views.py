@@ -6612,10 +6612,10 @@ def pdf_superstore_generation(request, ordered_product):
         total_tax_amount_int = round(total_tax_amount)
 
         amt = [num2words(i) for i in str(total_amount_int).split('.')]
-        rupees = amt[0]
+        rupees = amt[0].capitalize()
 
         tax_amt = [num2words(i) for i in str(total_tax_amount_int).split('.')]
-        tax_rupees = tax_amt[0]
+        tax_rupees = tax_amt[0].capitalize()
 
         logger.info("createing invoice pdf")
         logger.info(template_name)

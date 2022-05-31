@@ -75,8 +75,11 @@ class CategoryListView(GenericAPIView):
 
     def get(self, request):
         search_text = self.request.GET.get('search_text')
+        cat_type = self.request.GET.get('category_type')
         if search_text:
             self.queryset = category_search(self.queryset, search_text)
+        if cat_type:
+            self.queryset = self.queryset.filter(category_type=cat_type)
         category = SmallOffsetPagination().paginate_queryset(self.queryset, request)
         serializer = self.serializer_class(category, many=True)
         msg = "" if category else "no category found"

@@ -1920,6 +1920,14 @@ class ShipmentProductSerializer(serializers.ModelSerializer):
     order_created_date = serializers.SerializerMethodField()
     rt_order_product_order_product_mapping = RetailerOrderedProductMappingSerializer(read_only=True, many=True)
     order_no = serializers.SerializerMethodField()
+    order_type = serializers.SerializerMethodField()
+    order_id = serializers.SerializerMethodField()
+    
+    def get_order_type(self, instance):
+        return instance.order.ordered_cart.cart_type
+    
+    def get_order_id(self, instance):
+        return instance.order.id
 
     def get_order_no(self, obj):
         return obj.order.order_no
@@ -1928,7 +1936,7 @@ class ShipmentProductSerializer(serializers.ModelSerializer):
         model = OrderedProduct
         fields = (
         'id', 'order_no', 'invoice_no', 'shipment_status', 'invoice_amount', 'payment_mode', 'shipment_address',
-        'shop_owner_name', 'shop_owner_number', 'order_created_date',
+        'shop_owner_name', 'shop_owner_number', 'order_created_date', 'order_type', 'order_id',
         'rt_order_product_order_product_mapping')
 
     @staticmethod
@@ -1968,9 +1976,15 @@ class OrderSerializerForShipment(serializers.ModelSerializer):
     dispatch_center = ShopSerializer()
     shipping_address = AddressSerializer()
 
+    order_type = serializers.SerializerMethodField()
+    def get_order_type(self, instance):
+        return instance.ordered_cart.cart_type
+    
     class Meta:
-        model=Order
-        fields = ('order_no', 'seller_shop', 'buyer_shop', 'dispatch_delivery', 'dispatch_center', 'shipping_address')
+        model = Order
+        fields = ('order_no', 'seller_shop', 'buyer_shop', 
+                  'dispatch_delivery', 'dispatch_center', 
+                  'shipping_address', 'id', 'order_type')
 
 
 class ShipmentQCSerializer(serializers.ModelSerializer):
