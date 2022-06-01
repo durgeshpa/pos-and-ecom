@@ -167,9 +167,36 @@ def make_cms_item_redirect_url(request, card_type, image_data_type, app):
     return switcher.get(card_type)
 
 
+class ApplicationSerializerForTemplate(serializers.ModelSerializer):
+
+    class Meta:
+        model = Application
+        fields = ('id', 'name')
+
+
+class TemplateSerializer(serializers.ModelSerializer):
+    app = ApplicationSerializerForTemplate(read_only=True)
+
+    class Meta:
+        model = Template
+        fields = ('id', 'app', 'name')
+
+    def validate(self, data):
+        if 'name' not in self.initial_data or isEmptyString(self.initial_data['name']) is None:
+            raise serializers.ValidationError('Template Name is required.')
+        elif 'app' not in self.initial_data or self.initial_data['app'] is None:
+            raise serializers.ValidationError('Application is required.')
+        elif not Application.objects.filter(id=self.initial_data['app']).exists():
+            raise serializers.ValidationError('Invalid App ID.')
+        elif Template.objects.filter(name=self.initial_data['name'].strip().upper(),
+                                     app_id=self.initial_data['app']).exists():
+            raise serializers.ValidationError('Template already exists')
+        data['app_id'] = self.initial_data['app']
+        data['name'] = self.initial_data['name'].strip().upper()
+        return data
+
 class CardDataSerializer(serializers.ModelSerializer):
     """Serializer for CardData"""
-
     items = CardItemSerializer(many=True, required=False)
     image = Base64ImageField(
         max_length=None, use_url=True,required=False, allow_null = True
@@ -189,6 +216,7 @@ class CardDataSerializer(serializers.ModelSerializer):
         data = super().to_representation(instance)
         card_version = CardVersion.objects.all().filter(card_data=instance).first()
         data['card_id'] = card_version.card.id
+        data['template'] = TemplateSerializer(instance.template).data
         return data
     
     def create(self, validated_data):
@@ -220,7 +248,6 @@ class CardDataSerializer(serializers.ModelSerializer):
                 data['app'] = app
             except:
                 raise NotFound(detail=ERROR_MESSAGES["APP_ID_NOT_FOUND"].format(app_id))
-
             if data.get('category_subtype'):
                 category = Category.objects.get(id = data['category_subtype'])
                 data['category_subtype'] = category
@@ -931,29 +958,3 @@ class LandingPageSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(error)
         return landing_page
 
-
-class ApplicationSerializerForTemplate(serializers.ModelSerializer):
-
-    class Meta:
-        model = Application
-        fields = ('id', 'name')
-
-
-class TemplateSerializer(serializers.ModelSerializer):
-    app = ApplicationSerializerForTemplate()
-
-    class Meta:
-        model = Template
-        fields = ('id', 'app', 'name')
-
-    def validate(self, data):
-        if 'name' not in self.initial_data or isEmptyString(self.initial_data['name']) is None:
-            raise serializers.ValidationError('Template Name is required.')
-        elif 'app' not in self.initial_data or self.initial_data['app'] is None:
-            raise serializers.ValidationError('Application is required.')
-        elif Template.objects.filter(name=self.initial_data['name'].strip().upper(),
-                                     app_id=self.initial_data['app']).exists():
-            raise serializers.ValidationError('Template already exists')
-        data['app_id'] = self.initial_data['app']
-        data['name'] = self.initial_data['name'].strip().upper()
-        return data
