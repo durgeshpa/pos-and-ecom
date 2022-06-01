@@ -534,12 +534,6 @@ class ChildProductView(GenericAPIView):
     def get(self, request):
         """ GET API for Child Product with Image Category & Tax """
 
-        if not request.GET.get('product_type'):
-            return get_response('product_type is mandatory', False)
-        elif int(request.GET.get('product_type')) not in [0, 1]:
-            return get_response('please select valid product_type')
-        self.queryset = self.queryset.filter(product_type=int(request.GET.get('product_type')))
-
         ch_product_total_count = self.queryset.count()
         ch_active_product_total_count = self.queryset.filter(status='active').count()
         info_logger.info("Child Product GET api called.")
@@ -633,6 +627,7 @@ class ChildProductView(GenericAPIView):
         product_status = self.request.GET.get('status')
         parent_product_id = self.request.GET.get('parent_product_id')
         search_text = self.request.GET.get('search_text')
+        product_type = self.request.GET.get('product_type')
 
         # search using product_name & id based on criteria that matches
         if search_text:
@@ -644,6 +639,8 @@ class ChildProductView(GenericAPIView):
             self.queryset = self.queryset.filter(parent_product=parent_product_id)
         if product_status is not None:
             self.queryset = self.queryset.filter(status=product_status)
+        if product_type is not None:
+            self.queryset = self.queryset.filter(parent_product__product_type=product_type)
         if category is not None:
             self.queryset = self.queryset.filter(
                 parent_product__parent_product_pro_category__category__id=category)
