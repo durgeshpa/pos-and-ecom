@@ -251,6 +251,9 @@ class ParentProductSerializers(serializers.ModelSerializer):
         """
             is_ptr_applicable validation.
         """
+        if self.initial_data.get('product_type') == '':
+            raise serializers.ValidationError(_('Product type is required'))
+
         if not 'parent_product_pro_image' in self.initial_data or not self.initial_data['parent_product_pro_image']:
             if not 'product_images' in self.initial_data or not self.initial_data['product_images']:
                 raise serializers.ValidationError(_('product image is required'))
@@ -876,7 +879,7 @@ class ChildProductSerializers(serializers.ModelSerializer):
 
     def get_off_percentage(self,obj):
         price = obj.get_superstore_price
-        return round(100-((price.selling_price*100)/obj.product_mrp),2) if price else None
+        return round(100-((price.selling_price*100)/obj.product_mrp)) if price else None
 
     def get_parent_product_discription(self, obj):
         """Return Parent product discription ...."""
