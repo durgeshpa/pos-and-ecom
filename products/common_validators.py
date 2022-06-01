@@ -187,10 +187,10 @@ def validate_superstore_product(product):
     return {'product': product}
 
 
-def validate_retailer_price_exist(product):
+def validate_retailer_price_exist(product, shop):
     """ validate product id has reatiler price before updating the customer price"""
     try:
-        product = ProductPrice.objects.get(product_id=product)
+        product = ProductPrice.objects.get(product_id=product, seller_shop=shop)
     except Exception as e:
         logger.error(e)
         return {'error': 'Please update retailer product price before adding customer price'}
@@ -1937,7 +1937,7 @@ def check_super_store_product_price_mandatory_columns(uploaded_data_list, header
     for row in uploaded_data_list:
         row_num += 1
         error_msg = []
-        product_price = validate_retailer_price_exist(row['product_id'])
+        product_price = validate_retailer_price_exist(row['product_id'], row['seller_shop_id'])
         if 'error' in product_price:
             error_msg.append(product_price['error'])
         if 'seller_shop_id' not in row.keys() or str(row['seller_shop_id']).strip() == '':
