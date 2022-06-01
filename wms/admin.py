@@ -1418,9 +1418,9 @@ class PickupCrateAdmin(admin.ModelAdmin):
 class QCDeskAdmin(admin.ModelAdmin):
     form = QCDeskForm
     list_display = ('desk_number', 'name', 'warehouse', 'qc_executive', 'desk_enabled', 'alternate_desk',
-                    'created_at', 'updated_at', 'created_by', 'updated_by',)
+                    'created_at', 'updated_at', 'created_by', 'updated_by', 'desk_type')
     readonly_fields = ('created_at', 'updated_at', 'created_by', 'updated_by')
-    list_filter = [Warehouse, QCExecutiveAutocomplete, ('created_at', DateRangeFilter), ('updated_at', DateRangeFilter)]
+    list_filter = [Warehouse, 'desk_type', QCExecutiveAutocomplete, ('created_at', DateRangeFilter), ('updated_at', DateRangeFilter)]
     search_fields = ('desk_number', 'name')
     list_per_page = 50
 

@@ -1758,14 +1758,14 @@ class QCDeskForm(forms.ModelForm):
                                                                            forward=('warehouse',)))
     alternate_desk = forms.ModelChoiceField(queryset=QCDesk.objects.all(), required=False,
                                             widget=autocomplete.ModelSelect2(url='alternate-desk-autocomplete',
-                                                                             forward=('warehouse',)))
+                                                                             forward=('warehouse', 'desk_type')))
     qc_areas = forms.ModelMultipleChoiceField(
         queryset=QCArea.objects.all(), required=True,
         widget=autocomplete.ModelSelect2Multiple(url='non-mapped-qc-area-autocomplete', forward=('warehouse',)))
 
     class Meta:
         model = QCDesk
-        fields = ['name', 'warehouse', 'qc_executive', 'qc_areas', 'desk_enabled', 'alternate_desk']
+        fields = ['name', 'warehouse', 'qc_executive', 'qc_areas', 'desk_type', 'desk_enabled', 'alternate_desk']
 
     def clean_warehouse(self):
         if not self.cleaned_data['warehouse'].shop_type.shop_type == 'sp':
@@ -1818,6 +1818,8 @@ class QCDeskForm(forms.ModelForm):
         if not instance.pk:
             self.fields['desk_enabled'].disabled = True
             self.fields['alternate_desk'].disabled = True
+        else:
+            self.fields['desk_type'].disabled = True
 
 
 class QCDeskQCAreaAssignmentMappingForm(forms.ModelForm):
