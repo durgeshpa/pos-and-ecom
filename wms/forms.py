@@ -1758,7 +1758,7 @@ class QCDeskForm(forms.ModelForm):
                                                                            forward=('warehouse',)))
     alternate_desk = forms.ModelChoiceField(queryset=QCDesk.objects.all(), required=False,
                                             widget=autocomplete.ModelSelect2(url='alternate-desk-autocomplete',
-                                                                             forward=('warehouse',)))
+                                                                             forward=('warehouse', 'desk_type')))
     qc_areas = forms.ModelMultipleChoiceField(
         queryset=QCArea.objects.all(), required=True,
         widget=autocomplete.ModelSelect2Multiple(url='non-mapped-qc-area-autocomplete', forward=('warehouse',)))
@@ -1818,6 +1818,8 @@ class QCDeskForm(forms.ModelForm):
         if not instance.pk:
             self.fields['desk_enabled'].disabled = True
             self.fields['alternate_desk'].disabled = True
+        else:
+            self.fields['desk_type'].disabled = True
 
 
 class QCDeskQCAreaAssignmentMappingForm(forms.ModelForm):
