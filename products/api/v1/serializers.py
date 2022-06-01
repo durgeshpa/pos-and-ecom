@@ -720,7 +720,8 @@ class ChildProductSerializers(serializers.ModelSerializer):
     parent_product = ParentProductSerializers(read_only=True)
     product_pro_tax = ProductTaxMappingSerializers(many=True, read_only=True)
     child_product_log = LogSerializers(many=True, read_only=True)
-    super_store_product_price = SuperStorePriceSerializers(many=True, read_only=True)
+    # super_store_product_price = SuperStorePriceSerializers(many=True, read_only=True)
+    super_store_product_price = serializers.SerializerMethodField()
     product_vendor_mapping = ChildProductVendorMappingSerializers(many=True, required=False)
     product_sku = serializers.CharField(required=False)
     product_pro_image = ProductImageSerializers(many=True, read_only=True)
@@ -877,8 +878,13 @@ class ChildProductSerializers(serializers.ModelSerializer):
 
         return child_product
 
+    def get_super_store_product_price(self, instance):
+        parent_shop_id = self.context['parent_shop_id']
+        return SuperStorePriceSerializers(instance.super_store_product_price.filter(seller_shop_id=parent_shop_id), many=True).data
+    
     def get_off_percentage(self,obj):
-        price = obj.get_superstore_price
+        parent_shop_id = self.context['parent_shop_id']
+        price = obj.get_superstore_price_by_shop(parent_shop_id)
         return round(100-((price.selling_price*100)/obj.product_mrp)) if price else None
 
     def get_parent_product_discription(self, obj):

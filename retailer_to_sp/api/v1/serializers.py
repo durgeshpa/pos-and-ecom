@@ -574,7 +574,8 @@ class SuperStoreProductSearchSerializer(serializers.ModelSerializer):
     product_price_detail = serializers.SerializerMethodField()
     
     def get_product_price_detail(self, instance):
-        price = instance.get_superstore_price
+        parent_shop_id = self.context['parent_shop_id']
+        price = instance.get_superstore_price_by_shop(parent_shop_id)
         if price:
             return {'mrp': instance.product_mrp, 'selling_price': price.selling_price}
         return None
@@ -596,8 +597,11 @@ class SuperStoreProductSearchSerializer(serializers.ModelSerializer):
 
 
 class SuperStoreCartProductMappingSerializer(serializers.ModelSerializer):
-    cart_product = SuperStoreProductSearchSerializer()
+    cart_product = serializers.SerializerMethodField()
     qty = serializers.SerializerMethodField()
+    
+    def get_cart_product(self, instance):
+        return SuperStoreProductSearchSerializer(instance.cart_product, context=self.context).data
     
     def get_qty(self, instance):
         return int(instance.qty)
@@ -617,7 +621,7 @@ class SuperStoreCartSerializer(serializers.ModelSerializer):
     
     def get_cart_product_list(self, instance):
         products = instance.rt_cart_list.filter(product_type=1).select_related('cart_product')
-        return SuperStoreCartProductMappingSerializer(products, many=True).data
+        return SuperStoreCartProductMappingSerializer(products, many=True, context=self.context).data
     
     def get_items_count(self, instance):
         return instance.rt_cart_list.filter(product_type=1).count()

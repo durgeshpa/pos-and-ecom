@@ -1315,14 +1315,17 @@ class CartCentral(GenericAPIView):
             except Cart.MultipleObjectsReturned:
                 cart = Cart.objects.filter(cart_type='SUPERSTORE', buyer=self.request.user, cart_status='active',
                                         seller_shop=kwargs['shop']).last()
-
+            shop = kwargs['shop']
+            parent_shop = shop.get_shop_parent
+            if not parent_shop:
+                return api_response("Shop is not mapped with parent shop", {"cart_product_list": []}, status.HTTP_200_OK, False)
+            
             # Refresh cart prices
-            PosCartCls.refresh_prices(cart.rt_cart_list.all())
+            PosCartCls.refresh_prices(cart.rt_cart_list.all(), parent_shop.id)
 
             # Refresh redeem reward
             RewardCls.checkout_redeem_points(cart, 0, kwargs['shop'], app_type="SUPERSTORE" , use_all=self.request.GET.get('use_rewards', 1))
-
-            cart_data = SuperStoreCartSerializer(cart).data
+            cart_data = SuperStoreCartSerializer(cart, context={'parent_shop_id': parent_shop.id}).data
             address = AddressCheckoutSerializer(cart.buyer.ecom_user_address.filter(default=True).last()).data
             cart_data.update({'default_address': address})
             return api_response('Cart', cart_data, status.HTTP_200_OK, True)
@@ -1599,7 +1602,7 @@ class CartCentral(GenericAPIView):
                 return api_response("No items added in cart yet", {"rt_cart_list": []}, status.HTTP_200_OK, False)
             return api_response('Added To Cart', self.post_serialize_process_basic(cart), status.HTTP_200_OK, True)
 
-    @check_ecom_user_shop
+    # @check_ecom_user_shop
     @PosAddToCart.validate_request_body_superstore
     def superstore_add_to_cart(self, request, *args, **kwargs):
         """
@@ -1621,7 +1624,7 @@ class CartCentral(GenericAPIView):
                 cart_mapping.save()
             if cart.rt_cart_list.filter(product_type=1).count() == 0:
                 return api_response("No items added in cart yet", {"cart_product_list": []}, status.HTTP_200_OK, False)
-            return api_response('Added To Cart', SuperStoreCartSerializer(cart).data, status.HTTP_200_OK, True)
+            return api_response('Added To Cart', SuperStoreCartSerializer(cart, context={'parent_shop_id': kwargs['parent_shop_id']}).data, status.HTTP_200_OK, True)
 
     def pos_cart_product_create(self, shop_id, product_info, cart_id):
 
@@ -2239,7 +2242,8 @@ class CartCheckout(APIView):
                                        cart_status='active').last()
         except ObjectDoesNotExist:
             return api_response("No items added in cart yet")
-        PosCartCls.refresh_prices(cart.rt_cart_list.all())
+        parent_shop = kwargs['shop'].get_shop_parent
+        PosCartCls.refresh_prices(cart.rt_cart_list.all(), parent_shop_id=parent_shop.id)
         order_amount = cart.order_amount_after_discount
         min_order_value = GlobalConfig.objects.get(key='min_order_value_super_store').value
         if order_amount < min_order_value:
@@ -3789,7 +3793,8 @@ class OrderCentral(APIView):
 
         if not cart:
             return api_response('Please add items in your cart to place an order.')
-
+        parent_shop = shop.get_shop_parent
+        PosCartCls.refresh_prices(cart.rt_cart_list.all(), parent_shop_id=parent_shop.id)
         order_amount = cart.order_amount_after_discount
         min_order_value = GlobalConfig.objects.get(key='min_order_value_super_store').value
         if order_amount < min_order_value:
@@ -6551,7 +6556,7 @@ def pdf_superstore_generation(request, ordered_product):
             basic_rate = 0
             inline_sum_amount = 0
             cart_product_map = ordered_product.order.ordered_cart.rt_cart_list.filter(cart_product=m.product).last()
-            product_price = cart_product_map.cart_product.get_superstore_price.selling_price
+            product_price = cart_product_map.selling_price
 
             if ordered_product.order.ordered_cart.cart_type != 'DISCOUNTED':
                 product_pro_price_ptr = m.effective_price
