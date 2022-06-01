@@ -68,15 +68,16 @@ def get_financial_year(year_format='%y'):
 
 
 def get_shop_warehouse_code(shop):
-    return str(shop.shop_code), str(shop.shop_code_bulk), str(shop.shop_code_discounted), str(shop.warehouse_code)
+    return str(shop.shop_code), str(shop.shop_code_bulk), str(shop.shop_code_discounted), str(shop.warehouse_code), \
+           str(shop.shop_code_super_store)
 
 
 def get_shop_warehouse_state_code(address):
     address = Address.objects.select_related('state',
                                              'shop_name').get(pk=address)
     state_code = format(int(address.state.state_code), '02d')
-    shop_code, shop_code_bulk, shop_code_discounted, warehouse_code = get_shop_warehouse_code(address.shop_name)
-    return state_code, shop_code, shop_code_bulk, shop_code_discounted, warehouse_code
+    shop_code, shop_code_bulk, shop_code_discounted, warehouse_code, shop_code_ss = get_shop_warehouse_code(address.shop_name)
+    return state_code, shop_code, shop_code_bulk, shop_code_discounted, warehouse_code, shop_code_ss
 
 
 def get_last_no_to_increment(model, field, instance_id, starts_with):
@@ -101,7 +102,7 @@ def get_last_model_invoice(starts_with, field):
 
 
 def common_pattern(model, field, instance, address, invoice_type, is_invoice=False, year=None):
-    state_code, shop_code, shop_code_bulk, shop_code_discounted, warehouse_code = get_shop_warehouse_state_code(
+    state_code, shop_code, shop_code_bulk, shop_code_discounted, warehouse_code, shop_code_ss = get_shop_warehouse_state_code(
         address)
 
     financial_year = year if year else get_financial_year()
@@ -134,7 +135,7 @@ def common_pattern(model, field, instance, address, invoice_type, is_invoice=Fal
 
 
 def common_pattern_bulk(model, field, instance, address, invoice_type, is_invoice=False, year=None):
-    state_code, shop_code, shop_code_bulk, shop_code_discounted, warehouse_code = get_shop_warehouse_state_code(
+    state_code, shop_code, shop_code_bulk, shop_code_discounted, warehouse_code, shop_code_ss = get_shop_warehouse_state_code(
         address)
     financial_year = year if year else get_financial_year()
 
@@ -162,7 +163,7 @@ def common_pattern_bulk(model, field, instance, address, invoice_type, is_invoic
 
 
 def common_pattern_discounted(model, field, instance, address, invoice_type, is_invoice=False, year=None):
-    state_code, shop_code, shop_code_bulk, shop_code_discounted, warehouse_code = get_shop_warehouse_state_code(
+    state_code, shop_code, shop_code_bulk, shop_code_discounted, warehouse_code, shop_code_ss = get_shop_warehouse_state_code(
         address)
     financial_year = year if year else get_financial_year()
     if field == 'credit_note_id':
@@ -187,6 +188,31 @@ def common_pattern_discounted(model, field, instance, address, invoice_type, is_
     return "%s%s" % (starts_with, ends_with)
 
 
+def common_pattern_ss(model, field, instance, address, invoice_type, is_invoice=False, year=None):
+    state_code, shop_code, shop_code_bulk, shop_code_discounted, warehouse_code, shop_code_ss = get_shop_warehouse_state_code(
+        address)
+    financial_year = year if year else get_financial_year()
+    if field == 'credit_note_id':
+        shop_code_ss = instance.invoice_no[:1]
+        warehouse_code = instance.invoice_no[-9:-7]
+        state_code = instance.invoice_no[-11:-9]
+
+    starts_with = "%s%s%s%s%s" % (
+            shop_code_ss, invoice_type, financial_year,
+            state_code, warehouse_code)
+    try:
+        last_number = cache.incr(starts_with)
+    except:
+        if is_invoice:
+            last_number = get_last_model_invoice(starts_with, field)
+        else:
+            last_number = get_last_no_to_increment(model, field, instance, starts_with)
+        last_number += 1
+        cache.set(starts_with, last_number)
+        cache.persist(starts_with)
+    ends_with = str(format(last_number, '07d'))
+    return "%s%s" % (starts_with, ends_with)
+
 def po_pattern(model, field, instance_id, address):
     return common_pattern(model, field, instance_id, address, "PO")
 
@@ -201,6 +227,10 @@ def order_id_pattern_discounted(model, field, instance_id, address):
 
 def order_id_pattern_bulk(model, field, instance_id, address):
     return common_pattern_bulk(model, field, instance_id, address, "OR")
+
+
+def order_id_pattern_ss(model, field, instance_id, address):
+    return common_pattern_ss(model, field, instance_id, address, "OR")
 
 
 def payment_id_pattern(model, field, instance_id, address):
@@ -380,6 +410,15 @@ def generate_invoice_number_bulk_order(shipment_instance, address, field='invoic
         instance.save()
 
 
+def generate_invoice_number_ss(shipment_instance, address, field='invoice_no'):
+    shipment_id = shipment_instance.id
+    instance, created = create_invoice(shipment_instance)
+    if created:
+        invoice_no = common_pattern_ss(RetailerToSPModels.Invoice, field, shipment_id, address, "IV", is_invoice=True)
+        instance.invoice_no = invoice_no
+        instance.save()
+
+
 def cart_no_pattern(model, field, instance_id, address, const="CR", year=None):
     return common_pattern(model, field, instance_id, address, const, year)
 
@@ -390,6 +429,10 @@ def cart_no_pattern_discounted(model, field, instance_id, address, year=None):
 
 def cart_no_pattern_bulk(model, field, instance_id, address, year=None):
     return common_pattern_bulk(model, field, instance_id, address, "CR", year)
+
+
+def cart_no_pattern_ss(model, field, instance_id, address, year=None):
+    return common_pattern_ss(model, field, instance_id, address, "CR", year)
 
 
 def bulk_create(model, generator, batch_size=BULK_CREATE_NO_OF_RECORDS):

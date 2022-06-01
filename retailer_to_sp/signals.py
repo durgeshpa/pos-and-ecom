@@ -199,7 +199,7 @@ def remove_offers(sender, instance=None, created=False, **kwargs):
 def create_cart_no(sender, instance=None, created=False, **kwargs):
 	if not instance.cart_no and instance.seller_shop:
 		bill_add_id = instance.seller_shop.shop_name_address_mapping.filter(address_type='billing').last().pk
-		if instance.cart_type in ['RETAIL', 'BASIC', 'AUTO', 'SUPERSTORE_RETAIL']:
+		if instance.cart_type in ['RETAIL', 'BASIC', 'AUTO']:
 			cart_no = common_function.cart_no_pattern(sender, 'cart_no', instance.pk, bill_add_id)
 			while Cart.objects.filter(cart_no=cart_no).exists():
 				cart_no = common_function.cart_no_pattern(sender, 'cart_no', instance.pk, bill_add_id)
@@ -213,6 +213,8 @@ def create_cart_no(sender, instance=None, created=False, **kwargs):
 			instance.cart_no = common_function.cart_no_pattern_bulk(sender, 'cart_no', instance.pk, bill_add_id)
 		elif instance.cart_type == 'DISCOUNTED':
 			instance.cart_no = common_function.cart_no_pattern_discounted(sender, 'cart_no', instance.pk, bill_add_id)
+		elif instance.cart_type == 'SUPERSTORE_RETAIL':
+			instance.cart_no = common_function.cart_no_pattern_ss(sender, 'cart_no', instance.pk, bill_add_id)
 
 
 @receiver(post_save, sender=Trip)

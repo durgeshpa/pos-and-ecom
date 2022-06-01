@@ -2031,7 +2031,7 @@ class OrderedProduct(models.Model):  # Shipment
             if self.shipment_status == OrderedProduct.MOVED_TO_DISPATCH:
                 CommonFunction.generate_invoice_number(self,
                     self.order.seller_shop.shop_name_address_mapping.filter(address_type='billing').last().pk, "EV")
-        elif self.order.ordered_cart.cart_type in ['RETAIL', 'SUPERSTORE_RETAIL']:
+        elif self.order.ordered_cart.cart_type == 'RETAIL':
             if self.shipment_status == OrderedProduct.MOVED_TO_DISPATCH:
                 CommonFunction.generate_invoice_number(self,
                     self.order.seller_shop.shop_name_address_mapping.filter(address_type='billing').last().pk)
@@ -2045,6 +2045,12 @@ class OrderedProduct(models.Model):  # Shipment
         elif self.order.ordered_cart.cart_type == 'BULK':
             if self.shipment_status == OrderedProduct.MOVED_TO_DISPATCH:
                 CommonFunction.generate_invoice_number_bulk_order(self,
+                    self.order.seller_shop.shop_name_address_mapping.filter(address_type='billing').last().pk)
+                # populate_data_on_qc_pass(self.order)
+
+        elif self.order.ordered_cart.cart_type == 'SUPERSTORE_RETAIL':
+            if self.shipment_status == OrderedProduct.MOVED_TO_DISPATCH:
+                CommonFunction.generate_invoice_number_ss(self,
                     self.order.seller_shop.shop_name_address_mapping.filter(address_type='billing').last().pk)
                 # populate_data_on_qc_pass(self.order)
 
@@ -3204,7 +3210,7 @@ def create_order_no(sender, instance=None, created=False, **kwargs):
         Cart order_id add
     """
     if not instance.order_no and instance.seller_shop and instance.seller_shop:
-        if instance.ordered_cart.cart_type in ['RETAIL', 'BASIC', 'AUTO', 'SUPERSTORE_RETAIL']:
+        if instance.ordered_cart.cart_type in ['RETAIL', 'BASIC', 'AUTO']:
             order_no = common_function.order_id_pattern(
                 sender, 'order_no', instance.pk,
                 instance.seller_shop.
@@ -3217,7 +3223,7 @@ def create_order_no(sender, instance=None, created=False, **kwargs):
                         shop_name_address_mapping.filter(
                         address_type='billing').last().pk)
             instance.order_no = order_no
-        if instance.ordered_cart.cart_type in ['ECOM', 'SUPERSTORE']:
+        elif instance.ordered_cart.cart_type in ['ECOM', 'SUPERSTORE']:
             instance.order_no = common_function.order_id_pattern(
                 sender, 'order_no', instance.pk,
                 instance.seller_shop.
@@ -3235,6 +3241,13 @@ def create_order_no(sender, instance=None, created=False, **kwargs):
                 instance.seller_shop.
                     shop_name_address_mapping.filter(
                     address_type='billing').last().pk)
+        elif instance.ordered_cart.cart_type == 'SUPERSTORE_RETAIL':
+            instance.order_no = common_function.order_id_pattern_ss(
+                sender, 'order_no', instance.pk,
+                instance.seller_shop.
+                    shop_name_address_mapping.filter(
+                    address_type='billing').last().pk)
+
         instance.save()
         # Update order id in cart
         Cart.objects.filter(id=instance.ordered_cart.id).update(order_id=instance.order_no)
