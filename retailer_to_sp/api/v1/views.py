@@ -4790,13 +4790,36 @@ class OrderListCentral(GenericAPIView):
                                           seller_shop_id=shop)
             if order_status:
                 order_status_actual = ONLINE_ORDER_STATUS_MAP.get(int(order_status), None)
-                orders = orders.filter(order_status__in=order_status_actual) if order_status_actual else orders
+                if order_status == '2':
+                    orders = orders.filter(rt_order_order_product__shipment_status__in=[OrderedProduct.DELIVERED])
+                elif order_status == '1':
+                    orders = orders.filter(order_status__in=order_status_actual).exclude(
+                        rt_order_order_product__shipment_status__in=[OrderedProduct.DELIVERED]
+                    )
+                elif order_status == '3':
+                    orders = orders.filter(order_status__in=[Order.PARTIALLY_RETURNED, 
+                                                            Order.FULLY_RETURNED])
+                else:
+                    orders = orders.none()
         else:
             orders = Order.objects.filter(ordered_cart__cart_type='SUPERSTORE',
                                           buyer=self.request.user)
             if order_status:
                 order_status_actual = ECOM_ORDER_STATUS_MAP.get(int(order_status), None)
-                orders = orders.filter(order_status__in=order_status_actual) if order_status_actual else orders
+                if order_status == '1':
+                    orders = orders
+                elif order_status == '2':
+                    orders = orders.filter(order_status__in=[Order.ORDERED, 
+                                                             Order.PAYMENT_FAILED,
+                                                             Order.PAYMENT_PENDING]).exclude(
+                        rt_order_order_product__shipment_status__in=[OrderedProduct.DELIVERED]
+                    )
+                elif order_status == '3':
+                    orders = orders.filter(rt_order_order_product__shipment_status__in=[OrderedProduct.DELIVERED])
+                elif order_status == '4':
+                    orders = orders.filter(order_status__in=[Order.CANCELLED])
+                else:
+                    orders = orders.none()
         search_text = self.request.GET.get('search_text')
         if search_text:
             orders = orders.filter(Q(order_no__icontains=search_text) |
@@ -6422,29 +6445,14 @@ def pdf_superstore_generation(request, ordered_product):
     else:
         request = request
         ordered_product = ordered_product
-
+    if ordered_product.order.ordered_cart.cart_type == 'SUPERSTORE_RETAIL':
+        product = ordered_product.rt_order_product_order_product_mapping.last().product
+        ordered_product = ordered_product.order.reference_order.rt_order_order_product.filter(rt_order_product_order_product_mapping__product=product).last()
     if ordered_product.invoice and ordered_product.invoice.invoice_pdf and ordered_product.invoice.invoice_pdf.url:
             pass
     else:
         barcode = barcodeGen(ordered_product.invoice_no)
         e_invoice_data = None
-        # Check if e-invoicing is done for this order
-        # and get e-invocing details
-        # details include QRCode, IRN, Ack No, Ack Date
-        # zoho_invoice = ZohoInvoice.objects.filter(invoice_number=ordered_product.invoice_no).last()
-        # if zoho_invoice and zoho_invoice.e_invoice_qr_raw_data:
-        #     try:
-        #         qrCode = qrCodeGen(ordered_product.invoice_no, zoho_invoice.e_invoice_qr_raw_data)
-        #         irn = zoho_invoice.e_invoice_reference_number
-        #         ack_no = zoho_invoice.e_invoice_ack_number
-        #         ack_date = zoho_invoice.e_invoice_ack_date
-
-        #         e_invoice_data = {'qrCode': qrCode, 'irn': irn, 'ack_no': ack_no, 'ack_date': ack_date}
-        #     except Exception as e:
-        #         pass
-        # buyer = ordered_product.order.buyer
-        # ecom_address = ordered_product.order.ecom_address_order
-        # Licence
         shop = ordered_product.order.seller_shop
         shop_name = shop.shop_name
         license_number = getShopLicenseNumber(shop_name)
@@ -6635,7 +6643,6 @@ def pdf_superstore_generation(request, ordered_product):
         logger.info("createing invoice pdf")
         logger.info(template_name)
         logger.info(request.get_host())
-
         data = {"shipment": ordered_product, "order": ordered_product.order,
                 "url": request.get_host(), "scheme": request.is_secure() and "https" or "http",
                 "igst": igst, "cgst": cgst, "sgst": sgst, "product_special_cess": product_special_cess,
@@ -6661,9 +6668,10 @@ def pdf_superstore_generation(request, ordered_product):
         try:
             create_invoice_data(ordered_product)
             ordered_product.invoice.invoice_pdf.save("{}".format(filename),
-                                                     ContentFile(response.rendered_content), save=True)
+                                                        ContentFile(response.rendered_content), save=True)
         except Exception as e:
             logger.exception(e)
+    return ordered_product
 
 def pdf_generation_retailer(request, order_id, delay=True):
     """
@@ -8698,7 +8706,7 @@ class DownloadShipmentInvoice(APIView):
             ordered_product = get_object_or_404(OrderedProduct, pk=shipment_ids[0])
             # call pdf generation method to generate pdf and download the pdf
             if invoice_type == 'superstore':
-                pdf_superstore_generation(request, ordered_product)
+                ordered_product = pdf_superstore_generation(request, ordered_product)
             else:
                 pdf_generation(request, ordered_product)
             result = requests.get(ordered_product.invoice.invoice_pdf.url)
@@ -8716,7 +8724,7 @@ class DownloadShipmentInvoice(APIView):
                 ordered_product = get_object_or_404(OrderedProduct, pk=pk)
                 # call pdf generation method to generate and save pdf
                 if invoice_type == 'superstore':
-                    pdf_superstore_generation(request, ordered_product)
+                    ordered_product = pdf_superstore_generation(request, ordered_product)
                 else:
                     pdf_generation(request, ordered_product)
                 # append the pdf file path
@@ -11509,58 +11517,3 @@ class PosOrderUserSearchView(generics.GenericAPIView):
         else:
             msg = 'Search to get Buyers.'
             return get_response(msg, '', True)
-
-
-def generate_superstore_shipment_label(order_id, request):
-    try:
-        template_name = 'admin/superstore_shipment_label.html'
-        retailer_order = Order.objects.get(id=order_id)
-        order_no = retailer_order.order_no
-        filename = f"{order_no}.pdf"
-        retailer_shipment = retailer_order.rt_order_order_product.last()
-        product = retailer_shipment.rt_order_product_order_product_mapping.last().product
-        customer_order = retailer_order.reference_order
-        route = retailer_order.buyer_shop.shop_routes.last()
-        if route:
-            route = f"{route.route.name, route.route.city}"
-        else:
-            route = "N/A"
-        barcode = barcodeGen('0' * (12 - len(str(retailer_shipment.id))) + str(retailer_shipment.id))
-        data = {
-            'product': product,
-            'customer_order': customer_order,
-            'retailer_order': retailer_order,
-            'route': route,
-            'barcode': barcode
-        }
-        # cmd_option = {"margin-top": 10, "zoom": 1, "javascript-delay": 1000, "footer-center": "[page]/[topage]",
-        #               "no-stop-slow-scripts": True, "quiet": True}
-        # cmd_option = {"margin-top": 2, "margin-left": 0, "margin-right": 0, "margin-bottom": 2, "javascript-delay": 0,
-        #               "page-height": 55, "page-width": 70, "no-stop-slow-scripts": True, "quiet": True,'encoding': 'utf8 '
-        #               ,"dpi":300}
-        cmd_option = {"margin-top": 2, "margin-left": 4, "margin-right": 4, "margin-bottom": 0, "zoom": 1,
-                        "javascript-delay": 0, "footer-center": "[page]/[topage]", "page-height": 43, "page-width": 71,
-                        "no-stop-slow-scripts": True, "quiet": True}
-        response = PDFTemplateResponse(request=request, template=template_name, filename=filename,
-                                       context=data, show_content_in_browser=False, cmd_options=cmd_option)
-        
-        try:
-            retailer_shipment.shipment_label_pdf.save("{}".format(filename),
-                                                     ContentFile(response.rendered_content), save=True)
-            return response
-        except Exception as e:
-            logger.exception(e)
-            return api_response(e)
-    except Order.DoesNotExist:
-        return api_response("Order not found")
-
-
-class DownloadSuperStoreShipmentLabel(generics.GenericAPIView):
-    authentication_classes = (authentication.TokenAuthentication,)
-    
-    def get(self, request, *args, **kwargs):
-        order_id = self.request.query_params.get('order_id')
-        if not order_id:
-            return api_response("Order id is mandatory in url params")
-        else:
-            return generate_superstore_shipment_label(order_id, request)
