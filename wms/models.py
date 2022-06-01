@@ -46,6 +46,15 @@ INVENTORY_STATE_CHOICES = (
     ('repackaging', 'Repackaging')
 )
 
+GROCERY = 'GROCERY'
+SUPERSTORE = 'SUPERSTORE'
+
+DESK_TYPES = (
+    (GROCERY, 'Grocery'),
+    (SUPERSTORE, 'Super Store')
+)
+
+
 
 class BaseTimestampModel(models.Model):
     """
@@ -749,6 +758,8 @@ class QCDesk(BaseTimestampUserModel):
     warehouse = models.ForeignKey(Shop, null=True, on_delete=models.DO_NOTHING)
     qc_executive = models.ForeignKey(get_user_model(), related_name='qc_executive_desk_user', on_delete=models.CASCADE)
     qc_areas = models.ManyToManyField(QCArea, related_name='qc_desk_areas')
+    desk_type = models.CharField(
+        max_length=15, choices=DESK_TYPES, null=True, default=GROCERY)
     desk_enabled = models.BooleanField(default=True)
     alternate_desk = models.ForeignKey('self', null=True, blank=True, related_name='alternate_desk_list',
                                        on_delete=models.DO_NOTHING, limit_choices_to={'desk_enabled': True}, )
