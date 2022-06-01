@@ -11,3 +11,12 @@ def check_inventory(product):
             exclude_product_id.append(prd.id)
     product = product.exclude(id__in = exclude_product_id)
     return product
+
+
+def isEmptyString(string):
+    """
+    Checks if given string is empty
+    """
+    if string is None or len(string.strip()) == 0:
+        return True
+    return False
