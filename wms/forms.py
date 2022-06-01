@@ -1765,7 +1765,7 @@ class QCDeskForm(forms.ModelForm):
 
     class Meta:
         model = QCDesk
-        fields = ['name', 'warehouse', 'qc_executive', 'qc_areas', 'desk_enabled', 'alternate_desk']
+        fields = ['name', 'warehouse', 'qc_executive', 'qc_areas', 'desk_type', 'desk_enabled', 'alternate_desk']
 
     def clean_warehouse(self):
         if not self.cleaned_data['warehouse'].shop_type.shop_type == 'sp':
