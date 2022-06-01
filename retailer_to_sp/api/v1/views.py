@@ -2239,6 +2239,7 @@ class CartCheckout(APIView):
                                        cart_status='active').last()
         except ObjectDoesNotExist:
             return api_response("No items added in cart yet")
+        PosCartCls.refresh_prices(cart.rt_cart_list.all())
         order_amount = cart.order_amount_after_discount
         min_order_value = GlobalConfig.objects.get(key='min_order_value_super_store').value
         if order_amount < min_order_value:
