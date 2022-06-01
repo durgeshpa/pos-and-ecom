@@ -499,8 +499,17 @@ class ProductDetails(GenericAPIView):
     def get(self, request):
         '''get superstore product details ....'''
         id = request.GET.get('id')
+        try:
+            shop = Shop.objects.get(id=request.META.get('HTTP_SHOP_ID', None), shop_type__shop_type='f', status=True,
+                                    approval_status=2, pos_enabled=1)
+        except:
+            return api_response("Shop not available!")
+        parent_shop_id = shop.get_shop_parent
+        if not parent_shop_id:
+            return api_response("shop parent not mapped")
+        parent_shop_id = parent_shop_id.id
         serializer = ChildProduct.objects.filter(id=id)
-        serializer = self.serializer_class(serializer, many=True)
+        serializer = self.serializer_class(serializer, many=True, context={'parent_shop_id': parent_shop_id})
         return api_response('products information',serializer.data,status.HTTP_200_OK, True)
 
 
