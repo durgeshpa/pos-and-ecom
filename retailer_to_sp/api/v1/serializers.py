@@ -1920,6 +1920,14 @@ class ShipmentProductSerializer(serializers.ModelSerializer):
     order_created_date = serializers.SerializerMethodField()
     rt_order_product_order_product_mapping = RetailerOrderedProductMappingSerializer(read_only=True, many=True)
     order_no = serializers.SerializerMethodField()
+    order_type = serializers.SerializerMethodField()
+    order_id = serializers.SerializerMethodField()
+    
+    def get_order_type(self, instance):
+        return instance.order.ordered_cart.cart_type
+    
+    def get_order_id(self, instance):
+        return instance.order.id
 
     def get_order_no(self, obj):
         return obj.order.order_no
@@ -1928,7 +1936,7 @@ class ShipmentProductSerializer(serializers.ModelSerializer):
         model = OrderedProduct
         fields = (
         'id', 'order_no', 'invoice_no', 'shipment_status', 'invoice_amount', 'payment_mode', 'shipment_address',
-        'shop_owner_name', 'shop_owner_number', 'order_created_date',
+        'shop_owner_name', 'shop_owner_number', 'order_created_date', 'order_type', 'order_id',
         'rt_order_product_order_product_mapping')
 
     @staticmethod
@@ -1968,9 +1976,15 @@ class OrderSerializerForShipment(serializers.ModelSerializer):
     dispatch_center = ShopSerializer()
     shipping_address = AddressSerializer()
 
+    order_type = serializers.SerializerMethodField()
+    def get_order_type(self, instance):
+        return instance.ordered_cart.cart_type
+    
     class Meta:
-        model=Order
-        fields = ('order_no', 'seller_shop', 'buyer_shop', 'dispatch_delivery', 'dispatch_center', 'shipping_address')
+        model = Order
+        fields = ('order_no', 'seller_shop', 'buyer_shop', 
+                  'dispatch_delivery', 'dispatch_center', 
+                  'shipping_address', 'id', 'order_type')
 
 
 class ShipmentQCSerializer(serializers.ModelSerializer):
@@ -5528,7 +5542,8 @@ class SuperStoreOrderListSerializer(serializers.ModelSerializer):
                                          Order.PICKING_PARTIAL_COMPLETE,
                                          Order.MOVED_TO_QC,
                                          Order.PARTIAL_SHIPMENT_CREATED,
-                                         Order.FULL_SHIPMENT_CREATED]:
+                                         Order.FULL_SHIPMENT_CREATED, 
+                                         Order.READY_TO_DISPATCH]:
                 return 'in_transit'
             elif retailer_order_status == Order.DISPATCHED:
                 return Order.DISPATCHED
@@ -5545,12 +5560,28 @@ class SuperStoreOrderListSerializer(serializers.ModelSerializer):
         else:
             return Order.ORDERED
     
+    delivery_persons = serializers.SerializerMethodField()
+    def get_delivery_persons(self, instance):
+
+        if instance.ordered_product.shipment_status == "OUT_FOR_DELIVERY":
+            x = User.objects.filter(id=instance.ordered_product.delivery_person_id)[:1:]
+            return {"name": x[0].first_name, "phone_number": x[0].phone_number}
+        return None
+    
     product = ProductSerializer(read_only=True)
+    
+    expected_delivery_date = serializers.SerializerMethodField()
+    def get_expected_delivery_date(self, instance):
+        return instance.ordered_product.order.estimate_delivery_time
+    
+    ordered_cart = serializers.SerializerMethodField()
+    def get_ordered_cart(self, instance):
+        return instance.ordered_product.order.ordered_cart.id
     
     class Meta:
         model = RetailerOrderedProductMapping
-        fields = ('id', 'order_no', 'shipment_status', 'qty_and_total_amount', 
-                  'payment', 'buyer', 'product', 'order_status',
+        fields = ('id', 'order_no', 'shipment_status', 'qty_and_total_amount', 'ordered_cart',
+                  'payment', 'buyer', 'product', 'order_status', 'expected_delivery_date', 'delivery_persons',
                   'created_at')
 
 
@@ -5585,7 +5616,8 @@ class SuperStoreOrderDetailSerializer(serializers.ModelSerializer):
         if cart_product:
             return {
                 'qty':cart_product.qty,
-                'total_amount': cart_product.qty * cart_product.selling_price
+                'total_amount': cart_product.qty * cart_product.selling_price,
+                'selling_price': cart_product.selling_price
             }
         return None
     
@@ -5650,8 +5682,9 @@ class SuperStoreOrderDetailSerializer(serializers.ModelSerializer):
                                          Order.PICKING_PARTIAL_COMPLETE,
                                          Order.MOVED_TO_QC,
                                          Order.PARTIAL_SHIPMENT_CREATED,
-                                         Order.FULL_SHIPMENT_CREATED]:
-                return 'in_transit'
+                                         Order.FULL_SHIPMENT_CREATED, 
+                                         Order.READY_TO_DISPATCH]:
+                return 'IN_TRANSIT'
             elif retailer_order_status == Order.DISPATCHED:
                 return Order.DISPATCHED
             elif retailer_order_status == Order.COMPLETED:
@@ -5666,11 +5699,20 @@ class SuperStoreOrderDetailSerializer(serializers.ModelSerializer):
                 return Order.ORDERED
         else:
             return Order.ORDERED
+    
+    delivery_persons = serializers.SerializerMethodField()
+    def get_delivery_persons(self, instance):
+
+        if instance.ordered_product.shipment_status in ["OUT_FOR_DELIVERY",
+                                                        "DELIVERED"]:
+            x = User.objects.filter(id=instance.ordered_product.delivery_person_id)[:1:]
+            return {"name": x[0].first_name, "phone_number": x[0].phone_number}
+        return None
         
     
     class Meta:
         model = RetailerOrderedProductMapping
         fields = ('id', 'order_no', 'shipment_status', 'loyalty_points', 'delivery_type',
-                  'qty_and_total_amount', 'ordered_from', 'address', 'discount',
+                  'qty_and_total_amount', 'ordered_from', 'address', 'discount', 'delivery_persons',
                   'payment', 'buyer', 'invoice', 'product', 'order_status', 'expected_delivery_date',
                   'created_at')

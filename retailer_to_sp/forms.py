@@ -484,7 +484,7 @@ class TripForm(forms.ModelForm):
                   'no_of_sacks_check']
 
     class Media:
-        js = ('admin/js/select2.min.js',)
+        js = ('admin/js/select2.full.min.js',)
         css = {
             'all': (
                 'admin/css/select2.min.css',

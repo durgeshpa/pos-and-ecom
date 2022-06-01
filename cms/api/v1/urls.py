@@ -22,5 +22,6 @@ urlpatterns = [
     path("choice-lp-type/", LandingPageTypeList.as_view()),
     path("choice-lp-subtype/", LandingPageSubTypeList.as_view()),
     path("choice-image-type/", ImageTypeList.as_view()),
+    path("templates/", views.TemplateCRUDView.as_view(), name="templates" ),
 
 ]

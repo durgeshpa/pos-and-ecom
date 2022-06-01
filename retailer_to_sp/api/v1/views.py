@@ -9,6 +9,7 @@ from datetime import datetime, timedelta
 from decimal import Decimal
 from hashlib import sha512
 from operator import itemgetter
+from decimal import Decimal
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
@@ -41,7 +42,8 @@ from brand.models import Brand
 from categories import models as categorymodel
 from common.common_utils import (create_file_name, single_pdf_file, create_merge_pdf_name, merge_pdf_files,
                                  create_invoice_data, whatsapp_opt_in, whatsapp_order_cancel, whatsapp_order_refund,
-                                 whatsapp_order_delivered)
+                                 whatsapp_order_delivered, sms_order_delivered, sms_out_for_delivery,
+                                 sms_order_dispatch, sms_order_placed)
 from common.constants import PREFIX_CREDIT_NOTE_FILE_NAME, ZERO, PREFIX_INVOICE_FILE_NAME, INVOICE_DOWNLOAD_ZIP_NAME
 from common.data_wrapper_view import DataWrapperViewSet
 from coupon.models import Coupon, CusotmerCouponUsage
@@ -1318,7 +1320,7 @@ class CartCentral(GenericAPIView):
             PosCartCls.refresh_prices(cart.rt_cart_list.all())
 
             # Refresh redeem reward
-            RewardCls.checkout_redeem_points(cart, 0, kwargs['shop'], self.request.GET.get('use_rewards', 1))
+            RewardCls.checkout_redeem_points(cart, 0, kwargs['shop'], app_type="SUPERSTORE" , use_all=self.request.GET.get('use_rewards', 1))
 
             cart_data = SuperStoreCartSerializer(cart).data
             address = AddressCheckoutSerializer(cart.buyer.ecom_user_address.filter(default=True).last()).data
@@ -2237,12 +2239,20 @@ class CartCheckout(APIView):
                                        cart_status='active').last()
         except ObjectDoesNotExist:
             return api_response("No items added in cart yet")
+        order_amount = cart.order_amount_after_discount
+        min_order_value = GlobalConfig.objects.get(key='min_order_value_super_store').value
+        if order_amount < min_order_value:
+            return api_response(
+                "A minimum total purchase amount of {} is required to checkout.".format(min_order_value),
+                None, status.HTTP_200_OK, False)
         with transaction.atomic():
-            use_reward_this_month = RewardCls.checkout_redeem_points(cart, 0, shop=kwargs['shop'],app_type="SUPERSTORE",use_all=self.request.GET.get('use_rewards', 1))
+            use_reward_this_month = RewardCls.checkout_redeem_points(cart, 0, shop=kwargs['shop'],app_type="SUPERSTORE", use_all=self.request.GET.get('use_rewards', 1))
             data = self.serialize(cart, None)
             address = AddressCheckoutSerializer(cart.buyer.ecom_user_address.filter(default=True).last()).data
             data.update({'default_address': address})
-            delivery_time = "5-7 days"
+            delivery_buffer = get_config("superstore_delivery_buffer", 7)
+            delivery_date_expected = (datetime.now() + timedelta(delivery_buffer)).date()
+            delivery_time = delivery_date_expected
             data['estimate_delivery_time'] = delivery_time
             data.update({'saving': round(data['total_mrp'] - data['amount_payable'], 2)})
             data.update({"redeem_points_message": use_reward_this_month if use_reward_this_month else ""})
@@ -3351,7 +3361,7 @@ class OrderCentral(APIView):
                 return api_response("Please Provide valid status for order updation")
             if order_status == OrderedProduct.OUT_FOR_DELIVERY:
                 retail_delivery_check = True
-                if not shipment.order.delivery_option == 2:
+                if shipment.order.delivery_option == '1':
                     return api_response("Self pick up orders cannot be marked as out for delivered")
 
                 if not retail_delivery_check:
@@ -3374,14 +3384,17 @@ class OrderCentral(APIView):
                                                         shipment=shipment)
                 pos_trip.trip_start_at = datetime.now()
                 pos_trip.save()
+                sms_out_for_delivery(shipment.order.buyer.first_name, shipment.order.buyer.phone_number)
             else:
                 if shipment.order.delivery_option == '1':
                     shipment.shipment_status = order_status
                     shipment.save()
+                    order_product_mapping.delivered_qty= order_product_mapping.shipped_qty
+                    order_product_mapping.save()
                 else:
                     shipment.shipment_status = order_status
                     shipment.save()
-                    order_product_mapping.delivered_qty=F('shipped_qty')
+                    order_product_mapping.delivered_qty=order_product_mapping.shipped_qty
                     order_product_mapping.save()
                     if shipment.pos_trips.filter(trip_type='SUPERSTORE').exists():
                         pos_trip = shipment.pos_trips.filter(trip_type='SUPERSTORE').last()
@@ -3390,6 +3403,7 @@ class OrderCentral(APIView):
                                                           shipment=shipment)
                     pos_trip.trip_end_at = datetime.now()
                     pos_trip.save()
+                    sms_order_delivered(shipment.order.buyer.first_name, shipment.order.buyer.phone_number)
             return api_response("Order updated successfully!", response, status.HTTP_200_OK, True)
 
     def put_retail_order(self, pk):
@@ -3501,7 +3515,7 @@ class OrderCentral(APIView):
             order = OrderedProductMapping.objects.get(pk=self.request.GET.get('product_mapping_id'),
                                                         ordered_product__order__buyer=self.request.user,
                                                         ordered_product__order__ordered_cart__cart_type='SUPERSTORE')
-        except OrderedProductMapping.ObjectDoesNotExist:
+        except OrderedProductMapping.DoesNotExist:
             return api_response("Order Not Found!")
 
         return api_response('Order', self.get_serialize_process_superstore(order), status.HTTP_200_OK, True,
@@ -3775,6 +3789,12 @@ class OrderCentral(APIView):
         if not cart:
             return api_response('Please add items in your cart to place an order.')
 
+        order_amount = cart.order_amount_after_discount
+        min_order_value = GlobalConfig.objects.get(key='min_order_value_super_store').value
+        if order_amount < min_order_value:
+            return api_response(
+                "A minimum total purchase amount of {} is required to checkout.".format(min_order_value),
+                None, status.HTTP_200_OK, False)
         # set_payment_option
         try:
             payment_type_id = PaymentType.objects.get(id=self.request.data.get('payment_type', 4)).id
@@ -3807,6 +3827,7 @@ class OrderCentral(APIView):
             ]
             self.auto_process_order(order, payments, 'superstore')
             self.process_superstore_order(order)
+            sms_order_placed(order.buyer.first_name, order.buyer.phone_number)
             msg = 'Ordered Successfully!'
             return api_response(msg, BasicOrderListSerializer(Order.objects.get(id=order.id)).data,
                                         status.HTTP_200_OK, True)
@@ -6424,13 +6445,8 @@ def pdf_superstore_generation(request, ordered_product):
         # buyer = ordered_product.order.buyer
         # ecom_address = ordered_product.order.ecom_address_order
         # Licence
-        shop_id = get_config('superstore_seller_shop_id', 50484)
-        try:
-            shop = Shop.objects.get(id=shop_id)
-            shop_name = shop.shop_name
-        except Shop.DoesNotExist:
-            shop = None
-            shop_name = "shop_id config missing"
+        shop = ordered_product.order.seller_shop
+        shop_name = shop.shop_name
         license_number = getShopLicenseNumber(shop_name)
         # CIN
         cin_number = getShopCINNumber(shop_name)
@@ -6448,7 +6464,7 @@ def pdf_superstore_generation(request, ordered_product):
         #     new_sp_addistro_shop=ordered_product.order.ordered_cart.seller_shop.pk).all()
         # if shop_mapping_list.exists():
         #     template_name = 'admin/invoice/invoice_addistro_sp.html'
-
+        dispatch_address = ordered_product.order.seller_shop.shop_name_address_mapping.filter(address_type='shipping').last()
         product_listing = []
         taxes_list = []
         gst_tax_list = []
@@ -6611,10 +6627,10 @@ def pdf_superstore_generation(request, ordered_product):
         total_tax_amount_int = round(total_tax_amount)
 
         amt = [num2words(i) for i in str(total_amount_int).split('.')]
-        rupees = amt[0]
+        rupees = amt[0].capitalize()
 
         tax_amt = [num2words(i) for i in str(total_tax_amount_int).split('.')]
-        tax_rupees = tax_amt[0]
+        tax_rupees = tax_amt[0].capitalize()
 
         logger.info("createing invoice pdf")
         logger.info(template_name)
@@ -6632,7 +6648,10 @@ def pdf_superstore_generation(request, ordered_product):
                 "shop_name_gram": shop_name_gram, "nick_name_gram": nick_name_gram,
                 "address_line1_gram": address_line1_gram, "city_gram": city_gram, "state_gram": state_gram,
                 "pincode_gram": pincode_gram, "cin": cin_number,
-                "hsn_list": list1, "license_number": license_number, "e_invoice_data": e_invoice_data}
+                "hsn_list": list1, 
+                "license_number": license_number, 
+                "e_invoice_data": e_invoice_data, 
+                "dispatch_address": dispatch_address}
 
         cmd_option = {"margin-top": 10, "zoom": 1, "javascript-delay": 1000, "footer-center": "[page]/[topage]",
                       "no-stop-slow-scripts": True, "quiet": True}
@@ -8070,22 +8089,22 @@ class ShipmentView(GenericAPIView):
                     shipment.save()
 
                 for product_map in products_info:
-                    # cart_product_mapping = CartProductMapping.objects.filter(cart=order.ordered_cart,
-                    #                                                          retailer_product_id=product_map['product_id'],
-                    #                                                          product_type=1).last()
-                    # if cart_product_mapping and cart_product_mapping.qty > product_map['picked_qty'] \
-                    #         and product_map['product_type'] == 1:
-                    #     retailer_product = RetailerProduct.objects.filter(id=product_map['product_id'], shop=shop).last()
-                    #     retailer_product.online_enabled = False
-                    #     retailer_product.online_disabled_status = product_map['online_disabled_status']
-                    #     retailer_product.save()
-                    # elif cart_product_mapping and cart_product_mapping.qty == product_map['picked_qty'] \
-                    #         and product_map['product_type'] == 1:
-                    #     retailer_product = RetailerProduct.objects.filter(id=product_map['product_id'],
-                    #                                                       shop=shop).last()
-                    #     retailer_product.online_enabled = True
-                    #     retailer_product.online_disabled_status = None
-                    #     retailer_product.save()
+                    cart_product_mapping = CartProductMapping.objects.filter(cart=order.ordered_cart,
+                                                                             retailer_product_id=product_map['product_id'],
+                                                                             product_type=1).last()
+                    if cart_product_mapping and cart_product_mapping.qty > product_map['picked_qty'] \
+                            and product_map['product_type'] == 1:
+                        retailer_product = RetailerProduct.objects.filter(id=product_map['product_id'], shop=shop).last()
+                        retailer_product.online_enabled = False
+                        retailer_product.online_disabled_status = product_map['online_disabled_status']
+                        retailer_product.save()
+                    elif cart_product_mapping and cart_product_mapping.qty == product_map['picked_qty'] \
+                            and product_map['product_type'] == 1:
+                        retailer_product = RetailerProduct.objects.filter(id=product_map['product_id'],
+                                                                          shop=shop).last()
+                        retailer_product.online_enabled = True
+                        retailer_product.online_disabled_status = None
+                        retailer_product.save()
                     product_id, qty, product_type = product_map['product_id'], product_map['picked_qty'], product_map[
                         'product_type']
                     ordered_product_mapping, _ = ShipmentProducts.objects.get_or_create(ordered_product=shipment,
@@ -11490,3 +11509,58 @@ class PosOrderUserSearchView(generics.GenericAPIView):
         else:
             msg = 'Search to get Buyers.'
             return get_response(msg, '', True)
+
+
+def generate_superstore_shipment_label(order_id, request):
+    try:
+        template_name = 'admin/superstore_shipment_label.html'
+        retailer_order = Order.objects.get(id=order_id)
+        order_no = retailer_order.order_no
+        filename = f"{order_no}.pdf"
+        retailer_shipment = retailer_order.rt_order_order_product.last()
+        product = retailer_shipment.rt_order_product_order_product_mapping.last().product
+        customer_order = retailer_order.reference_order
+        route = retailer_order.buyer_shop.shop_routes.last()
+        if route:
+            route = f"{route.route.name, route.route.city}"
+        else:
+            route = "N/A"
+        barcode = barcodeGen('0' * (12 - len(str(retailer_shipment.id))) + str(retailer_shipment.id))
+        data = {
+            'product': product,
+            'customer_order': customer_order,
+            'retailer_order': retailer_order,
+            'route': route,
+            'barcode': barcode
+        }
+        # cmd_option = {"margin-top": 10, "zoom": 1, "javascript-delay": 1000, "footer-center": "[page]/[topage]",
+        #               "no-stop-slow-scripts": True, "quiet": True}
+        # cmd_option = {"margin-top": 2, "margin-left": 0, "margin-right": 0, "margin-bottom": 2, "javascript-delay": 0,
+        #               "page-height": 55, "page-width": 70, "no-stop-slow-scripts": True, "quiet": True,'encoding': 'utf8 '
+        #               ,"dpi":300}
+        cmd_option = {"margin-top": 2, "margin-left": 4, "margin-right": 4, "margin-bottom": 0, "zoom": 1,
+                        "javascript-delay": 0, "footer-center": "[page]/[topage]", "page-height": 43, "page-width": 71,
+                        "no-stop-slow-scripts": True, "quiet": True}
+        response = PDFTemplateResponse(request=request, template=template_name, filename=filename,
+                                       context=data, show_content_in_browser=False, cmd_options=cmd_option)
+        
+        try:
+            retailer_shipment.shipment_label_pdf.save("{}".format(filename),
+                                                     ContentFile(response.rendered_content), save=True)
+            return response
+        except Exception as e:
+            logger.exception(e)
+            return api_response(e)
+    except Order.DoesNotExist:
+        return api_response("Order not found")
+
+
+class DownloadSuperStoreShipmentLabel(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    
+    def get(self, request, *args, **kwargs):
+        order_id = self.request.query_params.get('order_id')
+        if not order_id:
+            return api_response("Order id is mandatory in url params")
+        else:
+            return generate_superstore_shipment_label(order_id, request)

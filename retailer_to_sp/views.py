@@ -3,7 +3,7 @@ import jsonpickle
 import logging
 from dal import autocomplete
 from wkhtmltopdf.views import PDFTemplateResponse
-
+from common.common_utils import sms_order_dispatch
 from products.models import *
 from num2words import num2words
 from barCodeGenerator import barcodeGen, merged_barcode_gen
@@ -68,6 +68,7 @@ from zoho.models import ZohoInvoice
 
 logger = logging.getLogger('django')
 info_logger = logging.getLogger('file-info')
+cron_logger = logging.getLogger('cron_log')
 
 
 class ShipmentMergedBarcode(APIView):
@@ -2147,7 +2148,7 @@ class ProductCategoryAutocomplete(autocomplete.Select2QuerySetView):
 
 
 def create_retailer_orders_from_superstore_order(instance=None):
-    info_logger.info(f"create_retailer_orders_from_superstore_order|{instance}|Started")
+    cron_logger.info(f"create_retailer_orders_from_superstore_order|{instance}|Started")
     with transaction.atomic():
         if instance.ordered_cart.cart_type == SUPERSTORE:
             carp_pro_maps = instance.ordered_cart.rt_cart_list.all()
@@ -2178,7 +2179,7 @@ def create_retailer_orders_from_superstore_order(instance=None):
                     new_cart_pro = CartProductMapping.objects.create(
                         cart=new_cart, cart_product_id=product.id, qty=ordered_qty, no_of_pieces=ordered_pieces,
                         cart_product_price=product_price, selling_price=product_selling_price)
-                    info_logger.info(f"create_retailer_orders_from_superstore_order|{instance}|"
+                    cron_logger.info(f"create_retailer_orders_from_superstore_order|{instance}|"
                                      f"Product Mapping {new_cart_pro.id}|Cart {new_cart}")
                     order, _ = Order.objects.get_or_create(ordered_cart=new_cart)
                     order.reference_order = instance
@@ -2195,10 +2196,11 @@ def create_retailer_orders_from_superstore_order(instance=None):
                     order.received_by = user
                     order.order_status = 'ordered'
                     order.save()
-                    info_logger.info(f"create_retailer_orders_from_superstore_order|{instance}|"
+                    sms_order_dispatch(instance.buyer.first_name, instance.buyer.phone_number)
+                    cron_logger.info(f"create_retailer_orders_from_superstore_order|{instance}|"
                                      f"Retailer order created {order}")
             else:
-                info_logger.error(f"create_retailer_orders_from_superstore_order|{instance}|"
+                cron_logger.error(f"create_retailer_orders_from_superstore_order|{instance}|"
                                   f"No products available for which order can be placed.")
 
 
@@ -2210,4 +2212,8 @@ def generate_retail_orders_against_superstore_order():
                                   ordered_cart__cart_type=SUPERSTORE,
                                   created_at__lt=current_time, created_at__gt=start_time)
     for instance in orders:
-        create_retailer_orders_from_superstore_order(instance)
+        try:
+            create_retailer_orders_from_superstore_order(instance)
+        except Exception as e:
+            cron_logger.info(f'create_retailer_orders_from_superstore_order|FAILED| order {instance.order_no}')
+            cron_logger.error(e)

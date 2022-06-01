@@ -22,6 +22,7 @@ from retailer_backend.settings import WHATSAPP_API_ENDPOINT, WHATSAPP_API_USERID
 
 # third party imports
 from api2pdf import Api2Pdf
+from marketing.sms import SendSms
 
 # Logger
 info_logger = logging.getLogger('file-info')
@@ -343,3 +344,42 @@ def whatsapp_order_delivered(order_number, shop_name, phone_number, points, cred
     except Exception as e:
         error_logger.error(e)
         return False
+@task
+def sms_order_placed(name, number):
+    '''Send sms affter order_created ...'''
+    try:
+        body = f"Hey {name}! Your PepperTap order has been confirmed! We will update you once your order is dispatched. In case of any query, contact us on care@peppertap.in"
+        message = SendSms(phone=number, body=body, mask="PEPTAB")
+        message.send()
+    except Exception as e:
+        error_logger.error(e)
+@task
+def sms_order_dispatch(name, number):
+    '''Send sms affter order_dispatch ...'''
+    try:
+        body = f"Dear {name}, Your order has been dispatched & will be delivered to you soon. Team PepperTap"
+        message = SendSms(phone=number, body=body, mask="PEPTAB")
+        message.send()
+    except Exception as e:
+        error_logger.error(e)
+
+@task
+def sms_out_for_delivery(name, number):
+    '''Send sms affter out_for_delivery order...'''
+    try:
+        body = f"Wait is almost Over! Your PepperTap order is out for delivery. Our delivery partner will reach out to you soon."
+        message = SendSms(phone=number, body=body, mask="PEPTAB")
+        message.send()
+    except Exception as e:
+        error_logger.error(e)
+
+@task
+def sms_order_delivered(name, number):
+    '''Send sms affter delivered order...'''
+    try:
+        url = "shorturl.at/lsBFI"
+        body = f"YAY! Your PepperTap order has been successfully delivered. Please click here - {url} to rate us on PlayStore."
+        message = SendSms(phone=number, body=body, mask="PEPTAB")
+        message.send()
+    except Exception as e:
+        error_logger.error(e)

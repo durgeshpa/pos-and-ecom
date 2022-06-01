@@ -150,7 +150,6 @@ INSTALLED_APPS = [
     'tinymce',
     'drf_api_logger',
     'zoho',
-    'silk'
 ]
 
 # if ENVIRONMENT.lower() in ["production","qa"]:
@@ -192,7 +191,6 @@ MIDDLEWARE += [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'accounts.middlewares.RequestMiddleware',
     'drf_api_logger.middleware.api_logger_middleware.APILoggerMiddleware',
-    'silk.middleware.SilkyMiddleware'
 ]
 # if ENVIRONMENT.lower() in ["production", "qa"]:
 #     MIDDLEWARE += [

@@ -75,8 +75,11 @@ class CategoryListView(GenericAPIView):
 
     def get(self, request):
         search_text = self.request.GET.get('search_text')
+        cat_type = self.request.GET.get('category_type')
         if search_text:
             self.queryset = category_search(self.queryset, search_text)
+        if cat_type:
+            self.queryset = self.queryset.filter(category_type=cat_type)
         category = SmallOffsetPagination().paginate_queryset(self.queryset, request)
         serializer = self.serializer_class(category, many=True)
         msg = "" if category else "no category found"
@@ -467,9 +470,10 @@ class SiblingProductView(GenericAPIView):
             child_product = id_validation['data']
 
         serializer = self.serializer_class(child_product, many=True)
-        parent_id = serializer.data[0]["parent_product"]["parent_id"]
-        if parent_id:
-            self.queryset = self.queryset.filter(parent_product__parent_id=parent_id).exclude(id=request.GET.get('id'))
+        category_id = serializer.data[0]['parent_product']['parent_product_pro_category'][0]['category']['id']
+        if category_id:
+            self.queryset = self.queryset.filter(
+                parent_product__parent_product_pro_category__category_id=category_id).exclude(id=request.GET.get('id'))
             sib_pro_total_count = self.queryset.count()
             sibling_product = SmallOffsetPagination().paginate_queryset(self.queryset, request)
             serializer = self.serializer_class(sibling_product, many=True)
