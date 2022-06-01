@@ -15,7 +15,7 @@ from retailer_backend.common_function import isBlank
 from ...choices import LANDING_PAGE_TYPE_CHOICE, LISTING_SUBTYPE_CHOICE, FUNTION_TYPE_CHOICE, \
     CARD_TYPE_PRODUCT, CARD_TYPE_CAREGORY, CARD_TYPE_BRAND, CARD_TYPE_IMAGE, IMAGE_TYPE_CHOICE, LIST, RETAILER, \
     SUPERSTORE, INDEX_TYPE_ONE, INDEX_TYPE_THREE
-from ...common_functions import check_inventory
+from ...common_functions import check_inventory, isEmptyString
 from ...models import CardData, Card, CardVersion, CardItem, Application, Page, PageCard, PageVersion, ApplicationPage, \
     LandingPage, Functions, LandingPageProducts, Template
 from cms.messages import VALIDATION_ERROR_MESSAGES, ERROR_MESSAGES
@@ -122,7 +122,7 @@ class CardItemSerializer(serializers.ModelSerializer):
     class Meta:
         model = CardItem
         fields = ('id', 'image', 'content_id', 'content', 'item_content', 'action', 'priority', 'row', 'subcategory',
-                  'subbrand', 'image_data_type')
+                  'subbrand')
     
     def create(self, validated_data):
         card_id = self.context.get("card_id")
@@ -234,8 +234,8 @@ class CardDataSerializer(serializers.ModelSerializer):
                                                             )
             info_logger.info(f"Created New Card with ID {card.id}")
 
+        redirect_url_base = make_cms_item_redirect_url(request, card.type, card.image_data_type, app)
         for item in items:
-            redirect_url_base = make_cms_item_redirect_url(request, card.type, item['image_data_type'], app)
             if card.type == "text":
                 item['action'] = request.build_absolute_uri(redirect_url_base + str(item['content']))
             else:
@@ -932,7 +932,28 @@ class LandingPageSerializer(serializers.ModelSerializer):
         return landing_page
 
 
+class ApplicationSerializerForTemplate(serializers.ModelSerializer):
+
+    class Meta:
+        model = Application
+        fields = ('id', 'name')
+
+
 class TemplateSerializer(serializers.ModelSerializer):
+    app = ApplicationSerializerForTemplate()
+
     class Meta:
         model = Template
-        fields = ('app', 'name')
+        fields = ('id', 'app', 'name')
+
+    def validate(self, data):
+        if 'name' not in self.initial_data or isEmptyString(self.initial_data['name']) is None:
+            raise serializers.ValidationError('Template Name is required.')
+        elif 'app' not in self.initial_data or self.initial_data['app'] is None:
+            raise serializers.ValidationError('Application is required.')
+        elif Template.objects.filter(name=self.initial_data['name'].strip().upper(),
+                                     app_id=self.initial_data['app']).exists():
+            raise serializers.ValidationError('Template already exists')
+        data['app_id'] = self.initial_data['app']
+        data['name'] = self.initial_data['name'].strip().upper()
+        return data

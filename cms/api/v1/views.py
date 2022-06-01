@@ -897,7 +897,7 @@ class TemplateCRUDView(GenericAPIView):
         serializer = self.serializer_class(data=request.data)
         if serializer.is_valid():
             serializer.save(created_by=request.user)
-            return get_response('landing page created successfully!', serializer.data)
+            return get_response('Template created successfully!', serializer.data)
         return get_response(serializer_error(serializer), False)
 
     def filter_templates(self):

@@ -1911,7 +1911,7 @@ class SuperStoreProductPriceSerializers(serializers.ModelSerializer):
         product_val = validate_superstore_product(self.initial_data['product'])
         if 'error' in product_val:
             raise serializers.ValidationError(product_val['error'])
-        product_price = validate_retailer_price_exist(self.initial_data['product'])
+        product_price = validate_retailer_price_exist(self.initial_data['product'], self.initial_data['seller_shop'])
         if 'error' in product_price:
             raise serializers.ValidationError(product_price['error'])
         data['product'] = product_val['product']
