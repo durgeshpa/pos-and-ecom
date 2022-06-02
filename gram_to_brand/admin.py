@@ -78,7 +78,7 @@ class CartAdmin(admin.ModelAdmin):
     exclude = ('po_no', 'po_status', 'last_modified_by')
     autocomplete_fields = ('brand',)
     list_filter = [BrandFilter, SupplierStateFilter, SupplierFilter, ('po_creation_date', DateRangeFilter),
-                   ('po_validity_date', DateRangeFilter), POAmountSearch, PORaisedBy, PONumberSearch]
+                   ('po_validity_date', DateRangeFilter), POAmountSearch, PORaisedBy, PONumberSearch, 'po_type']
     form = POGenerationForm
     list_display_links = None
 
@@ -109,7 +109,7 @@ class CartAdmin(admin.ModelAdmin):
 
         po_edit_link.short_description = 'Po No'
 
-        return [po_edit_link, 'brand', 'supplier_state', 'supplier_name', 'po_creation_date', 'po_validity_date',
+        return [po_edit_link,'po_type', 'brand', 'supplier_state', 'supplier_name', 'po_creation_date', 'po_validity_date',
                 'po_raised_by', 'po_status', 'po_delivery_date', 'approved_by', 'download_purchase_order']
 
     def save_formset(self, request, form, formset, change):
@@ -334,7 +334,7 @@ class GRNOrderAdmin(admin.ModelAdmin):
                     'po_status', 'po_created_by', 'download_debit_note')
     list_filter = [OrderSearch, InvoiceNoSearch, GRNSearch, ProductNameSearch, ProductSKUSearch, SupplierNameSearch,
                    POCreatedBySearch, ('created_at', DateRangeFilter),
-                   ('grn_order_grn_order_product__expiry_date', DateRangeFilter)]
+                   ('grn_order_grn_order_product__expiry_date', DateRangeFilter),'order__ordered_cart__po_type']
     form = GRNOrderForm
     fields = ('order', 'invoice_no', 'invoice_date', 'invoice_amount', 'tcs_amount', 'total_freight_charges',
               'deduction', 'discount_charges', 'insurance_charges', 'other_charges', 'total_grn_amount')
