@@ -880,7 +880,10 @@ class ChildProductSerializers(serializers.ModelSerializer):
 
     def get_super_store_product_price(self, instance):
         parent_shop_id = self.context.get('parent_shop_id')
-        return SuperStorePriceSerializers(instance.super_store_product_price.filter(seller_shop_id=parent_shop_id), many=True).data if parent_shop_id else None
+        if parent_shop_id:
+            return SuperStorePriceSerializers(instance.super_store_product_price.filter(seller_shop_id=parent_shop_id), many=True).data
+        else:
+            return None
     
     def get_off_percentage(self,obj):
         parent_shop_id = self.context.get('parent_shop_id')
