@@ -262,7 +262,8 @@ class CardDataSerializer(serializers.ModelSerializer):
             info_logger.info(f"Created New Card with ID {card.id}")
 
         for item in items:
-            redirect_url_base = make_cms_item_redirect_url(request, card.type, item['image_data_type'], app)
+            image_data_type = item.get('image_data_type', None)
+            redirect_url_base = make_cms_item_redirect_url(request, card.type, image_data_type, app)
             if card.type == "text":
                 item['action'] = request.build_absolute_uri(redirect_url_base + str(item['content']))
             else:
