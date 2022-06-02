@@ -65,11 +65,14 @@ class POGenerationForm(forms.ModelForm):
 
     class Meta:
         model = Cart
-        fields = ('brand', 'supplier_state', 'supplier_name', 'gf_shipping_address', 'gf_billing_address',
+        fields = ('brand', 'po_type', 'supplier_state', 'supplier_name', 'gf_shipping_address', 'gf_billing_address',
                   'po_validity_date', 'payment_term', 'delivery_term', 'cart_product_mapping_csv', 'po_status')
 
     def __init__(self, *args, **kwargs):
         super(POGenerationForm, self).__init__(*args, **kwargs)
+        instance = getattr(self, 'instance', None)
+        if instance and instance.pk:
+            self.fields['po_type'].widget.attrs['disabled'] = True
         self.fields['cart_product_mapping_csv'].help_text = self.instance.products_sample_file
 
     def clean_cart_product_mapping_csv(self):
@@ -356,6 +359,10 @@ class GRNOrderProductForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super(GRNOrderProductForm, self).__init__(*args, **kwargs)
+        instance = getattr(self, 'instance', None)
+        if instance and instance.pk and instance.grn_order.order.ordered_cart.po_type=='superstore':
+            self.fields['manufacture_date'].disabled = True
+            self.fields['expiry_date'].disabled = True
 
     def fields_required(self, fields):
         for field in fields:
@@ -403,6 +410,7 @@ class GRNOrderProductFormset(forms.models.BaseInlineFormSet):
 
     def __init__(self, *args, **kwargs):
         super(GRNOrderProductFormset, self).__init__(*args, **kwargs)
+
         if hasattr(self, 'order') and self.order:
             ordered_cart = self.order
             products = ordered_cart.products.order_by('product_name')
