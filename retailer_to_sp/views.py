@@ -126,7 +126,7 @@ class ShipmentMergedBarcode(APIView):
                     'barcode': barcode,
                     'Product': product.product_name,
                     'Customer Order no': customer_order.order_no,
-                    'Customer': f"{customer_order.buyer.first_name}, {customer_order.ecom_address_order.address}, <br> {customer_order.ecom_address_order.city}, {customer_order.ecom_address_order.state}",
+                    'Customer': f"{customer_order.buyer.first_name}, {customer_order.ecom_address_order.address}, {customer_order.ecom_address_order.city}, {customer_order.ecom_address_order.state}",
                     'Partner Order no': retailer_order.order_no,
                     'Route': route
                 }
