@@ -72,43 +72,24 @@ info_logger = logging.getLogger('file-info')
 cron_logger = logging.getLogger('cron_log')
 
 
-def generate_superstore_shipment_label(order_id, request):
+def generate_superstore_shipment_label(data, request, retailer_shipment, order_no):
     try:
         template_name = 'admin/superstore_shipment_label.html'
-        retailer_order = Order.objects.get(id=order_id)
-        order_no = retailer_order.order_no
         filename = f"{order_no}.pdf"
-        retailer_shipment = retailer_order.rt_order_order_product.last()
-        product = retailer_shipment.rt_order_product_order_product_mapping.last().product
-        customer_order = retailer_order.reference_order
-        route = retailer_order.buyer_shop.shop_routes.last()
-        if route:
-            route = f"{route.route.name, route.route.city}"
-        else:
-            route = "N/A"
-        barcode = barcodeGen('0' * (12 - len(str(retailer_shipment.id))) + str(retailer_shipment.id))
-        data = {
-            'product': product,
-            'customer_order': customer_order,
-            'retailer_order': retailer_order,
-            'route': route,
-            'barcode': barcode
-        }
         cmd_option = {"margin-top": 2, "margin-left": 4, "margin-right": 4, "margin-bottom": 0, "zoom": 1,
-                        "javascript-delay": 0, "footer-center": "[page]/[topage]", "page-height": 43, "page-width": 71,
+                        "javascript-delay": 0, "footer-center": "[page]/[topage]", "page-height": 43, "page-width": 70,
                         "no-stop-slow-scripts": True, "quiet": True}
         response = PDFTemplateResponse(request=request, template=template_name, filename=filename,
                                        context=data, show_content_in_browser=False, cmd_options=cmd_option)
-        
         try:
             retailer_shipment.shipment_label_pdf.save("{}".format(filename),
                                                      ContentFile(response.rendered_content), save=True)
             return response
         except Exception as e:
-            logger.exception(e)
+            info_logger.exception(e)
             return api_response(e)
-    except Order.DoesNotExist:
-        return api_response("Order not found")
+    except Exception as e:
+        return api_response("Pdf generation failed for shipment label")
 
 
 class ShipmentMergedBarcode(APIView):
@@ -121,40 +102,65 @@ class ShipmentMergedBarcode(APIView):
         shipment = OrderedProduct.objects.filter(pk=pk).last()
         if not shipment:
             return get_response("Shipment not found for pk: " + str(pk) + ".")
-        if shipment.order.ordered_cart.cart_type == 'SUPERSTORE_RETAIL':
-            return generate_superstore_shipment_label(shipment.order.id, request)
         if movement_type and movement_type == ShipmentPackaging.RETURNED:
             shipment_packagings = shipment.shipment_packaging.filter(movement_type=ShipmentPackaging.RETURNED)
         else:
             shipment_packagings = shipment.shipment_packaging.filter(~Q(movement_type=ShipmentPackaging.RETURNED))
         pack_cnt = shipment_packagings.count()
-        for cnt, packaging in enumerate(shipment_packagings):
-            barcode_id = str("05" + str(packaging.id).zfill(10))
-            if packaging.crate:
-                pck_type_r_id = str(packaging.packaging_type) + " - " + str(packaging.crate.crate_id)
+        if shipment.order.ordered_cart.cart_type == 'SUPERSTORE_RETAIL':
+            retailer_order = shipment.order
+            order_no = retailer_order.order_no
+            retailer_shipment = retailer_order.rt_order_order_product.last()
+            product = retailer_shipment.rt_order_product_order_product_mapping.last().product
+            customer_order = retailer_order.reference_order
+            route = retailer_order.buyer_shop.shop_routes.last()
+            if route:
+                route = f"{route.route.name, route.route.city}"
             else:
-                pck_type_r_id = str(packaging.packaging_type)
-            customer_city_pincode = str(shipment.order.city) + " / " + str(shipment.order.pincode)
-            route = str(shipment.order.buyer_shop.shop_routes.last().route.name) if \
-                shipment.order.buyer_shop and shipment.order.buyer_shop.shop_routes.exists() else "N/A"
-            dispatch_center = str(shipment.order.dispatch_center.pk) if \
-                shipment.order.dispatch_center else str(shipment.order.seller_shop.pk)
-            shipment_count = str(str(cnt + 1) + " / " + str(pack_cnt))
-            if not packaging.crate and packaging.packaging_details.exists():
-                quantity = str(packaging.packaging_details.last().quantity)
-                product_name = str(packaging.packaging_details.last().ordered_product.product.product_name)
-                product_name = (product_name[:30] + '..') if len(product_name) > 30 else product_name
-                data = {shipment_count: pck_type_r_id,
-                        shipment.order.order_no: customer_city_pincode,
-                        product_name: quantity,
-                        "route ": route}
-            else:
-                data = {shipment_count: pck_type_r_id,
-                        shipment.order.order_no: customer_city_pincode,
-                        "route ": route,
-                        "blank_row": ""}
-            shipment_id_list[barcode_id] = {"qty": 1, "data": data}
-        return merged_barcode_gen(shipment_id_list, 'admin/retailer_to_sp/barcode.html')
+                route = "N/A"
+            shipment_labels = []
+            for cnt, packaging in enumerate(shipment_packagings):
+                barcode_id = str("05" + str(packaging.id).zfill(10))
+                barcode = barcodeGen(barcode_id)
+                data = {
+                    'barcode': barcode,
+                    'Product': product.product_name,
+                    'Customer Order no': customer_order.order_no,
+                    'Customer': f"{customer_order.buyer.first_name}, {customer_order.ecom_address_order.address}, <br> {customer_order.ecom_address_order.city}, {customer_order.ecom_address_order.state}",
+                    'Partner Order no': retailer_order.order_no,
+                    'Route': route
+                }
+                shipment_labels.append(data)
+            data = {'shipment_labels': shipment_labels}
+            return generate_superstore_shipment_label(data, request, retailer_shipment, order_no)  
+        else:
+            for cnt, packaging in enumerate(shipment_packagings):
+                barcode_id = str("05" + str(packaging.id).zfill(10))
+                if packaging.crate:
+                    pck_type_r_id = str(packaging.packaging_type) + " - " + str(packaging.crate.crate_id)
+                else:
+                    pck_type_r_id = str(packaging.packaging_type)
+                customer_city_pincode = str(shipment.order.city) + " / " + str(shipment.order.pincode)
+                route = str(shipment.order.buyer_shop.shop_routes.last().route.name) if \
+                    shipment.order.buyer_shop and shipment.order.buyer_shop.shop_routes.exists() else "N/A"
+                dispatch_center = str(shipment.order.dispatch_center.pk) if \
+                    shipment.order.dispatch_center else str(shipment.order.seller_shop.pk)
+                shipment_count = str(str(cnt + 1) + " / " + str(pack_cnt))
+                if not packaging.crate and packaging.packaging_details.exists():
+                    quantity = str(packaging.packaging_details.last().quantity)
+                    product_name = str(packaging.packaging_details.last().ordered_product.product.product_name)
+                    product_name = (product_name[:30] + '..') if len(product_name) > 30 else product_name
+                    data = {shipment_count: pck_type_r_id,
+                            shipment.order.order_no: customer_city_pincode,
+                            product_name: quantity,
+                            "route ": route}
+                else:
+                    data = {shipment_count: pck_type_r_id,
+                            shipment.order.order_no: customer_city_pincode,
+                            "route ": route,
+                            "blank_row": ""}
+                shipment_id_list[barcode_id] = {"qty": 1, "data": data}
+            return merged_barcode_gen(shipment_id_list, 'admin/retailer_to_sp/barcode.html')
 
 
 class ReturnProductAutocomplete(autocomplete.Select2QuerySetView):
