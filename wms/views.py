@@ -3021,7 +3021,9 @@ def auto_qc_area_assignment_to_order(order_no=None):
         processed_orders.append(order.id)
         with transaction.atomic():
             info_logger.info("Process order no: " + str(order.order_no) + " to assign QC Area.")
-            desk_type = SUPERSTORE if order.ordered_cart.cart_type is SUPERSTORE_RETAIL else GROCERY
+            info_logger.info("Cart Type: ", order.ordered_cart.cart_type)
+            desk_type = SUPERSTORE if order.ordered_cart.cart_type == SUPERSTORE_RETAIL else GROCERY
+            info_logger.info("Desk Type: ", desk_type)
             least_used_desk = QCDeskQCAreaAssignmentMapping.objects.filter(
                 qc_desk__warehouse_id=order.seller_shop, qc_desk__desk_enabled=True, area_enabled=True,
                 qc_desk__desk_type=desk_type,qc_done=True).filter(
