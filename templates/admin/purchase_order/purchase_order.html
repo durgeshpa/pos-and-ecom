@@ -149,6 +149,10 @@ table tr td,th,h4,span,address{
         							<td><strong>Serial No.</strong></td>
 
 												<td class="text-center"><strong>SKU</strong></td>
+
+									{% if flag%}
+												<td class="text-center"><strong>EAN</strong></td>
+									{% endif %}
         							<td class="text-center"><strong>Description of Goods</strong></td>
 											<td class="text-center"><strong>MRP</strong></td>
         							<td class="text-center"><strong>HSN/SAC</strong></td>
@@ -167,6 +171,10 @@ table tr td,th,h4,span,address{
                     {% for m in products %}
     								<td><strong>{{forloop.counter}}</strong></td>
 									<td class="text-center">{{ m.cart_product.product_sku}}</td>
+									{%if flag%}
+									  <td class="text-center">{{ m.cart_product.product_ean_code}}</td>
+									 {% endif %}
+
     								<td class="text-center">{{ m.cart_product.product_short_description}}</td>
 									<td class="text-center">{{ m.mrp}}</td>
 									<td class="text-center">{{ m.cart_product.product_hsn}}</td>
