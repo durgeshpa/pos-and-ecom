@@ -462,21 +462,30 @@ class SiblingProductView(GenericAPIView):
 
     def get(self, request):
         """"GET API for Sibling Product with Image Category & Tax """
+        try:
+            shop = Shop.objects.get(id=request.META.get('HTTP_SHOP_ID', None), shop_type__shop_type='f', status=True,
+                                    approval_status=2, pos_enabled=1)
+        except:
+            return api_response("Shop not available!")
+        parent_shop_id = shop.get_shop_parent
+        if not parent_shop_id:
+            return api_response("shop parent not mapped")
+        parent_shop_id = parent_shop_id.id
+        
         if request.GET.get('id'):
             """ Get Child Product for specific ID """
             id_validation = validate_id(self.queryset, int(request.GET.get('id')))
             if 'error' in id_validation:
                 return get_response(id_validation['error'])
             child_product = id_validation['data']
-
-        serializer = self.serializer_class(child_product, many=True)
+        serializer = self.serializer_class(child_product, many=True, context={'parent_shop_id': parent_shop_id})
         category_id = serializer.data[0]['parent_product']['parent_product_pro_category'][0]['category']['id']
         if category_id:
             self.queryset = self.queryset.filter(
                 parent_product__parent_product_pro_category__category_id=category_id).exclude(id=request.GET.get('id'))
             sib_pro_total_count = self.queryset.count()
             sibling_product = SmallOffsetPagination().paginate_queryset(self.queryset, request)
-            serializer = self.serializer_class(sibling_product, many=True)
+            serializer = self.serializer_class(sibling_product, many=True, context={'parent_shop_id': parent_shop_id})
         msg = f"TOTAL SIBLING PRODUCT :: {sib_pro_total_count}" if sibling_product else "No sibling product found"
         return get_response(msg, serializer.data, True)
 
