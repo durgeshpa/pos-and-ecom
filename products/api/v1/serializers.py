@@ -2063,7 +2063,7 @@ class SuperStoreProductPriceDownloadSerializer(serializers.ModelSerializer):
         writer = csv.writer(response)
         writer.writerow(
             ['seller_shop_id', 'seller_shop', 'parent_product_id', 'product_id', 'product_sku', 'product_name',
-             'b2b_category', 'b2c_category', 'selling_price'])
+             'b2b_category', 'b2c_category', 'mrp', 'selling_price'])
 
         price_product_qs = SuperStoreProductPrice.objects.filter(seller_shop=shop).\
             select_related('product', 'seller_shop', 'product__parent_product').\
@@ -2078,9 +2078,9 @@ class SuperStoreProductPriceDownloadSerializer(serializers.ModelSerializer):
                     [obj.seller_shop.pk, obj.seller_shop.shop_name, obj.product.parent_product.parent_id,
                      obj.product.id, obj.product.product_sku, obj.product.product_name,
                      b2b.category.category_name if b2b else b2b, b2c.category.category_name if b2c else b2c,
-                     obj.selling_price])
+                     obj.product.product_mrp, obj.selling_price])
         else:
             writer.writerow(
-                [600, 'GFDN', 'PCBDPCO0074', '544', 'BEVBEVNIM00000001', 'maggie', 'Liquid Drinks', 'Liquid Drinks', 200])
+                [600, 'GFDN', 'PCBDPCO0074', '544', 'BEVBEVNIM00000001', 'maggie', 'Liquid Drinks', 'Liquid Drinks', 233, 200])
         return response
 
