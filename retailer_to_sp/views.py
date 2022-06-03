@@ -77,7 +77,7 @@ def generate_superstore_shipment_label(data, request, retailer_shipment, order_n
         template_name = 'admin/superstore_shipment_label.html'
         filename = f"{order_no}.pdf"
         cmd_option = {"margin-top": 2, "margin-left": 4, "margin-right": 4, "margin-bottom": 0, "zoom": 1,
-                        "javascript-delay": 0, "footer-center": "[page]/[topage]", "page-height": 43, "page-width": 70,
+                        "javascript-delay": 0, "footer-center": "[page]/[topage]", "page-height": 55, "page-width": 70,
                         "no-stop-slow-scripts": True, "quiet": True}
         response = PDFTemplateResponse(request=request, template=template_name, filename=filename,
                                        context=data, show_content_in_browser=False, cmd_options=cmd_option)
