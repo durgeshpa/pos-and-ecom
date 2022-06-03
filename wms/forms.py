@@ -12,11 +12,10 @@ from django.contrib.admin.widgets import FilteredSelectMultiple
 from django.contrib.auth.models import Permission, Group
 from tempus_dominus.widgets import DateTimePicker
 
-import retailer_to_sp
 from accounts.models import User
 from .models import Bin, In, Putaway, PutawayBinInventory, BinInventory, Out, Pickup, StockMovementCSVUpload, \
     InventoryType, InventoryState, BIN_TYPE_CHOICES, Audit, Zone, WarehouseAssortment, QCArea, Crate, \
-    ZonePickerUserAssignmentMapping, QCDeskQCAreaAssignmentMapping, QCDesk, GROCERY, SUPERSTORE
+    ZonePickerUserAssignmentMapping, QCDeskQCAreaAssignmentMapping, QCDesk
 from products.models import Product, ProductPrice, ParentProduct
 from shops.models import Shop
 from gram_to_brand.models import GRNOrderProductMapping
@@ -25,7 +24,7 @@ from django.core.exceptions import ValidationError
 from django.db.models import Sum, Q
 from .common_functions import create_batch_id
 from global_config.views import get_config
-from retailer_to_sp.models import OrderedProduct, PickerDashboard, Order, Cart, SUPERSTORE, CART_TYPES, \
+from retailer_to_sp.models import OrderedProduct, PickerDashboard, Order, SUPERSTORE, \
     GROCERY_CART_TYPES, SUPERSTORE_CART_TYPES
 from django.db import transaction
 from .common_functions import cancel_ordered, cancel_shipment, cancel_returned, putaway_repackaging
@@ -1791,7 +1790,7 @@ class QCDeskForm(forms.ModelForm):
             new_added_qcarea = self.cleaned_data['qc_areas'].difference(self.instance.qc_areas.all())
             cart_type = GROCERY_CART_TYPES if self.instance.desk_type != SUPERSTORE else SUPERSTORE_CART_TYPES
             for new_area in new_added_qcarea:
-                if new_area.qc_area_shipment.filter(~Q(order__ordered_cart__cart_type__in=cart_type,
+                if new_area.area_pickings.filter(~Q(order__ordered_cart__cart_type__in=cart_type,
                                                        order__order_status__in=[Order.PARTIAL_MOVED_TO_QC, Order.MOVED_TO_QC,
                                                                          Order.PICKING_COMPLETE,
                                                                          Order.PICKING_PARTIAL_COMPLETE])).exists():
