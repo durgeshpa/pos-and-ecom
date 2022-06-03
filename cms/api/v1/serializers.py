@@ -158,7 +158,8 @@ def make_cms_item_redirect_url(request, card_type, image_data_type, app):
             1 : "/product/api/v1/child-product/?product_type=0&id=",
             2 : search_url + index_type + "&search_type=1&&categories=",
             3 : search_url + index_type + "&search_type=1&brands=",
-            4 : "/cms/api/v1/landing-pages/?id="
+            4 : "/cms/api/v1/landing-pages/?id=",
+            5 : search_url + index_type + "&search_type=1&&categories=",
         },
         "text" : search_url + index_type + "&search_type=1&keyword="
     }
@@ -271,6 +272,8 @@ class CardDataSerializer(serializers.ModelSerializer):
             CardItem.objects.create(card_data=new_card_data,**item)
 
         return new_card_data
+
+
     
     # def update(self, instance, validated_data):
     #     instance.header = validated_data.get('header', instance.header)
