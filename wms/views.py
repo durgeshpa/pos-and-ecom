@@ -3007,8 +3007,9 @@ def auto_qc_area_assignment_to_order(order_no=None):
             order_no=order_no, picker_order__isnull=False, picker_order__qc_area__isnull=True,
             picker_order__picking_status=PickerDashboard.PICKING_COMPLETE).distinct()
     else:
+        days = GlobalConfig.objects.get(key='qc_assignment_start_date').value
         current_time = datetime.now() - timedelta(minutes=1)
-        start_time = datetime.now() - timedelta(days=5)
+        start_time = datetime.now() - timedelta(days=days)
         orders = Order.objects.filter(picker_order__isnull=False, picker_order__qc_area__isnull=True,
                                       picker_order__picking_status=PickerDashboard.PICKING_COMPLETE,
                                       created_at__gt=start_time, created_at__lt=current_time).distinct()\
