@@ -361,8 +361,13 @@ class GRNOrderProductForm(forms.ModelForm):
         super(GRNOrderProductForm, self).__init__(*args, **kwargs)
         instance = getattr(self, 'instance', None)
         if instance and instance.pk and instance.grn_order.order.ordered_cart.po_type=='superstore':
+            from django.forms import widgets
             self.fields['manufacture_date'].disabled = True
+            self.initial['manufacture_date'] = datetime.datetime.strptime('2022-01-01', "%Y-%m-%d").date()
+            self.fields['manufacture_date'].widget = widgets.Input()
             self.fields['expiry_date'].disabled = True
+            self.initial['expiry_date'] = datetime.datetime.strptime('2040-01-01', "%Y-%m-%d").date()
+            self.fields['expiry_date'].widget = widgets.Input()
 
     def fields_required(self, fields):
         for field in fields:

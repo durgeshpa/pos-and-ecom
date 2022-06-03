@@ -330,7 +330,7 @@ class GRNOrderAdmin(admin.ModelAdmin):
     exclude = ('order_item', 'grn_id', 'last_modified_by',)
     actions = ['download_barcode']
     list_per_page = 50
-    list_display = ('grn_id', 'order', 'invoice_no', 'grn_date', 'brand', 'supplier_state', 'supplier_name',
+    list_display = ('grn_id', 'po_type', 'order', 'invoice_no', 'grn_date', 'brand', 'supplier_state', 'supplier_name',
                     'po_status', 'po_created_by', 'download_debit_note')
     list_filter = [OrderSearch, InvoiceNoSearch, GRNSearch, ProductNameSearch, ProductSKUSearch, SupplierNameSearch,
                    POCreatedBySearch, ('created_at', DateRangeFilter),
@@ -341,6 +341,10 @@ class GRNOrderAdmin(admin.ModelAdmin):
 
     class Media:
         js = ('admin/js/picker.js',)
+    @staticmethod
+    def po_type(obj):
+        return obj.order.ordered_cart.po_type
+
 
     def po_created_by(self, obj):
         return obj.order.ordered_cart.po_raised_by
