@@ -19,6 +19,7 @@ from shops.models import Shop, ParentRetailerMapping
 from wms.models import WarehouseAssortment
 from .models import (Order, Cart, CartProductMapping, GRNOrder, GRNOrderProductMapping, BEST_BEFORE_MONTH_CHOICE,
                      BEST_BEFORE_YEAR_CHOICE, Document, VendorShopMapping)
+from django.forms import  widgets
 
 
 class OrderForm(forms.ModelForm):
@@ -360,8 +361,15 @@ class GRNOrderProductForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super(GRNOrderProductForm, self).__init__(*args, **kwargs)
         instance = getattr(self, 'instance', None)
-        if instance and instance.pk and instance.grn_order.order.ordered_cart.po_type=='superstore':
-            from django.forms import widgets
+        expiry_date = self.initial.get('expiry_date')
+        manufacture_date = self.initial.get('manufacture_date')
+
+        if expiry_date and expiry_date == datetime.datetime.strptime('2040-01-01', "%Y-%m-%d").date() and manufacture_date and manufacture_date == datetime.datetime.strptime('2022-01-01', "%Y-%m-%d").date():
+            self.fields['manufacture_date'].widget = widgets.Input()
+            self.fields['expiry_date'].widget = widgets.Input()
+            self.fields['manufacture_date'].disabled = True
+            self.fields['expiry_date'].disabled = True
+        elif instance and instance.pk and instance.grn_order.order.ordered_cart.po_type=='superstore':
             self.fields['manufacture_date'].disabled = True
             self.initial['manufacture_date'] = datetime.datetime.strptime('2022-01-01', "%Y-%m-%d").date()
             self.fields['manufacture_date'].widget = widgets.Input()
@@ -444,7 +452,13 @@ class GRNOrderProductFormset(forms.models.BaseInlineFormSet):
                     price = piece_price if piece_price else (pack_price if pack_price else price)
                 # Quantity
                 po_product_quantity = cart_product.qty
-                initial.append({
+                manufacture_date = None
+                expiry_date = None
+                if self.order.po_type == 'superstore':
+                    manufacture_date = datetime.datetime.strptime('2022-01-01', "%Y-%m-%d").date()
+                    expiry_date = datetime.datetime.strptime('2040-01-01', "%Y-%m-%d").date()
+
+                initial.append({'manufacture_date':manufacture_date, 'expiry_date':expiry_date,
                     'product': item, 'product_mrp': mrp, 'po_product_quantity': po_product_quantity,
                     'po_product_price': price, 'already_grned_product': already_grn if already_grn else 0,
                     'already_returned_product': already_return if already_return else 0,
