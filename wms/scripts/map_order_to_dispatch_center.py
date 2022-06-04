@@ -26,10 +26,12 @@ def map_order_to_dispatch_center_by_cron():
             ON od.shipping_address_id = ad.id
         LEFT JOIN addresses_pincode as pin
             ON ad.pincode_link_id = pin.id
+        INNER JOIN shops_parentretailermapping prm on prm.retailer_id=od.seller_shop_id
         WHERE dispatch_center_id is NULL
-            AND od.order_status NOT IN ('ordered', 'CANCELLED')
+            AND od.order_status NOT IN ('ordered', 'CANCELLED', 'completed')
             AND ad.address_type = 'shipping'
             AND od.created_at > '{str(start_time)}' AND od.created_at < '{str(current_time)}'
+            AND prm.retailer_id = 53627
             AND pin.pincode IN (
                 SELECT DISTINCT(pin.pincode)
                 FROM public.addresses_dispatchcenterpincodemapping as dp
