@@ -152,7 +152,7 @@ class Cart(BaseCart):
     cart_type = models.PositiveSmallIntegerField(choices=CART_TYPE_CHOICE, default=CART_TYPE_CHOICE.MANUAL)
     approved_by = models.ForeignKey(get_user_model(), related_name='user_approved_carts', null=True, blank=True,
                                     on_delete=models.DO_NOTHING)
-    po_type = models.CharField(max_length=50, choices=po_types, default='grocery', null=True, blank=True,)
+    po_type = models.CharField(max_length=50, choices=po_types, default='grocery', blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     approved_at = models.DateTimeField(null=True)
     modified_at = models.DateTimeField(auto_now=True)
