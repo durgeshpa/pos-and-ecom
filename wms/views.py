@@ -86,6 +86,8 @@ error_logger = logging.getLogger('file-error')
 debug_logger = logging.getLogger('file-debug')
 cron_logger = logging.getLogger('cron_log')
 
+GROCERY, SUPERSTORE, SUPERSTORE_RETAIL = 'GROCERY', 'SUPERSTORE', 'SUPERSTORE_RETAIL'
+
 
 class MergeBarcode(APIView):
     permission_classes = (AllowAny,)
@@ -3005,8 +3007,9 @@ def auto_qc_area_assignment_to_order(order_no=None):
             order_no=order_no, picker_order__isnull=False, picker_order__qc_area__isnull=True,
             picker_order__picking_status=PickerDashboard.PICKING_COMPLETE).distinct()
     else:
+        days = GlobalConfig.objects.get(key='qc_assignment_start_date').value
         current_time = datetime.now() - timedelta(minutes=1)
-        start_time = datetime.now() - timedelta(days=5)
+        start_time = datetime.now() - timedelta(days=days)
         orders = Order.objects.filter(picker_order__isnull=False, picker_order__qc_area__isnull=True,
                                       picker_order__picking_status=PickerDashboard.PICKING_COMPLETE,
                                       created_at__gt=start_time, created_at__lt=current_time).distinct()\
@@ -3019,9 +3022,12 @@ def auto_qc_area_assignment_to_order(order_no=None):
         processed_orders.append(order.id)
         with transaction.atomic():
             info_logger.info("Process order no: " + str(order.order_no) + " to assign QC Area.")
+            info_logger.info("Cart Type: ", order.ordered_cart.cart_type)
+            desk_type = SUPERSTORE if order.ordered_cart.cart_type == SUPERSTORE_RETAIL else GROCERY
+            info_logger.info("Desk Type: ", desk_type)
             least_used_desk = QCDeskQCAreaAssignmentMapping.objects.filter(
                 qc_desk__warehouse_id=order.seller_shop, qc_desk__desk_enabled=True, area_enabled=True,
-                qc_done=True).filter(
+                qc_desk__desk_type=desk_type,qc_done=True).filter(
                 Q(qc_area__area_pickings__isnull=True) |
                 Q(qc_area__area_pickings__order__rt_order_order_product__isnull=False)).\
                 distinct('qc_desk', 'last_assigned_at__date').order_by('-last_assigned_at__date')
