@@ -1787,7 +1787,10 @@ class QCDeskForm(forms.ModelForm):
             for qc_area in self.cleaned_data['qc_areas']:
                 if qc_area.warehouse_id != int(self.data['warehouse']):
                     raise ValidationError(_("Invalid QC Area " + str(qc_area) + " selected."))
-            new_added_qcarea = self.cleaned_data['qc_areas'].difference(self.instance.qc_areas.all())
+            if self.instance.id:
+                new_added_qcarea = self.cleaned_data['qc_areas'].difference(self.instance.qc_areas.all())
+            else:
+                new_added_qcarea = self.cleaned_data['qc_areas']
             cart_type = GROCERY_CART_TYPES if self.instance.desk_type != SUPERSTORE else SUPERSTORE_CART_TYPES
             for new_area in new_added_qcarea:
                 if new_area.area_pickings.filter(~Q(order__ordered_cart__cart_type__in=cart_type,
