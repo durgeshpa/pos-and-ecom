@@ -1,0 +1,32 @@
+{% load i18n %}
+{% load static %}
+{% load staticfiles %}
+{% load app_filters_invoice_sp %}
+{% load humanize %}
+{% load mathfilters %}
+
+<html>
+	<head>
+		<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+		<title>Shipment Label </title>
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<link rel="stylesheet" type="text/css" href="{{scheme}}://{{url}}/static/admin/css/superstore_shipment_label.css">
+	</head>
+	<body>
+		{% for shipment_label in shipment_labels %}
+		<div>
+			{% for key, value in shipment_label.items %}
+			{% if key == 'barcode' %}
+            <div class="col-md-12">
+                <div class="barcode">
+                    <div><img src="data:image/png;base64,{{value}}" height="95px"></div>
+                </div>
+            </div>
+			{% else %}
+			<div style="font-size:12px;">{{key}} - {{value}}</div>
+			{% endif %}
+			{% endfor %}
+		</div>
+		{% endfor %}
+	</body>
+</html>

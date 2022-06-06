@@ -12,7 +12,7 @@ from django.core.exceptions import ObjectDoesNotExist
 from django.contrib.auth import get_user_model
 from django.http import HttpResponse
 
-from rest_framework import authentication
+from rest_auth import authentication
 from rest_framework import generics
 from rest_framework.permissions import AllowAny
 from rest_framework.views import APIView

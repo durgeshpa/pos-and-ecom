@@ -3,7 +3,7 @@ from django.conf.urls import url
 from .views import AccountView, RewardsView, ShopView, AddressView, AddressListView, \
     CategoriesView, SubCategoriesView, TagView, TagProductView, UserShopView \
     , Contect_Us, ParentProductDetails, B2cCategoriesView, B2cSubCategoriesView, PastPurchasedProducts, \
-    ProductFunctionView, ReferAndEarnView
+    ProductFunctionView, ReferAndEarnView, SuperStoreCategoriesView, SuperStoreSubCategoriesView
 
 
 urlpatterns = [
@@ -25,4 +25,6 @@ urlpatterns = [
     url(r'^contect_us_details/', Contect_Us.as_view(), name='contect_us_ecom'),
     url(r'^parent_product/(?P<pk>\d+)/$', ParentProductDetails.as_view(),name='parent_product_discription'),
     url(r'^past-purchases/$', PastPurchasedProducts.as_view()),
+    url(r'^super-store-categories/', SuperStoreCategoriesView.as_view(), name='super-store-categories'),
+    url(r'^super-store-sub-categories/', SuperStoreSubCategoriesView.as_view(), name='super-store-sub-categories')
 ]

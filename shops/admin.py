@@ -276,7 +276,7 @@ class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
     resource_class = ShopResource
     form = ShopForm
     fields = ['shop_name', 'shop_owner', 'shop_type', 'status', 'pos_enabled', 'online_inventory_enabled',
-              'enable_loyalty_points',
+              'enable_loyalty_points', 'superstore_enable',
               'latitude', 'longitude', 'approval_status', 'cutoff_time', 'disapproval_status_reason']
     actions = ["export_as_csv", "disable_shop", "download_status_report", "download_shop_routes"]
     inlines = [
@@ -414,7 +414,7 @@ class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
     def get_fields(self, request, obj=None):
         if request.user.is_superuser:
             return self.fields + ['shop_location','latitude', 'longitude', 'related_users', 'shop_code', 'shop_code_bulk', 'shop_code_discounted',
-                                  'warehouse_code', 'created_by', 'dynamic_beat']
+                                  'shop_code_super_store', 'warehouse_code', 'created_by', 'dynamic_beat']
         elif request.user.has_perm('shops.hide_related_users'):
             return self.fields + ['shop_location', 'latitude', 'longitude',]
         return self.fields + ['shop_location','latitude', 'longitude', 'related_users', 'shop_code', 'shop_code_bulk', 'shop_code_discounted', 'warehouse_code',

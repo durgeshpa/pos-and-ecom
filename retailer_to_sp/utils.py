@@ -321,7 +321,7 @@ def create_order_data_excel(request, queryset, OrderPayment, ShipmentPayment,
         'Order Paid Amount', 'Invoice No', 'Invoice Amount', 'Shipment Status', 'Trip Id',
         'Shipment Return Reason', 'Shipment Created At', 'Shipment Delivered At',
         'Shipment Paid Amount', 'Picking Status', 'Picklist ID', 'QC Area', 'Picker Boy', 'Picker Boy Name',
-        'Picking Completed At', 'Picking Completion Time'])
+        'Picking Completed At', 'Picking Completion Time', 'Order Type'])
 
     order_payments = OrderPayment.objects.filter(order=OuterRef('pk')).order_by().values('order')
     order_paid_amount = order_payments.annotate(sum=Sum('paid_amount')).values('sum')
@@ -357,7 +357,7 @@ def create_order_data_excel(request, queryset, OrderPayment, ShipmentPayment,
                 'shipment_paid_amount',
                 'order_paid_amount',
                 'total_mrp', 'ordered_cart__offers',
-                'order_amount',
+                'order_amount', 'ordered_cart__cart_type',
                 )
     # print(orders)
     for order in orders.iterator():
@@ -433,7 +433,8 @@ def create_order_data_excel(request, queryset, OrderPayment, ShipmentPayment,
             str(picker_data['picker_boy__phone_number']),
             str(picker_data['picker_boy__first_name']),
             str(picker_data['completed_at']),
-            str(picker_data['picking_completion_time'])
+            str(picker_data['picking_completion_time']),
+            order.get('ordered_cart__cart_type'),
         ])
     return response
 

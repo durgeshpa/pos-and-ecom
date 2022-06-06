@@ -1,7 +1,7 @@
 from django.conf.urls import url
 from .views import ParentProductView, ParentProductExportAsCSVView, HSNListView, \
-    ActiveDeactiveSelectedParentProductView, ProductCappingView, ProductVendorMappingView, ChildProductView, TaxView, \
-    BrandListView, CategoryListView, ProductPackingMappingView, SourceProductMappingView, ParentProductListView, \
+    ActiveDeactiveSelectedParentProductView, ProductCappingView, ProductVendorMappingView, ChildProductView, SiblingProductView,\
+    TaxView, BrandListView, CategoryListView, ProductPackingMappingView, SourceProductMappingView, ParentProductListView, \
     ActiveDeactiveSelectedChildProductView, ChildProductExportAsCSVView, TaxListView, TaxExportAsCSVView, \
     WeightView, WeightExportAsCSVView, ProductHSNView, HSNExportAsCSVView, ChildProductListView, VendorListView, \
     ProductStatusListView, ProductVendorMappingExportAsCSVView, ActiveChildProductListView, SellerShopListView, \
@@ -9,12 +9,15 @@ from .views import ParentProductView, ParentProductExportAsCSVView, HSNListView,
     DisapproveSelectedProductPriceView, ProductSlabPriceExportAsCSVView, ProductListView, DiscountProductView, \
     DiscountProductListForManualPriceView, B2cCategoryListView, HSNExportAsCSVUploadView, \
     ParentProductsTaxStatusChoicesView, ParentProductApprovalView, HSNExportAsCSVSampleDownloadView, \
-    BulkParentProductApprovalView
+    BulkParentProductApprovalView, SuperStoreProductPriceView, SuperStoreProductListView, \
+    SuperStoreProductPriceAsCSVUploadView, SuperStoreProductPriceAsCSVDownloadView, ProductDetails
 
 urlpatterns = [
     url(r'^parent-product/', ParentProductView.as_view(), name='parent-product'),
     url(r'^get-parent-product/', ParentProductListView.as_view(), name='get-parent-product'),
     url(r'^child-product/', ChildProductView.as_view(), name='child-product'),
+    url(r'^sibling-product/', SiblingProductView.as_view(), name='child-product'),
+    url(r'^product-details/', ProductDetails.as_view(), name='product-details'),
     url(r'^discounted-child-product/', DiscountProductView.as_view(), name='discounted-child-product'),
     url(r'^parent-download-bulk-product/', ParentProductExportAsCSVView.as_view(), name='parent-download-bulk-product'),
     url(r'^parent-product-active-deactive/', ActiveDeactiveSelectedParentProductView.as_view(),
@@ -60,5 +63,10 @@ urlpatterns = [
     url(r'^parent-product-tax-status-list/', ParentProductsTaxStatusChoicesView.as_view(), name='tax-status-list'),
     url(r'^parent-product-approval/', ParentProductApprovalView.as_view(), name='parent-product-approval'),
     url(r'^bulk-parent-product-approval/', BulkParentProductApprovalView.as_view(), name='bulk-parent-product-approval'),
-
+    url(r'^super-store-products/', SuperStoreProductListView.as_view(), name='super-store-products'),
+    url(r'^super-store-product-price/', SuperStoreProductPriceView.as_view(), name='super-store-product-price'),
+    url(r'^upload-csv-super-store-products/', SuperStoreProductPriceAsCSVUploadView.as_view(),
+        name='upload-csv-super-store-products'),
+    url(r'^download-sample-csv-super-store-products/', SuperStoreProductPriceAsCSVDownloadView.as_view(),
+        name='download-sample-csv-super-store-products'),
 ]

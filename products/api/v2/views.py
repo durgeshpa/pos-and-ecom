@@ -3,7 +3,7 @@ import csv
 from django.http import HttpResponse
 from django.core.exceptions import ObjectDoesNotExist
 
-from rest_framework import authentication
+from rest_auth import authentication
 from rest_framework.generics import GenericAPIView
 
 from categories.models import Category, B2cCategory

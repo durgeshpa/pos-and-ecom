@@ -168,7 +168,7 @@ class ShopSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Shop
-        fields = ('id', 'shop_name', 'online_inventory_enabled', 'shipping_address','shop_config')
+        fields = ('id', 'shop_name', 'online_inventory_enabled', 'superstore_enable', 'shipping_address','shop_config')
 
 
 class AddressSerializer(serializers.ModelSerializer):
@@ -186,7 +186,7 @@ class AddressSerializer(serializers.ModelSerializer):
         # Validate Pin Code
         pin_code_obj = Pincode.objects.filter(pincode=attrs.get('pincode')).select_related('city', 'city__state').last()
         if not pin_code_obj:
-            raise serializers.ValidationError("Invalid Pin Code")
+            raise serializers.ValidationError("Currently not servicing to this Pincode.")
         # Check for address id in case of update
         pk = self.context.get('pk', None)
         user = self.context.get('user')
@@ -211,12 +211,6 @@ class AddressSerializer(serializers.ModelSerializer):
         add.save()
 
 
-class CategorySerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Category
-        fields = ('id', 'category_name', 'category_image')
-
-
 class B2cCategorySerializer(serializers.ModelSerializer):
     class Meta:
         model = B2cCategory
@@ -229,6 +223,13 @@ class SubCategorySerializer(serializers.ModelSerializer):
         fields = ('id', 'category_name', 'category_image')
 
 
+class CategorySerializer(serializers.ModelSerializer):
+    cat_parent = SubCategorySerializer(many=True, 
+                                       read_only=True)
+    class Meta:
+        model = Category
+        fields = ('id', 'category_name', 'category_image', 'cat_parent')
+
 
 class B2cSubCategorySerializer(serializers.ModelSerializer):
     class Meta:
@@ -237,13 +238,42 @@ class B2cSubCategorySerializer(serializers.ModelSerializer):
 
 
 class EcomOrderAddressSerializer(serializers.ModelSerializer):
+    address = serializers.SerializerMethodField()
+    contact_name = serializers.SerializerMethodField()
+    contact_number = serializers.SerializerMethodField()
+    pincode = serializers.SerializerMethodField()
     city = serializers.SerializerMethodField()
     state = serializers.SerializerMethodField()
 
+
+    def get_address(self, obj):
+        if obj.order.delivery_option == '1':
+            return obj.order.seller_shop.shipping_address_obj.address if obj.order.seller_shop.shipping_address_obj.address else None
+        return obj.address if obj.address else None
+
+    def get_contact_name(self, obj):
+        if obj.order.delivery_option == '1':
+            return obj.order.seller_shop.shipping_address_obj.contact_name if obj.order.seller_shop.shipping_address_obj.contact_name else None
+        return obj.contact_name if obj.contact_name else None
+
+    def get_contact_number(self, obj):
+        if obj.order.delivery_option == '1':
+            return obj.order.seller_shop.shipping_address_obj.contact_number if obj.order.seller_shop.shipping_address_obj.contact_number else None
+        return obj.contact_number if obj.contact_number else None
+
+    def get_pincode(self, obj):
+        if obj.order.delivery_option == '1':
+            return obj.order.seller_shop.shipping_address_obj.pincode if obj.order.seller_shop.shipping_address_obj.pincode else None
+        return obj.pincode if obj.pincode else None
+
     def get_city(self, obj):
+        if obj.order.delivery_option == '1':
+            return obj.order.seller_shop.shipping_address_obj.city.city_name if obj.order.seller_shop.shipping_address_obj.city else None
         return obj.city.city_name if obj.city else None
 
     def get_state(self, obj):
+        if obj.order.delivery_option == '1':
+            return obj.order.seller_shop.shipping_address_obj.state.state_name if obj.order.seller_shop.shipping_address_obj.state else None
         return obj.state.state_name if obj.state else None
 
     class Meta:
@@ -638,7 +668,7 @@ class EcomShipmentSerializer(serializers.Serializer):
 class ShopInfoSerializer(serializers.ModelSerializer):
     class Meta:
         model = Shop
-        fields = ('id', 'shop_name',)
+        fields = ('id', 'shop_name', 'superstore_enable')
 
     def to_representation(self, instance):
         data = super().to_representation(instance)

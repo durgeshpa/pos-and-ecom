@@ -24,7 +24,8 @@ from django.core.exceptions import ValidationError
 from django.db.models import Sum, Q
 from .common_functions import create_batch_id
 from global_config.views import get_config
-from retailer_to_sp.models import OrderedProduct, PickerDashboard
+from retailer_to_sp.models import OrderedProduct, PickerDashboard, Order, SUPERSTORE, \
+    GROCERY_CART_TYPES, SUPERSTORE_CART_TYPES
 from django.db import transaction
 from .common_functions import cancel_ordered, cancel_shipment, cancel_returned, putaway_repackaging
 from dal import autocomplete
@@ -1758,14 +1759,14 @@ class QCDeskForm(forms.ModelForm):
                                                                            forward=('warehouse',)))
     alternate_desk = forms.ModelChoiceField(queryset=QCDesk.objects.all(), required=False,
                                             widget=autocomplete.ModelSelect2(url='alternate-desk-autocomplete',
-                                                                             forward=('warehouse',)))
+                                                                             forward=('warehouse', 'desk_type')))
     qc_areas = forms.ModelMultipleChoiceField(
         queryset=QCArea.objects.all(), required=True,
         widget=autocomplete.ModelSelect2Multiple(url='non-mapped-qc-area-autocomplete', forward=('warehouse',)))
 
     class Meta:
         model = QCDesk
-        fields = ['name', 'warehouse', 'qc_executive', 'qc_areas', 'desk_enabled', 'alternate_desk']
+        fields = ['name', 'warehouse', 'qc_executive', 'qc_areas', 'desk_type', 'desk_enabled', 'alternate_desk']
 
     def clean_warehouse(self):
         if not self.cleaned_data['warehouse'].shop_type.shop_type == 'sp':
@@ -1786,6 +1787,19 @@ class QCDeskForm(forms.ModelForm):
             for qc_area in self.cleaned_data['qc_areas']:
                 if qc_area.warehouse_id != int(self.data['warehouse']):
                     raise ValidationError(_("Invalid QC Area " + str(qc_area) + " selected."))
+            if self.instance.id:
+                new_added_qcarea = self.cleaned_data['qc_areas'].difference(self.instance.qc_areas.all())
+            else:
+                new_added_qcarea = self.cleaned_data['qc_areas']
+            cart_type = GROCERY_CART_TYPES if self.instance.desk_type != SUPERSTORE else SUPERSTORE_CART_TYPES
+            for new_area in new_added_qcarea:
+                if new_area.area_pickings.filter(~Q(order__ordered_cart__cart_type__in=cart_type),
+                                                       order__order_status__in=[Order.PARTIAL_MOVED_TO_QC, Order.MOVED_TO_QC,
+                                                                         Order.PICKING_COMPLETE,
+                                                                         Order.PICKING_PARTIAL_COMPLETE]).exists():
+                    raise ValidationError(_("QC Area " + str(qc_area) + " has non " + self.instance.desk_type + " Orders."
+                                            "This QC Area can not be assigned to this QC Desk yet."))
+
         return self.cleaned_data['qc_areas']
 
     def clean_alternate_desk(self):
@@ -1818,6 +1832,8 @@ class QCDeskForm(forms.ModelForm):
         if not instance.pk:
             self.fields['desk_enabled'].disabled = True
             self.fields['alternate_desk'].disabled = True
+        else:
+            self.fields['desk_type'].disabled = True
 
 
 class QCDeskQCAreaAssignmentMappingForm(forms.ModelForm):

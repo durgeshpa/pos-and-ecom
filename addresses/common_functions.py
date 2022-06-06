@@ -2,6 +2,9 @@ import codecs
 import csv
 import logging
 
+from rest_framework import status
+from rest_framework.response import Response
+
 from addresses.common_validators import get_csv_file_data
 
 # Logger
@@ -41,6 +44,22 @@ def serializer_error(serializer):
                 result = ''.join('{} : {}'.format(field, error))
             errors.append(result)
     return errors[0]
+
+
+def get_response(msg, data=None, success=False, status_code=status.HTTP_200_OK):
+    """
+        General Response For API
+    """
+    if success:
+        result = {"is_success": True, "message": msg, "response_data": data}
+    else:
+        if data:
+            result = {"is_success": True, "message": msg, "response_data": data}
+        else:
+            status_code = status.HTTP_406_NOT_ACCEPTABLE
+            result = {"is_success": False, "message": msg, "response_data": []}
+
+    return Response(result, status=status_code)
 
 
 class ShopRouteCommonFunction(object):

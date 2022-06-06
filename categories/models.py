@@ -36,15 +36,19 @@ class Category(BaseTimestampUserStatusModel):
     """
     We define Category and Sub Category in this model
     """
-    category_name = models.CharField(max_length=255, unique=True)
-    category_slug = models.SlugField(unique=True)
+    CATEGORY_TYPE_CHOICES = (
+        ('grocery', 'Grocery'),
+        ('superstore', 'SuperStore')
+    )
+    category_name = models.CharField(max_length=255)
+    category_slug = models.SlugField()
     category_desc = models.TextField(null=True, blank=True)
     category_parent = models.ForeignKey('self', related_name='cat_parent', blank=True, null=True,
                                         on_delete=models.CASCADE)
     category_sku_part = models.CharField(max_length=3, unique=True, validators=[CapitalAlphabets],
                                          help_text="Please enter three characters for SKU")
     category_image = models.FileField(upload_to='category_img_file', null=True, blank=True)
-    b2c_status = models.BooleanField(default=True)
+    category_type = models.CharField(max_length=10, default='grocery', choices=CATEGORY_TYPE_CHOICES)
     updated_by = models.ForeignKey(
         get_user_model(), null=True,
         related_name='category_updated_by',
@@ -70,15 +74,34 @@ class Category(BaseTimestampUserStatusModel):
     def clean(self, *args, **kwargs):
         if self.category_parent == self:
             raise ValidationError(_('Category and Category Parent cannot be same'))
+        elif self.category_parent and self.category_parent.category_type != self.category_type:
+            raise ValidationError({'category_parent':_('Category and Category Parent should be of same type.')})
         else:
             super(Category, self).clean(*args, **kwargs)
 
     class Meta:
-        unique_together = ('category_slug', 'category_parent',)
+        unique_together = (('category_slug', 'category_parent',), ('category_name', 'category_type'))
         verbose_name_plural = _("Categories")
 
     # class MPTTMeta:
     #     order_insertion_by = ['category_name']
+
+
+class CategoryDisplayOrder(BaseTimestampUserStatusModel):
+    
+    category = models.OneToOneField(Category, 
+                                    related_name='category_view_order', 
+                                    on_delete=models.CASCADE,
+                                    limit_choices_to={'category_type': 'superstore'})
+    order_no = models.PositiveIntegerField(default=0)
+    
+    
+    def __str__(self) -> str:
+        return f"{self.category} | {self.order_no}"
+    
+    class Meta:
+        verbose_name = _('Category Display Order')
+        verbose_name_plural = _('Category Display Orders')
 
 
 class CategoryPosation(SortableMixin):

@@ -11,7 +11,8 @@ from django.db import models
 from django.db.models import Q, OuterRef, Subquery, Count, CharField, Case, When, F, Value
 from django.db.models.functions import Cast
 from django.http import HttpResponse
-from rest_framework import authentication, status
+from rest_framework import status
+from rest_auth import authentication
 from rest_framework import generics
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response

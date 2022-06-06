@@ -196,6 +196,9 @@ class DownloadPurchaseOrder(APIView):
         order_obj = get_object_or_404(Cart, pk=self.kwargs.get('pk'))
         pk = self.kwargs.get('pk')
         a = Cart.objects.get(pk=pk)
+        flag = False
+        if order_obj.po_type == 'superstore':
+            flag = True
         shop = a
         products = a.cart_list.all()
         order = shop.order_cart_mapping
@@ -262,6 +265,7 @@ class DownloadPurchaseOrder(APIView):
 
         data = {
             "object": order_obj,
+            'flag' : flag,
             "products": products,
             "shop": shop,
             "sum_qty": sum_qty,

@@ -35,7 +35,7 @@ from products.models import (Color, Flavor, Fragrance, PackageSize, Product,
                              Repackaging, ParentProduct, ProductHSN, ProductSourceMapping,
                              DestinationRepackagingCostMapping, ParentProductImage, ProductCapping,
                              ParentProductCategory, PriceSlab, SlabProductPrice, ProductPackingMapping,
-                             DiscountedProductPrice, TaxGroup)
+                             DiscountedProductPrice, TaxGroup, SuperStoreProductPrice)
 from retailer_backend.utils import isDateValid, getStrToDate, isBlankRow
 from retailer_backend.validators import *
 from shops.models import Shop, ShopType
@@ -527,6 +527,10 @@ class UploadParentProductAdminForm(forms.Form):
                 raise ValidationError(_(f"Row {row_id + 2} | 'Inner Case Size' can not be empty."))
             elif not re.match("^\d+$", row[9]):
                 raise ValidationError(_(f"Row {row_id + 2} | 'Inner Case Size' can only be a numeric value."))
+            if not row[10]:
+                raise ValidationError(_(f"Row {row_id + 2} | 'Product Type' can not be empty."))
+            elif row[10].lower() not in ['grocery', 'superstore']:
+                raise ValidationError(_(f"Row {row_id + 2} | 'Product Type' can only 'Grocery or Superstore'."))
         return self.cleaned_data['file']
 
 
@@ -552,13 +556,19 @@ class ProductForm(forms.ModelForm):
             'product_special_cess',)
 
     def clean(self):
-        if 'status' in self.cleaned_data and self.cleaned_data['status'] == 'active':
+        if 'status' in self.cleaned_data and self.cleaned_data['status'] == 'active' and self.cleaned_data['parent_product'].product_type == ParentProduct.GROCERY:
             error = True
             if self.instance.id and ProductPrice.objects.filter(approval_status=ProductPrice.APPROVED,
                                                                 product_id=self.instance.id).exists():
                 error = False
             if error:
                 raise forms.ValidationError("Product cannot be made active until an active Product Price exists")
+        elif 'status' in self.cleaned_data and self.cleaned_data['status'] == 'active' and self.cleaned_data['parent_product'].product_type == ParentProduct.SUPERSTORE:
+            error = True
+            if self.instance.id and SuperStoreProductPrice.objects.filter(product_id=self.instance.id).exists():
+                error = False
+            if error:
+                raise forms.ValidationError("Product cannot be made active until a Superstore Product Price exists")
         return self.cleaned_data
 
 

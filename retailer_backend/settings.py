@@ -81,7 +81,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'django.contrib.postgres',
     'rest_framework',
-    'rest_framework.authtoken',
+    # 'rest_framework.authtoken',
     'rest_auth',
     'django.contrib.sites',
     'allauth',
@@ -294,7 +294,7 @@ REST_FRAMEWORK = {
 }
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
-        'rest_framework.authentication.TokenAuthentication',
+        'rest_auth.authentication.TokenAuthentication',
     ),
     'DEFAULT_PERMISSION_CLASSES': (
         'rest_framework.permissions.IsAuthenticated',
@@ -396,6 +396,7 @@ CRONJOBS = [
     ('*/3 * * * *', 'pos.cron.payment_refund_status_update'),
     ('*/10 * * * *', 'pos.cron.payment_reconsilation_per_ten_minutes'),
     ('0 0 12 * * ?', 'pos.cron.payment_reconsilation_per_24_hours'),
+    ('0 0 12 * * ?', 'retailer_to_sp.cron.get_super_store_order'),
     ('* * * * *', 'retailer_backend.cron.discounted_order_cancellation', '>> /tmp/discounted_cancellation.log'),
     ('* * * * *', 'retailer_backend.cron.delete_ordered_reserved_products'),
     ('2 0 * * *', 'analytics.api.v1.views.getStock'),
@@ -404,6 +405,7 @@ CRONJOBS = [
     ('*/1 * * * *', 'wms.views.release_blocking_with_cron', '>>/tmp/release.log'),
     ('45 18 * * *', 'wms.views.assign_picker_user_to_pickup_created_orders', '>>/tmp/picking'),
     ('*/10 * * * *', 'wms.views.pickup_entry_creation_with_cron', '>>/tmp/picking'),
+    ('*/9 * * * *', 'wms.views.pickup_entry_for_superstore_order_creation_with_cron'),
     # ('0 10 * * *', 'wms.views.mail_products_list_not_mapped_yet_to_any_zone', '>>/tmp/picking'),
     ('30 2 * * *', 'retailer_backend.cron.sync_es_products'),
     ('0 2 * * *', 'wms.views.archive_inventory_cron'),
@@ -435,6 +437,7 @@ CRONJOBS = [
     ('0 * * * *', 'retailer_to_sp.api.v1.views.refresh_cron_es'),
     ('0 */1 * * *', 'retailer_to_sp.cron.generate_e_invoice_cron'),
     # ('*/10 * * * *', 'retailer_to_sp.cron.all_products_es_refresh'),
+    ('*/6 * * * *', 'retailer_to_sp.views.generate_retail_orders_against_superstore_order'),
     ('*/5 * * * *', 'wms.cron.assign_putaway_users_to_new_putways'),
     ('0 6 * * *', 'shops.cron.get_feedback_valid'),
     ('30 21 * * *', 'shops.tasks.cancel_beat_plan'),
@@ -683,6 +686,13 @@ DRF_API_LOGGER_EXCLUDE_KEYS = ['password', 'token', 'access', 'refresh']
 DRF_API_LOGGER_SLOW_API_ABOVE = 200
 DRF_API_LOGGER_TIMEDELTA = 330
 
-
-
-
+# DJANGO SILK PROFILER
+# SILKY_PYTHON_PROFILER = True
+# # SILKY_PYTHON_PROFILER_BINARY = True
+# SILKY_AUTHENTICATION = True  # User must login
+# SILKY_AUTHORISATION = True  # User must have permissions
+# SILKY_PERMISSIONS = lambda user: user.is_superuser
+# SILKY_MAX_REQUEST_BODY_SIZE = -1  # Silk takes anything <0 as no limit
+# SILKY_MAX_RESPONSE_BODY_SIZE = 1024  # If response body>1024 bytes, ignore
+# SILKY_META = True
+# SILKY_ANALYZE_QUERIES = False

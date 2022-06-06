@@ -114,7 +114,7 @@ class EcomOrderProductAdmin(admin.ModelAdmin):
 
         (_('Order Details'), {
             'fields': ('id', 'order_no', 'invoice_no', 'order_status', 'order_cancellation_reason', 'buyer',
-                       'buyer_address', )}),
+                       'buyer_address','latitude', 'longitude' )}),
 
         (_('Amount Details'), {
             'fields': ('sub_total', 'offer_discount', 'reward_discount', 'order_amount')}),
@@ -154,6 +154,14 @@ class EcomOrderProductAdmin(admin.ModelAdmin):
 
     def order_no(self, obj):
         return obj.order_no
+
+    def latitude(self, obj):
+        """return Ecom order latitude"""
+        return obj.latitude
+
+    def longitude(self,obj):
+        """return Ecom order longitude"""
+        return obj.longitude
 
     def download_invoice(self, obj):
         try:

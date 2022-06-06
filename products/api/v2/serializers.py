@@ -186,7 +186,9 @@ class DownloadMasterDataSerializers(serializers.ModelSerializer):
                 else:
                     category_val = get_validate_category(self.initial_data['category_id'])
                 if 'error' in category_val:
-                    raise serializers.ValidationError(_(category_val["error"]))
+                    category_val = get_validate_category(self.initial_data['category_id'], b2c=True)
+                    if error in category_val:
+                        raise serializers.ValidationError(_(category_val["error"]))
                 data['category_id'] = category_val['category']
         else:
             if 'category_id' in self.initial_data and self.initial_data['category_id']:

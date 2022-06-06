@@ -87,6 +87,13 @@ class Cart(BaseCart):
     """
         PO Generation
     """
+    GROCERY = 'grocery'
+
+    SUPERSTORE = 'superstore'
+
+    po_types = ((GROCERY,"Grocery"),
+                (SUPERSTORE, "SuperStore"))
+
     OPEN = "OPEN"
     APPROVAL_AWAITED = "WAIT"
     FINANCE_APPROVED = "APRW"
@@ -145,6 +152,7 @@ class Cart(BaseCart):
     cart_type = models.PositiveSmallIntegerField(choices=CART_TYPE_CHOICE, default=CART_TYPE_CHOICE.MANUAL)
     approved_by = models.ForeignKey(get_user_model(), related_name='user_approved_carts', null=True, blank=True,
                                     on_delete=models.DO_NOTHING)
+    po_type = models.CharField(max_length=50, choices=po_types, default='grocery')
     created_at = models.DateTimeField(auto_now_add=True)
     approved_at = models.DateTimeField(null=True)
     modified_at = models.DateTimeField(auto_now=True)
@@ -584,6 +592,9 @@ class GRNOrderProductMapping(models.Model):
             else:
                 expiry_date = datetime.datetime.strptime(str(self.expiry_date), '%Y-%m-%d').strftime('%d%m%y')
             self.barcode_id = str("2" + product_id + str(expiry_date))
+        if self.grn_order.order.ordered_cart.po_type == "superstore":
+            self.expiry_date = datetime.datetime.strptime('2040-01-01', "%Y-%m-%d").date()
+            self.manufacture_date = datetime.datetime.strptime('2022-01-01', "%Y-%m-%d").date() 
         self.product_amount = (self.product_invoice_price if self.product_invoice_price else 0) * \
                               (self.product_invoice_qty if self.product_invoice_qty else 0)
         super(GRNOrderProductMapping, self).save(*args, **kwargs)
