@@ -2204,8 +2204,10 @@ def create_retailer_orders_from_superstore_order(instance=None):
         if instance.ordered_cart.cart_type == SUPERSTORE:
             carp_pro_maps = instance.ordered_cart.rt_cart_list.all()
             if carp_pro_maps:
-                new_seller_shop = Shop.objects.get(id=get_config('current_wh_active', 50484))
+                # new_seller_shop = Shop.objects.get(id=get_config('current_wh_active', 50484))
                 new_buyer_shop = instance.ordered_cart.seller_shop
+                parent_mapping = ParentRetailerMapping.objects.filter(retailer=new_buyer_shop, status=True)
+                new_seller_shop = parent_mapping.last().parent
                 new_billing_address = new_buyer_shop.shop_name_address_mapping.filter(address_type='billing').last()
                 new_shipping_address = new_buyer_shop.shop_name_address_mapping.filter(address_type='shipping').last()
                 user = instance.ordered_by

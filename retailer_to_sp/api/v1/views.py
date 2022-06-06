@@ -682,6 +682,8 @@ class SearchProducts(APIView):
         """
         shop_id = self.request.GET.get('shop_id') if self.request.GET.get('shop_id') else None
         shop, parent_shop, cart_products, cart, cart_check = None, None, None, None, False
+        if app_type == '4':
+            shop_id = self.request.META.get('HTTP_SHOP_ID', None)
         # check if shop exists
         try:
             shop = Shop.objects.get(id=shop_id, status=True)
@@ -722,8 +724,8 @@ class SearchProducts(APIView):
         p_list = []
         if app_type == '1':
             es_index = 'all_products'
-        elif app_type == '4':
-            es_index = GlobalConfig.objects.get(key='current_wh_active').value
+        # elif app_type == '4':
+        #     es_index = GlobalConfig.objects.get(key='current_wh_active').value
         else:
             es_index = 'all_b2c_product'
 
