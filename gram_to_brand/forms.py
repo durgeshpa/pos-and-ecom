@@ -147,6 +147,12 @@ class POGenerationForm(forms.ModelForm):
         """
         raise ValidationError("Row {}  -  {}: {}  -  {}".format(str(row_id + 1), title, value, error))
 
+    def clean(self):
+        if self.instance and self.instance.pk:
+            self.cleaned_data['po_type'] = self.instance.po_type
+        return self.cleaned_data
+
+
 
 
 class POGenerationAccountForm(forms.ModelForm):
