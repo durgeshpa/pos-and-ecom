@@ -1198,8 +1198,9 @@ class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
         elif res.filter(name='Superstore Warehouse User').exists():
             qs = qs.exclude(picker_order=None)
             return qs.filter(Q(ordered_cart__cart_type='SUPERSTORE_RETAIL'))
-        exclude_type = ['ECOMM','SUPERSTORE', 'SUPERSTORE_RETAIL']
-        qs = qs.exclude(ordered_cart__cart_type__in=exclude_type)
+        elif not res.filter(name='Warehouse Manager').exists():
+            exclude_type = ['ECOMM', 'SUPERSTORE', 'SUPERSTORE_RETAIL']
+            qs = qs.exclude(ordered_cart__cart_type__in=exclude_type)
         return qs.filter(
             Q(seller_shop__related_users=request.user) |
             Q(seller_shop__shop_owner=request.user)
