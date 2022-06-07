@@ -107,11 +107,6 @@ def common_pattern(model, field, instance, address, invoice_type, is_invoice=Fal
 
     financial_year = year if year else get_financial_year()
 
-    if field == 'credit_note_id':
-        shop_code = instance.invoice_no[:1]
-        warehouse_code = instance.invoice_no[-9:-7]
-        state_code = instance.invoice_no[-11:-9]
-
     starts_with = "%s%s%s%s%s" % (
             shop_code, invoice_type, financial_year,
             state_code, warehouse_code)
@@ -139,11 +134,6 @@ def common_pattern_bulk(model, field, instance, address, invoice_type, is_invoic
         address)
     financial_year = year if year else get_financial_year()
 
-    if field == 'credit_note_id':
-        shop_code_bulk = instance.invoice_no[:1]
-        warehouse_code = instance.invoice_no[-9:-7]
-        state_code = instance.invoice_no[-11:-9]
-
     starts_with = "%s%s%s%s%s" % (
             shop_code_bulk, invoice_type, financial_year,
             state_code, warehouse_code)
@@ -166,10 +156,6 @@ def common_pattern_discounted(model, field, instance, address, invoice_type, is_
     state_code, shop_code, shop_code_bulk, shop_code_discounted, warehouse_code, shop_code_ss = get_shop_warehouse_state_code(
         address)
     financial_year = year if year else get_financial_year()
-    if field == 'credit_note_id':
-        shop_code_discounted = instance.invoice_no[:1]
-        warehouse_code = instance.invoice_no[-9:-7]
-        state_code = instance.invoice_no[-11:-9]
 
     starts_with = "%s%s%s%s%s" % (
             shop_code_discounted, invoice_type, financial_year,
@@ -192,10 +178,6 @@ def common_pattern_ss(model, field, instance, address, invoice_type, is_invoice=
     state_code, shop_code, shop_code_bulk, shop_code_discounted, warehouse_code, shop_code_ss = get_shop_warehouse_state_code(
         address)
     financial_year = year if year else get_financial_year()
-    if field == 'credit_note_id':
-        shop_code_ss = instance.invoice_no[:1]
-        warehouse_code = instance.invoice_no[-9:-7]
-        state_code = instance.invoice_no[-11:-9]
 
     starts_with = "%s%s%s%s%s" % (
             shop_code_ss, invoice_type, financial_year,
