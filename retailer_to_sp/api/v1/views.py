@@ -2180,7 +2180,7 @@ class CartCheckout(APIView):
             auto_apply = self.request.GET.get('auto_apply') if not redeem_points else False
             # Get Offers Applicable, Verify applied offers, Apply highest discount on cart if auto apply
             offers = BasicCartOffers.refresh_offers_checkout(cart, auto_apply, None)
-            # Redeem reward points on order
+            # Redeem pep Coins on order
             redeem_points = redeem_points if redeem_points else cart.redeem_points
             # Refresh redeem reward
             redeem_points_message = RewardCls.checkout_redeem_points(cart, int(redeem_points), kwargs['shop'])
@@ -3751,7 +3751,7 @@ class OrderCentral(APIView):
             except Exception as e:
                 info_logger.info(e)
             if shop.enable_loyalty_points:
-                msg = 'Ordered Successfully, Reward points will be credited after delivery!'
+                msg = 'Ordered Successfully, Pep Coins will be credited after delivery!'
             else:
                 msg = 'Ordered Successfully!'
             return api_response(msg, BasicOrderListSerializer(Order.objects.get(id=order.id)).data,

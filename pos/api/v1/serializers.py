@@ -1275,7 +1275,7 @@ class OrderReturnCheckoutSerializer(serializers.ModelSerializer):
             block[cb][1] += '-(' + str(discount).rstrip('0').rstrip('.') + '+' + str(redeem_points_value).rstrip(
                 '0').rstrip('.') + ') = Rs.' + str(self.get_invoice_final(obj)).rstrip('0').rstrip('.')
             block[cb][2] = '(Rs.' + str(discount).rstrip('0').rstrip('.') + ' off coupon, Rs.' + str(
-                redeem_points_value).rstrip('0').rstrip('.') + ' off reward points)'
+                redeem_points_value).rstrip('0').rstrip('.') + ' off pep coins)'
         elif discount:
             block[cb][1] += '-' + str(discount).rstrip('0').rstrip('.') + ' = Rs.' + str(self.get_invoice_final(obj)).rstrip(
                 '0').rstrip('.')
