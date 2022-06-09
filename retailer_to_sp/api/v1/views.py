@@ -399,6 +399,7 @@ class SearchProducts(APIView):
         keyword = self.request.GET.get('keyword')
         output_type = self.request.GET.get('output_type', '1')
         category_ids = self.request.GET.get('category_ids')
+        brand = self.request.GET.get('brands')
         sub_category_ids = self.request.GET.get('sub_category_ids')
         elastic_logger.info(
             "Keyword :: {}, Output type :: {}, Category :: {}, Sub-category :: {}".format(keyword, output_type,
@@ -472,6 +473,13 @@ class SearchProducts(APIView):
             #sub_category = sub_category_ids.split(',')
             #sub_category_filter = str(categorymodel.Category.objects.filter(id__in=sub_category, status=True).last())
             filter_list.append({"term": {"sub_category": sub_category_ids}})
+
+        if brand:
+            brand = brand.split(',')
+            brand_name = "{}".format(Brand.objects.filter(id__in=list(brand)).last())
+            filter_list.append({"match": {
+                "brand": {"query": brand_name, "fuzziness": "AUTO", "operator": "and"}
+            }})
 
         elastic_logger.info("Filter list :: {}".format(filter_list))
         elastic_logger.info("Query string :: {}".format(query_string))
@@ -789,7 +797,7 @@ class SearchProducts(APIView):
             return query
         if brand:
             brand = brand.split(',')
-            brand_name = "{} -> {}".format(Brand.objects.filter(id__in=list(brand)).last(), keyword)
+            brand_name = "{}".format(Brand.objects.filter(id__in=list(brand)).last())
             filter_list.append({"match": {
                 "brand": {"query": brand_name, "fuzziness": "AUTO", "operator": "and"}
             }})
