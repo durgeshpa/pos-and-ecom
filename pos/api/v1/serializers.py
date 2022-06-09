@@ -657,7 +657,8 @@ class BasicCartSerializer(serializers.ModelSerializer):
         if offers:
             array = list(filter(lambda d: d['type'] in ['discount'], offers))
             for i in array:
-                discount += i['discount_value']
+                if i.get('is_point') == False:
+                    discount += i['discount_value']
         return round(discount, 2)
 
     def get_amount_payable(self, obj):
@@ -1606,6 +1607,12 @@ class CouponGetSerializer(serializers.ModelSerializer):
     offer_type = serializers.SerializerMethodField()
     details = serializers.SerializerMethodField()
     end_date = serializers.SerializerMethodField()
+    is_point = serializers.SerializerMethodField()
+
+    @staticmethod
+    def get_is_point(obj):
+        """get coupont is point type"""
+        return obj.rule.discount.is_point if obj.rule.discount else False
 
     def get_details(self, obj):
         offer_type = self.get_offer_type(obj)
@@ -1637,12 +1644,13 @@ class CouponGetSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Coupon
-        fields = ('id', 'offer_type', 'coupon_name', 'details', 'start_date', 'end_date')
+        fields = ('id', 'offer_type', 'coupon_name', 'details', 'start_date', 'end_date', 'is_point')
 
 
 class CouponListSerializer(serializers.ModelSerializer):
     offer_type = serializers.SerializerMethodField()
     details = serializers.SerializerMethodField()
+    is_point = serializers.SerializerMethodField()
 
     def get_details(self, obj):
         offer_type = self.get_offer_type(obj)
@@ -1659,9 +1667,14 @@ class CouponListSerializer(serializers.ModelSerializer):
         rule = obj.rule
         return 3 if rule.free_product else (1 if rule.discount else 2)
 
+    @staticmethod
+    def get_is_point(obj):
+        """get coupont is point type"""
+        return obj.rule.discount.is_point if obj.rule.discount else False
+
     class Meta:
         model = Coupon
-        fields = ('id', 'offer_type', 'coupon_name', 'coupon_code', 'details', 'is_active')
+        fields = ('id', 'offer_type', 'coupon_name', 'coupon_code', 'details', 'is_active','is_point')
 
 
 class PosShopSerializer(serializers.ModelSerializer):
