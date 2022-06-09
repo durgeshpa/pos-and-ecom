@@ -7,6 +7,7 @@ from dal_admin_filters import AutocompleteFilter
 # django imports
 from django.contrib import admin, messages
 from django.contrib.admin import AllValuesFieldListFilter
+from django.db.models import Q
 from django.http import HttpResponse
 from django.urls import reverse
 from django.utils.html import format_html
@@ -30,7 +31,8 @@ from .models import (Bin, In, Putaway, PutawayBinInventory, BinInventory, Out, P
                      WarehouseInventory, WarehouseInternalInventoryChange, StockMovementCSVUpload,
                      BinInternalInventoryChange, StockCorrectionChange, OrderReserveRelease, Audit,
                      ExpiredInventoryMovement, Zone, WarehouseAssortment, QCArea, ZonePickerUserAssignmentMapping,
-                     ZonePutawayUserAssignmentMapping, Crate, PickupCrate, QCDeskQCAreaAssignmentMapping, QCDesk)
+                     ZonePutawayUserAssignmentMapping, Crate, PickupCrate, QCDeskQCAreaAssignmentMapping, QCDesk,
+                     BinShiftLog)
 from .utils import create_warehouse_assortment_excel
 from .views import bins_upload, put_away, CreatePickList, audit_download, audit_upload, bulk_putaway, \
     WarehouseAssortmentDownloadSampleCSV, WarehouseAssortmentUploadCsvView, InOutLedgerFormView, InOutLedgerReport, \
@@ -325,6 +327,29 @@ class CrateFilter(AutocompleteFilter):
     title = 'Crate'
     field_name = 'crate'
     autocomplete_url = 'crate-autocomplete'
+
+
+class SBinFilter(InputFilter):
+    title = 'Source Bin'
+    parameter_name = 's_bin'
+
+    def queryset(self, request, queryset):
+        value = self.value()
+        if value:
+            return queryset.filter(s_bin__bin_id=value)
+        return queryset
+
+
+class TBinFilter(InputFilter):
+    title = 'Target Bin'
+    parameter_name = 't_bin'
+
+    def queryset(self, request, queryset):
+        value = self.value()
+        if value:
+            return queryset.filter(t_bin__bin_id=value)
+        return queryset
+
 
 
 class BinAdmin(admin.ModelAdmin):
@@ -1461,6 +1486,26 @@ class QCDeskQCAreaAssignmentMappingAdmin(admin.ModelAdmin):
         pass
 
 
+class BinShiftLogAdmin(admin.ModelAdmin):
+    list_display = ('warehouse', 'sku', 'batch_id', 's_bin', 't_bin', 'qty', 'created_by', 'created_at')
+    list_filter = [SKUFilter, BatchIdFilter, SBinFilter, TBinFilter, ('created_at', DateRangeFilter)]
+    list_per_page = 50
+    ordering = ('-created_at',)
+    # readonly_fields = ('sku_id', 'batch_id', 's_bin', 't_bin', 'qty', 'created_by', 'created_at', )
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    class Media:
+        pass
+
+
 admin.site.register(Bin, BinAdmin)
 admin.site.register(In, InAdmin)
 # admin.site.register(InventoryType, InventoryTypeAdmin)
@@ -1488,3 +1533,4 @@ admin.site.register(Crate, CrateAdmin)
 admin.site.register(PickupCrate, PickupCrateAdmin)
 admin.site.register(ZonePutawayUserAssignmentMapping, ZonePutawayUserAssignmentMappingAdmin)
 admin.site.register(ZonePickerUserAssignmentMapping, ZonePickerUserAssignmentMappingAdmin)
+admin.site.register(BinShiftLog, BinShiftLogAdmin)
