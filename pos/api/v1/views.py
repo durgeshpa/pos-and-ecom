@@ -452,6 +452,11 @@ class CouponOfferCreation(GenericAPIView):
             else:
                 coupon_code = discount_value_str + "% off on orders above ₹" + discount_amount_str
             rule_set_name_with_shop_id = str(shop_id) + "_" + coupon_code
+        elif data['is_point']:
+            discount_obj = DiscountValue.objects.create(discount_value=discount_value,
+                                                        max_discount=data['max_discount'], is_percentage=False, is_point=True)
+            coupon_code = "get " + discount_value_str + " points on orders above ₹" + discount_amount_str
+            rule_set_name_with_shop_id = str(shop_id) + "_" + coupon_code
         else:
             discount_obj = DiscountValue.objects.create(discount_value=discount_value, is_percentage=False)
             coupon_code = "₹" + discount_value_str + " off on orders above ₹" + discount_amount_str

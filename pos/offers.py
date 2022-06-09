@@ -109,6 +109,8 @@ class BasicCartOffers(object):
             offer = 'Shop for ₹' + str(coupons[0]['cart_minimum_value']).rstrip('0').rstrip('.') + ' and get additional '
             if coupons[0]['is_percentage']:
                 offer += str(coupons[0]['discount']).rstrip('0').rstrip('.') + '% Off.'
+            elif coupons[0]['is_point']:
+                offer += str(coupons[0]['discount']).rstrip('0').rstrip('.') + 'point.'
             else:
                 offer += '₹' + str(coupons[0]['discount']).rstrip('0').rstrip('.') + ' Off.'
         return offer
@@ -415,6 +417,7 @@ class BasicCartOffers(object):
             'coupon_name': coupon['coupon_name'] if 'coupon_name' in coupon else '',
             'cart_minimum_value': coupon['cart_minimum_value'],
             'is_percentage': coupon['is_percentage'],
+            'is_point':  coupon.get('is_point', False),
             'discount': coupon['discount'],
             'max_discount': coupon['max_discount']
         }
@@ -447,7 +450,7 @@ class BasicCartOffers(object):
                 if offer['coupon_type'] == 'catalog':
                     discounted_price_subtotal = round(
                         ((float(offer['product_subtotal']) / float(cart_value)) * float(new_offer['discount_value'])),
-                        2) if new_offer else 0
+                        2) if new_offer and new_offer.get('is_point', False) == False else 0
                     offer.update({'cart_or_brand_level_discount': discounted_price_subtotal})
                     discounted_product_subtotal = round(
                         offer['product_subtotal'] - discounted_price_subtotal, 2)

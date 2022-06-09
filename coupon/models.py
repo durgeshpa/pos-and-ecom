@@ -21,6 +21,7 @@ class DiscountValue(models.Model):
     discount_value = models.FloatField(default=0, null=True, blank=True)
     is_percentage = models.BooleanField(default=False)
     max_discount = models.FloatField(default=0, null=True, blank=True)
+    is_point = models.BooleanField(default=False)
 
     def __str__(self):
         return str(self.discount_value)
@@ -272,6 +273,7 @@ def get_cart_coupon_params(coupon):
         params['cart_minimum_value'] = coupon.rule.cart_qualifying_min_sku_value
         params['discount'] = coupon.rule.discount.discount_value
         params['is_percentage'] = coupon.rule.discount.is_percentage
+        params['is_point'] = coupon.rule.discount.is_point
         params['max_discount'] = coupon.rule.discount.max_discount
     elif coupon.rule.free_product:
         params['coupon_type'] = 'cart_free_product'

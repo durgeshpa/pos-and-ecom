@@ -11,6 +11,7 @@ from hashlib import sha512
 from operator import itemgetter
 from decimal import Decimal
 
+
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
 from django.core import validators
@@ -68,7 +69,7 @@ from pos.common_functions import (api_response, delete_cart_mapping, ORDER_STATU
                                   update_customer_pos_cart, PosInventoryCls, RewardCls, serializer_error,
                                   check_pos_shop, PosAddToCart, PosCartCls, ONLINE_ORDER_STATUS_MAP,
                                   pos_check_permission_delivery_person, ECOM_ORDER_STATUS_MAP, get_default_qty,
-                                  pos_check_user_permission, mark_pos_product_online_enabled)
+                                  pos_check_user_permission, mark_pos_product_online_enabled, cupon_point_update)
 from pos.models import (RetailerProduct, Payment as PosPayment,
                         PaymentType, MeasurementUnit, PosTrip)
 from pos.offers import BasicCartOffers
@@ -3250,6 +3251,7 @@ class OrderCentral(APIView):
                                                                         'order_credit', 'order_indirect_credit',
                                                                         self.request.user.id, order.seller_shop, app_type="ECOM")
                 order.save()
+                cupon_point_update(order, self.request.user)
                 if order_status == Order.DELIVERED:
                     whatsapp_order_delivered(order.order_no, shop.shop_name, order.buyer.phone_number, order.points_added, shop.enable_loyalty_points)
                 try:
@@ -3623,6 +3625,7 @@ class OrderCentral(APIView):
                 order.points_added = order_loyalty_points_credit(order.order_amount, order.buyer.id, order.order_no,
                                                                 'order_credit', 'order_indirect_credit',
                                                                 self.request.user.id, order.seller_shop, app_type="POS")
+            cupon_point_update(order, self.request.user)
 
 
             return api_response('Ordered Successfully!', BasicOrderListSerializer(Order.objects.get(id=order.id)).data,
