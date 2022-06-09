@@ -1631,9 +1631,6 @@ class OrderedProduct(models.Model):  # Shipment
     PARTIALLY_DELIVERED_AND_CLOSED = 'PARTIALLY_DELIVERED_AND_CLOSED'
     FULLY_DELIVERED_AND_CLOSED = 'FULLY_DELIVERED_AND_CLOSED'
     CANCELLED = 'CANCELLED'
-    RETURN_INITIATED = 'RETURN_INITIATED'
-    RETURN_PICKUP = 'RETURN_PICKUP'
-    RETURN_SUCCESS = 'RETURN_SUCCESS'
     SHIPMENT_STATUS = (
         (SHIPMENT_CREATED, 'QC Pending'),
         (READY_TO_SHIP, 'QC Passed'),
@@ -1657,10 +1654,7 @@ class OrderedProduct(models.Model):  # Shipment
         (RESCHEDULED, 'Rescheduled'),
         (DELIVERED, 'Delivered'),
         (QC_STARTED, 'QC Started'),
-        (NOT_ATTEMPT, 'Not Attempt'),
-        (RETURN_INITIATED, 'Return Initiated'),
-        (RETURN_PICKUP, 'Return Pickup'),
-        (RETURN_SUCCESS, 'Return Success')
+        (NOT_ATTEMPT, 'Not Attempt')
     )
 
     CASH_NOT_AVAILABLE = 'cash_not_available'
@@ -1748,7 +1742,7 @@ class OrderedProduct(models.Model):  # Shipment
         null=True, blank=True, on_delete=models.DO_NOTHING
     )
     delivery_person = models.ForeignKey(UserWithName, 
-                                        null=True, 
+                                        null=True,
                                         on_delete=models.DO_NOTHING, 
                                         verbose_name='Delivery Boy',
                                         related_name='shipment_deliveries')
@@ -1759,6 +1753,7 @@ class OrderedProduct(models.Model):  # Shipment
                                       blank=True)
     qc_started_at = models.DateTimeField(null=True, blank=True)
     qc_completed_at = models.DateTimeField(null=True, blank=True)
+    is_returned = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Invoice Date")
     modified_at = models.DateTimeField(auto_now=True)
 
@@ -2109,14 +2104,16 @@ class ReturnOrder(models.Model):
         (ITEM_DID_NOT_MATCH_DESCRIPTION, 'Item did not match description'),
         (OTHER, 'other reason')
     )
-    RETURN_CREATED = 'RETURN_CREATED'
+    RETURN_REQUESTED = 'RETURN_REQUESTED'
     STORE_ITEM_PICKED = 'STORE_ITEM_PICKED'
     DC_DROPPED = 'DC_DROPPED'
     WH_DROPPED = 'WH_DROPPED'
     RETURN_CANCEL = 'RETURN_CANCEL'
     CUSTOMER_ITEM_PICKED = 'CUSTOMER_ITEM_PICKED'
+    RETURN_INITIATED = 'RETURN_INITIATED'
     RETURN_STATUS = (
-        (RETURN_CREATED, 'Return created'),
+        (RETURN_REQUESTED, 'Return requested'),
+        (RETURN_INITIATED, 'Return initiated'),
         (CUSTOMER_ITEM_PICKED, 'Customer item picked'),
         (STORE_ITEM_PICKED, 'Retailer Item Picked'),
         (DC_DROPPED, 'DC Dropped'),
@@ -2142,18 +2139,16 @@ class ReturnOrder(models.Model):
         max_length=50, choices=RETURN_REASON,
         null=True, blank=True, verbose_name='Reason for Return',
     )
-    rt_shop = models.ForeignKey(
-        Shop, related_name='rt_return_orders',
+    seller_shop = models.ForeignKey(
+        Shop, related_name='seller_shop_return_orders',
         null=True, blank=True, on_delete=models.DO_NOTHING
     )
-    wh_shop = models.ForeignKey(
-        Shop, related_name='wh_return_orders',
+    buyer_shop = models.ForeignKey(
+        Shop, related_name='buyer_shop_return_orders',
         null=True, blank=True, on_delete=models.DO_NOTHING
     )
-    product = models.ForeignKey(
-        Product, related_name='rt_product_return_orders',
-        null=True, on_delete=models.DO_NOTHING
-    )
+    buyer = models.ForeignKey(User, related_name='buyer_return_orders', 
+                              null=True, blank=True, on_delete=models.DO_NOTHING)
     return_pickup_method = models.CharField(
         max_length=50, choices=RETURN_PICKUP_METHOD,
         null=True, blank=True, verbose_name='Method for Product pick up'
@@ -2167,14 +2162,44 @@ class ReturnOrder(models.Model):
                                         on_delete=models.DO_NOTHING, 
                                         verbose_name='Return Item Pick up',
                                         related_name='return_item_pickups')
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
     
     class Meta:
         verbose_name = 'Return Order request'
         verbose_name_plural = 'Return Order requests'
 
+
+class ReturnOrderProduct(models.Model):
+    return_order = models.ForeignKey(
+        ReturnOrder, 
+        related_name='return_order_products',
+        on_delete=models.CASCADE
+    )
+    product = models.ForeignKey(
+        Product, related_name='return_order_products',
+        null=True, on_delete=models.DO_NOTHING
+    )
+    retailer_product = models.ForeignKey(
+        "pos.RetailerProduct", related_name='return_order_retailer_products',
+        null=True, on_delete=models.DO_NOTHING
+    )
+    return_qty = models.PositiveIntegerField(default=0, verbose_name="Returned Quantity")
+    return_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    last_modified_by = models.ForeignKey(
+        get_user_model(), related_name='modified_by_return_orders',
+        null=True, on_delete=models.DO_NOTHING
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
     
+    class Meta:
+        verbose_name = 'Return Order Product'
+        verbose_name_plural = 'Return Order Products'
+
+
 class ReturnOrderProductImage(models.Model):
-    return_order = models.ForeignKey(ReturnOrder, 
+    return_order_product = models.ForeignKey(ReturnOrderProduct, 
                                         related_name='return_order_product_images',
                                         on_delete=models.CASCADE
                                         )
