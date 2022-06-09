@@ -331,7 +331,7 @@ def whatsapp_order_delivered(order_number, shop_name, phone_number, points, cred
         whatsapp_user_id = WHATSAPP_API_USERID
         whatsapp_user_password = WHATSAPP_API_PASSWORD
         if credit:
-            msg = urlencode({"msg":"Hi! Your Order no "+order_number+" is successfully delivered, "+str(points)+" reward points are credited in your account. Please shop again at "+shop_name+"."})
+            msg = urlencode({"msg":"Hi! Your Order no "+order_number+" is successfully delivered, "+str(points)+" pep coins are credited in your account. Please shop again at "+shop_name+"."})
         else:
             msg = urlencode({"msg":"Hi! Your Order no "+order_number+" is successfully delivered. Please shop again at "+shop_name+"."})
         data_string = "method=SendMessage&format=json&password=" + whatsapp_user_password + "&send_to=" + phone_number +" +&v=1.1&auth_scheme=plain&&msg_type=HSM&" + msg

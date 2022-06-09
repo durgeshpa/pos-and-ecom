@@ -246,7 +246,7 @@ class RewardPoint(models.Model):
         referral_code_obj = ReferralCode.objects.filter(user=user).last()
         referral_code = referral_code_obj.referral_code if referral_code_obj else ''
         message = SendSms(phone=user.phone_number,
-                          body="Welcome to PepperTap SuperMart, %s reward points are added to your account. "
+                          body="Welcome to PepperTap SuperMart, %s pep coins are added to your account. "
                                "Use these points to get discounts on your next purchases. "
                                "Login and share your referral code:%s with friends and win more points"
                                % (points, referral_code), mask='PEPTAB')
@@ -262,7 +262,7 @@ class RewardPoint(models.Model):
         return str(round(self.redeemable_points / reward_factor, 2)).rstrip('0').rstrip('.')
 
     def __str__(self):
-        return "Reward Points For - {}".format(self.reward_user)
+        return "Pep coins For - {}".format(self.reward_user)
 
 
 class RewardLog(models.Model):
