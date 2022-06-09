@@ -697,7 +697,9 @@ class UploadMasterData(object):
                         category=Category.objects.filter(category_name=row['b2b_category_name'].strip()).last())
 
                 else:
-                    categories = row['b2b_category_name'].split(',')
+                    categories = row['b2b_category_name']
+                    if categories:
+                        categories = categories.split(',')
                     for cat in categories:
                         cat = cat.strip().replace("'", '')
                         ParentProductCategory.objects.create(parent_product=parent_product,
