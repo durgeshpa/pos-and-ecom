@@ -475,10 +475,11 @@ class SearchProducts(APIView):
             filter_list.append({"term": {"sub_category": sub_category_ids}})
 
         if brand:
-            brand = brand.split(',')
-            brand_name = "{}".format(Brand.objects.filter(id__in=list(brand)).last())
+            if brand.isnumeric():
+                brand = brand.split(',')
+                brand = "{}".format(Brand.objects.filter(id__in=list(brand)).last())
             filter_list.append({"match": {
-                "brand": {"query": brand_name, "fuzziness": "AUTO", "operator": "and"}
+                "brand": {"query": brand, "operator": "and"}
             }})
 
         elastic_logger.info("Filter list :: {}".format(filter_list))
@@ -796,11 +797,13 @@ class SearchProducts(APIView):
         if not (category or brand or keyword):
             return query
         if brand:
-            brand = brand.split(',')
-            brand_name = "{}".format(Brand.objects.filter(id__in=list(brand)).last())
+            if brand.isnumeric():
+                brand = brand.split(',')
+                brand = "{}".format(Brand.objects.filter(id__in=list(brand)).last())
             filter_list.append({"match": {
-                "brand": {"query": brand_name, "fuzziness": "AUTO", "operator": "and"}
+                "brand": {"query": brand, "operator": "and"}
             }})
+            # filter_list.append({"term": {"brand": brand}})
         elif keyword:
             q = {"multi_match": {"query": keyword, "fields": ["name^5", "category", "brand"], "type": "cross_fields"}}
             query["bool"]["must"] = [q]
