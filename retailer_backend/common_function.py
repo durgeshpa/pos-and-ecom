@@ -206,6 +206,8 @@ def order_id_pattern_bulk(model, field, instance_id, address):
 def payment_id_pattern(model, field, instance_id, address):
     return common_pattern(model, field, instance_id, address, "PA")
 
+def return_order_id_pattern(model, field, instance_id, address, const="RO"):
+    return common_pattern(model, field, instance_id, address, "RO")
 
 def order_id_pattern_r_gram(order_id):
     """ Order ID pattern
