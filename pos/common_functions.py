@@ -1376,3 +1376,32 @@ def mark_pos_product_online_enabled(product_id):
         instance.online_enabled = True
         instance.online_disabled_status = None
         instance.save()
+
+def cupon_point_update(order, updated_by):
+    """add cupon point affter delivered .."""
+    coupon = order.ordered_cart.offers
+    array = list(filter(lambda d: d['type'] in ['discount'], coupon))
+    discount = 0
+    shop = order.seller_shop
+    for i in array:
+        if i['is_point']:
+            discount += i['discount_value']
+    if not discount:
+        return
+    days = datetime.datetime.today().day
+    date = get_back_date(days)
+    user = order.buyer
+    uses_reward_point = RewardLog.objects.filter(reward_user=user, shop=shop,
+                                                 transaction_type__in=['order_credit', 'order_return_debit',
+                                                                       'order_cancel_debit'], modified_at__gte=date).\
+    aggregate(Sum('points'))
+    this_month_reward_point_credit = abs(uses_reward_point['points__sum']) if uses_reward_point.get('points__sum') else 0
+    if this_month_reward_point_credit + discount > get_config_fofo_shop("Max_Monthly_Points_Added", shop.id):
+        discount = max(get_config_fofo_shop("Max_Monthly_Points_Added", shop.id) - this_month_reward_point_credit, 0)
+    if discount:
+        reward_obj = RewardPoint.objects.select_for_update().filter(reward_user=user).last()
+        if reward_obj:
+            reward_obj.direct_earned += discount
+            reward_obj.save()
+                # Log transaction
+            RewardCls.create_reward_log(user, 'order_credit', order.order_no, discount, updated_by,discount=0, shop=shop)

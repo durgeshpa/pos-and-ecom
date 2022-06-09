@@ -727,7 +727,8 @@ class CheckoutSerializer(serializers.ModelSerializer):
         if offers:
             array = list(filter(lambda d: d['type'] in ['discount'], offers))
             for i in array:
-                discount += i['discount_value']
+                if not i['is_point']:
+                    discount += i['discount_value']
         return round(discount, 2)
 
     def get_amount_payable(self, obj):
@@ -1390,6 +1391,12 @@ def discount_validation(data):
         if data['max_discount'] and current_flat_value > data['max_discount']:
             raise serializers.ValidationError(
                 "Given Maximum Discount should be greater than or equal to {}".format(current_flat_value))
+    elif data['is_point']:
+        if not data['discount_value']:
+            raise serializers.ValidationError("Discount point cannot be blank")
+        if data['max_discount'] and  data['max_discount'] > 0:
+            raise serializers.ValidationError("maximum discount not allowed ")
+
     else:
         if data['discount_value'] > data['order_value']:
             raise serializers.ValidationError("Discount Value must be less than Order Value")
@@ -1497,6 +1504,7 @@ class CouponOfferSerializer(serializers.Serializer):
     coupon_name = serializers.CharField(required=True, max_length=50)
     order_value = serializers.DecimalField(required=True, max_digits=12, decimal_places=2, min_value=0.01)
     is_percentage = serializers.BooleanField(default=0)
+    is_point = serializers.BooleanField(default=0)
     discount_value = serializers.DecimalField(required=True, max_digits=6, decimal_places=2, min_value=0.01)
     max_discount = serializers.DecimalField(max_digits=6, decimal_places=2, default=0, min_value=0)
 
