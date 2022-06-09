@@ -316,3 +316,13 @@ class RewardLog(models.Model):
 class Token(models.Model):
     user = models.ForeignKey(MLMUser, on_delete=models.CASCADE)
     token = models.UUIDField()
+
+
+class UserRating(models.Model):
+    """
+        All ratings done by users
+    """
+    user = models.ForeignKey(User, related_name='user_ratings', on_delete=models.CASCADE)
+    rating = models.PositiveIntegerField(default=0)
+    feedback = models.CharField(max_length=200, null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
