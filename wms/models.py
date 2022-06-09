@@ -843,3 +843,17 @@ class PickupCrate(BaseTimestampUserModel):
     crate = models.ForeignKey(Crate, related_name='crates_pickup', on_delete=models.DO_NOTHING)
     quantity = models.PositiveIntegerField()
     is_in_use = models.BooleanField(default=True)
+
+
+class BinShiftLog(models.Model):
+    warehouse = models.ForeignKey(Shop, related_name='+', on_delete=models.DO_NOTHING, null=False)
+    s_bin = models.ForeignKey(Bin, verbose_name='Source Bin', related_name='+', on_delete=models.DO_NOTHING, null=False)
+    t_bin = models.ForeignKey(Bin, verbose_name='Target Bin', related_name='+', on_delete=models.DO_NOTHING, null=False)
+    sku = models.ForeignKey(Product, to_field='product_sku', related_name='+', on_delete=models.DO_NOTHING)
+    batch_id = models.CharField(max_length=50, null=False)
+    inventory_type = models.ForeignKey(InventoryType, related_name='+', on_delete=models.DO_NOTHING, null=False)
+    qty = models.IntegerField(null=False)
+    created_at = models.DateTimeField(verbose_name="Created at", auto_now_add=True)
+    created_by = models.ForeignKey(
+        get_user_model(), verbose_name="Created by", related_name="+", on_delete=models.DO_NOTHING
+    )

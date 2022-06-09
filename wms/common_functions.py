@@ -25,7 +25,7 @@ from wms.common_validators import get_csv_file_data
 from .models import (Bin, BinInventory, Putaway, PutawayBinInventory, Pickup, WarehouseInventory,
                      InventoryState, InventoryType, WarehouseInternalInventoryChange, In, PickupBinInventory,
                      BinInternalInventoryChange, StockMovementCSVUpload, StockCorrectionChange, OrderReserveRelease,
-                     Audit, Out, Zone, WarehouseAssortment, PickupCrate, QCDeskQCAreaAssignmentMapping)
+                     Audit, Out, Zone, WarehouseAssortment, PickupCrate, QCDeskQCAreaAssignmentMapping, BinShiftLog)
 from wms.common_validators import get_csv_file_data
 
 from shops.models import Shop
@@ -345,18 +345,6 @@ class CommonBinInventoryFunctions(object):
                     total_qty_to_move_from_pickup = 0
 
                 if qty_to_deduct_from_bin_inv > 0:
-                    # CommonBinInventoryFunctions.update_bin_inventory_with_transaction_log(warehouse, source_bin, sku,
-                    #                                                                       batch_id,
-                    #                                                                       inventory_type,
-                    #                                                                       inventory_type,
-                    #                                                                       -1 * qty_to_deduct_from_bin_inv,
-                    #                                                                       True, tr_type_deduct, tr_id)
-                    #
-                    # target_bin_inv_object = CommonBinInventoryFunctions.update_bin_inventory_with_transaction_log(
-                    #     warehouse, target_bin, sku, batch_id, inventory_type, inventory_type,
-                    #     qty_to_deduct_from_bin_inv,
-                    #     True, tr_type_add, tr_id)
-
                     source_bin_inv_object = cls.update_or_create_bin_inventory(warehouse, source_bin, sku, batch_id,
                                                                         inventory_type, -1*qty_to_deduct_from_bin_inv,
                                                                         True)
