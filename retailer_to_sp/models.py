@@ -2098,7 +2098,7 @@ class OrderedProduct(models.Model):  # Shipment
         return True
 
 
-class ReturnOrderRequest(models.Model):
+class ReturnOrder(models.Model):
     DEFECTIVE_DAMAGED_ITEM = 'defective_damaged_item'
     WRONG_ITEM_DELIVERED = 'wrong_item_delivered'
     ITEM_DID_NOT_MATCH_DESCRIPTION = 'item_did_not_match_description'
@@ -2130,11 +2130,11 @@ class ReturnOrderRequest(models.Model):
         (DROP_AT_STORE, 'Drop at Store'),
         (HOME_PICKUP, 'Home Pickup')
     )
-    order_no = models.CharField(max_length=255, null=True, blank=True)
-    ordered_product = models.ForeignKey(OrderedProduct, 
-                                        related_name='rt_order_product_return_orders',
-                                        on_delete=models.CASCADE
-                                        )
+    return_no = models.CharField(max_length=255, null=True, blank=True)
+    shipment = models.ForeignKey(OrderedProduct, 
+                                related_name='shipment_return_orders',
+                                on_delete=models.CASCADE
+                                )
     return_status = models.CharField(max_length=50, choices=RETURN_STATUS,
                                      null=True, blank=True, verbose_name='Status for Return',
                                      )
@@ -2173,8 +2173,8 @@ class ReturnOrderRequest(models.Model):
         verbose_name_plural = 'Return Order requests'
 
     
-class ReturnOrderRequestProductImage(models.Model):
-    return_order = models.ForeignKey(ReturnOrderRequest, 
+class ReturnOrderProductImage(models.Model):
+    return_order = models.ForeignKey(ReturnOrder, 
                                         related_name='return_order_product_images',
                                         on_delete=models.CASCADE
                                         )
@@ -2186,8 +2186,8 @@ class ReturnOrderRequestProductImage(models.Model):
         return f"{self.return_order} | Return Image"
     
     class Meta:
-        verbose_name = "Return Request Product Image"
-        verbose_name_plural = "Return Request Product Images"
+        verbose_name = "Return Order Product Image"
+        verbose_name_plural = "Return Order Product Images"
 
 
 class Invoice(models.Model):
@@ -3341,10 +3341,10 @@ def create_order_no(sender, instance=None, created=False, **kwargs):
         Cart.objects.filter(id=instance.ordered_cart.id).update(order_id=instance.order_no)
 
 
-@receiver(post_save, sender=ReturnOrderRequest)
+@receiver(post_save, sender=ReturnOrder)
 def create_return_order_no(sender, instance=None, created=False, **kwargs):
     if not instance.order_no and instance.rt_shop:
-        instance.order_no = common_function.return_order_id_pattern(
+        instance.return_no = common_function.return_order_id_pattern(
             sender, 'order_no', instance.pk, 
             instance.seller_shop.
                     shop_name_address_mapping.filter(
