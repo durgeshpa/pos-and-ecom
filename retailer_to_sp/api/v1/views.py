@@ -3459,13 +3459,13 @@ class OrderCentral(APIView):
                     if not return_order.return_status == ReturnOrder.RETURN_REQUESTED:
                         return api_response("Pick up can only be assigned for return requested order")
                     if not return_order.return_pickup_method == ReturnOrder.HOME_PICKUP:
-                        return api_response("Pick up for order cannot be assigned")
+                        return api_response("Pick up for order can only be assigned for home pickup")
                     try:
                         return_pickup_person = User.objects.get(id=self.request.data.get('return_pickup_person'))
                     except:
                         return api_response("Please select a Pick up person")
                     return_order.return_status = ReturnOrder.RETURN_INITIATED
-                    return_order.return_pickup_person = return_pickup_person
+                    return_order.return_item_pickup_person = return_pickup_person
                     return_order.save()
                     return api_response("Pick up person assigned")
                 except ReturnOrder.DoesNotExist:
@@ -3477,6 +3477,9 @@ class OrderCentral(APIView):
                         seller_shop=kwargs['shop'],
                         buyer=self.request.user
                     )
+                    if return_order.return_pickup_method == ReturnOrder.HOME_PICKUP and \
+                        not return_order.return_status == ReturnOrder.RETURN_INITIATED:
+                        return api_response("Pick up boy not assigned for home pick up.")    
                     return_order.return_status = ReturnOrder.CUSTOMER_ITEM_PICKED
                     return_order.save()
                     # self.create_retailer_side_return_order(shipment, order_product_mapping)
