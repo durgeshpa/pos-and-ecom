@@ -109,7 +109,7 @@ class BasicCartOffers(object):
             offer = 'Shop for ₹' + str(coupons[0]['cart_minimum_value']).rstrip('0').rstrip('.') + ' and get additional '
             if coupons[0]['is_percentage']:
                 offer += str(coupons[0]['discount']).rstrip('0').rstrip('.') + '% Off.'
-            elif coupons[0]['is_point']:
+            elif coupons[0].get('is_point',False):
                 offer += str(coupons[0]['discount']).rstrip('0').rstrip('.') + 'point.'
             else:
                 offer += '₹' + str(coupons[0]['discount']).rstrip('0').rstrip('.') + ' Off.'
