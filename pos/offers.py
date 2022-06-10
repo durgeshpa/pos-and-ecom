@@ -3,6 +3,7 @@ from datetime import datetime
 from elasticsearch import Elasticsearch
 
 from retailer_to_sp.models import Cart
+from coupon.models import Coupon
 from pos.models import RetailerProduct
 from retailer_backend.settings import ELASTICSEARCH_PREFIX as es_prefix, es
 
@@ -42,6 +43,20 @@ class BasicCartOffers(object):
             # Get nearest cart offer over cart value
             offer = BasicCartOffers.get_cart_nearest_offer(cart, cart_products)
         return offer
+    @staticmethod
+    def get_offer_applied_count(buyer, coupon_id, expiry_date, created_at):
+        carts = Cart.objects.filter(buyer=buyer,created_at__gte=created_at, created_at__lte=expiry_date )
+        count =0
+        for cart in carts:
+            offers = cart.offers
+            if offers:
+                array = list(filter(lambda d: d['type'] in ['discount'], offers))
+                for i in array:
+                    if int(coupon_id) == i.get('coupon_id'):
+                        count +=1
+        return count
+
+
 
     @classmethod
     def refresh_offers_checkout(cls, cart, auto_apply=False, coupon_id=None):
@@ -53,6 +68,16 @@ class BasicCartOffers(object):
         cart_products = cart.rt_cart_list.all()
         cart_value = 0
         offers_list = []
+        if coupon_id:
+            coupon = Coupon.objects.get(id=coupon_id)
+            limit_of_usages_per_customer = coupon.limit_of_usages_per_customer
+            count = cls.get_offer_applied_count(cart.buyer, coupon_id, coupon.expiry_date, coupon.start_date)
+            if limit_of_usages_per_customer and count >= limit_of_usages_per_customer:
+                offers_list ={}
+                offers_list['applied'] = False
+                return offers_list
+
+
         if cart_products:
             for product_mapping in cart_products:
                 cart_value += product_mapping.selling_price * product_mapping.qty
@@ -109,7 +134,7 @@ class BasicCartOffers(object):
             offer = 'Shop for ₹' + str(coupons[0]['cart_minimum_value']).rstrip('0').rstrip('.') + ' and get additional '
             if coupons[0]['is_percentage']:
                 offer += str(coupons[0]['discount']).rstrip('0').rstrip('.') + '% Off.'
-            elif coupons[0]['is_point']:
+            elif coupons[0].get('is_point'):
                 offer += str(coupons[0]['discount']).rstrip('0').rstrip('.') + 'point.'
             else:
                 offer += '₹' + str(coupons[0]['discount']).rstrip('0').rstrip('.') + ' Off.'
