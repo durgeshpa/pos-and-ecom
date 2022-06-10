@@ -46,6 +46,9 @@ from ecom.models import Address as UserAddress
 from pos.api.v1.serializers import PaymentSerializer
 from accounts.api.v1.serializers import PosUserSerializer
 from ecom.api.v1.serializers import EcomOrderAddressSerializer
+from global_config.views import get_config
+from datetime import timedelta
+
 
 User = get_user_model()
 
@@ -5554,11 +5557,17 @@ class SuperStoreOrderListSerializer(serializers.ModelSerializer):
             elif retailer_order_status == Order.DISPATCHED:
                 return Order.DISPATCHED
             elif retailer_order_status == Order.COMPLETED:
-                shipment_status = instance.ordered_product.shipment_status
+                shipment = instance.ordered_product
+                shipment_status = shipment.shipment_status
                 if shipment_status in [OrderedProduct.OUT_FOR_DELIVERY,
                                        OrderedProduct.DELIVERED,
                                        OrderedProduct.RESCHEDULED]:
                     return shipment_status
+                elif shipment.is_returned:
+                    return_order = shipment.shipment_return_orders.filter(return_order_products=instance.product,
+                                                                          seller_shop=shipment.seller_shop,
+                                                                          buyer=shipment.buyer).last()
+                    return return_order.return_status
                 else:
                     return Order.COMPLETED
             else:
@@ -5694,11 +5703,17 @@ class SuperStoreOrderDetailSerializer(serializers.ModelSerializer):
             elif retailer_order_status == Order.DISPATCHED:
                 return Order.DISPATCHED
             elif retailer_order_status == Order.COMPLETED:
-                shipment_status = instance.ordered_product.shipment_status
+                shipment = instance.ordered_product
+                shipment_status = shipment.shipment_status
                 if shipment_status in [OrderedProduct.OUT_FOR_DELIVERY,
                                        OrderedProduct.DELIVERED,
                                        OrderedProduct.RESCHEDULED]:
                     return shipment_status
+                elif shipment.is_returned:
+                    return_order = shipment.shipment_return_orders.filter(return_order_products=instance.product,
+                                                                          seller_shop=shipment.seller_shop,
+                                                                          buyer=shipment.buyer).last()
+                    return return_order.return_status
                 else:
                     return Order.COMPLETED
             else:
@@ -5714,11 +5729,23 @@ class SuperStoreOrderDetailSerializer(serializers.ModelSerializer):
             x = User.objects.filter(id=instance.ordered_product.delivery_person_id).last()
             return {"name": x.first_name, "phone_number": x.phone_number} if x else None
         return None
-        
+    
+    is_returnable = serializers.SerializerMethodField()
+    def get_is_returnable(self, instance):
+        shipment = instance.ordered_product
+        if shipment.shipment_status == OrderedProduct.DELIVERED:
+            pos_trip = shipment.pos_trips.filter(trip_type='SUPERSTORE').last()
+            return_period_offset = get_config('superstore_order_return_buffer', 72)
+            return_window = pos_trip.trip_end_at + timedelta(hours=return_period_offset)
+            if return_window > datetime.datetime.now():
+                return True
+            else:
+                return False
+        return False
     
     class Meta:
         model = RetailerOrderedProductMapping
         fields = ('id', 'order_no', 'shipment_status', 'loyalty_points', 'delivery_type',
                   'qty_and_total_amount', 'ordered_from', 'address', 'discount', 'delivery_persons',
-                  'payment', 'buyer', 'invoice', 'product', 'order_status', 'expected_delivery_date',
+                  'payment', 'buyer', 'invoice', 'product', 'order_status', 'expected_delivery_date', 'is_returnable',
                   'created_at')

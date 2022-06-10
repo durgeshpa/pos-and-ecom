@@ -3372,9 +3372,9 @@ def create_order_no(sender, instance=None, created=False, **kwargs):
 
 @receiver(post_save, sender=ReturnOrder)
 def create_return_order_no(sender, instance=None, created=False, **kwargs):
-    if not instance.order_no and instance.rt_shop:
+    if not instance.return_no and instance.seller_shop:
         instance.return_no = common_function.return_order_id_pattern(
-            sender, 'order_no', instance.pk, 
+            sender, 'return_no', instance.pk, 
             instance.seller_shop.
                     shop_name_address_mapping.filter(
                     address_type='billing').last().pk
