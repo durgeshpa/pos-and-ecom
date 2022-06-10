@@ -1676,7 +1676,7 @@ class OrderedProduct(models.Model):  # Shipment
     MANUFACTURING_DEFECT = "DEFECT"
     SHORT = 'SHORT'
     REASON_NOT_ENTERED_BY_DELIVERY_BOY = 'rsn_not_ent_by_dlv_boy'
-
+    
     RETURN_REASON = (
         (CASH_NOT_AVAILABLE, 'Cash not available'),
         (SHOP_CLOSED, 'Shop Closed'),
@@ -1698,6 +1698,7 @@ class OrderedProduct(models.Model):  # Shipment
         (SHORT, 'Item short'),
         (REASON_NOT_ENTERED_BY_DELIVERY_BOY, 'Reason not entered by Delivery Boy')
     )
+    
     order = models.ForeignKey(
         Order, related_name='rt_order_order_product',
         on_delete=models.DO_NOTHING, null=True, blank=True
@@ -1741,7 +1742,7 @@ class OrderedProduct(models.Model):  # Shipment
         null=True, blank=True, on_delete=models.DO_NOTHING
     )
     delivery_person = models.ForeignKey(UserWithName, 
-                                        null=True, 
+                                        null=True,
                                         on_delete=models.DO_NOTHING, 
                                         verbose_name='Delivery Boy',
                                         related_name='shipment_deliveries')
@@ -1752,6 +1753,7 @@ class OrderedProduct(models.Model):  # Shipment
                                       blank=True)
     qc_started_at = models.DateTimeField(null=True, blank=True)
     qc_completed_at = models.DateTimeField(null=True, blank=True)
+    is_returned = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Invoice Date")
     modified_at = models.DateTimeField(auto_now=True)
 
@@ -2089,6 +2091,128 @@ class OrderedProduct(models.Model):  # Shipment
                 self.order.seller_shop.shop_name_address_mapping.last().state_id:
             return False
         return True
+
+
+class ReturnOrder(models.Model):
+    DEFECTIVE_DAMAGED_ITEM = 'defective_damaged_item'
+    WRONG_ITEM_DELIVERED = 'wrong_item_delivered'
+    ITEM_DID_NOT_MATCH_DESCRIPTION = 'item_did_not_match_description'
+    OTHER = 'other'
+    RETURN_REASON = (
+        (DEFECTIVE_DAMAGED_ITEM, 'Defective / Damaged item'),
+        (WRONG_ITEM_DELIVERED, 'Wrong item delivered'),
+        (ITEM_DID_NOT_MATCH_DESCRIPTION, 'Item did not match description'),
+        (OTHER, 'other reason')
+    )
+    RETURN_REQUESTED = 'RETURN_REQUESTED'
+    STORE_ITEM_PICKED = 'STORE_ITEM_PICKED'
+    DC_DROPPED = 'DC_DROPPED'
+    WH_DROPPED = 'WH_DROPPED'
+    RETURN_CANCEL = 'RETURN_CANCEL'
+    CUSTOMER_ITEM_PICKED = 'CUSTOMER_ITEM_PICKED'
+    RETURN_INITIATED = 'RETURN_INITIATED'
+    RETURN_STATUS = (
+        (RETURN_REQUESTED, 'Return requested'),
+        (RETURN_INITIATED, 'Return initiated'),
+        (CUSTOMER_ITEM_PICKED, 'Customer item picked'),
+        (STORE_ITEM_PICKED, 'Retailer Item Picked'),
+        (DC_DROPPED, 'DC Dropped'),
+        (WH_DROPPED, 'WH Dropped'),
+        (RETURN_CANCEL, 'Return cancelled')
+    )
+    DROP_AT_STORE = 'DROP_AT_STORE'
+    HOME_PICKUP = 'HOME_PICKUP'
+    
+    RETURN_PICKUP_METHOD = (
+        (DROP_AT_STORE, 'Drop at Store'),
+        (HOME_PICKUP, 'Home Pickup')
+    )
+    return_no = models.CharField(max_length=255, null=True, blank=True)
+    shipment = models.ForeignKey(OrderedProduct, 
+                                related_name='shipment_return_orders',
+                                on_delete=models.CASCADE
+                                )
+    return_status = models.CharField(max_length=50, choices=RETURN_STATUS,
+                                     null=True, blank=True, verbose_name='Status for Return',
+                                     )
+    return_reason = models.CharField(
+        max_length=50, choices=RETURN_REASON,
+        null=True, blank=True, verbose_name='Reason for Return',
+    )
+    seller_shop = models.ForeignKey(
+        Shop, related_name='seller_shop_return_orders',
+        null=True, blank=True, on_delete=models.DO_NOTHING
+    )
+    buyer_shop = models.ForeignKey(
+        Shop, related_name='buyer_shop_return_orders',
+        null=True, blank=True, on_delete=models.DO_NOTHING
+    )
+    buyer = models.ForeignKey(User, related_name='buyer_return_orders', 
+                              null=True, blank=True, on_delete=models.DO_NOTHING)
+    return_pickup_method = models.CharField(
+        max_length=50, choices=RETURN_PICKUP_METHOD,
+        null=True, blank=True, verbose_name='Method for Product pick up'
+    )
+    other_return_reason = models.CharField(
+        max_length=100, null=True, blank=True, 
+        verbose_name='Verbose return reason'
+    )
+    return_item_pickup_person = models.ForeignKey(UserWithName, 
+                                        null=True,
+                                        on_delete=models.DO_NOTHING, 
+                                        verbose_name='Return Item Pick up',
+                                        related_name='return_item_pickups')
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        verbose_name = 'Return Order request'
+        verbose_name_plural = 'Return Order requests'
+
+
+class ReturnOrderProduct(models.Model):
+    return_order = models.ForeignKey(
+        ReturnOrder, 
+        related_name='return_order_products',
+        on_delete=models.CASCADE
+    )
+    product = models.ForeignKey(
+        Product, related_name='return_order_products',
+        null=True, on_delete=models.DO_NOTHING
+    )
+    retailer_product = models.ForeignKey(
+        "pos.RetailerProduct", related_name='return_order_retailer_products',
+        null=True, on_delete=models.DO_NOTHING
+    )
+    return_qty = models.PositiveIntegerField(default=0, verbose_name="Returned Quantity")
+    return_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    last_modified_by = models.ForeignKey(
+        get_user_model(), related_name='modified_by_return_orders',
+        null=True, on_delete=models.DO_NOTHING
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        verbose_name = 'Return Order Product'
+        verbose_name_plural = 'Return Order Products'
+
+
+class ReturnOrderProductImage(models.Model):
+    return_order_product = models.ForeignKey(ReturnOrderProduct, 
+                                        related_name='return_order_product_images',
+                                        on_delete=models.CASCADE
+                                        )
+    return_image = models.FileField(upload_to='return_photos/documents/')
+    created_at = models.DateTimeField(auto_now_add=True, null=True)
+    
+    
+    def __str__(self):
+        return f"{self.return_order} | Return Image"
+    
+    class Meta:
+        verbose_name = "Return Order Product Image"
+        verbose_name_plural = "Return Order Product Images"
 
 
 class Invoice(models.Model):
@@ -3240,6 +3364,18 @@ def create_order_no(sender, instance=None, created=False, **kwargs):
         instance.save()
         # Update order id in cart
         Cart.objects.filter(id=instance.ordered_cart.id).update(order_id=instance.order_no)
+
+
+@receiver(post_save, sender=ReturnOrder)
+def create_return_order_no(sender, instance=None, created=False, **kwargs):
+    if not instance.order_no and instance.rt_shop:
+        instance.return_no = common_function.return_order_id_pattern(
+            sender, 'order_no', instance.pk, 
+            instance.seller_shop.
+                    shop_name_address_mapping.filter(
+                    address_type='billing').last().pk
+        )
+        instance.save()
 
 
 @receiver(post_save, sender=Payment)
