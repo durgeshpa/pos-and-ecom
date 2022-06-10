@@ -1,13 +1,16 @@
 from rest_framework.generics import GenericAPIView
 from rest_framework import status
+import logging
 from rest_framework.response import Response
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.permissions import IsAuthenticated
 from rest_auth.authentication import TokenAuthentication
 from django.core.exceptions import ObjectDoesNotExist
+from products.common_function import get_response
 
-from marketing.models import RewardPoint, Profile
+from marketing.models import RewardPoint, Profile, UserRating
 from marketing.serializers import RewardsSerializer, ProfileUploadSerializer
+info_logger = logging.getLogger('file-info')
 
 
 class RewardsDashboard(GenericAPIView):
@@ -69,3 +72,63 @@ class UploadProfile(GenericAPIView):
                     result = ''.join('{} : {}'.format(field, error))
                 errors.append(result)
         return errors
+
+
+class RatingFeedback(GenericAPIView):
+    permission_classes = (IsAuthenticated,)
+    authentication_classes = (TokenAuthentication,)
+
+    def post(self, request):
+        """
+            Store ratings given by user
+        """
+        user = self.request.user
+        pop_up = self.request.data.get("pop_up")
+        rating = self.request.data.get("rating")
+        code = 1
+        msg = ""
+        try:
+            if pop_up:
+                ratingobj = UserRating.objects.filter(user=user).last()
+                if not ratingobj or ratingobj.rating < 4:
+                    msg = "Show PopUp Rating Screen"
+                    code = 2
+                    return get_response(msg, data=code)
+                msg = "Don't Show PopUp Rating Screen"
+                return get_response(msg, data=code)
+            else:
+                if int(rating) > 3:
+                    ratingobj = UserRating.objects.filter(user=user).last()
+                    if not ratingobj or ratingobj.rating < 4:
+                        msg = "We are glad you're enjoying our app. Please rate us on Playstore"
+                        code = 2
+                else:
+                    msg = "Oh! Help us to assist you better!"
+                    code = 3
+                if code != 1:
+                    UserRating.objects.create(
+                        user=user,
+                        rating=int(rating),
+                    )
+                    return get_response(msg, data=code)
+                return get_response(msg, data=code)
+        except:
+            info_logger.info("User rating not created for user :: {}".format(user))
+
+
+    def put(self, request):
+        """
+            Update feedback given by user
+        """
+        user = self.request.user
+        feedback = self.request.data.get("feedback")
+        try:
+            if feedback:
+                ratingobj = UserRating.objects.filter(user=user).last()
+                if ratingobj:
+                    ratingobj.feedback = feedback
+                    ratingobj.save()
+                return get_response("Feedback updated")
+
+        except:
+            info_logger.info("User feedback not created for user :: {} with id :: {}".format(user, ratingobj.id))
