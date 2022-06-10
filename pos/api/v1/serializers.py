@@ -1415,11 +1415,11 @@ def date_validation(data):
     if data['end_date'] < datetime.date.today():
         raise serializers.ValidationError("End Date should be greater than today's date")
 
+
 class OfferCreateSerializer(serializers.Serializer):
     offer_type = serializers.ChoiceField(choices=[1, 2, 3])
     start_date = serializers.DateField(required=True)
     end_date = serializers.DateField(required=True)
-    limit_of_usages_per_customer = serializers.IntegerField(required=False)
 
     def validate(self, data):
         date_validation(data)
@@ -1444,8 +1444,6 @@ class OfferUpdateSerializer(serializers.Serializer):
     is_active = serializers.BooleanField(required=False)
     offer_type = serializers.SerializerMethodField()
     shop_id = serializers.IntegerField()
-    limit_of_usages_per_customer = serializers.IntegerField(required=False)
-
 
     def validate(self, data):
         if data.get('start_date') and data.get('end_date'):

@@ -404,7 +404,7 @@ class RetailerCouponAdmin(admin.ModelAdmin):
         return qs.filter(shop__pos_shop__user=request.user,
                          shop__pos_shop__status=True)
 
-    fields = ('rule', 'coupon_code', 'coupon_name', 'coupon_type', 'is_active', 'created_at', 'expiry_date', 'limit_of_usages_per_customer')
+    fields = ('rule', 'coupon_code', 'coupon_name', 'coupon_type', 'is_active', 'created_at', 'expiry_date')
     list_display = ('rule', 'coupon_code', 'coupon_name', 'coupon_type', 'is_active', 'created_at', 'expiry_date')
     list_filter = (CouponCodeFilter, CouponNameFilter, 'coupon_type', 'is_active')
     list_per_page = 10

@@ -468,7 +468,7 @@ class CouponOfferCreation(GenericAPIView):
             return api_response(coupon_obj)
         else:
             coupon = OffersCls.rule_set_cart_mapping(coupon_obj.id, 'cart', data['coupon_name'], coupon_code, shop,
-                                                     start_date, expiry_date, data.get('limit_of_usages_per_customer', None))
+                                                     start_date, expiry_date)
             data['id'] = coupon.id
             return api_response("Coupon Offer has been created successfully!", data, status.HTTP_200_OK, True)
 
@@ -516,7 +516,7 @@ class CouponOfferCreation(GenericAPIView):
                                            retailer_free_product_obj, free_product_qty, combo_offer_name, start_date,
                                            expiry_date)
         coupon = OffersCls.rule_set_cart_mapping(coupon_obj.id, 'catalog', combo_offer_name, combo_code, shop,
-                                                 start_date, expiry_date, data.get('limit_of_usages_per_customer',None))
+                                                 start_date, expiry_date)
         data['id'] = coupon.id
         return api_response("Combo Offer has been created successfully!", data, status.HTTP_200_OK, True)
 
@@ -553,7 +553,7 @@ class CouponOfferCreation(GenericAPIView):
         if type(coupon_obj) == str:
             return api_response(coupon_obj)
         coupon = OffersCls.rule_set_cart_mapping(coupon_obj.id, 'cart', coupon_name, coupon_code, shop, start_date,
-                                                 expiry_date, data.get('limit_of_usages_per_customer',None))
+                                                 expiry_date)
         data['id'] = coupon.id
         return api_response("Free Product Offer has been created successfully!", data, status.HTTP_200_OK, True)
 
@@ -577,7 +577,6 @@ class CouponOfferCreation(GenericAPIView):
         if 'is_active' in data:
             rule.is_active = coupon.is_active = data['is_active']
         rule.save()
-        coupon.limit_of_usages_per_customer = data.get('limit_of_usages_per_customer',coupon.limit_of_usages_per_customer)
         coupon.save()
         return api_response(success_msg, None, status.HTTP_200_OK, True)
 
@@ -608,7 +607,6 @@ class CouponOfferCreation(GenericAPIView):
             rule_set_product_mapping.is_active = rule.is_active = coupon.is_active = data['is_active']
         rule.save()
         rule_set_product_mapping.save()
-        coupon.limit_of_usages_per_customer = data.get('limit_of_usages_per_customer',coupon.limit_of_usages_per_customer)
         coupon.save()
         return api_response(success_msg, None, status.HTTP_200_OK, True)
 
@@ -632,7 +630,6 @@ class CouponOfferCreation(GenericAPIView):
         if 'is_active' in data:
             rule.is_active = coupon.is_active = data['is_active']
         rule.save()
-        coupon.limit_of_usages_per_customer = data.get('limit_of_usages_per_customer',coupon.limit_of_usages_per_customer)
         coupon.save()
         return api_response(success_msg, None, status.HTTP_200_OK, True)
 
