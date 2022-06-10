@@ -72,7 +72,7 @@ class BasicCartOffers(object):
             coupon = Coupon.objects.get(id=coupon_id)
             limit_of_usages_per_customer = coupon.limit_of_usages_per_customer
             count = cls.get_offer_applied_count(cart.buyer, coupon_id, coupon.expiry_date, coupon.start_date)
-            if count >= limit_of_usages_per_customer:
+            if limit_of_usages_per_customer and count >= limit_of_usages_per_customer:
                 offers_list ={}
                 offers_list['applied'] = False
                 return offers_list

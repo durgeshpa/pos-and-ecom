@@ -1430,15 +1430,12 @@ def date_validation(data):
     """
     if data['end_date'] < datetime.date.today():
         raise serializers.ValidationError("End Date should be greater than today's date")
-    if not data.get('limit_of_usages_per_customer', None):
-        raise serializers.ValidationError("coupon uses limit is required")
-
 
 class OfferCreateSerializer(serializers.Serializer):
     offer_type = serializers.ChoiceField(choices=[1, 2, 3])
     start_date = serializers.DateField(required=True)
     end_date = serializers.DateField(required=True)
-    limit_of_usages_per_customer = serializers.IntegerField(required=True)
+    limit_of_usages_per_customer = serializers.IntegerField(required=False)
 
     def validate(self, data):
         date_validation(data)
