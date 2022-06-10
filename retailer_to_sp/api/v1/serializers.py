@@ -5546,15 +5546,15 @@ class SuperStoreOrderListSerializer(serializers.ModelSerializer):
             elif retailer_order_status == Order.COMPLETED:
                 shipment = instance.ordered_product
                 shipment_status = shipment.shipment_status
-                if shipment_status in [OrderedProduct.OUT_FOR_DELIVERY,
+                if shipment.is_returned:
+                    return_order = shipment.shipment_return_orders.filter(return_order_products__product=instance.product,
+                                                                          seller_shop=shipment.order.seller_shop,
+                                                                          buyer=shipment.order.buyer).last()
+                    return return_order.return_status
+                elif shipment_status in [OrderedProduct.OUT_FOR_DELIVERY,
                                        OrderedProduct.DELIVERED,
                                        OrderedProduct.RESCHEDULED]:
                     return shipment_status
-                elif shipment.is_returned:
-                    return_order = shipment.shipment_return_orders.filter(return_order_products=instance.product,
-                                                                          seller_shop=shipment.seller_shop,
-                                                                          buyer=shipment.buyer).last()
-                    return return_order.return_status
                 else:
                     return Order.COMPLETED
             else:
@@ -5565,9 +5565,9 @@ class SuperStoreOrderListSerializer(serializers.ModelSerializer):
     delivery_persons = serializers.SerializerMethodField()
     def get_delivery_persons(self, instance):
 
-        if instance.ordered_product.shipment_status == "OUT_FOR_DELIVERY":
-            x = User.objects.filter(id=instance.ordered_product.delivery_person_id)[:1:]
-            return {"name": x[0].first_name, "phone_number": x[0].phone_number}
+        if instance.ordered_product.shipment_status == "DELIVERED":
+            x = User.objects.filter(id=instance.ordered_product.delivery_person_id).last()
+            return {"name": x.first_name, "phone_number": x.phone_number} if x else None
         return None
     
     product = ProductSerializer(read_only=True)
@@ -5692,15 +5692,15 @@ class SuperStoreOrderDetailSerializer(serializers.ModelSerializer):
             elif retailer_order_status == Order.COMPLETED:
                 shipment = instance.ordered_product
                 shipment_status = shipment.shipment_status
-                if shipment_status in [OrderedProduct.OUT_FOR_DELIVERY,
-                                       OrderedProduct.DELIVERED,
-                                       OrderedProduct.RESCHEDULED]:
-                    return shipment_status
-                elif shipment.is_returned:
+                if shipment.is_returned:
                     return_order = shipment.shipment_return_orders.filter(return_order_products=instance.product,
                                                                           seller_shop=shipment.seller_shop,
                                                                           buyer=shipment.buyer).last()
                     return return_order.return_status
+                elif shipment_status in [OrderedProduct.OUT_FOR_DELIVERY,
+                                       OrderedProduct.DELIVERED,
+                                       OrderedProduct.RESCHEDULED]:
+                    return shipment_status
                 else:
                     return Order.COMPLETED
             else:
