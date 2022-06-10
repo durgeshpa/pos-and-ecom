@@ -84,13 +84,14 @@ from retailer_to_sp.common_function import check_date_range, capping_check, gene
 from retailer_to_sp.common_function import dispatch_trip_search, trip_search
 from retailer_to_sp.common_function import getShopLicenseNumber, getShopCINNumber, getGSTINNumber, getShopPANNumber
 from retailer_to_sp.models import (Cart, CartProductMapping, CreditNote, Order, OrderedProduct, Payment, CustomerCare,
-                                   Feedback, OrderedProductMapping as ShipmentProducts, Trip, PickerDashboard,
+                                   Feedback, OrderedProductMapping as ShipmentProducts, Return, Trip, PickerDashboard,
                                    ShipmentRescheduling, Note, OrderedProductBatch,
                                    OrderReturn, ReturnItems, OrderedProductMapping, ShipmentPackaging,
                                    DispatchTrip, DispatchTripShipmentMapping, INVOICE_AVAILABILITY_CHOICES,
                                    DispatchTripShipmentPackages, LastMileTripShipmentMapping, PACKAGE_VERIFY_CHOICES,
                                    DispatchTripCrateMapping, ShipmentPackagingMapping, TRIP_TYPE_CHOICE, ShopCrate,
-                                   LastMileTripShipmentPackages, ShipmentNotAttempt, RoundAmount)
+                                   LastMileTripShipmentPackages, ShipmentNotAttempt, RoundAmount, 
+                                   ReturnOrder, ReturnOrderProduct, ReturnOrderProductImage)
 from retailer_to_sp.tasks import send_invoice_pdf_email, insert_search_term
 from shops.api.v1.serializers import ShopBasicSerializer
 from sp_to_gram.models import OrderedProductReserved
@@ -3345,7 +3346,8 @@ class OrderCentral(APIView):
                 return api_response("Order not found")
 
             order_status = self.request.data.get('status')
-            allowed_status = [OrderedProduct.OUT_FOR_DELIVERY, OrderedProduct.DELIVERED]
+            allowed_status = [OrderedProduct.OUT_FOR_DELIVERY, OrderedProduct.DELIVERED, ReturnOrder.RETURN_REQUESTED, 
+                              ReturnOrder.RETURN_INITIATED, ReturnOrder.CUSTOMER_ITEM_PICKED]
             if order_status not in allowed_status:
                 return api_response("Please Provide valid status for order updation")
             if order_status == OrderedProduct.OUT_FOR_DELIVERY:
@@ -3374,12 +3376,20 @@ class OrderCentral(APIView):
                 pos_trip.trip_start_at = datetime.now()
                 pos_trip.save()
                 sms_out_for_delivery(shipment.order.buyer.first_name, shipment.order.buyer.phone_number)
-            else:
+            elif order_status == OrderedProduct.DELIVERED:
                 if shipment.order.delivery_option == '1':
                     shipment.shipment_status = order_status
                     shipment.save()
                     order_product_mapping.delivered_qty= order_product_mapping.shipped_qty
                     order_product_mapping.save()
+                    if shipment.pos_trips.filter(trip_type='SUPERSTORE').exists():
+                        pos_trip = shipment.pos_trips.filter(trip_type='SUPERSTORE').last()
+                    else:
+                        pos_trip = PosTrip.objects.create(trip_type='SUPERSTORE',
+                                                          shipment=shipment)
+                    pos_trip.trip_start_at = datetime.now()
+                    pos_trip.trip_end_at = datetime.now()
+                    pos_trip.save()
                 else:
                     shipment.shipment_status = order_status
                     shipment.save()
@@ -3393,6 +3403,74 @@ class OrderCentral(APIView):
                     pos_trip.trip_end_at = datetime.now()
                     pos_trip.save()
                     sms_order_delivered(shipment.order.buyer.first_name, shipment.order.buyer.phone_number)
+            elif order_status == ReturnOrder.RETURN_REQUESTED:
+                if not shipment.shipment_status == OrderedProduct.DELIVERED:
+                    return api_response('Products can only be returned after they are delivered.')
+                pos_trip = shipment.pos_trips.filter(trip_type='SUPERSTORE').last()
+                return_period_offset = get_config('superstore_order_return_buffer', 72)
+                return_window = pos_trip.trip_end_at + timedelta(hours=return_period_offset)
+                if return_window > datetime.now():
+                    return api_response("Return window is over you cannot return the item now.")
+                return_reason = request.data.get('return_reason')
+                if not return_reason:
+                    return api_response('Please provide a reason for return.')
+                other_return_reason = request.data.get('other_return_reason')
+                if return_reason == ReturnOrder.OTHER and not other_return_reason:
+                    return api_response('Please provide a brief reason for return.')
+                return_pickup_method = request.data.get('return_method')
+                if not return_pickup_method:
+                    return api_response('Please provide a pick up method for return.')
+                return_qty = request.data.get('return_qty')
+                if not return_qty:
+                    return api_response('Please provide return quantity of the item.')
+                if return_qty > order_product_mapping.delivered_qty:
+                    return api_response('Return quantity cannot be more than delivered quantity')
+                return_order = self.create_return_order(shipment, 
+                                                        order_product_mapping,
+                                                        return_reason, 
+                                                        other_return_reason, 
+                                                        return_pickup_method,
+                                                        kwargs['shop'],
+                                                        return_qty)
+                shipment.is_returned = True
+                shipment.save()
+                return api_response("Return requested successfully", response, status.HTTP_200_OK, True)
+            elif order_status == ReturnOrder.RETURN_INITIATED:
+                try:
+                    return_order = ReturnOrder.objects.select_for_update().get(
+                        shipment=shipment,
+                        seller_shop=kwargs['shop'],
+                        buyer=self.request.user,
+                        return_status=ReturnOrder.RETURN_REQUESTED
+                    )
+                    if not return_order.return_status == ReturnOrder.RETURN_REQUESTED:
+                        return api_response("Pick up can only be assigned for return requested order")
+                    if not return_order.return_pickup_method == ReturnOrder.HOME_PICKUP:
+                        return api_response("Pick up for order cannot be assigned")
+                    try:
+                        return_pickup_person = User.objects.get(id=self.request.data.get('return_pickup_person'))
+                    except:
+                        return api_response("Please select a Pick up person")
+                    return_order.return_status = ReturnOrder.RETURN_INITIATED
+                    return_order.return_pickup_person = return_pickup_person
+                    return_order.save()
+                    return api_response("Pick up person assigned")
+                except ReturnOrder.DoesNotExist:
+                    return api_response("Return Order not Found")
+            elif order_status == ReturnOrder.CUSTOMER_ITEM_PICKED:
+                try:
+                    return_order = ReturnOrder.objects.select_for_update().get(
+                        shipment=shipment,
+                        seller_shop=kwargs['shop'],
+                        buyer=self.request.user
+                    )
+                    return_order.return_status = ReturnOrder.CUSTOMER_ITEM_PICKED
+                    return_order.save()
+                    # self.create_retailer_side_return_order(shipment, order_product_mapping)
+                    return api_response("Return product picked up")
+                except ReturnOrder.DoesNotExist:
+                    return api_response("Return Order not found")
+                
             return api_response("Order updated successfully!", response, status.HTTP_200_OK, True)
 
     def put_retail_order(self, pk):
@@ -4170,6 +4248,26 @@ class OrderCentral(APIView):
         return order
 
 
+    def create_return_order(self, shipment, order_product_mapping, return_reason, 
+                            other_return_reason, return_pickup_method, shop, return_qty):
+        user = self.request.user
+        return_order, _ = ReturnOrder.objects.get_or_create(last_modified_by=user,
+                                                         buyer=user,
+                                                         shipment=shipment,
+                                                         return_status=ReturnOrder.RETURN_REQUESTED)
+        return_order.return_reason = return_reason
+        return_order.seller_shop = shop
+        return_order.return_pickup_method = return_pickup_method
+        return_order.other_return_reason = other_return_reason
+        return_order.save()
+        return_order_product = ReturnOrderProduct.objects.get_or_create(
+            return_order=return_order,
+            product= order_product_mapping.product,
+            return_qty=return_qty,
+            return_price=order_product_mapping.selling_price
+        )
+        
+        
     def update_ordered_reserve_sp(self, cart, parent_mapping, order):
         """
             Place Order
@@ -4784,8 +4882,7 @@ class OrderListCentral(GenericAPIView):
                         rt_order_order_product__shipment_status__in=[OrderedProduct.DELIVERED]
                     )
                 elif order_status == '3':
-                    orders = orders.filter(order_status__in=[Order.PARTIALLY_RETURNED, 
-                                                            Order.FULLY_RETURNED])
+                    orders = orders.filter(rt_order_order_product__is_returned=True)
                 else:
                     orders = orders.none()
         else:
@@ -4804,7 +4901,7 @@ class OrderListCentral(GenericAPIView):
                 elif order_status == '3':
                     orders = orders.filter(rt_order_order_product__shipment_status__in=[OrderedProduct.DELIVERED])
                 elif order_status == '4':
-                    orders = orders.filter(order_status__in=[Order.CANCELLED])
+                    orders = orders.filter(rt_order_order_product__is_returned=True)
                 else:
                     orders = orders.none()
         search_text = self.request.GET.get('search_text')
