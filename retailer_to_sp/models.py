@@ -2164,6 +2164,10 @@ class ReturnOrder(models.Model):
                                         related_name='return_item_pickups')
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
+    last_modified_by = models.ForeignKey(
+        get_user_model(), related_name='last_modified_return_order',
+        null=True, blank=True, on_delete=models.DO_NOTHING
+    )
     
     class Meta:
         verbose_name = 'Return Order request'
