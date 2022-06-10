@@ -577,7 +577,8 @@ class SuperStoreProductSearchSerializer(serializers.ModelSerializer):
     product_price_detail = serializers.SerializerMethodField()
     
     def get_product_price_detail(self, instance):
-        price = instance.get_superstore_price
+        parent_shop_id = self.context['parent_shop_id']
+        price = instance.get_superstore_price_by_shop(parent_shop_id)
         if price:
             return {'mrp': instance.product_mrp, 'selling_price': price.selling_price}
         return None
@@ -599,8 +600,11 @@ class SuperStoreProductSearchSerializer(serializers.ModelSerializer):
 
 
 class SuperStoreCartProductMappingSerializer(serializers.ModelSerializer):
-    cart_product = SuperStoreProductSearchSerializer()
+    cart_product = serializers.SerializerMethodField()
     qty = serializers.SerializerMethodField()
+    
+    def get_cart_product(self, instance):
+        return SuperStoreProductSearchSerializer(instance.cart_product, context=self.context).data
     
     def get_qty(self, instance):
         return int(instance.qty)
@@ -620,7 +624,7 @@ class SuperStoreCartSerializer(serializers.ModelSerializer):
     
     def get_cart_product_list(self, instance):
         products = instance.rt_cart_list.filter(product_type=1).select_related('cart_product')
-        return SuperStoreCartProductMappingSerializer(products, many=True).data
+        return SuperStoreCartProductMappingSerializer(products, many=True, context=self.context).data
     
     def get_items_count(self, instance):
         return instance.rt_cart_list.filter(product_type=1).count()
@@ -4353,7 +4357,7 @@ class VerifyReturnShipmentProductsSerializer(serializers.ModelSerializer):
             instance, created = ShipmentPackaging.objects.get_or_create(
                 shipment=shipment, packaging_type=packaging_type, warehouse_id=warehouse_id, crate=crate,
                 movement_type=movement_type, defaults={'created_by': updated_by, 'updated_by': updated_by})
-            # ShopCrateCommonFunctions.mark_crate_used(instance.shipment.current_shop.id, instance.crate.id)
+            ShopCrateCommonFunctions.mark_crate_used(instance.shipment.current_shop.id, instance.crate.id)
         else:
             instance = ShipmentPackaging.objects.create(
                 shipment=shipment, packaging_type=packaging_type, warehouse_id=warehouse_id, crate=crate,
@@ -4392,6 +4396,13 @@ class VerifyReturnShipmentProductsSerializer(serializers.ModelSerializer):
         movement_type = self.get_movement_type(shipment_map_instance.ordered_product)
         if ShipmentPackagingMapping.objects.filter(ordered_product=shipment_map_instance,
                                                    shipment_packaging__movement_type=movement_type).exists():
+            crates_to_free = ShipmentPackagingMapping.objects.filter(
+                ordered_product=shipment_map_instance, shipment_packaging__movement_type=movement_type,
+                shipment_packaging__packaging_type=ShipmentPackaging.CRATE).\
+                values_list('shipment_packaging__crate__id', flat=True)
+            for crate in crates_to_free:
+                ShopCrateCommonFunctions.mark_crate_available(
+                    shipment_map_instance.ordered_product.current_shop.id, crate)
             shipment_packaging_ids = list(ShipmentPackagingMapping.objects.filter(
                 ordered_product=shipment_map_instance, shipment_packaging__movement_type=movement_type) \
                                           .values_list('shipment_packaging_id', flat=True))

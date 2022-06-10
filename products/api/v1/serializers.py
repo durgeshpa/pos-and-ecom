@@ -252,6 +252,9 @@ class ParentProductSerializers(serializers.ModelSerializer):
         """
             is_ptr_applicable validation.
         """
+        if self.initial_data.get('product_type') == '':
+            raise serializers.ValidationError(_('Product type is required'))
+
         if not 'parent_product_pro_image' in self.initial_data or not self.initial_data['parent_product_pro_image']:
             if not 'product_images' in self.initial_data or not self.initial_data['product_images']:
                 raise serializers.ValidationError(_('product image is required'))
@@ -722,7 +725,8 @@ class ChildProductSerializers(serializers.ModelSerializer):
     parent_product = ParentProductSerializers(read_only=True)
     product_pro_tax = ProductTaxMappingSerializers(many=True, read_only=True)
     child_product_log = LogSerializers(many=True, read_only=True)
-    super_store_product_price = SuperStorePriceSerializers(many=True, read_only=True)
+    # super_store_product_price = SuperStorePriceSerializers(many=True, read_only=True)
+    super_store_product_price = serializers.SerializerMethodField()
     product_vendor_mapping = ChildProductVendorMappingSerializers(many=True, required=False)
     product_sku = serializers.CharField(required=False)
     product_pro_image = ProductImageSerializers(many=True, read_only=True)
@@ -879,9 +883,17 @@ class ChildProductSerializers(serializers.ModelSerializer):
 
         return child_product
 
+    def get_super_store_product_price(self, instance):
+        parent_shop_id = self.context.get('parent_shop_id')
+        if parent_shop_id:
+            return SuperStorePriceSerializers(instance.super_store_product_price.filter(seller_shop_id=parent_shop_id), many=True).data
+        else:
+            return None
+    
     def get_off_percentage(self,obj):
-        price = obj.get_superstore_price
-        return round(100-((price.selling_price*100)/obj.product_mrp),2) if price else None
+        parent_shop_id = self.context.get('parent_shop_id')
+        price = obj.get_superstore_price_by_shop(parent_shop_id) if parent_shop_id else None
+        return round(100-((price.selling_price*100)/obj.product_mrp)) if price else None
 
     def get_parent_product_discription(self, obj):
         """Return Parent product discription ...."""
@@ -1916,7 +1928,7 @@ class SuperStoreProductPriceSerializers(serializers.ModelSerializer):
         product_val = validate_superstore_product(self.initial_data['product'])
         if 'error' in product_val:
             raise serializers.ValidationError(product_val['error'])
-        product_price = validate_retailer_price_exist(self.initial_data['product'])
+        product_price = validate_retailer_price_exist(self.initial_data['product'], self.initial_data['seller_shop'])
         if 'error' in product_price:
             raise serializers.ValidationError(product_price['error'])
         data['product'] = product_val['product']
@@ -2071,7 +2083,7 @@ class SuperStoreProductPriceDownloadSerializer(serializers.ModelSerializer):
                     [obj.seller_shop.pk, obj.seller_shop.shop_name, obj.product.parent_product.parent_id,
                      obj.product.id, obj.product.product_sku, obj.product.product_name,
                      b2b.category.category_name if b2b else b2b, b2c.category.category_name if b2c else b2c,
-                     obj.mrp, obj.selling_price])
+                     obj.product.product_mrp, obj.selling_price])
         else:
             writer.writerow(
                 [600, 'GFDN', 'PCBDPCO0074', '544', 'BEVBEVNIM00000001', 'maggie', 'Liquid Drinks', 'Liquid Drinks', 233, 200])

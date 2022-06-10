@@ -1,6 +1,7 @@
 from django.core.exceptions import ObjectDoesNotExist
 from django.db.models import Q
 from django.shortcuts import render
+from rest_framework.generics import CreateAPIView
 from rest_framework.views import APIView
 from rest_framework.permissions import (AllowAny,
                                         IsAuthenticated)
@@ -9,16 +10,16 @@ from addresses.models import Country, State, City, Area, Address, Pincode, Route
 from retailer_backend.utils import SmallOffsetPagination
 from .serializers import (CountrySerializer, StateSerializer, CitySerializer,
                           AreaSerializer, AddressSerializer, PinCityStateSerializer, CityRouteSerializer,
-                          StateBasicSerializer, CityBasicSerializer)
+                          StateBasicSerializer, CityBasicSerializer, CityRouteExportAsCSVSerializers)
 from rest_framework import generics
 from rest_framework import status
 from rest_framework import permissions
 from rest_auth import authentication
 from shops.models import Shop, ShopUserMapping
-from django.http import Http404
+from django.http import Http404, HttpResponse
 from rest_framework import serializers
 from pos.common_functions import api_response
-from ...common_functions import serializer_error_batch, serializer_error
+from ...common_functions import serializer_error_batch, serializer_error, get_response
 from ...common_validators import get_validate_routes, validate_data_dict_format, validate_id
 import logging
 
@@ -531,3 +532,19 @@ class CitiesView(generics.GenericAPIView):
             self.queryset = self.queryset.filter(state_id=state_id)
 
         return self.queryset
+
+
+class CityRouteExportAsCSVView(CreateAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    serializer_class = CityRouteExportAsCSVSerializers
+
+    def post(self, request, *args, **kwargs):
+        """ POST API for Download Selected City CSV """
+
+        info_logger.info("City ExportAsCSV POST api called.")
+        serializer = self.serializer_class(data=request.data)
+        if serializer.is_valid():
+            response = serializer.save()
+            info_logger.info("City CSV Exported successfully ")
+            return HttpResponse(response, content_type='text/csv')
+        return get_response(serializer_error(serializer), False)

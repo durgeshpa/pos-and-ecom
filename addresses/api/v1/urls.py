@@ -2,7 +2,7 @@ from django.conf.urls import url
 from django.urls import path
 from addresses.api.v1.views import (CountryView, StateView, CityView, AreaView,
                                     AddressView, AddressDetail, PinCityStateView, RouteView, StateFilterView,
-                                    CityFilterView, CitiesView)
+                                    CityFilterView, CitiesView, CityRouteExportAsCSVView)
 
 urlpatterns = [
     path('country/', CountryView.as_view(), name='coutry-list', ),
@@ -13,6 +13,7 @@ urlpatterns = [
     path('get-city-state/', PinCityStateView.as_view()),
     path('routes/', RouteView.as_view()),
     path('cities/', CitiesView.as_view()),
+    url(r'^export-csv-city/', CityRouteExportAsCSVView.as_view(), name='export-csv-city'),
     path('state-filter/', StateFilterView.as_view()),
     path('city-filter/', CityFilterView.as_view()),
 ]

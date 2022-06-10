@@ -140,6 +140,15 @@ class ShopForm(forms.ModelForm):
                             ),
                         ])
 
+    shop_code_super_store = forms.CharField(
+                        max_length=1, min_length=1,
+                        required=False, validators=[
+                            RegexValidator(
+                                regex='^[a-zA-Z0-9]*$',
+                                message='Shop Code must be Alphanumeric',
+                                code='invalid_code_code'
+                            ),
+                        ])
     shop_owner = forms.ModelChoiceField(
         queryset=get_user_model().objects.all(),
         widget=autocomplete.ModelSelect2(url='admin:user-autocomplete', )
@@ -158,8 +167,9 @@ class ShopForm(forms.ModelForm):
         Model = Shop
         fields = (
             'shop_name', 'shop_owner', 'shop_type', 'approval_status', 'disapproval_status_reason',
-            'shop_code', 'shop_code_bulk', 'shop_code_discounted', 'warehouse_code','created_by', 'status',
-            'pos_enabled', 'online_inventory_enabled', 'shop_location', 'latitude', 'longitude', 'cutoff_time')
+            'shop_code', 'shop_code_bulk', 'shop_code_discounted', 'warehouse_code', 'shop_code_super_store',
+            'created_by', 'status', 'pos_enabled', 'online_inventory_enabled', 'shop_location', 'latitude', 'longitude',
+            'cutoff_time')
 
     def clean(self):
         data = self.cleaned_data
