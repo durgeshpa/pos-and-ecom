@@ -682,6 +682,7 @@ class CheckoutSerializer(serializers.ModelSerializer):
     buyer = PosUserSerializer()
     reward_detail = serializers.SerializerMethodField()
     total_mrp = serializers.SerializerMethodField()
+    applied_coupon = serializers.SerializerMethodField()
 
     @staticmethod
     def get_redeem_points_value(obj):
@@ -740,9 +741,17 @@ class CheckoutSerializer(serializers.ModelSerializer):
             self.get_redeem_points_value(obj))
         return round(sub_total)
 
+    @staticmethod
+    def get_applied_coupon(obj):
+        offers = obj.offers
+        if offers:
+            array = list(filter(lambda d: d['type'] in ['discount'], offers))
+            return array
+
+
     class Meta:
         model = Cart
-        fields = ('id', 'total_mrp','total_amount', 'total_discount', 'redeem_points_value', 'amount_payable', 'buyer',
+        fields = ('id', 'total_mrp','total_amount', 'total_discount', 'redeem_points_value','applied_coupon', 'amount_payable', 'buyer',
                   'reward_detail')
 
 
@@ -875,6 +884,13 @@ class BasicCartListSerializer(serializers.ModelSerializer):
     """
     total_amount = serializers.SerializerMethodField('total_amount_dt')
     buyer = PosUserSerializer()
+    applied_coupon = serializers.SerializerMethodField()
+    @staticmethod
+    def get_applied_coupon(obj):
+        offers = obj.offers
+        if offers:
+            array = list(filter(lambda d: d['type'] in ['discount'], offers))
+            return array
 
     @staticmethod
     def total_amount_dt(obj):
@@ -902,7 +918,7 @@ class BasicCartListSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Cart
-        fields = ('id', 'cart_no', 'cart_status', 'total_amount', 'buyer', 'created_at')
+        fields = ('id', 'cart_no', 'applied_coupon','cart_status', 'total_amount', 'buyer', 'created_at')
 
     def to_representation(self, instance):
         representation = super().to_representation(instance)
@@ -1415,11 +1431,11 @@ def date_validation(data):
     if data['end_date'] < datetime.date.today():
         raise serializers.ValidationError("End Date should be greater than today's date")
 
-
 class OfferCreateSerializer(serializers.Serializer):
     offer_type = serializers.ChoiceField(choices=[1, 2, 3])
     start_date = serializers.DateField(required=True)
     end_date = serializers.DateField(required=True)
+    limit_of_usages_per_customer = serializers.IntegerField(required=False)
 
     def validate(self, data):
         date_validation(data)
@@ -1444,6 +1460,8 @@ class OfferUpdateSerializer(serializers.Serializer):
     is_active = serializers.BooleanField(required=False)
     offer_type = serializers.SerializerMethodField()
     shop_id = serializers.IntegerField()
+    limit_of_usages_per_customer = serializers.IntegerField(required=False)
+
 
     def validate(self, data):
         if data.get('start_date') and data.get('end_date'):
