@@ -242,13 +242,13 @@ class OffersCls(object):
                                              expiry_date=expiry_date, is_active=True)
 
     @classmethod
-    def rule_set_cart_mapping(cls, rule_id, coupon_type, coupon_name, coupon_code, shop, start_date, expiry_date, limit_of_usages_per_customer=None):
+    def rule_set_cart_mapping(cls, rule_id, coupon_type, coupon_name, coupon_code, shop, start_date, expiry_date):
         """
             rule_set cart mapping for coupon creation
         """
         coupon = Coupon.objects.create(rule_id=rule_id, coupon_name=coupon_name, coupon_type=coupon_type,
                                        shop=shop, start_date=start_date, expiry_date=expiry_date,
-                                       coupon_code=coupon_code, limit_of_usages_per_customer=limit_of_usages_per_customer,
+                                       coupon_code=coupon_code,
                                        is_active=True)
         return coupon
 
