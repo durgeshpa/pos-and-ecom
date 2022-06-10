@@ -8558,8 +8558,13 @@ class DispatchItemsView(generics.GenericAPIView):
             id_validation = validate_id(self.queryset, int(request.GET.get('id')))
             if 'error' in id_validation:
                 return get_response(id_validation['error'])
-            self.queryset = id_validation['data']
-
+            all_packages = int(request.GET.get('get_all', 0))
+            if not all_packages:
+                self.queryset = id_validation['data']
+            else:
+                ## Return all the packages belonging to the same shipment
+                shipment_id = ShipmentPackaging.objects.get(id=request.GET.get('id')).shipment_id
+                self.queryset = self.queryset.filter(shipment_id=shipment_id)
         else:
             if not request.GET.get('shipment_id'):
                 return get_response("'shipment_id' | This is mandatory")
@@ -8622,7 +8627,7 @@ class DispatchItemsUpdateView(generics.GenericAPIView):
         serializer = self.serializer_class(instance=dispatch_data['data'], data=modified_data)
         if serializer.is_valid():
             dispatch_item = serializer.save(updated_by=request.user, data=modified_data)
-            return get_response('Dispatch updated!', dispatch_item.data)
+            return get_response('Dispatch updated!', serializer.data)
         result = {"is_success": False, "message": serializer_error(serializer), "response_data": []}
         return Response(result, status=status.HTTP_200_OK)
 
