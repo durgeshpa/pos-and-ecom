@@ -14,6 +14,7 @@ from retailer_backend.messages import *
 from global_config.models import GlobalConfig
 from accounts.models import User
 from shops.models import Shop
+from products.models import Product
 from .sms import SendSms
 from .utils import has_gf_employee_permission, shop_obj_related_owner
 
@@ -326,3 +327,21 @@ class UserRating(models.Model):
     rating = models.PositiveIntegerField(default=0)
     feedback = models.CharField(max_length=200, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
+
+
+class UserWishlist(models.Model):
+    """
+        All child products in the wishlist of users
+    """
+    RETAILER, SUPERSTORE = '1', '4'
+    APP_TYPE_CHOICES = (
+        (RETAILER, 'Retailer'),
+        (SUPERSTORE, 'SuperStore'),
+    )
+    user = models.ForeignKey(User, related_name='user_wishlist', on_delete=models.CASCADE)
+    app_type = models.CharField(max_length=10, choices=APP_TYPE_CHOICES, default='1')
+    gf_prod_id = models.ForeignKey(Product, null=True, blank=True, related_name='gf_wishlist_product', on_delete=models.DO_NOTHING)
+    retail_prod_id = models.ForeignKey(Product, null=True, blank=True, related_name='retail_wishlist_product', on_delete=models.DO_NOTHING)
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
+    is_active = models.BooleanField(default=True)
