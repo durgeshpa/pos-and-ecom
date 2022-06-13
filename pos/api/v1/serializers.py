@@ -1512,7 +1512,11 @@ class RetailerFreeProductSerializer(serializers.ModelSerializer):
 
 
 class DiscountSerializer(serializers.ModelSerializer):
-    discount_value = serializers.DecimalField(required=False, max_digits=12, decimal_places=2)
+    discount_value = serializers.SerializerMethodField()
+
+    @staticmethod
+    def get_discount_value(obj):
+        return int(obj.discount_value) if obj.is_point else round(obj.discount_value, 2)
 
     class Meta:
         model = DiscountValue
