@@ -1512,7 +1512,11 @@ class RetailerFreeProductSerializer(serializers.ModelSerializer):
 
 
 class DiscountSerializer(serializers.ModelSerializer):
-    discount_value = serializers.DecimalField(required=False, max_digits=12, decimal_places=2)
+    discount_value = serializers.SerializerMethodField()
+
+    @staticmethod
+    def get_discount_value(obj):
+        return int(obj.discount_value) if obj.is_point else round(obj.discount_value, 2)
 
     class Meta:
         model = DiscountValue
@@ -1662,7 +1666,7 @@ class CouponGetSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Coupon
-        fields = ('id', 'offer_type', 'coupon_name', 'details', 'start_date', 'end_date', 'is_point')
+        fields = ('id', 'offer_type', 'coupon_name', 'details', 'start_date', 'end_date', 'is_point', 'limit_of_usages_per_customer')
 
 
 class CouponListSerializer(serializers.ModelSerializer):
@@ -1692,7 +1696,7 @@ class CouponListSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Coupon
-        fields = ('id', 'offer_type', 'coupon_name', 'coupon_code', 'details', 'is_active','is_point')
+        fields = ('id', 'offer_type', 'coupon_name', 'coupon_code', 'details', 'is_active','is_point', 'limit_of_usages_per_customer')
 
 
 class PosShopSerializer(serializers.ModelSerializer):
