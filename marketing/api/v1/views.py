@@ -8,8 +8,10 @@ from rest_auth.authentication import TokenAuthentication
 from django.core.exceptions import ObjectDoesNotExist
 from products.common_function import get_response
 
-from marketing.models import RewardPoint, Profile, UserRating
-from marketing.serializers import RewardsSerializer, ProfileUploadSerializer
+from marketing.models import RewardPoint, Profile, UserRating, UserWishlist
+from products.models import Product
+from shops.models import Shop
+from marketing.serializers import RewardsSerializer, ProfileUploadSerializer, UserWishlistSerializer
 info_logger = logging.getLogger('file-info')
 
 
@@ -132,3 +134,97 @@ class RatingFeedback(GenericAPIView):
 
         except:
             info_logger.info("User feedback not created for user :: {} with id :: {}".format(user, ratingobj.id))
+
+
+def api_response(msg, data=None, status_code=status.HTTP_406_NOT_ACCEPTABLE, success=False, extra_params=None):
+    ret = {"is_success": success, "message": msg, "response_data": data}
+    if extra_params:
+        ret.update(extra_params)
+    return Response(ret, status=status_code)
+
+
+class Wishlist(GenericAPIView):
+    permission_classes = (IsAuthenticated,)
+    authentication_classes = (TokenAuthentication,)
+    serializer_class = UserWishlistSerializer
+
+    def post(self, request):
+        """
+            Add products to wishlist
+        """
+        user = self.request.user
+        product_id = int(self.request.data.get("id"))
+        app_type = self.request.META.get('HTTP_APP_TYPE', '1')
+
+        if app_type == '4':
+            productobj = Product.objects.filter(id=product_id).last()
+            if productobj:
+                try:
+                    wishobj = UserWishlist.objects.get(user=user, gf_prod_id=productobj, app_type=app_type)
+                    if wishobj:
+                        wishobj.is_active = True
+                        wishobj.save()
+                    return get_response("Product saved to wishlist")
+                except:
+                    gf_prod_id = productobj
+                    UserWishlist.objects.create(
+                        user=user,
+                        app_type=app_type,
+                        gf_prod_id=gf_prod_id
+                    )
+                    msg = "Added to Wishlist"
+                    return get_response(msg)
+
+
+
+
+    def get(self, request):
+        """
+            Get all wishlist products for any user
+        """
+        user = self.request.user
+        offset = int(self.request.GET.get('offset', 0))
+        pro_count = int(self.request.GET.get('pro_count', 10))
+        app_type = self.request.META.get('HTTP_APP_TYPE', '1')
+
+        try:
+            shop = Shop.objects.get(id=request.META.get('HTTP_SHOP_ID', None), shop_type__shop_type='f', status=True,
+                                    approval_status=2, pos_enabled=1)
+        except:
+            return api_response("Shop not available!")
+        parent_shop_id = shop.get_shop_parent
+        if not parent_shop_id:
+            return api_response("shop parent not mapped")
+        parent_shop_id = parent_shop_id.id
+
+        if app_type == '4':
+            wishobj = UserWishlist.objects.filter(user=user, app_type=app_type, is_active=True)[offset:offset+pro_count]
+            if wishobj:
+                data = UserWishlistSerializer(wishobj, many=True, context={'parent_shop_id': parent_shop_id}).data
+                msg = "Product count : " + str(wishobj.count())
+                return Response({'is_success': True, 'message': msg, 'response_data': data},
+                                status=status.HTTP_200_OK)
+            else:
+                msg = "Oh no!, Your Wishlist is empty! Just click <3 on products to save them to your wishlist"
+                return Response({'is_success': True, 'message': msg},
+                                status=status.HTTP_200_OK)
+
+
+    def put(self, request):
+        """
+            Removes product from wishlist
+            Set is_active = False
+        """
+        user = self.request.user
+        product_id = int(self.request.data.get("id"))
+        app_type = self.request.META.get('HTTP_APP_TYPE', '1')
+        try:
+            if app_type == '4':
+                if product_id:
+                    wishobj = UserWishlist.objects.filter(user=user, gf_prod_id__id=product_id, app_type=app_type).last()
+                    if wishobj:
+                        wishobj.is_active = False
+                        wishobj.save()
+                    return get_response("Product removed from wishlist")
+        except Exception as e:
+            info_logger.error("Wishlist item not removed :: {}".format(e))

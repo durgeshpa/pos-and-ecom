@@ -3,7 +3,8 @@ from django.core.exceptions import ObjectDoesNotExist
 
 from global_config.models import GlobalConfig
 
-from .models import RewardPoint, Profile, RewardLog
+from .models import RewardPoint, Profile, RewardLog, UserWishlist
+from cms.api.v1.serializers import ProductSerializer
 
 
 class RewardsSerializer(serializers.ModelSerializer):
@@ -69,3 +70,12 @@ class ProfileUploadSerializer(serializers.ModelSerializer):
     class Meta:
         model = Profile
         fields = ['image']
+
+
+class UserWishlistSerializer(serializers.ModelSerializer):
+    gf_prod_id = ProductSerializer()
+
+    class Meta:
+        model = UserWishlist
+        fields = ['user', 'gf_prod_id', 'retail_prod_id']
+
