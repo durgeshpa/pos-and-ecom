@@ -365,6 +365,19 @@ class PosInventoryCls(object):
         inventory_object = PosInventory.objects.filter(product_id=pid, inventory_state__inventory_state=state).last()
         return inventory_object.quantity if inventory_object else 0
 
+    @classmethod
+    def get_available_inventory_by_linked_product(cls, linked_product_id, state, shop_id):
+        """
+        Returns stock for any product in the given state
+        Params:
+            linked_product_id : GramFactory product Id
+            state: inventory state ('new', 'available', 'ordered')
+        """
+        inventory_object = PosInventory.objects.filter(product__linked_product_id=linked_product_id,
+                                                       inventory_state__inventory_state=state,
+                                                       product__shop_id=shop_id).last()
+        return inventory_object.quantity if inventory_object else 0
+
 
 def api_response(msg, data=None, status_code=status.HTTP_406_NOT_ACCEPTABLE, success=False, extra_params=None):
     ret = {"is_success": success, "message": msg, "response_data": data}

@@ -411,7 +411,7 @@ class PageCardDataSerializer(serializers.ModelSerializer):
 
             retailer_items = card_items.filter(retailer_product_exists=True)
             superstore_items = card_items.filter(superstore_product_exists=True)
-            items = check_inventory(retailer_items)
+            items = check_inventory(retailer_items, shop_id)
             items = items.union(superstore_items)
             return CardItemSerializer(items, many=True, context=self.context).data
         return CardItemSerializer(obj.items, many=True, context=self.context).data
@@ -797,7 +797,7 @@ class LandingPageSerializer(serializers.ModelSerializer):
             sub_query = RetailerProduct.objects.filter(linked_product_id=OuterRef('product_id'), shop_id=shop_id,
                                                        is_deleted=False, online_enabled=True)
             items = check_inventory(obj.landing_page_products.annotate(retailer_product_exists=Exists(sub_query))
-                                                                   .filter(retailer_product_exists=True))
+                                                                   .filter(retailer_product_exists=True), shop_id)
         return LandingPageProductSerializer(items, many=True).data
 
     def get_page_action_url(self, obj):
