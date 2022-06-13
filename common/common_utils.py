@@ -383,3 +383,29 @@ def sms_order_delivered(name, number):
         message.send()
     except Exception as e:
         error_logger.error(e)
+
+
+@task
+def return_item_drop(name, number, address, time="5 pm"):
+    '''
+        Send sms for return method drop at store
+    '''
+    try:
+        body = f"Hi {name}, Your return request has been accepted. Please drop your package at the {address} address - {time} by tomorrow. Team PepperTap."
+        message = SendSms(phone=number, body=body, mask="PEPTAB")
+        message.send()
+    except Exception as e:
+        error_logger.error(e)
+
+
+@task
+def return_item_home_pickup(name, number):
+    '''
+        Send sms for return method home pick up
+    '''
+    try:
+        body = f"Hi {name}, Your return request has been accepted. Please keep the package ready, our delivery partner will reach out to you soon. Team PepperTap."
+        message = SendSms(phone=number, body=body, mask="PEPTAB")
+        message.send()
+    except Exception as e:
+        error_logger.error(e)
