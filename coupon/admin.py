@@ -78,7 +78,7 @@ class CouponAdmin(admin.ModelAdmin):
     list_display = ('coupon_code', 'coupon_name', 'rule', 'limit_per_user_per_day', 'limit_of_usages',
                     'coupon_type', 'no_of_times_used', 'is_active', 'created_at', 'expiry_date')
     list_filter = (RuleSetFilter, CouponNameFilter, CouponCodeFilter, 'coupon_type', 'is_active')
-    readonly_fields = ('rule', 'no_of_times_used',)
+    readonly_fields = ('no_of_times_used',)
 
     class Media:
         pass
@@ -102,7 +102,6 @@ class RuleSetBrandMappingAdmin(admin.ModelAdmin):
     form = RulesetBrandMappingForm
 
     list_display = ('rule', 'brand', 'created_at')
-    readonly_fields = ('rule', 'brand',)
 
 
 class CouponLocationAdmin(admin.ModelAdmin):
