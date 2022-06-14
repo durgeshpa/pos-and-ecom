@@ -5,6 +5,8 @@ from daterange_filter.filter import DateRangeFilter
 from retailer_backend.admin import InputFilter
 
 from admin_auto_filters.filters import AutocompleteFilter
+
+from .forms import RulesetCreationForm, CouponCreationForm, RulesetBrandMappingForm
 from .resources import RuleSetProductMappingResource
 from .models import *
 
@@ -52,7 +54,7 @@ class DiscountValueAdmin(admin.ModelAdmin):
 
 
 class CouponRuleSetAdmin(admin.ModelAdmin):
-
+    form = RulesetCreationForm
     def get_queryset(self, request):
         qs = super(CouponRuleSetAdmin, self).get_queryset(request)
         return qs.exclude(coupon_ruleset__shop__shop_type__shop_type='f')
@@ -65,6 +67,7 @@ class CouponRuleSetAdmin(admin.ModelAdmin):
 
 
 class CouponAdmin(admin.ModelAdmin):
+    form = CouponCreationForm
 
     def get_queryset(self, request):
         qs = super(CouponAdmin, self).get_queryset(request)
@@ -75,7 +78,7 @@ class CouponAdmin(admin.ModelAdmin):
     list_display = ('coupon_code', 'coupon_name', 'rule', 'limit_per_user_per_day', 'limit_of_usages',
                     'coupon_type', 'no_of_times_used', 'is_active', 'created_at', 'expiry_date')
     list_filter = (RuleSetFilter, CouponNameFilter, CouponCodeFilter, 'coupon_type', 'is_active')
-    readonly_fields = ('no_of_times_used',)
+    readonly_fields = ('rule', 'no_of_times_used',)
 
     class Media:
         pass
@@ -96,7 +99,10 @@ class RuleSetProductMappingAdmin(ImportExportModelAdmin):
 
 
 class RuleSetBrandMappingAdmin(admin.ModelAdmin):
+    form = RulesetBrandMappingForm
+
     list_display = ('rule', 'brand', 'created_at')
+    readonly_fields = ('rule', 'brand',)
 
 
 class CouponLocationAdmin(admin.ModelAdmin):
