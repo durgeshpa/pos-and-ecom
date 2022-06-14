@@ -164,7 +164,7 @@ class Wishlist(GenericAPIView):
                     if wishobj:
                         wishobj.is_active = True
                         wishobj.save()
-                    return get_response("Product saved to wishlist")
+                    return get_response("Product saved to wishlist", success=True)
                 except:
                     gf_prod_id = productobj
                     UserWishlist.objects.create(
@@ -173,7 +173,7 @@ class Wishlist(GenericAPIView):
                         gf_prod_id=gf_prod_id
                     )
                     msg = "Added to Wishlist"
-                    return get_response(msg)
+                    return get_response(msg, success=True)
 
 
 
@@ -225,6 +225,6 @@ class Wishlist(GenericAPIView):
                     if wishobj:
                         wishobj.is_active = False
                         wishobj.save()
-                    return get_response("Product removed from wishlist")
+                    return get_response("Product removed from wishlist", success=True)
         except Exception as e:
             info_logger.error("Wishlist item not removed :: {}".format(e))
