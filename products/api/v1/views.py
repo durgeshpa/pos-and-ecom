@@ -1528,6 +1528,8 @@ class ProductListView(GenericAPIView):
 
     def get(self, request):
         search_text = self.request.GET.get('search_text')
+        active = self.request.GET.get('active','')
+        catalog_type = self.request.GET.get('type')
         if search_text:
             self.queryset = child_product_search(self.queryset, search_text)
         child_product = SmallOffsetPagination().paginate_queryset(self.queryset, request)
