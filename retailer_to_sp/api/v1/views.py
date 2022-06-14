@@ -44,7 +44,7 @@ from categories import models as categorymodel
 from common.common_utils import (create_file_name, single_pdf_file, create_merge_pdf_name, merge_pdf_files,
                                  create_invoice_data, whatsapp_opt_in, whatsapp_order_cancel, whatsapp_order_refund,
                                  whatsapp_order_delivered, sms_order_delivered, sms_out_for_delivery,
-                                 sms_order_dispatch, sms_order_placed)
+                                 sms_order_dispatch, sms_order_placed, return_item_home_pickup, return_item_drop)
 from common.constants import PREFIX_CREDIT_NOTE_FILE_NAME, ZERO, PREFIX_INVOICE_FILE_NAME, INVOICE_DOWNLOAD_ZIP_NAME
 from common.data_wrapper_view import DataWrapperViewSet
 from coupon.models import Coupon, CusotmerCouponUsage
@@ -3463,6 +3463,13 @@ class OrderCentral(APIView):
                                                         return_pickup_method,
                                                         kwargs['shop'],
                                                         return_qty)
+                if return_pickup_method == ReturnOrder.DROP_AT_STORE:
+                    address = shipment.order.shop.shop_name_address_mapping.filter(
+                                address_type='shipping').last()
+                    address = f"{address.address_line1}, {address.city}, {address.state} - {address.pincode}"
+                    return_item_drop(shipment.order.buyer.first_name, shipment.order.buyer.phone_number, address)
+                else:
+                    return_item_home_pickup(shipment.order.buyer.first_name, shipment.order.buyer.phone_number)
                 shipment.is_returned = True
                 shipment.save()
                 return api_response("Return requested successfully", response, status.HTTP_200_OK, True)
@@ -3495,12 +3502,14 @@ class OrderCentral(APIView):
                         seller_shop=kwargs['shop'],
                         buyer=self.request.user
                     )
+                    if return_order.return_status == ReturnOrder.CUSTOMER_ITEM_PICKED:
+                        return api_response("Return order is already picked up.")
                     if return_order.return_pickup_method == ReturnOrder.HOME_PICKUP and \
                         not return_order.return_status == ReturnOrder.RETURN_INITIATED:
-                        return api_response("Pick up boy not assigned for home pick up.")    
+                        return api_response("Pick up boy not assigned for home pick up.")
                     return_order.return_status = ReturnOrder.CUSTOMER_ITEM_PICKED
                     return_order.save()
-                    # self.create_retailer_side_return_order(shipment, order_product_mapping)
+                    # self.create_retailer_side_return_order(shipment, order_product_mapping, return_order)
                     return api_response("Return product picked up")
                 except ReturnOrder.DoesNotExist:
                     return api_response("Return Order not found")

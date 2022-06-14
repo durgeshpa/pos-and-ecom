@@ -4,7 +4,8 @@ from pos import views
 from pos.api.v1.views import UpdateInventoryStockView
 from pos.views import RetailerProductShopAutocomplete, DownloadPurchaseOrder, RetailerProductAutocomplete, \
     InventoryRetailerProductAutocomplete, RetailerOrderReturnCreditNoteView, RetailerOrderProductInvoiceView, \
-    products_list_status, RetailerProductStockDownload, RetailerCatalogueSampleFile, PosStoreRewardMappingAutocomplete
+    products_list_status, RetailerProductStockDownload, RetailerCatalogueSampleFile, PosStoreRewardMappingAutocomplete, \
+    ProductAutocomplete
 
 from pos.filters import PosShopAutocomplete, NonPosShopAutocomplete
 
@@ -15,6 +16,8 @@ urlpatterns = [
         name='retailer-product-autocomplete'),
     url(r'^discounted-product-autocomplete/', RetailerProductAutocomplete.as_view(),
         name='discounted-product-autocomplete'),
+    url(r'^pos-product-autocomplete/', ProductAutocomplete.as_view(),
+        name='pos-product-autocomplete'),
     url(r'^fetch-retailer-product/$', views.get_retailer_product, name='fetch-retailer-product',),
     url(r'^pos-shop-autocomplete/$', PosShopAutocomplete.as_view(), name='pos-shop-autocomplete'),
     url(r'^pos-shop-complete/$', NonPosShopAutocomplete.as_view(), name='pos-shop-complete'),
