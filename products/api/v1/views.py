@@ -1522,7 +1522,7 @@ class SlabProductPriceView(GenericAPIView):
 
 class ProductListView(GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
-    queryset = ChildProduct.objects.prefetch_related('product_pro_image', ).order_by('-id')
+    queryset = ChildProduct.objects.filter(status='active').prefetch_related('product_pro_image',).order_by('-id')
 
     serializer_class = ImageProductSerializers
 
