@@ -568,7 +568,7 @@ class SearchProducts(APIView):
         body["size"] = int(self.request.GET.get('pro_count', 50))
         sort_by = self.request.GET.get('sort_by', 'modified_at')
         sort_order = self.request.GET.get('sort_order', 'desc')
-        sort_by = sort_by if sort_by in ['ptr', 'combo_available'] else 'modified_at'
+        sort_by = sort_by if sort_by in ['ptr', 'combo_available', "margin"] else 'modified_at'
         sort_order = sort_order if sort_order in ['asc'] else 'desc'
         if sort_by == 'modified_at':
             sort_order = 'desc'
