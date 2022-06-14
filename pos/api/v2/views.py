@@ -358,15 +358,15 @@ class AdminOffers(GenericAPIView):
         """
             Get Offer / Offers List
         """
-        shop, coupon_id = kwargs['shop'], request.GET.get('id')
-        if coupon_id:
-            serializer = OfferGetSerializer(data={'id': coupon_id, 'shop_id': shop.id})
+        id = request.GET.get('id')
+        if id:
+            serializer = OfferGetSerializer(data={'id': id})
             if serializer.is_valid():
-                return self.get_offer(coupon_id)
+                return self.get_offer(id)
             else:
                 return api_response(serializer_error(serializer))
         else:
-            return self.get_offers_list(request, shop.id)
+            return self.get_offers_list(request,None)
 
 
     def post(self, request, *args, **kwargs):
@@ -394,7 +394,15 @@ class AdminOffers(GenericAPIView):
         """
            Update Any Offer
         """
-        shop = kwargs['shop']
+        shop_name = request.data.get('shop_name')
+        shop = None
+        if shop_name:
+            shop = Shop.objects.filter(shop_name=shop_name).last()
+        elif request.data.get('shop_id'):
+            shop = Shop.objects.get(id=shop_name)
+
+        if not shop:
+            raise serializers.ValidationError("Shop name or id is mendotry")
         data = request.data
         data['shop_id'] = shop.id
         serializer = OfferUpdateSerializer(data=data)
@@ -451,7 +459,10 @@ class AdminOffers(GenericAPIView):
         """
           Get Offers List
        """
-        coupon = Coupon.objects.select_related('rule').filter(shop=shop_id)
+        if shop_id:
+            coupon = Coupon.objects.select_related('rule').filter(shop=shop_id)
+        else:
+            coupon = Coupon.objects.select_related('rule').all()
         if request.GET.get('search_text'):
             coupon = coupon.filter(coupon_name__icontains=request.GET.get('search_text'))
         coupon = coupon.order_by('-updated_at')
@@ -500,7 +511,10 @@ class AdminOffers(GenericAPIView):
                                                      start_date, expiry_date, data.get('limit_of_usages_per_customer', None))
             data['id'] = coupon.id
             coupon.coupon_enable_on = data.get('coupon_enable_on') if data.get('coupon_enable_on') else 'all'
+            coupon.coupon_shop_type = data.get('coupon_shop_type') if data.get('coupon_shop_type') else coupon.coupon_shop_type
             data['coupon_enable_on'] = coupon.coupon_enable_on
+            data['coupon_shop_type'] = coupon.coupon_shop_type
+
             coupon.save()
             return api_response("Coupon Offer has been created successfully!", data, status.HTTP_200_OK, True)
 
@@ -550,7 +564,10 @@ class AdminOffers(GenericAPIView):
         coupon = OffersCls.rule_set_cart_mapping(coupon_obj.id, 'catalog', combo_offer_name, combo_code, shop,
                                                  start_date, expiry_date, data.get('limit_of_usages_per_customer',None))
         coupon.coupon_enable_on = data.get('coupon_enable_on') if data.get('coupon_enable_on') else 'all'
+        coupon.coupon_shop_type = data.get('coupon_shop_type') if data.get(
+            'coupon_shop_type') else coupon.coupon_shop_type
         data['coupon_enable_on'] = coupon.coupon_enable_on
+        data['coupon_shop_type'] = coupon.coupon_shop_type
         coupon.save()
         data['id'] = coupon.id
         return api_response("Combo Offer has been created successfully!", data, status.HTTP_200_OK, True)
@@ -590,7 +607,10 @@ class AdminOffers(GenericAPIView):
         coupon = OffersCls.rule_set_cart_mapping(coupon_obj.id, 'cart', coupon_name, coupon_code, shop, start_date,
                                                  expiry_date, data.get('limit_of_usages_per_customer',None))
         coupon.coupon_enable_on = data.get('coupon_enable_on') if data.get('coupon_enable_on') else 'all'
+        coupon.coupon_shop_type = data.get('coupon_shop_type') if data.get(
+            'coupon_shop_type') else coupon.coupon_shop_type
         data['coupon_enable_on'] = coupon.coupon_enable_on
+        data['coupon_shop_type'] = coupon.coupon_shop_type
         coupon.save()
         data['id'] = coupon.id
         return api_response("Free Product Offer has been created successfully!", data, status.HTTP_200_OK, True)
@@ -616,6 +636,8 @@ class AdminOffers(GenericAPIView):
             rule.is_active = coupon.is_active = data['is_active']
         rule.save()
         coupon.limit_of_usages_per_customer = data.get('limit_of_usages_per_customer',coupon.limit_of_usages_per_customer)
+        coupon.coupon_enable_on = data.get('coupon_enable_on', coupon.coupon_enable_on)
+        coupon.coupon_shop_type = data.get('coupon_shop_type', coupon.coupon_shop_type )
         coupon.save()
         return api_response(success_msg, None, status.HTTP_200_OK, True)
 
@@ -647,6 +669,8 @@ class AdminOffers(GenericAPIView):
         rule.save()
         rule_set_product_mapping.save()
         coupon.limit_of_usages_per_customer = data.get('limit_of_usages_per_customer',coupon.limit_of_usages_per_customer)
+        coupon.coupon_enable_on = data.get('coupon_enable_on', coupon.coupon_enable_on)
+        coupon.coupon_shop_type = data.get('coupon_shop_type', coupon.coupon_shop_type )
         coupon.save()
         return api_response(success_msg, None, status.HTTP_200_OK, True)
 
@@ -671,6 +695,8 @@ class AdminOffers(GenericAPIView):
             rule.is_active = coupon.is_active = data['is_active']
         rule.save()
         coupon.limit_of_usages_per_customer = data.get('limit_of_usages_per_customer',coupon.limit_of_usages_per_customer)
+        coupon.coupon_enable_on = data.get('coupon_enable_on', coupon.coupon_enable_on)
+        coupon.coupon_shop_type = data.get('coupon_shop_type', coupon.coupon_shop_type )
         coupon.save()
         return api_response(success_msg, None, status.HTTP_200_OK, True)
 
