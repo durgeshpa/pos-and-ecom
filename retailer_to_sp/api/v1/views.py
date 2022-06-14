@@ -3272,6 +3272,7 @@ class OrderCentral(APIView):
                     return api_response("Invalid Order update")
                 order.order_status = order_status
                 order.last_modified_by = self.request.user
+                cupon_point_update(order, self.request.user)
                 if order_status == Order.DELIVERED:
                     shop = kwargs['shop']
                     if ReferralCode.is_marketing_user(order.buyer):
@@ -3279,7 +3280,6 @@ class OrderCentral(APIView):
                                                                         'order_credit', 'order_indirect_credit',
                                                                         self.request.user.id, order.seller_shop, app_type="ECOM")
                 order.save()
-                cupon_point_update(order, self.request.user)
                 if order_status == Order.DELIVERED:
                     whatsapp_order_delivered(order.order_no, shop.shop_name, order.buyer.phone_number,
                                              order.points_added, shop.enable_loyalty_points)
@@ -3740,11 +3740,12 @@ class OrderCentral(APIView):
             obj.order_amount = round(obj.order_amount)
             obj.save()
             self.auto_process_pos_order(order)
+            cupon_point_update(order, self.request.user)
             if ReferralCode.is_marketing_user(order.buyer) and str(order.buyer.phone_number) != '9999999999':
                 order.points_added = order_loyalty_points_credit(order.order_amount, order.buyer.id, order.order_no,
                                                                 'order_credit', 'order_indirect_credit',
                                                                 self.request.user.id, order.seller_shop, app_type="POS")
-            cupon_point_update(order, self.request.user)
+
 
 
             return api_response('Ordered Successfully!', BasicOrderListSerializer(Order.objects.get(id=order.id)).data,

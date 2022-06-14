@@ -1436,6 +1436,7 @@ class OfferCreateSerializer(serializers.Serializer):
     start_date = serializers.DateField(required=True)
     end_date = serializers.DateField(required=True)
     limit_of_usages_per_customer = serializers.IntegerField(required=False)
+    coupon_enable_on = serializers.CharField(required=False)
 
     def validate(self, data):
         date_validation(data)
@@ -1461,6 +1462,7 @@ class OfferUpdateSerializer(serializers.Serializer):
     offer_type = serializers.SerializerMethodField()
     shop_id = serializers.IntegerField()
     limit_of_usages_per_customer = serializers.IntegerField(required=False)
+    coupon_enable_on = serializers.CharField(required=False)
 
 
     def validate(self, data):
@@ -1666,7 +1668,7 @@ class CouponGetSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Coupon
-        fields = ('id', 'offer_type', 'coupon_name', 'details', 'start_date', 'end_date', 'is_point', 'limit_of_usages_per_customer')
+        fields = ('id', 'offer_type', 'coupon_name', 'details', 'start_date', 'end_date', 'is_point', 'limit_of_usages_per_customer', 'coupon_enable_on')
 
 
 class CouponListSerializer(serializers.ModelSerializer):
@@ -1696,7 +1698,7 @@ class CouponListSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Coupon
-        fields = ('id', 'offer_type', 'coupon_name', 'coupon_code', 'details', 'is_active','is_point', 'limit_of_usages_per_customer')
+        fields = ('id', 'offer_type', 'coupon_name', 'coupon_code', 'details', 'is_active','is_point', 'limit_of_usages_per_customer', 'coupon_enable_on')
 
 
 class PosShopSerializer(serializers.ModelSerializer):
