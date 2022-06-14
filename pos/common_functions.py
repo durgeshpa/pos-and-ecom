@@ -1396,9 +1396,11 @@ def cupon_point_update(order, updated_by):
     array = list(filter(lambda d: d['type'] in ['discount'], coupon))
     discount = 0
     shop = order.seller_shop
+    coupon_id = None
     for i in array:
         if i['is_point']:
             discount += i['discount_value']
+            coupon_id = i['coupon_id']
     if not discount:
         return
     days = datetime.datetime.today().day
@@ -1417,4 +1419,4 @@ def cupon_point_update(order, updated_by):
             reward_obj.direct_earned += discount
             reward_obj.save()
                 # Log transaction
-            RewardCls.create_reward_log(user, 'order_credit', order.order_no, discount, updated_by,discount=0, shop=shop)
+            RewardCls.create_reward_log(user, 'order_credit', coupon_id, discount, updated_by,discount=0, shop=shop)
