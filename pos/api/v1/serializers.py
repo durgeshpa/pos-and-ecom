@@ -1437,6 +1437,7 @@ class OfferCreateSerializer(serializers.Serializer):
     end_date = serializers.DateField(required=True)
     limit_of_usages_per_customer = serializers.IntegerField(required=False)
     coupon_enable_on = serializers.CharField(required=False)
+    coupon_shop_type = serializers.CharField(required=False)
 
     def validate(self, data):
         date_validation(data)
@@ -1445,10 +1446,15 @@ class OfferCreateSerializer(serializers.Serializer):
 
 class OfferGetSerializer(serializers.Serializer):
     id = serializers.IntegerField(required=True, min_value=1)
-    shop_id = serializers.IntegerField()
+    shop_id = serializers.IntegerField(required=False)
 
     def validate(self, data):
-        coupon = Coupon.objects.filter(id=data['id'], shop_id=data['shop_id']).last()
+        coupon = None
+        if data.get('shop_id'):
+
+            coupon = Coupon.objects.filter(id=data['id'], shop_id=data['shop_id']).last()
+        else:
+            coupon = Coupon.objects.filter(id=data['id']).last()
         if not coupon:
             raise serializers.ValidationError("Invalid coupon id")
         return data
@@ -1463,6 +1469,7 @@ class OfferUpdateSerializer(serializers.Serializer):
     shop_id = serializers.IntegerField()
     limit_of_usages_per_customer = serializers.IntegerField(required=False)
     coupon_enable_on = serializers.CharField(required=False)
+    coupon_shop_type = serializers.CharField(required=False)
 
 
     def validate(self, data):

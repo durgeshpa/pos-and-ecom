@@ -82,7 +82,7 @@ class Coupon(models.Model):
     shop = models.ForeignKey(Shop, related_name='retailer_shop_coupon', on_delete=models.CASCADE, null=True,
                              blank=True)
 
-    coupon_shop_type = models.CharField(max_length=20, choices=SHOP_TYPE_CHOICES,default='all', blank=True)
+    coupon_shop_type = models.CharField(max_length=20, choices=SHOP_TYPE_CHOICES, null=True, blank=True)
     coupon_enable_on = models.CharField(max_length=20, choices=ENABLED_ON, default='all', blank=True)
 
     def __str__(self):
