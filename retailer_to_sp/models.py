@@ -2117,6 +2117,7 @@ class ReturnOrder(models.Model):
     RETURN_CANCEL = 'RETURN_CANCEL'
     CUSTOMER_ITEM_PICKED = 'CUSTOMER_ITEM_PICKED'
     RETURN_INITIATED = 'RETURN_INITIATED'
+    RETURN_COMPLETE = 'RETURN_COMPLETE'
     RETURN_STATUS = (
         (RETURN_REQUESTED, 'Return requested'),
         (RETURN_INITIATED, 'Return initiated'),
@@ -2124,7 +2125,8 @@ class ReturnOrder(models.Model):
         (STORE_ITEM_PICKED, 'Retailer Item Picked'),
         (DC_DROPPED, 'DC Dropped'),
         (WH_DROPPED, 'WH Dropped'),
-        (RETURN_CANCEL, 'Return cancelled')
+        (RETURN_CANCEL, 'Return cancelled'),
+        (RETURN_COMPLETE, 'Return completed')
     )
     DROP_AT_STORE = 'DROP_AT_STORE'
     HOME_PICKUP = 'HOME_PICKUP'
@@ -2133,11 +2135,23 @@ class ReturnOrder(models.Model):
         (DROP_AT_STORE, 'Drop at Store'),
         (HOME_PICKUP, 'Home Pickup')
     )
+    RETAILER = "RETAILER"
+    SUPERSTORE = "SUPERSTORE"
+    SUPERSTORE_WAREHOUSE = "SUPERSTORE_WAREHOUSE"
+    RETURN_TYPE = (
+        (RETAILER, "Retailer returns"),
+        (SUPERSTORE, "Superstore returns"),
+        (SUPERSTORE_WAREHOUSE, "Superstore warehouse returns")
+    )
     return_no = models.CharField(max_length=255, null=True, blank=True)
     shipment = models.ForeignKey(OrderedProduct, 
                                 related_name='shipment_return_orders',
                                 on_delete=models.CASCADE
                                 )
+    return_type = models.CharField(max_length=50, 
+                                   choices=RETURN_TYPE,
+                                   default="SUPERSTORE", 
+                                   verbose_name="Type for returns")
     return_status = models.CharField(max_length=50, choices=RETURN_STATUS,
                                      null=True, blank=True, verbose_name='Status for Return',
                                      )
@@ -2174,6 +2188,10 @@ class ReturnOrder(models.Model):
         get_user_model(), related_name='last_modified_return_order',
         null=True, blank=True, on_delete=models.DO_NOTHING
     )
+    ref_return_order = models.ForeignKey("self", 
+                                         related_name='ref_return_orders', 
+                                         blank=True, null=True,
+                                         on_delete=models.CASCADE)
     
     class Meta:
         verbose_name = 'Return Order request'

@@ -30,7 +30,7 @@ class DiscountValue(models.Model):
 class CouponRuleSet(models.Model):
     rulename = models.CharField(max_length=255, unique=True, null=True)
     rule_description = models.CharField(max_length=255, null=True)
-    no_of_users_allowed = models.ManyToManyField(User, blank=True)
+    no_of_users_allowed = models.ManyToManyField(User, blank=True, verbose_name='Users Allowed')
     all_users = models.BooleanField(default=False)
     discount_qty_step = models.PositiveIntegerField(default=1, null=True, blank=True)
     discount_qty_amount = models.FloatField(default=0, null=True, blank=True)
