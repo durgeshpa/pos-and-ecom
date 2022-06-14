@@ -5591,7 +5591,7 @@ class SuperStoreOrderListSerializer(serializers.ModelSerializer):
 
         if instance.ordered_product.shipment_status == "DELIVERED":
             x = User.objects.filter(id=instance.ordered_product.delivery_person_id).last()
-            return {"name": x.first_name, "phone_number": x.phone_number} if x else None
+            return {"id": x.id, "name": x.first_name, "phone_number": x.phone_number} if x else None
         return None
     
     product = ProductSerializer(read_only=True)
