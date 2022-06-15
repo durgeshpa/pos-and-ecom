@@ -1229,17 +1229,28 @@ def pickup_entry_creation_with_cron():
                                 zone_picker_assigned_user.last_assigned_at = datetime.now()
                                 zone_picker_assigned_user.save()
                                 # Create Entry in PickerDashboard with PICKING_ASSIGNED status
+
+                                # Check if any entry with picking_status=PICKING_ASSIGNED is already present,
+                                # If not present, change is_clickable status to True
                                 if PickerDashboard.objects.filter(picker_boy_id=picker_user,
                                                                   picking_status='picking_assigned',
                                                                   is_clickable=True).exists():
                                     PickerDashboard.objects.create(
-                                        order=order, picking_status=PickerDashboard.PICKING_ASSIGNED, zone_id=zone_id,
-                                        picker_boy=picker_user, picklist_id=generate_picklist_id(pincode))
+                                        order=order,
+                                        picking_status=PickerDashboard.PICKING_ASSIGNED,
+                                        zone_id=zone_id,
+                                        picker_boy=picker_user,
+                                        picklist_id=generate_picklist_id(pincode)
+                                    )
                                 else:
                                     PickerDashboard.objects.create(
-                                        order=order, picking_status=PickerDashboard.PICKING_ASSIGNED, zone_id=zone_id,
-                                        picker_boy=picker_user, picklist_id=generate_picklist_id(pincode),
-                                        is_clickable=True)
+                                        order=order,
+                                        picking_status=PickerDashboard.PICKING_ASSIGNED,
+                                        zone_id=zone_id,
+                                        picker_boy=picker_user,
+                                        picklist_id=generate_picklist_id(pincode),
+                                        is_clickable=True
+                                    )
                                 picker_user_assigned = True
                         if not picker_user_assigned:
                             order.order_status = Order.PICKUP_CREATED
@@ -1457,16 +1468,28 @@ def pickup_entry_for_superstore_order_creation_with_cron():
                                 zone_picker_assigned_user.last_assigned_at = datetime.now()
                                 zone_picker_assigned_user.save()
                                 # Create Entry in PickerDashboard with PICKING_ASSIGNED status
+
+                                # Check if any entry with picking_status=PICKING_ASSIGNED is already present,
+                                # If not present, change is_clickable status to True
                                 if PickerDashboard.objects.filter(picker_boy_id=picker_user,
-                                                       picking_status='picking_assigned', is_clickable=True).exists():
+                                                                  picking_status='picking_assigned',
+                                                                  is_clickable=True).exists():
                                     PickerDashboard.objects.create(
-                                        order=order, picking_status=PickerDashboard.PICKING_ASSIGNED, zone_id=zone_id,
-                                        picker_boy=picker_user, picklist_id=generate_picklist_id(pincode))
+                                        order=order,
+                                        picking_status=PickerDashboard.PICKING_ASSIGNED,
+                                        zone_id=zone_id,
+                                        picker_boy=picker_user,
+                                        picklist_id=generate_picklist_id(pincode)
+                                    )
                                 else:
                                     PickerDashboard.objects.create(
-                                        order=order, picking_status=PickerDashboard.PICKING_ASSIGNED, zone_id=zone_id,
-                                        picker_boy=picker_user, picklist_id=generate_picklist_id(pincode),
-                                        is_clickable=True)
+                                        order=order,
+                                        picking_status=PickerDashboard.PICKING_ASSIGNED,
+                                        zone_id=zone_id,
+                                        picker_boy=picker_user,
+                                        picklist_id=generate_picklist_id(pincode),
+                                        is_clickable=True
+                                    )
                                 picker_user_assigned = True
                         if not picker_user_assigned:
                             order.order_status = Order.PICKUP_CREATED
