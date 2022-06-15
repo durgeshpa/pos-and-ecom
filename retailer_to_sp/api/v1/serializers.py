@@ -19,7 +19,7 @@ from retailer_backend.utils import getStrToYearDate
 from retailer_to_sp.common_model_functions import ShopCrateCommonFunctions, OrderCommonFunction
 from retailer_to_sp.common_validators import validate_shipment_crates_list, validate_shipment_package_list
 from retailer_to_sp.models import (CartProductMapping, Cart, Invoice, Order, OrderedProduct, Note, CustomerCare, Payment,
-                                   Dispatch, Feedback, OrderedProductMapping as RetailerOrderedProductMapping, Shipment,
+                                   Dispatch, Feedback, OrderedProductMapping as RetailerOrderedProductMapping, Return, ReturnOrder, Shipment,
                                    Trip, PickerDashboard, ShipmentRescheduling, OrderedProductBatch, ShipmentPackaging,
                                    ShipmentPackagingMapping, DispatchTrip, DispatchTripShipmentMapping,
                                    DispatchTripShipmentPackages, ShipmentNotAttempt, PACKAGE_VERIFY_CHOICES,
@@ -5622,6 +5622,13 @@ class InvoiceDataSerializer(serializers.ModelSerializer):
         fields = ('id', 'invoice_no', 'invoice_pdf', 'invoice_sub_total', 'invoice_total')
 
 
+class ReturnOrderMetaSerializer(serializers.ModelSerializer):
+    
+    class Meta:
+        model = ReturnOrder
+        fields = ('id', 'return_no', 'return_type', 'return_status', 
+                  'return_reason', 'return_pickup_method')
+
 class SuperStoreOrderDetailSerializer(serializers.ModelSerializer):
     order_no = serializers.SerializerMethodField()
     
@@ -5717,9 +5724,9 @@ class SuperStoreOrderDetailSerializer(serializers.ModelSerializer):
                 shipment = instance.ordered_product
                 shipment_status = shipment.shipment_status
                 if shipment.is_returned:
-                    return_order = shipment.shipment_return_orders.filter(return_order_products=instance.product,
-                                                                          seller_shop=shipment.seller_shop,
-                                                                          buyer=shipment.buyer).last()
+                    return_order = shipment.shipment_return_orders.filter(return_order_products__product=instance.product,
+                                                                          seller_shop=shipment.order.seller_shop,
+                                                                          buyer=shipment.order.buyer).last()
                     return return_order.return_status
                 elif shipment_status in [OrderedProduct.OUT_FOR_DELIVERY,
                                        OrderedProduct.DELIVERED,
@@ -5753,10 +5760,20 @@ class SuperStoreOrderDetailSerializer(serializers.ModelSerializer):
             else:
                 return False
         return False
+
+    order_return = serializers.SerializerMethodField()
+    
+    def get_order_return(self, instance):
+        shipment = instance.ordered_product
+        if shipment.is_returned:
+            return_order = shipment.shipment_return_orders.filter(return_type=ReturnOrder.SUPERSTORE).last()
+            return ReturnOrderMetaSerializer(return_order).data
+        else:
+            return None
     
     class Meta:
         model = RetailerOrderedProductMapping
         fields = ('id', 'order_no', 'shipment_status', 'loyalty_points', 'delivery_type',
                   'qty_and_total_amount', 'ordered_from', 'address', 'discount', 'delivery_persons',
-                  'payment', 'buyer', 'invoice', 'product', 'order_status', 'expected_delivery_date', 'is_returnable',
-                  'created_at')
+                  'payment', 'buyer', 'invoice', 'product', 'order_status', 'expected_delivery_date', 
+                  'is_returnable', 'order_return', 'created_at')
