@@ -2560,7 +2560,7 @@ def assign_clickable_state(user):
     """
         Make is_clickable field True if picking status of order is picking_complete or it is the current order
     """
-    instance = PickerDashboard.objects.filter(picker_boy_id=user, picking_status='picking_assigned').order_by('picker_assigned_date').first()
+    instance = PickerDashboard.objects.filter(picker_boy_id=user, picking_status='picking_assigned').order_by('created_at').first()
     instance.is_clickable = True
     instance.save()
 

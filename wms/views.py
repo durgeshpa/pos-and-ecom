@@ -1232,25 +1232,19 @@ def pickup_entry_creation_with_cron():
 
                                 # Check if any entry with picking_status=PICKING_ASSIGNED is already present,
                                 # If not present, change is_clickable status to True
+                                is_clickable = True
                                 if PickerDashboard.objects.filter(picker_boy_id=picker_user,
                                                                   picking_status='picking_assigned',
                                                                   is_clickable=True).exists():
-                                    PickerDashboard.objects.create(
-                                        order=order,
-                                        picking_status=PickerDashboard.PICKING_ASSIGNED,
-                                        zone_id=zone_id,
-                                        picker_boy=picker_user,
-                                        picklist_id=generate_picklist_id(pincode)
-                                    )
-                                else:
-                                    PickerDashboard.objects.create(
-                                        order=order,
-                                        picking_status=PickerDashboard.PICKING_ASSIGNED,
-                                        zone_id=zone_id,
-                                        picker_boy=picker_user,
-                                        picklist_id=generate_picklist_id(pincode),
-                                        is_clickable=True
-                                    )
+                                    is_clickable = False
+                                PickerDashboard.objects.create(
+                                    order=order,
+                                    picking_status=PickerDashboard.PICKING_ASSIGNED,
+                                    zone_id=zone_id,
+                                    picker_boy=picker_user,
+                                    picklist_id=generate_picklist_id(pincode),
+                                    is_clickable=is_clickable
+                                )
                                 picker_user_assigned = True
                         if not picker_user_assigned:
                             order.order_status = Order.PICKUP_CREATED
