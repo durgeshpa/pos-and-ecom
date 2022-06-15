@@ -20,7 +20,7 @@ from shops.models import Shop, ParentRetailerMapping
 from whc.models import AutoOrderProcessing, SourceDestinationMapping
 from wms.common_functions import get_stock, OrderManagement, InCommonFunctions, \
     CommonPickupFunctions, CommonPickBinInvFunction, InternalInventoryChange, CommonWarehouseInventoryFunctions, \
-    CommonBinInventoryFunctions, get_expiry_date
+    CommonBinInventoryFunctions, get_expiry_date, assign_clickable_state
 from wms.models import InventoryType, OrderReserveRelease, PutawayBinInventory, InventoryState, BinInventory, \
     PickupBinInventory, Pickup, Putaway, Bin
 from wms.views import shipment_out_inventory_change
@@ -112,6 +112,7 @@ class AutoOrderProcessor:
         if picker_dashboard_obj:
             picker_dashboard_obj.picking_status = 'picking_complete'
             picker_dashboard_obj.save()
+            assign_clickable_state(user=picker_dashboard_obj.picker_boy)
             info_logger.info("WarehouseConsolidation|assign_picker| picker dashboard updated, order id-{}"
                              .format(auto_processing_entry.order.order_no))
         auto_processing_entry.order.order_status = Order.PICKING_COMPLETE

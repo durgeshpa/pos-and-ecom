@@ -123,15 +123,6 @@ def reassign_picker_boy(sender, instance=None, created=False, update_fields=None
             pickers.update(picker_boy=instance.alternate_user)
 
 
-@receiver(post_save, sender=PickerDashboard)
-def assign_clickable_state(sender, instance=None, created=False, update_fields=None, **kwargs):
-    if created:
-        picker = PickerDashboard.objects.filter(picker_boy_id=instance.user, picking_status='picking_assigned').order_by(
-            'picker_assigned_date').first()
-        picker.is_clickable = True
-        picker.save()
-
-
 @receiver(post_save, sender=QCArea)
 def create_qc_area_barcode(sender, instance=None, created=False, update_fields=None, **kwargs):
     """ Generates barcode_txt and bar_code image for QCArea"""
