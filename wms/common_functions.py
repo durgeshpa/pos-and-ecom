@@ -22,6 +22,7 @@ from audit.models import AUDIT_PRODUCT_STATUS, AuditProduct
 from products.models import Product, ParentProduct, ProductPrice
 from shops.models import Shop
 from wms.common_validators import get_csv_file_data
+from retailer_to_sp.models import PickerDashboard
 from .models import (Bin, BinInventory, Putaway, PutawayBinInventory, Pickup, WarehouseInventory,
                      InventoryState, InventoryType, WarehouseInternalInventoryChange, In, PickupBinInventory,
                      BinInternalInventoryChange, StockMovementCSVUpload, StockCorrectionChange, OrderReserveRelease,
@@ -2553,6 +2554,15 @@ def get_logged_user_wise_query_set_for_picker(user, queryset):
     elif user.groups.filter(name='Picker Boy').exists():
         queryset = queryset.filter(picker_boy=user)
     return queryset
+
+
+def assign_clickable_state(user):
+    """
+        Make is_clickable field True if picking status of order is picking_complete or it is the current order
+    """
+    instance = PickerDashboard.objects.filter(picker_boy_id=user, picking_status='picking_assigned').order_by('picker_assigned_date').first()
+    instance.is_clickable = True
+    instance.save()
 
 
 def get_logged_user_wise_query_set_for_pickup_list(user, pickup_type, queryset):
