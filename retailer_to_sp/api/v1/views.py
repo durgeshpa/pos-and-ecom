@@ -719,7 +719,8 @@ class SearchProducts(APIView):
         if app_type == '4':
             body = {'query': query,"aggs": {"margin_stats":{"stats":{"field":"margin"}},
                                             "selling_price_stats": {"stats": {"field": "super_store_product_selling_price"}},
-                                            "brand": {"terms": {"field": "brand.keyword"}},
+                                            "brand": {"terms": {"field": "brand.keyword"},
+                                                                },
                                             }}
         else:
             body = {'query': query, }
