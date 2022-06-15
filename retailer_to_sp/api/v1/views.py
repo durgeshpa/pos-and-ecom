@@ -75,7 +75,7 @@ from pos.models import (RetailerProduct, Payment as PosPayment,
 from pos.offers import BasicCartOffers
 from pos.tasks import update_es, order_loyalty_points_credit
 from products.models import ProductPrice, ProductOption, Product
-from retailer_backend.common_function import getShopMapping, checkNotShopAndMapping
+from retailer_backend.common_function import getShopMapping, checkNotShopAndMapping, return_order_id_pattern
 from retailer_backend.messages import ERROR_MESSAGES
 from retailer_backend.utils import SmallOffsetPagination
 from retailer_to_gram.models import (Cart as GramMappedCart, CartProductMapping as GramMappedCartProductMapping,
@@ -3451,18 +3451,20 @@ class OrderCentral(APIView):
                 return_pickup_method = request.data.get('return_method')
                 if not return_pickup_method:
                     return api_response('Please provide a pick up method for return.')
-                return_qty = request.data.get('return_qty')
+                return_qty = int(request.data.get('return_qty'))
                 if not return_qty:
                     return api_response('Please provide return quantity of the item.')
                 if return_qty > order_product_mapping.delivered_qty:
                     return api_response('Return quantity cannot be more than delivered quantity')
+                images = request.data.getlist('return_images', None)
                 return_order = self.create_return_order(shipment, 
                                                         order_product_mapping,
                                                         return_reason, 
                                                         other_return_reason, 
                                                         return_pickup_method,
                                                         kwargs['shop'],
-                                                        return_qty)
+                                                        return_qty,
+                                                        images=images)
                 if return_pickup_method == ReturnOrder.DROP_AT_STORE:
                     address = shipment.order.shop.shop_name_address_mapping.filter(
                                 address_type='shipping').last()
@@ -3509,7 +3511,7 @@ class OrderCentral(APIView):
                         return api_response("Pick up boy not assigned for home pick up.")
                     return_order.return_status = ReturnOrder.CUSTOMER_ITEM_PICKED
                     return_order.save()
-                    # self.create_retailer_side_return_order(shipment, order_product_mapping, return_order)
+                    self.create_retailer_side_return_order(shipment, order_product_mapping, return_order)
                     return api_response("Return product picked up")
                 except ReturnOrder.DoesNotExist:
                     return api_response("Return Order not found")
@@ -4297,23 +4299,30 @@ class OrderCentral(APIView):
 
 
     def create_return_order(self, shipment, order_product_mapping, return_reason, 
-                            other_return_reason, return_pickup_method, shop, return_qty):
+                            other_return_reason, return_pickup_method, shop, return_qty, images=None):
         user = self.request.user
         return_order, _ = ReturnOrder.objects.get_or_create(last_modified_by=user,
                                                          buyer=user,
                                                          shipment=shipment,
+                                                         return_type=ReturnOrder.SUPERSTORE,
                                                          return_status=ReturnOrder.RETURN_REQUESTED)
         return_order.return_reason = return_reason
         return_order.seller_shop = shop
         return_order.return_pickup_method = return_pickup_method
         return_order.other_return_reason = other_return_reason
         return_order.save()
-        return_order_product = ReturnOrderProduct.objects.get_or_create(
+        return_order_product, _ = ReturnOrderProduct.objects.get_or_create(
             return_order=return_order,
             product= order_product_mapping.product,
             return_qty=return_qty,
             return_price=order_product_mapping.selling_price
         )
+        if images:
+            for image in images:
+                ReturnOrderProductImage.objects.create(
+                    return_order_product=return_order_product,
+                    return_image=image
+                )
         
         
     def update_ordered_reserve_sp(self, cart, parent_mapping, order):
@@ -4584,6 +4593,25 @@ class OrderCentral(APIView):
                     return False
         return True
 
+    
+    def create_retailer_side_return_order(self, shipment, order_product_mapping, return_order):
+        seller_shop = return_order.seller_shop
+        parent_shop = seller_shop.get_shop_parent
+        ret_return_order, _ = ReturnOrder.objects.get_or_create(
+            seller_shop=parent_shop, 
+            buyer_shop=seller_shop,
+            return_status=ReturnOrder.RETURN_REQUESTED,
+            shipment=shipment,
+            ref_return_order=return_order,
+            return_type=ReturnOrder.SUPERSTORE_WAREHOUSE
+        )
+        return_qty = return_order.return_order_products.last().return_qty
+        return_order_product = ReturnOrderProduct.objects.get_or_create(
+            return_order=ret_return_order,
+            product= order_product_mapping.product,
+            return_qty=return_qty,
+            return_price=order_product_mapping.selling_price
+        )
     # def product_deleled(self, cart_products):
     #     if cart_products.filter(retailer_product__is_deleted=True).exists():
     #         return False
