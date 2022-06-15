@@ -712,11 +712,12 @@ class ProductSerializer(serializers.ModelSerializer):
     sub_category = serializers.SerializerMethodField()
     sub_category_id = serializers.SerializerMethodField()
     super_store_product_selling_price = serializers.SerializerMethodField()
+    off_percentage = serializers.SerializerMethodField()
 
     class Meta:
         model = Product
         fields = ('id', 'online_price', 'product_images', 'category', 'category_id', 'brand', 'brand_id',
-                  'sub_category', 'sub_category_id', 'super_store_product_selling_price')
+                  'sub_category', 'sub_category_id', 'super_store_product_selling_price', 'off_percentage')
 
     def get_product_images(self, obj):
         images = obj.product_pro_image.all()
@@ -788,6 +789,20 @@ class ProductSerializer(serializers.ModelSerializer):
             if superstore_price.exists():
                 return superstore_price.last().selling_price
         return None
+
+    def get_super_store_product_selling_price(self, obj):
+        seller_shop = self.context.get('parent_shop_id')
+        if seller_shop:
+            superstore_price = SuperStoreProductPrice.objects.filter(product_id=obj.id,
+                                                                     seller_shop=seller_shop)
+            if superstore_price.exists():
+                return superstore_price.last().selling_price
+        return None
+
+    def get_off_percentage(self,obj):
+        parent_shop_id = self.context.get('parent_shop_id')
+        price = obj.get_superstore_price_by_shop(parent_shop_id) if parent_shop_id else None
+        return round(100-((price.selling_price*100)/obj.product_mrp)) if price else None
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
