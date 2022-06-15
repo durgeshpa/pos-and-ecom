@@ -732,6 +732,11 @@ class SearchProducts(APIView):
         """
         body["from"] = int(self.request.GET.get('offset', 0))
         body["size"] = int(self.request.GET.get('pro_count', 100))
+        sort_by = self.request.GET.get('sort_by', 'modified_at')
+        sort_order = self.request.GET.get('sort_order', 'desc')
+        sort_by = sort_by if sort_by in ['ptr', "margin"] else 'margin'
+        sort_order = sort_order if sort_order in ['asc'] else 'desc'
+        body["sort"] = {sort_by: sort_order}
         p_list = []
         if app_type == '1':
             es_index = 'all_products'
