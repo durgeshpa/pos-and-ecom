@@ -19,7 +19,7 @@ def create_slab_price_detail(price, mrp, case_size):
         if price.product.parent_product.product_type == 'superstore':
             price = get_super_store_product_price(price.seller_shop_id, price.product)
             if price:
-                ptr = float(price * case_size)
+                ptr = float(price)
                 margin = round((((float(mrp) - ptr) / float(mrp)) * 100), 2)
             else:
                 ptr = float(0.0)
@@ -137,7 +137,7 @@ def get_warehouse_stock(shop_id=None, product=None, inventory_type=None):
         if product.parent_product.product_type == 'superstore':
             price = get_super_store_product_price(shop_id, product)
             if price:
-                ptr = float(price * product.product_inner_case_size)
+                ptr = float(price)
                 margin = round((((float(mrp) - ptr) / float(mrp)) * 100), 2)
             else:
                 margin = 0
