@@ -544,12 +544,13 @@ class BasicCartOffers(object):
         new_offers_list = BasicCartOffers.update_cart_offer(new_offers_list, cart_total, cart_offer)
         # check for free product offer on cart
         free_product_coupons = BasicCartOffers.get_basic_cart_product_coupon(shop_id, cart_total)
-        coupon_id  = free_product_coupons[0].get('id')
-        coupon = Coupon.objects.get(id=coupon_id)
-        limit_of_usages_per_customer = coupon.limit_of_usages_per_customer
-        count = cls.get_offer_applied_count(cart.buyer, coupon_id, coupon.expiry_date, coupon.start_date)
-        if limit_of_usages_per_customer and count >= limit_of_usages_per_customer:
-            free_product_coupons = []
+        if free_product_coupons:
+            coupon_id  = free_product_coupons[0].get('id')
+            coupon = Coupon.objects.get(id=coupon_id)
+            limit_of_usages_per_customer = coupon.limit_of_usages_per_customer
+            count = cls.get_offer_applied_count(cart.buyer, coupon_id, coupon.expiry_date, coupon.start_date)
+            if limit_of_usages_per_customer and count >= limit_of_usages_per_customer:
+                free_product_coupons = []
 
         if free_product_coupons:
             free_product_coupon = free_product_coupons[0]
