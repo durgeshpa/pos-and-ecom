@@ -16,11 +16,22 @@ def create_slab_price_detail(price, mrp, case_size):
     slab_price = []
     slabs = price.price_slabs.all().order_by('start_value')
     for slab in slabs:
+        if price.product.parent_product.product_type == 'superstore':
+            price = get_super_store_product_price(price.seller_shop_id, price.product)
+            if price:
+                ptr = float(price * case_size)
+                margin = round((((float(mrp) - ptr) / float(mrp)) * 100), 2)
+            else:
+                ptr = float(0.0)
+                margin = round(float(0.0), 2)
+        else:
+            ptr = float(slab.ptr * case_size)
+            margin = round((((float(mrp) - ptr) / float(mrp)) * 100), 2)
         slab_price.append({
             "start_value": slab.start_value,
             "end_value": slab.end_value,
-            "ptr": (slab.ptr * case_size),
-            "margin": round((((float(mrp) - slab.ptr) / float(mrp)) * 100), 2)
+            "ptr": ptr,
+            "margin": margin
         })
     return slab_price
 
@@ -123,10 +134,15 @@ def get_warehouse_stock(shop_id=None, product=None, inventory_type=None):
         status = True if (product.status in ['active', True]) else False
         mrp = product.product_mrp
         product_price = product_price_dict.get(product.id)
-        margin = 0
-        ptr = 0
-        pack_size = None
-        brand_case_size = None
+        if product.parent_product.product_type == 'superstore':
+            price = get_super_store_product_price(shop_id, product)
+            if price:
+                ptr = float(price * product.product_inner_case_size)
+                margin = round((((float(mrp) - ptr) / float(mrp)) * 100), 2)
+            else:
+                margin = 0
+        else:
+            margin = 0
         try:
             pack_size = product.product_inner_case_size if product.product_inner_case_size else None
         except Exception as e:
