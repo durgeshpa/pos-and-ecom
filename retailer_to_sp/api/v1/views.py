@@ -717,10 +717,10 @@ class SearchProducts(APIView):
         is_store_active = {'is_store_active': True if parent_shop else False}
         query = self.search_query()
         if app_type == '4':
-            body = {'query': query,"aggs": {"max_margin": {"max": {"field": "margin"}},
-                                            "min_margin": {"min": {"field": "margin"}},
-                                            "max_selling_price": {"max": {"field": "super_store_product_selling_price"}},
-                                            "min_selling_price": {"min": {"field": "super_store_product_selling_price"}},}}
+            body = {'query': query,"aggs": {"margin_stats":{"stats":{"field":"margin"}},
+                                            "selling_price_stats": {"stats": {"field": "super_store_product_selling_price"}},
+                                            "brand": {"terms": {"field": "brand.keyword"}},
+                                            }}
         else:
             body = {'query': query, }
         return self.process_gf(app_type, body, shop, parent_shop, cart_check, cart, cart_products), is_store_active
