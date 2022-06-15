@@ -27,7 +27,7 @@ from shops.models import Shop
 from wms.common_functions import get_response, serializer_error, get_logged_user_wise_query_set, \
     picker_dashboard_search, get_logged_user_wise_query_set_for_picker, \
     get_logged_user_wise_query_set_for_qc_desk_mapping, get_logged_user_wise_query_set_for_qc_desk, \
-    get_logged_user_wise_query_set_for_shipment
+    get_logged_user_wise_query_set_for_shipment, assign_clickable_state
 from wms.common_validators import validate_ledger_request, validate_data_format, validate_id, \
     validate_id_and_warehouse, validate_putaways_by_token_id_and_zone, validate_putaway_user_by_zone, validate_zone, \
     validate_putaway_user_against_putaway, validate_grouped_request, validate_data_days_date_request
@@ -1641,6 +1641,7 @@ class PickerUserReAssignmentView(generics.GenericAPIView):
         serializer = self.serializer_class(instance=picker_dashboard_instance, data=modified_data)
         if serializer.is_valid():
             serializer.save(updated_by=request.user)
+            assign_clickable_state(user=request.user)
             PickerUserAssignmentLog.log_user_change(picker_dashboard_instance, request.user, last_picker)
             info_logger.info("PickerDashboard Updated Successfully.")
             return get_response('PickerDashboard updated!', serializer.data)

@@ -2311,6 +2311,7 @@ class PickerDashboard(models.Model):
     modified_at = models.DateTimeField(auto_now=True)
     completed_at = models.DateTimeField(null=True)
     moved_to_qc_at = models.DateTimeField(null=True)
+    is_clickable = models.BooleanField(default=False)
 
     def save(self, *args, **kwargs):
         super(PickerDashboard, self).save(*args, **kwargs)

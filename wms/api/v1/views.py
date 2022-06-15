@@ -27,7 +27,7 @@ from gram_to_brand.models import GRNOrderProductMapping
 import datetime
 from wms.common_functions import (CommonBinInventoryFunctions, PutawayCommonFunctions, CommonBinFunctions,
                                   updating_tables_on_putaway, CommonWarehouseInventoryFunctions, InternalInventoryChange,
-                                  get_logged_user_wise_query_set_for_pickup_list)
+                                  get_logged_user_wise_query_set_for_pickup_list, assign_clickable_state)
 from ..v2.serializers import PicklistSerializer
 from ...common_validators import validate_pickup_crates_list, validate_pickup_request
 from ...services import check_whc_manager_coordinator_supervisor_picker, pickup_search, check_picker
@@ -969,6 +969,7 @@ class PickupComplete(APIView):
                                          .format(pickup.pickup_type_id, pickup.sku))
 
                     pd_obj.update(picking_status='picking_complete', completed_at=timezone.now())
+                    assign_clickable_state(user=request.user)
                     pick_obj.update(status='picking_complete', completed_at=timezone.now())
 
                     if is_repackaging == 1:
