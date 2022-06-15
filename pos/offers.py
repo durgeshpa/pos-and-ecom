@@ -3,6 +3,7 @@ from datetime import datetime
 from elasticsearch import Elasticsearch
 
 from retailer_to_sp.models import Cart
+from django.db.models import Q
 from coupon.models import Coupon
 from pos.models import RetailerProduct
 from retailer_backend.settings import ELASTICSEARCH_PREFIX as es_prefix, es
@@ -45,7 +46,7 @@ class BasicCartOffers(object):
         return offer
     @classmethod
     def get_offer_applied_count(cls, buyer, coupon_id, expiry_date, created_at):
-        carts = Cart.objects.filter(buyer=buyer,created_at__gte=created_at, created_at__lte=expiry_date )
+        carts = Cart.objects.filter(buyer=buyer, created_at__gte=created_at, created_at__lte=expiry_date).filter(~Q(cart_status="active"))
         count = 0
         for cart in carts:
             offers = cart.offers
@@ -509,14 +510,13 @@ class BasicCartOffers(object):
         return new_offers
 
     @staticmethod
-    def get_offer_applied_count(buyer, coupon_id, expiry_date, created_at):
+    def get_offer_applied_count_free_type(buyer, coupon_id, expiry_date, created_at):
         carts = Cart.objects.filter(buyer=buyer, created_at__gte=created_at, created_at__lte=expiry_date)
         count = 0
         for cart in carts:
             offers = cart.offers
             if offers:
-                array = list(filter(lambda d: d['type'] in ['free_product'], offers))
-                for i in array:
+                for i in offers:
                     if int(coupon_id) == i.get('coupon_id'):
                         count += 1
         return count
@@ -548,7 +548,7 @@ class BasicCartOffers(object):
             coupon_id  = free_product_coupons[0].get('id')
             coupon = Coupon.objects.get(id=coupon_id)
             limit_of_usages_per_customer = coupon.limit_of_usages_per_customer
-            count = cls.get_offer_applied_count(cart.buyer, coupon_id, coupon.expiry_date, coupon.start_date)
+            count = cls.get_offer_applied_count_free_type(cart.buyer, coupon_id, coupon.expiry_date, coupon.start_date)
             if limit_of_usages_per_customer and count >= limit_of_usages_per_customer:
                 free_product_coupons = []
 
