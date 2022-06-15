@@ -3440,7 +3440,7 @@ class OrderCentral(APIView):
                 pos_trip = shipment.pos_trips.filter(trip_type='SUPERSTORE').last()
                 return_period_offset = get_config('superstore_order_return_buffer', 72)
                 return_window = pos_trip.trip_end_at + timedelta(hours=return_period_offset)
-                if return_window > datetime.now():
+                if return_window < datetime.now():
                     return api_response("Return window is over you cannot return the item now.")
                 return_reason = request.data.get('return_reason')
                 if not return_reason:
