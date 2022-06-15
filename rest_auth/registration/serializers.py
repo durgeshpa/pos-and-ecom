@@ -313,14 +313,14 @@ class EcomRegisterSerializer(serializers.Serializer):
                                      required=allauth_settings.USERNAME_REQUIRED)
     first_name = serializers.CharField(required=True, write_only=True)
     referral_code = serializers.CharField(required=False, allow_blank=True, allow_null=True, default=None)
-    password1 = serializers.CharField(style={'input_type': 'password'}, write_only=True)
-    password2 = serializers.CharField(style={'input_type': 'password'}, write_only=True)
+    # password1 = serializers.CharField(style={'input_type': 'password'}, write_only=True)
+    # password2 = serializers.CharField(style={'input_type': 'password'}, write_only=True)
     uid = serializers.CharField(required=False, default=None)
     token = serializers.CharField(required=False, default=None)
     user_exists = serializers.BooleanField(default=False)
 
-    set_password_form_class = SetPasswordForm
-    set_password_form = None
+    # set_password_form_class = SetPasswordForm
+    # set_password_form = None
 
     def validate_password1(self, password):
         return get_adapter().clean_password(password)
@@ -331,8 +331,8 @@ class EcomRegisterSerializer(serializers.Serializer):
             if existing_user and 'referral_code' in self.initial_data and self.initial_data['referral_code'] is not None:
                 raise serializers.ValidationError("You are already registered Please login.")
 
-        if data['password1'] != data['password2']:
-            raise serializers.ValidationError(_("The two password fields didn't match."))
+        # if data['password1'] != data['password2']:
+        #     raise serializers.ValidationError(_("The two password fields didn't match."))
         user_otp = PhoneOTP.objects.filter(phone_number=data['username']).last()
         if not user_otp or not user_otp.is_verified:
             raise serializers.ValidationError(_("Please verify your mobile number first!"))
@@ -350,10 +350,10 @@ class EcomRegisterSerializer(serializers.Serializer):
             # # validate verification token
             # if not default_token_generator.check_token(user, data['token']):
             #     raise serializers.ValidationError("Invalid request")
-            self.set_password_form = self.set_password_form_class(user=user, data={'new_password1': data['password1'],
-                                                                                   'new_password2': data['password2']})
-            if not self.set_password_form.is_valid():
-                raise serializers.ValidationError(self.set_password_form.errors)
+            # self.set_password_form = self.set_password_form_class(user=user, data={'new_password1': data['password1'],
+            #                                                                        'new_password2': data['password2']})
+            # if not self.set_password_form.is_valid():
+            #     raise serializers.ValidationError(self.set_password_form.errors)
 
         data['is_ecom_user'] = True
         return data
