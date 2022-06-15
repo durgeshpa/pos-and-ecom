@@ -5753,7 +5753,7 @@ class SuperStoreOrderDetailSerializer(serializers.ModelSerializer):
         shipment = instance.ordered_product
         if shipment.shipment_status == OrderedProduct.DELIVERED:
             pos_trip = shipment.pos_trips.filter(trip_type='SUPERSTORE').last()
-            return_period_offset = get_config('superstore_order_return_buffer', 72)
+            return_period_offset = get_config('superstore_order_return_window_buffer', 72)
             return_window = pos_trip.trip_end_at + timedelta(hours=return_period_offset)
             if return_window > datetime.datetime.now():
                 return True
