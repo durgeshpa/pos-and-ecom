@@ -755,9 +755,9 @@ class SearchProducts(APIView):
 
         # No Shop Id OR Store Inactive
         if not parent_shop:
-            # body["_source"] = {"includes": ["id", "name", "product_images", "pack_size", "brand_case_size",
-            #                                 "weight_unit", "weight_value", "visible", "mrp", "ean",
-            #                                 "super_store_product_selling_price"]}
+            body["_source"] = {"includes": ["id", "name", "product_images", "pack_size", "brand_case_size",
+                                            "weight_unit", "weight_value", "visible", "mrp", "ean",
+                                            "super_store_product_selling_price"]}
             products_list = es_search(index=es_index, body=body)
             for p in products_list['hits']['hits']:
                 p["_source"]["description"] = p["_source"]["name"]
@@ -852,13 +852,6 @@ class SearchProducts(APIView):
                             if i['coupon_type'] == 'catalog':
                                 i['max_qty'] = max_qty
         return coupons
-
-    @staticmethod
-    def get_brand_gf_product(data):
-        brand = set()
-        for i in data:
-            brand.add(i['brand'])
-        return brand
 
 
     @staticmethod
