@@ -792,6 +792,10 @@ class SearchProducts(APIView):
         category = self.request.GET.get('categories')
         keyword = self.request.GET.get('keyword', None)
         is_discounted = self.request.GET.get('is_discounted', None)
+        margin_min = self.request.GET.get('margin_min', None)
+        margin_max = self.request.GET.get('margin_max', None)
+        selling_price_min = self.request.GET.get('selling_price_min', None)
+        selling_price_max = self.request.GET.get('selling_price_max', None)
         filter_list = []
         app_type = self.request.META.get('HTTP_APP_TYPE', '1')
         if app_type == '4':
@@ -800,6 +804,11 @@ class SearchProducts(APIView):
                 {"term": {"visible": True}},
                 {"term": {"product_type": 'superstore'}}
             ]
+            if margin_min and margin_max:
+                filter_list.append({"range": {"margin": {"gt": margin_min, "lt":margin_max}}})
+
+            if selling_price_min and selling_price_max:
+                filter_list.append({"range": {"super_store_product_selling_price": {"gt": selling_price_min, "lt":selling_price_max}}})
         else:
             if app_type != '2':
                 filter_list = [
