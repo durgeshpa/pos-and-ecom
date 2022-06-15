@@ -716,7 +716,13 @@ class SearchProducts(APIView):
         # store approved and parent = sp
         is_store_active = {'is_store_active': True if parent_shop else False}
         query = self.search_query()
-        body = {'query': query, }
+        if app_type == '4':
+            body = {'query': query,"aggs": {"max_margin": {"max": {"field": "margin"}},
+                                            "min_margin": {"min": {"field": "margin"}},
+                                            "max_selling_price": {"max": {"field": "super_store_product_selling_price"}},
+                                            "min_selling_price": {"min": {"field": "super_store_product_selling_price"}},}}
+        else:
+            body = {'query': query, }
         return self.process_gf(app_type, body, shop, parent_shop, cart_check, cart, cart_products), is_store_active
 
     def gf_pos_normal_search(self, app_type):
@@ -773,6 +779,7 @@ class SearchProducts(APIView):
             if cart_check:
                 p = self.modify_gf_cart_product_es(cart, cart_products, p)
             p_list.append(p["_source"])
+        p_list.append(products_list['aggregations'])
         return p_list
 
     def search_query(self):
@@ -845,6 +852,7 @@ class SearchProducts(APIView):
                             if i['coupon_type'] == 'catalog':
                                 i['max_qty'] = max_qty
         return coupons
+
 
     @staticmethod
     def modify_gf_cart_product_es(cart, cart_products, p):
