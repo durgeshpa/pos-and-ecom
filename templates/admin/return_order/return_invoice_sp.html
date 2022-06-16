@@ -83,10 +83,10 @@ table tr td,th,h4,span,address{
 								<strong>Order Date <br>{{shipment.order.created_at}}</strong>
 							</td>
 							<td class="text-center">
-								<strong>Return no <br>{{shipment.invoice_no}}</strong>
+								<strong>Return no <br>{{return_order.return_challan_no}}</strong>
 							</td>
 							<td class="text-center">
-								<strong>Return Date <br>{{shipment.created_at}}</strong>
+								<strong>Return Date <br>{{return_order.created_at}}</strong>
 							</td>
 							<td class="text-center">
 								<strong>FSSAI License No. <br>{{license_number}}</strong>
@@ -100,25 +100,25 @@ table tr td,th,h4,span,address{
 							<address>
 								<span>Dispatch To :</span>
 								<br/>
-    							<strong>{{shipment.order.shipping_address.shop_name.shop_name}}</strong>
+    							<strong>{{shipping_address.shop_name.shop_name}}</strong>
     							<br/>
-    								{{shipment.order.shipping_address.nick_name}}, {{shipment.order.shipping_address.address_line1}}, {{shipment.order.shipping_address.city}}
+    								{{shipping_address.nick_name}}, {{shipping_address.address_line1}}, {{shipping_address.city}}
 								<br/>
-								{{shipment.order.shipping_address.address_contact_number}}
+								{{shipping_address.address_contact_number}}
 								<br/>
 								<strong>GSTIN:</strong> <span>{{ buyer_shop_gistin }}</span><br>
-								<strong>State Name:</strong> <span>{{shipment.order.shipping_address.state}} </span><strong>Pincode:</strong> <span>{{shipment.order.shipping_address.pincode}}</span><br>
+								<strong>State Name:</strong> <span>{{shipping_address.state}} </span><strong>Pincode:</strong> <span>{{shipping_address.pincode}}</span><br>
 								<strong>Shop ID:</strong><span><strong>{{ shipment.order.buyer_shop_id }}</strong></span>
     						</address>
 						</div>
 						<div class="col-xs-4">
 							<address>
 							<span>Invoice To :</span><br>
-    				<strong>{{shipment.order.billing_address.shop_name.shop_name}}</strong><br>
-    				{{shipment.order.billing_address.nick_name}}, {{shipment.order.billing_address.address_line1}}, {{shipment.order.billing_address.city}}<br>
-						{{shipment.order.billing_address.address_contact_number}}<br>
+    				<strong>{{billing_address.shop_name.shop_name}}</strong><br>
+    				{{billing_address.nick_name}}, {{billing_address.address_line1}}, {{billing_address.city}}<br>
+						{{billing_address.address_contact_number}}<br>
 						<strong>GSTIN:</strong> <span>{{ buyer_shop_gistin }}</span><br>
-						<strong>State Name:</strong> <span>{{shipment.order.billing_address.state}} </span><strong>Pincode:</strong> <span>{{shipment.order.billing_address.pincode}}</span><br>
+						<strong>State Name:</strong> <span>{{billing_address.state}} </span><strong>Pincode:</strong> <span>{{billing_address.pincode}}</span><br>
     				</address>
 
 					</div>
@@ -495,9 +495,8 @@ table tr td,th,h4,span,address{
 								<tr>
 
         							<td class="text-left" colspan="10">
-						<strong>Supplier's Service Tax No:</strong> <span>NA</span><br>
+										<strong>Supplier's Service Tax No:</strong> <span>NA</span><br>
 										<strong>Company's PAN:</strong> <span>NA</span><br>
-
 									</td>
                                 </tr>
 

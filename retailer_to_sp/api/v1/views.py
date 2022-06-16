@@ -6594,10 +6594,9 @@ def return_challan_generation(request, return_order_id):
     template_name = 'admin/return_order/return_invoice_sp.html'
     return_order = get_object_or_404(ReturnOrder, pk=return_order_id)
     # get the file name along with with prefix name
-    # if not return_order.return_challan_no:
-    #     return_order.return_challan_no = common_function.generate_return_challan_number(return_order, 
-    #                                                                 return_order.seller_shop.shop_name_address_mapping.filter(address_type='billing').last().pk)
-    return_order.return_challan_no = 'GRV2392384789800'
+    if not return_order.return_challan_no:
+        return_order.return_challan_no = common_function.generate_return_challan_number(return_order, 
+                                                                    return_order.seller_shop.shop_name_address_mapping.filter(address_type='billing').last().pk)
     filename = create_file_name(file_prefix, return_order.return_challan_no, with_timestamp=True)
 
     # if return_order.return_invoice and return_order.return_invoice.invoice_pdf and return_order.return_invoice.invoice_pdf.url:
@@ -6666,6 +6665,10 @@ def return_challan_generation(request, return_order_id):
             shop_document_type='gstin').last().shop_document_number if return_order.buyer_shop.shop_name_documents.filter(
             shop_document_type='gstin').exists() else 'unregistered'
 
+    shipping_address = return_order.buyer_shop.shop_name_address_mapping.filter(address_type='shipping').last()
+    billing_address = return_order.buyer_shop.shop_name_address_mapping.filter(address_type='billing').last()
+    if not billing_address:
+        billing_address = shipping_address
     product_listing = []
     taxes_list = []
     gst_tax_list = []
@@ -6835,6 +6838,7 @@ def return_challan_generation(request, return_order_id):
 
     data = {"shipment": return_order.shipment, "order": return_order.shipment.order, "return_order": return_order,
             "url": request.get_host(), "scheme": request.is_secure() and "https" or "http",
+            "shipping_address": shipping_address, "billing_address": billing_address,
             "igst": igst, "cgst": cgst, "sgst": sgst, "product_special_cess": product_special_cess,
             "tcs_tax": tcs_tax, "tcs_rate": tcs_rate, "cess": cess,
             "surcharge": surcharge, "total_amount": total_amount, "amount": amount,
@@ -6856,6 +6860,7 @@ def return_challan_generation(request, return_order_id):
         # create_invoice_data(ordered_product)
         return_order.return_invoice.invoice_pdf.save("{}".format(filename),
                                                     ContentFile(response.rendered_content), save=True)
+        return_order.save()
     except Exception as e:
         logger.exception(e)
 
