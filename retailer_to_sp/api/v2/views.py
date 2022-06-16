@@ -1,4 +1,7 @@
 import logging
+import requests
+
+from django.http import HttpResponse
 
 from rest_framework import permissions
 from rest_auth import authentication
@@ -6,7 +9,8 @@ from rest_framework import status
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
-
+from common.common_utils import create_file_name
+from common.constants import PREFIX_RETURN_CHALLAN_FILE_NAME
 from retailer_to_sp.models import (Order, CustomerCare, Return, ReturnOrder)
 from wms.common_functions import get_response
 from .serializers import (CustomerCareSerializer, OrderNumberSerializer, 
@@ -15,6 +19,7 @@ from .serializers import (CustomerCareSerializer, OrderNumberSerializer,
 info_logger = logging.getLogger('file-info')
 error_logger = logging.getLogger('file-error')
 debug_logger = logging.getLogger('file-debug')
+from retailer_to_sp.api.v1.views import return_challan_generation
 
 
 class CustomerCareApi(APIView):
@@ -97,4 +102,29 @@ class GFReturnOrderList(APIView):
         msg = "return orders" if returns else "no return orders found"
         return get_response(msg, serializer.data, True)
         
-        
+
+class GetReturnChallan(APIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+    
+    def get(self, request, *args, **kwargs):
+        try:
+            return_order = ReturnOrder.objects.get(id=kwargs['pk'])
+            # if return_order.return_invoice and return_order.return_invoice.invoice_pdf and return_order.return_invoice.invoice_pdf.url:
+            #     pass
+            # else:
+            return_challan_generation(request, return_order.id)
+            with requests.Session() as s:
+                result = s.get(return_order.return_invoice.invoice_pdf.url)
+                filename = create_file_name(PREFIX_RETURN_CHALLAN_FILE_NAME, 
+                                            return_order.return_invoice.invoice_no)
+                try:
+                    response = HttpResponse(result.content, content_type='application/pdf')
+                    response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
+                    return response
+                except Exception as e:
+                    error_logger.exception(e)
+                    return get_response("Return Challan not generated", None, False)
+        except ReturnOrder.DoesNotExist:
+            return get_response("Return Order does not exists", None, False)
+                    
