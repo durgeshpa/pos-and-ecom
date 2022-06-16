@@ -3455,6 +3455,9 @@ class OrderCentral(APIView):
                                                           shipment=shipment)
                     pos_trip.trip_end_at = datetime.now()
                     pos_trip.save()
+                    order = shipment.order
+                    order.order_status='delivered'
+                    order.save()
                     sms_order_delivered(shipment.order.buyer.first_name, shipment.order.buyer.phone_number)
             elif order_status == ReturnOrder.RETURN_REQUESTED:
                 if not shipment.shipment_status == OrderedProduct.DELIVERED:
