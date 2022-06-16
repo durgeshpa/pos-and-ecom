@@ -10,7 +10,7 @@ from .common_model_functions import ShopCrateCommonFunctions
 from .models import CartProductMapping, Cart, Trip, OrderedProduct, ShipmentPackaging
 from pos.offers import BasicCartOffers
 from retailer_backend import common_function
-
+from coupon.models import Coupon
 logger = logging.getLogger(__name__)
 
 # Logger
@@ -156,6 +156,17 @@ class ReservedOrder(object):
 					cart_product.cart_product, int(cart_product.no_of_pieces), cart)
 
 
+def get_offer_applied_count_free_type(buyer, coupon_id, expiry_date, created_at):
+	carts = Cart.objects.filter(buyer=buyer, created_at__gte=created_at, created_at__lte=expiry_date)
+	count = 0
+	for cart in carts:
+		offers = cart.offers
+		if offers:
+			for i in offers:
+				if int(coupon_id) == i.get('coupon_id'):
+					count += 1
+	return count
+
 @receiver(post_save, sender=CartProductMapping)
 def create_offers(sender, instance=None, created=False, **kwargs):
 	"""
@@ -174,6 +185,14 @@ def create_offers(sender, instance=None, created=False, **kwargs):
 		# Recheck cart discount according to updated cart value
 		offers_list = BasicCartOffers.basic_cart_offers_check(Cart.objects.get(pk=instance.cart.id), offers_list,
 															  instance.cart.seller_shop.id)
+		for offer in offers_list:
+			coupon_id = offer.get('coupon_id')
+			if coupon_id:
+				coupon = Coupon.objects.get(id=coupon_id)
+				limit_of_usages_per_customer = coupon.limit_of_usages_per_customer
+				count = get_offer_applied_count_free_type(instance.cart.buyer, coupon_id, coupon.expiry_date, coupon.start_date)
+				if limit_of_usages_per_customer and count >= limit_of_usages_per_customer:
+					offers_list = []
 		Cart.objects.filter(pk=instance.cart.id).update(offers=offers_list)
 	elif instance.cart.cart_type == 'SUPERSTORE' and instance.product_type == 1 and instance.selling_price:
 		pass
