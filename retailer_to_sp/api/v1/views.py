@@ -833,9 +833,11 @@ class SearchProducts(APIView):
             if brand.isnumeric():
                 brand = brand.split(',')
                 brand = "{}".format(Brand.objects.filter(id__in=list(brand)).last())
-            filter_list.append({"match": {
-                "brand": {"query": brand, "operator": "and"}
-            }})
+                filter_list.append({"match": {
+                    "brand": {"query": brand, "operator": "and"}
+                }})
+            else:
+                filter_list.append({"terms": {"brand.keyword": json.loads(brand)}})
             # filter_list.append({"term": {"brand": brand}})
         elif keyword:
             q = {"multi_match": {"query": keyword, "fields": ["name^5", "category", "brand"], "type": "cross_fields"}}
