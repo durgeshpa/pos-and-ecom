@@ -23,6 +23,9 @@ STATUS_API_NAME = 'status'
 # Prefix of Invoice file name
 PREFIX_INVOICE_FILE_NAME = 'Invoice_'
 
+# Prefix of return challan file name
+PREFIX_RETURN_CHALLAN_FILE_NAME = 'Return_challan_'
+
 # Prefix of Credit Note file name
 PREFIX_CREDIT_NOTE_FILE_NAME = 'Credit_Note_'
 
