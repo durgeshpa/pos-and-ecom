@@ -344,7 +344,7 @@ class BasicCartOffers(object):
 
     @staticmethod
     def get_offer_applied_counts(buyer, coupon_id, expiry_date, created_at):
-        carts = Cart.objects.filter(buyer=buyer,created_at__gte=created_at, created_at__lte=expiry_date )
+        carts = Cart.objects.filter(buyer=buyer,created_at__gte=created_at, created_at__lte=expiry_date ).filter(~Q(cart_status='active'))
         count =0
         for cart in carts:
             offers = cart.offers
