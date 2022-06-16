@@ -2182,6 +2182,7 @@ class ReturnOrder(models.Model):
                                         on_delete=models.DO_NOTHING, 
                                         verbose_name='Return Item Pick up',
                                         related_name='return_item_pickups')
+    return_challan_no = models.CharField(max_length=255, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
     last_modified_by = models.ForeignKey(
@@ -2242,6 +2243,28 @@ class ReturnOrderProductImage(models.Model):
         verbose_name = "Return Order Product Image"
         verbose_name_plural = "Return Order Product Images"
 
+
+class ReturnInvoice(models.Model):
+    invoice_no = models.CharField(max_length=255, unique=True, db_index=True)
+    return_order = models.OneToOneField(ReturnOrder, 
+                                        related_name='return_invoice', 
+                                        on_delete=models.DO_NOTHING)
+    invoice_sub_total = models.FloatField()
+    invoice_total = models.FloatField()
+    invoice_pdf = models.FileField(upload_to='shop_photos/shop_name/documents/', null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True, null=True)
+    modified_at = models.DateTimeField(auto_now=True, null=True)
+
+    class Meta:
+        verbose_name = "Return Challan"
+        verbose_name_plural = "Return Challans"
+
+    def __str__(self):
+        return self.invoice_no
+
+    @property
+    def pdf_name(self):
+        return 'Return_challan_%s.pdf' % (self.invoice_no)
 
 class Invoice(models.Model):
     invoice_no = models.CharField(max_length=255, unique=True, db_index=True)
