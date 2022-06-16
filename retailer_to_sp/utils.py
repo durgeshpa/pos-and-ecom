@@ -796,3 +796,26 @@ def get_fin_year_start_date():
         current_fin_year = current_fin_year - 1
 
     return datetime.datetime(year=current_fin_year, month=fin_yr_start_month, day=fin_yr_start_day)
+
+
+def get_discount_applicable(ruleset, subtotal):
+    """
+    Return the discount amount applicabple on the subtotal for any given ruleset
+    Params :
+        ruleset : CouponRuleSet instance
+        subtotal : Amount on which discount id to be applied
+    Returns:
+        discount_applicable
+    """
+    is_percentage = ruleset.discount.is_percentage
+    discount_value = ruleset.discount.discount_value
+    max_discount = ruleset.discount.max_discount
+    if not is_percentage:
+        discount_applicable = discount_value
+    elif is_percentage and max_discount == 0:
+        discount_applicable = round(((discount_value / 100) * subtotal), 2)
+    elif is_percentage and (max_discount > ((discount_value / 100) * subtotal)):
+        discount_applicable = round(((discount_value / 100) * subtotal), 2)
+    elif is_percentage and (max_discount < ((discount_value / 100) * subtotal)):
+        discount_applicable = max_discount
+    return discount_applicable
