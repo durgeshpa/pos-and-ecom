@@ -2576,16 +2576,27 @@ def create_discounted_product(product):
     discounted_product, created = Product.objects.get_or_create(product_sku=discounted_product_sku,
                                                                 product_type=Product.PRODUCT_TYPE_CHOICE.DISCOUNTED,
                                                                 parent_product=product.parent_product,
-                                                                reason_for_child_sku='near_expiry',
-                                                                product_name=product.product_name,
-                                                                product_ean_code=product.product_ean_code,
-                                                                product_mrp=product.product_mrp,
-                                                                weight_value=product.weight_value,
-                                                                weight_unit=product.weight_unit,
-                                                                repackaging_type=product.repackaging_type
+                                                                defaults={'status':product.status,
+                                                                          'moving_average_buying_price':product.moving_average_buying_price,
+                                                                          'reason_for_child_sku':'near_expiry',
+                                                                          'product_name': product.product_name,
+                                                                          'product_ean_code':product.product_ean_code,
+                                                                          'product_mrp':product.product_mrp,
+                                                                          'weight_value': product.weight_value,
+                                                                          'weight_unit': product.weight_unit,
+                                                                          'repackaging_type': product.repackaging_type,
+                                                                          'use_parent_image': product.use_parent_image,
+                                                                          }
                                                                 )
     if created:
-        for i in product.product_pro_image.all():
+        images = product.product_pro_image.all()
+        if not images.exists():
+            if product.use_parent_image:
+                images = product.parent_product.parent_product_pro_image.all()
+            else:
+                images = product.child_product_pro_image.all()
+
+        for i in images:
             ProductImage.objects.create(product=discounted_product, image_name=i.image_name, image=i.image)
         product.discounted_sku = discounted_product
         product.save()
@@ -2652,7 +2663,7 @@ def create_price_for_discounted_product(warehouse, discounted_product, original_
         seller_shop=warehouse,
         start_date=datetime.today(),
         approval_status=ProductPrice.APPROVED)
-    PriceSlab.objects.create(product_price=discounted_price, start_value=1, end_value=0,
+    PriceSlab.objects.create(product_price=discounted_price, start_value=0, end_value=0,
                              selling_price=selling_price)
     return discounted_price
 
