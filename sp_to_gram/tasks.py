@@ -1,5 +1,6 @@
 from celery.task import task
 import logging
+import math
 
 from gram_to_brand.models import GRNOrder, GRNOrderProductMapping
 from shops.models import Shop
@@ -21,12 +22,15 @@ def create_slab_price_detail(price, mrp, case_size):
             if price:
                 ptr = float(price)
                 margin = round((((float(mrp) - ptr) / float(mrp)) * 100), 2)
+                margin = math.floor(margin)
             else:
                 ptr = float(0.0)
                 margin = round(float(0.0), 2)
+                margin = math.floor(margin)
         else:
             ptr = float(slab.ptr * case_size)
             margin = round((((float(mrp) - ptr) / float(mrp)) * 100), 2)
+            margin = math.floor(margin)
         slab_price.append({
             "start_value": slab.start_value,
             "end_value": slab.end_value,
@@ -139,6 +143,7 @@ def get_warehouse_stock(shop_id=None, product=None, inventory_type=None):
             if price:
                 ptr = float(price)
                 margin = round((((float(mrp) - ptr) / float(mrp)) * 100), 2)
+                margin = math.floor(margin)
             else:
                 margin = 0
         else:
