@@ -19,7 +19,7 @@ from retailer_backend.utils import getStrToYearDate
 from retailer_to_sp.common_model_functions import ShopCrateCommonFunctions, OrderCommonFunction
 from retailer_to_sp.common_validators import validate_shipment_crates_list, validate_shipment_package_list
 from retailer_to_sp.models import (CartProductMapping, Cart, Invoice, Order, OrderedProduct, Note, CustomerCare, Payment,
-                                   Dispatch, Feedback, OrderedProductMapping as RetailerOrderedProductMapping, Shipment,
+                                   Dispatch, Feedback, OrderedProductMapping as RetailerOrderedProductMapping, Return, ReturnOrder, Shipment,
                                    Trip, PickerDashboard, ShipmentRescheduling, OrderedProductBatch, ShipmentPackaging,
                                    ShipmentPackagingMapping, DispatchTrip, DispatchTripShipmentMapping,
                                    DispatchTripShipmentPackages, ShipmentNotAttempt, PACKAGE_VERIFY_CHOICES,
@@ -577,7 +577,8 @@ class SuperStoreProductSearchSerializer(serializers.ModelSerializer):
     product_price_detail = serializers.SerializerMethodField()
     
     def get_product_price_detail(self, instance):
-        price = instance.get_superstore_price
+        parent_shop_id = self.context['parent_shop_id']
+        price = instance.get_superstore_price_by_shop(parent_shop_id)
         if price:
             return {'mrp': instance.product_mrp, 'selling_price': price.selling_price}
         return None
@@ -599,8 +600,11 @@ class SuperStoreProductSearchSerializer(serializers.ModelSerializer):
 
 
 class SuperStoreCartProductMappingSerializer(serializers.ModelSerializer):
-    cart_product = SuperStoreProductSearchSerializer()
+    cart_product = serializers.SerializerMethodField()
     qty = serializers.SerializerMethodField()
+    
+    def get_cart_product(self, instance):
+        return SuperStoreProductSearchSerializer(instance.cart_product, context=self.context).data
     
     def get_qty(self, instance):
         return int(instance.qty)
@@ -620,7 +624,7 @@ class SuperStoreCartSerializer(serializers.ModelSerializer):
     
     def get_cart_product_list(self, instance):
         products = instance.rt_cart_list.filter(product_type=1).select_related('cart_product')
-        return SuperStoreCartProductMappingSerializer(products, many=True).data
+        return SuperStoreCartProductMappingSerializer(products, many=True, context=self.context).data
     
     def get_items_count(self, instance):
         return instance.rt_cart_list.filter(product_type=1).count()
@@ -4353,7 +4357,7 @@ class VerifyReturnShipmentProductsSerializer(serializers.ModelSerializer):
             instance, created = ShipmentPackaging.objects.get_or_create(
                 shipment=shipment, packaging_type=packaging_type, warehouse_id=warehouse_id, crate=crate,
                 movement_type=movement_type, defaults={'created_by': updated_by, 'updated_by': updated_by})
-            # ShopCrateCommonFunctions.mark_crate_used(instance.shipment.current_shop.id, instance.crate.id)
+            ShopCrateCommonFunctions.mark_crate_used(instance.shipment.current_shop.id, instance.crate.id)
         else:
             instance = ShipmentPackaging.objects.create(
                 shipment=shipment, packaging_type=packaging_type, warehouse_id=warehouse_id, crate=crate,
@@ -4392,6 +4396,13 @@ class VerifyReturnShipmentProductsSerializer(serializers.ModelSerializer):
         movement_type = self.get_movement_type(shipment_map_instance.ordered_product)
         if ShipmentPackagingMapping.objects.filter(ordered_product=shipment_map_instance,
                                                    shipment_packaging__movement_type=movement_type).exists():
+            crates_to_free = ShipmentPackagingMapping.objects.filter(
+                ordered_product=shipment_map_instance, shipment_packaging__movement_type=movement_type,
+                shipment_packaging__packaging_type=ShipmentPackaging.CRATE).\
+                values_list('shipment_packaging__crate__id', flat=True)
+            for crate in crates_to_free:
+                ShopCrateCommonFunctions.mark_crate_available(
+                    shipment_map_instance.ordered_product.current_shop.id, crate)
             shipment_packaging_ids = list(ShipmentPackagingMapping.objects.filter(
                 ordered_product=shipment_map_instance, shipment_packaging__movement_type=movement_type) \
                                           .values_list('shipment_packaging_id', flat=True))
@@ -5580,7 +5591,7 @@ class SuperStoreOrderListSerializer(serializers.ModelSerializer):
 
         if instance.ordered_product.shipment_status == "DELIVERED":
             x = User.objects.filter(id=instance.ordered_product.delivery_person_id).last()
-            return {"name": x.first_name, "phone_number": x.phone_number} if x else None
+            return {"id": x.id, "name": x.first_name, "phone_number": x.phone_number} if x else None
         return None
     
     product = ProductSerializer(read_only=True)
@@ -5610,6 +5621,13 @@ class InvoiceDataSerializer(serializers.ModelSerializer):
         model = Invoice
         fields = ('id', 'invoice_no', 'invoice_pdf', 'invoice_sub_total', 'invoice_total')
 
+
+class ReturnOrderMetaSerializer(serializers.ModelSerializer):
+    
+    class Meta:
+        model = ReturnOrder
+        fields = ('id', 'return_no', 'return_type', 'return_status', 
+                  'return_reason', 'return_pickup_method')
 
 class SuperStoreOrderDetailSerializer(serializers.ModelSerializer):
     order_no = serializers.SerializerMethodField()
@@ -5706,9 +5724,9 @@ class SuperStoreOrderDetailSerializer(serializers.ModelSerializer):
                 shipment = instance.ordered_product
                 shipment_status = shipment.shipment_status
                 if shipment.is_returned:
-                    return_order = shipment.shipment_return_orders.filter(return_order_products=instance.product,
-                                                                          seller_shop=shipment.seller_shop,
-                                                                          buyer=shipment.buyer).last()
+                    return_order = shipment.shipment_return_orders.filter(return_order_products__product=instance.product,
+                                                                          seller_shop=shipment.order.seller_shop,
+                                                                          buyer=shipment.order.buyer).last()
                     return return_order.return_status
                 elif shipment_status in [OrderedProduct.OUT_FOR_DELIVERY,
                                        OrderedProduct.DELIVERED,
@@ -5735,17 +5753,27 @@ class SuperStoreOrderDetailSerializer(serializers.ModelSerializer):
         shipment = instance.ordered_product
         if shipment.shipment_status == OrderedProduct.DELIVERED:
             pos_trip = shipment.pos_trips.filter(trip_type='SUPERSTORE').last()
-            return_period_offset = get_config('superstore_order_return_buffer', 72)
+            return_period_offset = get_config('superstore_order_return_window_buffer', 72)
             return_window = pos_trip.trip_end_at + timedelta(hours=return_period_offset)
             if return_window > datetime.datetime.now():
                 return True
             else:
                 return False
         return False
+
+    order_return = serializers.SerializerMethodField()
+    
+    def get_order_return(self, instance):
+        shipment = instance.ordered_product
+        if shipment.is_returned:
+            return_order = shipment.shipment_return_orders.filter(return_type=ReturnOrder.SUPERSTORE).last()
+            return ReturnOrderMetaSerializer(return_order).data
+        else:
+            return None
     
     class Meta:
         model = RetailerOrderedProductMapping
         fields = ('id', 'order_no', 'shipment_status', 'loyalty_points', 'delivery_type',
                   'qty_and_total_amount', 'ordered_from', 'address', 'discount', 'delivery_persons',
-                  'payment', 'buyer', 'invoice', 'product', 'order_status', 'expected_delivery_date', 'is_returnable',
-                  'created_at')
+                  'payment', 'buyer', 'invoice', 'product', 'order_status', 'expected_delivery_date', 
+                  'is_returnable', 'order_return', 'created_at')

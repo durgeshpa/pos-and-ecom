@@ -43,10 +43,10 @@ class BasicCartOffers(object):
             # Get nearest cart offer over cart value
             offer = BasicCartOffers.get_cart_nearest_offer(cart, cart_products)
         return offer
-    @staticmethod
-    def get_offer_applied_count(buyer, coupon_id, expiry_date, created_at):
+    @classmethod
+    def get_offer_applied_count(cls, buyer, coupon_id, expiry_date, created_at):
         carts = Cart.objects.filter(buyer=buyer,created_at__gte=created_at, created_at__lte=expiry_date )
-        count =0
+        count = 0
         for cart in carts:
             offers = cart.offers
             if offers:
@@ -283,7 +283,7 @@ class BasicCartOffers(object):
         # Get coupons available on cart from es
         c_list = BasicCartOffers.get_basic_cart_coupons(cart.seller_shop.id, cart_value)
         # Check already applied coupon, Auto apply if required
-        offers_list = BasicCartOffers.basic_cart_offers(c_list, cart_value, offers_list, auto_apply, coupon_id)
+        offers_list = BasicCartOffers.basic_cart_offers(c_list, cart_value, offers_list, auto_apply, coupon_id, cart)
         return offers_list
 
     @classmethod
@@ -341,8 +341,21 @@ class BasicCartOffers(object):
             pass
         return c_list
 
+    @staticmethod
+    def get_offer_applied_counts(buyer, coupon_id, expiry_date, created_at):
+        carts = Cart.objects.filter(buyer=buyer,created_at__gte=created_at, created_at__lte=expiry_date )
+        count =0
+        for cart in carts:
+            offers = cart.offers
+            if offers:
+                array = list(filter(lambda d: d['type'] in ['discount'], offers))
+                for i in array:
+                    if int(coupon_id) == i.get('coupon_id'):
+                        count +=1
+        return count
+
     @classmethod
-    def basic_cart_offers(cls, c_list, cart_value, offers_list, auto_apply=False, coupon_id=None):
+    def basic_cart_offers(cls, c_list, cart_value, offers_list, auto_apply=False, coupon_id=None, cart=None):
         """
             Check if cart applicable offers can be applied
             Remove already applied offer if not valid
@@ -420,6 +433,16 @@ class BasicCartOffers(object):
         if other_offers:
             other_offers = sorted(other_offers, key=itemgetter('cart_minimum_value'), reverse=True)
         # Either highest discount available offer is auto applied OR existing offer if applicable is updated
+        if cart and (coupon_id or final_offer.get('coupon_id')):
+            coupon_id = final_offer.get('coupon_id')
+            coupon = Coupon.objects.get(id=coupon_id)
+            limit_of_usages_per_customer = coupon.limit_of_usages_per_customer
+            count = cls.get_offer_applied_counts(cart.buyer, coupon_id, coupon.expiry_date, coupon.start_date)
+            if limit_of_usages_per_customer and count >= limit_of_usages_per_customer:
+                final_offer = None
+                applicable_offers[0]['applied'] = 0
+                applied = False
+
         if final_offer:
             offers_list = BasicCartOffers.update_cart_offer(offers_list, cart_value, final_offer)
         else:
@@ -485,6 +508,18 @@ class BasicCartOffers(object):
             new_offers.append(new_offer)
         return new_offers
 
+    @staticmethod
+    def get_offer_applied_count(buyer, coupon_id, expiry_date, created_at):
+        carts = Cart.objects.filter(buyer=buyer, created_at__gte=created_at, created_at__lte=expiry_date)
+        count = 0
+        for cart in carts:
+            offers = cart.offers
+            if offers:
+                array = list(filter(lambda d: d['type'] in ['free_product'], offers))
+                for i in array:
+                    if int(coupon_id) == i.get('coupon_id'):
+                        count += 1
+        return count
     @classmethod
     def basic_cart_offers_check(cls, cart, offers_list, shop_id):
         """
@@ -509,6 +544,14 @@ class BasicCartOffers(object):
         new_offers_list = BasicCartOffers.update_cart_offer(new_offers_list, cart_total, cart_offer)
         # check for free product offer on cart
         free_product_coupons = BasicCartOffers.get_basic_cart_product_coupon(shop_id, cart_total)
+        if free_product_coupons:
+            coupon_id  = free_product_coupons[0].get('id')
+            coupon = Coupon.objects.get(id=coupon_id)
+            limit_of_usages_per_customer = coupon.limit_of_usages_per_customer
+            count = cls.get_offer_applied_count(cart.buyer, coupon_id, coupon.expiry_date, coupon.start_date)
+            if limit_of_usages_per_customer and count >= limit_of_usages_per_customer:
+                free_product_coupons = []
+
         if free_product_coupons:
             free_product_coupon = free_product_coupons[0]
             free_product = RetailerProduct.objects.filter(id=free_product_coupon['free_product']).last()

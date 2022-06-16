@@ -450,7 +450,7 @@ def update_customer_pos_cart(ph_no, shop_id, changed_by, email=None, name=None, 
 class PosCartCls(object):
 
     @classmethod
-    def refresh_prices(cls, cart_products):
+    def refresh_prices(cls, cart_products, parent_shop_id=None):
         for cart_product in cart_products:
             product = cart_product.retailer_product
             if product and product.offer_price and product.offer_start_date and product.offer_end_date and \
@@ -460,7 +460,7 @@ class PosCartCls(object):
                     and cart_product.retailer_product.online_price:
                 cart_product.selling_price = cart_product.retailer_product.online_price
             elif cart_product.cart.cart_type == 'SUPERSTORE':
-                cart_product.selling_price = cart_product.cart_product.get_superstore_price.selling_price
+                cart_product.selling_price = cart_product.cart_product.get_superstore_price_by_shop(parent_shop_id).selling_price
             else:
                 cart_product.selling_price = cart_product.retailer_product.selling_price
             cart_product.save()
@@ -1254,25 +1254,38 @@ class PosAddToCart(object):
         
         @wraps(view_func)
         def _inner_func(self, request, *args, **kwargs):
+            if not request.user.is_ecom_user:
+                return api_response("User Not Registered For E-commerce!")
+            try:
+                shop = Shop.objects.get(id=request.META.get('HTTP_SHOP_ID', None), shop_type__shop_type='f', status=True,
+                                        approval_status=2, pos_enabled=1)
+            except:
+                return api_response("Shop not available!")
+            kwargs['shop'] = shop
+            kwargs['app_type'] = request.META.get('HTTP_APP_TYPE', None)
+            
             # quantity_check
             qty = request.data.get('qty')
             if qty is None or int(qty) < 0:
                 return api_response("Qty is Invalid!")
             else:
                 kwargs['quantity'] = qty
-            
+            parent_shop = shop.get_shop_parent
+            if not parent_shop:
+                return api_response("Shop is not mapped to any parent shop.")
             #product_check
             try:
                 product = Product.objects.get(id=request.data.get('product_id'),
                                                         status='active',
                                                         parent_product__product_type='superstore')
-                selling_price = product.get_superstore_price
+                selling_price = product.get_superstore_price_by_shop(parent_shop.id)
                 if selling_price and selling_price.selling_price:
                     selling_price = selling_price.selling_price
                 else:
                     return api_response(f"Please contact admin selling price not available for this product - {product.id}")
                 kwargs['product'] = product
                 kwargs['selling_price'] = selling_price
+                kwargs['parent_shop_id'] = parent_shop.id
             except Product.DoesNotExist:
                 return api_response("Product cannot be added")
             
@@ -1383,9 +1396,11 @@ def cupon_point_update(order, updated_by):
     array = list(filter(lambda d: d['type'] in ['discount'], coupon))
     discount = 0
     shop = order.seller_shop
+    coupon_id = None
     for i in array:
         if i['is_point']:
             discount += i['discount_value']
+            coupon_id = i['coupon_id']
     if not discount:
         return
     days = datetime.datetime.today().day
@@ -1404,4 +1419,4 @@ def cupon_point_update(order, updated_by):
             reward_obj.direct_earned += discount
             reward_obj.save()
                 # Log transaction
-            RewardCls.create_reward_log(user, 'order_credit', order.order_no, discount, updated_by,discount=0, shop=shop)
+            RewardCls.create_reward_log(user, 'order_credit', coupon_id, discount, updated_by,discount=0, shop=shop)

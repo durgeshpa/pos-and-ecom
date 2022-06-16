@@ -963,7 +963,9 @@ def assign_dispatch_center_to_order_by_pincode(order_id):
             order_pincode = order_ins.shipping_address.pincode_link.pincode if \
                 order_ins.shipping_address and order_ins.shipping_address.pincode_link else None
             if order_pincode:
-                dispatch_center_map = DispatchCenterPincodeMapping.objects.filter(pincode__pincode=order_pincode).last()
+                dispatch_center_map = DispatchCenterPincodeMapping.objects.filter(
+                                                pincode__pincode=order_pincode,
+                                                dispatch_center__retiler_mapping__parent=order_ins.seller_shop).last()
                 if dispatch_center_map:
                     order_ins.dispatch_center = dispatch_center_map.dispatch_center
                     order_ins.dispatch_delivery = True
@@ -1227,9 +1229,22 @@ def pickup_entry_creation_with_cron():
                                 zone_picker_assigned_user.last_assigned_at = datetime.now()
                                 zone_picker_assigned_user.save()
                                 # Create Entry in PickerDashboard with PICKING_ASSIGNED status
+
+                                # Check if any entry with picking_status=PICKING_ASSIGNED is already present,
+                                # If not present, change is_clickable status to True
+                                is_clickable = True
+                                if PickerDashboard.objects.filter(picker_boy_id=picker_user,
+                                                                  picking_status='picking_assigned',
+                                                                  is_clickable=True).exists():
+                                    is_clickable = False
                                 PickerDashboard.objects.create(
-                                    order=order, picking_status=PickerDashboard.PICKING_ASSIGNED, zone_id=zone_id,
-                                    picker_boy=picker_user, picklist_id=generate_picklist_id(pincode))
+                                    order=order,
+                                    picking_status=PickerDashboard.PICKING_ASSIGNED,
+                                    zone_id=zone_id,
+                                    picker_boy=picker_user,
+                                    picklist_id=generate_picklist_id(pincode),
+                                    is_clickable=is_clickable
+                                )
                                 picker_user_assigned = True
                         if not picker_user_assigned:
                             order.order_status = Order.PICKUP_CREATED
@@ -1447,9 +1462,22 @@ def pickup_entry_for_superstore_order_creation_with_cron():
                                 zone_picker_assigned_user.last_assigned_at = datetime.now()
                                 zone_picker_assigned_user.save()
                                 # Create Entry in PickerDashboard with PICKING_ASSIGNED status
+
+                                # Check if any entry with picking_status=PICKING_ASSIGNED is already present,
+                                # If not present, change is_clickable status to True
+                                is_clickable = True
+                                if PickerDashboard.objects.filter(picker_boy_id=picker_user,
+                                                                  picking_status='picking_assigned',
+                                                                  is_clickable=True).exists():
+                                    is_clickable = False
                                 PickerDashboard.objects.create(
-                                    order=order, picking_status=PickerDashboard.PICKING_ASSIGNED, zone_id=zone_id,
-                                    picker_boy=picker_user, picklist_id=generate_picklist_id(pincode))
+                                    order=order,
+                                    picking_status=PickerDashboard.PICKING_ASSIGNED,
+                                    zone_id=zone_id,
+                                    picker_boy=picker_user,
+                                    picklist_id=generate_picklist_id(pincode),
+                                    is_clickable=is_clickable
+                                )
                                 picker_user_assigned = True
                         if not picker_user_assigned:
                             order.order_status = Order.PICKUP_CREATED
@@ -2548,16 +2576,27 @@ def create_discounted_product(product):
     discounted_product, created = Product.objects.get_or_create(product_sku=discounted_product_sku,
                                                                 product_type=Product.PRODUCT_TYPE_CHOICE.DISCOUNTED,
                                                                 parent_product=product.parent_product,
-                                                                reason_for_child_sku='near_expiry',
-                                                                product_name=product.product_name,
-                                                                product_ean_code=product.product_ean_code,
-                                                                product_mrp=product.product_mrp,
-                                                                weight_value=product.weight_value,
-                                                                weight_unit=product.weight_unit,
-                                                                repackaging_type=product.repackaging_type
+                                                                defaults={'status':product.status,
+                                                                          'moving_average_buying_price':product.moving_average_buying_price,
+                                                                          'reason_for_child_sku':'near_expiry',
+                                                                          'product_name': product.product_name,
+                                                                          'product_ean_code':product.product_ean_code,
+                                                                          'product_mrp':product.product_mrp,
+                                                                          'weight_value': product.weight_value,
+                                                                          'weight_unit': product.weight_unit,
+                                                                          'repackaging_type': product.repackaging_type,
+                                                                          'use_parent_image': product.use_parent_image,
+                                                                          }
                                                                 )
     if created:
-        for i in product.product_pro_image.all():
+        images = product.product_pro_image.all()
+        if not images.exists():
+            if product.use_parent_image:
+                images = product.parent_product.parent_product_pro_image.all()
+            else:
+                images = product.child_product_pro_image.all()
+
+        for i in images:
             ProductImage.objects.create(product=discounted_product, image_name=i.image_name, image=i.image)
         product.discounted_sku = discounted_product
         product.save()
@@ -2624,7 +2663,7 @@ def create_price_for_discounted_product(warehouse, discounted_product, original_
         seller_shop=warehouse,
         start_date=datetime.today(),
         approval_status=ProductPrice.APPROVED)
-    PriceSlab.objects.create(product_price=discounted_price, start_value=1, end_value=0,
+    PriceSlab.objects.create(product_price=discounted_price, start_value=0, end_value=0,
                              selling_price=selling_price)
     return discounted_price
 

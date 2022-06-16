@@ -470,6 +470,9 @@ class CouponOfferCreation(GenericAPIView):
             coupon = OffersCls.rule_set_cart_mapping(coupon_obj.id, 'cart', data['coupon_name'], coupon_code, shop,
                                                      start_date, expiry_date, data.get('limit_of_usages_per_customer', None))
             data['id'] = coupon.id
+            coupon.coupon_enable_on = data.get('coupon_enable_on') if data.get('coupon_enable_on') else 'all'
+            coupon.save()
+            data['coupon_enable_on'] = coupon.coupon_enable_on
             return api_response("Coupon Offer has been created successfully!", data, status.HTTP_200_OK, True)
 
     @staticmethod
@@ -578,6 +581,7 @@ class CouponOfferCreation(GenericAPIView):
             rule.is_active = coupon.is_active = data['is_active']
         rule.save()
         coupon.limit_of_usages_per_customer = data.get('limit_of_usages_per_customer',coupon.limit_of_usages_per_customer)
+        coupon.coupon_enable_on = data.get('coupon_enable_on') if data.get('coupon_enable_on') else coupon.coupon_enable_on
         coupon.save()
         return api_response(success_msg, None, status.HTTP_200_OK, True)
 
@@ -609,6 +613,8 @@ class CouponOfferCreation(GenericAPIView):
         rule.save()
         rule_set_product_mapping.save()
         coupon.limit_of_usages_per_customer = data.get('limit_of_usages_per_customer',coupon.limit_of_usages_per_customer)
+        coupon.coupon_enable_on = data.get('coupon_enable_on') if data.get(
+            'coupon_enable_on') else coupon.coupon_enable_on
         coupon.save()
         return api_response(success_msg, None, status.HTTP_200_OK, True)
 
@@ -633,6 +639,8 @@ class CouponOfferCreation(GenericAPIView):
             rule.is_active = coupon.is_active = data['is_active']
         rule.save()
         coupon.limit_of_usages_per_customer = data.get('limit_of_usages_per_customer',coupon.limit_of_usages_per_customer)
+        coupon.coupon_enable_on = data.get('coupon_enable_on') if data.get(
+            'coupon_enable_on') else coupon.coupon_enable_on
         coupon.save()
         return api_response(success_msg, None, status.HTTP_200_OK, True)
 

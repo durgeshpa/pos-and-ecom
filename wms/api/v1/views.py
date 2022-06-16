@@ -27,7 +27,7 @@ from gram_to_brand.models import GRNOrderProductMapping
 import datetime
 from wms.common_functions import (CommonBinInventoryFunctions, PutawayCommonFunctions, CommonBinFunctions,
                                   updating_tables_on_putaway, CommonWarehouseInventoryFunctions, InternalInventoryChange,
-                                  get_logged_user_wise_query_set_for_pickup_list)
+                                  get_logged_user_wise_query_set_for_pickup_list, assign_clickable_state)
 from ..v2.serializers import PicklistSerializer
 from ...common_validators import validate_pickup_crates_list, validate_pickup_request
 from ...services import check_whc_manager_coordinator_supervisor_picker, pickup_search, check_picker
@@ -838,9 +838,9 @@ class PickupDetail(APIView):
                             CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
                                 warehouse, sku, inventory_type, state_picked, pickup_quantity, tr_type, tr_id)
 
-                            picking_details.update(pickup_quantity=pickup_quantity + pick_qty,
-                                                   last_picked_at=timezone.now(),
-                                                   remarks=remarks_text)
+                            picking_details.filter(quantity__gte=pickup_quantity + pick_qty).\
+                                update(pickup_quantity=pickup_quantity + pick_qty,
+                                       last_picked_at=timezone.now(), remarks=remarks_text)
                             is_crate_applicable = False
                             if i['pickup_crates']['is_crate_applicable'] is True:
                                 is_crate_applicable = True
@@ -927,6 +927,7 @@ class PickupComplete(APIView):
                         info_logger.info("PickupComplete : Starting to complete pickup for order - {}, sku - {}"
                                          .format(pickup.pickup_type_id, pickup.sku))
                         pickup_bin_list = PickupBinInventory.objects.filter(pickup=pickup)
+                        reverse_pickup_qty = 0
                         for pickup_bin in pickup_bin_list:
                             if pickup_bin.pickup_quantity is None:
                                 pickup_bin.pickup_quantity = 0
@@ -937,13 +938,6 @@ class PickupComplete(APIView):
                                 info_logger.info('PickupComplete|POST API| Bin Inventory Object not found, '
                                                  'Bin Inv ID-{}'.format(bin_inv_id))
                                 continue
-                            CommonBinInventoryFunctions.deduct_to_be_picked_from_bin(reverse_quantity, bin_inv_obj,
-                                                                                     pickup.pk, tr_type)
-                            info_logger.info("PickupComplete : reverse quantity for SKU {} - {}"
-                                             .format(pickup.sku, reverse_quantity))
-
-                            # Entry in warehouse Table
-
                             if is_repackaging == 1:
                                 state_repackaging = InventoryState.objects.filter(inventory_state='repackaging').last()
                                 CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
@@ -951,13 +945,11 @@ class PickupComplete(APIView):
                                     pickup_bin.quantity * -1, tr_type, pickup.pk)
 
                             if reverse_quantity != 0:
-                                # Entry in bin table
-                                CommonBinInventoryFunctions.update_or_create_bin_inventory(pickup_bin.warehouse,
-                                                                                           pickup_bin.bin.bin,
-                                                                                           pickup_bin.pickup.sku
-                                                                                           , pickup_bin.batch_id,
-                                                                                           inventory_type,
-                                                                                           reverse_quantity, True)
+                                CommonBinInventoryFunctions.move_to_to_be_picked(-1*reverse_quantity, bin_inv_obj,
+                                                                                 pickup.pk, tr_type)
+                                info_logger.info("PickupComplete : reverse quantity for SKU {} - {}"
+                                                 .format(pickup.sku, reverse_quantity))
+
                                 InternalInventoryChange.create_bin_internal_inventory_change(pickup_bin.warehouse,
                                                                                              pickup_bin.pickup.sku,
                                                                                              pickup_bin.batch_id,
@@ -966,8 +958,8 @@ class PickupComplete(APIView):
                                                                                              tr_type,
                                                                                              pickup.pk,
                                                                                              reverse_quantity)
+                                reverse_pickup_qty += reverse_quantity
                         # Entry in warehouse table
-                        reverse_pickup_qty = pickup.quantity - pickup.pickup_quantity
                         if reverse_pickup_qty > 0:
                             CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
                                 pickup.warehouse, pickup.sku, inventory_type, state_to_be_picked,
@@ -977,6 +969,7 @@ class PickupComplete(APIView):
                                          .format(pickup.pickup_type_id, pickup.sku))
 
                     pd_obj.update(picking_status='picking_complete', completed_at=timezone.now())
+                    assign_clickable_state(user=request.user)
                     pick_obj.update(status='picking_complete', completed_at=timezone.now())
 
                     if is_repackaging == 1:

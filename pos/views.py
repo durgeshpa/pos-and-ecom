@@ -86,6 +86,18 @@ class RetailerProductShopAutocomplete(autocomplete.Select2QuerySetView):
         return qs
 
 
+class ProductAutocomplete(autocomplete.Select2QuerySetView):
+    """
+    Filter for Retailer Product
+    """
+
+    def get_queryset(self, *args, **kwargs):
+        qs = RetailerProduct.objects.all()
+        if self.q:
+            qs = qs.filter(Q(name__icontains=self.q) | Q(sku__startswith=self.q))
+        return qs
+
+
 def download_reward_configuration(request):
     """
     Products Catalogue Download View

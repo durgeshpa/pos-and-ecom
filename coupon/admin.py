@@ -5,6 +5,8 @@ from daterange_filter.filter import DateRangeFilter
 from retailer_backend.admin import InputFilter
 
 from admin_auto_filters.filters import AutocompleteFilter
+
+from .forms import RulesetCreationForm, CouponCreationForm, RulesetBrandMappingForm
 from .resources import RuleSetProductMappingResource
 from .models import *
 
@@ -52,7 +54,7 @@ class DiscountValueAdmin(admin.ModelAdmin):
 
 
 class CouponRuleSetAdmin(admin.ModelAdmin):
-
+    form = RulesetCreationForm
     def get_queryset(self, request):
         qs = super(CouponRuleSetAdmin, self).get_queryset(request)
         return qs.exclude(coupon_ruleset__shop__shop_type__shop_type='f')
@@ -65,6 +67,7 @@ class CouponRuleSetAdmin(admin.ModelAdmin):
 
 
 class CouponAdmin(admin.ModelAdmin):
+    form = CouponCreationForm
 
     def get_queryset(self, request):
         qs = super(CouponAdmin, self).get_queryset(request)
@@ -96,6 +99,8 @@ class RuleSetProductMappingAdmin(ImportExportModelAdmin):
 
 
 class RuleSetBrandMappingAdmin(admin.ModelAdmin):
+    form = RulesetBrandMappingForm
+
     list_display = ('rule', 'brand', 'created_at')
 
 

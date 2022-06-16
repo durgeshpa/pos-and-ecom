@@ -2,13 +2,15 @@ from django.contrib import admin
 from django.utils.html import format_html
 from django_admin_listfilter_dropdown.filters import ChoiceDropdownFilter
 from rangefilter.filter import DateTimeRangeFilter
+from admin_auto_filters.filters import AutocompleteFilter
+from django.db.models import Q
 
 from franchise.models import FranchiseSales
 from global_config.models import GlobalConfig
 from retailer_to_sp.models import Order, OrderedProduct
 from rest_auth.utils import AutoUser
 
-from .models import Referral, RewardPoint, RewardLog, ReferralCode
+from .models import Referral, RewardPoint, RewardLog, ReferralCode, UserWishlist, UserRating
 from .forms import RewardPointForm, MLMUserForm
 from .filters import UserFilter, MlmUserAutocomplete, ReferralToUserFilter, ReferralByUserFilter, RewardUserFilter,\
     ReferralCodeFilter
@@ -196,3 +198,52 @@ class RewardLogAdmin(admin.ModelAdmin):
 
     class Media:
         pass
+
+
+class UserFilter(AutocompleteFilter):
+    title = 'User'  # display title
+    field_name = 'user'  # name of the foreign key field
+
+    def queryset(self, request, queryset):
+        if self.value() is not None:
+            return queryset.filter(
+                Q(user_id=self.value())
+            )
+
+
+class UserWishlistAdmin(admin.ModelAdmin):
+    list_display = ('user', 'app_type', 'gf_prod_id', 'retail_prod_id', 'created_at', 'modified_at', 'is_active')
+    fields = ['user', 'app_type', 'gf_prod_id', 'retail_prod_id', 'created_at', 'modified_at', 'is_active']
+    list_per_page = 30
+    list_filter = [UserFilter, ]
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
+
+class UserRatingAdmin(admin.ModelAdmin):
+    list_display = ('user', 'rating', 'feedback', 'created_at')
+    fields = ['user', 'rating', 'feedback', 'created_at']
+    list_per_page = 30
+    list_filter = [UserFilter, ]
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
+
+admin.site.register(UserWishlist, UserWishlistAdmin)
+admin.site.register(UserRating, UserRatingAdmin)

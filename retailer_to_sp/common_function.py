@@ -182,4 +182,3 @@ def get_logged_user_wise_query_set_for_trip_invoices(user, queryset):
     else:
         queryset = queryset.none()
     return queryset
-

@@ -75,7 +75,7 @@ class RegisterView(CreateAPIView):
         if serializer.is_valid():
             user, token = self.perform_create(serializer)
             headers = self.get_success_headers(serializer.data)
-            return self.get_response(user, headers, token)
+            return self.get_response(user, headers, token.key)
         else:
             return api_serializer_errors(serializer.errors)
 
@@ -93,7 +93,7 @@ class RegisterView(CreateAPIView):
         """
         Get Response Based on Authentication and App Type Requested
         """
-        token = token if getattr(settings, 'REST_USE_JWT', False) else user.auth_token.key
+        # token = token if getattr(settings, 'REST_USE_JWT', False) else user.auth_token.key
         response_serializer_class = self.get_response_serializer()
         response_serializer = response_serializer_class(instance={'user': user, 'token': token})
         return Response({'is_success': True, 'message': ['Signed Up Successfully!'],

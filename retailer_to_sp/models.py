@@ -2035,7 +2035,7 @@ class OrderedProduct(models.Model):  # Shipment
             if self.shipment_status == OrderedProduct.MOVED_TO_DISPATCH:
                 CommonFunction.generate_invoice_number(self,
                     self.order.seller_shop.shop_name_address_mapping.filter(address_type='billing').last().pk, "EV")
-        elif self.order.ordered_cart.cart_type in ['RETAIL', 'SUPERSTORE_RETAIL']:
+        elif self.order.ordered_cart.cart_type == 'RETAIL':
             if self.shipment_status == OrderedProduct.MOVED_TO_DISPATCH:
                 CommonFunction.generate_invoice_number(self,
                     self.order.seller_shop.shop_name_address_mapping.filter(address_type='billing').last().pk)
@@ -2049,6 +2049,12 @@ class OrderedProduct(models.Model):  # Shipment
         elif self.order.ordered_cart.cart_type == 'BULK':
             if self.shipment_status == OrderedProduct.MOVED_TO_DISPATCH:
                 CommonFunction.generate_invoice_number_bulk_order(self,
+                    self.order.seller_shop.shop_name_address_mapping.filter(address_type='billing').last().pk)
+                # populate_data_on_qc_pass(self.order)
+
+        elif self.order.ordered_cart.cart_type == 'SUPERSTORE_RETAIL':
+            if self.shipment_status == OrderedProduct.MOVED_TO_DISPATCH:
+                CommonFunction.generate_invoice_number_ss(self,
                     self.order.seller_shop.shop_name_address_mapping.filter(address_type='billing').last().pk)
                 # populate_data_on_qc_pass(self.order)
 
@@ -2111,6 +2117,7 @@ class ReturnOrder(models.Model):
     RETURN_CANCEL = 'RETURN_CANCEL'
     CUSTOMER_ITEM_PICKED = 'CUSTOMER_ITEM_PICKED'
     RETURN_INITIATED = 'RETURN_INITIATED'
+    RETURN_COMPLETE = 'RETURN_COMPLETE'
     RETURN_STATUS = (
         (RETURN_REQUESTED, 'Return requested'),
         (RETURN_INITIATED, 'Return initiated'),
@@ -2118,7 +2125,8 @@ class ReturnOrder(models.Model):
         (STORE_ITEM_PICKED, 'Retailer Item Picked'),
         (DC_DROPPED, 'DC Dropped'),
         (WH_DROPPED, 'WH Dropped'),
-        (RETURN_CANCEL, 'Return cancelled')
+        (RETURN_CANCEL, 'Return cancelled'),
+        (RETURN_COMPLETE, 'Return completed')
     )
     DROP_AT_STORE = 'DROP_AT_STORE'
     HOME_PICKUP = 'HOME_PICKUP'
@@ -2127,11 +2135,23 @@ class ReturnOrder(models.Model):
         (DROP_AT_STORE, 'Drop at Store'),
         (HOME_PICKUP, 'Home Pickup')
     )
+    RETAILER = "RETAILER"
+    SUPERSTORE = "SUPERSTORE"
+    SUPERSTORE_WAREHOUSE = "SUPERSTORE_WAREHOUSE"
+    RETURN_TYPE = (
+        (RETAILER, "Retailer returns"),
+        (SUPERSTORE, "Superstore returns"),
+        (SUPERSTORE_WAREHOUSE, "Superstore warehouse returns")
+    )
     return_no = models.CharField(max_length=255, null=True, blank=True)
     shipment = models.ForeignKey(OrderedProduct, 
                                 related_name='shipment_return_orders',
                                 on_delete=models.CASCADE
                                 )
+    return_type = models.CharField(max_length=50, 
+                                   choices=RETURN_TYPE,
+                                   default="SUPERSTORE", 
+                                   verbose_name="Type for returns")
     return_status = models.CharField(max_length=50, choices=RETURN_STATUS,
                                      null=True, blank=True, verbose_name='Status for Return',
                                      )
@@ -2162,12 +2182,17 @@ class ReturnOrder(models.Model):
                                         on_delete=models.DO_NOTHING, 
                                         verbose_name='Return Item Pick up',
                                         related_name='return_item_pickups')
+    return_challan_no = models.CharField(max_length=255, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
     last_modified_by = models.ForeignKey(
         get_user_model(), related_name='last_modified_return_order',
         null=True, blank=True, on_delete=models.DO_NOTHING
     )
+    ref_return_order = models.ForeignKey("self", 
+                                         related_name='ref_return_orders', 
+                                         blank=True, null=True,
+                                         on_delete=models.CASCADE)
     
     class Meta:
         verbose_name = 'Return Order request'
@@ -2218,6 +2243,28 @@ class ReturnOrderProductImage(models.Model):
         verbose_name = "Return Order Product Image"
         verbose_name_plural = "Return Order Product Images"
 
+
+class ReturnInvoice(models.Model):
+    invoice_no = models.CharField(max_length=255, unique=True, db_index=True)
+    return_order = models.OneToOneField(ReturnOrder, 
+                                        related_name='return_invoice', 
+                                        on_delete=models.DO_NOTHING)
+    invoice_sub_total = models.FloatField()
+    invoice_total = models.FloatField()
+    invoice_pdf = models.FileField(upload_to='shop_photos/shop_name/documents/', null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True, null=True)
+    modified_at = models.DateTimeField(auto_now=True, null=True)
+
+    class Meta:
+        verbose_name = "Return Challan"
+        verbose_name_plural = "Return Challans"
+
+    def __str__(self):
+        return self.invoice_no
+
+    @property
+    def pdf_name(self):
+        return 'Return_challan_%s.pdf' % (self.invoice_no)
 
 class Invoice(models.Model):
     invoice_no = models.CharField(max_length=255, unique=True, db_index=True)
@@ -2287,6 +2334,7 @@ class PickerDashboard(models.Model):
     modified_at = models.DateTimeField(auto_now=True)
     completed_at = models.DateTimeField(null=True)
     moved_to_qc_at = models.DateTimeField(null=True)
+    is_clickable = models.BooleanField(default=False)
 
     def save(self, *args, **kwargs):
         super(PickerDashboard, self).save(*args, **kwargs)
@@ -2642,7 +2690,7 @@ class OrderedProductMapping(models.Model):
         #     product_tax = {i['tax']: [i['tax__tax_name'], i['tax__tax_percentage']] for i in product_tax_query}
         #     product_tax['tax_sum'] = product_tax_query.aggregate(tax_sum=Sum('tax__tax_percentage'))['tax_sum']
         #     self.product_tax_json = product_tax
-        product_tax_query = self.product.product_pro_tax.values('product', 'tax', 'tax__tax_name',
+        product_tax_query = self.product.parent_product.parent_product_pro_tax.values( 'tax', 'tax__tax_name',
                                                                 'tax__tax_percentage')
         product_tax = {i['tax']: [i['tax__tax_name'], i['tax__tax_percentage']] for i in product_tax_query}
         product_tax['tax_sum'] = product_tax_query.aggregate(tax_sum=Sum('tax__tax_percentage'))['tax_sum']
@@ -3334,7 +3382,7 @@ def create_order_no(sender, instance=None, created=False, **kwargs):
         Cart order_id add
     """
     if not instance.order_no and instance.seller_shop and instance.seller_shop:
-        if instance.ordered_cart.cart_type in ['RETAIL', 'BASIC', 'AUTO', 'SUPERSTORE_RETAIL']:
+        if instance.ordered_cart.cart_type in ['RETAIL', 'BASIC', 'AUTO']:
             order_no = common_function.order_id_pattern(
                 sender, 'order_no', instance.pk,
                 instance.seller_shop.
@@ -3347,7 +3395,7 @@ def create_order_no(sender, instance=None, created=False, **kwargs):
                         shop_name_address_mapping.filter(
                         address_type='billing').last().pk)
             instance.order_no = order_no
-        if instance.ordered_cart.cart_type in ['ECOM', 'SUPERSTORE']:
+        elif instance.ordered_cart.cart_type in ['ECOM', 'SUPERSTORE']:
             instance.order_no = common_function.order_id_pattern(
                 sender, 'order_no', instance.pk,
                 instance.seller_shop.
@@ -3365,6 +3413,13 @@ def create_order_no(sender, instance=None, created=False, **kwargs):
                 instance.seller_shop.
                     shop_name_address_mapping.filter(
                     address_type='billing').last().pk)
+        elif instance.ordered_cart.cart_type == 'SUPERSTORE_RETAIL':
+            instance.order_no = common_function.order_id_pattern_ss(
+                sender, 'order_no', instance.pk,
+                instance.seller_shop.
+                    shop_name_address_mapping.filter(
+                    address_type='billing').last().pk)
+
         instance.save()
         # Update order id in cart
         Cart.objects.filter(id=instance.ordered_cart.id).update(order_id=instance.order_no)

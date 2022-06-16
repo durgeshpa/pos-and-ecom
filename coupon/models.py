@@ -30,7 +30,7 @@ class DiscountValue(models.Model):
 class CouponRuleSet(models.Model):
     rulename = models.CharField(max_length=255, unique=True, null=True)
     rule_description = models.CharField(max_length=255, null=True)
-    no_of_users_allowed = models.ManyToManyField(User, blank=True)
+    no_of_users_allowed = models.ManyToManyField(User, blank=True, verbose_name='Users Allowed')
     all_users = models.BooleanField(default=False)
     discount_qty_step = models.PositiveIntegerField(default=1, null=True, blank=True)
     discount_qty_amount = models.FloatField(default=0, null=True, blank=True)
@@ -63,6 +63,8 @@ class Coupon(models.Model):
         (BRAND, "brand"),
         (CATEGORY, "category"),
     )
+    SHOP_TYPE_CHOICES = (('all', 'All'),( 'fofo', 'Fofo'),('foco','Foco'))
+    ENABLED_ON = (('pos', 'Pos'),('online',"Online"),('all', 'All'))
     rule = models.ForeignKey(CouponRuleSet, related_name='coupon_ruleset', on_delete=models.CASCADE)
     coupon_name = models.CharField(max_length=255, null=True)
     coupon_code = models.CharField(max_length=255, null=True)
@@ -79,6 +81,9 @@ class Coupon(models.Model):
     limit_of_usages_per_customer = models.PositiveIntegerField(default=0,blank=True, null=True)
     shop = models.ForeignKey(Shop, related_name='retailer_shop_coupon', on_delete=models.CASCADE, null=True,
                              blank=True)
+
+    coupon_shop_type = models.CharField(max_length=20, choices=SHOP_TYPE_CHOICES, null=True, blank=True)
+    coupon_enable_on = models.CharField(max_length=20, choices=ENABLED_ON, default='all', blank=True)
 
     def __str__(self):
         return self.coupon_name
