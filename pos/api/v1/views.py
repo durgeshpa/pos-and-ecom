@@ -521,6 +521,9 @@ class CouponOfferCreation(GenericAPIView):
         coupon = OffersCls.rule_set_cart_mapping(coupon_obj.id, 'catalog', combo_offer_name, combo_code, shop,
                                                  start_date, expiry_date, data.get('limit_of_usages_per_customer',None))
         data['id'] = coupon.id
+        coupon.coupon_enable_on = data.get('coupon_enable_on') if data.get('coupon_enable_on') else 'all'
+        coupon.save()
+        data['coupon_enable_on'] = coupon.coupon_enable_on
         return api_response("Combo Offer has been created successfully!", data, status.HTTP_200_OK, True)
 
     @staticmethod
@@ -557,6 +560,9 @@ class CouponOfferCreation(GenericAPIView):
             return api_response(coupon_obj)
         coupon = OffersCls.rule_set_cart_mapping(coupon_obj.id, 'cart', coupon_name, coupon_code, shop, start_date,
                                                  expiry_date, data.get('limit_of_usages_per_customer',None))
+        coupon.coupon_enable_on = data.get('coupon_enable_on') if data.get('coupon_enable_on') else 'all'
+        coupon.save()
+        data['coupon_enable_on'] = coupon.coupon_enable_on
         data['id'] = coupon.id
         return api_response("Free Product Offer has been created successfully!", data, status.HTTP_200_OK, True)
 

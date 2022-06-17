@@ -1300,7 +1300,18 @@ class CartCentral(GenericAPIView):
         # Refresh - add/remove/update combo, get nearest cart offer over cart value
         next_offer = BasicCartOffers.refresh_offers_cart(cart)
         return api_response('Cart', self.get_serialize_process_basic(cart, next_offer), status.HTTP_200_OK, True)
-
+    
+    @staticmethod
+    def get_offer_applied_count_free_type(buyer, coupon_id, expiry_date, created_at):
+        carts = Cart.objects.filter(buyer=buyer, created_at__gte=created_at, created_at__lte=expiry_date).filter(~Q(cart_status='active'))
+        count = 0
+        for cart in carts:
+            offers = cart.offers
+            if offers:
+                for i in offers:
+                    if int(coupon_id) == i.get('coupon_id'):
+                        count += 1
+        return count
     @check_ecom_user_shop
     def get_ecom_cart(self, request, *args, **kwargs):
         """
@@ -1334,6 +1345,17 @@ class CartCentral(GenericAPIView):
             offers = BasicCartOffers.refresh_offers_checkout(cart, False, None)
             # Refresh redeem reward
             RewardCls.checkout_redeem_points(cart, 0, shop=kwargs['shop'], app_type="ECOM", use_all=self.request.GET.get('use_rewards', 1))
+            offers_list = cart.offers
+            for offer in offers_list:
+                coupon_id = offer.get('coupon_id')
+                if coupon_id:
+                    coupon = Coupon.objects.get(id=coupon_id)
+                    limit_of_usages_per_customer = coupon.limit_of_usages_per_customer
+                    count = self.get_offer_applied_count_free_type(cart.buyer, coupon_id, coupon.expiry_date, coupon.start_date)
+                    if limit_of_usages_per_customer and count >= limit_of_usages_per_customer:
+                        offers_list.remove(offer)
+            cart.offers = offers_list
+            cart.save()
             cart_data = self.get_serialize_process_basic(cart, next_offer)
             checkout = CartCheckout()
             checkout_data = checkout.serialize(cart, offers)
@@ -3461,6 +3483,9 @@ class OrderCentral(APIView):
                                                           shipment=shipment)
                     pos_trip.trip_end_at = datetime.now()
                     pos_trip.save()
+                    order = shipment.order
+                    order.order_status='delivered'
+                    order.save()
                     sms_order_delivered(shipment.order.buyer.first_name, shipment.order.buyer.phone_number)
             elif order_status == ReturnOrder.RETURN_REQUESTED:
                 if not shipment.shipment_status == OrderedProduct.DELIVERED:

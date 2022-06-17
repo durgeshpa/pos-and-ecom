@@ -1756,6 +1756,7 @@ class OrderedProduct(models.Model):  # Shipment
     is_returned = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Invoice Date")
     modified_at = models.DateTimeField(auto_now=True)
+    points_added = models.BooleanField(default=False,null=False, blank=True)
 
     class Meta:
         verbose_name = 'Update Delivery/ Returns/ Damage'

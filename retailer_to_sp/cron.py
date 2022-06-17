@@ -39,10 +39,11 @@ def order_point_credit(order):
         new_paid_amount = ordered_product.invoice_amount_final - return_amount
 
         if ReferralCode.is_marketing_user(order.buyer):
-            order.points_added = order_loyalty_points_credit(new_paid_amount, order.buyer.id, order.order_no,
+            points_added = order_loyalty_points_credit(new_paid_amount, order.buyer.id, order.order_no,
                                                             'order_credit', 'order_indirect_credit',
                                                             order.buyer.id, order.seller_shop, app_type="SUPERSTORE")
-        order.save()
+        ordered_product.points_added = True
+        ordered_product.save()
     except Exception as e:
         info_logger.error(e)
 
@@ -52,11 +53,12 @@ def get_super_store_order():
     day = GlobalConfig.objects.get(key='return_window_day').value
     end_date = get_back_date(day)
     start_date = get_back_date(day+1)
-    orders = Order.objects.prefetch_related('rt_return_order').\
-             filter(order_app_type='pos_superstore', modified_at__gte=start_date,
-                  modified_at__lte=end_date, order_status='delivered')
+    orders = OrderedProduct.objects.prefetch_related().\
+             filter(order__order_app_type='pos_superstore', modified_at__gte=start_date,
+                  modified_at__lte=end_date, shipment_status="DELIVERED", points_added=False)
 
     for order in orders:
-        order_point_credit(order)
+        order_point_credit(order.order)
     info_logger.info("cron super_store_order add redeem point finished...")
+
 
