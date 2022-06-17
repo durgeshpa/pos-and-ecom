@@ -158,10 +158,10 @@ class RewardLogAdmin(admin.ModelAdmin):
         if obj.transaction_type in ['order_indirect_credit', 'order_credit', 'order_debit',
                                     'order_cancel_credit', 'order_cancel_debit']:
             order = Order.objects.filter(order_no=obj.transaction_id).last()
-            return order.seller_shop
+            return order.seller_shop if  order else '-'
         if obj.transaction_type in ['order_return_credit', 'order_return_debit']:
             order = Order.objects.filter(rt_return_order__id=obj.transaction_id).last()
-            return order.seller_shop
+            return order.seller_shop if  order else '-'
         return '-'
 
     @staticmethod
