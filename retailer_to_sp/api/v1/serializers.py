@@ -5777,3 +5777,28 @@ class SuperStoreOrderDetailSerializer(serializers.ModelSerializer):
                   'qty_and_total_amount', 'ordered_from', 'address', 'discount', 'delivery_persons',
                   'payment', 'buyer', 'invoice', 'product', 'order_status', 'expected_delivery_date', 
                   'is_returnable', 'order_return', 'created_at')
+
+
+class ReturnOrderTripListSerializer(serializers.ModelSerializer):
+    return_amount = serializers.SerializerMethodField()
+    order_no = serializers.SerializerMethodField()
+    return_address = serializers.SerializerMethodField()
+    shop_name = serializers.SerializerMethodField()
+    
+    def get_return_amount(self, instance):
+        return instance.return_amount
+    
+    def get_return_address(self, instance):
+        return AddressSerializer(instance.buyer_shop.shop_name_address_mapping.filter(address_type='shipping').last()).data
+    
+    def get_order_no(self, instance):
+        return instance.shipment.order.order_no
+    
+    def get_shop_name(self, instance):
+        return instance.buyer_shop.shop_name
+    
+    class Meta:
+        model = ReturnOrder
+        fields = ('id', 'return_challan_no', 'return_amount', 
+                  'return_status', 'created_at', 'shop_name',
+                  'order_no', 'return_address')

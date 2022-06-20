@@ -29,14 +29,14 @@ from retailer_to_sp.common_model_functions import ShopCrateCommonFunctions
 from sp_to_gram.models import (
     OrderedProductReserved, OrderedProductMapping as SPOrderedProductMapping,
     OrderedProduct as SPOrderedProduct)
-from retailer_to_sp.models import (CartProductMapping, Order, OrderedProduct, OrderedProductMapping, Note, Trip,
+from retailer_to_sp.models import (CartProductMapping, Order, OrderedProduct, OrderedProductMapping, Note, Return, Trip,
                                    Dispatch, ShipmentRescheduling, PickerDashboard, update_full_part_order_status,
                                    Shipment, populate_data_on_qc_pass, add_to_putaway_on_return,
                                    check_franchise_inventory_update, ShipmentNotAttempt, BASIC, ECOM,
                                    Shipment, populate_data_on_qc_pass, OrderedProductBatch, ShipmentPackaging,
                                    ShipmentNotAttempt, LastMileTripShipmentMapping, LastMileTripShipmentPackages,
                                    Invoice, DispatchTripShipmentMapping, DispatchTrip, DispatchTripShipmentPackages,
-                                   SUPERSTORE, SUPERSTORE_RETAIL, Cart)
+                                   SUPERSTORE, SUPERSTORE_RETAIL, Cart, ReturnOrder)
 from products.models import Product, Category
 from retailer_to_sp.forms import (
     OrderedProductForm, OrderedProductMappingShipmentForm,
@@ -46,7 +46,7 @@ from django.contrib import messages
 from django.contrib.postgres.search import SearchQuery, SearchRank, SearchVector, TrigramSimilarity
 from shops.models import Shop, ShopMigrationMapp, ParentRetailerMapping
 from retailer_to_sp.api.v1.serializers import (
-    DispatchSerializer, CommercialShipmentSerializer
+    DispatchSerializer, CommercialShipmentSerializer, ReturnOrderTripListSerializer
 )
 import json
 from django.http import HttpResponse
@@ -628,6 +628,7 @@ def trip_planning(request):
         if form.is_valid():
             trip = form.save()
             selected_shipments = form.cleaned_data.get('selected_id', None)
+            selected_returns = form.cleaned_data.get('return_selected_id', None)
             if selected_shipments:
                 selected_shipments = selected_shipments.split(',')
                 create_update_last_mile_trip_shipment_mapping(trip.id, selected_shipments, request.user)
@@ -635,6 +636,10 @@ def trip_planning(request):
                     pk__in=selected_shipments)
                 selected_shipments.update(trip=trip, shipment_status='READY_TO_DISPATCH')
 
+            if selected_returns:
+                selected_returns = selected_returns.split(',')
+                # create_update_last_mile_trip_return_mapping(trip.id, selected_returns, request.user)
+                # selected_returns = ReturnOrder.objects.filter(id__in=selected_returns).update(return_status=ReturnOrder.RETURN_INITIATED)
             # updating order status
             Order.objects.filter(rt_order_order_product__in=selected_shipments) \
                 .update(order_status=Order.READY_TO_DISPATCH)
@@ -953,6 +958,23 @@ class LoadDispatches(APIView):
         return Response(msg, status=status.HTTP_201_CREATED)
 
 
+class LoadReturnOrders(APIView):
+    permission_classes = (AllowAny,)
+    
+    def get(self, request):
+        seller_shop = request.GET.get('seller_shop_id')
+        trip_id = request.GET.get('trip_id')
+        if not trip_id:
+            return_orders = ReturnOrder.objects.filter(seller_shop_id=seller_shop,
+                                                    return_status__in=[ReturnOrder.RETURN_REQUESTED])
+        else:
+            return_orders = []
+        serializer = ReturnOrderTripListSerializer(return_orders, many=True)
+        msg = {'is_success': True,
+                   'message': None,
+                   'response_data': serializer.data}
+        return Response(msg, status=status.HTTP_200_OK)
+        
 def load_dispatches(request):
     """Return list of dispatches for specific seller shop
 

@@ -2194,6 +2194,11 @@ class ReturnOrder(models.Model):
                                          blank=True, null=True,
                                          on_delete=models.CASCADE)
     
+    @property
+    def return_amount(self):
+        sm = [return_product.return_qty * return_product.return_price for return_product in self.return_order_products.all()]
+        return sum(sm)
+    
     class Meta:
         verbose_name = 'Return Order request'
         verbose_name_plural = 'Return Order requests'
@@ -4017,6 +4022,35 @@ class LastMileTripShipmentPackages(BaseTimestampUserModel):
                                            on_delete=models.DO_NOTHING)
     package_status = models.CharField(max_length=100, choices=PACKAGE_STATUS, null=True)
     return_remark = models.CharField(max_length=100, choices=RETURN_REMARK_CHOICES, null=True)
+
+
+class LastMileTripReturnMapping(BaseTimestampUserModel):
+    TO_BE_LOADED, LOADING_FOR_DC, LOADED_FOR_DC = 'TO_BE_LOADED', 'LOADING_FOR_DC', 'LOADED_FOR_DC'
+    CANCELLED = 'CANCELLED'
+    SHIPMENT_STATUS = (
+        (TO_BE_LOADED, 'To be Loaded For Dispatch'),
+        (LOADING_FOR_DC, 'Loading For Dispatch'),
+        (LOADED_FOR_DC, 'Loaded For Dispatch'),
+        (CANCELLED, 'Cancelled'),
+    )
+
+    OKAY, PARTIALLY_MISSING_DAMAGED = 'OKAY', 'PARTIALLY_MISSING_DAMAGED'
+    PARTIALLY_DAMAGED, PARTIALLY_MISSING = 'PARTIALLY_DAMAGED', 'PARTIALLY_MISSING'
+    FULLY_DAMAGED, FULLY_MISSING = 'FULLY_DAMAGED', 'FULLY_MISSING'
+    SHIPMENT_HEALTH = (
+        (OKAY, 'Okay'),
+        (PARTIALLY_MISSING_DAMAGED, 'Partially Missing & Damaged'),
+        (PARTIALLY_DAMAGED, 'Partially Damaged'),
+        (PARTIALLY_MISSING, 'Partially Missing'),
+        (FULLY_DAMAGED, 'Fully Damaged'),
+        (FULLY_MISSING, 'Fully Missing'),
+    )
+    trip = models.ForeignKey(Trip, related_name='last_mile_trip_returns_details', on_delete=models.DO_NOTHING)
+    return_order = models.ForeignKey(ReturnOrder, related_name='last_mile_trip_returns', on_delete=models.DO_NOTHING)
+    shipment_status = models.CharField(max_length=100, choices=SHIPMENT_STATUS)
+    shipment_health = models.CharField(max_length=100, null=True, blank=True, choices=SHIPMENT_HEALTH)
+    loaded_by = models.ForeignKey(User, related_name='last_mile_trip_returns_loaded',
+                                  null=True, blank=True, on_delete=models.CASCADE)
 
 
 class ShopCrate(BaseTimestampUserModel):

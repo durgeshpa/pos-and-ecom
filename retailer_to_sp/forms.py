@@ -472,6 +472,7 @@ class TripForm(forms.ModelForm):
     trip_weight = forms.CharField(required=False, disabled=True)
     total_trip_amount_value = forms.CharField(required=False, disabled=True)
     selected_id = forms.CharField(widget=forms.HiddenInput(), required=False)
+    return_selected_id = forms.CharField(widget=forms.HiddenInput(), required=False)
     unselected_id = forms.CharField(widget=forms.HiddenInput(), required=False)
 
     class Meta:

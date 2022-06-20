@@ -81,26 +81,35 @@ class GFReturnOrderList(APIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (permissions.IsAuthenticated,)
     
-    def get(self, request):
-        returns = ReturnOrder.objects.filter(return_type=ReturnOrder.SUPERSTORE_WAREHOUSE)
-        search_text = request.query_params.get('search_text')
-        if search_text:
-            returns = returns.filter(return_order_products__product__product_name__icontains=search_text).distinct('id')
-        return_status = request.query_params.get('return_status')
-        if return_status:
-            returns = returns.filter(return_status=return_status)
-        seller_shop = request.query_params.get('seller_shop')
-        if seller_shop:
-            returns = returns.filter(seller_shop=seller_shop)
-        buyer_shop = request.query_params.get('buyer_shop')
-        if buyer_shop:
-            returns = returns.filter(buyer_shop=buyer_shop)
-        return_no = request.query_params.get('return_no')
-        if return_no:
-            returns = returns.filter(return_no=return_no)
-        serializer =  GFReturnOrderProductSerializer(returns, many=True)
-        msg = "return orders" if returns else "no return orders found"
-        return get_response(msg, serializer.data, True)
+    def get(self, request, pk=None):
+        if pk:
+            try:
+                return_order = ReturnOrder.objects.get(id=pk)
+                serializer = GFReturnOrderProductSerializer(return_order)
+                msg = "return order" if return_order else "no return orders found"
+                return get_response(msg, serializer.data, True)
+            except ReturnOrder.DoesNotExist:
+                return get_response("Return Order does not exists", None, False)
+        else:
+            returns = ReturnOrder.objects.filter(return_type=ReturnOrder.SUPERSTORE_WAREHOUSE)
+            search_text = request.query_params.get('search_text')
+            if search_text:
+                returns = returns.filter(return_order_products__product__product_name__icontains=search_text).distinct('id')
+            return_status = request.query_params.get('return_status')
+            if return_status:
+                returns = returns.filter(return_status=return_status)
+            seller_shop = request.query_params.get('seller_shop')
+            if seller_shop:
+                returns = returns.filter(seller_shop=seller_shop)
+            buyer_shop = request.query_params.get('buyer_shop')
+            if buyer_shop:
+                returns = returns.filter(buyer_shop=buyer_shop)
+            return_no = request.query_params.get('return_no')
+            if return_no:
+                returns = returns.filter(return_no=return_no)
+            serializer =  GFReturnOrderProductSerializer(returns, many=True)
+            msg = "return orders" if returns else "no return orders found"
+            return get_response(msg, serializer.data, True)
         
 
 class GetReturnChallan(APIView):
