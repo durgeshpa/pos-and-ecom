@@ -32,6 +32,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from retailer_backend import common_function
 from wkhtmltopdf.views import PDFTemplateResponse
+from pyfcm import FCMNotification
 
 from accounts.api.v1.serializers import PosUserSerializer, PosShopUserSerializer
 from addresses.models import Address, City, Pincode
@@ -3350,6 +3351,12 @@ class OrderCentral(APIView):
                 except:
                     pass
 
+                # Send Dispatch Push Notification to ECOMM USER
+                info_logger.info("Sending Dispatch notifications to Ecom users......")
+                message_title = "Order Update!"
+                message_body = "Your order has been dispatched & will be delivered to you soon."
+                send_notification_ecom_user(order, message_title, message_body)
+
         return api_response("Order updated successfully!", response, status.HTTP_200_OK, True)
 
     @check_ecom_user
@@ -3917,10 +3924,10 @@ class OrderCentral(APIView):
             self.auto_process_order(order, payments, 'ecom', transaction_id='',shop=shop)
             self.auto_process_ecom_order(order)
             try:
-                from pyfcm import FCMNotification
                 push_service = FCMNotification(api_key=config('FCM_SERVER_KEY'))
                 devices = Device.objects.filter(user__in=shop.pos_shop.all().values('user__id'),
                                                 is_active=True).distinct('reg_id')
+                info_logger.info("Sending order placed notifications to POS users......")
                 for device in devices:
                     registration_id = device.reg_id
                     message_title = f"{shop.shop_name} - Order Alert !!"
@@ -3929,6 +3936,14 @@ class OrderCentral(APIView):
                                                                message_title=message_title,
                                                                message_body=message_body)
                     info_logger.info(result)
+
+
+                # Send Order placed Push Notification to ECOMM USER
+                info_logger.info("Sending Order Placed notifications to Ecom users......")
+                message_title = "Great choice!"
+                message_body = "Your order has been accepted!"
+                send_notification_ecom_user(order, message_title, message_body)
+
             except Exception as e:
                 info_logger.info(e)
             if shop.enable_loyalty_points:
@@ -3999,6 +4014,13 @@ class OrderCentral(APIView):
             self.auto_process_order(order, payments, 'superstore')
             self.process_superstore_order(order)
             sms_order_placed(order.buyer.first_name, order.buyer.phone_number)
+
+            # Send Order placed Push Notification to ECOMM USER
+            info_logger.info("Sending Order Placed notifications to Ecom users......")
+            message_title = "Great choice!"
+            message_body = "Your order has been accepted!"
+            send_notification_ecom_user(order, message_title, message_body)
+
             msg = 'Ordered Successfully!'
             return api_response(msg, BasicOrderListSerializer(Order.objects.get(id=order.id)).data,
                                         status.HTTP_200_OK, True)
@@ -5611,6 +5633,13 @@ class OrderReturns(APIView):
             self.process_free_products(ordered_product, order_return, free_returns)
             order_return.free_qty_map = free_qty_product_map
             order_return.save()
+
+            # Send Order Return Push Notification to ECOMM USER
+            info_logger.info("Sending Order Return notifications to Ecom users......")
+            message_title = "Return Update!"
+            message_body = "Our logistic partner will contact you shortly, please keep the parcel ready to return."
+            send_notification_ecom_user(order, message_title, message_body)
+
         return api_response("Order Return", BasicOrderSerializer(order, context={'current_url': self.request.get_host(),
                                                                                  'invoice': 1,
                                                                                  'changed_products': changed_products}).data,
@@ -6221,9 +6250,23 @@ class OrderReturnComplete(APIView):
             pdf_generation_return_retailer(request, order, ordered_product, order_return, returned_products,
                                            credit_note_instance)
 
+            # Send Return Successful Push Notification to ECOMM USER
+            info_logger.info("Sending Return Successful notifications to Ecom users......")
+            message_title = "Order return has been accepted."
+            message_body = "You will receive a confirmation once the refund has been initiated."
+            send_notification_ecom_user(order, message_title, message_body)
+
             return api_response("Return Completed Successfully!", OrderReturnCheckoutSerializer(order).data,
                                 status.HTTP_200_OK, True)
 
+
+def send_notification_ecom_user(order, message_title, message_body):
+    push_service_ecom = FCMNotification(api_key=config('FCM_SERVER_KEY_ECOM'))
+    user_devices = Device.objects.filter(user=order.buyer, app_type='ecom').distinct('reg_id')
+    for user_device in user_devices:
+        result = push_service_ecom.notify_single_device(registration_id=user_device.reg_id,
+                                                        message_title=message_title, message_body=message_body)
+        info_logger.info(result)
 
 # class OrderList(generics.ListAPIView):
 #     serializer_class = OrderListSerializer
