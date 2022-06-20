@@ -225,15 +225,10 @@ class SuperStoreCategoriesView(APIView):
             .filter(category_parent=None,
                     category_type='superstore',
                     cat_parent__status=True,
-                    status=True) \
-            .prefetch_related(Prefetch('cat_parent', \
+                    status=True).order_by('category_order').distinct('category_order').prefetch_related(Prefetch('cat_parent',
                                        queryset=Category.objects.filter(status=True,
-                                                                        category_type='superstore').annotate(
-                                           parent_product=Count('parent_category_pro_category',
-                                                                )
-                                       ).filter(parent_product__gt=0))) \
-            .annotate(cat_order=F('category_view_order__order_no')) \
-            .order_by('cat_order', 'id').distinct('id', 'cat_order')
+                                                                        category_type='superstore')
+            .order_by('category_order',).distinct('category_order')))
         serializer = self.serializer_class(active_categories, many=True)
         is_success = True if active_categories else False
         return api_response('', serializer.data, status.HTTP_200_OK, is_success)
