@@ -1470,9 +1470,11 @@ class Trip(models.Model):
 
     @property
     def trip_amount(self):
-        return self.last_mile_trip_shipments_details.filter(~Q(shipment_status='CANCELLED')) \
+        shipment_amount = self.last_mile_trip_shipments_details.filter(~Q(shipment_status='CANCELLED')) \
             .annotate(invoice_amount=RoundAmount(F('shipment__invoice__invoice_total'))) \
             .aggregate(trip_amount=Sum(F('invoice_amount'), output_field=FloatField())).get('trip_amount')
+        return_amount = sum([return_order_trip.return_order.return_amount for return_order_trip in self.last_mile_trip_returns_details.filter(~Q(shipment_status='CANCELLED'))])
+        return float(return_amount) + shipment_amount
 
     @property
     def total_received_amount(self):
@@ -1606,6 +1608,8 @@ class Trip(models.Model):
             data['no_of_crates'] += shipment_data['no_of_crates'] if shipment_data.get('no_of_crates') else 0
             data['no_of_packs'] += shipment_data['no_of_packs'] if shipment_data.get('no_of_packs') else 0
             data['no_of_sacks'] += shipment_data['no_of_sacks'] if shipment_data.get('no_of_sacks') else 0
+        returns_loaded = self.last_mile_trip_returns_details.filter(~Q(shipment_status='CANCELLED')).count()
+        data['no_of_packs'] += returns_loaded
         return data
 
 

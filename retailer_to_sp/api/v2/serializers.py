@@ -2,7 +2,8 @@ from django.core.validators import RegexValidator
 from rest_framework import serializers
 
 from retailer_to_sp.models import Order, CustomerCare, ReturnOrder, ReturnOrderProduct, ReturnOrderProductImage
-from retailer_to_sp.api.v1.serializers import ProductSerializer, ShopSerializer
+from retailer_to_sp.api.v1.serializers import ProductSerializer
+from shops.models import Shop
 
 class OrderNumberSerializer(serializers.ModelSerializer):
 
@@ -41,13 +42,22 @@ class ReturnOrderGFProductSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 
+class ShopSerializer(serializers.ModelSerializer):
+    owner_number = serializers.SerializerMethodField()
+    def get_owner_number(self, instance):
+        return instance.shop_owner.phone_number 
+    
+    class Meta:
+        model = Shop
+        fields = ('id', 'shop_name', 'owner_number')
+
+
 class GFReturnOrderProductSerializer(serializers.ModelSerializer):
     return_order_products = serializers.SerializerMethodField()
     seller_shop = ShopSerializer(read_only=True)
     buyer_shop = ShopSerializer(read_only=True)
     
     def get_return_order_products(self, instance):
-        print(ReturnOrderProduct.objects.last().return_order.id)
         return ReturnOrderGFProductSerializer(instance.return_order_products.all(), many=True).data
     
     class Meta:

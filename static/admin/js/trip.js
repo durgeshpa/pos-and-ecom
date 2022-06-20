@@ -91,7 +91,7 @@ function initList(){
       $('#id_selected_id').val(list);
     $('.return_checkbox').each(function(i, elem){
       if ($(this).is(':checked')) {
-        return_list.push(return_page_data[$(this).val()].pk);
+        return_list.push(return_page_data[$(this).val()].id);
       }
     });
     $('#id_return_selected_id').val(return_list);
