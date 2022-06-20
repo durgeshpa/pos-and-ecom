@@ -4139,3 +4139,23 @@ class BuyerPurchaseData(models.Model):
     class Meta:
         verbose_name = 'Buyer Purchase'
         verbose_name_plural = 'Buyer Purchase'
+
+
+class BarcodeGenerator(models.Model):
+    RETURN_PICKUP = 'RETURN_PICKUP'
+    BARCODE_TYPE_CHOICE = Choices((6, RETURN_PICKUP, 'Return Pickup'),)
+    barcode_type = models.CharField(choices=BARCODE_TYPE_CHOICE, max_length=15)
+    batch_size = models.PositiveSmallIntegerField(default=1)
+    last_sequence = models.PositiveIntegerField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    created_by = models.ForeignKey(get_user_model(), on_delete=models.DO_NOTHING)
+
+
+class Barcode(models.Model):
+    generator = models.ForeignKey(BarcodeGenerator, on_delete=models.DO_NOTHING)
+    barcode_no = models.CharField(max_length=13)
+    is_available = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+
