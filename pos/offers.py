@@ -6,6 +6,7 @@ from retailer_to_sp.models import Cart
 from django.db.models import Q
 from coupon.models import Coupon
 from pos.models import RetailerProduct
+from shops.models import Shop
 from retailer_backend.settings import ELASTICSEARCH_PREFIX as es_prefix, es
 
 
@@ -197,6 +198,10 @@ class BasicCartOffers(object):
             coupons_list = es.search(index=create_es_index("rc-{}".format(shop_id)), body=body)
             for c in coupons_list['hits']['hits']:
                 c_list.append(c["_source"])
+            shop = Shop.objects.filter(shop_name="Wherehouse").last()
+            coupons_list = es.search(index=create_es_index("rc-{}".format(shop.id)), body=body)
+            for c in coupons_list['hits']['hits']:
+                c_list.append(c["_source"])
         except:
             pass
         return c_list
@@ -341,9 +346,6 @@ class BasicCartOffers(object):
             disable1 = 'online'
             disable2 = 'pos'
 
-
-
-
         date = datetime.now()
         body = {
             "from": 0,
@@ -375,6 +377,10 @@ class BasicCartOffers(object):
         c_list = []
         try:
             coupons_list = es.search(index=create_es_index("rc-{}".format(shop_id)), body=body)
+            for c in coupons_list['hits']['hits']:
+                c_list.append(c["_source"])
+            shop = Shop.objects.filter(shop_name="Wherehouse").last()
+            coupons_list = es.search(index=create_es_index("rc-{}".format(shop.id)), body=body)
             for c in coupons_list['hits']['hits']:
                 c_list.append(c["_source"])
         except:
@@ -432,6 +438,10 @@ class BasicCartOffers(object):
         c_list = []
         try:
             coupons_list = es.search(index=create_es_index("rc-{}".format(shop_id)), body=body)
+            for c in coupons_list['hits']['hits']:
+                c_list.append(c["_source"])
+            shop = Shop.objects.filter(shop_name="Wherehouse").last()
+            coupons_list = es.search(index=create_es_index("rc-{}".format(shop.id)), body=body)
             for c in coupons_list['hits']['hits']:
                 c_list.append(c["_source"])
         except:
@@ -752,6 +762,10 @@ class BasicCartOffers(object):
         c_list = []
         try:
             coupons_list = es.search(index=create_es_index("rc-{}".format(shop_id)), body=body)
+            for c in coupons_list['hits']['hits']:
+                c_list.append(c["_source"])
+            shop = Shop.objects.filter(shop_name="Wherehouse").last()
+            coupons_list = es.search(index=create_es_index("rc-{}".format(shop.id)), body=body)
             for c in coupons_list['hits']['hits']:
                 c_list.append(c["_source"])
         except Exception as e:
