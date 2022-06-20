@@ -49,6 +49,7 @@ class Category(BaseTimestampUserStatusModel):
                                          help_text="Please enter three characters for SKU")
     category_image = models.FileField(upload_to='category_img_file', null=True, blank=True)
     category_type = models.CharField(max_length=10, default='grocery', choices=CATEGORY_TYPE_CHOICES)
+    category_order = models.PositiveIntegerField(default=0)
     updated_by = models.ForeignKey(
         get_user_model(), null=True,
         related_name='category_updated_by',
