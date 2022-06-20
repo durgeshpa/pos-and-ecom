@@ -21,6 +21,7 @@ from django.core.validators import MinValueValidator, MaxValueValidator
 
 from celery.task import task
 from accounts.middlewares import get_current_user
+from coupon.common_functions import get_coupon_usage, get_applicable_product_coupons, get_applicable_brand_coupons
 from global_config.models import GlobalConfig
 from retailer_backend import common_function as CommonFunction
 from retailer_backend.validators import PercentageValidator
@@ -135,7 +136,6 @@ class RoundAmount(Func):
     function = "ROUND"
     template = "%(function)s(%(expressions)s::numeric, 0)"
 
-
 class Cart(models.Model):
     ACTIVE = "active"
     PENDING = "pending"
@@ -188,6 +188,7 @@ class Cart(models.Model):
     modified_at = models.DateTimeField(auto_now=True)
     redeem_points = models.IntegerField(default=0)
     redeem_factor = models.FloatField(default=0)
+    cart_value = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
 
     class Meta:
         verbose_name = 'Order Items Detail'
@@ -276,50 +277,46 @@ class Cart(models.Model):
     def no_of_pieces_sum(self):
         return self.rt_cart_list.aggregate(qty_sum=Sum('no_of_pieces'))['no_of_pieces_sum']
 
+    @property
+    def cart_value(self):
+        """
+        Returns total cart value
+        if cart is ordered return precalculated cart value at the time of order placement
+        if cart is active calculates cart value as per the current price set for each product
+        """
+        cart_value = 0
+        if self.cart_status == Cart.ORDERED:
+            cart_value = self.cart_value
+        else:
+            for product in self.rt_cart_list.all():
+                product_price = product.cart_product.get_current_shop_price(self.seller_shop, self.buyer_shop)
+                if not product_price:
+                    CartProductMapping.objects.filter(cart__id=self.id,
+                                                      cart_product__id=product.cart_product.id).delete()
+                    continue
+                per_piece_price = product_price.get_per_piece_price(product.qty) if product_price else 0
+                cart_value += Decimal(Decimal(per_piece_price) * product.no_of_pieces)
+        return cart_value
+
     def offers_applied(self):
-        offers_list = []
-        discount_value = 0
+        offers_list = {}
         shop = self.seller_shop
-        cart_products = self.rt_cart_list.all()
+        cart_products = self.get_cart_products()
         date = datetime.datetime.now()
         discount_sum_sku = 0
         discount_sum_brand = 0
-        sum = 0
         buyer_shop = self.buyer_shop
-        if cart_products:
-            if self.cart_status in ['active', 'pending']:
-                cart_value = 0
-                for product in cart_products:
-                    product_price = None
-                    if self.cart_status in ['active', 'pending']:
-                        product_price = product.cart_product.get_current_shop_price(self.seller_shop, self.buyer_shop)
-                    elif self.cart_status in ['ordered']:
-                        product_price = product.cart_product_price
-                    cart_value += Decimal(Decimal(product_price.get_per_piece_price(product.qty))
-                                        * product.no_of_pieces) if product_price else 0
+        cart_value = self.cart_value
+        brand_ids = self.get_all_brand_ids(cart_products)
+        product_ids = cart_products.values_list('cart_product_id', flat=True)
 
+        applicable_product_coupons = get_applicable_product_coupons(product_ids)
+        applicable_product_coupons = get_applicable_brand_coupons(brand_ids)
+        applicable_cart_coupons = get_applicable_cart_coupons(cart_value)
+        coupon_usage = get_coupon_usage(self.buyer_shop, product_ids)
+        b_list, c_list = [], []
+        if cart_products:
             for m in cart_products:
-                if not self.cart_status in ['ordered'] and \
-                        m.cart_product.get_current_shop_price(shop, buyer_shop) == None:
-                    CartProductMapping.objects.filter(cart__id=self.id, cart_product__id=m.cart_product.id).delete()
-                    continue
-                parent_product_brand = m.cart_product.product_brand
-                if parent_product_brand:
-                    parent_brand_id = parent_product_brand.brand_parent_id
-                else:
-                    parent_brand_id = None
-                product_brand_id = parent_product_brand.id
-                ## Get all applicable brand coupons
-                brand_coupons = Coupon.objects.filter(coupon_type='brand', is_active=True, expiry_date__gte=date)\
-                                              .filter(Q(rule__brand_ruleset__brand=product_brand_id) |
-                                                      Q(rule__brand_ruleset__brand=parent_brand_id))\
-                                              .order_by('rule__cart_qualifying_min_sku_value')
-                b_list = [x.coupon_name for x in brand_coupons]
-                ## Get all applicable cart coupons
-                cart_coupons = Coupon.objects.filter(coupon_type='cart', is_active=True, expiry_date__gte=date)\
-                                             .exclude(shop__shop_type__shop_type='f')\
-                                             .order_by('rule__cart_qualifying_min_sku_value')
-                c_list = [x.coupon_name for x in cart_coupons]
                 sku_qty = int(m.qty)
                 sku_no_of_pieces = int(m.cart_product.product_inner_case_size) * int(m.qty)
                 price = m.cart_product.get_current_shop_price(shop, buyer_shop)
@@ -333,30 +330,30 @@ class Cart(models.Model):
                                                         rule__expiry_date__gte=date,)\
                         .exclude(rule__coupon_ruleset__shop__shop_type__shop_type='f'):
 
-                    if n.rule.cart_qualifying_min_sku_value and not n.rule.cart_qualifying_min_sku_item:
-                        if cart_value < o.rule.cart_qualifying_min_sku_value:
-                            continue
-
                     ## Get All Coupons for each Ruleset
-                    for o in n.rule.coupon_ruleset.filter(is_active=True, expiry_date__gte=date).exclude(shop__shop_type__shop_type='f'):
-                        if o.limit_per_user_per_day > coupon_times_used:
-                            if n.rule.discount_qty_amount > 0:
-                                if sku_qty >= n.rule.discount_qty_step:
-                                    free_item = n.free_product.product_name
-                                    discount_qty_step_multiple = int((sku_qty) / n.rule.discount_qty_step)
-                                    free_item_amount = int((n.rule.discount_qty_amount) * discount_qty_step_multiple)
-                                    # sum += sku_subtotal
-                                    offers_list.append(
-                                        {'type': 'free', 'sub_type': 'discount_on_product', 'coupon_id': o.id,
-                                         'coupon': o.coupon_name, 'discount_value': 0, 'coupon_code': o.coupon_code,
-                                         'item': m.cart_product.product_name, 'item_sku': m.cart_product.product_sku,
-                                         'item_id': m.cart_product.id, 'free_item': free_item,
-                                         'free_item_amount': free_item_amount, 'coupon_type': 'catalog',
-                                         'discounted_product_subtotal': sku_subtotal,
+                    for coupon in applicable_product_coupons:
+                        coupon_id = coupon['rule__coupon_ruleset__id']
+                        coupon_code = coupon['rule__coupon_ruleset__coupon_code']
+                        coupon_name = coupon['rule__coupon_ruleset__coupon_name']
+                        limit_per_day = coupon['rule__coupon_ruleset__limit_per_user_per_day']
+                        discount_qty_amount = coupon['rule__discount_qty_amount']
+                        discount_qty_step = coupon['rule__discount_qty_step']
+                        free_product_id = coupon['rule__free_item__id']
+
+                        if limit_per_day > coupon_usage[m.product_id]:
+                            if discount_qty_amount > 0:
+                                if sku_qty >= discount_qty_step:
+                                    free_item = coupon['product_name']
+                                    discount_qty_step_multiple = int((sku_qty) / coupon['discount_qty_step'])
+                                    free_item_amount = int((coupon['discount_qty_amount']) * discount_qty_step_multiple)
+                                    offers_list['item_id'] = {
+                                        'type': 'free', 'sub_type': 'discount_on_product', 'coupon_type': 'catalog',
+                                        'coupon_id': coupon_id, 'free_item': free_product_id,
+                                        'free_item_qty': free_item_amount, 'discounted_product_subtotal': sku_subtotal,
                                          'discounted_product_subtotal_after_sku_discount': sku_subtotal,
-                                         'brand_id': m.cart_product.product_brand.id,
                                          'applicable_brand_coupons': b_list, 'applicable_cart_coupons': c_list})
-                            elif (n.rule.discount_qty_step >= 1) and (n.rule.discount != None):
+                                    CartProductMapping.objects.filter(id=m.id).update(effective_price=sku_ptr)
+                            elif (n.rule.discount_qty_step >= 1) and (n.rule.discount is not None):
                                 if sku_qty >= n.rule.discount_qty_step:
                                     discount_value = get_discount_applicable(n.rule, sku_subtotal)
                                     discount_sum_sku += round(discount_value, 2)
@@ -372,6 +369,8 @@ class Cart(models.Model):
                                          'discounted_product_subtotal_after_sku_discount': discounted_product_subtotal,
                                          'brand_id': m.cart_product.product_brand.id,
                                          'applicable_brand_coupons': b_list, 'applicable_cart_coupons': c_list})
+                                    effective_price = float(discounted_product_subtotal)/sku_no_of_pieces
+                                    CartProductMapping.objects.filter(id=m.id).update(effective_price=effective_price)
                 if not any(d['item_id'] == m.cart_product.id for d in offers_list):
                     offers_list.append({'type': 'no offer', 'sub_type': 'no offer', 'item': m.cart_product.product_name,
                                         'item_sku': m.cart_product.product_sku, 'item_id': m.cart_product.id,
@@ -381,6 +380,7 @@ class Cart(models.Model):
                                         'discounted_product_subtotal_after_sku_discount': round(sku_subtotal, 2),
                                         'brand_id': product_brand_id, 'cart_or_brand_level_discount': 0,
                                         'applicable_brand_coupons': b_list, 'applicable_cart_coupons': c_list})
+                    CartProductMapping.objects.filter(id=m.id).update(effective_price=sku_ptr)
             brand_coupons = Coupon.objects.filter(coupon_type='brand', is_active=True, expiry_date__gte=date)\
                                           .order_by('-rule__cart_qualifying_min_sku_value')
             array = list(filter(lambda d: d['coupon_type'] in 'catalog', offers_list))
@@ -406,7 +406,7 @@ class Cart(models.Model):
                     if brand_coupon.rule.cart_qualifying_min_sku_value and not brand_coupon.rule.cart_qualifying_min_sku_item:
                         if brand_product_subtotals >= brand_coupon.rule.cart_qualifying_min_sku_value:
                             discount_value_brand = get_discount_applicable(brand_coupon.rule, brand_product_subtotals)
-                            discount_sum_brand += round(brand_coupon.rule.discount.discount_value, 2)
+                            discount_sum_brand += round(discount_value_brand, 2)
                             offers_list.append(
                                 {'type': 'discount', 'sub_type': 'discount_on_brand', 'coupon_id': brand_coupon.id,
                                  'coupon': brand_coupon.coupon_name, 'coupon_code': brand_coupon.coupon_code,
@@ -449,6 +449,8 @@ class Cart(models.Model):
                             discounted_product_subtotal = float(round(
                                 Decimal(i['discounted_product_subtotal']) - Decimal(discounted_price_subtotal), 2))
                             i.update({'discounted_product_subtotal': discounted_product_subtotal})
+                            effective_price = float(discounted_product_subtotal)/product.no_of_pieces
+                            product.update(effective_price=effective_price)
                             offers_list[:] = [coupon for coupon in offers_list if coupon.get('coupon_type') != 'brand']
             else:
                 for product in cart_products:
@@ -464,10 +466,20 @@ class Cart(models.Model):
                                 discounted_product_subtotal = float(round(
                                     i['discounted_product_subtotal'] - discounted_price_subtotal, 2))
                                 i.update({'discounted_product_subtotal': discounted_product_subtotal})
+                                effective_price = float(discounted_product_subtotal) / product.no_of_pieces
+                                product.update(effective_price=effective_price)
                                 offers_list[:] = [coupon for coupon in offers_list if
                                                   coupon.get('coupon_type') != 'cart']
-
         return offers_list
+
+    def get_all_brand_ids(self, cart_products):
+        """
+        Returns all the brand and parent brand ids for given cart products
+        """
+        product_brands = cart_products.values('cart_product__parent_product__parent_brand_id',
+                                              'cart_product__parent_product__parent_brand___brand_parent_id')
+        product_brand_ids = [[i, j] for i, j in product_brands]
+        return product_brand_ids
 
     @staticmethod
     def get_entice_text(cart_coupon_list, cart_value, coupon_applied, discount_value_cart, i):
@@ -493,8 +505,11 @@ class Cart(models.Model):
     def save(self, *args, **kwargs):
         if self.cart_status == self.ORDERED:
             if self.cart_type not in ['BASIC', 'ECOM', 'SUPERSTORE']:
+                cart_value = 0
                 for cart_product in self.rt_cart_list.all():
-                    cart_product.get_cart_product_price(self.seller_shop.id, self.buyer_shop.id)
+                    product_price = cart_product.get_cart_product_price(self.seller_shop.id, self.buyer_shop.id)
+                    cart_value += cart_product.no_of_pieces * product_price.get_per_piece_price(cart_product.no_of_pieces)
+                self.cart_value = cart_value
         super().save(*args, **kwargs)
 
     @property
@@ -512,6 +527,13 @@ class Cart(models.Model):
     @property
     def time(self):
         return self.created_at.time()
+
+    def get_cart_products(self):
+        for p in self.rt_cart_list.all():
+            if not self.cart_status in ['ordered'] and p.get_current_shop_price(self.seller_shop, self.buyer_shop) is None:
+                CartProductMapping.objects.filter(cart=self, cart_product=p).delete()
+                continue
+        return self.rt_cart_list.all()
 
 
 class BulkOrder(models.Model):
@@ -778,7 +800,7 @@ class CartProductMapping(models.Model):
                 item_effective_price = float(self.selling_price) if self.selling_price else 0
         else:
             if self.cart.cart_type == 'SUPERSTORE':
-                item_effective_price =  float(self.selling_price)
+                item_effective_price = float(self.selling_price)
             else:
                 try:
                     if self.cart.offers:
@@ -3840,8 +3862,18 @@ class BuyerPurchaseData(models.Model):
         verbose_name_plural = 'Buyer Purchase'
 
 
-class CartCoupon(models.Model):
-    cart = models.ForeignKey(Cart, related_name='cart_coupons', on_delete=models.DO_NOTHING)
+class CartOffers(models.Model):
+    FREE, DISCOUNT, NO_OFFER = 'FREE', 'DISCOUNT', 'NO_OFFER'
+    NONE, DISCOUNT_ON_BRAND, DISCOUNT_ON_CART, DISCOUNT_ON_PRODUCT = \
+                                                'NONE', 'DISCOUNT_ON_BRAND', 'DISCOUNT_ON_CART', 'DISCOUNT_ON_PRODUCT'
+    OFFER_TYPE_CHOICE = ((FREE, 'free'), (DISCOUNT, 'discount'), (NO_OFFER, 'no offer'))
+    OFFER_SUBTYPE_CHOICE = ((NONE, 'none'), (DISCOUNT_ON_BRAND, 'disount_on_brand'),
+                            (DISCOUNT_ON_CART, 'discount_on_cart'), (DISCOUNT_ON_PRODUCT, 'discount_on_product'))
+
+    cart = models.ForeignKey(Cart, related_name='cart_offers', on_delete=models.CASCADE)
+    cart_item = models.ForeignKey(CartProductMapping, related_name='item_offers', on_delete=models.CASCADE)
+    offer_type = models.CharField(choices=OFFER_TYPE_CHOICE, max_length=20)
+    offer_sub_type = models.CharField(choices=OFFER_SUBTYPE_CHOICE, max_length=20)
     coupon = models.ForeignKey(Coupon, related_name='coupon_carts', on_delete=models.DO_NOTHING)
     discount = models.DecimalField(max_digits=10, decimal_places=2, null=True)
     free_product = models.ForeignKey(Product, related_name='pro_coupon_carts', on_delete=models.DO_NOTHING, null=True)
