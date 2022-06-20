@@ -36,6 +36,7 @@ from retailer_to_sp.models import (CartProductMapping, Order, OrderedProduct, Or
                                    Shipment, populate_data_on_qc_pass, OrderedProductBatch, ShipmentPackaging,
                                    ShipmentNotAttempt, LastMileTripShipmentMapping, LastMileTripShipmentPackages,
                                    Invoice, DispatchTripShipmentMapping, DispatchTrip, DispatchTripShipmentPackages,
+                                   LastMileTripReturnMapping,
                                    SUPERSTORE, SUPERSTORE_RETAIL, Cart, ReturnOrder)
 from products.models import Product, Category
 from retailer_to_sp.forms import (
@@ -638,8 +639,8 @@ def trip_planning(request):
 
             if selected_returns:
                 selected_returns = selected_returns.split(',')
-                # create_update_last_mile_trip_return_mapping(trip.id, selected_returns, request.user)
-                # selected_returns = ReturnOrder.objects.filter(id__in=selected_returns).update(return_status=ReturnOrder.RETURN_INITIATED)
+                create_update_last_mile_trip_return_mapping(trip.id, selected_returns, request.user)
+                selected_returns = ReturnOrder.objects.filter(id__in=selected_returns).update(return_status=ReturnOrder.RETURN_INITIATED)
             # updating order status
             Order.objects.filter(rt_order_order_product__in=selected_shipments) \
                 .update(order_status=Order.READY_TO_DISPATCH)
@@ -712,6 +713,30 @@ def create_update_last_mile_trip_shipment_mapping(trip_id, shipment_ids, request
                                                         package_status=LastMileTripShipmentPackages.LOADED)
     update_trip_package_count(trip_id)
 
+
+def create_update_last_mile_trip_return_mapping(trip_id, return_ids, request_user):
+    removed_returns = LastMileTripReturnMapping.objects.filter(
+        ~Q(return_order_id__in=return_ids), ~Q(shipment_status=LastMileTripReturnMapping.CANCELLED), trip_id=trip_id)
+    for trip_return in removed_returns:
+        if trip_return.return_order.return_status == ReturnOrder.RETURN_INITIATED:
+            trip_return.return_order.return_status = ReturnOrder.RETURN_REQUESTED
+            trip_return.return_order.save()
+    removed_returns.update(shipment_status=LastMileTripReturnMapping.CANCELLED, updated_by=request_user)
+    for return_id in return_ids:
+        if LastMileTripReturnMapping.objects.filter(~Q(shipment_status=LastMileTripReturnMapping.CANCELLED),
+                                                      trip_id=trip_id, return_order_id=return_id).exists():
+            LastMileTripReturnMapping.objects.filter(~Q(shipment_status=LastMileTripReturnMapping.CANCELLED),
+                                                      trip_id=trip_id, return_order_id=return_id).update(
+                                                          shipment_status=LastMileTripReturnMapping.LOADED_FOR_DC, 
+                                                          updated_by=request_user
+                                                      )
+        else:
+            LastMileTripReturnMapping.objects.create(trip_id=trip_id, 
+                                                     return_order_id=return_id,
+                                                     shipment_status=LastMileTripReturnMapping.LOADED_FOR_DC,
+                                                     created_by=request_user, 
+                                                     updated_by=request_user)
+    update_trip_package_count(trip_id)
 
 def trip_planning_change(request, pk):
     trip_instance = Trip.objects.get(pk=pk)
@@ -966,9 +991,11 @@ class LoadReturnOrders(APIView):
         trip_id = request.GET.get('trip_id')
         if not trip_id:
             return_orders = ReturnOrder.objects.filter(seller_shop_id=seller_shop,
-                                                    return_status__in=[ReturnOrder.RETURN_REQUESTED])
+                                                       return_type=ReturnOrder.SUPERSTORE_WAREHOUSE,
+                                                       return_status__in=[ReturnOrder.RETURN_REQUESTED])
         else:
-            return_orders = []
+            return_orders = ReturnOrder.objects.filter(return_type=ReturnOrder.SUPERSTORE_WAREHOUSE,
+                                                       last_mile_trip_returns__trip_id=trip_id)
         serializer = ReturnOrderTripListSerializer(return_orders, many=True)
         msg = {'is_success': True,
                    'message': None,

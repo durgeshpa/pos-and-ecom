@@ -86,7 +86,7 @@ class GFReturnOrderList(APIView):
             try:
                 return_order = ReturnOrder.objects.get(id=pk)
                 serializer = GFReturnOrderProductSerializer(return_order)
-                msg = "return order" if return_order else "no return orders found"
+                msg = "return order"
                 return get_response(msg, serializer.data, True)
             except ReturnOrder.DoesNotExist:
                 return get_response("Return Order does not exists", None, False)
@@ -107,6 +107,9 @@ class GFReturnOrderList(APIView):
             return_no = request.query_params.get('return_no')
             if return_no:
                 returns = returns.filter(return_no=return_no)
+            created_at = request.query_params.get('created_at')
+            if created_at:
+                returns = returns.filter(created_at__date=created_at)
             serializer =  GFReturnOrderProductSerializer(returns, many=True)
             msg = "return orders" if returns else "no return orders found"
             return get_response(msg, serializer.data, True)

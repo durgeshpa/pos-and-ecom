@@ -3495,7 +3495,7 @@ class OrderCentral(APIView):
                     return_order.return_status = ReturnOrder.RETURN_INITIATED
                     return_order.return_item_pickup_person = return_pickup_person
                     return_order.save()
-                    return api_response("Pick up person assigned")
+                    return api_response("Pick up person assigned", None, status.HTTP_200_OK, True)
                 except ReturnOrder.DoesNotExist:
                     return api_response("Return Order not Found")
             elif order_status == ReturnOrder.CUSTOMER_ITEM_PICKED:
@@ -3513,7 +3513,7 @@ class OrderCentral(APIView):
                     return_order.return_status = ReturnOrder.CUSTOMER_ITEM_PICKED
                     return_order.save()
                     self.create_retailer_side_return_order(shipment, order_product_mapping, return_order)
-                    return api_response("Return product picked up")
+                    return api_response("Return product picked up", None, status.HTTP_200_OK, True)
                 except ReturnOrder.DoesNotExist:
                     return api_response("Return Order not found")
                 
