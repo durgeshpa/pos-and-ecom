@@ -66,6 +66,7 @@ class BasicCartOffers(object):
             Combo On all products
             Cart level offers
         """
+        cls.cart = cart
         cart_products = cart.rt_cart_list.all()
         cart_value = 0
         offers_list = []
@@ -98,6 +99,7 @@ class BasicCartOffers(object):
             Check applied offers, new offers
         """
         # Collect ids for all products added in cart
+        cls.cart = cart
         products_id = []
         for product_map in cart_products:
             if product_map.selling_price > 0:
@@ -126,6 +128,7 @@ class BasicCartOffers(object):
         """
             Get nearest offer applicable over order value
         """
+        cls.cart = cart
         cart_value = 0
         for product_mapping in cart_products:
             cart_value += product_mapping.selling_price * product_mapping.qty
@@ -146,6 +149,22 @@ class BasicCartOffers(object):
         """
             Get Product combo coupons from elasticsearch
         """
+        coupon_enable = 'pos'
+        disable1 = 'online'
+        disable2 = 'super store'
+        if cls.cart and cls.cart.cart_type == 'ECOM':
+            coupon_enable = 'online'
+            disable1 = 'pos'
+            disable2 = 'superstore'
+        elif cls.cart and cls.cart.cart_type == 'BASIC':
+            coupon_enable = 'pos'
+            disable1 = 'online'
+            disable2 = 'superstore'
+        elif cls.cart and cls.cart.cart_type == 'SUPERSTORE':
+            coupon_enable = 'superstore'
+            disable1 = 'online'
+            disable2 = 'pos'
+
         date = datetime.now()
         body = {
             "from": 0,
@@ -154,7 +173,20 @@ class BasicCartOffers(object):
                                           {"term": {"coupon_type": 'catalogue_combo'}},
                                           {"terms": {"purchased_product": purchased_product_ids}},
                                           {"range": {"start_date": {"lte": date}}},
-                                          {"range": {"end_date": {"gte": date}}}]
+                                          {"range": {"end_date": {"gte": date}}}],
+                               "should":
+                                   [
+                                       {"term": {"coupon_enable_on": 'all'}},
+                                       {"term": {"coupon_enable_on": coupon_enable}}
+
+                                   ],
+                               "must_not":
+                                   [
+                                       {"term": {"coupon_enable_on": disable1}},
+                                       {"term": {"coupon_enable_on": disable2}}
+
+                                   ]
+
                                }
                       }
         }
@@ -281,6 +313,7 @@ class BasicCartOffers(object):
         """
             Refresh cart level discount
         """
+        cls.cart = cart
         # Get coupons available on cart from es
         c_list = BasicCartOffers.get_basic_cart_coupons(cart.seller_shop.id, cart_value)
         # Check already applied coupon, Auto apply if required
@@ -292,6 +325,25 @@ class BasicCartOffers(object):
         """
             Get coupons available on carts of shop
         """
+        coupon_enable = 'pos'
+        disable1 = 'online'
+        disable2 = 'super store'
+        if cls.cart and cls.cart.cart_type == 'ECOM':
+            coupon_enable = 'online'
+            disable1 = 'pos'
+            disable2 = 'superstore'
+        elif cls.cart and cls.cart.cart_type == 'BASIC':
+            coupon_enable = 'pos'
+            disable1 = 'online'
+            disable2 = 'superstore'
+        elif cls.cart and cls.cart.cart_type == 'SUPERSTORE':
+            coupon_enable = 'superstore'
+            disable1 = 'online'
+            disable2 = 'pos'
+
+
+
+
         date = datetime.now()
         body = {
             "from": 0,
@@ -300,8 +352,24 @@ class BasicCartOffers(object):
                                           {"term": {"coupon_type": 'cart'}},
                                           {"range": {"start_date": {"lte": date}}},
                                           {"range": {"end_date": {"gte": date}}},
-                                          {"range": {"cart_minimum_value": {"lte": cart_value}}}]
+                                          {"range": {"cart_minimum_value": {"lte": cart_value}}}
+                                          ],
+                               "should":
+                                   [
+                                       {"term": {"coupon_enable_on": 'all'}},
+                                       {"term": {"coupon_enable_on": coupon_enable}}
+
+                                   ],
+                               "must_not":
+                               [
+                                   {"term": {"coupon_enable_on": disable1}},
+                                   {"term": {"coupon_enable_on": disable2}}
+
+                               ]
+
+
                                }
+
                       }
         }
         c_list = []
@@ -318,6 +386,21 @@ class BasicCartOffers(object):
         """
             Get nearest coupon available over cart value
         """
+        coupon_enable = 'pos'
+        disable1 = 'online'
+        disable2 = 'super store'
+        if cls.cart and cls.cart.cart_type == 'ECOM':
+            coupon_enable = 'online'
+            disable1 = 'pos'
+            disable2 = 'superstore'
+        elif cls.cart and cls.cart.cart_type == 'BASIC':
+            coupon_enable = 'pos'
+            disable1 = 'online'
+            disable2 = 'superstore'
+        elif cls.cart and cls.cart.cart_type == 'SUPERSTORE':
+            coupon_enable = 'superstore'
+            disable1 = 'online'
+            disable2 = 'pos'
         date = datetime.now()
         body = {
             "from": 0,
@@ -326,7 +409,20 @@ class BasicCartOffers(object):
                                           {"term": {"coupon_type": 'cart'}},
                                           {"range": {"start_date": {"lte": date}}},
                                           {"range": {"end_date": {"gte": date}}},
-                                          {"range": {"cart_minimum_value": {"gt": cart_value}}}]
+                                          {"range": {"cart_minimum_value": {"gt": cart_value}}}],
+                               "should":
+                                   [
+                                       {"term": {"coupon_enable_on": 'all'}},
+                                       {"term": {"coupon_enable_on": coupon_enable}}
+
+                                   ],
+                               "must_not":
+                                   [
+                                       {"term": {"coupon_enable_on": disable1}},
+                                       {"term": {"coupon_enable_on": disable2}}
+
+                                   ]
+
                                }
                       },
             "sort": [

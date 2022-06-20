@@ -239,6 +239,8 @@ def get_common_coupon_params(coupon):
         Basic coupon parameters
     """
     params = {
+        'coupon_enable_on': coupon.coupon_enable_on,
+        'coupon_shop_type': coupon.coupon_shop_type,
         'id': coupon.id,
         'coupon_code': coupon.coupon_code,
         'coupon_name': coupon.coupon_name,
@@ -259,6 +261,8 @@ def get_catalogue_coupon_params(coupon):
         # Combo Offer
         params = dict()
         params['coupon_type'] = 'catalogue_combo'
+        params['coupon_enable_on'] = coupon.coupon_enable_on
+        params['coupon_shop_type'] = coupon.coupon_shop_type
         params['purchased_product'] = product_ruleset.retailer_primary_product.id
         params['free_product'] = product_ruleset.retailer_free_product.id
         params['free_product_name'] = product_ruleset.retailer_free_product.name
@@ -280,8 +284,12 @@ def get_cart_coupon_params(coupon):
         params['discount'] = coupon.rule.discount.discount_value
         params['is_percentage'] = coupon.rule.discount.is_percentage
         params['is_point'] = coupon.rule.discount.is_point
+        params['coupon_enable_on'] = coupon.coupon_enable_on
+        params['coupon_shop_type'] = coupon.coupon_shop_type
         params['max_discount'] = coupon.rule.discount.max_discount
     elif coupon.rule.free_product:
+        params['coupon_enable_on'] = coupon.coupon_enable_on
+        params['coupon_shop_type'] = coupon.coupon_shop_type
         params['coupon_type'] = 'cart_free_product'
         params['cart_minimum_value'] = coupon.rule.cart_qualifying_min_sku_value
         params['free_product'] = coupon.rule.free_product.id
