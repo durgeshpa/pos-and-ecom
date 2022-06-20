@@ -4,6 +4,7 @@ from rest_framework import serializers
 from retailer_to_sp.models import Order, CustomerCare, ReturnOrder, ReturnOrderProduct, ReturnOrderProductImage
 from retailer_to_sp.api.v1.serializers import ProductSerializer
 from shops.models import Shop
+from accounts.api.v1.serializers import PosShopUserSerializer
 
 class OrderNumberSerializer(serializers.ModelSerializer):
 
@@ -56,11 +57,16 @@ class GFReturnOrderProductSerializer(serializers.ModelSerializer):
     return_order_products = serializers.SerializerMethodField()
     seller_shop = ShopSerializer(read_only=True)
     buyer_shop = ShopSerializer(read_only=True)
+    buyer = serializers.SerializerMethodField()
     
     def get_return_order_products(self, instance):
         return ReturnOrderGFProductSerializer(instance.return_order_products.all(), many=True).data
     
+    def get_buyer(self, instance):
+        buyer = instance.ref_return_order.buyer
+        return PosShopUserSerializer(buyer).data
+                
     class Meta:
         model = ReturnOrder
         fields = ('id', 'return_no', 'shipment', 'return_type', 'return_status', 'return_order_products',
-                  'return_reason', 'seller_shop', 'buyer_shop', 'created_at', 'modified_at')
+                  'return_reason', 'seller_shop', 'buyer_shop', 'buyer' ,'created_at', 'modified_at')
