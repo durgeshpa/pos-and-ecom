@@ -1471,7 +1471,9 @@ class Trip(models.Model):
             .annotate(invoice_amount=RoundAmount(F('shipment__invoice__invoice_total'))) \
             .aggregate(trip_amount=Sum(F('invoice_amount'), output_field=FloatField())).get('trip_amount')
         return_amount = sum([return_order_trip.return_order.return_amount for return_order_trip in self.last_mile_trip_returns_details.filter(~Q(shipment_status='CANCELLED'))])
-        return float(return_amount) + shipment_amount
+        if not shipment_amount:
+            shipment_amount = 0
+        return float(return_amount) + shipment_amount 
 
     @property
     def total_received_amount(self):
@@ -1495,6 +1497,10 @@ class Trip(models.Model):
     @property
     def total_trip_shipments(self):
         return self.rt_invoice_trip.count()
+
+    @property
+    def total_trip_returns(self):
+        return self.last_mile_trip_returns_details.filter(~Q(shipment_status=LastMileTripReturnMapping.CANCELLED)).count()
 
     @property
     def total_delivered_shipments(self):
