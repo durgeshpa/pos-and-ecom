@@ -1675,7 +1675,7 @@ class CouponGetSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Coupon
-        fields = ('id', 'offer_type', 'coupon_name', 'details', 'start_date', 'end_date', 'is_point', 'limit_of_usages_per_customer', 'coupon_enable_on')
+        fields = ('id', 'offer_type', 'coupon_name', 'details', 'start_date', 'end_date', 'is_point', 'limit_of_usages_per_customer', 'coupon_enable_on','coupon_shop_type')
 
 
 class CouponListSerializer(serializers.ModelSerializer):

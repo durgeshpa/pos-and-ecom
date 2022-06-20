@@ -177,6 +177,7 @@ def create_offers(sender, instance=None, created=False, **kwargs):
 		Cart.objects.filter(id=instance.cart.id).update(offers=instance.cart.offers_applied())
 	elif instance.cart.cart_type in ['BASIC', 'ECOM'] and instance.product_type == 1 and instance.selling_price:
 		# Get combo coupon for product
+		BasicCartOffers.cart = instance.cart
 		offer = BasicCartOffers.get_basic_combo_coupons([instance.retailer_product.id], instance.cart.seller_shop.id)
 		# Check and apply/remove combo offers
 		offers_list = BasicCartOffers.basic_combo_offers(float(instance.qty), float(instance.selling_price),

@@ -70,7 +70,7 @@ from pos.common_functions import (api_response, delete_cart_mapping, ORDER_STATU
                                   update_customer_pos_cart, PosInventoryCls, RewardCls, serializer_error,
                                   check_pos_shop, PosAddToCart, PosCartCls, ONLINE_ORDER_STATUS_MAP,
                                   pos_check_permission_delivery_person, ECOM_ORDER_STATUS_MAP, get_default_qty,
-                                  pos_check_user_permission, mark_pos_product_online_enabled, cupon_point_update)
+                                  pos_check_user_permission, mark_pos_product_online_enabled, coupon_point_update)
 from pos.models import (RetailerProduct, Payment as PosPayment,
                         PaymentType, MeasurementUnit, PosTrip)
 from pos.offers import BasicCartOffers
@@ -3322,7 +3322,8 @@ class OrderCentral(APIView):
                     return api_response("Invalid Order update")
                 order.order_status = order_status
                 order.last_modified_by = self.request.user
-                cupon_point_update(order, self.request.user)
+                if order.order_status == Order.DELIVERED:
+                    coupon_point_update(order, self.request.user)
                 if order_status == Order.DELIVERED:
                     shop = kwargs['shop']
                     if ReferralCode.is_marketing_user(order.buyer):
@@ -3794,8 +3795,9 @@ class OrderCentral(APIView):
             obj = Order.objects.get(id=order.id)
             obj.order_amount = round(obj.order_amount)
             obj.save()
-            self.auto_process_pos_order(order)
-            cupon_point_update(order, self.request.user)
+            shipment = self.auto_process_pos_order(order)
+            if shipment.shipment_status == 'FULLY_DELIVERED_AND_VERIFIED':
+                coupon_point_update(order, self.request.user)
             if ReferralCode.is_marketing_user(order.buyer) and str(order.buyer.phone_number) != '9999999999':
                 order.points_added = order_loyalty_points_credit(order.order_amount, order.buyer.id, order.order_no,
                                                                 'order_credit', 'order_indirect_credit',
@@ -4605,6 +4607,7 @@ class OrderCentral(APIView):
             pdf_generation_retailer(self.request, order.id)
         except Exception as e:
             logger.exception(e)
+        return shipment
 
     def auto_process_ecom_order(self, order):
 
