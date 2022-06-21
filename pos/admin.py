@@ -50,6 +50,7 @@ from .forms import RetailerProductsForm, DiscountedRetailerProductsForm, PosInve
     MeasurementUnitFormSet
 from retailer_to_sp.models import Order
 from shops.admin import FOFOConfigurationsInline
+from shops.cron import distance
 class ExportCsvMixin:
 
     def export_as_csv(self, request, queryset):
@@ -264,7 +265,7 @@ class PaymentAdmin(admin.ModelAdmin):
 
     list_display = ('order','delivery_option', 'payment_status', 'order_status', 'seller_shop', 'payment_type',
                     'transaction_id', 'order_amount', 'invoice_amount', 'paid_by', 'processed_by',
-                    'created_at',)
+                    'created_at', 'distance')
 
     list_per_page = 10
     search_fields = ('order__order_no', 'paid_by__phone_number', 'order__seller_shop__shop_name')
@@ -273,6 +274,17 @@ class PaymentAdmin(admin.ModelAdmin):
                    ('created_at', DateRangeFilter),
                    ]
     actions = ['download_payment_report']
+
+    def distance(self, obj):
+        user_lat = obj.order.latitude
+        user_lng = obj.order.longitude
+        shop_lat = obj.order.seller_shop.latitude
+        shop_lng = obj.order.seller_shop.longitude
+        if not user_lng or not user_lat or not shop_lat or not shop_lng:
+            return None
+        else:
+            dist = round(distance((shop_lat, shop_lng), (user_lat, user_lng)), 3)
+            return round(dist, 2)
 
     def cart_type(self, obj):
         return obj.order.ordered_cart.cart_type
