@@ -750,7 +750,7 @@ def trip_planning_change(request, pk):
                     trip = form.save()
                     current_trip_status = trip.trip_status
                     selected_shipment_ids = form.cleaned_data.get('selected_id', None)
-
+                    selected_return_ids = form.cleaned_data.get('return_selected_id', None)
                     if trip_status == Trip.STARTED:
                         if current_trip_status == Trip.COMPLETED:
                             trip_shipments = trip_instance.rt_invoice_trip.filter(shipment_status='OUT_FOR_DELIVERY')
@@ -843,6 +843,9 @@ def trip_planning_change(request, pk):
                         if current_trip_status in TRIP_ORDER_STATUS_MAP.keys():
                             Order.objects.filter(rt_order_order_product__in=selected_shipment_list).update(
                                 order_status=TRIP_ORDER_STATUS_MAP[current_trip_status])
+                    if selected_return_ids:
+                        selected_return_list = selected_return_ids.split(',')
+                        create_update_last_mile_trip_return_mapping(trip_instance.pk, selected_return_list, request.user)
 
                     return redirect('/admin/retailer_to_sp/trip/')
                 else:
@@ -994,8 +997,15 @@ class LoadReturnOrders(APIView):
                                                        return_type=ReturnOrder.SUPERSTORE_WAREHOUSE,
                                                        return_status__in=[ReturnOrder.RETURN_REQUESTED])
         else:
-            return_orders = ReturnOrder.objects.filter(return_type=ReturnOrder.SUPERSTORE_WAREHOUSE,
-                                                       last_mile_trip_returns__trip_id=trip_id)
+            return_orders = list(ReturnOrder.objects.filter(
+                                                       Q(return_type=ReturnOrder.SUPERSTORE_WAREHOUSE,
+                                                       last_mile_trip_returns__trip_id=trip_id)))
+            
+            return_orders_w = list(ReturnOrder.objects.filter(return_type=ReturnOrder.SUPERSTORE_WAREHOUSE,
+                                                       last_mile_trip_returns=None,
+                                                       return_status__in=[ReturnOrder.RETURN_REQUESTED]
+                                                       ))
+            return_orders = return_orders + return_orders_w
         serializer = ReturnOrderTripListSerializer(return_orders, many=True)
         msg = {'is_success': True,
                    'message': None,
@@ -1640,6 +1650,7 @@ class DownloadTripPdf(APIView):
         no_of_orders = trip.rt_invoice_trip.all().count()
         amount = 0
         invoices = trip.rt_invoice_trip.all()
+        returns = trip.last_mile_trip_returns_details.filter(~Q(shipment_status=LastMileTripReturnMapping.CANCELLED))
         trip_detail_list = []
         for invoice in invoices:
             products = []

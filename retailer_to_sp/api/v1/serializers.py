@@ -5806,4 +5806,4 @@ class ReturnOrderTripListSerializer(serializers.ModelSerializer):
         model = ReturnOrder
         fields = ('id', 'return_challan_no', 'return_amount', 
                   'return_status', 'created_at', 'shop_name',
-                  'order_no', 'return_address')
+                  'order_no', 'return_address', 'return_no')

@@ -593,8 +593,8 @@ class TripForm(forms.ModelForm):
         shipment_status_verify = ['FULLY_RETURNED_AND_VERIFIED', 'PARTIALLY_DELIVERED_AND_VERIFIED',
                                   'FULLY_DELIVERED_AND_VERIFIED', 'FULLY_DELIVERED_AND_COMPLETED']
 
-        if not data.get('selected_id'):
-            raise forms.ValidationError("Please select at least one shipment to create a trip.")
+        if not data.get('selected_id') and not data.get('return_selected_id'):
+            raise forms.ValidationError("Please select at least one shipment or one return to create a trip.")
 
         shipment_ids = data.get('selected_id').split(',')
         if self.instance and self.instance.trip_status == Trip.COMPLETED and data[
