@@ -781,7 +781,8 @@ class SearchProducts(APIView):
             if cart_check:
                 p = self.modify_gf_cart_product_es(cart, cart_products, p)
             p_list.append(p["_source"])
-        p_list.append(products_list['aggregations'])
+        if len(p_list) != 0:
+            p_list.append(products_list['aggregations'])
         return p_list
 
     def search_query(self):
