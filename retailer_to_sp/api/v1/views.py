@@ -6915,6 +6915,7 @@ def return_challan_generation(request, return_order_id):
         return_order.save()
     except Exception as e:
         logger.exception(e)
+    return return_order
 
 
 def pdf_superstore_generation(request, ordered_product):
