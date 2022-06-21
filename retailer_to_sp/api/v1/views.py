@@ -3467,7 +3467,7 @@ class OrderCentral(APIView):
                                                         return_qty,
                                                         images=images)
                 if return_pickup_method == ReturnOrder.DROP_AT_STORE:
-                    address = shipment.order.shop.shop_name_address_mapping.filter(
+                    address = shipment.order.seller_shop.shop_name_address_mapping.filter(
                                 address_type='shipping').last()
                     address = f"{address.address_line1}, {address.city}, {address.state} - {address.pincode}"
                     return_item_drop(shipment.order.buyer.first_name, shipment.order.buyer.phone_number, address)
