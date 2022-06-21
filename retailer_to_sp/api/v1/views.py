@@ -4677,11 +4677,13 @@ class OrderCentral(APIView):
     def create_retailer_side_return_order(self, shipment, order_product_mapping, return_order):
         seller_shop = return_order.seller_shop
         parent_shop = seller_shop.get_shop_parent
+        retailer_order = shipment.order.ref_order.filter(ordered_cart__rt_cart_list__cart_product=order_product_mapping.product).last()
+        retailer_shipment = retailer_order.rt_order_order_product.last()
         ret_return_order, _ = ReturnOrder.objects.get_or_create(
             seller_shop=parent_shop, 
             buyer_shop=seller_shop,
             return_status=ReturnOrder.RETURN_REQUESTED,
-            shipment=shipment,
+            shipment=retailer_shipment,
             ref_return_order=return_order,
             return_type=ReturnOrder.SUPERSTORE_WAREHOUSE
         )
@@ -11354,6 +11356,33 @@ class LastMileTripStatusChangeView(generics.GenericAPIView):
         return self.queryset.distinct('id')
 
 
+class LastMileTripReturnOrderView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    
+    
+    def get(self, request):
+        result = self.validate_get_request()
+        if "error" in result:
+            return get_response(result["error"], False)
+        
+        trip_id = self.request.GET.get('trip_id', None)
+        seller_shop = self.request.GET.get('seller_shop', None)
+        
+    
+    def validate_get_request(self):
+        try:
+            if not self.request.GET.get('seller_shop', None):
+                return {"error": "'seller_shop'| This is required"}
+            elif not self.request.GET.get('trip_id', None):
+                return {"error": "'trip_id' | This is required."}
+            elif not Trip.objects.filter(id=self.request.GET.get('trip_id')).exists():
+                return {"error": "'trip_id' | Invalid trip."}
+            return {"data": self.request.data}
+        except Exception as e:
+            return {"error": "Invalid Request"}
+        
+    
 class DispatchPackageStatusList(generics.GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
