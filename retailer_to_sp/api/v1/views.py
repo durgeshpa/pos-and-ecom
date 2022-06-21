@@ -3311,6 +3311,12 @@ class OrderCentral(APIView):
                                                         ordered_p.qty - product_map.shipped_qty,
                                                         self.request.user, order.order_no, PosInventoryChange.SHIPPED)
                 pdf_generation_retailer(request, order.id)
+
+                # Send Dispatch Push Notification to ECOMM USER
+                info_logger.info("Sending Dispatch notifications to Ecom users......")
+                message_title = "Order Update!"
+                message_body = "Your order has been dispatched & will be delivered to you soon."
+                send_notification_ecom_user(order, message_title, message_body)
             # Delivered/Closed
             else:
                 if order.delivery_option == '1':
@@ -3351,12 +3357,6 @@ class OrderCentral(APIView):
                     pos_trip.save()
                 except:
                     pass
-
-                # Send Dispatch Push Notification to ECOMM USER
-                info_logger.info("Sending Dispatch notifications to Ecom users......")
-                message_title = "Order Update!"
-                message_body = "Your order has been dispatched & will be delivered to you soon."
-                send_notification_ecom_user(order, message_title, message_body)
 
         return api_response("Order updated successfully!", response, status.HTTP_200_OK, True)
 
