@@ -5032,7 +5032,9 @@ class OrderListCentral(GenericAPIView):
             if order_status:
                 order_status_actual = ONLINE_ORDER_STATUS_MAP.get(int(order_status), None)
                 if order_status == '2':
-                    orders = orders.filter(rt_order_order_product__shipment_status__in=[OrderedProduct.DELIVERED])
+                    orders = orders.filter(rt_order_order_product__shipment_status__in=[OrderedProduct.DELIVERED]).exclude(
+                        rt_order_order_product__is_returned=True
+                    )
                 elif order_status == '1':
                     orders = orders.filter(order_status__in=order_status_actual).exclude(
                         rt_order_order_product__shipment_status__in=[OrderedProduct.DELIVERED]
