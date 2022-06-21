@@ -19,7 +19,7 @@
     GetResultOnTypingArea();
 //    GetResultOnChangeSellerShop();
 //    GetResultOnChangeSourceShop();
-    GetReturnResultOnChangeSellerShop();
+    GetReturnResultOnChangeSourceShop();
     CallAPI();
     CallReturnAPI();
     initTripStatus();
@@ -273,16 +273,18 @@ function GetResultOnChangeSourceShop() {
           });
 }
 
-const GetReturnResultOnChangeSellerShop = () => {
-  $("#id_seller_shop").on('change',function() {
+const GetReturnResultOnChangeSourceShop = () => {
+  $("#id_source_shop").on('change',function() {
   EmptyElement('tbody#returns_data');
   HideField('tr#returns_heading');
   ShowField('tr#returns_loading');
-  var seller_shop_id = $('#id_seller_shop').val();
+  const seller_shop_id = $('#id_seller_shop').val();
+  const source_shop_id = $('#id_source_shop').val();
   $.ajax({
       url: GetReturnListURL(),
       data: {
-          'seller_shop_id': seller_shop_id
+          'seller_shop_id': seller_shop_id,
+          'source_shop_id': source_shop_id
       },
       success: function(data) {
       if(data.is_success){
