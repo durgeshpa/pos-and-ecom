@@ -144,6 +144,7 @@ class GetReturnChallan(APIView):
                 file_path_list.append(return_order.return_invoice.invoice_pdf.url)
                 pdf_created_date.append(return_order.created_at)
 
+            info_logger.info("file_path_list :: {}".format(file_path_list))
             prefix_file_name = CHALLAN_DOWNLOAD_ZIP_NAME
             info_logger.info("prefix_file_name :: {}".format(prefix_file_name))
             merge_pdf_name = create_merge_pdf_name(prefix_file_name, pdf_created_date)
