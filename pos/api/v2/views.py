@@ -523,6 +523,9 @@ class AdminOffers(GenericAPIView):
             coupon.coupon_shop_type = data.get('coupon_shop_type') if data.get('coupon_shop_type') else coupon.coupon_shop_type
             data['coupon_enable_on'] = coupon.coupon_enable_on
             data['coupon_shop_type'] = coupon.coupon_shop_type
+            coupon.froms = data.get('froms') if data.get('froms') else 0
+            coupon.to = data.get('to') if data.get('to') else 0
+            coupon.category = data.get('category') if data.get('category') else []
 
             coupon.save()
             return api_response("Coupon Offer has been created successfully!", data, status.HTTP_200_OK, True)
@@ -577,6 +580,9 @@ class AdminOffers(GenericAPIView):
             'coupon_shop_type') else coupon.coupon_shop_type
         data['coupon_enable_on'] = coupon.coupon_enable_on
         data['coupon_shop_type'] = coupon.coupon_shop_type
+        coupon.froms = data.get('froms') if data.get('froms') else 0
+        coupon.to = data.get('to') if data.get('to') else 0
+        coupon.category = data.get('category') if data.get('category') else []
         coupon.save()
         data['id'] = coupon.id
         return api_response("Combo Offer has been created successfully!", data, status.HTTP_200_OK, True)
@@ -620,6 +626,9 @@ class AdminOffers(GenericAPIView):
             'coupon_shop_type') else coupon.coupon_shop_type
         data['coupon_enable_on'] = coupon.coupon_enable_on
         data['coupon_shop_type'] = coupon.coupon_shop_type
+        coupon.froms = data.get('froms') if data.get('froms') else 0
+        coupon.to = data.get('to') if data.get('to') else 0
+        coupon.category = data.get('category') if data.get('category') else []
         coupon.save()
         data['id'] = coupon.id
         return api_response("Free Product Offer has been created successfully!", data, status.HTTP_200_OK, True)

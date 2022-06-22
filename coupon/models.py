@@ -5,6 +5,7 @@ from django.db import models
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from elasticsearch import Elasticsearch
+from django.contrib.postgres.fields import ArrayField
 
 from accounts.models import User
 from brand.models import Brand
@@ -63,7 +64,7 @@ class Coupon(models.Model):
         (BRAND, "brand"),
         (CATEGORY, "category"),
     )
-    SHOP_TYPE_CHOICES = (('all', 'All'),( 'fofo', 'Fofo'),('foco','Foco'))
+    SHOP_TYPE_CHOICES = (('all', 'All'),( 'fofo', 'Fofo'),('foco','Foco'),('superstore', "SuperStore"))
     ENABLED_ON = (('pos', 'Pos'),('online',"Online"),('all', 'All'))
     rule = models.ForeignKey(CouponRuleSet, related_name='coupon_ruleset', on_delete=models.CASCADE)
     coupon_name = models.CharField(max_length=255, null=True)
@@ -84,6 +85,10 @@ class Coupon(models.Model):
 
     coupon_shop_type = models.CharField(max_length=20, choices=SHOP_TYPE_CHOICES, null=True, blank=True)
     coupon_enable_on = models.CharField(max_length=20, choices=ENABLED_ON, default='all', blank=True)
+    froms = models.PositiveIntegerField(default=0, null=True, blank=True)
+    to = models.PositiveIntegerField(default=0, null=True, blank=True)
+
+    category = ArrayField(models.CharField(max_length=50,blank=True, null=True, default=None), default=[], size=8)
 
     def __str__(self):
         return self.coupon_name
@@ -247,7 +252,11 @@ def get_common_coupon_params(coupon):
         'active': coupon.is_active,
         'description': coupon.rule.rule_description,
         'start_date': coupon.start_date,
-        'end_date': coupon.expiry_date
+        'end_date': coupon.expiry_date,
+        'froms': coupon.froms,
+        'to': coupon.to,
+        'category': coupon.category
+
     }
     return params
 
