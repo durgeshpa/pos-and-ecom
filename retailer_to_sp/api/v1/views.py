@@ -1359,10 +1359,29 @@ class CartCentral(GenericAPIView):
             
             # Refresh cart prices
             PosCartCls.refresh_prices(cart.rt_cart_list.all(), parent_shop.id)
+            # Refresh - add/remove/update combo, get nearest cart offer over cart value
+            next_offer = BasicCartOffers.refresh_offers_cart(cart)
+            # Get Offers Applicable, Verify applied offers, Apply highest discount on cart if auto apply
+            offers = BasicCartOffers.refresh_offers_checkout(cart, False, None)
+            # Refresh redeem reward
 
             # Refresh redeem reward
             RewardCls.checkout_redeem_points(cart, 0, kwargs['shop'], app_type="SUPERSTORE" , use_all=self.request.GET.get('use_rewards', 1))
-            cart_data = SuperStoreCartSerializer(cart, context={'parent_shop_id': parent_shop.id}).data
+            offers_list = cart.offers
+            for offer in offers_list:
+                coupon_id = offer.get('coupon_id')
+                if coupon_id:
+                    coupon = Coupon.objects.get(id=coupon_id)
+                    limit_of_usages_per_customer = coupon.limit_of_usages_per_customer
+                    count = self.get_offer_applied_count_free_type(cart.buyer, coupon_id, coupon.expiry_date, coupon.start_date)
+                    if limit_of_usages_per_customer and count >= limit_of_usages_per_customer:
+                        offers_list.remove(offer)
+            cart.offers = offers_list
+            cart.save()
+            checkout = CartCheckout()
+            cart_data = checkout.serialize(cart, offers)
+            cart_data.pop('amount_payable', None)
+            cart_data.update(SuperStoreCartSerializer(cart, context={'parent_shop_id': parent_shop.id}).data)
             address = AddressCheckoutSerializer(cart.buyer.ecom_user_address.filter(default=True).last()).data
             cart_data.update({'default_address': address})
             return api_response('Cart', cart_data, status.HTTP_200_OK, True)
@@ -2111,8 +2130,57 @@ class CartCheckout(APIView):
         # ECOM
         elif app_type == '3':
             return self.post_ecom_cart_checkout(request, *args, **kwargs)
+
+        elif app_type == '4':
+            return self.super_store_checkout(request, *args, **kwargs)
+
         else:
             return api_response('Please provide a valid app_type')
+
+    @check_ecom_user_shop
+    def super_store_checkout(self, request, *args, **kwargs):
+        """
+            Ecom Checkout
+            Inputs
+            coupon_id
+        """
+        try:
+             cart = Cart.objects.get(cart_type='SUPERSTORE', buyer=self.request.user, cart_status='active',
+                                        seller_shop=kwargs['shop'])
+        except ObjectDoesNotExist:
+            return api_response("No items added in cart yet")
+        except Cart.MultipleObjectsReturned:
+                cart = Cart.objects.filter(cart_type='SUPERSTORE', buyer=self.request.user, cart_status='active',
+                                        seller_shop=kwargs['shop']).last()
+        if not self.request.data.get('coupon_id'):
+            return api_response("Invalid request")
+        with transaction.atomic():
+            # Refresh redeem reward
+            use_reward_this_month = RewardCls.checkout_redeem_points(cart, 0, shop=kwargs['shop'], app_type="ECOM",
+                                                                     use_all=self.request.GET.get('use_rewards', 1))
+            # Get offers available now and apply coupon if applicable
+            offers = BasicCartOffers.refresh_offers_checkout(cart, False, self.request.data.get('coupon_id'))
+            data = self.serialize(cart)
+
+            data['redeem_points_message'] = use_reward_this_month
+            time = datetime.now().strftime("%H:%M:%S")
+            time = datetime.strptime(time, "%H:%M:%S").time()
+            fofo_config = get_config_fofo_shops(kwargs['shop'].id)
+            delivery_time = str(fofo_config.get('delivery_time')) + " " + 'min' if fofo_config.get('delivery_time',
+                                                                                                   None) else None
+
+            if fofo_config.get('open_time', None) and fofo_config.get('close_time', None) and not (
+                    fofo_config['open_time'] < time < fofo_config['close_time']):
+                delivery_time = "Your order will be deliverd tomorrow"
+
+            data['estimate_delivery_time'] = delivery_time
+
+            if 'error' in offers:
+                return api_response(offers['error'], None, offers['code'])
+            if offers['applied']:
+                return api_response('Applied Successfully', data, status.HTTP_200_OK, True)
+            else:
+                return api_response('Not Applicable', data, status.HTTP_200_OK)
 
     @check_pos_shop
     def post_pos_cart_checkout(self, request, *args, **kwargs):
@@ -2288,8 +2356,9 @@ class CartCheckout(APIView):
                 "A minimum total purchase amount of {} is required to checkout.".format(min_order_value),
                 None, status.HTTP_200_OK, False)
         with transaction.atomic():
+            offers = BasicCartOffers.refresh_offers_checkout(cart, False, None)
             use_reward_this_month = RewardCls.checkout_redeem_points(cart, 0, shop=kwargs['shop'],app_type="SUPERSTORE", use_all=self.request.GET.get('use_rewards', 1))
-            data = self.serialize(cart, None)
+            data = self.serialize(cart, offers)
             address = AddressCheckoutSerializer(cart.buyer.ecom_user_address.filter(default=True).last()).data
             data.update({'default_address': address})
             delivery_buffer = get_config("superstore_delivery_buffer", 7)

@@ -478,6 +478,9 @@ class CouponOfferCreation(GenericAPIView):
                                                      start_date, expiry_date, data.get('limit_of_usages_per_customer', None))
             data['id'] = coupon.id
             coupon.coupon_enable_on = data.get('coupon_enable_on') if data.get('coupon_enable_on') else 'all'
+            coupon.froms = data.get('froms') if data.get('froms') else 0
+            coupon.to = data.get('to') if data.get('to') else 0
+            coupon.category = data.get('category') if data.get('category') else []
             coupon.save()
             data['coupon_enable_on'] = coupon.coupon_enable_on
             return api_response("Coupon Offer has been created successfully!", data, status.HTTP_200_OK, True)
@@ -529,6 +532,9 @@ class CouponOfferCreation(GenericAPIView):
                                                  start_date, expiry_date, data.get('limit_of_usages_per_customer',None))
         data['id'] = coupon.id
         coupon.coupon_enable_on = data.get('coupon_enable_on') if data.get('coupon_enable_on') else 'all'
+        coupon.froms = data.get('froms') if data.get('froms') else 0
+        coupon.to = data.get('to') if data.get('to') else 0
+        coupon.category = data.get('category') if data.get('category') else []
         coupon.save()
         data['coupon_enable_on'] = coupon.coupon_enable_on
         return api_response("Combo Offer has been created successfully!", data, status.HTTP_200_OK, True)
@@ -568,6 +574,9 @@ class CouponOfferCreation(GenericAPIView):
         coupon = OffersCls.rule_set_cart_mapping(coupon_obj.id, 'cart', coupon_name, coupon_code, shop, start_date,
                                                  expiry_date, data.get('limit_of_usages_per_customer',None))
         coupon.coupon_enable_on = data.get('coupon_enable_on') if data.get('coupon_enable_on') else 'all'
+        coupon.froms = data.get('froms') if data.get('froms') else 0
+        coupon.to = data.get('to') if data.get('to') else 0
+        coupon.category = data.get('category') if data.get('category') else []
         coupon.save()
         data['coupon_enable_on'] = coupon.coupon_enable_on
         data['id'] = coupon.id
