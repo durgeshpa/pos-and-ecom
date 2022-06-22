@@ -147,6 +147,7 @@ class GetReturnChallan(APIView):
             prefix_file_name = CHALLAN_DOWNLOAD_ZIP_NAME
             merge_pdf_name = create_merge_pdf_name(prefix_file_name, pdf_created_date)
             merged_file_url = merge_pdf_files(file_path_list, merge_pdf_name)
+            info_logger.info("Merged file URL :: {}".format(merged_file_url))
             file_pointer = requests.get(merged_file_url)
             response = HttpResponse(file_pointer.content, content_type='application/pdf')
             response['Content-Disposition'] = 'attachment; filename="{}"'.format(merge_pdf_name)
