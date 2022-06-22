@@ -63,8 +63,9 @@ admin.site.register(CategoryPosation, CategoryPosationAdmin)
 class CategoryAdmin(ExportActionMixin, admin.ModelAdmin):
     resource_class = CategoryResource
     fields = ('category_name', 'category_slug', 'category_type', 'category_parent' ,'category_desc', 'category_sku_part',
-              'category_image', 'status')
-    list_display = ['id', 'category_name', 'category_slug', 'category_parent', 'category_type', 'category_sku_part']
+              'category_image', 'status', 'category_order')
+    list_display = ['id', 'category_name', 'category_slug', 'category_parent', 'category_type', 'category_sku_part',
+                    'category_order']
     search_fields = ['category_name']
     prepopulated_fields = {'category_slug': ('category_name',)}
     search_fields = ('category_name',)

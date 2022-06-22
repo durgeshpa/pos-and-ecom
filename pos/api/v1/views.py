@@ -422,7 +422,14 @@ class CouponOfferCreation(GenericAPIView):
         """
           Get Offers List
        """
-        coupon = Coupon.objects.select_related('rule').filter(shop=shop_id)
+        shop = Shop.objects.filter(shop_name="Wherehouse").last()
+        app_type = request.META.get('HTTP_APP_TYPE', None)
+        if app_type == '2':
+            coupon = Coupon.objects.select_related('rule').filter(Q(shop=shop_id)|Q(shop=shop))\
+                .filter(Q(coupon_enable_on='pos')|Q(coupon_enable_on='all'))
+        elif app_type == '3':
+            coupon = Coupon.objects.select_related('rule').filter(Q(shop=shop_id)|Q(shop=shop))\
+                .filter(Q(coupon_enable_on='online')|Q(coupon_enable_on='all'))
         if request.GET.get('search_text'):
             coupon = coupon.filter(coupon_name__icontains=request.GET.get('search_text'))
         coupon = coupon.order_by('-updated_at')

@@ -32,11 +32,12 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from retailer_backend import common_function
 from wkhtmltopdf.views import PDFTemplateResponse
+from pyfcm import FCMNotification
 
 from accounts.api.v1.serializers import PosUserSerializer, PosShopUserSerializer
 from addresses.models import Address, City, Pincode
 from audit.views import BlockUnblockProduct
-from barCodeGenerator import barcodeGen, qrCodeGen
+from barCodeGenerator import barcodeGen, qrCodeGen, merged_barcode_gen
 from global_config.views import get_config, get_config_fofo_shops, get_config_fofo_shop
 from pos.payU_payment import send_request_refund
 from shops.models import Shop, ParentRetailerMapping, ShopUserMapping, ShopMigrationMapp, PosShopUserMapping, FOFOConfig
@@ -46,7 +47,8 @@ from common.common_utils import (create_file_name, single_pdf_file, create_merge
                                  create_invoice_data, whatsapp_opt_in, whatsapp_order_cancel, whatsapp_order_refund,
                                  whatsapp_order_delivered, sms_order_delivered, sms_out_for_delivery,
                                  sms_order_dispatch, sms_order_placed, return_item_home_pickup, return_item_drop)
-from common.constants import PREFIX_CREDIT_NOTE_FILE_NAME, ZERO, PREFIX_INVOICE_FILE_NAME, INVOICE_DOWNLOAD_ZIP_NAME, PREFIX_RETURN_CHALLAN_FILE_NAME
+from common.constants import PREFIX_CREDIT_NOTE_FILE_NAME, ZERO, PREFIX_INVOICE_FILE_NAME, INVOICE_DOWNLOAD_ZIP_NAME, \
+    PREFIX_RETURN_CHALLAN_FILE_NAME, BULK_CREATE_NO_OF_RECORDS
 from common.data_wrapper_view import DataWrapperViewSet
 from coupon.models import Coupon, CusotmerCouponUsage
 from coupon.serializers import CouponSerializer
@@ -70,7 +72,7 @@ from pos.common_functions import (api_response, delete_cart_mapping, ORDER_STATU
                                   update_customer_pos_cart, PosInventoryCls, RewardCls, serializer_error,
                                   check_pos_shop, PosAddToCart, PosCartCls, ONLINE_ORDER_STATUS_MAP,
                                   pos_check_permission_delivery_person, ECOM_ORDER_STATUS_MAP, get_default_qty,
-                                  pos_check_user_permission, mark_pos_product_online_enabled, cupon_point_update)
+                                  pos_check_user_permission, mark_pos_product_online_enabled, coupon_point_update)
 from pos.models import (RetailerProduct, Payment as PosPayment,
                         PaymentType, MeasurementUnit, PosTrip)
 from pos.offers import BasicCartOffers
@@ -92,8 +94,8 @@ from retailer_to_sp.models import (Cart, CartProductMapping, CreditNote, Order, 
                                    DispatchTrip, DispatchTripShipmentMapping, INVOICE_AVAILABILITY_CHOICES,
                                    DispatchTripShipmentPackages, LastMileTripShipmentMapping, PACKAGE_VERIFY_CHOICES,
                                    DispatchTripCrateMapping, ShipmentPackagingMapping, TRIP_TYPE_CHOICE, ShopCrate,
-                                   LastMileTripShipmentPackages, ShipmentNotAttempt, RoundAmount, 
-                                   ReturnOrder, ReturnOrderProduct, ReturnOrderProductImage)
+                                   LastMileTripShipmentPackages, ShipmentNotAttempt, RoundAmount,
+                                   ReturnOrder, ReturnOrderProduct, ReturnOrderProductImage, Barcode, BarcodeGenerator)
 from retailer_to_sp.tasks import send_invoice_pdf_email, insert_search_term
 from shops.api.v1.serializers import ShopBasicSerializer
 from sp_to_gram.models import OrderedProductReserved
@@ -781,7 +783,8 @@ class SearchProducts(APIView):
             if cart_check:
                 p = self.modify_gf_cart_product_es(cart, cart_products, p)
             p_list.append(p["_source"])
-        p_list.append(products_list['aggregations'])
+        if len(p_list) != 0:
+            p_list.append(products_list['aggregations'])
         return p_list
 
     def search_query(self):
@@ -3322,7 +3325,8 @@ class OrderCentral(APIView):
                     return api_response("Invalid Order update")
                 order.order_status = order_status
                 order.last_modified_by = self.request.user
-                cupon_point_update(order, self.request.user)
+                if order.order_status == Order.DELIVERED:
+                    coupon_point_update(order, self.request.user)
                 if order_status == Order.DELIVERED:
                     shop = kwargs['shop']
                     if ReferralCode.is_marketing_user(order.buyer):
@@ -3347,6 +3351,12 @@ class OrderCentral(APIView):
                     pos_trip.save()
                 except:
                     pass
+
+                # Send Dispatch Push Notification to ECOMM USER
+                info_logger.info("Sending Dispatch notifications to Ecom users......")
+                message_title = "Order Update!"
+                message_body = "Your order has been dispatched & will be delivered to you soon."
+                send_notification_ecom_user(order, message_title, message_body)
 
         return api_response("Order updated successfully!", response, status.HTTP_200_OK, True)
 
@@ -3519,7 +3529,7 @@ class OrderCentral(APIView):
                                                         return_qty,
                                                         images=images)
                 if return_pickup_method == ReturnOrder.DROP_AT_STORE:
-                    address = shipment.order.shop.shop_name_address_mapping.filter(
+                    address = shipment.order.seller_shop.shop_name_address_mapping.filter(
                                 address_type='shipping').last()
                     address = f"{address.address_line1}, {address.city}, {address.state} - {address.pincode}"
                     return_item_drop(shipment.order.buyer.first_name, shipment.order.buyer.phone_number, address)
@@ -3547,7 +3557,7 @@ class OrderCentral(APIView):
                     return_order.return_status = ReturnOrder.RETURN_INITIATED
                     return_order.return_item_pickup_person = return_pickup_person
                     return_order.save()
-                    return api_response("Pick up person assigned")
+                    return api_response("Pick up person assigned", None, status.HTTP_200_OK, True)
                 except ReturnOrder.DoesNotExist:
                     return api_response("Return Order not Found")
             elif order_status == ReturnOrder.CUSTOMER_ITEM_PICKED:
@@ -3565,7 +3575,7 @@ class OrderCentral(APIView):
                     return_order.return_status = ReturnOrder.CUSTOMER_ITEM_PICKED
                     return_order.save()
                     self.create_retailer_side_return_order(shipment, order_product_mapping, return_order)
-                    return api_response("Return product picked up")
+                    return api_response("Return product picked up", None, status.HTTP_200_OK, True)
                 except ReturnOrder.DoesNotExist:
                     return api_response("Return Order not found")
                 
@@ -3794,8 +3804,9 @@ class OrderCentral(APIView):
             obj = Order.objects.get(id=order.id)
             obj.order_amount = round(obj.order_amount)
             obj.save()
-            self.auto_process_pos_order(order)
-            cupon_point_update(order, self.request.user)
+            shipment = self.auto_process_pos_order(order)
+            if shipment.shipment_status == 'FULLY_DELIVERED_AND_VERIFIED':
+                coupon_point_update(order, self.request.user)
             if ReferralCode.is_marketing_user(order.buyer) and str(order.buyer.phone_number) != '9999999999':
                 order.points_added = order_loyalty_points_credit(order.order_amount, order.buyer.id, order.order_no,
                                                                 'order_credit', 'order_indirect_credit',
@@ -3914,10 +3925,10 @@ class OrderCentral(APIView):
             self.auto_process_order(order, payments, 'ecom', transaction_id='',shop=shop)
             self.auto_process_ecom_order(order)
             try:
-                from pyfcm import FCMNotification
                 push_service = FCMNotification(api_key=config('FCM_SERVER_KEY'))
                 devices = Device.objects.filter(user__in=shop.pos_shop.all().values('user__id'),
                                                 is_active=True).distinct('reg_id')
+                info_logger.info("Sending order placed notifications to POS users......")
                 for device in devices:
                     registration_id = device.reg_id
                     message_title = f"{shop.shop_name} - Order Alert !!"
@@ -3926,6 +3937,14 @@ class OrderCentral(APIView):
                                                                message_title=message_title,
                                                                message_body=message_body)
                     info_logger.info(result)
+
+
+                # Send Order placed Push Notification to ECOMM USER
+                info_logger.info("Sending Order Placed notifications to Ecom users......")
+                message_title = "Great choice!"
+                message_body = "Your order has been accepted!"
+                send_notification_ecom_user(order, message_title, message_body)
+
             except Exception as e:
                 info_logger.info(e)
             if shop.enable_loyalty_points:
@@ -3996,6 +4015,13 @@ class OrderCentral(APIView):
             self.auto_process_order(order, payments, 'superstore')
             self.process_superstore_order(order)
             sms_order_placed(order.buyer.first_name, order.buyer.phone_number)
+
+            # Send Order placed Push Notification to ECOMM USER
+            info_logger.info("Sending Order Placed notifications to Ecom users......")
+            message_title = "Great choice!"
+            message_body = "Your order has been accepted!"
+            send_notification_ecom_user(order, message_title, message_body)
+
             msg = 'Ordered Successfully!'
             return api_response(msg, BasicOrderListSerializer(Order.objects.get(id=order.id)).data,
                                         status.HTTP_200_OK, True)
@@ -4605,6 +4631,7 @@ class OrderCentral(APIView):
             pdf_generation_retailer(self.request, order.id)
         except Exception as e:
             logger.exception(e)
+        return shipment
 
     def auto_process_ecom_order(self, order):
 
@@ -5005,7 +5032,9 @@ class OrderListCentral(GenericAPIView):
             if order_status:
                 order_status_actual = ONLINE_ORDER_STATUS_MAP.get(int(order_status), None)
                 if order_status == '2':
-                    orders = orders.filter(rt_order_order_product__shipment_status__in=[OrderedProduct.DELIVERED])
+                    orders = orders.filter(rt_order_order_product__shipment_status__in=[OrderedProduct.DELIVERED]).exclude(
+                        rt_order_order_product__is_returned=True
+                    )
                 elif order_status == '1':
                     orders = orders.filter(order_status__in=order_status_actual).exclude(
                         rt_order_order_product__shipment_status__in=[OrderedProduct.DELIVERED]
@@ -5607,6 +5636,13 @@ class OrderReturns(APIView):
             self.process_free_products(ordered_product, order_return, free_returns)
             order_return.free_qty_map = free_qty_product_map
             order_return.save()
+
+            # Send Order Return Push Notification to ECOMM USER
+            info_logger.info("Sending Order Return notifications to Ecom users......")
+            message_title = "Return Update!"
+            message_body = "Our logistic partner will contact you shortly, please keep the parcel ready to return."
+            send_notification_ecom_user(order, message_title, message_body)
+
         return api_response("Order Return", BasicOrderSerializer(order, context={'current_url': self.request.get_host(),
                                                                                  'invoice': 1,
                                                                                  'changed_products': changed_products}).data,
@@ -6217,9 +6253,23 @@ class OrderReturnComplete(APIView):
             pdf_generation_return_retailer(request, order, ordered_product, order_return, returned_products,
                                            credit_note_instance)
 
+            # Send Return Successful Push Notification to ECOMM USER
+            info_logger.info("Sending Return Successful notifications to Ecom users......")
+            message_title = "Order return has been accepted."
+            message_body = "You will receive a confirmation once the refund has been initiated."
+            send_notification_ecom_user(order, message_title, message_body)
+
             return api_response("Return Completed Successfully!", OrderReturnCheckoutSerializer(order).data,
                                 status.HTTP_200_OK, True)
 
+
+def send_notification_ecom_user(order, message_title, message_body):
+    push_service_ecom = FCMNotification(api_key=config('FCM_SERVER_KEY_ECOM'))
+    user_devices = Device.objects.filter(user=order.buyer, app_type='ecom').distinct('reg_id')
+    for user_device in user_devices:
+        result = push_service_ecom.notify_single_device(registration_id=user_device.reg_id,
+                                                        message_title=message_title, message_body=message_body)
+        info_logger.info(result)
 
 # class OrderList(generics.ListAPIView):
 #     serializer_class = OrderListSerializer
@@ -12013,3 +12063,45 @@ class PosOrderUserSearchView(generics.GenericAPIView):
         else:
             msg = 'Search to get Buyers.'
             return get_response(msg, '', True)
+
+
+class GenerateBarcodes(generics.GenericAPIView):
+    permission_classes = (AllowAny,)
+    authentication_classes = (authentication.TokenAuthentication,)
+
+    def post(self, request):
+        validated_request = self.validate_request(request)
+        if 'error' in validated_request:
+            return get_response(validated_request['error'])
+        batch_size = request.data.get('count')
+        barcode_type = request.data.get('type')
+        available_barcodes = Barcode.objects.filter(generator__barcode_type=barcode_type, is_available=True)[:batch_size]
+        available_barcodes_count = available_barcodes.count()
+        if available_barcodes_count < batch_size:
+            required_barcodes = batch_size - available_barcodes_count
+            last_generated = BarcodeGenerator.objects.filter(barcode_type=barcode_type).last()
+            if last_generated:
+                sequence_no = last_generated.last_sequence
+            else:
+                sequence_no = 0
+            last_sequence = sequence_no + required_barcodes
+            barcode_no = int(str(barcode_type) + str(sequence_no).zfill(10))
+            with transaction.atomic():
+                generator = BarcodeGenerator.objects.create(barcode_type=barcode_type, batch_size=batch_size,
+                                                            last_sequence=last_sequence, created_by=self.request.user)
+                Barcode.objects.bulk_create([Barcode(generator=generator, barcode_no='0'+str(barcode_no+i))
+                                             for i in range(1, required_barcodes+1)],
+                                            batch_size=BULK_CREATE_NO_OF_RECORDS)
+            available_barcodes = Barcode.objects.filter(generator__barcode_type=barcode_type, is_available=True)[:batch_size]
+        barcode_list = list(available_barcodes.values_list('barcode_no', flat=True))
+        available_barcodes.update(is_available=False)
+        barcode_dict = {b : {"qty": 1, "data": None} for b in barcode_list}
+        return merged_barcode_gen(barcode_dict, 'admin/retailer_to_sp/barcode.html')
+
+    def validate_request(self, request):
+        if 'count' not in request.data or request.data.get('count') <= 0:
+            return {'error' : 'Invalid count'}
+        elif 'type' not in request.data or request.data.get('type') != 6:
+            return {'error' : 'Invalid type'}
+        return {'data':self.request.data}
+

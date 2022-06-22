@@ -28,7 +28,7 @@ from .views import (ProductsList, SearchProducts, CartCentral, CartCheckout, Ord
                     DispatchCenterShipmentPackageView, LoadLastMileInvoiceView, LastMileTripSummaryView,
                     LastMileLoadVerifyPackageView, RemoveLastMileInvoiceFromTripView,
                     VerifyNotAttemptShipmentPackagesView, VerifyBackwardTripItems, BackwardTripQCView,
-                    VehicleDriverList, PosOrderUserSearchView, CurrentlyLoadingShipmentPackagesView)
+                    VehicleDriverList, PosOrderUserSearchView, CurrentlyLoadingShipmentPackagesView, GenerateBarcodes)
 
 from retailer_backend.cron import sync_es_products_api
 router = routers.DefaultRouter()
@@ -164,7 +164,10 @@ urlpatterns = [
     url('shipment-package-products/', ShipmentPackageProductsView.as_view(), name='shipment_package_products'),
     url('bck-trip-verify-items/', VerifyBackwardTripItems.as_view()),
     url('bck-trip-qc-packages/', BackwardTripQCView.as_view()),
-    url('pos-user-search/', PosOrderUserSearchView.as_view(), name='pos-user-search')
+    url('pos-user-search/', PosOrderUserSearchView.as_view(), name='pos-user-search'),
+    # API to Generate Barcodes
+    url('generate-barcode/', GenerateBarcodes.as_view()),
+
 ]
 
 urlpatterns += router.urls

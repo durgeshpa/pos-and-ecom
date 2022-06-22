@@ -841,8 +841,8 @@ class RewardCls(object):
                                                                                'order_cancel_credit'], modified_at__gte=date).\
                                                     aggregate(Sum('points'))
         this_month_reward_point_used = abs(uses_reward_point['points__sum']) if uses_reward_point['points__sum'] else 0
-        max_redeem_points = GlobalConfig.objects.get(key='max_redeem_points').value
-        max_month_limit = GlobalConfig.objects.get(key='max_month_limit_redeem_point').value
+        max_redeem_points = GlobalConfig.objects.get(key='super_store_max_redeem_points').value
+        max_month_limit = GlobalConfig.objects.get(key='super_store_max_month_limit_redeem_point').value
 
         max_month_limit = max_month_limit if max_month_limit else 500
         if max_redeem_points:
@@ -1390,7 +1390,7 @@ def mark_pos_product_online_enabled(product_id):
         instance.online_disabled_status = None
         instance.save()
 
-def cupon_point_update(order, updated_by):
+def coupon_point_update(order, updated_by):
     """add cupon point affter delivered .."""
     coupon = order.ordered_cart.offers
     array = list(filter(lambda d: d['type'] in ['discount'], coupon))

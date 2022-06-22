@@ -5789,16 +5789,21 @@ class ReturnOrderTripListSerializer(serializers.ModelSerializer):
         return instance.return_amount
     
     def get_return_address(self, instance):
-        return AddressSerializer(instance.buyer_shop.shop_name_address_mapping.filter(address_type='shipping').last()).data
+        if instance.buyer_shop:
+            return AddressSerializer(instance.buyer_shop.shop_name_address_mapping.filter(address_type='shipping').last()).data
+        else:
+            return None
     
     def get_order_no(self, instance):
         return instance.shipment.order.order_no
     
     def get_shop_name(self, instance):
-        return instance.buyer_shop.shop_name
+        if instance.buyer_shop:
+            return instance.buyer_shop.shop_name
+        return None
     
     class Meta:
         model = ReturnOrder
         fields = ('id', 'return_challan_no', 'return_amount', 
                   'return_status', 'created_at', 'shop_name',
-                  'order_no', 'return_address')
+                  'order_no', 'return_address', 'return_no')
