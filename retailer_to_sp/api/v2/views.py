@@ -145,7 +145,9 @@ class GetReturnChallan(APIView):
                 pdf_created_date.append(return_order.created_at)
 
             prefix_file_name = CHALLAN_DOWNLOAD_ZIP_NAME
+            info_logger.info("prefix_file_name :: {}".format(prefix_file_name))
             merge_pdf_name = create_merge_pdf_name(prefix_file_name, pdf_created_date)
+            info_logger.info("merge_pdf_name :: {}".format(merge_pdf_name))
             merged_file_url = merge_pdf_files(file_path_list, merge_pdf_name)
             info_logger.info("Merged file URL :: {}".format(merged_file_url))
             file_pointer = requests.get(merged_file_url)
