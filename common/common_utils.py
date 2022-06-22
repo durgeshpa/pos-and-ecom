@@ -69,6 +69,8 @@ def merge_pdf_files(file_path_list, merge_pdf_name):
         info_logger.info("API2PDF_KEY :: {}".format(config('API2PDF_KEY')))
         a2p_client = Api2Pdf(config('API2PDF_KEY'))
         info_logger.info("a2p_client.api_key :: {}".format(a2p_client.api_key))
+        info_logger.info("merge_pdf_name :: {}".format(merge_pdf_name))
+        info_logger.info("file_path_list :: {}".format(file_path_list))
         merge_result = a2p_client.merge(file_path_list, file_name=merge_pdf_name)
         info_logger.info("Merge result :: {}".format(merge_result.result))
         return merge_result.result['pdf']
