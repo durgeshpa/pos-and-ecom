@@ -3311,6 +3311,12 @@ class OrderCentral(APIView):
                                                         ordered_p.qty - product_map.shipped_qty,
                                                         self.request.user, order.order_no, PosInventoryChange.SHIPPED)
                 pdf_generation_retailer(request, order.id)
+
+                # Send Dispatch Push Notification to ECOMM USER
+                info_logger.info("Sending Dispatch notifications to Ecom users......")
+                message_title = "Order Update!"
+                message_body = "Your order has been dispatched & will be delivered to you soon."
+                send_notification_ecom_user(order, message_title, message_body)
             # Delivered/Closed
             else:
                 if order.delivery_option == '1':
@@ -3351,12 +3357,6 @@ class OrderCentral(APIView):
                     pos_trip.save()
                 except:
                     pass
-
-                # Send Dispatch Push Notification to ECOMM USER
-                info_logger.info("Sending Dispatch notifications to Ecom users......")
-                message_title = "Order Update!"
-                message_body = "Your order has been dispatched & will be delivered to you soon."
-                send_notification_ecom_user(order, message_title, message_body)
 
         return api_response("Order updated successfully!", response, status.HTTP_200_OK, True)
 
@@ -4677,11 +4677,13 @@ class OrderCentral(APIView):
     def create_retailer_side_return_order(self, shipment, order_product_mapping, return_order):
         seller_shop = return_order.seller_shop
         parent_shop = seller_shop.get_shop_parent
+        retailer_order = shipment.order.ref_order.filter(ordered_cart__rt_cart_list__cart_product=order_product_mapping.product).last()
+        retailer_shipment = retailer_order.rt_order_order_product.last()
         ret_return_order, _ = ReturnOrder.objects.get_or_create(
             seller_shop=parent_shop, 
             buyer_shop=seller_shop,
             return_status=ReturnOrder.RETURN_REQUESTED,
-            shipment=shipment,
+            shipment=retailer_shipment,
             ref_return_order=return_order,
             return_type=ReturnOrder.SUPERSTORE_WAREHOUSE
         )
@@ -11355,6 +11357,33 @@ class LastMileTripStatusChangeView(generics.GenericAPIView):
         return self.queryset.distinct('id')
 
 
+class LastMileTripReturnOrderView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    
+    
+    def get(self, request):
+        result = self.validate_get_request()
+        if "error" in result:
+            return get_response(result["error"], False)
+        
+        trip_id = self.request.GET.get('trip_id', None)
+        seller_shop = self.request.GET.get('seller_shop', None)
+        
+    
+    def validate_get_request(self):
+        try:
+            if not self.request.GET.get('seller_shop', None):
+                return {"error": "'seller_shop'| This is required"}
+            elif not self.request.GET.get('trip_id', None):
+                return {"error": "'trip_id' | This is required."}
+            elif not Trip.objects.filter(id=self.request.GET.get('trip_id')).exists():
+                return {"error": "'trip_id' | Invalid trip."}
+            return {"data": self.request.data}
+        except Exception as e:
+            return {"error": "Invalid Request"}
+        
+    
 class DispatchPackageStatusList(generics.GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
