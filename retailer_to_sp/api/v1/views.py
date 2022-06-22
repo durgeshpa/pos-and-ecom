@@ -3467,6 +3467,11 @@ class OrderCentral(APIView):
                 pos_trip.trip_start_at = datetime.now()
                 pos_trip.save()
                 sms_out_for_delivery(shipment.order.buyer.first_name, shipment.order.buyer.phone_number)
+                # Send Dispatch Push Notification to ECOMM USER
+                info_logger.info("Sending Dispatch notifications to Ecom users......")
+                message_title = "Order Update!"
+                message_body = "Your order has been dispatched & will be delivered to you soon."
+                send_notification_ecom_user(shipment.order, message_title, message_body)
             elif order_status == OrderedProduct.DELIVERED:
                 if shipment.order.delivery_option == '1':
                     shipment.shipment_status = order_status
@@ -3557,6 +3562,10 @@ class OrderCentral(APIView):
                     return_order.return_status = ReturnOrder.RETURN_INITIATED
                     return_order.return_item_pickup_person = return_pickup_person
                     return_order.save()
+                    info_logger.info("Sending Order Return notifications to Ecom users......")
+                    message_title = "Return Update!"
+                    message_body = "Our logistic partner will contact you shortly, please keep the parcel ready to return."
+                    send_notification_ecom_user(return_order, message_title, message_body)
                     return api_response("Pick up person assigned", None, status.HTTP_200_OK, True)
                 except ReturnOrder.DoesNotExist:
                     return api_response("Return Order not Found")
