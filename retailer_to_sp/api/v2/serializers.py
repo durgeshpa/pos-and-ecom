@@ -2,7 +2,8 @@ from django.core.validators import RegexValidator
 from rest_framework import serializers
 
 from retailer_to_sp.models import Order, CustomerCare, ReturnOrder, ReturnOrderProduct, ReturnOrderProductImage
-from retailer_to_sp.api.v1.serializers import ProductSerializer
+from retailer_to_sp.api.v1.serializers import ProductSerializer, ShopRouteBasicSerializers
+from addresses.models import ShopRoute
 from shops.models import Shop
 from accounts.api.v1.serializers import PosShopUserSerializer
 
@@ -69,4 +70,24 @@ class GFReturnOrderProductSerializer(serializers.ModelSerializer):
     class Meta:
         model = ReturnOrder
         fields = ('id', 'return_no', 'shipment', 'return_type', 'return_status', 'return_order_products',
-                  'return_reason', 'seller_shop', 'buyer_shop', 'buyer' ,'created_at', 'modified_at')
+                  'return_reason', 'seller_shop', 'buyer_shop', 'created_at', 'modified_at')
+
+
+
+class ReturnChallanSerializer(serializers.ModelSerializer):
+
+    no_of_challan = serializers.IntegerField()
+    warehouse=serializers.SerializerMethodField()
+    buyer_shop__shop_routes = serializers.SerializerMethodField()
+
+    def get_buyer_shop__shop_routes(self,obj):
+        shop_route = ShopRoute.objects.get(id=obj["buyer_shop__shop_routes"])
+        return ShopRouteBasicSerializers(shop_route, read_only=True).data
+
+    def get_warehouse(self,obj):
+        shop = Shop.objects.get(id=obj["warehouse"])
+        return ShopSerializer(shop,read_only=True).data
+
+    class Meta:
+        model = ReturnOrder
+        fields = ('buyer_shop__shop_routes', 'no_of_challan', 'warehouse')
