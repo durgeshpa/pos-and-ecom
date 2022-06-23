@@ -242,6 +242,18 @@ class OffersCls(object):
                                              expiry_date=expiry_date, is_active=True)
 
     @classmethod
+    def rule_set_product_mapping_parent(cls, rule_id, primary_product, purchased_product_qty, free_product,
+                                 free_product_qty, combo_offer_name, start_date, expiry_date):
+        """ 
+            rule_set mzpping with parent product for combo offer 
+        """
+        RuleSetProductMapping.objects.create(rule_id=rule_id, purchased_product=primary_product,
+                                             purchased_product_qty=purchased_product_qty, free_product=
+                                             free_product, free_product_qty=free_product_qty,
+                                             combo_offer_name=combo_offer_name, start_date=start_date,
+                                             expiry_date=expiry_date, is_active=True)
+
+    @classmethod
     def rule_set_cart_mapping(cls, rule_id, coupon_type, coupon_name, coupon_code, shop, start_date, expiry_date, limit_of_usages_per_customer=None):
         """
             rule_set cart mapping for coupon creation

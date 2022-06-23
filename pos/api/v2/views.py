@@ -21,7 +21,7 @@ logger = logging.getLogger('pos-api-v2')
 from pos.api.v1.serializers import ( CouponOfferSerializer, FreeProductOfferSerializer,
                           ComboOfferSerializer, CouponOfferUpdateSerializer, ComboOfferUpdateSerializer,
                           CouponListSerializer, FreeProductOfferUpdateSerializer, OfferCreateSerializer,
-                          OfferUpdateSerializer, CouponGetSerializer, OfferGetSerializer, 
+                          OfferUpdateSerializer, CouponGetSerializer, OfferGetSerializer, ComboOfferParentSerializer,
                           )
 from rest_framework import permissions
 from pos.models import RetailerProduct
@@ -31,6 +31,7 @@ from django.db import transaction
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from rest_framework import status
 from rest_framework import serializers
+from products.models import Product
 # Get an instance of a logger
 info_logger = logging.getLogger('file-info')
 error_logger = logging.getLogger('file-error')
@@ -42,7 +43,7 @@ debug_logger = logging.getLogger('file-debug')
 
 OFFER_SERIALIZERS_MAP = {
     1: CouponOfferSerializer,
-    2: ComboOfferSerializer,
+    2: ComboOfferParentSerializer,
     3: FreeProductOfferSerializer
 }
 
@@ -376,7 +377,7 @@ class AdminOffers(GenericAPIView):
         """
         shop_name = request.data.get('shop_name')
         fproduct = request.data.get('free_product_id')
-        if fproduct:
+        if fproduct and not  request.data.get("primary_product_id"):
             product_free_id = RetailerProduct.objects.filter(linked_product__id=fproduct)
             if product_free_id:
                 request.data['free_product_id']= product_free_id.last().id
@@ -538,39 +539,38 @@ class AdminOffers(GenericAPIView):
         shop = Shop.objects.filter(id=shop_id).last()
         retailer_primary_product = data['primary_product_id']
         try:
-            retailer_primary_product_obj = RetailerProduct.objects.get(~Q(sku_type=4), id=retailer_primary_product,
-                                                                       shop=shop_id)
+            retailer_primary_product_obj = Product.objects.get( id=retailer_primary_product)
         except ObjectDoesNotExist:
             return api_response("Primary product not found")
         retailer_free_product = data['free_product_id']
         try:
-            retailer_free_product_obj = RetailerProduct.objects.get(id=retailer_free_product, shop=shop_id)
+            retailer_free_product_obj = Product.objects.get(id=retailer_free_product)
         except ObjectDoesNotExist:
             return api_response("Free product not found")
 
         combo_offer_name, start_date, expiry_date, purchased_product_qty, free_product_qty = data['coupon_name'], data[
             'start_date'], data['end_date'], data['primary_product_qty'], data['free_product_qty']
         offer = RuleSetProductMapping.objects.filter(rule__coupon_ruleset__shop__id=shop_id,
-                                                     retailer_primary_product=retailer_primary_product_obj,
+                                                     purchased_product=retailer_primary_product_obj,
                                                      rule__coupon_ruleset__is_active=True)
         if offer:
             return api_response("Offer already exists for this Primary Product")
 
         offer = RuleSetProductMapping.objects.filter(rule__coupon_ruleset__shop__id=shop_id,
-                                                     retailer_primary_product=retailer_free_product_obj,
+                                                     purchased_product=retailer_free_product_obj,
                                                      rule__coupon_ruleset__is_active=True)
 
-        if offer and offer[0].retailer_free_product.id == data['primary_product_id']:
+        if offer and offer[0].free_product.id == data['primary_product_id']:
             return api_response("Offer already exists for this Primary Product as a free product for same free product")
 
-        combo_code = f"Buy {purchased_product_qty} {retailer_primary_product_obj.name}" \
-                     f" + Get {free_product_qty} {retailer_free_product_obj.name} Free"
+        combo_code = f"Buy {purchased_product_qty} {retailer_primary_product_obj.product_name}" \
+                     f" + Get {free_product_qty} {retailer_free_product_obj.product_name} Free"
         combo_rule_name = str(shop_id) + "_" + combo_code
         coupon_obj = OffersCls.rule_set_creation(combo_rule_name, start_date, expiry_date)
         if type(coupon_obj) == str:
             return api_response(coupon_obj)
 
-        OffersCls.rule_set_product_mapping(coupon_obj.id, retailer_primary_product_obj, purchased_product_qty,
+        OffersCls.rule_set_product_mapping_parent(coupon_obj.id, retailer_primary_product_obj, purchased_product_qty,
                                            retailer_free_product_obj, free_product_qty, combo_offer_name, start_date,
                                            expiry_date)
         coupon = OffersCls.rule_set_cart_mapping(coupon_obj.id, 'catalog', combo_offer_name, combo_code, shop,
@@ -583,8 +583,9 @@ class AdminOffers(GenericAPIView):
         coupon.froms = data.get('froms') if data.get('froms') else 0
         coupon.to = data.get('to') if data.get('to') else 0
         coupon.category = data.get('category') if data.get('category') else []
-        coupon.save()
+        coupon.is_admin = True
         data['id'] = coupon.id
+        coupon.save()
         return api_response("Combo Offer has been created successfully!", data, status.HTTP_200_OK, True)
 
     @staticmethod
