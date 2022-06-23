@@ -2364,10 +2364,23 @@ class DispatchItemsSerializer(serializers.ModelSerializer):
     def update(self, instance, validated_data):
         try:
             package_instance = super().update(instance, validated_data)
+            self.post_package_movement_to_dispatch(package_instance)
         except Exception as e:
             error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
             raise serializers.ValidationError(error)
         return package_instance
+
+    def post_package_movement_to_dispatch(self, package_instance):
+        info_logger.info(f'post_package_movement_to_dispatch|Package ID {package_instance.id}'
+                         f'Shipment {package_instance.shipment_id}')
+        if package_instance.shipment.shipment_status == OrderedProduct.READY_TO_SHIP and not package_instance.shipment.shipment_packaging.filter(
+                    status=ShipmentPackaging.DISPATCH_STATUS_CHOICES.PACKED).exists():
+            package_instance.shipment.shipment_status = OrderedProduct.MOVED_TO_DISPATCH
+            package_instance.shipment.save()
+            info_logger.info(f'post_package_movement_to_dispatch|Package ID {package_instance.id}'
+                             f'Shipment {package_instance.shipment_id} '
+                             f'Shipment status {package_instance.shipment.shipment_status}')
+
 
 
 class DispatchDashboardSerializer(serializers.Serializer):
