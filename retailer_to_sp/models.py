@@ -2224,7 +2224,7 @@ class ReturnOrder(models.Model):
 
 class ReturnOrderProduct(models.Model):
     return_order = models.ForeignKey(
-        ReturnOrder, 
+        ReturnOrder,
         related_name='return_order_products',
         on_delete=models.CASCADE
     )
@@ -2237,6 +2237,8 @@ class ReturnOrderProduct(models.Model):
         null=True, on_delete=models.DO_NOTHING
     )
     return_qty = models.PositiveIntegerField(default=0, verbose_name="Returned Quantity")
+    expired_qty = models.PositiveIntegerField(default=0, verbose_name="Expired Quantity")
+    damaged_qty = models.PositiveIntegerField(default=0, verbose_name="Damaged Quantity")
     return_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     return_shipment_barcode = models.CharField(max_length=255, null=True, blank=True)
     last_modified_by = models.ForeignKey(
@@ -2249,6 +2251,20 @@ class ReturnOrderProduct(models.Model):
     class Meta:
         verbose_name = 'Return Order Product'
         verbose_name_plural = 'Return Order Products'
+
+
+class ReturnProductBatch(models.Model):
+    return_product = models.ForeignKey(
+        ReturnOrderProduct,
+        related_name='return_product_batches',
+        on_delete=models.CASCADE
+    )
+    batch_id = models.CharField(max_length=20)
+    return_qty = models.PositiveIntegerField(default=0)
+    expired_qty = models.PositiveIntegerField(default=0)
+    damaged_qty = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
 
 
 class ReturnOrderProductImage(models.Model):
