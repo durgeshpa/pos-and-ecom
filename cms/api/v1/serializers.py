@@ -88,14 +88,19 @@ class ChoicesSerializer(serializers.ChoiceField):
         if obj == '' and self.allow_blank:
             return obj
         return {'id': obj, 'description': self._choices[obj]}
+class ChoicesValueSerializer(serializers.ChoiceField):
 
+    def to_representation(self, obj):
+        if obj == '' and self.allow_blank:
+            return obj
+        return  self._choices[obj]
 class CardItemSerializer(serializers.ModelSerializer):
     """Serializer for CardItem"""
     image = Base64ImageField(
         max_length=None, use_url=True,required=False, allow_null = True
     )
     item_content = serializers.SerializerMethodField()
-
+    image_data_type = ChoicesValueSerializer(choices=IMAGE_TYPE_CHOICE)
     def get_item_content(self, obj):
         if not self.context.get('card', None):
             return obj.content
