@@ -464,7 +464,7 @@ class Cart(models.Model):
 
             cart_items_count = self.rt_cart_list.count()
             for cart_coupon in cart_coupons:
-                if cart_coupon.rule.cart_qualifying_min_sku_value and not cart_coupon.rule.cart_qualifying_min_sku_item:
+                if cart_coupon.rule.cart_qualifying_min_sku_value and not cart_coupon.rule.cart_qualifying_min_sku_item and cart_coupon.rule.discount:
                     cart_coupon_list.append(cart_coupon)
                     i += 1
                     if cart_value >= cart_coupon.rule.cart_qualifying_min_sku_value:
