@@ -1396,6 +1396,13 @@ def validate_retailer_product(retailer_product, product_type):
     if not RetailerProduct.objects.filter(id=retailer_product).exists():
         raise serializers.ValidationError(_("{} Product Invalid".format(product_type)))
 
+def validate_parent_product(retailer_product, product_type):
+    """
+        Check that the product is present in RetailerProduct.
+    """
+    if not Product.objects.filter(id=retailer_product).exists():
+        raise serializers.ValidationError(_("{} Product Invalid".format(product_type)))
+
 
 def discount_validation(data):
     """
@@ -1586,6 +1593,31 @@ class ComboOfferSerializer(serializers.Serializer):
         product = RetailerProduct.objects.filter(id=obj['free_product_id']).last()
         return product.name if product else ''
 
+
+class ComboOfferParentSerializer(serializers.Serializer):
+    coupon_name = serializers.CharField(required=True, max_length=50)
+    primary_product_id = serializers.IntegerField(required=True, min_value=1)
+    primary_product_name = serializers.SerializerMethodField()
+    primary_product_qty = serializers.IntegerField(required=True, min_value=1, max_value=99999)
+    free_product_id = serializers.IntegerField(required=True, min_value=1)
+    free_product_name = serializers.SerializerMethodField()
+    free_product_qty = serializers.IntegerField(required=True, min_value=1, max_value=99999)
+
+    def validate(self, data):
+        validate_parent_product(data.get('primary_product_id'), 'Primary')
+        validate_parent_product(data.get('free_product_id'), 'Free')
+        combo_offer_name_validation(data.get('coupon_name'))
+        return data
+
+    @staticmethod
+    def get_primary_product_name(obj):
+        product = Product.objects.filter(id=obj['primary_product_id']).last()
+        return product.product_name if product else ''
+
+    @staticmethod
+    def get_free_product_name(obj):
+        product = Product.objects.filter(id=obj['free_product_id']).last()
+        return product.product_name if product else ''
 
 class FreeProductOfferSerializer(serializers.Serializer):
     coupon_name = serializers.CharField(required=True, max_length=50)
