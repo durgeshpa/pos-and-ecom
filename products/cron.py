@@ -189,7 +189,7 @@ def update_price_discounted_product():
                         seller_shop=dis_prod.warehouse,
                         start_date=datetime.datetime.today(),
                         approval_status=ProductPrice.APPROVED)
-                    PriceSlab.objects.create(product_price=discounted_price, start_value=1, end_value=0,
+                    PriceSlab.objects.create(product_price=discounted_price, start_value=0, end_value=0,
                                              selling_price=selling_price)
                     cron_logger.info(f'Successfully created discounted price for {dis_prod.sku}')
 
