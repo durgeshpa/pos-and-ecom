@@ -87,7 +87,7 @@ from retailer_to_sp.common_function import check_date_range, capping_check, gene
     get_logged_user_wise_query_set_for_trip_invoices
 from retailer_to_sp.common_function import dispatch_trip_search, trip_search
 from retailer_to_sp.common_function import getShopLicenseNumber, getShopCINNumber, getGSTINNumber, getShopPANNumber
-from retailer_to_sp.models import (Cart, CartProductMapping, CreditNote, Order, OrderedProduct, Payment, CustomerCare,
+from retailer_to_sp.models import (Cart, CartProductMapping, CreditNote, LastMileTripReturnMapping, Order, OrderedProduct, Payment, CustomerCare,
                                    Feedback, OrderedProductMapping as ShipmentProducts, Return, Trip, PickerDashboard,
                                    ShipmentRescheduling, Note, OrderedProductBatch,
                                    OrderReturn, ReturnItems, OrderedProductMapping, ShipmentPackaging,
@@ -139,7 +139,8 @@ from .serializers import (ProductsSearchSerializer, CartSerializer, OrderSeriali
                           VerifyNotAttemptShipmentPackageSerializer, VerifyShipmentPackageSerializer,
                           DetailedShipmentPackageInfoSerializer, DetailedShipmentPackagingMappingInfoSerializer,
                           VerifyBackwardTripItemsSerializer, BackwardTripQCSerializer, PosOrderUserSearchSerializer,
-                          SuperStoreOrderListSerializer, SuperStoreOrderDetailSerializer, ReturnDeliverySerializer)
+                          SuperStoreOrderListSerializer, SuperStoreOrderDetailSerializer, LastMileTripReturnOrdersBasicDetailSerializer,
+                          ReturnOrderTripProductSerializer,ReturnDeliverySerializer)
 
 from ...common_validators import validate_shipment_dispatch_item, validate_trip_user, \
     get_shipment_by_crate_id, get_shipment_by_shipment_label, validate_shipment_id, validate_trip_shipment, \
@@ -784,7 +785,8 @@ class SearchProducts(APIView):
             if cart_check:
                 p = self.modify_gf_cart_product_es(cart, cart_products, p)
             p_list.append(p["_source"])
-        p_list.append(products_list['aggregations'])
+        if len(p_list) != 0:
+            p_list.append(products_list['aggregations'])
         return p_list
 
     def search_query(self):
@@ -1390,10 +1392,29 @@ class CartCentral(GenericAPIView):
             
             # Refresh cart prices
             PosCartCls.refresh_prices(cart.rt_cart_list.all(), parent_shop.id)
+            # Refresh - add/remove/update combo, get nearest cart offer over cart value
+            next_offer = BasicCartOffers.refresh_offers_cart(cart)
+            # Get Offers Applicable, Verify applied offers, Apply highest discount on cart if auto apply
+            offers = BasicCartOffers.refresh_offers_checkout(cart, False, None)
+            # Refresh redeem reward
 
             # Refresh redeem reward
             RewardCls.checkout_redeem_points(cart, 0, kwargs['shop'], app_type="SUPERSTORE" , use_all=self.request.GET.get('use_rewards', 1))
-            cart_data = SuperStoreCartSerializer(cart, context={'parent_shop_id': parent_shop.id}).data
+            offers_list = cart.offers
+            for offer in offers_list:
+                coupon_id = offer.get('coupon_id')
+                if coupon_id:
+                    coupon = Coupon.objects.get(id=coupon_id)
+                    limit_of_usages_per_customer = coupon.limit_of_usages_per_customer
+                    count = self.get_offer_applied_count_free_type(cart.buyer, coupon_id, coupon.expiry_date, coupon.start_date)
+                    if limit_of_usages_per_customer and count >= limit_of_usages_per_customer:
+                        offers_list.remove(offer)
+            cart.offers = offers_list
+            cart.save()
+            checkout = CartCheckout()
+            cart_data = checkout.serialize(cart, offers)
+            cart_data.pop('amount_payable', None)
+            cart_data.update(SuperStoreCartSerializer(cart, context={'parent_shop_id': parent_shop.id}).data)
             address = AddressCheckoutSerializer(cart.buyer.ecom_user_address.filter(default=True).last()).data
             cart_data.update({'default_address': address})
             return api_response('Cart', cart_data, status.HTTP_200_OK, True)
@@ -2142,8 +2163,57 @@ class CartCheckout(APIView):
         # ECOM
         elif app_type == '3':
             return self.post_ecom_cart_checkout(request, *args, **kwargs)
+
+        elif app_type == '4':
+            return self.super_store_checkout(request, *args, **kwargs)
+
         else:
             return api_response('Please provide a valid app_type')
+
+    @check_ecom_user_shop
+    def super_store_checkout(self, request, *args, **kwargs):
+        """
+            Ecom Checkout
+            Inputs
+            coupon_id
+        """
+        try:
+             cart = Cart.objects.get(cart_type='SUPERSTORE', buyer=self.request.user, cart_status='active',
+                                        seller_shop=kwargs['shop'])
+        except ObjectDoesNotExist:
+            return api_response("No items added in cart yet")
+        except Cart.MultipleObjectsReturned:
+                cart = Cart.objects.filter(cart_type='SUPERSTORE', buyer=self.request.user, cart_status='active',
+                                        seller_shop=kwargs['shop']).last()
+        if not self.request.data.get('coupon_id'):
+            return api_response("Invalid request")
+        with transaction.atomic():
+            # Refresh redeem reward
+            use_reward_this_month = RewardCls.checkout_redeem_points(cart, 0, shop=kwargs['shop'], app_type="ECOM",
+                                                                     use_all=self.request.GET.get('use_rewards', 1))
+            # Get offers available now and apply coupon if applicable
+            offers = BasicCartOffers.refresh_offers_checkout(cart, False, self.request.data.get('coupon_id'))
+            data = self.serialize(cart)
+
+            data['redeem_points_message'] = use_reward_this_month
+            time = datetime.now().strftime("%H:%M:%S")
+            time = datetime.strptime(time, "%H:%M:%S").time()
+            fofo_config = get_config_fofo_shops(kwargs['shop'].id)
+            delivery_time = str(fofo_config.get('delivery_time')) + " " + 'min' if fofo_config.get('delivery_time',
+                                                                                                   None) else None
+
+            if fofo_config.get('open_time', None) and fofo_config.get('close_time', None) and not (
+                    fofo_config['open_time'] < time < fofo_config['close_time']):
+                delivery_time = "Your order will be deliverd tomorrow"
+
+            data['estimate_delivery_time'] = delivery_time
+
+            if 'error' in offers:
+                return api_response(offers['error'], None, offers['code'])
+            if offers['applied']:
+                return api_response('Applied Successfully', data, status.HTTP_200_OK, True)
+            else:
+                return api_response('Not Applicable', data, status.HTTP_200_OK)
 
     @check_pos_shop
     def post_pos_cart_checkout(self, request, *args, **kwargs):
@@ -2319,8 +2389,9 @@ class CartCheckout(APIView):
                 "A minimum total purchase amount of {} is required to checkout.".format(min_order_value),
                 None, status.HTTP_200_OK, False)
         with transaction.atomic():
+            offers = BasicCartOffers.refresh_offers_checkout(cart, False, None)
             use_reward_this_month = RewardCls.checkout_redeem_points(cart, 0, shop=kwargs['shop'],app_type="SUPERSTORE", use_all=self.request.GET.get('use_rewards', 1))
-            data = self.serialize(cart, None)
+            data = self.serialize(cart, offers)
             address = AddressCheckoutSerializer(cart.buyer.ecom_user_address.filter(default=True).last()).data
             data.update({'default_address': address})
             delivery_buffer = get_config("superstore_delivery_buffer", 7)
@@ -3311,6 +3382,12 @@ class OrderCentral(APIView):
                                                         ordered_p.qty - product_map.shipped_qty,
                                                         self.request.user, order.order_no, PosInventoryChange.SHIPPED)
                 pdf_generation_retailer(request, order.id)
+
+                # Send Dispatch Push Notification to ECOMM USER
+                info_logger.info("Sending Dispatch notifications to Ecom users......")
+                message_title = "Order Update!"
+                message_body = "Your order has been dispatched & will be delivered to you soon."
+                send_notification_ecom_user(order, message_title, message_body)
             # Delivered/Closed
             else:
                 if order.delivery_option == '1':
@@ -3351,12 +3428,6 @@ class OrderCentral(APIView):
                     pos_trip.save()
                 except:
                     pass
-
-                # Send Dispatch Push Notification to ECOMM USER
-                info_logger.info("Sending Dispatch notifications to Ecom users......")
-                message_title = "Order Update!"
-                message_body = "Your order has been dispatched & will be delivered to you soon."
-                send_notification_ecom_user(order, message_title, message_body)
 
         return api_response("Order updated successfully!", response, status.HTTP_200_OK, True)
 
@@ -3467,6 +3538,11 @@ class OrderCentral(APIView):
                 pos_trip.trip_start_at = datetime.now()
                 pos_trip.save()
                 sms_out_for_delivery(shipment.order.buyer.first_name, shipment.order.buyer.phone_number)
+                # Send Dispatch Push Notification to ECOMM USER
+                info_logger.info("Sending Dispatch notifications to Ecom users......")
+                message_title = "Order Update!"
+                message_body = "Your order has been dispatched & will be delivered to you soon."
+                send_notification_ecom_user(shipment.order, message_title, message_body)
             elif order_status == OrderedProduct.DELIVERED:
                 if shipment.order.delivery_option == '1':
                     shipment.shipment_status = order_status
@@ -3529,7 +3605,7 @@ class OrderCentral(APIView):
                                                         return_qty,
                                                         images=images)
                 if return_pickup_method == ReturnOrder.DROP_AT_STORE:
-                    address = shipment.order.shop.shop_name_address_mapping.filter(
+                    address = shipment.order.seller_shop.shop_name_address_mapping.filter(
                                 address_type='shipping').last()
                     address = f"{address.address_line1}, {address.city}, {address.state} - {address.pincode}"
                     return_item_drop(shipment.order.buyer.first_name, shipment.order.buyer.phone_number, address)
@@ -3557,6 +3633,10 @@ class OrderCentral(APIView):
                     return_order.return_status = ReturnOrder.RETURN_INITIATED
                     return_order.return_item_pickup_person = return_pickup_person
                     return_order.save()
+                    info_logger.info("Sending Order Return notifications to Ecom users......")
+                    message_title = "Return Update!"
+                    message_body = "Our logistic partner will contact you shortly, please keep the parcel ready to return."
+                    send_notification_ecom_user(return_order, message_title, message_body)
                     return api_response("Pick up person assigned", None, status.HTTP_200_OK, True)
                 except ReturnOrder.DoesNotExist:
                     return api_response("Return Order not Found")
@@ -4677,11 +4757,13 @@ class OrderCentral(APIView):
     def create_retailer_side_return_order(self, shipment, order_product_mapping, return_order):
         seller_shop = return_order.seller_shop
         parent_shop = seller_shop.get_shop_parent
+        retailer_order = shipment.order.ref_order.filter(ordered_cart__rt_cart_list__cart_product=order_product_mapping.product).last()
+        retailer_shipment = retailer_order.rt_order_order_product.last()
         ret_return_order, _ = ReturnOrder.objects.get_or_create(
             seller_shop=parent_shop, 
             buyer_shop=seller_shop,
             return_status=ReturnOrder.RETURN_REQUESTED,
-            shipment=shipment,
+            shipment=retailer_shipment,
             ref_return_order=return_order,
             return_type=ReturnOrder.SUPERSTORE_WAREHOUSE
         )
@@ -5032,7 +5114,9 @@ class OrderListCentral(GenericAPIView):
             if order_status:
                 order_status_actual = ONLINE_ORDER_STATUS_MAP.get(int(order_status), None)
                 if order_status == '2':
-                    orders = orders.filter(rt_order_order_product__shipment_status__in=[OrderedProduct.DELIVERED])
+                    orders = orders.filter(rt_order_order_product__shipment_status__in=[OrderedProduct.DELIVERED]).exclude(
+                        rt_order_order_product__is_returned=True
+                    )
                 elif order_status == '1':
                     orders = orders.filter(order_status__in=order_status_actual).exclude(
                         rt_order_order_product__shipment_status__in=[OrderedProduct.DELIVERED]
@@ -6963,6 +7047,7 @@ def return_challan_generation(request, return_order_id):
         return_order.save()
     except Exception as e:
         logger.exception(e)
+    return return_order
 
 
 def pdf_superstore_generation(request, ordered_product):
@@ -8762,6 +8847,23 @@ class ShipmentProductView(generics.GenericAPIView):
         return get_response("'id' | This is mandatory.")
 
 
+class ReturnOrderProductView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    serializer_class = ReturnOrderTripProductSerializer
+    
+    def get(self, request):
+        if request.GET.get('id'):
+            try:
+                return_order = ReturnOrder.objects.get(id=request.GET.get('id'))
+                serializer = self.serializer_class(return_order)
+                msg = f"return order products"
+                return get_response(msg, serializer.data, True)
+            except ReturnOrder.DoesNotExist:
+                return get_response("Return Order not found.")
+        return get_response("'id' | This is required.")
+
+
 class ProcessShipmentView(generics.GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
@@ -10210,6 +10312,32 @@ class ShipmentCompleteVerifyView(generics.GenericAPIView):
         return get_response(serializer_error(serializer), False)
 
 
+class ReturnOrderCompleteVerifyView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    
+    @check_whc_manager_dispatch_executive
+    def put(self, request):
+        modified_data = validate_data_format(self.request)
+        if 'error' in modified_data:
+            return get_response(modified_data['error'])
+
+        if 'id' not in modified_data:
+            return get_response('please provide id to update shipment', False)
+        try:
+            return_order = ReturnOrder.objects.get(id=modified_data['id'])
+            trip = Trip.objects.filter(last_mile_trip_returns_details__return_order=return_order)\
+                .exclude(last_mile_trip_returns_details__shipment_status=LastMileTripReturnMapping.CANCELLED).last()
+            if trip.source_shopshop_type.shop_type == 'sp':
+                return_order.return_status = ReturnOrder.WH_ACCEPTED
+            else:
+                return_order.return_status = ReturnOrder.DC_ACCEPTED
+            return_order.save()
+            return get_response('return order updated successfully', None, True)
+        except ReturnOrder.DoesNotExist:
+            return get_response('return order not found')
+
+
 class TripSummaryView(generics.GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
@@ -11355,6 +11483,52 @@ class LastMileTripStatusChangeView(generics.GenericAPIView):
         return self.queryset.distinct('id')
 
 
+class LastMileTripReturnOrderView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    serializer_class = LastMileTripReturnOrdersBasicDetailSerializer
+    
+    def get(self, request):
+        result = self.validate_get_request()
+        if "error" in result:
+            return get_response(result["error"], False)
+        
+        trip_id = self.request.GET.get('trip_id', None)
+        seller_shop = self.request.GET.get('seller_shop', None)
+        trip = Trip.objects.filter(id=trip_id).last()
+        source_shop = trip.source_shop
+        if source_shop.shop_type.shop_type == 'sp':
+            returns = ReturnOrder.objects.filter(
+                # return_status__in=[],
+                seller_shop_id=seller_shop,
+                last_mile_trip_returns__trip_id=trip_id,
+                shipment__order__dispatch_center__isnull=True,
+                ).distinct('id')
+        if source_shop.shop_type.shop_type == 'dc':
+            returns = ReturnOrder.objects.filter(
+                # return_status__in=[],
+                seller_shop_id=seller_shop,
+                last_mile_trip_returns__trip_id=trip_id,
+                shipment__order__dispatch_center=source_shop
+            ).distinct('id')
+        returns_data =  SmallOffsetPagination().paginate_queryset(returns, request)
+        serializer = self.serializer_class(returns_data, many=True)
+        msg = "" if returns_data else "no returns found"
+        return get_response(msg, serializer.data, True)
+
+    def validate_get_request(self):
+        try:
+            if not self.request.GET.get('seller_shop', None):
+                return {"error": "'seller_shop'| This is required"}
+            elif not self.request.GET.get('trip_id', None):
+                return {"error": "'trip_id' | This is required."}
+            elif not Trip.objects.filter(id=self.request.GET.get('trip_id')).exists():
+                return {"error": "'trip_id' | Invalid trip."}
+            return {"data": self.request.data}
+        except Exception as e:
+            return {"error": "Invalid Request"}
+        
+    
 class DispatchPackageStatusList(generics.GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
@@ -12075,7 +12249,7 @@ class GenerateBarcodes(generics.GenericAPIView):
             return get_response(validated_request['error'])
         batch_size = request.data.get('count')
         barcode_type = request.data.get('type')
-        available_barcodes = Barcode.objects.filter(generator__barcode_type=barcode_type, is_available=True)
+        available_barcodes = Barcode.objects.filter(generator__barcode_type=barcode_type, is_available=True)[:batch_size]
         available_barcodes_count = available_barcodes.count()
         if available_barcodes_count < batch_size:
             required_barcodes = batch_size - available_barcodes_count
@@ -12092,8 +12266,8 @@ class GenerateBarcodes(generics.GenericAPIView):
                 Barcode.objects.bulk_create([Barcode(generator=generator, barcode_no='0'+str(barcode_no+i))
                                              for i in range(1, required_barcodes+1)],
                                             batch_size=BULK_CREATE_NO_OF_RECORDS)
-            available_barcodes = Barcode.objects.filter(generator__barcode_type=barcode_type, is_available=True)
-        barcode_list = available_barcodes.values_list('barcode_no', flat=True)
+            available_barcodes = Barcode.objects.filter(generator__barcode_type=barcode_type, is_available=True)[:batch_size]
+        barcode_list = list(available_barcodes.values_list('barcode_no', flat=True))
         available_barcodes.update(is_available=False)
         barcode_dict = {b : {"qty": 1, "data": None} for b in barcode_list}
         return merged_barcode_gen(barcode_dict, 'admin/retailer_to_sp/barcode.html')

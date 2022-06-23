@@ -2,7 +2,7 @@ from operator import itemgetter
 from datetime import datetime
 from elasticsearch import Elasticsearch
 
-from retailer_to_sp.models import Cart
+from retailer_to_sp.models import Cart, Order
 from django.db.models import Q
 from coupon.models import Coupon
 from pos.models import RetailerProduct
@@ -58,6 +58,28 @@ class BasicCartOffers(object):
                         count +=1
         return count
 
+    @classmethod
+    def get_category_exists_in_cart(cls, cart_products, coupon_category=[]):
+        """get category product add in cart """
+        if not coupon_category:
+            return True
+        for product in cart_products:
+            catogery = product.cart_product.parent_product.parent_product_pro_category.prefetch_related('category')
+            for c in catogery:
+                if c.category_name in coupon_category:
+                    return True
+        return False
+
+    @classmethod
+    def get_order_count(cls, cart_type, buyer):
+        """count total no of order by single user"""
+        return Order.objects.filter(ordered_cart__cart_type=cart_type, ordered_cart__buyer=buyer).count()
+    @classmethod
+    def return_cart_without_apply_coupon(cls):
+        """return if coupon not applied """
+        offers_list = {}
+        offers_list['applied'] = False
+        return offers_list
 
 
     @classmethod
@@ -68,17 +90,24 @@ class BasicCartOffers(object):
             Cart level offers
         """
         cls.cart = cart
-        cart_products = cart.rt_cart_list.all()
+        cart_products = cart.rt_cart_list.prefetch_related('cart_product__parent_product__parent_product_pro_category').all()
         cart_value = 0
         offers_list = []
-        if coupon_id:
+        if coupon_id and cart:
             coupon = Coupon.objects.get(id=coupon_id)
+            coupon_category = coupon.category
+            order_count = 0
+            if coupon.froms and coupon.to:
+                order_count = cls.get_order_count(cart.cart_type, cart.buyer)
+            if order_count and (order_count < coupon.froms or order_count > coupon.to):
+                return cls.return_cart_without_apply_coupon()
+            flag = cls.get_category_exists_in_cart(cart_products, coupon_category)
+            if not flag:
+               return  cls.return_cart_without_apply_coupon()
             limit_of_usages_per_customer = coupon.limit_of_usages_per_customer
             count = cls.get_offer_applied_count(cart.buyer, coupon_id, coupon.expiry_date, coupon.start_date)
             if limit_of_usages_per_customer and count >= limit_of_usages_per_customer:
-                offers_list ={}
-                offers_list['applied'] = False
-                return offers_list
+                return cls.return_cart_without_apply_coupon()
 
 
         if cart_products:
@@ -103,7 +132,7 @@ class BasicCartOffers(object):
         cls.cart = cart
         products_id = []
         for product_map in cart_products:
-            if product_map.selling_price > 0:
+            if product_map.selling_price > 0 and product_map.retailer_product:
                 products_id += [product_map.retailer_product.id]
         # Get combo coupons applicable for all products from es
         combo_offers = BasicCartOffers.get_basic_combo_coupons(products_id, cart.seller_shop.id,
@@ -116,7 +145,7 @@ class BasicCartOffers(object):
         offers_list = cart.offers
         for product_map in cart_products:
             # Refresh combo for all added products
-            if product_map.product_type == 1:
+            if product_map.product_type == 1 and product_map.retailer_product:
                 coupon = offers_mapping[
                     product_map.retailer_product.id] if product_map.retailer_product.id in offers_mapping else {}
                 # Add/remove/update combo on a product

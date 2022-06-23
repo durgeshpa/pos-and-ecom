@@ -30,6 +30,7 @@ from pos.common_functions import api_response
 from django.db import transaction
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from rest_framework import status
+from rest_framework import serializers
 # Get an instance of a logger
 info_logger = logging.getLogger('file-info')
 error_logger = logging.getLogger('file-error')
@@ -374,6 +375,14 @@ class AdminOffers(GenericAPIView):
             Create Any Offer
         """
         shop_name = request.data.get('shop_name')
+        fproduct = request.data.get('free_product_id')
+        if fproduct:
+            product_free_id = RetailerProduct.objects.filter(linked_product__id=fproduct)
+            if product_free_id:
+                request.data['free_product_id']= product_free_id.last().id
+            else:
+                raise serializers.ValidationError("Invalid free product")
+
         shop = None
         if shop_name:
             shop = Shop.objects.filter(shop_name=shop_name).last()
@@ -514,6 +523,9 @@ class AdminOffers(GenericAPIView):
             coupon.coupon_shop_type = data.get('coupon_shop_type') if data.get('coupon_shop_type') else coupon.coupon_shop_type
             data['coupon_enable_on'] = coupon.coupon_enable_on
             data['coupon_shop_type'] = coupon.coupon_shop_type
+            coupon.froms = data.get('froms') if data.get('froms') else 0
+            coupon.to = data.get('to') if data.get('to') else 0
+            coupon.category = data.get('category') if data.get('category') else []
 
             coupon.save()
             return api_response("Coupon Offer has been created successfully!", data, status.HTTP_200_OK, True)
@@ -568,6 +580,9 @@ class AdminOffers(GenericAPIView):
             'coupon_shop_type') else coupon.coupon_shop_type
         data['coupon_enable_on'] = coupon.coupon_enable_on
         data['coupon_shop_type'] = coupon.coupon_shop_type
+        coupon.froms = data.get('froms') if data.get('froms') else 0
+        coupon.to = data.get('to') if data.get('to') else 0
+        coupon.category = data.get('category') if data.get('category') else []
         coupon.save()
         data['id'] = coupon.id
         return api_response("Combo Offer has been created successfully!", data, status.HTTP_200_OK, True)
@@ -579,7 +594,7 @@ class AdminOffers(GenericAPIView):
         """
         shop, free_product = Shop.objects.filter(id=shop_id).last(), data['free_product_id']
         try:
-            retailer_free_product_obj = RetailerProduct.objects.get(id=free_product, shop=shop_id)
+            retailer_free_product_obj = RetailerProduct.objects.get(id=free_product)
         except ObjectDoesNotExist:
             return api_response("Free product not found")
 
@@ -611,6 +626,9 @@ class AdminOffers(GenericAPIView):
             'coupon_shop_type') else coupon.coupon_shop_type
         data['coupon_enable_on'] = coupon.coupon_enable_on
         data['coupon_shop_type'] = coupon.coupon_shop_type
+        coupon.froms = data.get('froms') if data.get('froms') else 0
+        coupon.to = data.get('to') if data.get('to') else 0
+        coupon.category = data.get('category') if data.get('category') else []
         coupon.save()
         data['id'] = coupon.id
         return api_response("Free Product Offer has been created successfully!", data, status.HTTP_200_OK, True)

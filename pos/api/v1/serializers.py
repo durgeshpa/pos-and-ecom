@@ -16,7 +16,7 @@ from django.db import transaction, models
 from rest_framework import serializers
 from django.core.validators import FileExtensionValidator
 from django.core.exceptions import ValidationError
-
+from categories.models import Category
 from addresses.models import Pincode
 from pos.bulk_product_creation import bulk_create_update_validated_products
 from pos.common_bulk_validators import bulk_product_validation
@@ -1431,6 +1431,15 @@ def date_validation(data):
     if data['end_date'] < datetime.date.today():
         raise serializers.ValidationError("End Date should be greater than today's date")
 
+def category_validation(data):
+    """validate category is exists or not"""
+    category = data.get('category', [])
+    for i in category:
+        if not Category.objects.filter(category_name=i).exists():
+            raise serializers.ValidationError(f"category name {i} does not exists")
+
+
+
 class OfferCreateSerializer(serializers.Serializer):
     offer_type = serializers.ChoiceField(choices=[1, 2, 3])
     start_date = serializers.DateField(required=True)
@@ -1438,9 +1447,15 @@ class OfferCreateSerializer(serializers.Serializer):
     limit_of_usages_per_customer = serializers.IntegerField(required=False)
     coupon_enable_on = serializers.CharField(required=False)
     coupon_shop_type = serializers.CharField(required=False)
+    froms = serializers.IntegerField(required=False)
+    to = serializers.IntegerField( required=False)
+
+    category = serializers.ListField(child=serializers.CharField(), required=False)
+
 
     def validate(self, data):
         date_validation(data)
+        category_validation(data)
         return data
 
 
@@ -1675,7 +1690,8 @@ class CouponGetSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Coupon
-        fields = ('id', 'offer_type', 'coupon_name', 'details', 'start_date', 'end_date', 'is_point', 'limit_of_usages_per_customer', 'coupon_enable_on','coupon_shop_type')
+        fields = ('id', 'offer_type', 'coupon_name', 'details', 'start_date', 'end_date', 'is_point', 'limit_of_usages_per_customer', 'coupon_enable_on','coupon_shop_type',
+            'froms', 'to', 'category')
 
 
 class CouponListSerializer(serializers.ModelSerializer):

@@ -1,20 +1,21 @@
 import logging
 import requests
-
+from datetime import datetime, timedelta
 from django.http import HttpResponse
-
+from django.db.models import Count, F
 from rest_framework import permissions
 from rest_auth import authentication
 from rest_framework import status
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from common.common_utils import create_file_name
-from common.constants import PREFIX_RETURN_CHALLAN_FILE_NAME
+from common.common_utils import create_file_name, create_merge_pdf_name, merge_pdf_files
+from common.constants import PREFIX_RETURN_CHALLAN_FILE_NAME, CHALLAN_DOWNLOAD_ZIP_NAME
 from retailer_to_sp.models import (Order, CustomerCare, Return, ReturnOrder)
+from addresses.models import ShopRoute
 from wms.common_functions import get_response
-from .serializers import (CustomerCareSerializer, OrderNumberSerializer, 
-                          GFReturnOrderProductSerializer)
+from .serializers import (CustomerCareSerializer, OrderNumberSerializer,
+                          GFReturnOrderProductSerializer, ReturnChallanSerializer)
 
 info_logger = logging.getLogger('file-info')
 error_logger = logging.getLogger('file-error')
@@ -110,7 +111,7 @@ class GFReturnOrderList(APIView):
             created_at = request.query_params.get('created_at')
             if created_at:
                 returns = returns.filter(created_at__date=created_at)
-            serializer =  GFReturnOrderProductSerializer(returns, many=True)
+            serializer = GFReturnOrderProductSerializer(returns, many=True)
             msg = "return orders" if returns else "no return orders found"
             return get_response(msg, serializer.data, True)
         
@@ -121,22 +122,83 @@ class GetReturnChallan(APIView):
     
     def get(self, request, *args, **kwargs):
         try:
-            return_order = ReturnOrder.objects.get(id=kwargs['pk'])
-            # if return_order.return_invoice and return_order.return_invoice.invoice_pdf and return_order.return_invoice.invoice_pdf.url:
-            #     pass
-            # else:
-            return_challan_generation(request, return_order.id)
-            with requests.Session() as s:
-                result = s.get(return_order.return_invoice.invoice_pdf.url)
-                filename = create_file_name(PREFIX_RETURN_CHALLAN_FILE_NAME, 
-                                            return_order.return_invoice.invoice_no)
+            route = self.request.GET.get('route')
+
+            shop_qs = ShopRoute.objects.filter(route_id=route).values_list('shop_id', flat=True)
+
+            return_orders = ReturnOrder.objects.filter(buyer_shop__id__in=shop_qs,
+                                                      return_type=ReturnOrder.SUPERSTORE_WAREHOUSE,
+                                                      return_status='RETURN_REQUESTED')
+
+            # return_order = ReturnOrder.objects.get(id=kwargs['pk'])
+            file_path_list = []
+            pdf_created_date = []
+            for return_order in return_orders:
                 try:
-                    response = HttpResponse(result.content, content_type='application/pdf')
-                    response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
-                    return response
-                except Exception as e:
-                    error_logger.exception(e)
-                    return get_response("Return Challan not generated", None, False)
+                    if return_order.return_invoice and return_order.return_invoice.invoice_pdf and return_order.return_invoice.invoice_pdf.url:
+                        pass
+                    else:
+                        return_order = return_challan_generation(request, return_order.id)
+                except:
+                    return_order = return_challan_generation(request, return_order.id)
+                file_path_list.append(return_order.return_invoice.invoice_pdf.url)
+                pdf_created_date.append(return_order.created_at)
+
+            info_logger.info("file_path_list :: {}".format(file_path_list))
+            prefix_file_name = CHALLAN_DOWNLOAD_ZIP_NAME
+            info_logger.info("prefix_file_name :: {}".format(prefix_file_name))
+            merge_pdf_name = create_merge_pdf_name(prefix_file_name, pdf_created_date)
+            info_logger.info("merge_pdf_name :: {}".format(merge_pdf_name))
+            merged_file_url = merge_pdf_files(file_path_list, merge_pdf_name)
+            info_logger.info("Merged file URL :: {}".format(merged_file_url))
+            file_pointer = requests.get(merged_file_url)
+            response = HttpResponse(file_pointer.content, content_type='application/pdf')
+            response['Content-Disposition'] = 'attachment; filename="{}"'.format(merge_pdf_name)
+            return response
         except ReturnOrder.DoesNotExist:
             return get_response("Return Order does not exists", None, False)
-                    
+
+
+class ReturnChallanList(APIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def get(self, request, *args, **kwargs):
+        try:
+            """
+                Return the list of return challan grouped on the basis of shop routes
+            """
+
+            return_order_qs = ReturnOrder.objects.filter(
+                return_type=ReturnOrder.SUPERSTORE_WAREHOUSE, return_status='RETURN_REQUESTED')
+
+            # Filter queryset
+            return_order_qs = self.search_filter_return_data(return_order_qs)
+
+            # group by shop routes
+            return_order_qs = return_order_qs.values('buyer_shop__shop_routes').annotate(
+                no_of_challan=Count('buyer_shop__shop_routes'), warehouse=F('seller_shop'))
+
+            serializer = ReturnChallanSerializer(return_order_qs, many=True)
+            msg = "Return Challan List"
+            return get_response(msg, serializer.data, True)
+        except Exception as e:
+            info_logger.info(e)
+            return e
+
+    def search_filter_return_data(self, return_order_qs):
+        city = self.request.GET.get('city')
+        route = self.request.GET.get('route')
+        date = datetime.strptime(self.request.GET.get('created_at', datetime.now().date().isoformat()), "%Y-%m-%d")
+        date = date + timedelta(days=1)
+
+        if route:
+            return_order_qs = return_order_qs.filter(buyer_shop__shop_routes__route_id=route)
+
+        if city:
+            return_order_qs = return_order_qs.filter(buyer_shop__shop_routes__route__city_id=city)
+
+        if date:
+            return_order_qs = return_order_qs.filter(created_at__lte=date)
+
+        return return_order_qs

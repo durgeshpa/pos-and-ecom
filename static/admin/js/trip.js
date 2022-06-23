@@ -19,7 +19,7 @@
     GetResultOnTypingArea();
 //    GetResultOnChangeSellerShop();
 //    GetResultOnChangeSourceShop();
-    GetReturnResultOnChangeSellerShop();
+    // GetReturnResultOnChangeSourceShop();
     CallAPI();
     CallReturnAPI();
     initTripStatus();
@@ -76,7 +76,7 @@ const initReturnPageData = (data) => {
     if (el.return_status == "RETURN_INITIATED") {
       el.selected = true;
     }
-    return_page_data[el.return_challan_no] = el;
+    return_page_data[el.return_no] = el;
   });
 }
 
@@ -105,7 +105,7 @@ function SubmitFormConfirmDialog(){
          return c;
       } else {
          e.preventDefault(e);
-        alert("Please select at least one shipment");
+        alert("Please select at least one shipment or return");
 
      }
   });
@@ -271,18 +271,21 @@ function GetResultOnChangeSourceShop() {
                 }
               }
           });
+          GetReturnResultOnChangeSourceShop();
 }
 
-const GetReturnResultOnChangeSellerShop = () => {
-  $("#id_seller_shop").on('change',function() {
+const GetReturnResultOnChangeSourceShop = () => {
+  // $("#id_source_shop").on('change',function() {
   EmptyElement('tbody#returns_data');
   HideField('tr#returns_heading');
   ShowField('tr#returns_loading');
-  var seller_shop_id = $('#id_seller_shop').val();
+  const seller_shop_id = $('#id_seller_shop').val();
+  const source_shop_id = $('#id_source_shop').val();
   $.ajax({
       url: GetReturnListURL(),
       data: {
-          'seller_shop_id': seller_shop_id
+          'seller_shop_id': seller_shop_id,
+          'source_shop_id': source_shop_id
       },
       success: function(data) {
       if(data.is_success){
@@ -291,7 +294,7 @@ const GetReturnResultOnChangeSellerShop = () => {
         }
       }
   });
-})
+// })
 }
 
 function GetResultByTripID() {
@@ -440,7 +443,7 @@ const CreateReturnResponseTable = (return_data) => {
     // var trip = el.trip;
     var order = "<td>" + el.order_no + "</td>";
     var return_status = "<td>" + el.return_status + "</td>";
-    var return_no = "<td>"+ el.return_challan_no + "</td>";
+    var return_no = "<td>"+ el.return_no + "</td>";
     var return_amount = "<td>" + el.return_amount + "</td>";
     if (el.return_address) {
       var return_city = "<td>" + el.return_address.city + "</td>";
@@ -456,11 +459,11 @@ const CreateReturnResponseTable = (return_data) => {
     // var shipment_weight = "<td>" + el.shipment_weight + "</td>";
     var created_at = "<td>" + el.created_at + "</td>";
     if(el.selected){
-      var select = "<td><input type='checkbox' class='return_checkbox' value='"+el.return_challan_no+"' checked></td>";
+      var select = "<td><input type='checkbox' class='return_checkbox' value='"+el.return_no+"' checked></td>";
     $("tbody#returns_data").prepend("<tr class=" + row + ">" + select + return_no + return_amount + return_status + return_city + created_at + order +  return_address  +"</tr>");
     }
     else{
-      select = "<td><input type='checkbox' class='return_checkbox' value='"+el.return_challan_no+"'></td>";
+      select = "<td><input type='checkbox' class='return_checkbox' value='"+el.return_no+"'></td>";
     $("tbody#returns_data").append("<tr class=" + row + ">" + select + return_no + return_amount + return_status + return_city + created_at + order +  return_address  +"</tr>");
     }
   });

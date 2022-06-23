@@ -386,7 +386,6 @@ class EcomRegisterSerializer(serializers.Serializer):
                 adapter.save_user(request, user, self)
                 setup_user_email(request, user, [])
             else:
-                self.set_password_form.save()
                 user = UserModel.objects.filter(phone_number=self.validated_data.get('username', '')).last()
                 user.first_name = self.validated_data.get('first_name', '')
             user.is_ecom_user = True
