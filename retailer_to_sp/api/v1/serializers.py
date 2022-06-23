@@ -19,7 +19,7 @@ from retailer_backend.utils import getStrToYearDate
 from retailer_to_sp.common_model_functions import ShopCrateCommonFunctions, OrderCommonFunction
 from retailer_to_sp.common_validators import validate_shipment_crates_list, validate_shipment_package_list
 from retailer_to_sp.models import (CartProductMapping, Cart, Invoice, Order, OrderedProduct, Note, CustomerCare, Payment,
-                                   Dispatch, Feedback, OrderedProductMapping as RetailerOrderedProductMapping, Return, ReturnOrder, Shipment,
+                                   Dispatch, Feedback, OrderedProductMapping as RetailerOrderedProductMapping, Return, ReturnOrder, ReturnOrderProduct, Shipment,
                                    Trip, PickerDashboard, ShipmentRescheduling, OrderedProductBatch, ShipmentPackaging,
                                    ShipmentPackagingMapping, DispatchTrip, DispatchTripShipmentMapping,
                                    DispatchTripShipmentPackages, ShipmentNotAttempt, PACKAGE_VERIFY_CHOICES,
@@ -1959,6 +1959,46 @@ class ShipmentProductSerializer(serializers.ModelSerializer):
     @staticmethod
     def get_order_created_date(obj):
         return obj.order.created_at
+
+
+class ReturnOrderProductSerializer(serializers.ModelSerializer):
+    product = ProductSerializer(read_only=True)
+    
+    class Meta:
+        model = ReturnOrderProduct
+        fields = ('id', 'product', 'return_qty', 'return_price')
+
+
+class CustomerShipmentReturnOrderTripDetailSerializer(serializers.ModelSerializer):
+    ordered_qty = serializers.SerializerMethodField()
+    
+    def get_ordered_qty(self, instance):
+        return instance.shipped_qty
+    
+    class Meta:
+        model = RetailerOrderedProductMapping
+        fields = ('id', 'shipped_qty', 'delivered_qty', 'ordered_qty')
+
+
+class ReturnOrderTripProductSerializer(serializers.ModelSerializer):
+    # shipment = ShipmentProductSerializer(read_only=True)
+    customer_return_order_product = serializers.SerializerMethodField()
+    customer_shipment_detail = serializers.SerializerMethodField()
+    
+    def get_customer_shipment_detail(self, instance):
+        return CustomerShipmentReturnOrderTripDetailSerializer(
+                instance.ref_return_order.shipment\
+                .order.rt_order_order_product.last()\
+                .rt_order_product_order_product_mapping.last()
+            ).data
+
+    def get_customer_return_order_product(self, instance):
+        return ReturnOrderProductSerializer(instance.ref_return_order.return_order_products.last()).data
+    
+    class Meta:
+        model = ReturnOrder
+        fields = ('id', 'return_no', 'return_challan_no', 'shipment', 'return_amount', 
+                  'customer_shipment_detail', 'customer_return_order_product')
 
 
 class AddressSerializer(serializers.ModelSerializer):
@@ -4174,6 +4214,15 @@ class LastMileTripShipmentsSerializer(serializers.Serializer):
 
     def get_invoices(self, obj):
         return LastMileTripInvoicesBasicDetailsSerializer(obj['invoices'], many=True).data
+
+
+class LastMileTripReturnOrdersBasicDetailSerializer(serializers.ModelSerializer):
+    buyer_shop = ShopSerializer(read_only=True)
+    
+    class Meta:
+        model = ReturnOrder
+        fields = ('id', 'shipment', 'return_no', 'buyer_shop',
+                  'return_status', 'return_challan_no')
 
 
 class VerifyReturnShipmentProductsSerializer(serializers.ModelSerializer):

@@ -28,7 +28,9 @@ from .views import (ProductsList, SearchProducts, CartCentral, CartCheckout, Ord
                     DispatchCenterShipmentPackageView, LoadLastMileInvoiceView, LastMileTripSummaryView,
                     LastMileLoadVerifyPackageView, RemoveLastMileInvoiceFromTripView,
                     VerifyNotAttemptShipmentPackagesView, VerifyBackwardTripItems, BackwardTripQCView,
-                    VehicleDriverList, PosOrderUserSearchView, CurrentlyLoadingShipmentPackagesView, GenerateBarcodes)
+                    VehicleDriverList, PosOrderUserSearchView, CurrentlyLoadingShipmentPackagesView, 
+                    ReturnOrderCompleteVerifyView, LastMileTripReturnOrderView, ReturnOrderProductView, 
+                    GenerateBarcodes)
 
 from retailer_backend.cron import sync_es_products_api
 router = routers.DefaultRouter()
@@ -104,6 +106,7 @@ urlpatterns = [
     url('^autosearch/suggest/$', AutoSuggest.as_view()),
     url(r'^ordered-product/$', OrderedProductViewSet.as_view()),
     url(r'^shipment-products/$', ShipmentProductView.as_view()),
+    url(r'^return-order-products/$', ReturnOrderProductView.as_view()),
     url(r'^process-shipment/$', ProcessShipmentView.as_view()),
     url(r'^shipment-status-list/$', ShipmentStatusList.as_view()),
     url('shipments/', ShipmentQCView.as_view()),
@@ -134,6 +137,7 @@ urlpatterns = [
         name='verify_return_shipment_products'),
     url('shipment-crates-validated/', ShipmentCratesValidatedView.as_view(), name='shipment_crates_validated'),
     url('shipment-complete-verification/', ShipmentCompleteVerifyView.as_view(), name='shipment_complete_verification'),
+    url('return-order-complete-verification/', ReturnOrderCompleteVerifyView.as_view(), name='return_order_complete_verification'),
     url('trip-summary/', TripSummaryView.as_view(), name='trip_summary'),
     url('trip-invoices/', DispatchCenterShipmentView.as_view()),
     url('trip-crates/', DispatchCenterCrateView.as_view()),
@@ -147,6 +151,7 @@ urlpatterns = [
     url('trip-unload-shipment/', UnloadVerifyPackageView.as_view()),
     url('last-mile-trips/', LastMileTripCrudView.as_view(), name='last_mile_trips'),
     url('last-mile-invoices/', LastMileTripShipmentsView.as_view(), name='last_mile_invoices'),
+    url('last-mile-returns/', LastMileTripReturnOrderView.as_view(), name='last_mile_returns'),
     url('last-mile-summary/', LastMileTripSummaryView.as_view(), name='last_mile_summary'),
     url('trip-last-mile-add-invoice/', LoadLastMileInvoiceView.as_view()),
     url('trip-last-mile-invoice-remove/', RemoveLastMileInvoiceFromTripView.as_view()),
