@@ -21,7 +21,7 @@ logger = logging.getLogger('pos-api-v2')
 from pos.api.v1.serializers import ( CouponOfferSerializer, FreeProductOfferSerializer,
                           ComboOfferSerializer, CouponOfferUpdateSerializer, ComboOfferUpdateSerializer,
                           CouponListSerializer, FreeProductOfferUpdateSerializer, OfferCreateSerializer,
-                          OfferUpdateSerializer, CouponGetSerializer, OfferGetSerializer, ComboOfferParentSerializer,
+                          OfferUpdateSerializer, CouponGetSerializer, OfferGetSerializer, ComboOfferParentSerializer,ParentProductCouponGetSerializer
                           )
 from rest_framework import permissions
 from pos.models import RetailerProduct
@@ -460,7 +460,7 @@ class AdminOffers(GenericAPIView):
 
     @staticmethod
     def get_offer(coupon_id):
-        coupon = CouponGetSerializer(Coupon.objects.get(id=coupon_id)).data
+        coupon = ParentProductCouponGetSerializer(Coupon.objects.get(id=coupon_id)).data
         coupon.update(coupon['details'])
         coupon.pop('details')
         return api_response("Offers", coupon, status.HTTP_200_OK, True)
