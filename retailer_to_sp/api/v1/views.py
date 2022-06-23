@@ -87,7 +87,7 @@ from retailer_to_sp.common_function import check_date_range, capping_check, gene
     get_logged_user_wise_query_set_for_trip_invoices
 from retailer_to_sp.common_function import dispatch_trip_search, trip_search
 from retailer_to_sp.common_function import getShopLicenseNumber, getShopCINNumber, getGSTINNumber, getShopPANNumber
-from retailer_to_sp.models import (Cart, CartProductMapping, CreditNote, Order, OrderedProduct, Payment, CustomerCare,
+from retailer_to_sp.models import (Cart, CartProductMapping, CreditNote, LastMileTripReturnMapping, Order, OrderedProduct, Payment, CustomerCare,
                                    Feedback, OrderedProductMapping as ShipmentProducts, Return, Trip, PickerDashboard,
                                    ShipmentRescheduling, Note, OrderedProductBatch,
                                    OrderReturn, ReturnItems, OrderedProductMapping, ShipmentPackaging,
@@ -138,7 +138,8 @@ from .serializers import (ProductsSearchSerializer, CartSerializer, OrderSeriali
                           VerifyNotAttemptShipmentPackageSerializer, VerifyShipmentPackageSerializer,
                           DetailedShipmentPackageInfoSerializer, DetailedShipmentPackagingMappingInfoSerializer,
                           VerifyBackwardTripItemsSerializer, BackwardTripQCSerializer, PosOrderUserSearchSerializer,
-                          SuperStoreOrderListSerializer, SuperStoreOrderDetailSerializer)
+                          SuperStoreOrderListSerializer, SuperStoreOrderDetailSerializer, LastMileTripReturnOrdersBasicDetailSerializer, 
+                          ReturnOrderTripProductSerializer)
 
 from ...common_validators import validate_shipment_dispatch_item, validate_trip_user, \
     get_shipment_by_crate_id, get_shipment_by_shipment_label, validate_shipment_id, validate_trip_shipment, \
@@ -8842,6 +8843,23 @@ class ShipmentProductView(generics.GenericAPIView):
         return get_response("'id' | This is mandatory.")
 
 
+class ReturnOrderProductView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    serializer_class = ReturnOrderTripProductSerializer
+    
+    def get(self, request):
+        if request.GET.get('id'):
+            try:
+                return_order = ReturnOrder.objects.get(id=request.GET.get('id'))
+                serializer = self.serializer_class(return_order)
+                msg = f"return order products"
+                return get_response(msg, serializer.data, True)
+            except ReturnOrder.DoesNotExist:
+                return get_response("Return Order not found.")
+        return get_response("'id' | This is required.")
+
+
 class ProcessShipmentView(generics.GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
@@ -10290,6 +10308,32 @@ class ShipmentCompleteVerifyView(generics.GenericAPIView):
         return get_response(serializer_error(serializer), False)
 
 
+class ReturnOrderCompleteVerifyView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    
+    @check_whc_manager_dispatch_executive
+    def put(self, request):
+        modified_data = validate_data_format(self.request)
+        if 'error' in modified_data:
+            return get_response(modified_data['error'])
+
+        if 'id' not in modified_data:
+            return get_response('please provide id to update shipment', False)
+        try:
+            return_order = ReturnOrder.objects.get(id=modified_data['id'])
+            trip = Trip.objects.filter(last_mile_trip_returns_details__return_order=return_order)\
+                .exclude(last_mile_trip_returns_details__shipment_status=LastMileTripReturnMapping.CANCELLED).last()
+            if trip.source_shopshop_type.shop_type == 'sp':
+                return_order.return_status = ReturnOrder.WH_ACCEPTED
+            else:
+                return_order.return_status = ReturnOrder.DC_ACCEPTED
+            return_order.save()
+            return get_response('return order updated successfully', None, True)
+        except ReturnOrder.DoesNotExist:
+            return get_response('return order not found')
+
+
 class TripSummaryView(generics.GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
@@ -11438,7 +11482,7 @@ class LastMileTripStatusChangeView(generics.GenericAPIView):
 class LastMileTripReturnOrderView(generics.GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
-    
+    serializer_class = LastMileTripReturnOrdersBasicDetailSerializer
     
     def get(self, request):
         result = self.validate_get_request()
@@ -11447,8 +11491,27 @@ class LastMileTripReturnOrderView(generics.GenericAPIView):
         
         trip_id = self.request.GET.get('trip_id', None)
         seller_shop = self.request.GET.get('seller_shop', None)
-        
-    
+        trip = Trip.objects.filter(id=trip_id).last()
+        source_shop = trip.source_shop
+        if source_shop.shop_type.shop_type == 'sp':
+            returns = ReturnOrder.objects.filter(
+                # return_status__in=[],
+                seller_shop_id=seller_shop,
+                last_mile_trip_returns__trip_id=trip_id,
+                shipment__order__dispatch_center__isnull=True,
+                ).distinct('id')
+        if source_shop.shop_type.shop_type == 'dc':
+            returns = ReturnOrder.objects.filter(
+                # return_status__in=[],
+                seller_shop_id=seller_shop,
+                last_mile_trip_returns__trip_id=trip_id,
+                shipment__order__dispatch_center=source_shop
+            ).distinct('id')
+        returns_data =  SmallOffsetPagination().paginate_queryset(returns, request)
+        serializer = self.serializer_class(returns_data, many=True)
+        msg = "" if returns_data else "no returns found"
+        return get_response(msg, serializer.data, True)
+
     def validate_get_request(self):
         try:
             if not self.request.GET.get('seller_shop', None):

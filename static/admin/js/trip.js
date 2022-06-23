@@ -19,7 +19,7 @@
     GetResultOnTypingArea();
 //    GetResultOnChangeSellerShop();
 //    GetResultOnChangeSourceShop();
-    GetReturnResultOnChangeSourceShop();
+    // GetReturnResultOnChangeSourceShop();
     CallAPI();
     CallReturnAPI();
     initTripStatus();
@@ -271,10 +271,11 @@ function GetResultOnChangeSourceShop() {
                 }
               }
           });
+          GetReturnResultOnChangeSourceShop();
 }
 
 const GetReturnResultOnChangeSourceShop = () => {
-  $("#id_source_shop").on('change',function() {
+  // $("#id_source_shop").on('change',function() {
   EmptyElement('tbody#returns_data');
   HideField('tr#returns_heading');
   ShowField('tr#returns_loading');
@@ -293,7 +294,7 @@ const GetReturnResultOnChangeSourceShop = () => {
         }
       }
   });
-})
+// })
 }
 
 function GetResultByTripID() {

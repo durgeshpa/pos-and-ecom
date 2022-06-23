@@ -2127,7 +2127,9 @@ class ReturnOrder(models.Model):
     RETURN_REQUESTED = 'RETURN_REQUESTED'
     STORE_ITEM_PICKED = 'STORE_ITEM_PICKED'
     DC_DROPPED = 'DC_DROPPED'
+    DC_ACCEPTED = 'DC_ACCEPTED'
     WH_DROPPED = 'WH_DROPPED'
+    WH_ACCEPTED = 'WH_ACCEPTED'
     RETURN_CANCEL = 'RETURN_CANCEL'
     CUSTOMER_ITEM_PICKED = 'CUSTOMER_ITEM_PICKED'
     RETURN_INITIATED = 'RETURN_INITIATED'
@@ -2138,7 +2140,9 @@ class ReturnOrder(models.Model):
         (CUSTOMER_ITEM_PICKED, 'Customer item picked'),
         (STORE_ITEM_PICKED, 'Retailer Item Picked'),
         (DC_DROPPED, 'DC Dropped'),
+        (DC_ACCEPTED, 'DC accepted'),
         (WH_DROPPED, 'WH Dropped'),
+        (WH_ACCEPTED, 'WH accepted'),
         (RETURN_CANCEL, 'Return cancelled'),
         (RETURN_COMPLETE, 'Return completed')
     )
@@ -2197,6 +2201,7 @@ class ReturnOrder(models.Model):
                                         verbose_name='Return Item Pick up',
                                         related_name='return_item_pickups')
     return_challan_no = models.CharField(max_length=255, null=True, blank=True)
+    return_shipment_barcode = models.CharField(max_length=255, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
     last_modified_by = models.ForeignKey(
