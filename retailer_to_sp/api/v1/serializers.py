@@ -25,7 +25,7 @@ from retailer_to_sp.models import (CartProductMapping, Cart, Invoice, Order, Ord
                                    DispatchTripShipmentPackages, ShipmentNotAttempt, PACKAGE_VERIFY_CHOICES,
                                    LastMileTripShipmentMapping, ShopCrate, DispatchTripCrateMapping,
                                    add_to_putaway_on_return, LastMileTripShipmentPackages, ShipmentPackagingBatch,
-                                   RETURN_REMARK_CHOICES, add_to_putaway_on_partail)
+                                   RETURN_REMARK_CHOICES, add_to_putaway_on_partail, ReturnOrder)
 
 from retailer_to_gram.models import (Cart as GramMappedCart, CartProductMapping as GramMappedCartProductMapping,
                                      Order as GramMappedOrder, OrderedProduct as GramMappedOrderedProduct,
@@ -5807,3 +5807,71 @@ class ReturnOrderTripListSerializer(serializers.ModelSerializer):
         fields = ('id', 'return_challan_no', 'return_amount', 
                   'return_status', 'created_at', 'shop_name',
                   'order_no', 'return_address')
+
+
+class ReturnDeliverySerializer(serializers.ModelSerializer):
+    return_id = serializers.ReadOnlyField()
+    returnorder = ReturnOrderMetaSerializer()
+    shop_open_time = serializers.SerializerMethodField()
+    shop_close_time = serializers.SerializerMethodField()
+    break_start_time = serializers.SerializerMethodField()
+    break_end_time = serializers.SerializerMethodField()
+    off_day = serializers.SerializerMethodField()
+    sales_executive = serializers.SerializerMethodField()
+
+    def get_sales_executive(self, obj):
+        shop_user_mapping = obj.order.buyer_shop.shop_user.filter(status=True,
+                                                                  employee_group__name='Sales Executive').last()
+        sales_executive = None
+        if shop_user_mapping:
+            sales_executive = shop_user_mapping.employee
+        serializer = ShopExecutiveUserSerializer(sales_executive)
+        return serializer.data
+
+    def get_total_paid_amount(self, obj):
+        return obj.total_paid_amount
+
+    def get_shop_timings(self, obj):
+        shop_timing = ShopTiming.objects.filter(shop=obj.order.buyer_shop)
+        if shop_timing.exists():
+            final_timing = shop_timing.last()
+            return [final_timing.open_timing, final_timing.closing_timing,
+                    final_timing.break_start_time, final_timing.break_end_time,
+                    final_timing.off_day]
+
+    def get_shop_open_time(self, obj):
+        shop_timings = self.get_shop_timings(obj)
+        if shop_timings:
+            return shop_timings[0]
+
+    def get_shop_close_time(self, obj):
+        shop_timings = self.get_shop_timings(obj)
+        if shop_timings:
+            return shop_timings[1]
+
+    def get_break_start_time(self, obj):
+        shop_timings = self.get_shop_timings(obj)
+        if shop_timings:
+            return shop_timings[2]
+
+    def get_break_end_time(self, obj):
+        shop_timings = self.get_shop_timings(obj)
+        if shop_timings:
+            return shop_timings[3]
+
+    def get_off_day(self, obj):
+        shop_timings = self.get_shop_timings(obj)
+        if shop_timings:
+            return shop_timings[4]
+
+    class Meta:
+        model = ReturnOrder
+        fields = ('shipment_id', 'invoice_no', 'shipment_status', 'payment_mode', 'invoice_amount', 'order',
+                  'total_paid_amount', 'shop_open_time', 'shop_close_time',
+                  'break_start_time', 'break_end_time', 'off_day', 'sales_executive')
+
+
+class ShipmentStatusSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = OrderedProduct
+        fields = ('shipment_status',)

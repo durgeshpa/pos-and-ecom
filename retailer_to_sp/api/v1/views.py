@@ -116,7 +116,8 @@ from .serializers import (ProductsSearchSerializer, CartSerializer, OrderSeriali
                           OrderDetailSerializer, OrderedProductSerializer, OrderedProductMappingSerializer,
                           RetailerShopSerializer, SellerOrderListSerializer, OrderListSerializer,
                           ReadOrderedProductSerializer, FeedBackSerializer,
-                          ShipmentDetailSerializer, SuperStoreCartSerializer, TripSerializer, ShipmentSerializer, PickerDashboardSerializer,
+                          ShipmentDetailSerializer, SuperStoreCartSerializer, TripSerializer, ShipmentSerializer,
+                          PickerDashboardSerializer,
                           ShipmentReschedulingSerializer, ShipmentReturnSerializer, ParentProductImageSerializer,
                           ShopSerializer, OrderPaymentStatusChangeSerializers,
                           ShipmentProductSerializer, RetailerOrderedProductMappingSerializer,
@@ -138,7 +139,7 @@ from .serializers import (ProductsSearchSerializer, CartSerializer, OrderSeriali
                           VerifyNotAttemptShipmentPackageSerializer, VerifyShipmentPackageSerializer,
                           DetailedShipmentPackageInfoSerializer, DetailedShipmentPackagingMappingInfoSerializer,
                           VerifyBackwardTripItemsSerializer, BackwardTripQCSerializer, PosOrderUserSearchSerializer,
-                          SuperStoreOrderListSerializer, SuperStoreOrderDetailSerializer)
+                          SuperStoreOrderListSerializer, SuperStoreOrderDetailSerializer, ReturnDeliverySerializer)
 
 from ...common_validators import validate_shipment_dispatch_item, validate_trip_user, \
     get_shipment_by_crate_id, get_shipment_by_shipment_label, validate_shipment_id, validate_trip_shipment, \
@@ -7989,7 +7990,10 @@ class DeliveryShipmentDetails(APIView):
         trip_id = kwargs.get('trip')
         trips = Trip.objects.get(id=trip_id, delivery_boy=self.request.user)
         shipments = trips.rt_invoice_trip.all()
+        returns = trips.rt_return_trip.all()
         shipment_details = ShipmentSerializer(shipments, many=True)
+        return_details = ReturnDeliverySerializer(returns, many=True)
+        response_data = merge(shipment_details.data,return_details.data)
         msg = {'is_success': True, 'message': ['Shipment Details'], 'response_data': shipment_details.data}
         return Response(msg, status=status.HTTP_201_CREATED)
 
