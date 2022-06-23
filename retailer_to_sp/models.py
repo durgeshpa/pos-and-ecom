@@ -2201,7 +2201,6 @@ class ReturnOrder(models.Model):
                                         verbose_name='Return Item Pick up',
                                         related_name='return_item_pickups')
     return_challan_no = models.CharField(max_length=255, null=True, blank=True)
-    return_shipment_barcode = models.CharField(max_length=255, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
     last_modified_by = models.ForeignKey(
@@ -2239,6 +2238,7 @@ class ReturnOrderProduct(models.Model):
     )
     return_qty = models.PositiveIntegerField(default=0, verbose_name="Returned Quantity")
     return_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    return_shipment_barcode = models.CharField(max_length=255, null=True, blank=True)
     last_modified_by = models.ForeignKey(
         get_user_model(), related_name='modified_by_return_orders',
         null=True, on_delete=models.DO_NOTHING
