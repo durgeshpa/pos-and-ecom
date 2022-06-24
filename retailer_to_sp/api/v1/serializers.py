@@ -5817,6 +5817,8 @@ class SuperStoreOrderDetailSerializer(serializers.ModelSerializer):
     is_returnable = serializers.SerializerMethodField()
     def get_is_returnable(self, instance):
         shipment = instance.ordered_product
+        if shipment.is_returned:
+            return False
         if shipment.shipment_status == OrderedProduct.DELIVERED:
             pos_trip = shipment.pos_trips.filter(trip_type='SUPERSTORE').last()
             return_period_offset = get_config('superstore_order_return_window_buffer', 72)
