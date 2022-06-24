@@ -69,6 +69,7 @@ class Coupon(models.Model):
 
     SHOP_TYPE_CHOICES = (('all', 'All'),( 'fofo', 'Fofo'),('foco','Foco'),('superstore', "SuperStore"))
     ENABLED_ON = (('pos', 'Pos'),('online',"Online"),('all', 'All'))
+    COUPON_TYPE_NAME = (('grocery', 'Grocery'), ('superstore', 'SuperStore')) 
     rule = models.ForeignKey(CouponRuleSet, related_name='coupon_ruleset', on_delete=models.CASCADE)
     coupon_name = models.CharField(max_length=255, null=True)
     coupon_code = models.CharField(max_length=255, null=True)
@@ -93,6 +94,7 @@ class Coupon(models.Model):
 
     category = ArrayField(models.CharField(max_length=50,blank=True, null=True, default=None), default=[], size=8)
     is_admin = models.BooleanField(default=False, null=False, blank=True)
+    coupon_type_name = models.CharField(max_length=20, choices=COUPON_TYPE_NAME, null=True, blank=True, default= 'grocery')
 
     def __str__(self):
         return self.coupon_name
@@ -259,7 +261,8 @@ def get_common_coupon_params(coupon):
         'end_date': coupon.expiry_date,
         'froms': coupon.froms,
         'to': coupon.to,
-        'category': coupon.category
+        'category': coupon.category,
+        'coupon_type_name': coupon.coupon_type_name
 
     }
     return params
