@@ -1528,9 +1528,14 @@ class SellerOrderedCartListSerializer(serializers.ModelSerializer):
 
 
 class ShopSerializer(serializers.ModelSerializer):
+    shop_type = serializers.SerializerMethodField()
+    
+    def get_shop_type(self, instance):
+        return instance.shop_type.shop_type
+    
     class Meta:
         model = Shop
-        fields = ('id', 'shop_name')
+        fields = ('id', 'shop_name', 'shop_type')
 
 
 class SellerOrderListSerializer(serializers.ModelSerializer):
@@ -4218,10 +4223,15 @@ class LastMileTripShipmentsSerializer(serializers.Serializer):
 
 class LastMileTripReturnOrdersBasicDetailSerializer(serializers.ModelSerializer):
     buyer_shop = ShopSerializer(read_only=True)
+    product_return_shipment_barcodes = serializers.SerializerMethodField()
+    
+    def get_product_return_shipment_barcodes(self, instance):
+        return instance.return_order_products.filter(return_shipment_barcode__isnull=False)\
+            .values_list('return_shipment_barcode', flat=True)
     
     class Meta:
         model = ReturnOrder
-        fields = ('id', 'shipment', 'return_no', 'buyer_shop',
+        fields = ('id', 'shipment', 'return_no', 'buyer_shop', 'product_return_shipment_barcodes',
                   'return_status', 'return_challan_no')
 
 
