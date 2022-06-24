@@ -95,7 +95,8 @@ from retailer_to_sp.models import (Cart, CartProductMapping, CreditNote, LastMil
                                    DispatchTripShipmentPackages, LastMileTripShipmentMapping, PACKAGE_VERIFY_CHOICES,
                                    DispatchTripCrateMapping, ShipmentPackagingMapping, TRIP_TYPE_CHOICE, ShopCrate,
                                    LastMileTripShipmentPackages, ShipmentNotAttempt, RoundAmount,
-                                   ReturnOrder, ReturnOrderProduct, ReturnOrderProductImage, Barcode, BarcodeGenerator)
+                                   ReturnOrder, ReturnOrderProduct, ReturnOrderProductImage, Barcode, BarcodeGenerator, 
+                                   ReturnProductBatch)
 from retailer_to_sp.tasks import send_invoice_pdf_email, insert_search_term
 from shops.api.v1.serializers import ShopBasicSerializer
 from sp_to_gram.models import OrderedProductReserved
@@ -10233,6 +10234,51 @@ class VerifyReturnShipmentProductsView(generics.GenericAPIView):
         return self.queryset.distinct('id')
 
 
+class VerifyReturnOrderProductsView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    
+    def put(self, request):
+        modified_data = validate_data_format(request)
+        if 'error' in modified_data:
+            return get_response(modified_data['error'])
+
+        if 'id' not in modified_data:
+            return get_response('please provide return id to verify return products', False)
+        
+        if 'product' not in modified_data:
+            return get_response('please provide product id to verify return products', False)
+        
+        if 'returned_qty' not in modified_data:
+            return get_response('Please provide verified returned quantity of products')
+        
+        if 'damaged_qty' not in modified_data:
+            return get_response('Please provide verfied damaged quantity of products')
+                        
+        try:
+            return_order = ReturnOrder.objects.get(id=modified_data['id'])
+            return_order_product_mapping = return_order.return_order_products.filter(product_id=modified_data['product']).last()
+            if int(modified_data['returned_qty']) > return_order_product_mapping.return_qty:
+                return get_response('Quantity greater than requested return quantity not allowed.')
+            return_order_product_mapping.return_qty = modified_data['returned_qty']
+            return_order_product_mapping.damaged_qty = modified_data['damaged_qty']
+            return_order_product_mapping.is_return_verified = True
+            return_order_product_mapping.save()
+            self.create_return_order_product_batch(return_order_product_mapping, 
+                                                   modified_data['returned_qty'], 
+                                                   modified_data['damaged_qty'])
+            return get_response('Return Order successfully updated.')
+        except ReturnOrder.DoesNotExist:
+            return get_response('Return Order not Found.')
+            
+    def create_return_order_product_batch(self, return_order_product_mapping, return_qty, damaged_qty):
+        ReturnProductBatch.objects.create(
+            return_product = return_order_product_mapping,
+            return_qty = return_qty,
+            damaged_qty = damaged_qty
+        )
+
+
 class ShipmentCratesValidatedView(generics.GenericAPIView):
     """
        View to validate shipment crates.
@@ -10322,10 +10368,13 @@ class ReturnOrderCompleteVerifyView(generics.GenericAPIView):
             return get_response('please provide id to update shipment', False)
         try:
             return_order = ReturnOrder.objects.get(id=modified_data['id'])
+            if return_order.return_order_products.filter(is_return_verified=False).exists():
+                return get_response('All products should be verified before complete verification of return order.')
             trip = Trip.objects.filter(last_mile_trip_returns_details__return_order=return_order)\
                 .exclude(last_mile_trip_returns_details__shipment_status=LastMileTripReturnMapping.CANCELLED).last()
-            if trip.source_shopshop_type.shop_type == 'sp':
+            if trip.source_shop.shop_type.shop_type == 'sp':
                 return_order.return_status = ReturnOrder.WH_ACCEPTED
+                # call putaway generation func
             else:
                 return_order.return_status = ReturnOrder.DC_ACCEPTED
             return_order.save()
