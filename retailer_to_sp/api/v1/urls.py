@@ -18,7 +18,7 @@ from .views import (ProductsList, SearchProducts, CartCentral, CartCheckout, Ord
                     DispatchTripsCrudView, ShipmentPackagingView, DispatchCenterShipmentView, TripSummaryView,
                     DispatchTripStatusChangeView, LoadVerifyPackageView, UnloadVerifyPackageView, LastMileTripCrudView,
                     LastMileTripShipmentsView, ShipmentCratesPackagingView, VerifyRescheduledShipmentPackagesView,
-                    ShipmentCompleteVerifyView, DispatchPackageStatusList, DispatchTripStatusList,
+                    ShipmentCompleteVerifyView, DispatchCenterReturnOrderView, DispatchTripStatusList,
                     ShipmentCompleteVerifyView, VerifyReturnShipmentProductsView, DispatchPackageStatusList,
                     ShipmentCratesValidatedView, LastMileTripStatusChangeView, ShipmentDetailsByCrateView,
                     ReschedulingReasonsListView, ReturnReasonsListView, ShipmentNotAttemptReasonsListView,
@@ -30,7 +30,7 @@ from .views import (ProductsList, SearchProducts, CartCentral, CartCheckout, Ord
                     VerifyNotAttemptShipmentPackagesView, VerifyBackwardTripItems, BackwardTripQCView,
                     VehicleDriverList, PosOrderUserSearchView, CurrentlyLoadingShipmentPackagesView, 
                     ReturnOrderCompleteVerifyView, LastMileTripReturnOrderView, ReturnOrderProductView, 
-                    GenerateBarcodes, VerifyReturnOrderProductsView)
+                    GenerateBarcodes, VerifyReturnOrderProductsView, LoadVerifyReturnOrderView, UnloadVerifyReturnOrderView)
 
 from retailer_backend.cron import sync_es_products_api
 router = routers.DefaultRouter()
@@ -142,10 +142,13 @@ urlpatterns = [
     url('trip-invoices/', DispatchCenterShipmentView.as_view()),
     url('trip-crates/', DispatchCenterCrateView.as_view()),
     url('trip-shipment-packages/', DispatchCenterShipmentPackageView.as_view()),
+    url('trip-return-orders/', DispatchCenterReturnOrderView.as_view()),
     url('trip-invoice-remove/', RemoveInvoiceFromTripView.as_view()),
     url('trip-load-empty-crate/', LoadVerifyCrateView.as_view()),
     url('trip-unload-empty-crate/', UnloadVerifyCrateView.as_view()),
     url('trip-load-shipment/', LoadVerifyPackageView.as_view()),
+    url('trip-load-return/', LoadVerifyReturnOrderView.as_view()),
+    url('trip-unload-return/', UnloadVerifyReturnOrderView.as_view()),
     url('trip-current-loading-shipment/', CurrentlyLoadingShipmentPackagesView.as_view()),
     url('trip-add-invoice/', LoadInvoiceView.as_view()),
     url('trip-unload-shipment/', UnloadVerifyPackageView.as_view()),

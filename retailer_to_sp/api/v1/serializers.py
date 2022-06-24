@@ -21,7 +21,7 @@ from retailer_to_sp.common_validators import validate_shipment_crates_list, vali
 from retailer_to_sp.models import (CartProductMapping, Cart, Invoice, Order, OrderedProduct, Note, CustomerCare, Payment,
                                    Dispatch, Feedback, OrderedProductMapping as RetailerOrderedProductMapping, Return, ReturnOrder, ReturnOrderProduct, Shipment,
                                    Trip, PickerDashboard, ShipmentRescheduling, OrderedProductBatch, ShipmentPackaging,
-                                   ShipmentPackagingMapping, DispatchTrip, DispatchTripShipmentMapping,
+                                   ShipmentPackagingMapping, DispatchTrip, DispatchTripShipmentMapping, DispatchTripReturnOrderMapping,
                                    DispatchTripShipmentPackages, ShipmentNotAttempt, PACKAGE_VERIFY_CHOICES,
                                    LastMileTripShipmentMapping, ShopCrate, DispatchTripCrateMapping,
                                    add_to_putaway_on_return, LastMileTripShipmentPackages, ShipmentPackagingBatch,
@@ -1643,6 +1643,12 @@ class CrateSerializer(serializers.ModelSerializer):
         model = Crate
         ref_name  = "CrateSerializer v1"
         fields = ('id', 'crate_id')
+
+
+class ReturnOrderSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ReturnOrder
+        fields = ('id', 'return_no')
 
 
 class ProductPackagingSerializer(serializers.ModelSerializer):
@@ -3296,6 +3302,7 @@ class SummarySerializer(serializers.Serializer):
     total_packets = serializers.IntegerField()
     total_sack = serializers.IntegerField()
     total_empty_crate = serializers.IntegerField()
+    total_return_box = serializers.IntegerField()
     invoices_check = serializers.IntegerField()
     total_crates_check = serializers.IntegerField()
     total_packets_check = serializers.IntegerField()
@@ -3306,6 +3313,7 @@ class SummarySerializer(serializers.Serializer):
     remaining_packets = serializers.IntegerField()
     remaining_sacks = serializers.IntegerField()
     remaining_empty_crate = serializers.IntegerField()
+    remaining_return_box = serializers.IntegerField()
 
     weight = serializers.IntegerField()
 
@@ -3393,6 +3401,139 @@ class DispatchCenterShipmentPackageSerializer(serializers.ModelSerializer):
         model = ShipmentPackaging
         fields = ('id', 'trip', 'shipment', 'packaging_type', 'crate', 'reason_for_rejection',
                   'movement_type', 'return_remark', 'created_date', 'trip_loading_status')
+
+
+class LoadVerifyReturnOrderSerializer(serializers.ModelSerializer):
+
+    trip = DispatchTripSerializers(read_only=True)
+    return_order = ReturnOrderSerializer(read_only=True)
+    return_order_status = ChoicesSerializer(choices=DispatchTripReturnOrderMapping.RETURN_ORDER_STATUS, required=False)
+
+    class Meta:
+        model = DispatchTripReturnOrderMapping
+        fields = ('trip', 'return_order', 'return_order_status')
+
+    def validate(self, data):
+        # Validate request data
+        if 'id' in self.initial_data:
+            raise serializers.ValidationError('Updation is not allowed')
+        if 'trip_id' not in self.initial_data or not self.initial_data['trip_id']:
+            raise serializers.ValidationError("'trip_id' | This is required.")
+        try:
+            trip = DispatchTrip.objects.get(id=self.initial_data['trip_id'])
+            data['trip'] = trip
+        except:
+            raise serializers.ValidationError("invalid Trip ID")
+
+        # Check for trip status
+        if trip.trip_status != DispatchTrip.NEW:
+            raise serializers.ValidationError(f"Trip is in {trip.trip_status} state, cannot load return order")
+
+        if 'return_id' not in self.initial_data or not self.initial_data['return_id']:
+            raise serializers.ValidationError("'return_id' | This is required.")
+
+        return_order = ReturnOrder.objects.filter(
+            id=self.initial_data['return_id'], seller_shop=trip.seller_shop).last()
+        if not return_order:
+            raise serializers.ValidationError("Invalid return order for the trip")
+
+        # Check if return order already scanned
+        if trip.return_order_details.filter(return_order=return_order).exists():
+            raise serializers.ValidationError("This return order has already been verified.")
+        if 'status' not in self.initial_data or not self.initial_data['status']:
+            raise serializers.ValidationError("'status' | This is required.")
+        elif self.initial_data['status'] not in [1, 2]:
+            raise serializers.ValidationError("Invalid status choice")
+
+        status = DispatchTripReturnOrderMapping.LOADED
+        if self.initial_data['status'] == PACKAGE_VERIFY_CHOICES.DAMAGED:
+            status = DispatchTripReturnOrderMapping.DAMAGED_AT_LOADING
+        elif self.initial_data['status'] == PACKAGE_VERIFY_CHOICES.MISSING:
+            status = DispatchTripReturnOrderMapping.MISSING_AT_LOADING
+
+        data['trip'] = trip
+        data['return_order'] = return_order
+        data['return_order_status'] = status
+
+        return data
+
+    @transaction.atomic
+    def create(self, validated_data):
+        """create a new DispatchTrip Package Mapping"""
+        try:
+            instance = DispatchTripReturnOrderMapping.objects.create(**validated_data)
+        except Exception as e:
+            error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
+            raise serializers.ValidationError(error)
+
+        return instance
+
+
+class UnLoadVerifyReturnOrderSerializer(serializers.ModelSerializer):
+    trip = DispatchTripSerializers(read_only=True)
+    return_order = ReturnOrderSerializer(read_only=True)
+    return_order_status = ChoicesSerializer(choices=DispatchTripReturnOrderMapping.RETURN_ORDER_STATUS, required=False)
+
+    class Meta:
+        model = DispatchTripReturnOrderMapping
+        fields = ('trip', 'return_order', 'return_order_status')
+
+
+    def validate(self, data):
+        # Validate request data
+        if 'id' in self.initial_data:
+            raise serializers.ValidationError('Updation is not allowed')
+        if 'trip_id' not in self.initial_data or not self.initial_data['trip_id']:
+            raise serializers.ValidationError("'trip_id' | This is required.")
+        try:
+            trip = DispatchTrip.objects.get(id=self.initial_data['trip_id'])
+            data['trip'] = trip
+        except:
+            raise serializers.ValidationError("invalid Trip ID")
+
+        # Check for trip status
+        if trip.trip_status != DispatchTrip.UNLOADING:
+            raise serializers.ValidationError(f"Trip is in {trip.trip_status} state, cannot unload return order")
+
+
+        if 'return_id' not in self.initial_data or not self.initial_data['return_id']:
+            raise serializers.ValidationError("'return_id' | This is required.")
+        try:
+            return_order = ReturnOrder.objects.get(id=self.initial_data['return_id'])
+        except:
+            raise serializers.ValidationError("Invalid Return Order")
+
+        # Check if return order is loaded in trip
+        if not return_order.trip_return_order.filter(return_order_status=DispatchTripReturnOrderMapping.LOADED).exists():
+            raise serializers.ValidationError("This return order was not loaded in the trip.")
+
+        if 'status' not in self.initial_data or not self.initial_data['status']:
+            raise serializers.ValidationError("'status' | This is required.")
+
+        elif self.initial_data['status'] not in PACKAGE_VERIFY_CHOICES._db_values:
+            raise serializers.ValidationError("Invalid status choice")
+
+        status = DispatchTripReturnOrderMapping.UNLOADED
+        if self.initial_data['status'] == PACKAGE_VERIFY_CHOICES.DAMAGED:
+            status = DispatchTripReturnOrderMapping.DAMAGED_AT_UNLOADING
+        elif self.initial_data['status'] == PACKAGE_VERIFY_CHOICES.MISSING:
+            status = DispatchTripReturnOrderMapping.MISSING_AT_UNLOADING
+
+        data['trip'] = trip
+        data['return_order'] = return_order
+        data['return_order_status'] = status
+
+        return data
+
+    @transaction.atomic
+    def update(self, instance, validated_data):
+        """update DispatchTrip Package Mapping"""
+        try:
+            instance = super().update(instance, validated_data)
+        except Exception as e:
+            error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
+            raise serializers.ValidationError(error)
+        return instance
 
 
 class LoadVerifyCrateSerializer(serializers.ModelSerializer):
@@ -5866,3 +6007,36 @@ class ReturnOrderTripListSerializer(serializers.ModelSerializer):
         fields = ('id', 'return_challan_no', 'return_amount', 
                   'return_status', 'created_at', 'shop_name',
                   'order_no', 'return_address', 'return_no')
+
+
+class DispatchCenterReturnOrderSerializer(serializers.ModelSerializer):
+    order_no = serializers.SerializerMethodField()
+    shop_name = serializers.SerializerMethodField()
+    buyer_shop_name = serializers.SerializerMethodField()
+    loading_status = serializers.SerializerMethodField()
+    barcode_no = serializers.SerializerMethodField()
+
+
+    def get_order_no(self, instance):
+        return instance.shipment.order.order_no
+
+    def get_shop_name(self, instance):
+        if instance.seller_shop:
+            return instance.seller_shop.shop_name
+        return None
+
+    def get_buyer_shop_name(self, instance):
+        if instance.buyer_shop:
+            return instance.buyer_shop.shop_name
+        return None
+
+    def get_loading_status(self, instance):
+        return instance.trip_return_order.last().return_order_status
+
+    def get_barcode_no(self, instance):
+        return instance.return_order_products.last().return_shipment_barcode
+
+    class Meta:
+        model = ReturnOrder
+        fields = ('id', 'return_challan_no', 'barcode_no', 'return_status', 'created_at', 'shop_name',
+                  'order_no', 'return_no', 'buyer_shop_name', 'loading_status')

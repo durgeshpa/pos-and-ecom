@@ -3977,6 +3977,28 @@ class DispatchTripShipmentMapping(BaseTimestampUserModel):
                                   null=True, blank=True, on_delete=models.CASCADE)
 
 
+class DispatchTripReturnOrderMapping(BaseTimestampUserModel):
+    LOADED, UNLOADED = 'LOADED', 'UNLOADED'
+    DAMAGED_AT_LOADING, DAMAGED_AT_UNLOADING = 'DAMAGED_AT_LOADING', 'DAMAGED_AT_UNLOADING'
+    MISSING_AT_LOADING, MISSING_AT_UNLOADING = 'MISSING_AT_LOADING', 'MISSING_AT_UNLOADING'
+    CANCELLED = 'CANCELLED'
+    PARTIALLY_VERIFIED, VERIFIED = 'PARTIALLY_VERIFIED', 'VERIFIED'
+    RETURN_ORDER_STATUS = (
+        (LOADED, 'Loaded'),
+        (UNLOADED, 'Unloaded'),
+        (DAMAGED_AT_LOADING, 'Damaged At Loading'),
+        (DAMAGED_AT_UNLOADING, 'Damaged At Unloading'),
+        (MISSING_AT_LOADING, 'Missing At Loading'),
+        (MISSING_AT_UNLOADING, 'Missing At Unloading'),
+        (CANCELLED, 'Cancelled'),
+        (PARTIALLY_VERIFIED, 'Partially Verified'),
+        (VERIFIED, 'Verified')
+    )
+    trip = models.ForeignKey(DispatchTrip, related_name='return_order_details', on_delete=models.DO_NOTHING)
+    return_order = models.ForeignKey(ReturnOrder, related_name='trip_return_order', on_delete=models.DO_NOTHING)
+    return_order_status = models.CharField(max_length=100, choices=RETURN_ORDER_STATUS)
+
+
 class DispatchTripShipmentPackages(BaseTimestampUserModel):
     LOADED, UNLOADED = 'LOADED', 'UNLOADED'
     DAMAGED_AT_LOADING, DAMAGED_AT_UNLOADING = 'DAMAGED_AT_LOADING', 'DAMAGED_AT_UNLOADING'

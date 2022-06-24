@@ -95,8 +95,9 @@ from retailer_to_sp.models import (Cart, CartProductMapping, CreditNote, LastMil
                                    DispatchTripShipmentPackages, LastMileTripShipmentMapping, PACKAGE_VERIFY_CHOICES,
                                    DispatchTripCrateMapping, ShipmentPackagingMapping, TRIP_TYPE_CHOICE, ShopCrate,
                                    LastMileTripShipmentPackages, ShipmentNotAttempt, RoundAmount,
-                                   ReturnOrder, ReturnOrderProduct, ReturnOrderProductImage, Barcode, BarcodeGenerator, 
-                                   ReturnProductBatch)
+                                   ReturnOrder, ReturnOrderProduct, ReturnOrderProductImage, Barcode, BarcodeGenerator,
+                                   ReturnProductBatch, DispatchTripReturnOrderMapping)
+
 from retailer_to_sp.tasks import send_invoice_pdf_email, insert_search_term
 from shops.api.v1.serializers import ShopBasicSerializer
 from sp_to_gram.models import OrderedProductReserved
@@ -139,8 +140,9 @@ from .serializers import (ProductsSearchSerializer, CartSerializer, OrderSeriali
                           VerifyNotAttemptShipmentPackageSerializer, VerifyShipmentPackageSerializer,
                           DetailedShipmentPackageInfoSerializer, DetailedShipmentPackagingMappingInfoSerializer,
                           VerifyBackwardTripItemsSerializer, BackwardTripQCSerializer, PosOrderUserSearchSerializer,
-                          SuperStoreOrderListSerializer, SuperStoreOrderDetailSerializer, LastMileTripReturnOrdersBasicDetailSerializer, 
-                          ReturnOrderTripProductSerializer)
+                          SuperStoreOrderListSerializer, SuperStoreOrderDetailSerializer, LastMileTripReturnOrdersBasicDetailSerializer,
+                          ReturnOrderTripProductSerializer, DispatchCenterReturnOrderSerializer,
+                          LoadVerifyReturnOrderSerializer, UnLoadVerifyReturnOrderSerializer)
 
 from ...common_validators import validate_shipment_dispatch_item, validate_trip_user, \
     get_shipment_by_crate_id, get_shipment_by_shipment_label, validate_shipment_id, validate_trip_shipment, \
@@ -10422,6 +10424,7 @@ class TripSummaryView(generics.GenericAPIView):
                 'total_packets': dispatch_trip_instance.no_of_packets,
                 'total_sack': dispatch_trip_instance.no_of_sacks,
                 'total_empty_crate': dispatch_trip_instance.no_of_empty_crates,
+                'total_return_box': dispatch_trip_instance.return_order_details.count(),
                 'weight': dispatch_trip_instance.get_trip_weight,
                 'invoices_check': dispatch_trip_instance.shipments_details.filter(
                     shipment_status=DispatchTripShipmentMapping.UNLOADED_AT_DC).count(),
@@ -10435,6 +10438,8 @@ class TripSummaryView(generics.GenericAPIView):
                 'remaining_packets': dispatch_trip_instance.no_of_packets - dispatch_trip_instance.no_of_packets_check,
                 'remaining_sacks': dispatch_trip_instance.no_of_sacks - dispatch_trip_instance.no_of_sacks_check,
                 'remaining_empty_crate': dispatch_trip_instance.no_of_empty_crates - dispatch_trip_instance.no_of_empty_crates_check,
+                'remaining_return_box': dispatch_trip_instance.return_order_details.filter(
+                    return_order_status=DispatchTripReturnOrderMapping.UNLOADED).count(),
             }
         else:
             trip_summary_data = {
@@ -10443,6 +10448,7 @@ class TripSummaryView(generics.GenericAPIView):
                 'total_packets': 0,
                 'total_sack': 0,
                 'total_empty_crate': 0,
+                'total_return_box': 0,
                 'weight': 0,
                 'invoices_check': 0,
                 'total_crates_check': 0,
@@ -10453,7 +10459,8 @@ class TripSummaryView(generics.GenericAPIView):
                 'remaining_crates': 0,
                 'remaining_packets': 0,
                 'remaining_sacks': 0,
-                'remaining_empty_crate': 0
+                'remaining_empty_crate': 0,
+                'remaining_return_box': 0
             }
         return trip_summary_data
 
@@ -10496,6 +10503,7 @@ class TripSummaryView(generics.GenericAPIView):
             'total_packets': resp_data['no_of_packets'] if resp_data['no_of_packets'] else 0,
             'total_sack': resp_data['no_of_sacks'] if resp_data['no_of_sacks'] else 0,
             'total_empty_crate': 0,
+            'total_return_box': 0,
             'weight': resp_data['weight'] if resp_data['weight'] else 0,
             'invoices_check': 0,
             'total_crates_check': 0,
@@ -10506,7 +10514,8 @@ class TripSummaryView(generics.GenericAPIView):
             'remaining_crates': 0,
             'remaining_packets': 0,
             'remaining_sacks': 0,
-            'remaining_empty_crate': 0
+            'remaining_empty_crate': 0,
+            'remaining_return_box': 0
         }
         return trip_summary_data
 
@@ -10531,6 +10540,7 @@ class TripSummaryView(generics.GenericAPIView):
             'total_packets': resp_data['no_of_packets'] if resp_data['no_of_packets'] else 0,
             'total_sack': resp_data['no_of_sacks'] if resp_data['no_of_sacks'] else 0,
             'total_empty_crate': ShopCrate.objects.filter(shop_id=dispatch_center, is_available=True).count(),
+            'total_return_box' : ReturnOrder.objects.filter(seller_shop_id=dispatch_center).count(),
             'weight': 0,
             'invoices_check': 0,
             'total_crates_check': 0,
@@ -10541,7 +10551,8 @@ class TripSummaryView(generics.GenericAPIView):
             'remaining_crates': 0,
             'remaining_packets': 0,
             'remaining_sacks': 0,
-            'remaining_empty_crate': 0
+            'remaining_empty_crate': 0,
+            'remaining_return_box': 0
         }
         return trip_summary_data
 
@@ -10785,6 +10796,48 @@ class DispatchCenterCrateView(generics.GenericAPIView):
         return self.queryset.distinct('id')
 
 
+class DispatchCenterReturnOrderView(generics.GenericAPIView):
+    """
+        View to get Return Orders
+    """
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    serializer_class = DispatchCenterReturnOrderSerializer
+    queryset = ReturnOrder.objects.all()
+
+    def get(self, request):
+        validation_response = self.validate_get_request()
+        if "error" in validation_response:
+            return get_response(validation_response["error"], False)
+
+        self.queryset = self.search_filter_return_order_data()
+        mapping_data = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        serializer = self.serializer_class(mapping_data, many=True)
+        msg = "Return Orders list" if mapping_data else "no return order found"
+        return get_response(msg, serializer.data, True)
+
+
+    def validate_get_request(self):
+        try:
+            if not self.request.GET.get('shop', None):
+                return {"error": "'shop'| This is required"}
+            elif not self.request.GET.get('trip_id'):
+                return {"error": "'trip_id' | This is required."}
+            return {"data": self.request.data}
+        except Exception as e:
+            return {"error": "Invalid Request"}
+
+    def search_filter_return_order_data(self):
+        shop = self.request.GET.get('shop')
+        trip_id = self.request.GET.get('trip_id')
+
+        if shop:
+            self.queryset = self.queryset.filter(seller_shop_id=shop)
+        if trip_id:
+            self.queryset = self.queryset.filter(shipment__trip_shipment__trip_id=trip_id)
+        return self.queryset.distinct('id')
+
+
 class DispatchCenterShipmentPackageView(generics.GenericAPIView):
     """
     View to get Shipment Package ready for dispatch to dispatch center.
@@ -10969,6 +11022,78 @@ class LoadVerifyPackageView(generics.GenericAPIView):
                                              movement_type=packaging_data.movement_type)
                 return get_response('Package loaded successfully!',
                                     ShipmentPackageSerializer(query_set, many=True).data)
+        return get_response(serializer_error(serializer), False)
+
+
+class LoadVerifyReturnOrderView(generics.GenericAPIView):
+    """
+       View to verify and load return order to a trip.
+    """
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    serializer_class = LoadVerifyReturnOrderSerializer
+
+    @check_whc_manager_dispatch_executive
+    def post(self, request):
+        """ POST API for Return Order Load Verification """
+        info_logger.info("Load Verify POST api called.")
+        modified_data = validate_data_format(self.request)
+        if 'error' in modified_data:
+            return get_response(modified_data['error'])
+        validated_trip = validate_trip_user(modified_data['trip_id'], request.user)
+        if 'error' in validated_trip:
+            return get_response(validated_trip['error'])
+        serializer = self.serializer_class(data=modified_data)
+        if serializer.is_valid():
+            serializer.save(created_by=request.user)
+            info_logger.info("Return order loaded Successfully.")
+            return get_response('Return order loaded successfully!', serializer.data)
+        return get_response(serializer_error(serializer), False)
+
+
+
+class UnloadVerifyReturnOrderView(generics.GenericAPIView):
+    """
+       View to verify and unload return order from a trip.
+    """
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    serializer_class = UnLoadVerifyReturnOrderSerializer
+    queryset = DispatchTripReturnOrderMapping.objects.all()
+
+    def validate_trip_empty_crate(self, return_id, trip_id):
+        trip_return_order = self.queryset.filter(
+            return_order_status__in=[DispatchTripReturnOrderMapping.LOADED, DispatchTripReturnOrderMapping.DAMAGED_AT_LOADING],
+            return_order__id=return_id, trip__id=trip_id).last()
+        if not trip_return_order:
+            return {"error": "invalid Return Order"}
+        return {"data": trip_return_order}
+
+    def put(self, request):
+        """ POST API for Return Order UnLoad Verification """
+        info_logger.info("UnLoad Verify POST api called.")
+        modified_data = validate_data_format(self.request)
+        if 'error' in modified_data:
+            return get_response(modified_data['error'])
+
+        if 'return_id' not in modified_data:
+            return get_response("'return_id' | This is required.", False)
+        if 'trip_id' not in modified_data:
+            return get_response("'trip_id' | This is required.", False)
+        if 'status' not in modified_data:
+            return get_response("'status' | This is required.", False)
+
+        # validations for input
+        return_order_validation = self.validate_trip_return_order(modified_data['return_id'], int(modified_data['trip_id']))
+        if 'error' in return_order_validation:
+            return get_response(return_order_validation['error'])
+        trip_return_order = return_order_validation['data']
+
+        serializer = self.serializer_class(instance=trip_return_order, data=modified_data)
+        if serializer.is_valid():
+            serializer.save(updated_by=request.user)
+            info_logger.info("Return Order unloaded Successfully.")
+            return get_response('Return Order unloaded successfully!', serializer.data)
         return get_response(serializer_error(serializer), False)
 
 
