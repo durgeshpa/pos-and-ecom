@@ -18,7 +18,7 @@ from pos.models import (
 from pos.common_functions import  serializer_error, RetailerProductCls, OffersCls
 logger = logging.getLogger('pos-api-v2')
 
-from pos.api.v1.serializers import ( CouponOfferSerializer, FreeProductOfferSerializer,
+from pos.api.v1.serializers import ( CouponOfferSerializer, FreeProductOfferSerializer, Parent_FreeProductOfferSerializer,
                           ComboOfferSerializer, CouponOfferUpdateSerializer, ComboOfferUpdateSerializer,
                           CouponListSerializer, FreeProductOfferUpdateSerializer, OfferCreateSerializer,
                           OfferUpdateSerializer, CouponGetSerializer, OfferGetSerializer, ComboOfferParentSerializer,ParentProductCouponGetSerializer
@@ -44,7 +44,7 @@ debug_logger = logging.getLogger('file-debug')
 OFFER_SERIALIZERS_MAP = {
     1: CouponOfferSerializer,
     2: ComboOfferParentSerializer,
-    3: FreeProductOfferSerializer
+    3: Parent_FreeProductOfferSerializer
 }
 
 OFFER_UPDATE_SERIALIZERS_MAP = {
@@ -376,13 +376,6 @@ class AdminOffers(GenericAPIView):
             Create Any Offer
         """
         shop_name = request.data.get('shop_name')
-        fproduct = request.data.get('free_product_id')
-        if fproduct and not  request.data.get("primary_product_id"):
-            product_free_id = RetailerProduct.objects.filter(linked_product__id=fproduct)
-            if product_free_id:
-                request.data['free_product_id']= product_free_id.last().id
-            else:
-                raise serializers.ValidationError("Invalid free product")
 
         shop = None
         if shop_name:
@@ -391,7 +384,7 @@ class AdminOffers(GenericAPIView):
             shop = Shop.objects.get(id=shop_name)
 
         if not shop:
-            raise serializers.ValidationError("Shop name or id is mendotry")
+            raise serializers.ValidationError("Shop name or id is mandatory")
 
         serializer = OfferCreateSerializer(data=request.data)
         if serializer.is_valid():
@@ -527,7 +520,7 @@ class AdminOffers(GenericAPIView):
             coupon.froms = data.get('froms') if data.get('froms') else 0
             coupon.to = data.get('to') if data.get('to') else 0
             coupon.category = data.get('category') if data.get('category') else []
-
+            coupon.is_admin = True
             coupon.save()
             return api_response("Coupon Offer has been created successfully!", data, status.HTTP_200_OK, True)
 
@@ -595,7 +588,7 @@ class AdminOffers(GenericAPIView):
         """
         shop, free_product = Shop.objects.filter(id=shop_id).last(), data['free_product_id']
         try:
-            retailer_free_product_obj = RetailerProduct.objects.get(id=free_product)
+            retailer_free_product_obj = Product.objects.get(id=free_product)
         except ObjectDoesNotExist:
             return api_response("Free product not found")
 
@@ -606,7 +599,7 @@ class AdminOffers(GenericAPIView):
         if coupon_rule_discount_amount:
             return api_response(f"Offer already exists for Order Value {discount_amount}")
 
-        coupon_rule_product_qty = Coupon.objects.filter(rule__free_product=retailer_free_product_obj,
+        coupon_rule_product_qty = Coupon.objects.filter(rule__parent_free_product=retailer_free_product_obj,
                                                         rule__free_product_qty=free_product_qty,
                                                         shop=shop_id, rule__coupon_ruleset__is_active=True)
         if coupon_rule_product_qty:
@@ -614,9 +607,9 @@ class AdminOffers(GenericAPIView):
 
         discount_amount_str = str(discount_amount).rstrip('0').rstrip('.')
         coupon_code = str(free_product_qty) + " " + str(
-            retailer_free_product_obj.name) + " free on orders above ₹" + discount_amount_str
+            retailer_free_product_obj.product_name) + " free on orders above ₹" + discount_amount_str
         rule_name = str(shop_id) + "_" + coupon_code
-        coupon_obj = OffersCls.rule_set_creation(rule_name, start_date, expiry_date, discount_amount, None,
+        coupon_obj = OffersCls.parent_rule_set_creation(rule_name, start_date, expiry_date, discount_amount, None,
                                                  retailer_free_product_obj, free_product_qty)
         if type(coupon_obj) == str:
             return api_response(coupon_obj)
@@ -630,6 +623,7 @@ class AdminOffers(GenericAPIView):
         coupon.froms = data.get('froms') if data.get('froms') else 0
         coupon.to = data.get('to') if data.get('to') else 0
         coupon.category = data.get('category') if data.get('category') else []
+        coupon.is_admin = True
         coupon.save()
         data['id'] = coupon.id
         return api_response("Free Product Offer has been created successfully!", data, status.HTTP_200_OK, True)

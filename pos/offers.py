@@ -729,7 +729,11 @@ class BasicCartOffers(object):
 
         if free_product_coupons:
             free_product_coupon = free_product_coupons[0]
-            free_product = RetailerProduct.objects.filter(id=free_product_coupon['free_product']).last()
+            free_product = None
+            if free_product_coupon.get('is_admin'):
+                free_product = RetailerProduct.objects.filter(linked_product__id=coupon['parent_free_product']).last()
+            else:
+                free_product = RetailerProduct.objects.filter(id=free_product_coupon['free_product']).last()
             if free_product:
                 new_offers_list.append(BasicCartOffers.get_free_product_cart_coupon(free_product_coupon, free_product))
         return new_offers_list

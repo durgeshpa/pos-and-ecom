@@ -38,6 +38,8 @@ class CouponRuleSet(models.Model):
     discount = models.ForeignKey(DiscountValue, related_name='discount_value_id', on_delete=models.CASCADE, null=True,
                                  blank=True)
     is_free_shipment = models.BooleanField(default=False, null=True, blank=True)
+    parent_free_product = models.ForeignKey("products.Product", related_name='parent_free_product', on_delete=models.CASCADE,
+                                        null=True, blank=True)
     free_product = models.ForeignKey("pos.RetailerProduct", related_name='free_product', on_delete=models.CASCADE,
                                         null=True, blank=True)
     free_product_qty = models.PositiveIntegerField(blank=True, null=True)
@@ -303,13 +305,14 @@ def get_cart_coupon_params(coupon):
         params['coupon_enable_on'] = coupon.coupon_enable_on
         params['coupon_shop_type'] = coupon.coupon_shop_type
         params['max_discount'] = coupon.rule.discount.max_discount
-    elif coupon.rule.free_product:
+    elif coupon.rule.free_product or coupon.rule.parent_free_product:
         params['is_admin'] = coupon.is_admin
+        params['parent_free_product'] = coupon.rule.parent_free_product.id if coupon.rule.parent_free_product else None
         params['coupon_enable_on'] = coupon.coupon_enable_on
         params['coupon_shop_type'] = coupon.coupon_shop_type
         params['coupon_type'] = 'cart_free_product'
         params['cart_minimum_value'] = coupon.rule.cart_qualifying_min_sku_value
-        params['free_product'] = coupon.rule.free_product.id
+        params['free_product'] = coupon.rule.free_product if coupon.rule.free_product else None
         params['free_product_qty'] = coupon.rule.free_product_qty
     else:
         return {'error': "Cart coupon invalid"}
