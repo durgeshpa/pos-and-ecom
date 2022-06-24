@@ -6,6 +6,7 @@ from retailer_to_sp.models import Cart, Order
 from django.db.models import Q
 from coupon.models import Coupon
 from pos.models import RetailerProduct
+from products.models import Product
 from shops.models import Shop
 from retailer_backend.settings import ELASTICSEARCH_PREFIX as es_prefix, es
 
@@ -140,14 +141,15 @@ class BasicCartOffers(object):
         # Offers corresponding to product
         offers_mapping = {}
         for offer in combo_offers:
-            offers_mapping[offer['purchased_product']] = offer
+            offers_mapping[offer['purchased_product'] if not offer.get('is_admin') else offer['parent_purchased_product'] ] = offer
 
         offers_list = cart.offers
         for product_map in cart_products:
             # Refresh combo for all added products
             if product_map.product_type == 1 and product_map.retailer_product:
                 coupon = offers_mapping[
-                    product_map.retailer_product.id] if product_map.retailer_product.id in offers_mapping else {}
+                    product_map.retailer_product.id] if product_map.retailer_product.id in offers_mapping else offers_mapping[
+                    product_map.retailer_product.linked_product.id] if product_map.retailer_product.linked_product.id in  offers_mapping else {}
                 # Add/remove/update combo on a product
                 offers_list = BasicCartOffers.basic_combo_offers(float(product_map.qty), float(product_map.selling_price),
                                                                  product_map.retailer_product.id, coupon, offers_list)
@@ -220,6 +222,36 @@ class BasicCartOffers(object):
                                }
                       }
         }
+
+
+        product = RetailerProduct.objects.filter(id__in=list(purchased_product_ids)).last()
+        body2 = None
+        if product.linked_product_id :
+            body2 = {
+                "from": 0,
+                "size": size,
+                "query": {"bool": {"filter": [{"term": {"active": True}},
+                                              {"term": {"coupon_type": 'catalogue_combo'}},
+                                              {"term": {"is_admin": True}},
+                                              {"terms": {"parent_purchased_product": [product.linked_product_id]}},
+                                              {"range": {"start_date": {"lte": date}}},
+                                              {"range": {"end_date": {"gte": date}}}],
+                                   "should":
+                                       [
+                                           {"term": {"coupon_enable_on": 'all'}},
+                                           {"term": {"coupon_enable_on": coupon_enable}}
+
+                                       ],
+                                   "must_not":
+                                       [
+                                           {"term": {"coupon_enable_on": disable1}},
+                                           {"term": {"coupon_enable_on": disable2}}
+
+                                       ]
+
+                                   }
+                          }
+            }
         if source:
             body["_source"] = {"includes": source}
         c_list = []
@@ -227,10 +259,11 @@ class BasicCartOffers(object):
             coupons_list = es.search(index=create_es_index("rc-{}".format(shop_id)), body=body)
             for c in coupons_list['hits']['hits']:
                 c_list.append(c["_source"])
-            shop = Shop.objects.filter(shop_name="Wherehouse").last()
-            coupons_list = es.search(index=create_es_index("rc-{}".format(shop.id)), body=body)
-            for c in coupons_list['hits']['hits']:
-                c_list.append(c["_source"])
+            if body2:
+                shop = Shop.objects.filter(shop_name="Wherehouse").last()
+                coupons_list = es.search(index=create_es_index("rc-{}".format(shop.id)), body=body2)
+                for c in coupons_list['hits']['hits']:
+                    c_list.append(c["_source"])
         except:
             pass
         return c_list
@@ -248,7 +281,10 @@ class BasicCartOffers(object):
             offer = BasicCartOffers.get_offer_no_coupon(product_id, product_total)
             return BasicCartOffers.update_combo(product_id, offers_list, offer)
         # Check free product
-        free_product = RetailerProduct.objects.filter(id=coupon['free_product']).last()
+        if coupon['free_product']:
+            free_product = RetailerProduct.objects.filter(id=coupon['free_product']).last()
+        elif coupon['is_admin']:
+            free_product = RetailerProduct.objects.filter(linked_product__id=coupon['parent_free_product']).last()
         if not free_product:
             offer = BasicCartOffers.get_offer_no_coupon(product_id, product_total)
             return BasicCartOffers.update_combo(product_id, offers_list, offer)
@@ -257,6 +293,9 @@ class BasicCartOffers(object):
         if int(qty) >= int(coupon['purchased_product_qty']):
             offer = BasicCartOffers.get_offer_combo_coupon(coupon, product_total)
             # Units of purchased product quantity
+            if offer.get('is_admin'):
+                offer['item_id'] = product_id
+                offer['free_item_id'] = free_product.id
             purchased_product_multiple = int(int(qty) / int(coupon['purchased_product_qty']))
             # No of free items to be given on qty left
             free_item_qty = int(purchased_product_multiple * int(coupon['free_product_qty']))
@@ -297,7 +336,8 @@ class BasicCartOffers(object):
             'coupon_id': coupon['id'],
             'coupon_description': coupon['coupon_code'],
             'coupon_name': coupon['coupon_name'] if 'coupon_name' in coupon else '',
-            'item_id': coupon['purchased_product'],
+            'item_id': coupon['purchased_product'] if coupon['purchased_product'] else coupon['parent_purchased_product'],
+            'is_admin': coupon['is_admin'],
             'product_subtotal': product_total,
             'discounted_product_subtotal': product_total
         }
@@ -321,7 +361,7 @@ class BasicCartOffers(object):
         """
         ret = BasicCartOffers.get_default_combo_fields(coupon, product_total, 'combo')
         ret.update({
-            'free_item_id': coupon['free_product'],
+            'free_item_id': coupon['free_product'] if coupon['free_product'] else coupon['parent_free_product'],
             'item_qty': coupon['purchased_product_qty'],
             'free_item_qty': coupon['free_product_qty']
         })
