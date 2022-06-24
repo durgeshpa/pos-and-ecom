@@ -1462,6 +1462,7 @@ class OfferCreateSerializer(serializers.Serializer):
     coupon_shop_type = serializers.CharField(required=False)
     froms = serializers.IntegerField(required=False)
     to = serializers.IntegerField(required=False)
+    coupon_type_name = serializers.CharField(required=False)
 
     category = serializers.ListField(child=serializers.CharField(), required=False)
 
@@ -1839,7 +1840,7 @@ class ParentProductCouponGetSerializer(serializers.ModelSerializer):
         model = Coupon
         fields = ('id', 'offer_type', 'coupon_name', 'details', 'start_date', 'end_date', 'is_point',
                   'limit_of_usages_per_customer', 'coupon_enable_on', 'coupon_shop_type',
-                  'froms', 'to', 'category')
+                  'froms', 'to', 'category', 'coupon_type_name')
 
 
 class CouponListSerializer(serializers.ModelSerializer):

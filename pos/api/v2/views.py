@@ -521,6 +521,7 @@ class AdminOffers(GenericAPIView):
             coupon.to = data.get('to') if data.get('to') else 0
             coupon.category = data.get('category') if data.get('category') else []
             coupon.is_admin = True
+            coupon.coupon_type_name = data.get('coupon_type_name') if data.get('coupon_type_name') else coupon.coupon_type_name
             coupon.save()
             return api_response("Coupon Offer has been created successfully!", data, status.HTTP_200_OK, True)
 
@@ -577,6 +578,7 @@ class AdminOffers(GenericAPIView):
         coupon.to = data.get('to') if data.get('to') else 0
         coupon.category = data.get('category') if data.get('category') else []
         coupon.is_admin = True
+        coupon.coupon_type_name = data.get('coupon_type_name') if data.get('coupon_type_name') else coupon.coupon_type_name
         data['id'] = coupon.id
         coupon.save()
         return api_response("Combo Offer has been created successfully!", data, status.HTTP_200_OK, True)
@@ -624,6 +626,7 @@ class AdminOffers(GenericAPIView):
         coupon.to = data.get('to') if data.get('to') else 0
         coupon.category = data.get('category') if data.get('category') else []
         coupon.is_admin = True
+        coupon.coupon_type_name = data.get('coupon_type_name') if data.get('coupon_type_name') else coupon.coupon_type_name
         coupon.save()
         data['id'] = coupon.id
         return api_response("Free Product Offer has been created successfully!", data, status.HTTP_200_OK, True)
