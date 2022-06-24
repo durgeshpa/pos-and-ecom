@@ -1462,6 +1462,7 @@ class OfferCreateSerializer(serializers.Serializer):
     coupon_shop_type = serializers.CharField(required=False)
     froms = serializers.IntegerField(required=False)
     to = serializers.IntegerField(required=False)
+    coupon_type_name = serializers.CharField(required=False)
 
     category = serializers.ListField(child=serializers.CharField(), required=False)
 
@@ -1545,6 +1546,22 @@ class RetailerFreeProductSerializer(serializers.ModelSerializer):
         model = RetailerProduct
         fields = ('free_product_id', 'free_product_name')
 
+class ParentFreeProductSerializer(serializers.ModelSerializer):
+    free_product_id = serializers.SerializerMethodField()
+    free_product_name = serializers.SerializerMethodField()
+
+    @staticmethod
+    def get_free_product_id(obj):
+        return obj.id
+
+    @staticmethod
+    def get_free_product_name(obj):
+        return obj.product_name
+
+    class Meta:
+        model = Product
+        fields = ('free_product_id', 'free_product_name')
+
 
 class DiscountSerializer(serializers.ModelSerializer):
     discount_value = serializers.SerializerMethodField()
@@ -1622,6 +1639,24 @@ class ComboOfferParentSerializer(serializers.Serializer):
     def get_free_product_name(obj):
         product = Product.objects.filter(id=obj['free_product_id']).last()
         return product.product_name if product else ''
+
+class Parent_FreeProductOfferSerializer(serializers.Serializer):
+    coupon_name = serializers.CharField(required=True, max_length=50)
+    order_value = serializers.DecimalField(required=True, max_digits=12, decimal_places=2, min_value=0.01)
+    free_product_id = serializers.IntegerField(required=True, min_value=1)
+    free_product_name = serializers.SerializerMethodField()
+    free_product_qty = serializers.IntegerField(required=True, min_value=1, max_value=99999)
+
+    def validate(self, data):
+        validate_parent_product(data.get('free_product_id'), 'Free')
+        combo_offer_name_validation(data.get('coupon_name'))
+        return data
+
+    @staticmethod
+    def get_free_product_name(obj):
+        product = Product.objects.get(id=obj['free_product_id'])
+        return product.product_name if product else ''
+
 
 
 class FreeProductOfferSerializer(serializers.Serializer):
@@ -1780,7 +1815,7 @@ class ParentProductCouponGetSerializer(serializers.ModelSerializer):
             response = DiscountSerializer(rule.discount).data
             response['order_value'] = rule.cart_qualifying_min_sku_value
         elif offer_type == 3:
-            response = RetailerFreeProductSerializer(rule.free_product).data
+            response = ParentFreeProductSerializer(rule.parent_free_product).data
             response['order_value'] = rule.cart_qualifying_min_sku_value
             response['free_product_qty'] = rule.free_product_qty
         else:
@@ -1795,7 +1830,7 @@ class ParentProductCouponGetSerializer(serializers.ModelSerializer):
     @staticmethod
     def get_offer_type(obj):
         rule = obj.rule
-        return 3 if rule.free_product else (1 if rule.discount else 2)
+        return 3 if rule.free_product or rule.parent_free_product else (1 if rule.discount else 2)
 
     @staticmethod
     def get_end_date(obj):
@@ -1805,7 +1840,7 @@ class ParentProductCouponGetSerializer(serializers.ModelSerializer):
         model = Coupon
         fields = ('id', 'offer_type', 'coupon_name', 'details', 'start_date', 'end_date', 'is_point',
                   'limit_of_usages_per_customer', 'coupon_enable_on', 'coupon_shop_type',
-                  'froms', 'to', 'category')
+                  'froms', 'to', 'category', 'coupon_type_name')
 
 
 class CouponListSerializer(serializers.ModelSerializer):

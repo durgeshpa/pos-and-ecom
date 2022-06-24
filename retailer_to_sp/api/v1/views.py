@@ -141,7 +141,7 @@ from .serializers import (ProductsSearchSerializer, CartSerializer, OrderSeriali
                           DetailedShipmentPackageInfoSerializer, DetailedShipmentPackagingMappingInfoSerializer,
                           VerifyBackwardTripItemsSerializer, BackwardTripQCSerializer, PosOrderUserSearchSerializer,
                           SuperStoreOrderListSerializer, SuperStoreOrderDetailSerializer, LastMileTripReturnOrdersBasicDetailSerializer,
-                          ReturnOrderTripProductSerializer, DispatchCenterReturnOrderSerializer,
+                          ReturnOrderTripProductSerializer, DispatchCenterReturnOrderSerializer, ReturnOrderProductSerializer,
                           LoadVerifyReturnOrderSerializer, UnLoadVerifyReturnOrderSerializer)
 
 from ...common_validators import validate_shipment_dispatch_item, validate_trip_user, \
@@ -3579,6 +3579,8 @@ class OrderCentral(APIView):
             elif order_status == ReturnOrder.RETURN_REQUESTED:
                 if not shipment.shipment_status == OrderedProduct.DELIVERED:
                     return api_response('Products can only be returned after they are delivered.')
+                if shipment.is_returned:
+                    return api_response('A return has already been requested for the product.')
                 pos_trip = shipment.pos_trips.filter(trip_type='SUPERSTORE').last()
                 return_period_offset = get_config('superstore_order_return_buffer', 72)
                 return_window = pos_trip.trip_end_at + timedelta(hours=return_period_offset)
@@ -10241,6 +10243,19 @@ class VerifyReturnOrderProductsView(generics.GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
     
+    def get(self, request):
+        if not request.GET.get('id'):
+            return get_response('id for return is mandatory')
+        if not request.GET.get('product'):
+            return get_response('product id is mandatory')
+        try:
+            return_order = ReturnOrder.objects.get(id=request.GET.get('id'))
+            return_order_product_mapping = return_order.return_order_products.filter(product_id=request.GET.get('product')).last()
+            serializer = ReturnOrderProductSerializer(return_order_product_mapping)
+            return get_response("return order product", serializer.data, True)
+        except ReturnOrder.DoesNotExist:
+            return get_response("Return Order not found.")
+    
     def put(self, request):
         modified_data = validate_data_format(request)
         if 'error' in modified_data:
@@ -10267,19 +10282,20 @@ class VerifyReturnOrderProductsView(generics.GenericAPIView):
             return_order_product_mapping.damaged_qty = modified_data['damaged_qty']
             return_order_product_mapping.is_return_verified = True
             return_order_product_mapping.save()
-            self.create_return_order_product_batch(return_order_product_mapping, 
+            self.create_update_return_order_product_batch(return_order_product_mapping, 
                                                    modified_data['returned_qty'], 
                                                    modified_data['damaged_qty'])
             return get_response('Return Order successfully updated.')
         except ReturnOrder.DoesNotExist:
             return get_response('Return Order not Found.')
             
-    def create_return_order_product_batch(self, return_order_product_mapping, return_qty, damaged_qty):
-        ReturnProductBatch.objects.create(
-            return_product = return_order_product_mapping,
-            return_qty = return_qty,
-            damaged_qty = damaged_qty
+    def create_update_return_order_product_batch(self, return_order_product_mapping, return_qty, damaged_qty):
+        return_batch = ReturnProductBatch.objects.get_or_create(
+            return_product = return_order_product_mapping
         )
+        return_batch.return_qty = return_qty,
+        return_batch.damaged_qty = damaged_qty
+        return_batch.save()
 
 
 class ShipmentCratesValidatedView(generics.GenericAPIView):

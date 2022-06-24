@@ -38,6 +38,8 @@ class CouponRuleSet(models.Model):
     discount = models.ForeignKey(DiscountValue, related_name='discount_value_id', on_delete=models.CASCADE, null=True,
                                  blank=True)
     is_free_shipment = models.BooleanField(default=False, null=True, blank=True)
+    parent_free_product = models.ForeignKey("products.Product", related_name='parent_free_product', on_delete=models.CASCADE,
+                                        null=True, blank=True)
     free_product = models.ForeignKey("pos.RetailerProduct", related_name='free_product', on_delete=models.CASCADE,
                                         null=True, blank=True)
     free_product_qty = models.PositiveIntegerField(blank=True, null=True)
@@ -67,6 +69,7 @@ class Coupon(models.Model):
 
     SHOP_TYPE_CHOICES = (('all', 'All'),( 'fofo', 'Fofo'),('foco','Foco'),('superstore', "SuperStore"))
     ENABLED_ON = (('pos', 'Pos'),('online',"Online"),('all', 'All'))
+    COUPON_TYPE_NAME = (('grocery', 'Grocery'), ('superstore', 'SuperStore')) 
     rule = models.ForeignKey(CouponRuleSet, related_name='coupon_ruleset', on_delete=models.CASCADE)
     coupon_name = models.CharField(max_length=255, null=True)
     coupon_code = models.CharField(max_length=255, null=True)
@@ -91,6 +94,7 @@ class Coupon(models.Model):
 
     category = ArrayField(models.CharField(max_length=50,blank=True, null=True, default=None), default=[], size=8)
     is_admin = models.BooleanField(default=False, null=False, blank=True)
+    coupon_type_name = models.CharField(max_length=20, choices=COUPON_TYPE_NAME, null=True, blank=True, default= 'grocery')
 
     def __str__(self):
         return self.coupon_name
@@ -257,7 +261,8 @@ def get_common_coupon_params(coupon):
         'end_date': coupon.expiry_date,
         'froms': coupon.froms,
         'to': coupon.to,
-        'category': coupon.category
+        'category': coupon.category,
+        'coupon_type_name': coupon.coupon_type_name
 
     }
     return params
@@ -303,13 +308,14 @@ def get_cart_coupon_params(coupon):
         params['coupon_enable_on'] = coupon.coupon_enable_on
         params['coupon_shop_type'] = coupon.coupon_shop_type
         params['max_discount'] = coupon.rule.discount.max_discount
-    elif coupon.rule.free_product:
+    elif coupon.rule.free_product or coupon.rule.parent_free_product:
         params['is_admin'] = coupon.is_admin
+        params['parent_free_product'] = coupon.rule.parent_free_product.id if coupon.rule.parent_free_product else None
         params['coupon_enable_on'] = coupon.coupon_enable_on
         params['coupon_shop_type'] = coupon.coupon_shop_type
         params['coupon_type'] = 'cart_free_product'
         params['cart_minimum_value'] = coupon.rule.cart_qualifying_min_sku_value
-        params['free_product'] = coupon.rule.free_product.id
+        params['free_product'] = coupon.rule.free_product if coupon.rule.free_product else None
         params['free_product_qty'] = coupon.rule.free_product_qty
     else:
         return {'error': "Cart coupon invalid"}
