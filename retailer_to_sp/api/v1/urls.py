@@ -28,9 +28,9 @@ from .views import (ProductsList, SearchProducts, CartCentral, CartCheckout, Ord
                     DispatchCenterShipmentPackageView, LoadLastMileInvoiceView, LastMileTripSummaryView,
                     LastMileLoadVerifyPackageView, RemoveLastMileInvoiceFromTripView,
                     VerifyNotAttemptShipmentPackagesView, VerifyBackwardTripItems, BackwardTripQCView,
-                    VehicleDriverList, PosOrderUserSearchView, CurrentlyLoadingShipmentPackagesView, 
+                    VehicleDriverList, PosOrderUserSearchView, CurrentlyLoadingShipmentPackagesView,
                     ReturnOrderCompleteVerifyView, LastMileTripReturnOrderView, ReturnOrderProductView, 
-                    GenerateBarcodes, VerifyReturnOrderProductsView, LoadVerifyReturnOrderView, UnloadVerifyReturnOrderView, 
+                    GenerateBarcodes, LastMileTripDeliveryReturnOrderView, VerifyReturnOrderProductsView, LoadVerifyReturnOrderView, UnloadVerifyReturnOrderView,
                     BackWardTripReturnOrderQCView, MarkReturnOrderItemVerifiedView)
 
 from retailer_backend.cron import sync_es_products_api
@@ -176,6 +176,9 @@ urlpatterns = [
     url('pos-user-search/', PosOrderUserSearchView.as_view(), name='pos-user-search'),
     # API to Generate Barcodes
     url('generate-barcode/', GenerateBarcodes.as_view()),
+    # API to details of return items of a shop for delivery APP
+    url('last-mile-delivery-returns/', LastMileTripDeliveryReturnOrderView.as_view(), name='last_mile_delivery_returns'),
+    # API to update  return in the trip
     url('verify-return-order-products/', VerifyReturnOrderProductsView.as_view(), name='verify_return_order_products'),
     url('bck-trip-return-items/', BackWardTripReturnOrderQCView.as_view(), name='bck_trip_return_items'),
     url('mark-return-order-item-verified/', MarkReturnOrderItemVerifiedView.as_view(), name='mark-return-order-item-verified')
