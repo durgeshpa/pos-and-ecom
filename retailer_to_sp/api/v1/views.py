@@ -10290,10 +10290,10 @@ class VerifyReturnOrderProductsView(generics.GenericAPIView):
             return get_response('Return Order not Found.')
             
     def create_update_return_order_product_batch(self, return_order_product_mapping, return_qty, damaged_qty):
-        return_batch = ReturnProductBatch.objects.get_or_create(
+        return_batch, _ = ReturnProductBatch.objects.get_or_create(
             return_product = return_order_product_mapping
         )
-        return_batch.return_qty = return_qty,
+        return_batch.return_qty = return_qty
         return_batch.damaged_qty = damaged_qty
         return_batch.save()
 
