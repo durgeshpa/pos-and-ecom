@@ -59,6 +59,14 @@ class GFReturnOrderProductSerializer(serializers.ModelSerializer):
     seller_shop = ShopSerializer(read_only=True)
     buyer_shop = ShopSerializer(read_only=True)
     buyer = serializers.SerializerMethodField()
+    retailer_order_no = serializers.SerializerMethodField()
+    customer_order_no = serializers.SerializerMethodField()
+    
+    def get_retailer_order_no(self, instance):
+        return instance.shipment.order.order_no
+    
+    def get_customer_order_no(self, instance):
+        return instance.ref_return_order.shipment.order.order_no
     
     def get_return_order_products(self, instance):
         return ReturnOrderGFProductSerializer(instance.return_order_products.all(), many=True).data
@@ -69,8 +77,10 @@ class GFReturnOrderProductSerializer(serializers.ModelSerializer):
                 
     class Meta:
         model = ReturnOrder
-        fields = ('id', 'return_no', 'shipment', 'return_type', 'return_status', 'return_order_products',
-                  'return_reason', 'seller_shop', 'buyer_shop', 'created_at', 'modified_at', 'buyer')
+        fields = ('id', 'return_no', 'shipment', 'return_type', 
+                  'return_status', 'return_order_products', 'retailer_order_no', 
+                  'customer_order_no', 'return_reason', 'seller_shop', 
+                  'buyer_shop', 'created_at', 'modified_at', 'buyer')
 
 
 
