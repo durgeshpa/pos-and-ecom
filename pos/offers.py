@@ -100,7 +100,7 @@ class BasicCartOffers(object):
             order_count = 0
             if coupon.froms and coupon.to:
                 order_count = cls.get_order_count(cart.cart_type, cart.buyer)
-            if order_count and (order_count < coupon.froms or order_count > coupon.to):
+            if order_count >= 0 and (order_count < coupon.froms or order_count > coupon.to):
                 return cls.return_cart_without_apply_coupon()
             flag = cls.get_category_exists_in_cart(cart_products, coupon_category)
             if not flag:
@@ -185,6 +185,7 @@ class BasicCartOffers(object):
         disable1 = 'online'
         disable2 = 'superstore'
         disable3 = 'superstore'
+        disable4 = 'foco'
         if cls.cart and cls.cart.cart_type == 'ECOM':
             coupon_enable = 'online'
             disable1 = 'pos'
@@ -198,6 +199,8 @@ class BasicCartOffers(object):
             disable1 = 'online'
             disable2 = 'pos'
             disable3 = 'grocery'
+        if cls.cart and cls.cart.seller_shop.shop_type=='Franchise - fofo':
+            disable4 = 'foco'
 
         date = datetime.now()
         body = {
@@ -218,7 +221,8 @@ class BasicCartOffers(object):
                                    [
                                        {"term": {"coupon_enable_on": disable1}},
                                        {"term": {"coupon_enable_on": disable2}},
-                                       {"term": {"coupon_type_name": disable3}}
+                                       {"term": {"coupon_type_name": disable3}},
+                                       {"term": {"coupon_shop_type": disable4}}
 
                                    ]
 
@@ -411,6 +415,9 @@ class BasicCartOffers(object):
         coupon_enable = 'pos'
         disable1 = 'online'
         disable2 = 'superstore'
+        disable3 = 'superstore'
+        disable4 = 'fofo'
+
         if cls.cart and cls.cart.cart_type == 'ECOM':
             coupon_enable = 'online'
             disable1 = 'pos'
@@ -424,6 +431,8 @@ class BasicCartOffers(object):
             disable1 = 'online'
             disable2 = 'pos'
             disable3 = 'grocery'
+        if cls.cart and cls.cart.seller_shop.shop_type=='Franchise - fofo':
+            disable4 = 'foco'
 
         date = datetime.now()
         body = {
@@ -446,6 +455,7 @@ class BasicCartOffers(object):
                                    {"term": {"coupon_enable_on": disable1}},
                                    {"term": {"coupon_enable_on": disable2}},
                                    {"term": {"coupon_type_name": disable3}},
+                                   {"term": {"coupon_shop_type": disable4}}
 
                                ]
 
@@ -476,6 +486,7 @@ class BasicCartOffers(object):
         coupon_enable = 'pos'
         disable1 = 'online'
         disable2 = 'superstore'
+        disable4 = 'fofo'
         if cls.cart and cls.cart.cart_type == 'ECOM':
             coupon_enable = 'online'
             disable1 = 'pos'
@@ -489,6 +500,8 @@ class BasicCartOffers(object):
             disable1 = 'online'
             disable2 = 'pos'
             disable3 = 'grocery'
+        if cls.cart and cls.cart.seller_shop.shop_type=='Franchise - fofo':
+            disable4 = 'foco'
         date = datetime.now()
         body = {
             "from": 0,
@@ -509,6 +522,7 @@ class BasicCartOffers(object):
                                        {"term": {"coupon_enable_on": disable1}},
                                        {"term": {"coupon_enable_on": disable2}},
                                        {"term": {"coupon_type_name": disable3}},
+                                       {"term": {"coupon_shop_type": disable4}}
 
                                    ]
 
