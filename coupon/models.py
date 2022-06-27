@@ -38,6 +38,8 @@ class CouponRuleSet(models.Model):
     discount = models.ForeignKey(DiscountValue, related_name='discount_value_id', on_delete=models.CASCADE, null=True,
                                  blank=True)
     is_free_shipment = models.BooleanField(default=False, null=True, blank=True)
+    parent_free_product = models.ForeignKey("products.Product", related_name='parent_free_product', on_delete=models.CASCADE,
+                                        null=True, blank=True)
     free_product = models.ForeignKey("pos.RetailerProduct", related_name='free_product', on_delete=models.CASCADE,
                                         null=True, blank=True)
     free_product_qty = models.PositiveIntegerField(blank=True, null=True)
@@ -64,8 +66,10 @@ class Coupon(models.Model):
         (BRAND, "brand"),
         (CATEGORY, "category"),
     )
+
     SHOP_TYPE_CHOICES = (('all', 'All'),( 'fofo', 'Fofo'),('foco','Foco'),('superstore', "SuperStore"))
     ENABLED_ON = (('pos', 'Pos'),('online',"Online"),('all', 'All'))
+    COUPON_TYPE_NAME = (('grocery', 'Grocery'), ('superstore', 'SuperStore')) 
     rule = models.ForeignKey(CouponRuleSet, related_name='coupon_ruleset', on_delete=models.CASCADE)
     coupon_name = models.CharField(max_length=255, null=True)
     coupon_code = models.CharField(max_length=255, null=True)
@@ -89,6 +93,8 @@ class Coupon(models.Model):
     to = models.PositiveIntegerField(default=0, null=True, blank=True)
 
     category = ArrayField(models.CharField(max_length=50,blank=True, null=True, default=None), default=[], size=8)
+    is_admin = models.BooleanField(default=False, null=False, blank=True)
+    coupon_type_name = models.CharField(max_length=20, choices=COUPON_TYPE_NAME, null=True, blank=True, default= 'grocery')
 
     def __str__(self):
         return self.coupon_name
@@ -255,7 +261,8 @@ def get_common_coupon_params(coupon):
         'end_date': coupon.expiry_date,
         'froms': coupon.froms,
         'to': coupon.to,
-        'category': coupon.category
+        'category': coupon.category,
+        'coupon_type_name': coupon.coupon_type_name
 
     }
     return params
@@ -266,18 +273,22 @@ def get_catalogue_coupon_params(coupon):
         Get coupon fields for adding in es for catalog coupons - combo/discount
     """
     product_ruleset = RuleSetProductMapping.objects.get(rule_id=coupon.rule.id)
-    if product_ruleset.retailer_free_product:
+    if product_ruleset.retailer_free_product or product_ruleset.free_product:
         # Combo Offer
         params = dict()
         params['coupon_type'] = 'catalogue_combo'
+        params['is_admin'] = coupon.is_admin
         params['coupon_enable_on'] = coupon.coupon_enable_on
         params['coupon_shop_type'] = coupon.coupon_shop_type
-        params['purchased_product'] = product_ruleset.retailer_primary_product.id
-        params['free_product'] = product_ruleset.retailer_free_product.id
-        params['free_product_name'] = product_ruleset.retailer_free_product.name
+        params['purchased_product'] = product_ruleset.retailer_primary_product.id if product_ruleset.retailer_primary_product else None
+        params['free_product'] = product_ruleset.retailer_free_product.id if product_ruleset.retailer_free_product else None
+        params['parent_purchased_product'] = product_ruleset.purchased_product.id if product_ruleset.purchased_product else None
+        params['parent_free_product'] = product_ruleset.free_product.id if product_ruleset.free_product else None
+        params['free_product_name'] = product_ruleset.retailer_free_product.name if product_ruleset.retailer_free_product else None
+        params['parent_free_product_name'] = product_ruleset.free_product.product_name if product_ruleset.free_product.product_name else None
         params['purchased_product_qty'] = product_ruleset.purchased_product_qty
         params['free_product_qty'] = product_ruleset.free_product_qty
-        return params, product_ruleset.retailer_primary_product
+        return params, product_ruleset.retailer_primary_product if product_ruleset.retailer_primary_product else product_ruleset.purchased_product
     else:
         return {'error': "Catalogue coupon invalid"}
 
@@ -289,6 +300,7 @@ def get_cart_coupon_params(coupon):
     params = dict()
     if coupon.rule.discount:
         params['coupon_type'] = 'cart'
+        params['is_admin'] = coupon.is_admin
         params['cart_minimum_value'] = coupon.rule.cart_qualifying_min_sku_value
         params['discount'] = coupon.rule.discount.discount_value
         params['is_percentage'] = coupon.rule.discount.is_percentage
@@ -296,12 +308,14 @@ def get_cart_coupon_params(coupon):
         params['coupon_enable_on'] = coupon.coupon_enable_on
         params['coupon_shop_type'] = coupon.coupon_shop_type
         params['max_discount'] = coupon.rule.discount.max_discount
-    elif coupon.rule.free_product:
+    elif coupon.rule.free_product or coupon.rule.parent_free_product:
+        params['is_admin'] = coupon.is_admin
+        params['parent_free_product'] = coupon.rule.parent_free_product.id if coupon.rule.parent_free_product else None
         params['coupon_enable_on'] = coupon.coupon_enable_on
         params['coupon_shop_type'] = coupon.coupon_shop_type
         params['coupon_type'] = 'cart_free_product'
         params['cart_minimum_value'] = coupon.rule.cart_qualifying_min_sku_value
-        params['free_product'] = coupon.rule.free_product.id
+        params['free_product'] = coupon.rule.free_product if coupon.rule.free_product else None
         params['free_product_qty'] = coupon.rule.free_product_qty
     else:
         return {'error': "Cart coupon invalid"}

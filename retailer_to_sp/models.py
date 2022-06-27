@@ -464,7 +464,7 @@ class Cart(models.Model):
 
             cart_items_count = self.rt_cart_list.count()
             for cart_coupon in cart_coupons:
-                if cart_coupon.rule.cart_qualifying_min_sku_value and not cart_coupon.rule.cart_qualifying_min_sku_item:
+                if cart_coupon.rule.cart_qualifying_min_sku_value and not cart_coupon.rule.cart_qualifying_min_sku_item and cart_coupon.rule.discount:
                     cart_coupon_list.append(cart_coupon)
                     i += 1
                     if cart_value >= cart_coupon.rule.cart_qualifying_min_sku_value:
@@ -2224,7 +2224,7 @@ class ReturnOrder(models.Model):
 
 class ReturnOrderProduct(models.Model):
     return_order = models.ForeignKey(
-        ReturnOrder, 
+        ReturnOrder,
         related_name='return_order_products',
         on_delete=models.CASCADE
     )
@@ -2238,8 +2238,14 @@ class ReturnOrderProduct(models.Model):
     )
     return_qty = models.PositiveIntegerField(default=0, verbose_name="Returned Quantity")
     delivery_picked_quantity = models.PositiveIntegerField(default=0, verbose_name="Picked Quantity")
+<<<<<<< HEAD
+=======
+    expired_qty = models.PositiveIntegerField(default=0, verbose_name="Expired Quantity")
+    damaged_qty = models.PositiveIntegerField(default=0, verbose_name="Damaged Quantity")
+>>>>>>> qa4
     return_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     return_shipment_barcode = models.CharField(max_length=255, null=True, blank=True)
+    is_return_verified = models.BooleanField(default=False)
     last_modified_by = models.ForeignKey(
         get_user_model(), related_name='modified_by_return_orders',
         null=True, on_delete=models.DO_NOTHING
@@ -2250,6 +2256,20 @@ class ReturnOrderProduct(models.Model):
     class Meta:
         verbose_name = 'Return Order Product'
         verbose_name_plural = 'Return Order Products'
+
+
+class ReturnProductBatch(models.Model):
+    return_product = models.ForeignKey(
+        ReturnOrderProduct,
+        related_name='return_product_batches',
+        on_delete=models.CASCADE
+    )
+    batch_id = models.CharField(max_length=20)
+    return_qty = models.PositiveIntegerField(default=0)
+    expired_qty = models.PositiveIntegerField(default=0)
+    damaged_qty = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
 
 
 class ReturnOrderProductImage(models.Model):
@@ -3959,6 +3979,28 @@ class DispatchTripShipmentMapping(BaseTimestampUserModel):
     shipment_health = models.CharField(max_length=100, choices=SHIPMENT_HEALTH)
     loaded_by = models.ForeignKey(User, related_name='dc_shipments_loaded',
                                   null=True, blank=True, on_delete=models.CASCADE)
+
+
+class DispatchTripReturnOrderMapping(BaseTimestampUserModel):
+    LOADED, UNLOADED = 'LOADED', 'UNLOADED'
+    DAMAGED_AT_LOADING, DAMAGED_AT_UNLOADING = 'DAMAGED_AT_LOADING', 'DAMAGED_AT_UNLOADING'
+    MISSING_AT_LOADING, MISSING_AT_UNLOADING = 'MISSING_AT_LOADING', 'MISSING_AT_UNLOADING'
+    CANCELLED = 'CANCELLED'
+    PARTIALLY_VERIFIED, VERIFIED = 'PARTIALLY_VERIFIED', 'VERIFIED'
+    RETURN_ORDER_STATUS = (
+        (LOADED, 'Loaded'),
+        (UNLOADED, 'Unloaded'),
+        (DAMAGED_AT_LOADING, 'Damaged At Loading'),
+        (DAMAGED_AT_UNLOADING, 'Damaged At Unloading'),
+        (MISSING_AT_LOADING, 'Missing At Loading'),
+        (MISSING_AT_UNLOADING, 'Missing At Unloading'),
+        (CANCELLED, 'Cancelled'),
+        (PARTIALLY_VERIFIED, 'Partially Verified'),
+        (VERIFIED, 'Verified')
+    )
+    trip = models.ForeignKey(DispatchTrip, related_name='return_order_details', on_delete=models.DO_NOTHING)
+    return_order = models.ForeignKey(ReturnOrder, related_name='trip_return_order', on_delete=models.DO_NOTHING)
+    return_order_status = models.CharField(max_length=100, choices=RETURN_ORDER_STATUS)
 
 
 class DispatchTripShipmentPackages(BaseTimestampUserModel):

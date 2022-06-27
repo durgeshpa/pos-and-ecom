@@ -18,12 +18,17 @@ from products.models import (Product, ProductPrice, ProductImage, Tax, ProductTa
 from retailer_backend.utils import getStrToYearDate
 from retailer_to_sp.common_model_functions import ShopCrateCommonFunctions, OrderCommonFunction
 from retailer_to_sp.common_validators import validate_shipment_crates_list, validate_shipment_package_list
+<<<<<<< HEAD
 from retailer_to_sp.models import (CartProductMapping, Cart, Invoice, Order, OrderedProduct, Note, CustomerCare,
                                    Payment,
                                    Dispatch, Feedback, OrderedProductMapping as RetailerOrderedProductMapping, Return,
                                    ReturnOrder, ReturnOrderProduct, Shipment,
+=======
+from retailer_to_sp.models import (CartProductMapping, Cart, Invoice, LastMileTripReturnMapping, Order, OrderedProduct, Note, CustomerCare, Payment,
+                                   Dispatch, Feedback, OrderedProductMapping as RetailerOrderedProductMapping, Return, ReturnOrder, ReturnOrderProduct, Shipment,
+>>>>>>> qa4
                                    Trip, PickerDashboard, ShipmentRescheduling, OrderedProductBatch, ShipmentPackaging,
-                                   ShipmentPackagingMapping, DispatchTrip, DispatchTripShipmentMapping,
+                                   ShipmentPackagingMapping, DispatchTrip, DispatchTripShipmentMapping, DispatchTripReturnOrderMapping,
                                    DispatchTripShipmentPackages, ShipmentNotAttempt, PACKAGE_VERIFY_CHOICES,
                                    LastMileTripShipmentMapping, ShopCrate, DispatchTripCrateMapping,
                                    add_to_putaway_on_return, LastMileTripShipmentPackages, ShipmentPackagingBatch,
@@ -1545,9 +1550,14 @@ class SellerOrderedCartListSerializer(serializers.ModelSerializer):
 
 
 class ShopSerializer(serializers.ModelSerializer):
+    shop_type = serializers.SerializerMethodField()
+    
+    def get_shop_type(self, instance):
+        return instance.shop_type.shop_type
+    
     class Meta:
         model = Shop
-        fields = ('id', 'shop_name')
+        fields = ('id', 'shop_name', 'shop_type')
 
 
 class SellerOrderListSerializer(serializers.ModelSerializer):
@@ -1655,6 +1665,12 @@ class CrateSerializer(serializers.ModelSerializer):
         model = Crate
         ref_name = "CrateSerializer v1"
         fields = ('id', 'crate_id')
+
+
+class ReturnOrderSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ReturnOrder
+        fields = ('id', 'return_no')
 
 
 class ProductPackagingSerializer(serializers.ModelSerializer):
@@ -1980,10 +1996,26 @@ class ShipmentProductSerializer(serializers.ModelSerializer):
 
 class ReturnOrderProductSerializer(serializers.ModelSerializer):
     product = ProductSerializer(read_only=True)
+<<<<<<< HEAD
 
     class Meta:
         model = ReturnOrderProduct
         fields = '__all__'
+=======
+    zone = serializers.SerializerMethodField()
+    
+    def get_zone(self, instance):
+        warehouse_assrt_ins = WarehouseAssortment.objects.filter(
+            product=instance.product.parent_product,
+            warehouse=instance.return_order.seller_shop).last()
+        return ShipmentPackageZoneSerializer(warehouse_assrt_ins.zone, read_only=True).data \
+            if warehouse_assrt_ins else None
+            
+    class Meta:
+        model = ReturnOrderProduct
+        fields = ('id', 'product', 'return_qty', 'damaged_qty', 'zone',
+                  'return_shipment_barcode', 'return_price')
+>>>>>>> qa4
 
 
 class CustomerShipmentReturnOrderTripDetailSerializer(serializers.ModelSerializer):
@@ -2000,8 +2032,14 @@ class CustomerShipmentReturnOrderTripDetailSerializer(serializers.ModelSerialize
 class ReturnOrderTripProductSerializer(serializers.ModelSerializer):
     # shipment = ShipmentProductSerializer(read_only=True)
     customer_return_order_product = serializers.SerializerMethodField()
+    retailer_return_order_product = serializers.SerializerMethodField()
     customer_shipment_detail = serializers.SerializerMethodField()
+<<<<<<< HEAD
 
+=======
+    trip_belongs_to = serializers.SerializerMethodField()
+    
+>>>>>>> qa4
     def get_customer_shipment_detail(self, instance):
         return CustomerShipmentReturnOrderTripDetailSerializer(
             instance.ref_return_order.shipment \
@@ -2011,10 +2049,25 @@ class ReturnOrderTripProductSerializer(serializers.ModelSerializer):
 
     def get_customer_return_order_product(self, instance):
         return ReturnOrderProductSerializer(instance.ref_return_order.return_order_products.last()).data
+<<<<<<< HEAD
 
     class Meta:
         model = ReturnOrder
         fields = ('id', 'return_no', 'return_challan_no', 'shipment', 'return_amount',
+=======
+    
+    def get_retailer_return_order_product(self, instance):
+        return ReturnOrderProductSerializer(instance.return_order_products.last()).data
+    
+    def get_trip_belongs_to(self, instance):
+        return instance.last_mile_trip_returns.exclude(shipment_status=LastMileTripReturnMapping.CANCELLED)\
+            .last().trip.source_shop.shop_type.shop_type
+        
+    class Meta:
+        model = ReturnOrder
+        fields = ('id', 'return_no', 'return_challan_no', 'shipment', 'return_amount', 
+                  'trip_belongs_to', 'retailer_return_order_product',
+>>>>>>> qa4
                   'customer_shipment_detail', 'customer_return_order_product')
 
 
@@ -3314,6 +3367,7 @@ class SummarySerializer(serializers.Serializer):
     total_packets = serializers.IntegerField()
     total_sack = serializers.IntegerField()
     total_empty_crate = serializers.IntegerField()
+    total_return_box = serializers.IntegerField()
     invoices_check = serializers.IntegerField()
     total_crates_check = serializers.IntegerField()
     total_packets_check = serializers.IntegerField()
@@ -3324,6 +3378,7 @@ class SummarySerializer(serializers.Serializer):
     remaining_packets = serializers.IntegerField()
     remaining_sacks = serializers.IntegerField()
     remaining_empty_crate = serializers.IntegerField()
+    remaining_return_box = serializers.IntegerField()
 
     weight = serializers.IntegerField()
 
@@ -3411,6 +3466,139 @@ class DispatchCenterShipmentPackageSerializer(serializers.ModelSerializer):
         model = ShipmentPackaging
         fields = ('id', 'trip', 'shipment', 'packaging_type', 'crate', 'reason_for_rejection',
                   'movement_type', 'return_remark', 'created_date', 'trip_loading_status')
+
+
+class LoadVerifyReturnOrderSerializer(serializers.ModelSerializer):
+
+    trip = DispatchTripSerializers(read_only=True)
+    return_order = ReturnOrderSerializer(read_only=True)
+    return_order_status = ChoicesSerializer(choices=DispatchTripReturnOrderMapping.RETURN_ORDER_STATUS, required=False)
+
+    class Meta:
+        model = DispatchTripReturnOrderMapping
+        fields = ('trip', 'return_order', 'return_order_status')
+
+    def validate(self, data):
+        # Validate request data
+        if 'id' in self.initial_data:
+            raise serializers.ValidationError('Updation is not allowed')
+        if 'trip_id' not in self.initial_data or not self.initial_data['trip_id']:
+            raise serializers.ValidationError("'trip_id' | This is required.")
+        try:
+            trip = DispatchTrip.objects.get(id=self.initial_data['trip_id'])
+            data['trip'] = trip
+        except:
+            raise serializers.ValidationError("invalid Trip ID")
+
+        # Check for trip status
+        if trip.trip_status != DispatchTrip.NEW:
+            raise serializers.ValidationError(f"Trip is in {trip.trip_status} state, cannot load return order")
+
+        if 'return_id' not in self.initial_data or not self.initial_data['return_id']:
+            raise serializers.ValidationError("'return_id' | This is required.")
+
+        return_order = ReturnOrder.objects.filter(
+            id=self.initial_data['return_id'], seller_shop=trip.seller_shop).last()
+        if not return_order:
+            raise serializers.ValidationError("Invalid return order for the trip")
+
+        # Check if return order already scanned
+        if trip.return_order_details.filter(return_order=return_order).exists():
+            raise serializers.ValidationError("This return order has already been verified.")
+        if 'status' not in self.initial_data or not self.initial_data['status']:
+            raise serializers.ValidationError("'status' | This is required.")
+        elif self.initial_data['status'] not in [1, 2]:
+            raise serializers.ValidationError("Invalid status choice")
+
+        status = DispatchTripReturnOrderMapping.LOADED
+        if self.initial_data['status'] == PACKAGE_VERIFY_CHOICES.DAMAGED:
+            status = DispatchTripReturnOrderMapping.DAMAGED_AT_LOADING
+        elif self.initial_data['status'] == PACKAGE_VERIFY_CHOICES.MISSING:
+            status = DispatchTripReturnOrderMapping.MISSING_AT_LOADING
+
+        data['trip'] = trip
+        data['return_order'] = return_order
+        data['return_order_status'] = status
+
+        return data
+
+    @transaction.atomic
+    def create(self, validated_data):
+        """create a new DispatchTrip Package Mapping"""
+        try:
+            instance = DispatchTripReturnOrderMapping.objects.create(**validated_data)
+        except Exception as e:
+            error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
+            raise serializers.ValidationError(error)
+
+        return instance
+
+
+class UnLoadVerifyReturnOrderSerializer(serializers.ModelSerializer):
+    trip = DispatchTripSerializers(read_only=True)
+    return_order = ReturnOrderSerializer(read_only=True)
+    return_order_status = ChoicesSerializer(choices=DispatchTripReturnOrderMapping.RETURN_ORDER_STATUS, required=False)
+
+    class Meta:
+        model = DispatchTripReturnOrderMapping
+        fields = ('trip', 'return_order', 'return_order_status')
+
+
+    def validate(self, data):
+        # Validate request data
+        if 'id' in self.initial_data:
+            raise serializers.ValidationError('Updation is not allowed')
+        if 'trip_id' not in self.initial_data or not self.initial_data['trip_id']:
+            raise serializers.ValidationError("'trip_id' | This is required.")
+        try:
+            trip = DispatchTrip.objects.get(id=self.initial_data['trip_id'])
+            data['trip'] = trip
+        except:
+            raise serializers.ValidationError("invalid Trip ID")
+
+        # Check for trip status
+        if trip.trip_status != DispatchTrip.UNLOADING:
+            raise serializers.ValidationError(f"Trip is in {trip.trip_status} state, cannot unload return order")
+
+
+        if 'return_id' not in self.initial_data or not self.initial_data['return_id']:
+            raise serializers.ValidationError("'return_id' | This is required.")
+        try:
+            return_order = ReturnOrder.objects.get(id=self.initial_data['return_id'])
+        except:
+            raise serializers.ValidationError("Invalid Return Order")
+
+        # Check if return order is loaded in trip
+        if not return_order.trip_return_order.filter(return_order_status=DispatchTripReturnOrderMapping.LOADED).exists():
+            raise serializers.ValidationError("This return order was not loaded in the trip.")
+
+        if 'status' not in self.initial_data or not self.initial_data['status']:
+            raise serializers.ValidationError("'status' | This is required.")
+
+        elif self.initial_data['status'] not in PACKAGE_VERIFY_CHOICES._db_values:
+            raise serializers.ValidationError("Invalid status choice")
+
+        status = DispatchTripReturnOrderMapping.UNLOADED
+        if self.initial_data['status'] == PACKAGE_VERIFY_CHOICES.DAMAGED:
+            status = DispatchTripReturnOrderMapping.DAMAGED_AT_UNLOADING
+        elif self.initial_data['status'] == PACKAGE_VERIFY_CHOICES.MISSING:
+            status = DispatchTripReturnOrderMapping.MISSING_AT_UNLOADING
+
+        data['trip'] = trip
+        data['return_order'] = return_order
+        data['return_order_status'] = status
+
+        return data
+
+    @transaction.atomic
+    def update(self, instance, validated_data):
+        """update DispatchTrip Package Mapping"""
+        try:
+            instance = super().update(instance, validated_data)
+        except Exception as e:
+            error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
+            raise serializers.ValidationError(error)
+        return instance
 
 
 class LoadVerifyCrateSerializer(serializers.ModelSerializer):
@@ -4239,10 +4427,19 @@ class LastMileTripShipmentsSerializer(serializers.Serializer):
 
 class LastMileTripReturnOrdersBasicDetailSerializer(serializers.ModelSerializer):
     buyer_shop = ShopSerializer(read_only=True)
+<<<<<<< HEAD
 
+=======
+    product_return_shipment_barcodes = serializers.SerializerMethodField()
+    
+    def get_product_return_shipment_barcodes(self, instance):
+        return instance.return_order_products.filter(return_shipment_barcode__isnull=False)\
+            .values_list('return_shipment_barcode', flat=True)
+    
+>>>>>>> qa4
     class Meta:
         model = ReturnOrder
-        fields = ('id', 'shipment', 'return_no', 'buyer_shop',
+        fields = ('id', 'shipment', 'return_no', 'buyer_shop', 'product_return_shipment_barcodes',
                   'return_status', 'return_challan_no')
 
 
@@ -4887,6 +5084,28 @@ class PackagesUnderTripSerializer(serializers.ModelSerializer):
                   'trip_loading_status')
 
 
+class BackwardTripReturnOrderMetaSerializer(serializers.ModelSerializer):
+    return_products = serializers.SerializerMethodField()
+    
+    def get_return_products(self, instance):
+        return ReturnOrderProductSerializer(instance.return_order_products.all(), many=True).data
+    
+    class Meta:
+        model = ReturnOrder
+        fields = ('id', 'return_no', 'return_type', 
+                  'return_status', 'return_challan_no', 'return_products')
+
+
+class BackwardTripReturnItemsSerializer(serializers.ModelSerializer):
+    trip = DispatchTripSerializers(read_only=True)
+    return_order = BackwardTripReturnOrderMetaSerializer(read_only=True)
+    return_order_status = ChoicesSerializer(choices=DispatchTripReturnOrderMapping.RETURN_ORDER_STATUS, required=False)
+    
+    class Meta:
+        model = DispatchTripReturnOrderMapping
+        fields = ('id', 'trip', 'return_order', 'return_order_status')
+
+
 class ShipmentPackagingBatchInfoSerializer(serializers.ModelSerializer):
     expiry_date = serializers.SerializerMethodField()
 
@@ -5051,6 +5270,49 @@ class MarkShipmentPackageVerifiedSerializer(serializers.ModelSerializer):
                             create_putaway(warehouse, product, batch_id, None, type_damaged, 'RETURNED',
                                            putaway_type_id,
                                            None, batch_detail.damaged_qty)
+
+
+
+class MarkReturnOrderItemVerifiedSerializer(serializers.ModelSerializer):
+    
+    def validate(self, data):
+        if 'id' not in self.initial_data or not self.initial_data['id']:
+            raise serializers.ValidationError("'id' | This is required.")
+        try:
+            trip_return_order = DispatchTripReturnOrderMapping.objects.get(id=self.initial_data['id'])
+        except:
+            raise serializers.ValidationError("invalid ID")
+        
+        if trip_return_order.return_order_status == DispatchTripReturnOrderMapping.VERIFIED:
+            raise serializers.ValidationError("Return Order Item is already verified.")
+        
+        if trip_return_order.return_order_status not in [DispatchTripReturnOrderMapping.UNLOADED,
+                                                        DispatchTripReturnOrderMapping.PARTIALLY_VERIFIED]:
+            raise serializers.ValidationError(f"Return Item is in {trip_return_order.return_order_status} state, "
+                                                f"cannot verify at the moment")
+        
+        data['return_order_status'] = DispatchTripReturnOrderMapping.VERIFIED
+        return data
+    
+    @transaction.atomic
+    def update(self, instance, validated_data):
+        """update Dispatch Trip Shipment Package"""
+        try:
+            trip_return_mapping = super().update(instance, validated_data)
+            self.change_return_status_and_putaway_generation(trip_return_mapping)
+        except Exception as e:
+            error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
+            raise serializers.ValidationError(error)
+        return trip_return_mapping
+    
+    def change_return_status_and_putaway_generation(self, trip_return_mapping):
+        trip_return_mapping.return_order.return_status = ReturnOrder.WH_ACCEPTED
+        trip_return_mapping.save()
+        ## call putaway generation func
+        
+    class Meta:
+        model = DispatchTripReturnOrderMapping
+        fields = ('id', 'return_order_status', 'return_order', 'trip')
 
 
 class ShipmentPackageZoneSerializer(serializers.ModelSerializer):
@@ -5857,6 +6119,8 @@ class SuperStoreOrderDetailSerializer(serializers.ModelSerializer):
 
     def get_is_returnable(self, instance):
         shipment = instance.ordered_product
+        if shipment.is_returned:
+            return False
         if shipment.shipment_status == OrderedProduct.DELIVERED:
             pos_trip = shipment.pos_trips.filter(trip_type='SUPERSTORE').last()
             return_period_offset = get_config('superstore_order_return_window_buffer', 72)
@@ -5921,3 +6185,35 @@ class ShipmentStatusSerializer(serializers.ModelSerializer):
     class Meta:
         model = OrderedProduct
         fields = ('shipment_status',)
+
+class DispatchCenterReturnOrderSerializer(serializers.ModelSerializer):
+    order_no = serializers.SerializerMethodField()
+    shop_name = serializers.SerializerMethodField()
+    buyer_shop_name = serializers.SerializerMethodField()
+    loading_status = serializers.SerializerMethodField()
+    barcode_no = serializers.SerializerMethodField()
+
+
+    def get_order_no(self, instance):
+        return instance.shipment.order.order_no
+
+    def get_shop_name(self, instance):
+        if instance.seller_shop:
+            return instance.seller_shop.shop_name
+        return None
+
+    def get_buyer_shop_name(self, instance):
+        if instance.buyer_shop:
+            return instance.buyer_shop.shop_name
+        return None
+
+    def get_loading_status(self, instance):
+        return instance.trip_return_order.last().return_order_status
+
+    def get_barcode_no(self, instance):
+        return instance.return_order_products.last().return_shipment_barcode
+
+    class Meta:
+        model = ReturnOrder
+        fields = ('id', 'return_challan_no', 'barcode_no', 'return_status', 'created_at', 'shop_name',
+                  'order_no', 'return_no', 'buyer_shop_name', 'loading_status')
