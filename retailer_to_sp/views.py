@@ -994,13 +994,22 @@ class LoadReturnOrders(APIView):
         source_shop = request.GET.get('source_shop_id')
         trip_id = request.GET.get('trip_id')
         if not trip_id:
-            return_orders = ReturnOrder.objects.filter(seller_shop_id=seller_shop,
-                                                       return_type=ReturnOrder.SUPERSTORE_WAREHOUSE,
-                                                       shipment__order__dispatch_center_id=source_shop,
-                                                       return_status__in=[ReturnOrder.RETURN_REQUESTED])
+            if seller_shop != source_shop:
+                return_orders = ReturnOrder.objects.filter(seller_shop_id=seller_shop,
+                                                        return_type=ReturnOrder.SUPERSTORE_WAREHOUSE,
+                                                        shipment__order__dispatch_center_id=source_shop,
+                                                        return_status__in=[ReturnOrder.RETURN_REQUESTED])
+            else:
+                return_orders = ReturnOrder.objects.filter(seller_shop_id=seller_shop,
+                                                        return_type=ReturnOrder.SUPERSTORE_WAREHOUSE,
+                                                        shipment__order__dispatch_center__isnull=True,
+                                                        return_status__in=[ReturnOrder.RETURN_REQUESTED])
         else:
-            return_orders = list(ReturnOrder.objects.filter(Q(return_type=ReturnOrder.SUPERSTORE_WAREHOUSE,
-                                                       last_mile_trip_returns__trip_id=trip_id)))
+            return_orders = list(ReturnOrder.objects.filter(return_type=ReturnOrder.SUPERSTORE_WAREHOUSE,
+                                                            last_mile_trip_returns__trip_id=trip_id
+            ))
+                                                            # seller_shop_id=seller_shop,
+                                                            # shipment__order__dispatch_center_id=source_shop))
             
             return_orders_w = list(ReturnOrder.objects.filter(return_type=ReturnOrder.SUPERSTORE_WAREHOUSE,
                                                        last_mile_trip_returns=None,

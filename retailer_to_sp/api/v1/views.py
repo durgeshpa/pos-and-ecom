@@ -10285,7 +10285,7 @@ class VerifyReturnOrderProductsView(generics.GenericAPIView):
             self.create_update_return_order_product_batch(return_order_product_mapping, 
                                                    modified_data['returned_qty'], 
                                                    modified_data['damaged_qty'])
-            return get_response('Return Order successfully updated.')
+            return get_response('Return Order successfully updated.', None, True)
         except ReturnOrder.DoesNotExist:
             return get_response('Return Order not Found.')
             
