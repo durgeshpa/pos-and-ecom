@@ -224,16 +224,22 @@ class BasicCartOffers(object):
         }
 
 
-        product = RetailerProduct.objects.filter(id__in=list(purchased_product_ids)).last()
+        product = RetailerProduct.objects.filter(id__in=list(purchased_product_ids))
+        lis_ids = []
+        for prod in product:
+            id = product.linked_product_id
+            if id:
+                lis_ids.append(id)
+
         body2 = None
-        if product.linked_product_id :
+        if lis_ids :
             body2 = {
                 "from": 0,
                 "size": size,
                 "query": {"bool": {"filter": [{"term": {"active": True}},
                                               {"term": {"coupon_type": 'catalogue_combo'}},
                                               {"term": {"is_admin": True}},
-                                              {"terms": {"parent_purchased_product": [product.linked_product_id]}},
+                                              {"terms": {"parent_purchased_product": lis_ids}},
                                               {"range": {"start_date": {"lte": date}}},
                                               {"range": {"end_date": {"gte": date}}}],
                                    "should":
@@ -731,7 +737,7 @@ class BasicCartOffers(object):
             free_product_coupon = free_product_coupons[0]
             free_product = None
             if free_product_coupon.get('is_admin'):
-                free_product = RetailerProduct.objects.filter(linked_product__id=coupon['parent_free_product']).last()
+                free_product = RetailerProduct.objects.filter(linked_product__id=free_product_coupon['parent_free_product']).last()
             else:
                 free_product = RetailerProduct.objects.filter(id=free_product_coupon['free_product']).last()
             if free_product:
