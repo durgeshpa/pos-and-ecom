@@ -92,7 +92,7 @@ class GFReturnOrderList(APIView):
             except ReturnOrder.DoesNotExist:
                 return get_response("Return Order does not exists", None, False)
         else:
-            returns = ReturnOrder.objects.filter(return_type=ReturnOrder.SUPERSTORE_WAREHOUSE)
+            returns = ReturnOrder.objects.filter(return_type=ReturnOrder.SUPERSTORE_WAREHOUSE).order_by('-created_at')
             search_text = request.query_params.get('search_text')
             if search_text:
                 returns = returns.filter(return_order_products__product__product_name__icontains=search_text).distinct('id')

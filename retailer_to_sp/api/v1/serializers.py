@@ -5213,6 +5213,49 @@ class MarkShipmentPackageVerifiedSerializer(serializers.ModelSerializer):
                                            None, batch_detail.damaged_qty)
 
 
+
+class MarkReturnOrderItemVerifiedSerializer(serializers.ModelSerializer):
+    
+    def validate(self, data):
+        if 'id' not in self.initial_data or not self.initial_data['id']:
+            raise serializers.ValidationError("'id' | This is required.")
+        try:
+            trip_return_order = DispatchTripReturnOrderMapping.objects.get(id=self.initial_data['id'])
+        except:
+            raise serializers.ValidationError("invalid ID")
+        
+        if trip_return_order.return_order_status == DispatchTripReturnOrderMapping.VERIFIED:
+            raise serializers.ValidationError("Return Order Item is already verified.")
+        
+        if trip_return_order.return_order_status not in [DispatchTripReturnOrderMapping.UNLOADED,
+                                                        DispatchTripReturnOrderMapping.PARTIALLY_VERIFIED]:
+            raise serializers.ValidationError(f"Return Item is in {trip_return_order.return_order_status} state, "
+                                                f"cannot verify at the moment")
+        
+        data['return_order_status'] = DispatchTripReturnOrderMapping.VERIFIED
+        return data
+    
+    @transaction.atomic
+    def update(self, instance, validated_data):
+        """update Dispatch Trip Shipment Package"""
+        try:
+            trip_return_mapping = super().update(instance, validated_data)
+            self.change_return_status_and_putaway_generation(trip_return_mapping)
+        except Exception as e:
+            error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
+            raise serializers.ValidationError(error)
+        return trip_return_mapping
+    
+    def change_return_status_and_putaway_generation(self, trip_return_mapping):
+        trip_return_mapping.return_order.return_status = ReturnOrder.WH_ACCEPTED
+        trip_return_mapping.save()
+        ## call putaway generation func
+        
+    class Meta:
+        model = DispatchTripReturnOrderMapping
+        fields = ('id', 'return_order_status', 'return_order', 'trip')
+
+
 class ShipmentPackageZoneSerializer(serializers.ModelSerializer):
     class Meta:
         model = Zone
