@@ -1448,9 +1448,16 @@ def date_validation(data):
 def category_validation(data):
     """validate category is exists or not"""
     category = data.get('category', [])
+    lis = []
     for i in category:
-        if not Category.objects.filter(category_name=i).exists():
-            raise serializers.ValidationError(f"category name {i} does not exists")
+        cat = Category.objects.filter(id=i)
+        if not cat.exists():
+            raise serializers.ValidationError(f"category id {i} does not exists")
+        else:
+            lis.append(cat.last().category_name)
+    data['category'] = lis
+    return data
+
 
 
 class OfferCreateSerializer(serializers.Serializer):
@@ -1468,7 +1475,7 @@ class OfferCreateSerializer(serializers.Serializer):
 
     def validate(self, data):
         date_validation(data)
-        category_validation(data)
+        data = category_validation(data)
         return data
 
 
@@ -1796,12 +1803,35 @@ class CouponGetSerializer(serializers.ModelSerializer):
                   'limit_of_usages_per_customer', 'coupon_enable_on', 'coupon_shop_type',
                   'froms', 'to', 'category')
 
+class CategorySerializer(serializers.ModelSerializer):
+    category_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Category
+        fields = ('category_name','id')
+
+    @staticmethod
+    def get_category_name(obj):
+        full_path = [obj.category_name]
+        k = obj.category_parent
+
+        while k is not None:
+            full_path.append(k.category_name)
+            k = k.category_parent
+
+        return ' -> '.join(full_path[::-1])
+
+
+
+
+
 
 class ParentProductCouponGetSerializer(serializers.ModelSerializer):
     offer_type = serializers.SerializerMethodField()
     details = serializers.SerializerMethodField()
     end_date = serializers.SerializerMethodField()
     is_point = serializers.SerializerMethodField()
+    category = serializers.SerializerMethodField()
 
     @staticmethod
     def get_is_point(obj):
@@ -1826,6 +1856,11 @@ class ParentProductCouponGetSerializer(serializers.ModelSerializer):
             response.update(data['retailer_primary_product'])
             response.update(data['retailer_free_product'])
         return response
+    @staticmethod
+    def get_category(obj):
+        data = CategorySerializer(Category.objects.filter(category_name__in=obj.category), many=True).data
+        return data 
+
 
     @staticmethod
     def get_offer_type(obj):

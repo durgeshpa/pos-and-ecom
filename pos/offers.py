@@ -183,7 +183,8 @@ class BasicCartOffers(object):
         """
         coupon_enable = 'pos'
         disable1 = 'online'
-        disable2 = 'super store'
+        disable2 = 'superstore'
+        disable3 = 'superstore'
         if cls.cart and cls.cart.cart_type == 'ECOM':
             coupon_enable = 'online'
             disable1 = 'pos'
@@ -196,6 +197,7 @@ class BasicCartOffers(object):
             coupon_enable = 'superstore'
             disable1 = 'online'
             disable2 = 'pos'
+            disable3 = 'grocery'
 
         date = datetime.now()
         body = {
@@ -215,7 +217,8 @@ class BasicCartOffers(object):
                                "must_not":
                                    [
                                        {"term": {"coupon_enable_on": disable1}},
-                                       {"term": {"coupon_enable_on": disable2}}
+                                       {"term": {"coupon_enable_on": disable2}},
+                                       {"term": {"coupon_type_name": disable3}}
 
                                    ]
 
@@ -227,7 +230,7 @@ class BasicCartOffers(object):
         product = RetailerProduct.objects.filter(id__in=list(purchased_product_ids))
         lis_ids = []
         for prod in product:
-            id = product.linked_product_id
+            id = prod.linked_product_id
             if id:
                 lis_ids.append(id)
 
@@ -407,7 +410,7 @@ class BasicCartOffers(object):
         """
         coupon_enable = 'pos'
         disable1 = 'online'
-        disable2 = 'super store'
+        disable2 = 'superstore'
         if cls.cart and cls.cart.cart_type == 'ECOM':
             coupon_enable = 'online'
             disable1 = 'pos'
@@ -420,6 +423,7 @@ class BasicCartOffers(object):
             coupon_enable = 'superstore'
             disable1 = 'online'
             disable2 = 'pos'
+            disable3 = 'grocery'
 
         date = datetime.now()
         body = {
@@ -440,7 +444,8 @@ class BasicCartOffers(object):
                                "must_not":
                                [
                                    {"term": {"coupon_enable_on": disable1}},
-                                   {"term": {"coupon_enable_on": disable2}}
+                                   {"term": {"coupon_enable_on": disable2}},
+                                   {"term": {"coupon_type_name": disable3}},
 
                                ]
 
@@ -467,9 +472,10 @@ class BasicCartOffers(object):
         """
             Get nearest coupon available over cart value
         """
+        disable3 = 'superstore'
         coupon_enable = 'pos'
         disable1 = 'online'
-        disable2 = 'super store'
+        disable2 = 'superstore'
         if cls.cart and cls.cart.cart_type == 'ECOM':
             coupon_enable = 'online'
             disable1 = 'pos'
@@ -482,6 +488,7 @@ class BasicCartOffers(object):
             coupon_enable = 'superstore'
             disable1 = 'online'
             disable2 = 'pos'
+            disable3 = 'grocery'
         date = datetime.now()
         body = {
             "from": 0,
@@ -500,7 +507,8 @@ class BasicCartOffers(object):
                                "must_not":
                                    [
                                        {"term": {"coupon_enable_on": disable1}},
-                                       {"term": {"coupon_enable_on": disable2}}
+                                       {"term": {"coupon_enable_on": disable2}},
+                                       {"term": {"coupon_type_name": disable3}},
 
                                    ]
 
