@@ -95,7 +95,7 @@ class GFReturnOrderList(APIView):
             returns = ReturnOrder.objects.filter(return_type=ReturnOrder.SUPERSTORE_WAREHOUSE).order_by('-created_at')
             search_text = request.query_params.get('search_text')
             if search_text:
-                returns = returns.filter(return_order_products__product__product_name__icontains=search_text).distinct('id')
+                returns = returns.filter(return_order_products__product__product_name__icontains=search_text).distinct('id', 'created_at')
             return_status = request.query_params.get('return_status')
             if return_status:
                 returns = returns.filter(return_status=return_status)
