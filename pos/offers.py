@@ -229,7 +229,7 @@ class BasicCartOffers(object):
         for prod in product:
             id = product.linked_product_id
             if id:
-                lis.append(id)
+                lis_ids.append(id)
 
         body2 = None
         if lis_ids :
