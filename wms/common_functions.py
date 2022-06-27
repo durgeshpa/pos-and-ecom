@@ -2560,9 +2560,7 @@ def assign_clickable_state(user):
     """
         Make is_clickable field True if picking status of order is picking_complete or it is the current order
     """
-    instance = retailer_to_sp.models.PickerDashboard.objects.filter(picker_boy_id=user, picking_status='picking_assigned')
-    instance.is_clickable = False
-    instance.save()
+    retailer_to_sp.models.PickerDashboard.objects.filter(picker_boy_id=user, picking_status='picking_assigned').update(is_clickable=False)
     instance = retailer_to_sp.models.PickerDashboard.objects.filter(picker_boy_id=user, picking_status='picking_assigned').order_by('created_at').first()
     instance.is_clickable = True
     instance.save()
