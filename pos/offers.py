@@ -100,7 +100,7 @@ class BasicCartOffers(object):
             order_count = 0
             if coupon.froms and coupon.to:
                 order_count = cls.get_order_count(cart.cart_type, cart.buyer)
-            if order_count and (order_count < coupon.froms or order_count > coupon.to):
+            if order_count >= 0 and (order_count < coupon.froms or order_count > coupon.to):
                 return cls.return_cart_without_apply_coupon()
             flag = cls.get_category_exists_in_cart(cart_products, coupon_category)
             if not flag:
