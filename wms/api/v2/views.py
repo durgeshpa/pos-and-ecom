@@ -1642,6 +1642,7 @@ class PickerUserReAssignmentView(generics.GenericAPIView):
         if serializer.is_valid():
             serializer.save(updated_by=request.user)
             assign_clickable_state(user=last_picker)
+            assign_clickable_state(user=modified_data["picker_boy"])
             PickerUserAssignmentLog.log_user_change(picker_dashboard_instance, request.user, last_picker)
             info_logger.info("PickerDashboard Updated Successfully.")
             return get_response('PickerDashboard updated!', serializer.data)
