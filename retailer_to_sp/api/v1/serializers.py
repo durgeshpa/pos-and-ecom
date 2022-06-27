@@ -5279,7 +5279,7 @@ class MarkReturnOrderItemVerifiedSerializer(serializers.ModelSerializer):
     def change_return_status_and_putaway_generation(self, trip_return_mapping):
         trip_return_mapping.return_order.return_status = ReturnOrder.WH_ACCEPTED
         trip_return_mapping.save()
-        ## call putaway generation func
+        ## call putaway generation
         
     class Meta:
         model = DispatchTripReturnOrderMapping

@@ -12109,7 +12109,7 @@ class BackWardTripReturnOrderQCView(generics.GenericAPIView):
         if not request.GET.get('is_return_verified'):
             return get_response("'is_return_verified' | This is mandatory")
         validated_trip = validate_trip(request.GET.get('trip_id'), request.GET.get('trip_type'))
-        return_items = self.filter_packaging_items(validated_trip['data'])
+        return_items = self.filter_return_items(validated_trip['data'])
         return_items = SmallOffsetPagination().paginate_queryset(return_items, request)
         serializer = self.serializer_class(return_items, many=True)
         msg = "" if return_items else "no return items found"
