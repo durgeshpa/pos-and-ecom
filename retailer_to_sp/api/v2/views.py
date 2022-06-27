@@ -2,7 +2,7 @@ import logging
 import requests
 from datetime import datetime, timedelta
 from django.http import HttpResponse
-from django.db.models import Count, F
+from django.db.models import Count, F, Q
 from rest_framework import permissions
 from rest_auth import authentication
 from rest_framework import status
@@ -95,16 +95,17 @@ class GFReturnOrderList(APIView):
             returns = ReturnOrder.objects.filter(return_type=ReturnOrder.SUPERSTORE_WAREHOUSE).order_by('-created_at')
             search_text = request.query_params.get('search_text')
             if search_text:
-                returns = returns.filter(return_order_products__product__product_name__icontains=search_text).distinct('id', 'created_at')
+                returns = returns.filter(Q(return_order_products__product__product_name__icontains=search_text) | 
+                                         Q(return_no__icontains=search_text)).distinct('id', 'created_at')
             return_status = request.query_params.get('return_status')
             if return_status:
                 returns = returns.filter(return_status=return_status)
             seller_shop = request.query_params.get('seller_shop')
             if seller_shop:
-                returns = returns.filter(seller_shop=seller_shop)
+                returns = returns.filter(seller_shop_id=seller_shop)
             buyer_shop = request.query_params.get('buyer_shop')
             if buyer_shop:
-                returns = returns.filter(buyer_shop=buyer_shop)
+                returns = returns.filter(buyer_shop_id=buyer_shop)
             return_no = request.query_params.get('return_no')
             if return_no:
                 returns = returns.filter(return_no=return_no)

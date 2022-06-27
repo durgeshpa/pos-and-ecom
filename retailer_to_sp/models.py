@@ -2117,7 +2117,7 @@ class ReturnOrder(models.Model):
     DEFECTIVE_DAMAGED_ITEM = 'defective_damaged_item'
     WRONG_ITEM_DELIVERED = 'wrong_item_delivered'
     ITEM_DID_NOT_MATCH_DESCRIPTION = 'item_did_not_match_description'
-    OTHER = 'other'
+    OTHER = 'OTHER'
     RETURN_REASON = (
         (DEFECTIVE_DAMAGED_ITEM, 'Defective / Damaged item'),
         (WRONG_ITEM_DELIVERED, 'Wrong item delivered'),

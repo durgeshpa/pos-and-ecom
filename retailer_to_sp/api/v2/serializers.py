@@ -1,7 +1,7 @@
 from django.core.validators import RegexValidator
 from rest_framework import serializers
 
-from retailer_to_sp.models import Order, CustomerCare, ReturnOrder, ReturnOrderProduct, ReturnOrderProductImage
+from retailer_to_sp.models import Order, CustomerCare, ReturnInvoice, ReturnOrder, ReturnOrderProduct, ReturnOrderProductImage
 from retailer_to_sp.api.v1.serializers import ProductSerializer, ShopRouteBasicSerializers
 from addresses.models import ShopRoute
 from shops.models import Shop
@@ -61,6 +61,7 @@ class GFReturnOrderProductSerializer(serializers.ModelSerializer):
     buyer = serializers.SerializerMethodField()
     retailer_order_no = serializers.SerializerMethodField()
     customer_order_no = serializers.SerializerMethodField()
+    return_reason = serializers.SerializerMethodField()
     
     def get_retailer_order_no(self, instance):
         return instance.shipment.order.order_no
@@ -74,7 +75,13 @@ class GFReturnOrderProductSerializer(serializers.ModelSerializer):
     def get_buyer(self, instance):
         buyer = instance.ref_return_order.buyer
         return PosShopUserSerializer(buyer).data
-                
+    
+    def get_return_reason(self, instance):
+        customer_return_order = instance.ref_return_order
+        if customer_return_order.return_reason == ReturnOrder.OTHER:
+            return customer_return_order.other_return_reason
+        return customer_return_order.return_reason
+    
     class Meta:
         model = ReturnOrder
         fields = ('id', 'return_no', 'shipment', 'return_type', 
