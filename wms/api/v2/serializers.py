@@ -1516,7 +1516,7 @@ class PicklistSerializer(serializers.ModelSerializer):
     class Meta:
         model = PickerDashboard
         fields = ('id', 'order_no', 'picker_status', 'order_create_date', 'delivery_location', 'picking_assigned_time',
-                  'picking_completed_time', 'moved_to_qc_at', 'qc_area', 'zone', 'picker_boy')
+                  'picking_completed_time', 'moved_to_qc_at', 'qc_area', 'zone', 'picker_boy', 'is_clickable')
 
 #
 # class RepackagingTypePicklistSerializer(serializers.ModelSerializer):
@@ -1656,7 +1656,7 @@ class PickerDashboardSerializer(serializers.ModelSerializer):
         model = PickerDashboard
         fields = ('id', 'order', 'repackaging', 'shipment', 'picking_status', 'picklist_id', 'picker_boy',
                   'pick_list_pdf', 'picker_assigned_date', 'zone', 'qc_area', 'is_valid', 'refreshed_at', 'created_at',
-                  'modified_at', 'completed_at', 'moved_to_qc_at', )
+                  'modified_at', 'completed_at', 'moved_to_qc_at', 'is_clickable')
 
     def validate(self, data):
         """Validates the PickerDashboard requests"""

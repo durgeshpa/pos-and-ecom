@@ -472,6 +472,7 @@ class TripForm(forms.ModelForm):
     trip_weight = forms.CharField(required=False, disabled=True)
     total_trip_amount_value = forms.CharField(required=False, disabled=True)
     selected_id = forms.CharField(widget=forms.HiddenInput(), required=False)
+    return_selected_id = forms.CharField(widget=forms.HiddenInput(), required=False)
     unselected_id = forms.CharField(widget=forms.HiddenInput(), required=False)
 
     class Meta:
@@ -592,10 +593,12 @@ class TripForm(forms.ModelForm):
         shipment_status_verify = ['FULLY_RETURNED_AND_VERIFIED', 'PARTIALLY_DELIVERED_AND_VERIFIED',
                                   'FULLY_DELIVERED_AND_VERIFIED', 'FULLY_DELIVERED_AND_COMPLETED']
 
-        if not data.get('selected_id'):
-            raise forms.ValidationError("Please select at least one shipment to create a trip.")
+        if not data.get('selected_id') and not data.get('return_selected_id'):
+            raise forms.ValidationError("Please select at least one shipment or one return to create a trip.")
 
-        shipment_ids = data.get('selected_id').split(',')
+        shipment_ids = data.get('selected_id', None)
+        if shipment_ids:
+            shipment_ids = shipment_ids.split(',')
         if self.instance and self.instance.trip_status == Trip.COMPLETED and data[
             'trip_status'] == Trip.RETURN_VERIFIED:
             shipment_list = Shipment.objects.filter(id__in=shipment_ids)
@@ -603,7 +606,7 @@ class TripForm(forms.ModelForm):
                 if shipment.shipment_status not in shipment_status_verify:
                     raise forms.ValidationError("Please Verify all shipments before closing the Trip")
 
-        if self.instance and self.instance.trip_status == Trip.READY:
+        if self.instance and self.instance.trip_status == Trip.READY and shipment_ids:
 
             cancelled_shipments = Shipment.objects.values('id', 'invoice__invoice_no'
                                                           ).filter(id__in=shipment_ids, shipment_status='CANCELLED')

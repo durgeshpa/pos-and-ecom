@@ -18,7 +18,7 @@ from .views import (ProductsList, SearchProducts, CartCentral, CartCheckout, Ord
                     DispatchTripsCrudView, ShipmentPackagingView, DispatchCenterShipmentView, TripSummaryView,
                     DispatchTripStatusChangeView, LoadVerifyPackageView, UnloadVerifyPackageView, LastMileTripCrudView,
                     LastMileTripShipmentsView, ShipmentCratesPackagingView, VerifyRescheduledShipmentPackagesView,
-                    ShipmentCompleteVerifyView, DispatchPackageStatusList, DispatchTripStatusList,
+                    ShipmentCompleteVerifyView, DispatchCenterReturnOrderView, DispatchTripStatusList,
                     ShipmentCompleteVerifyView, VerifyReturnShipmentProductsView, DispatchPackageStatusList,
                     ShipmentCratesValidatedView, LastMileTripStatusChangeView, ShipmentDetailsByCrateView,
                     ReschedulingReasonsListView, ReturnReasonsListView, ShipmentNotAttemptReasonsListView,
@@ -28,7 +28,10 @@ from .views import (ProductsList, SearchProducts, CartCentral, CartCheckout, Ord
                     DispatchCenterShipmentPackageView, LoadLastMileInvoiceView, LastMileTripSummaryView,
                     LastMileLoadVerifyPackageView, RemoveLastMileInvoiceFromTripView,
                     VerifyNotAttemptShipmentPackagesView, VerifyBackwardTripItems, BackwardTripQCView,
-                    VehicleDriverList, PosOrderUserSearchView, CurrentlyLoadingShipmentPackagesView)
+                    VehicleDriverList, PosOrderUserSearchView, CurrentlyLoadingShipmentPackagesView, 
+                    ReturnOrderCompleteVerifyView, LastMileTripReturnOrderView, ReturnOrderProductView, 
+                    GenerateBarcodes, VerifyReturnOrderProductsView, LoadVerifyReturnOrderView, UnloadVerifyReturnOrderView, 
+                    BackWardTripReturnOrderQCView)
 
 from retailer_backend.cron import sync_es_products_api
 router = routers.DefaultRouter()
@@ -104,6 +107,7 @@ urlpatterns = [
     url('^autosearch/suggest/$', AutoSuggest.as_view()),
     url(r'^ordered-product/$', OrderedProductViewSet.as_view()),
     url(r'^shipment-products/$', ShipmentProductView.as_view()),
+    url(r'^return-order-products/$', ReturnOrderProductView.as_view()),
     url(r'^process-shipment/$', ProcessShipmentView.as_view()),
     url(r'^shipment-status-list/$', ShipmentStatusList.as_view()),
     url('shipments/', ShipmentQCView.as_view()),
@@ -134,19 +138,24 @@ urlpatterns = [
         name='verify_return_shipment_products'),
     url('shipment-crates-validated/', ShipmentCratesValidatedView.as_view(), name='shipment_crates_validated'),
     url('shipment-complete-verification/', ShipmentCompleteVerifyView.as_view(), name='shipment_complete_verification'),
+    url('return-order-complete-verification/', ReturnOrderCompleteVerifyView.as_view(), name='return_order_complete_verification'),
     url('trip-summary/', TripSummaryView.as_view(), name='trip_summary'),
     url('trip-invoices/', DispatchCenterShipmentView.as_view()),
     url('trip-crates/', DispatchCenterCrateView.as_view()),
     url('trip-shipment-packages/', DispatchCenterShipmentPackageView.as_view()),
+    url('trip-return-orders/', DispatchCenterReturnOrderView.as_view()),
     url('trip-invoice-remove/', RemoveInvoiceFromTripView.as_view()),
     url('trip-load-empty-crate/', LoadVerifyCrateView.as_view()),
     url('trip-unload-empty-crate/', UnloadVerifyCrateView.as_view()),
     url('trip-load-shipment/', LoadVerifyPackageView.as_view()),
+    url('trip-load-return/', LoadVerifyReturnOrderView.as_view()),
+    url('trip-unload-return/', UnloadVerifyReturnOrderView.as_view()),
     url('trip-current-loading-shipment/', CurrentlyLoadingShipmentPackagesView.as_view()),
     url('trip-add-invoice/', LoadInvoiceView.as_view()),
     url('trip-unload-shipment/', UnloadVerifyPackageView.as_view()),
     url('last-mile-trips/', LastMileTripCrudView.as_view(), name='last_mile_trips'),
     url('last-mile-invoices/', LastMileTripShipmentsView.as_view(), name='last_mile_invoices'),
+    url('last-mile-returns/', LastMileTripReturnOrderView.as_view(), name='last_mile_returns'),
     url('last-mile-summary/', LastMileTripSummaryView.as_view(), name='last_mile_summary'),
     url('trip-last-mile-add-invoice/', LoadLastMileInvoiceView.as_view()),
     url('trip-last-mile-invoice-remove/', RemoveLastMileInvoiceFromTripView.as_view()),
@@ -164,7 +173,12 @@ urlpatterns = [
     url('shipment-package-products/', ShipmentPackageProductsView.as_view(), name='shipment_package_products'),
     url('bck-trip-verify-items/', VerifyBackwardTripItems.as_view()),
     url('bck-trip-qc-packages/', BackwardTripQCView.as_view()),
-    url('pos-user-search/', PosOrderUserSearchView.as_view(), name='pos-user-search')
+    url('pos-user-search/', PosOrderUserSearchView.as_view(), name='pos-user-search'),
+    # API to Generate Barcodes
+    url('generate-barcode/', GenerateBarcodes.as_view()),
+    url('verify-return-order-products/', VerifyReturnOrderProductsView.as_view(), name='verify_return_order_products'),
+    url('bck-trip-return-items/', BackWardTripReturnOrderQCView.as_view(), name='bck_trip_return_items')
+
 ]
 
 urlpatterns += router.urls

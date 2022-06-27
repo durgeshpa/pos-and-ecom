@@ -88,14 +88,18 @@ class ChoicesSerializer(serializers.ChoiceField):
         if obj == '' and self.allow_blank:
             return obj
         return {'id': obj, 'description': self._choices[obj]}
+class ChoicesValueSerializer(serializers.ChoiceField):
 
+    def to_representation(self, obj):
+        if obj == '' and self.allow_blank:
+            return obj
+        return  self._choices[obj]
 class CardItemSerializer(serializers.ModelSerializer):
     """Serializer for CardItem"""
     image = Base64ImageField(
         max_length=None, use_url=True,required=False, allow_null = True
     )
     item_content = serializers.SerializerMethodField()
-
     def get_item_content(self, obj):
         if not self.context.get('card', None):
             return obj.content
@@ -442,7 +446,7 @@ class PageCardDataSerializer(serializers.ModelSerializer):
 
             retailer_items = card_items.filter(retailer_product_exists=True)
             superstore_items = card_items.filter(superstore_product_exists=True)
-            items = check_inventory(retailer_items)
+            items = check_inventory(retailer_items, shop_id)
             items = items.union(superstore_items)
             return CardItemSerializer(items, many=True, context=self.context).data
         return CardItemSerializer(obj.items, many=True, context=self.context).data
@@ -455,6 +459,7 @@ class PageCardDataSerializer(serializers.ModelSerializer):
         data['card_name'] = card_version.card.name
         data['card_type'] = card_version.card.type
         data['card_sub_type'] = card_version.card.get_sub_type_display()
+        data['template'] = card_version.card_data.template.name
         data['image_data_type'] = card_version.card.get_image_data_type_display()
         return data
 
@@ -843,7 +848,7 @@ class LandingPageSerializer(serializers.ModelSerializer):
             sub_query = RetailerProduct.objects.filter(linked_product_id=OuterRef('product_id'), shop_id=shop_id,
                                                        is_deleted=False, online_enabled=True)
             items = check_inventory(obj.landing_page_products.annotate(retailer_product_exists=Exists(sub_query))
-                                                                   .filter(retailer_product_exists=True))
+                                                                   .filter(retailer_product_exists=True), shop_id)
         return LandingPageProductSerializer(items, many=True).data
 
     def get_page_action_url(self, obj):
