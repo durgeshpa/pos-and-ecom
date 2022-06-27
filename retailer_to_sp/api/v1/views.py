@@ -142,7 +142,8 @@ from .serializers import (ProductsSearchSerializer, CartSerializer, OrderSeriali
                           VerifyBackwardTripItemsSerializer, BackwardTripQCSerializer, PosOrderUserSearchSerializer,
                           SuperStoreOrderListSerializer, SuperStoreOrderDetailSerializer, LastMileTripReturnOrdersBasicDetailSerializer,
                           ReturnOrderTripProductSerializer, DispatchCenterReturnOrderSerializer, ReturnOrderProductSerializer,
-                          LoadVerifyReturnOrderSerializer, UnLoadVerifyReturnOrderSerializer, BackwardTripReturnItemsSerializer)
+                          LoadVerifyReturnOrderSerializer, UnLoadVerifyReturnOrderSerializer, BackwardTripReturnItemsSerializer,
+                          MarkReturnOrderItemVerifiedSerializer)
 
 from ...common_validators import validate_shipment_dispatch_item, validate_trip_user, \
     get_shipment_by_crate_id, get_shipment_by_shipment_label, validate_shipment_id, validate_trip_shipment, \
@@ -10276,7 +10277,8 @@ class VerifyReturnOrderProductsView(generics.GenericAPIView):
         try:
             return_order = ReturnOrder.objects.get(id=modified_data['id'])
             return_order_product_mapping = return_order.return_order_products.filter(product_id=modified_data['product']).last()
-            if int(modified_data['returned_qty']) > return_order_product_mapping.return_qty:
+            customer_return_order_product_mapping = return_order.ref_return_order.return_order_products.filter(product_id=modified_data['product']).last()
+            if int(modified_data['returned_qty']) > customer_return_order_product_mapping.return_qty:
                 return get_response('Quantity greater than requested return quantity not allowed.')
             return_order_product_mapping.return_qty = modified_data['returned_qty']
             return_order_product_mapping.damaged_qty = modified_data['damaged_qty']
@@ -12029,6 +12031,31 @@ class MarkShipmentPackageVerifiedView(generics.GenericAPIView):
         return self.queryset
 
 
+class MarkReturnOrderItemVerifiedView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    serializer_class = MarkReturnOrderItemVerifiedSerializer
+    queryset = DispatchTripReturnOrderMapping.objects.all()
+    
+    def put(self, request):
+        modified_data = validate_data_format(self.request)
+        if 'error' in modified_data:
+            return get_response(modified_data['error'])
+        if 'id' not in modified_data:
+            return get_response("'id' | This is required.", False)
+        
+        try:
+            trip_return_order_mapping = DispatchTripReturnOrderMapping.objects.get(id=modified_data['id'])
+            serializer = self.serializer_class(instance=trip_return_order_mapping, data=modified_data)
+            if serializer.is_valid():
+                serializer.save(updated_by=request.user)
+                info_logger.info("Return Order verified successfully.")
+                return get_response('Return Order verified!', serializer.data, True)
+            return get_response(serializer_error(serializer), False)
+        except DispatchTripReturnOrderMapping.DoesNotExist:
+            return get_response("Return Order Item Not found, Invalid ID")
+            
+        
 class ShipmentPackageProductsView(generics.GenericAPIView):
     """
        View to GET package products.
