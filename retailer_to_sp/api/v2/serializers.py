@@ -70,7 +70,7 @@ class GFReturnOrderProductSerializer(serializers.ModelSerializer):
     class Meta:
         model = ReturnOrder
         fields = ('id', 'return_no', 'shipment', 'return_type', 'return_status', 'return_order_products',
-                  'return_reason', 'seller_shop', 'buyer_shop', 'created_at', 'modified_at')
+                  'return_reason', 'seller_shop', 'buyer_shop', 'created_at', 'modified_at', 'buyer')
 
 
 
