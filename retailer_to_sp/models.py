@@ -2237,6 +2237,7 @@ class ReturnOrderProduct(models.Model):
         null=True, on_delete=models.DO_NOTHING
     )
     return_qty = models.PositiveIntegerField(default=0, verbose_name="Returned Quantity")
+    delivery_picked_quantity = models.PositiveIntegerField(default=0, verbose_name="Picked Quantity")
     return_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     return_shipment_barcode = models.CharField(max_length=255, null=True, blank=True)
     last_modified_by = models.ForeignKey(

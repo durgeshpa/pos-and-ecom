@@ -28,9 +28,9 @@ from .views import (ProductsList, SearchProducts, CartCentral, CartCheckout, Ord
                     DispatchCenterShipmentPackageView, LoadLastMileInvoiceView, LastMileTripSummaryView,
                     LastMileLoadVerifyPackageView, RemoveLastMileInvoiceFromTripView,
                     VerifyNotAttemptShipmentPackagesView, VerifyBackwardTripItems, BackwardTripQCView,
-                    VehicleDriverList, PosOrderUserSearchView, CurrentlyLoadingShipmentPackagesView, 
-                    ReturnOrderCompleteVerifyView, LastMileTripReturnOrderView, ReturnOrderProductView, 
-                    GenerateBarcodes)
+                    VehicleDriverList, PosOrderUserSearchView, CurrentlyLoadingShipmentPackagesView,
+                    ReturnOrderCompleteVerifyView, LastMileTripReturnOrderView, ReturnOrderProductView,
+                    GenerateBarcodes, LastMileTripDeliveryReturnOrderView)
 
 from retailer_backend.cron import sync_es_products_api
 router = routers.DefaultRouter()
@@ -172,6 +172,9 @@ urlpatterns = [
     url('pos-user-search/', PosOrderUserSearchView.as_view(), name='pos-user-search'),
     # API to Generate Barcodes
     url('generate-barcode/', GenerateBarcodes.as_view()),
+    # API to details of return items of a shop for delivery APP
+    url('last-mile-delivery-returns/', LastMileTripDeliveryReturnOrderView.as_view(), name='last_mile_delivery_returns'),
+    # API to update  return in the trip
 
 ]
 
