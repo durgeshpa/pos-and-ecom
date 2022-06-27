@@ -2238,11 +2238,8 @@ class ReturnOrderProduct(models.Model):
     )
     return_qty = models.PositiveIntegerField(default=0, verbose_name="Returned Quantity")
     delivery_picked_quantity = models.PositiveIntegerField(default=0, verbose_name="Picked Quantity")
-<<<<<<< HEAD
-=======
     expired_qty = models.PositiveIntegerField(default=0, verbose_name="Expired Quantity")
     damaged_qty = models.PositiveIntegerField(default=0, verbose_name="Damaged Quantity")
->>>>>>> qa4
     return_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     return_shipment_barcode = models.CharField(max_length=255, null=True, blank=True)
     is_return_verified = models.BooleanField(default=False)
