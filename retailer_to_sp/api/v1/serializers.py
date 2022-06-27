@@ -18,15 +18,8 @@ from products.models import (Product, ProductPrice, ProductImage, Tax, ProductTa
 from retailer_backend.utils import getStrToYearDate
 from retailer_to_sp.common_model_functions import ShopCrateCommonFunctions, OrderCommonFunction
 from retailer_to_sp.common_validators import validate_shipment_crates_list, validate_shipment_package_list
-<<<<<<< HEAD
-from retailer_to_sp.models import (CartProductMapping, Cart, Invoice, Order, OrderedProduct, Note, CustomerCare,
-                                   Payment,
-                                   Dispatch, Feedback, OrderedProductMapping as RetailerOrderedProductMapping, Return,
-                                   ReturnOrder, ReturnOrderProduct, Shipment,
-=======
 from retailer_to_sp.models import (CartProductMapping, Cart, Invoice, LastMileTripReturnMapping, Order, OrderedProduct, Note, CustomerCare, Payment,
                                    Dispatch, Feedback, OrderedProductMapping as RetailerOrderedProductMapping, Return, ReturnOrder, ReturnOrderProduct, Shipment,
->>>>>>> qa4
                                    Trip, PickerDashboard, ShipmentRescheduling, OrderedProductBatch, ShipmentPackaging,
                                    ShipmentPackagingMapping, DispatchTrip, DispatchTripShipmentMapping, DispatchTripReturnOrderMapping,
                                    DispatchTripShipmentPackages, ShipmentNotAttempt, PACKAGE_VERIFY_CHOICES,
@@ -1996,12 +1989,6 @@ class ShipmentProductSerializer(serializers.ModelSerializer):
 
 class ReturnOrderProductSerializer(serializers.ModelSerializer):
     product = ProductSerializer(read_only=True)
-<<<<<<< HEAD
-
-    class Meta:
-        model = ReturnOrderProduct
-        fields = '__all__'
-=======
     zone = serializers.SerializerMethodField()
     
     def get_zone(self, instance):
@@ -2010,12 +1997,11 @@ class ReturnOrderProductSerializer(serializers.ModelSerializer):
             warehouse=instance.return_order.seller_shop).last()
         return ShipmentPackageZoneSerializer(warehouse_assrt_ins.zone, read_only=True).data \
             if warehouse_assrt_ins else None
-            
+
     class Meta:
         model = ReturnOrderProduct
-        fields = ('id', 'product', 'return_qty', 'damaged_qty', 'zone',
+        fields = ('id', 'product', 'return_qty','delivery_picked_quantity', 'damaged_qty', 'zone',
                   'return_shipment_barcode', 'return_price')
->>>>>>> qa4
 
 
 class CustomerShipmentReturnOrderTripDetailSerializer(serializers.ModelSerializer):
@@ -2034,12 +2020,8 @@ class ReturnOrderTripProductSerializer(serializers.ModelSerializer):
     customer_return_order_product = serializers.SerializerMethodField()
     retailer_return_order_product = serializers.SerializerMethodField()
     customer_shipment_detail = serializers.SerializerMethodField()
-<<<<<<< HEAD
-
-=======
     trip_belongs_to = serializers.SerializerMethodField()
-    
->>>>>>> qa4
+
     def get_customer_shipment_detail(self, instance):
         return CustomerShipmentReturnOrderTripDetailSerializer(
             instance.ref_return_order.shipment \
@@ -2049,13 +2031,7 @@ class ReturnOrderTripProductSerializer(serializers.ModelSerializer):
 
     def get_customer_return_order_product(self, instance):
         return ReturnOrderProductSerializer(instance.ref_return_order.return_order_products.last()).data
-<<<<<<< HEAD
 
-    class Meta:
-        model = ReturnOrder
-        fields = ('id', 'return_no', 'return_challan_no', 'shipment', 'return_amount',
-=======
-    
     def get_retailer_return_order_product(self, instance):
         return ReturnOrderProductSerializer(instance.return_order_products.last()).data
     
@@ -2067,7 +2043,6 @@ class ReturnOrderTripProductSerializer(serializers.ModelSerializer):
         model = ReturnOrder
         fields = ('id', 'return_no', 'return_challan_no', 'shipment', 'return_amount', 
                   'trip_belongs_to', 'retailer_return_order_product',
->>>>>>> qa4
                   'customer_shipment_detail', 'customer_return_order_product')
 
 
@@ -4427,16 +4402,12 @@ class LastMileTripShipmentsSerializer(serializers.Serializer):
 
 class LastMileTripReturnOrdersBasicDetailSerializer(serializers.ModelSerializer):
     buyer_shop = ShopSerializer(read_only=True)
-<<<<<<< HEAD
-
-=======
     product_return_shipment_barcodes = serializers.SerializerMethodField()
     
     def get_product_return_shipment_barcodes(self, instance):
         return instance.return_order_products.filter(return_shipment_barcode__isnull=False)\
             .values_list('return_shipment_barcode', flat=True)
     
->>>>>>> qa4
     class Meta:
         model = ReturnOrder
         fields = ('id', 'shipment', 'return_no', 'buyer_shop', 'product_return_shipment_barcodes',
