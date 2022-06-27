@@ -142,7 +142,7 @@ from .serializers import (ProductsSearchSerializer, CartSerializer, OrderSeriali
                           VerifyBackwardTripItemsSerializer, BackwardTripQCSerializer, PosOrderUserSearchSerializer,
                           SuperStoreOrderListSerializer, SuperStoreOrderDetailSerializer, LastMileTripReturnOrdersBasicDetailSerializer,
                           ReturnOrderTripProductSerializer, DispatchCenterReturnOrderSerializer, ReturnOrderProductSerializer,
-                          LoadVerifyReturnOrderSerializer, UnLoadVerifyReturnOrderSerializer)
+                          LoadVerifyReturnOrderSerializer, UnLoadVerifyReturnOrderSerializer, BackwardTripReturnItemsSerializer)
 
 from ...common_validators import validate_shipment_dispatch_item, validate_trip_user, \
     get_shipment_by_crate_id, get_shipment_by_shipment_label, validate_shipment_id, validate_trip_shipment, \
@@ -11921,6 +11921,49 @@ class PackagesUnderTripView(generics.GenericAPIView):
         return self.queryset.distinct('id', 'packaging_type')
 
 
+class BackWardTripReturnOrderQCView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    serializer_class = BackwardTripReturnItemsSerializer
+    
+    def get(self, request):
+        validated_request = self.validate_request()
+        if 'error' in validated_request:
+            return get_response(validated_request['error'])
+        if not request.GET.get('trip_id'):
+            return get_response("'trip_id' | This is mandatory")
+        if not request.GET.get('is_return_verified'):
+            return get_response("'is_return_verified' | This is mandatory")
+        validated_trip = validate_trip(request.GET.get('trip_id'), request.GET.get('trip_type'))
+        return_items = self.filter_packaging_items(validated_trip['data'])
+        return_items = SmallOffsetPagination().paginate_queryset(return_items, request)
+        serializer = self.serializer_class(return_items, many=True)
+        msg = "" if return_items else "no return items found"
+        return get_response(msg, serializer.data, True)
+        
+    def validate_request(self):
+        try:
+            if self.request.GET.get('is_return_verified') and \
+                    int(self.request.GET.get('is_return_verified')) not in [0, 1]:
+                raise
+        except:
+            return {'error': "'is_return_verified' | Invalid value. Only 0 or 1 is allowed."}
+        return {'request': self.request}
+
+
+    def filter_return_items(self, trip_instance):
+        is_return_verified = self.request.GET.get('is_return_verified')
+        is_return_verified = int(is_return_verified)
+        if is_return_verified == 1:
+            disptach_trip_return_itens = trip_instance.return_order_details\
+                .filter(return_order_status__in=[DispatchTripReturnOrderMapping.VERIFIED])
+        else:
+            disptach_trip_return_itens = trip_instance.return_order_details\
+                .filter(return_order_status__in=[DispatchTripReturnOrderMapping.UNLOADED, 
+                                                    DispatchTripReturnOrderMapping.PARTIALLY_VERIFIED])
+        return disptach_trip_return_itens
+
+                
 class MarkShipmentPackageVerifiedView(generics.GenericAPIView):
     """
        View to mark shipment package verify

@@ -1974,10 +1974,18 @@ class ShipmentProductSerializer(serializers.ModelSerializer):
 
 class ReturnOrderProductSerializer(serializers.ModelSerializer):
     product = ProductSerializer(read_only=True)
+    zone = serializers.SerializerMethodField()
     
+    def get_zone(self, instance):
+        warehouse_assrt_ins = WarehouseAssortment.objects.filter(
+            product=instance.product.parent_product,
+            warehouse=instance.return_order.seller_shop).last()
+        return ShipmentPackageZoneSerializer(warehouse_assrt_ins.zone, read_only=True).data \
+            if warehouse_assrt_ins else None
+            
     class Meta:
         model = ReturnOrderProduct
-        fields = ('id', 'product', 'return_qty', 'damaged_qty' , 
+        fields = ('id', 'product', 'return_qty', 'damaged_qty', 'zone',
                   'return_shipment_barcode', 'return_price')
 
 
@@ -1995,6 +2003,7 @@ class CustomerShipmentReturnOrderTripDetailSerializer(serializers.ModelSerialize
 class ReturnOrderTripProductSerializer(serializers.ModelSerializer):
     # shipment = ShipmentProductSerializer(read_only=True)
     customer_return_order_product = serializers.SerializerMethodField()
+    retailer_return_order_product = serializers.SerializerMethodField()
     customer_shipment_detail = serializers.SerializerMethodField()
     trip_belongs_to = serializers.SerializerMethodField()
     
@@ -2008,6 +2017,9 @@ class ReturnOrderTripProductSerializer(serializers.ModelSerializer):
     def get_customer_return_order_product(self, instance):
         return ReturnOrderProductSerializer(instance.ref_return_order.return_order_products.last()).data
     
+    def get_retailer_return_order_product(self, instance):
+        return ReturnOrderProductSerializer(instance.return_order_products.last()).data
+    
     def get_trip_belongs_to(self, instance):
         return instance.last_mile_trip_returns.exclude(shipment_status=LastMileTripReturnMapping.CANCELLED)\
             .last().trip.source_shop.shop_type.shop_type
@@ -2015,7 +2027,7 @@ class ReturnOrderTripProductSerializer(serializers.ModelSerializer):
     class Meta:
         model = ReturnOrder
         fields = ('id', 'return_no', 'return_challan_no', 'shipment', 'return_amount', 
-                  'trip_belongs_to',
+                  'trip_belongs_to', 'retailer_return_order_product',
                   'customer_shipment_detail', 'customer_return_order_product')
 
 
@@ -5012,6 +5024,28 @@ class PackagesUnderTripSerializer(serializers.ModelSerializer):
         model = ShipmentPackaging
         fields = ('id', 'shipment', 'packaging_type', 'crate', 'status', 'reason_for_rejection', 'packaging_details',
                   'trip_loading_status')
+
+
+class BackwardTripReturnOrderMetaSerializer(serializers.ModelSerializer):
+    return_products = serializers.SerializerMethodField()
+    
+    def get_return_products(self, instance):
+        return ReturnOrderProductSerializer(instance.return_order_products.all(), many=True).data
+    
+    class Meta:
+        model = ReturnOrder
+        fields = ('id', 'return_no', 'return_type', 
+                  'return_status', 'return_challan_no', 'return_products')
+
+
+class BackwardTripReturnItemsSerializer(serializers.ModelSerializer):
+    trip = DispatchTripSerializers(read_only=True)
+    return_order = BackwardTripReturnOrderMetaSerializer(read_only=True)
+    return_order_status = ChoicesSerializer(choices=DispatchTripReturnOrderMapping.RETURN_ORDER_STATUS, required=False)
+    
+    class Meta:
+        model = DispatchTripReturnOrderMapping
+        fields = ('id', 'trip', 'return_order', 'return_order_status')
 
 
 class ShipmentPackagingBatchInfoSerializer(serializers.ModelSerializer):
