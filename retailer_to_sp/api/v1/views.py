@@ -12752,7 +12752,8 @@ class GenerateBarcodes(generics.GenericAPIView):
             available_barcodes = Barcode.objects.filter(generator__barcode_type=barcode_type, is_available=True)[
                                  :batch_size]
         barcode_list = list(available_barcodes.values_list('barcode_no', flat=True))
-        available_barcodes.update(is_available=False)
+        Barcode.objects.filter(id__in=available_barcodes.values_list('id', flat=True)).update(is_available=False)
+        # available_barcodes.update(is_available=False)
         barcode_dict = {b: {"qty": 1, "data": None} for b in barcode_list}
         return merged_barcode_gen(barcode_dict, 'admin/retailer_to_sp/barcode.html')
 
