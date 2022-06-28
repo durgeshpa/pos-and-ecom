@@ -1,8 +1,11 @@
 from django.core.validators import RegexValidator
 from rest_framework import serializers
 
-from retailer_to_sp.models import Order, CustomerCare, ReturnOrder, ReturnOrderProduct, ReturnOrderProductImage
-from retailer_to_sp.api.v1.serializers import ProductSerializer, ShopSerializer
+from retailer_to_sp.models import Order, CustomerCare, ReturnInvoice, ReturnOrder, ReturnOrderProduct, ReturnOrderProductImage
+from retailer_to_sp.api.v1.serializers import ProductSerializer, ShopRouteBasicSerializers
+from addresses.models import ShopRoute
+from shops.models import Shop
+from accounts.api.v1.serializers import PosShopUserSerializer
 
 class OrderNumberSerializer(serializers.ModelSerializer):
 
@@ -41,16 +44,67 @@ class ReturnOrderGFProductSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 
+class ShopSerializer(serializers.ModelSerializer):
+    owner_number = serializers.SerializerMethodField()
+    def get_owner_number(self, instance):
+        return instance.shop_owner.phone_number 
+    
+    class Meta:
+        model = Shop
+        fields = ('id', 'shop_name', 'owner_number')
+
+
 class GFReturnOrderProductSerializer(serializers.ModelSerializer):
     return_order_products = serializers.SerializerMethodField()
     seller_shop = ShopSerializer(read_only=True)
     buyer_shop = ShopSerializer(read_only=True)
+    buyer = serializers.SerializerMethodField()
+    retailer_order_no = serializers.SerializerMethodField()
+    customer_order_no = serializers.SerializerMethodField()
+    return_reason = serializers.SerializerMethodField()
+    
+    def get_retailer_order_no(self, instance):
+        return instance.shipment.order.order_no
+    
+    def get_customer_order_no(self, instance):
+        return instance.ref_return_order.shipment.order.order_no
     
     def get_return_order_products(self, instance):
-        print(ReturnOrderProduct.objects.last().return_order.id)
         return ReturnOrderGFProductSerializer(instance.return_order_products.all(), many=True).data
+    
+    def get_buyer(self, instance):
+        buyer = instance.ref_return_order.buyer
+        return PosShopUserSerializer(buyer).data
+    
+    def get_return_reason(self, instance):
+        customer_return_order = instance.ref_return_order
+        if customer_return_order.return_reason == ReturnOrder.OTHER:
+            return customer_return_order.other_return_reason
+        return customer_return_order.return_reason
     
     class Meta:
         model = ReturnOrder
-        fields = ('id', 'return_no', 'shipment', 'return_type', 'return_status', 'return_order_products',
-                  'return_reason', 'seller_shop', 'buyer_shop', 'created_at', 'modified_at')
+        fields = ('id', 'return_no', 'shipment', 'return_type', 
+                  'return_status', 'return_order_products', 'retailer_order_no', 
+                  'customer_order_no', 'return_reason', 'seller_shop', 
+                  'buyer_shop', 'created_at', 'modified_at', 'buyer')
+
+
+
+class ReturnChallanSerializer(serializers.ModelSerializer):
+
+    no_of_challan = serializers.IntegerField()
+    warehouse=serializers.SerializerMethodField()
+    buyer_shop__shop_routes = serializers.SerializerMethodField()
+
+    def get_buyer_shop__shop_routes(self,obj):
+        shop_route = ShopRoute.objects.get(id=obj["buyer_shop__shop_routes"])
+        return ShopRouteBasicSerializers(shop_route, read_only=True).data
+
+    def get_warehouse(self,obj):
+        shop = Shop.objects.get(id=obj["warehouse"])
+        return ShopSerializer(shop,read_only=True).data
+
+    class Meta:
+        model = ReturnOrder
+        fields = ('buyer_shop__shop_routes', 'no_of_challan', 'warehouse')
