@@ -2432,8 +2432,39 @@ class CartCheckout(APIView):
             return self.delete_pos_offer(request, *args, **kwargs)
         elif app_type == '3':
             return self.delete_ecom_offer(request, *args, **kwargs)
+        elif app_type == '4':
+            return self.delete_super_store_offer(request, *args, **kwargs)
         else:
             return api_response('Please provide a valid app_type')
+
+
+    @check_ecom_user_shop
+    def delete_super_store_offer(self, request, *args, **kwargs):
+        """
+            Checkout
+            Delete any applied cart offers
+        """
+        try:
+            cart = Cart.objects.filter(cart_type='SUPERSTORE',
+                                       buyer=self.request.user,
+                                       seller_shop=kwargs['shop'],
+                                       cart_status='active').last()
+        except ObjectDoesNotExist:
+            return api_response("No items added in cart yet")
+        RewardCls.checkout_redeem_points(cart, 0,shop=kwargs['shop'], app_type="SUPERSTORE", use_all=self.request.GET.get('use_rewards', 1))
+        cart_products = cart.rt_cart_list.all()
+        cart_value = 0
+        for product_map in cart_products:
+            cart_value += product_map.selling_price * product_map.qty
+        with transaction.atomic():
+            offers_list = BasicCartOffers.update_cart_offer(cart.offers, cart_value)
+            cart.offers = offers_list
+            cart.save()
+            return api_response("Removed Offer From Cart Successfully", self.serialize(cart, None,
+                                                                                       request.META.get('HTTP_APP_TYPE',
+                                                                                                        '1')),
+                                status.HTTP_200_OK, True)
+
 
     @check_pos_shop
     def delete_pos_offer(self, request, *args, **kwargs):
