@@ -886,7 +886,7 @@ class BasicCartOffers(object):
             'coupon_description': coupon['coupon_code'],
             'coupon_name': coupon['coupon_name'] if 'coupon_name' in coupon else '',
             'cart_minimum_value': coupon['cart_minimum_value'],
-            'free_item_id': coupon['free_product'],
+            'free_item_id':  free_product.id if free_product else  coupon['free_product'],
             'free_item_qty': coupon['free_product_qty'],
             'free_item_name': free_product.name,
             'free_item_mrp': float(free_product.mrp)
