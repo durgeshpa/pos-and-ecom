@@ -10963,29 +10963,22 @@ class DispatchCenterReturnOrderView(generics.GenericAPIView):
 
     def search_filter_return_order_data(self):
         shop = self.request.GET.get('shop')
-        trip_id = self.request.GET.get('trip_id')
-        # availability = int(self.request.GET.get('availability'))
+        trip_id = self.request.GET.get('trip_id', None)
+        availability = int(self.request.GET.get('availability'))
         self.queryset = self.queryset.filter(return_status='DC_ACCEPTED')
 
         if shop:
-            self.queryset = self.queryset.filter(seller_shop_id=shop)
-        if trip_id:
-            self.queryset = self.queryset.filter(last_mile_trip_returns__trip_id=trip_id)
+            self.queryset = self.queryset.filter(dc_location_id=shop)
 
-        # if availability:
-        #     try:
-        #         availability = int(availability)
-        #         if availability == INVOICE_AVAILABILITY_CHOICES.ADDED:
-        #             self.queryset = self.queryset.filter(Q(last_mile_trip_returns__trip_id=trip_id))
-        #         elif availability == INVOICE_AVAILABILITY_CHOICES.NOT_ADDED:
-        #             self.queryset = self.queryset.filter(status='PACKED',
-        #                                                  shipment__shipment_status__in=[
-        #                                                      OrderedProduct.FULLY_RETURNED_AND_VERIFIED,
-        #                                                      OrderedProduct.PARTIALLY_DELIVERED_AND_VERIFIED,
-        #                                                      OrderedProduct.FULLY_RETURNED_AND_CLOSED,
-        #                                                      OrderedProduct.PARTIALLY_DELIVERED_AND_CLOSED])
-        #     except:
-        #         pass
+        if availability:
+            try:
+                availability = int(availability)
+                if availability == INVOICE_AVAILABILITY_CHOICES.ADDED:
+                    self.queryset = self.queryset.filter(trip_return_order__trip_id=trip_id)
+                elif availability == INVOICE_AVAILABILITY_CHOICES.NOT_ADDED:
+                    self.queryset = self.queryset.exclude(trip_return_order__trip_id=trip_id)
+            except:
+                pass
         return self.queryset.distinct('id')
 
 
