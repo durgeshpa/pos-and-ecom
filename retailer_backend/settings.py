@@ -190,6 +190,7 @@ MIDDLEWARE += [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'accounts.middlewares.RequestMiddleware',
+    # 'accounts.middlewares.AuthenticationMiddleware',
     'drf_api_logger.middleware.api_logger_middleware.APILoggerMiddleware',
 ]
 # if ENVIRONMENT.lower() in ["production", "qa"]:
@@ -696,3 +697,6 @@ DRF_API_LOGGER_TIMEDELTA = 330
 # SILKY_MAX_RESPONSE_BODY_SIZE = 1024  # If response body>1024 bytes, ignore
 # SILKY_META = True
 # SILKY_ANALYZE_QUERIES = False
+
+
+

@@ -18,7 +18,6 @@ from pos.models import ShopCustomerMap
 from global_config.views import get_config, get_config_fofo_shop
 from global_config.models import GlobalConfig
 
-
 from ecom.utils import (check_ecom_user, nearby_shops, validate_address_id, check_ecom_user_shop,
                         get_categories_with_products, get_b2c_categories_with_products)
 from ecom.models import Address, Tag, ShopUserLocationMappedLog
@@ -26,7 +25,8 @@ from shops.models import Shop
 from .serializers import (AccountSerializer, RewardsSerializer, TagSerializer, UserLocationSerializer, ShopSerializer,
                           AddressSerializer, CategorySerializer, B2cCategorySerializer, SubCategorySerializer,
                           B2cSubCategorySerializer, TagProductSerializer, Parent_Product_Serilizer,
-                          ShopInfoSerializer, PastPurchasedProductSerializer, ReferAndEarnSerializer, RetailerProductSerializer)
+                          ShopInfoSerializer, PastPurchasedProductSerializer, ReferAndEarnSerializer,
+                          RetailerProductSerializer)
 
 from pos.api.v1.serializers import ContectUs
 
@@ -68,7 +68,7 @@ class RewardsView(APIView):
         serializer = self.serializer_class(RewardPoint.objects.filter(reward_user=self.request.user).
                                            select_related('reward_user').last())
         data = serializer.data
-        data['redeemable_discount'] = round((data.get('redeemable_points', 0)*percentage_value)/100)
+        data['redeemable_discount'] = round((data.get('redeemable_points', 0) * percentage_value) / 100)
         return api_response("", data, status.HTTP_200_OK, True)
 
 
@@ -218,22 +218,17 @@ class SuperStoreCategoriesView(APIView):
     permission_classes = (IsAuthenticated,)
     authentication_classes = (TokenAuthentication,)
     serializer_class = CategorySerializer
-    
+
     @check_ecom_user
     def get(self, *args, **kwargs):
-        active_categories = Category.objects\
-            .filter(category_parent=None, 
+        active_categories = Category.objects \
+            .filter(category_parent=None,
                     category_type='superstore',
                     cat_parent__status=True,
-                    status=True)\
-                        .prefetch_related(Prefetch('cat_parent',\
-                            queryset=Category.objects.filter(status=True, 
-                                                            category_type='superstore').annotate(
-                                parent_product=Count('parent_category_pro_category',
-                                                     )
-                            ).filter(parent_product__gt = 0)))\
-                        .annotate(cat_order=F('category_view_order__order_no'))\
-                            .order_by('cat_order', 'id').distinct('id', 'cat_order')
+                    status=True).order_by('category_order').distinct('category_order').prefetch_related(Prefetch('cat_parent',
+                                       queryset=Category.objects.filter(status=True,
+                                                                        category_type='superstore')
+            .order_by('category_order',).distinct('category_order')))
         serializer = self.serializer_class(active_categories, many=True)
         is_success = True if active_categories else False
         return api_response('', serializer.data, status.HTTP_200_OK, is_success)
@@ -243,18 +238,18 @@ class SuperStoreSubCategoriesView(APIView):
     permission_classes = (IsAuthenticated,)
     authentication_classes = (TokenAuthentication,)
     serializer_class = SubCategorySerializer
-    
+
     @check_ecom_user
     def get(self, *args, **kwargs):
         try:
             category_id = self.request.query_params.get('category_id')
             category = Category.objects.get(id=category_id)
             sub_categories = category.cat_parent.filter(status=True,
-                                                        category_type='superstore')\
-                                                            .annotate(cat_order=Count('parent_category_pro_category__product', 
-                                                                                      distinct=True, 
-                                                                                      filter=Q(parent_category_pro_category__status=True)))\
-                                                                .order_by('-cat_order')
+                                                        category_type='superstore') \
+                .annotate(cat_order=Count('parent_category_pro_category__product',
+                                          distinct=True,
+                                          filter=Q(parent_category_pro_category__status=True))) \
+                .order_by('-cat_order')
             is_success = True if sub_categories else False
             serializer = self.serializer_class(sub_categories, many=True)
             return api_response('', serializer.data, status.HTTP_200_OK, is_success)
@@ -272,8 +267,8 @@ class SubCategoriesView(APIView):
         categories_with_products = get_categories_with_products(kwargs['shop'])
         category = Category.objects.get(pk=self.request.GET.get('category_id'))
         # print(category.__dict__)
-        sub_categories = category.cat_parent.filter(status=True, 
-                                                    id__in=categories_with_products, 
+        sub_categories = category.cat_parent.filter(status=True,
+                                                    id__in=categories_with_products,
                                                     category_type='grocery')
         serializer = self.serializer_class(sub_categories, many=True)
         is_success = True if sub_categories else False
@@ -316,7 +311,7 @@ class B2cSubCategoriesView(APIView):
         categories_with_products = get_b2c_categories_with_products(kwargs['shop'])
         category = B2cCategory.objects.get(pk=self.request.GET.get('category_id'))
         # print(category.__dict__)
-        sub_categories = category.b2c_cat_parent.filter(status=True, 
+        sub_categories = category.b2c_cat_parent.filter(status=True,
                                                         id__in=categories_with_products)
         serializer = self.serializer_class(sub_categories, many=True)
         is_success = True if sub_categories else False
@@ -353,7 +348,8 @@ class TagProductView(APIView):
         except:
             return api_response('Invalid Tag Id')
         shop = kwargs['shop']
-        products = RetailerProduct.objects.filter(product_tag_ecom__tag=tag, shop=shop, is_deleted=False, online_enabled=True)
+        products = RetailerProduct.objects.filter(product_tag_ecom__tag=tag, shop=shop, is_deleted=False,
+                                                  online_enabled=True)
         is_success, data = False, []
         if products.count() >= 3:
             products = self.pagination_class().paginate_queryset(products, self.request)
@@ -401,6 +397,7 @@ class UserShopView(APIView):
 
 class Contect_Us(APIView):
     authentication_classes = (TokenAuthentication,)
+
     def get(self, request, format=None):
         phone_no = "999-010-5700"
         obj = GlobalConfig.objects.filter(key='contect_us_ecom_phone').last()
@@ -411,10 +408,11 @@ class Contect_Us(APIView):
         if obj:
             email = obj.value
 
-        data = {'phone_number': phone_no,'email' : email}
+        data = {'phone_number': phone_no, 'email': email}
         serializer = ContectUs(data=data)
         if serializer.is_valid():
-            return api_response('contct us details',serializer.data,status.HTTP_200_OK, True)
+            return api_response('contct us details', serializer.data, status.HTTP_200_OK, True)
+
 
 class ParentProductDetails(APIView):
     """
@@ -423,13 +421,15 @@ class ParentProductDetails(APIView):
 
     authentication_classes = (TokenAuthentication,)
     serializer_class = Parent_Product_Serilizer
+
     @check_ecom_user_shop
     def get(self, request, pk, *args, **kwargs):
         '''get retailer product details ....'''
         shop = kwargs['shop']
         serializer = RetailerProduct.objects.filter(id=pk, shop=shop, is_deleted=False, online_enabled=True)
         serializer = self.serializer_class(serializer, many=True)
-        return api_response('products information',serializer.data,status.HTTP_200_OK, True)
+        return api_response('products information', serializer.data, status.HTTP_200_OK, True)
+
 
 class PastPurchasedProducts(APIView):
     """
@@ -447,7 +447,8 @@ class PastPurchasedProducts(APIView):
         '''
         shop = kwargs['shop']
         products = RetailerProduct.objects.filter(products_sold__user=request.user, products_sold__shop=shop,
-                                                  is_deleted=False, online_enabled=True,).order_by('-products_sold__id')
+                                                  is_deleted=False, online_enabled=True, ).order_by(
+            '-products_sold__id')
         count = products.count()
         products = self.pagination_class().paginate_queryset(products, self.request)
         serializer = RetailerProductSerializer(products, many=True)
@@ -470,7 +471,8 @@ class ProductFunctionView(APIView):
         except:
             return api_response('Invalid Tag Id')
         shop = kwargs['shop']
-        products = RetailerProduct.objects.filter(product_tag_ecom__tag=tag, shop=shop, is_deleted=False, online_enabled=True)
+        products = RetailerProduct.objects.filter(product_tag_ecom__tag=tag, shop=shop, is_deleted=False,
+                                                  online_enabled=True)
         is_success, data = False, []
         if products.count() >= 3:
             products = self.pagination_class().paginate_queryset(products, self.request)
@@ -478,3 +480,30 @@ class ProductFunctionView(APIView):
             serializer = RetailerProductSerializer(products, many=True)
             is_success, data = True, serializer.data
         return api_response('Tag Found', data, status.HTTP_200_OK, is_success)
+
+
+class CustomProductFunctionView(APIView):
+    """
+    Get Product by identifier and not stored in tag table
+    """
+    permission_classes = (IsAuthenticated,)
+    authentication_classes = (TokenAuthentication,)
+    pagination_class = SmallOffsetPagination
+
+    @check_ecom_user_shop
+    def get(self, request, identifier, *args, **kwargs):
+        shop = kwargs['shop']
+        if identifier == "private_label":
+            private_label_parent_brand = ['Navshree', 'Gramfactory']
+            products = RetailerProduct.objects.filter(
+                shop=shop, is_deleted=False,
+                online_enabled=True,
+                linked_product__parent_product__parent_brand__brand_parent__brand_name__in=private_label_parent_brand, )
+            is_success, data = False, []
+            if products.count() >= 3:
+                products = self.pagination_class().paginate_queryset(products, self.request)
+                serializer = RetailerProductSerializer(products, many=True)
+                is_success, data = True, serializer.data
+            return api_response('Product Found', data, status.HTTP_200_OK, is_success)
+        else:
+            return api_response('invalid identifier')

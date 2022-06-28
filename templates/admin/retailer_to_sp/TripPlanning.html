@@ -39,12 +39,19 @@
                         {{ field.widget.attrs.id }}
                         {% endfor %}
                      </fieldset>
-                     <div class="js-inline-admin-formset inline-group"
+                     <div>
+                        <span>
+                           <input type="button" id="show_invoices" value="Invoices">
+                           <input type="button" id="show_returns" value="Returns">
+                        </span>
+                     </div>
+                     <div id="invoices_table" class="js-inline-admin-formset inline-group"
                         data-inline-type="tabular"
                         data-inline-formset="{&quot;name&quot;: &quot;#rt_order_product_order_product_mapping&quot;, &quot;options&quot;: {&quot;prefix&quot;: &quot;rt_order_product_order_product_mapping&quot;, &quot;addText&quot;: &quot;Add another Ordered product mapping&quot;, &quot;deleteText&quot;: &quot;Remove&quot;}}">
                         <div class="tabular inline-related last-related">
                            <div>
-                              <span>Total Invoices Added : </span><span id="total_invoices"></span>
+                              <span>Total Invoices Added : </span><span class="total_invoices">0</span>
+                              <span> | Total Returns Added : </span><span class="total_returns">0</span>
                            </div>
                            <fieldset id="inline" class="module ">
                            <table id="formset" class="form">
@@ -63,6 +70,36 @@
 
                                  </tr>
                                  <tr id="loading">
+                                    <th>Loading...</th>
+                                 </tr>
+                               </thead>
+                              </tbody>
+                           </table>
+                        </div>
+                     </div>
+                     <div id="returns_table" class="js-inline-admin-formset inline-group" style="display:none;"
+                        data-inline-type="tabular"
+                        data-inline-formset="{&quot;name&quot;: &quot;#rt_order_product_order_product_mapping&quot;, &quot;options&quot;: {&quot;prefix&quot;: &quot;rt_order_product_order_product_mapping&quot;, &quot;addText&quot;: &quot;Add another Ordered product mapping&quot;, &quot;deleteText&quot;: &quot;Remove&quot;}}">
+                        <div class="tabular inline-related last-related">
+                           <div>
+                              <span>Total Invoices Added : </span><span class="total_invoices">0</span>
+                              <span> | Total Returns Added : </span><span class="total_returns">0</span>
+                           </div>
+                           <fieldset id="retuns_inline" class="module ">
+                           <table id="formset" class="form">
+                              <tbody id="returns_data">
+                              <thead>
+                                 <tr id="returns_heading">
+                                    <th>Select</th>
+                                    <th>Return No.</th>
+                                    <th>Return Amount</th>
+                                    <th>Return Status</th>
+                                    <th>Return City</th>
+                                    <th>Return Date</th>
+                                    <th>Order</th>
+                                    <th>Return Address</th>
+                                 </tr>
+                                 <tr id="returns_loading">
                                     <th>Loading...</th>
                                  </tr>
                                </thead>

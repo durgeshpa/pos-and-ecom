@@ -41,7 +41,7 @@ class RewardPointForm(forms.ModelForm):
     phone = forms.CharField(required=False, label="Phone Number", widget=forms.TextInput(attrs={'readonly': True}))
     name = forms.CharField(required=False, label='Customer Name', widget=forms.TextInput(attrs={'readonly': True}))
     email = forms.CharField(required=False, label='Email ID', widget=forms.TextInput(attrs={'readonly': True}))
-    redeemable_reward_points = forms.IntegerField(required=False, label='Redeemable Reward Points',
+    redeemable_reward_points = forms.IntegerField(required=False, label='Redeemable Pep coins',
                                                   widget=forms.TextInput(attrs={'readonly': True}))
     maximum_available_discount = forms.CharField(required=False, label='Maximum Available Discount (INR)',
                                                  widget=forms.TextInput(attrs={'readonly': True}))
