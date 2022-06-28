@@ -10965,7 +10965,7 @@ class DispatchCenterReturnOrderView(generics.GenericAPIView):
         self.queryset = self.queryset.filter(return_status='DC_ACCEPTED')
 
         if shop:
-            self.queryset = self.queryset.filter(qc_location_id=shop)
+            self.queryset = self.queryset.filter(dc_location_id=shop)
 
         if availability:
             try:
