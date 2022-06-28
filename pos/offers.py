@@ -156,7 +156,7 @@ class BasicCartOffers(object):
             if product_map.product_type == 1 and product_map.retailer_product:
                 coupon = offers_mapping[
                     product_map.retailer_product.id] if product_map.retailer_product.id in offers_mapping else offers_mapping[
-                    product_map.retailer_product.linked_product.id] if product_map.retailer_product.linked_product.id in  offers_mapping else {}
+                    product_map.retailer_product.linked_product.id] if product_map.retailer_product.linked_product and product_map.retailer_product.linked_product.id in  offers_mapping else {}
                 # Add/remove/update combo on a product
                 offers_list = BasicCartOffers.basic_combo_offers(float(product_map.qty), float(product_map.selling_price),
                                                                  product_map.retailer_product.id, coupon, offers_list)
@@ -357,7 +357,7 @@ class BasicCartOffers(object):
             'coupon_description': coupon['coupon_code'],
             'coupon_name': coupon['coupon_name'] if 'coupon_name' in coupon else '',
             'item_id': coupon['purchased_product'] if coupon['purchased_product'] else coupon['parent_purchased_product'],
-            'is_admin': coupon['is_admin'],
+            'is_admin': coupon.get('is_admin', False),
             'product_subtotal': product_total,
             'discounted_product_subtotal': product_total
         }
