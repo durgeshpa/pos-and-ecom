@@ -145,7 +145,8 @@ from .serializers import (ProductsSearchSerializer, CartSerializer, OrderSeriali
                           SuperStoreOrderListSerializer, SuperStoreOrderDetailSerializer, LastMileTripReturnOrdersBasicDetailSerializer,
                           ReturnOrderTripProductSerializer, DispatchCenterReturnOrderSerializer, ReturnOrderProductSerializer,
                           LoadVerifyReturnOrderSerializer, UnLoadVerifyReturnOrderSerializer, BackwardTripReturnItemsSerializer,
-                          MarkReturnOrderItemVerifiedSerializer,DeliveryReturnOrderSerializer,ShopExecutiveUserSerializer)
+                          MarkReturnOrderItemVerifiedSerializer,DeliveryReturnOrderSerializer,ShopExecutiveUserSerializer, 
+                          LastMileTripSerializers)
 
 from ...common_validators import validate_shipment_dispatch_item, validate_trip_user, \
     get_shipment_by_crate_id, get_shipment_by_shipment_label, validate_shipment_id, validate_trip_shipment, \
@@ -3633,8 +3634,9 @@ class OrderCentral(APIView):
                 if return_pickup_method == ReturnOrder.DROP_AT_STORE:
                     address = shipment.order.seller_shop.shop_name_address_mapping.filter(
                         address_type='shipping').last()
-                    address = f"{address.address_line1}, {address.city}, {address.state} - {address.pincode}"
-                    return_item_drop(shipment.order.buyer.first_name, shipment.order.buyer.phone_number, address)
+                    address = f"{address.address_line1}, {address.pincode}"
+                    shop_name = shipment.order.seller_shop.shop_name
+                    return_item_drop(shipment.order.buyer.first_name, shipment.order.buyer.phone_number, address, shop_name)
                 else:
                     return_item_home_pickup(shipment.order.buyer.first_name, shipment.order.buyer.phone_number)
                 shipment.is_returned = True
@@ -10480,6 +10482,7 @@ class ReturnOrderCompleteVerifyView(generics.GenericAPIView):
                 # call putaway generation func
             else:
                 return_order.return_status = ReturnOrder.DC_ACCEPTED
+                return_order.qc_location = trip.source_shop
             return_order.save()
             return get_response('return order updated successfully', None, True)
         except ReturnOrder.DoesNotExist:
@@ -11783,9 +11786,14 @@ class LastMileTripReturnOrderView(generics.GenericAPIView):
                 shipment__order__dispatch_center=source_shop
             ).distinct('id')
         returns_data = SmallOffsetPagination().paginate_queryset(returns, request)
-        serializer = self.serializer_class(returns_data, many=True)
+        return_serializer = self.serializer_class(returns_data, many=True)
+        trip_serializer = LastMileTripSerializers(trip)
+        data = {
+            'trip': trip_serializer.data,
+            'returns': return_serializer.data
+        }
         msg = "" if returns_data else "no returns found"
-        return get_response(msg, serializer.data, True)
+        return get_response(msg, data, True)
 
     def validate_get_request(self):
         try:

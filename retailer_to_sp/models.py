@@ -2191,6 +2191,10 @@ class ReturnOrder(models.Model):
         max_length=50, choices=RETURN_PICKUP_METHOD,
         null=True, blank=True, verbose_name='Method for Product pick up'
     )
+    dc_location = models.ForeignKey(
+        Shop, related_name='dc_location_return_orders',
+        null=True, blank=True, on_delete=models.DO_NOTHING
+    )
     other_return_reason = models.CharField(
         max_length=100, null=True, blank=True, 
         verbose_name='Verbose return reason'
