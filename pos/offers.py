@@ -119,7 +119,7 @@ class BasicCartOffers(object):
             flag , total_ammount = cls.get_category_exists_in_cart(cart_products, coupon_category, cart.cart_type)
             if not flag:
                return  cls.return_cart_without_apply_coupon()
-            if coupon.rule.cart_qualifying_min_sku_value <total_ammount:
+            if coupon.rule.cart_qualifying_min_sku_value >total_ammount:
                 return cls.return_cart_without_apply_coupon()
             limit_of_usages_per_customer = coupon.limit_of_usages_per_customer
             count = cls.get_offer_applied_count(cart.buyer, coupon_id, coupon.expiry_date, coupon.start_date)
