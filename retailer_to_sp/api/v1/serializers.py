@@ -4167,6 +4167,10 @@ class LastMileTripCrudSerializers(serializers.ModelSerializer):
     source_shop = ShopSerializer(read_only=True)
     delivery_boy = UserSerializers(read_only=True)
     weight = serializers.SerializerMethodField()
+    total_trip_returns = serializers.SerializerMethodField()
+    
+    def get_total_trip_returns(self, instance):
+        return instance.total_trip_returns
 
     # last_mile_trip_shipments_details = LastMileTripShipmentMappingListSerializers(read_only=True, many=True)
 
@@ -4178,7 +4182,8 @@ class LastMileTripCrudSerializers(serializers.ModelSerializer):
         fields = ('id', 'trip_id', 'seller_shop', 'source_shop', 'dispatch_no', 'vehicle_no', 'delivery_boy',
                   'e_way_bill_no', 'trip_status', 'starts_at', 'completed_at', 'opening_kms', 'closing_kms',
                   'no_of_crates', 'no_of_packets', 'no_of_sacks', 'no_of_crates_check', 'no_of_packets_check',
-                  'no_of_sacks_check', 'trip_amount', 'no_of_shipments', 'weight', 'created_at', 'modified_at')
+                  'no_of_sacks_check', 'trip_amount', 'no_of_shipments', 'total_trip_returns' ,'weight', 
+                  'created_at', 'modified_at')
 
     def validate(self, data):
 
