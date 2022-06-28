@@ -10357,7 +10357,7 @@ class VerifyReturnOrderProductsView(generics.GenericAPIView):
         try:
             return_order = ReturnOrder.objects.get(id=modified_data['id'])
             return_order_product_mapping = return_order.return_order_products.filter(product_id=modified_data['product']).last()
-            if int(modified_data['returned_qty']) > return_order_product_mapping.delivery_picked_quantity:
+            if int(modified_data['returned_qty']) + int(modified_data['damaged_qty']) > return_order_product_mapping.delivery_picked_quantity:
                 return get_response('Quantity greater than requested return quantity not allowed.')
             return_order_product_mapping.verified_return_quantity = modified_data['returned_qty']
             return_order_product_mapping.damaged_qty = modified_data['damaged_qty']
@@ -10482,7 +10482,7 @@ class ReturnOrderCompleteVerifyView(generics.GenericAPIView):
                 # call putaway generation func
             else:
                 return_order.return_status = ReturnOrder.DC_ACCEPTED
-                return_order.qc_location = trip.source_shop
+                return_order.dc_location = trip.source_shop
             return_order.save()
             return get_response('return order updated successfully', None, True)
         except ReturnOrder.DoesNotExist:

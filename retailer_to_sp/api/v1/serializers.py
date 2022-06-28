@@ -2001,8 +2001,8 @@ class ReturnOrderProductSerializer(serializers.ModelSerializer):
     class Meta:
         model = ReturnOrderProduct
         fields = ('id', 'product', 'return_qty', 'delivery_picked_quantity', 
-                  'damaged_qty', 'zone', 'verified_return_quantity', 
-                  'is_return_verified', 'is_bck_return_verified',
+                  'damaged_qty', 'zone', 'verified_return_quantity', 'damaged_qty',
+                  'is_return_verified', 'is_bck_return_verified', 'expired_qty',
                   'return_shipment_barcode', 'return_price')
 
 
