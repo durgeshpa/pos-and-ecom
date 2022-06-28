@@ -6,7 +6,7 @@ from retailer_to_sp.models import Cart, Order
 from django.db.models import Q
 from coupon.models import Coupon
 from pos.models import RetailerProduct
-from products.models import Product
+from products.models import Product, ParentProductCategory
 from shops.models import Shop
 from retailer_backend.settings import ELASTICSEARCH_PREFIX as es_prefix, es
 
@@ -69,8 +69,11 @@ class BasicCartOffers(object):
 
                 catogery = product.cart_product.parent_product.parent_product_pro_category.prefetch_related('category')
                 for c in catogery:
-                    if c.category_name in coupon_category:
-                        return True
+                    try:
+                        if c.category.category_name in coupon_category:
+                            return True
+                    except :
+                        pass
             else:
                 catogery = product.retailer_product.linked_product.parent_product.parent_product_pro_category.prefetch_related('category')
                 for c in catogery:
