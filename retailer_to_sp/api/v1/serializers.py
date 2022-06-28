@@ -4297,6 +4297,8 @@ class LastMileTripCrudSerializers(serializers.ModelSerializer):
                                 OrderedProduct.RESCHEDULED, OrderedProduct.NOT_ATTEMPT]).exists():
                         raise serializers.ValidationError("The trip can not return verified until and unless all "
                                                           "shipment packages get verified.")
+                    
+                    # if trip_instance.last_mile_trip_returns_details.filter(return_order__)
             else:
                 raise serializers.ValidationError("'trip_status' | This is mandatory")
 
