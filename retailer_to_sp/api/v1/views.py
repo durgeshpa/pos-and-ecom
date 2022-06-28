@@ -10386,21 +10386,25 @@ class VerifyReturnOrderProductsView(generics.GenericAPIView):
         try:
             return_order = ReturnOrder.objects.get(id=modified_data['id'])
             return_order_product_mapping = return_order.return_order_products.filter(product_id=modified_data['product']).last()
-            customer_return_order_product_mapping = return_order.ref_return_order.return_order_products.filter(product_id=modified_data['product']).last()
-            if int(modified_data['returned_qty']) > customer_return_order_product_mapping.return_qty:
+            if int(modified_data['returned_qty']) > return_order_product_mapping.delivery_picked_quantity:
                 return get_response('Quantity greater than requested return quantity not allowed.')
-            return_order_product_mapping.return_qty = modified_data['returned_qty']
+            return_order_product_mapping.verified_return_quantity = modified_data['returned_qty']
             return_order_product_mapping.damaged_qty = modified_data['damaged_qty']
-            return_order_product_mapping.is_return_verified = True
+            if modified_data.get('verify_type', 'ltm') == 'bck':
+                return_order_product_mapping.is_bck_return_verified = True
+            else:
+                return_order_product_mapping.is_return_verified = True
             return_order_product_mapping.save()
             self.create_update_return_order_product_batch(return_order_product_mapping, 
                                                    modified_data['returned_qty'], 
-                                                   modified_data['damaged_qty'])
+                                                   modified_data['damaged_qty'], 
+                                                   return_order)
             return get_response('Return Order successfully updated.', None, True)
         except ReturnOrder.DoesNotExist:
             return get_response('Return Order not Found.')
             
-    def create_update_return_order_product_batch(self, return_order_product_mapping, return_qty, damaged_qty):
+    def create_update_return_order_product_batch(self, return_order_product_mapping, 
+                                                 return_qty, damaged_qty, return_order):
         return_batch, _ = ReturnProductBatch.objects.get_or_create(
             return_product = return_order_product_mapping
         )

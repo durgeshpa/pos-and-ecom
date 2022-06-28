@@ -2000,7 +2000,9 @@ class ReturnOrderProductSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ReturnOrderProduct
-        fields = ('id', 'product', 'return_qty','delivery_picked_quantity', 'damaged_qty', 'zone',
+        fields = ('id', 'product', 'return_qty', 'delivery_picked_quantity', 
+                  'damaged_qty', 'zone', 'verified_return_quantity', 
+                  'is_return_verified', 'is_bck_return_verified',
                   'return_shipment_barcode', 'return_price')
 
 
@@ -2017,7 +2019,7 @@ class CustomerShipmentReturnOrderTripDetailSerializer(serializers.ModelSerialize
 
 class ReturnOrderTripProductSerializer(serializers.ModelSerializer):
     # shipment = ShipmentProductSerializer(read_only=True)
-    customer_return_order_product = serializers.SerializerMethodField()
+    # customer_return_order_product = serializers.SerializerMethodField()
     retailer_return_order_product = serializers.SerializerMethodField()
     customer_shipment_detail = serializers.SerializerMethodField()
     trip_belongs_to = serializers.SerializerMethodField()
@@ -2029,8 +2031,8 @@ class ReturnOrderTripProductSerializer(serializers.ModelSerializer):
                 .rt_order_product_order_product_mapping.last()
         ).data
 
-    def get_customer_return_order_product(self, instance):
-        return ReturnOrderProductSerializer(instance.ref_return_order.return_order_products.last()).data
+    # def get_customer_return_order_product(self, instance):
+    #     return ReturnOrderProductSerializer(instance.ref_return_order.return_order_products.last()).data
 
     def get_retailer_return_order_product(self, instance):
         return ReturnOrderProductSerializer(instance.return_order_products.last()).data
@@ -2042,8 +2044,8 @@ class ReturnOrderTripProductSerializer(serializers.ModelSerializer):
     class Meta:
         model = ReturnOrder
         fields = ('id', 'return_no', 'return_challan_no', 'shipment', 'return_amount', 
-                  'trip_belongs_to', 'retailer_return_order_product',
-                  'customer_shipment_detail', 'customer_return_order_product')
+                  'trip_belongs_to', 'retailer_return_order_product', 'return_status',
+                  'customer_shipment_detail')
 
 
 class AddressSerializer(serializers.ModelSerializer):
@@ -4418,6 +4420,7 @@ class DeliveryReturnOrderSerializer(serializers.ModelSerializer):
     buyer_shop = SellerShopSerializer(read_only=True)
     seller_shop = SellerShopSerializer(read_only=True)
     return_order_products = ReturnOrderProductSerializer(many=True, read_only=True)
+    
     class Meta:
         model = ReturnOrder
         fields = ('id', 'return_no', 'buyer_shop','seller_shop' ,
