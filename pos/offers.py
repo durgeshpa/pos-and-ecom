@@ -6,7 +6,7 @@ from retailer_to_sp.models import Cart, Order
 from django.db.models import Q
 from coupon.models import Coupon
 from pos.models import RetailerProduct
-from products.models import Product
+from products.models import Product, ParentProductCategory
 from shops.models import Shop
 from retailer_backend.settings import ELASTICSEARCH_PREFIX as es_prefix, es
 
@@ -63,20 +63,27 @@ class BasicCartOffers(object):
     def get_category_exists_in_cart(cls, cart_products, coupon_category=[], cart_type=None):
         """get category product add in cart """
         if not coupon_category:
-            return True
+            return True, 0
+        total_ammount = 0
         for product in cart_products:
             if cart_type == 'SUPERSTORE':
 
                 catogery = product.cart_product.parent_product.parent_product_pro_category.prefetch_related('category')
                 for c in catogery:
-                    if c.category_name in coupon_category:
-                        return True
+                    try:
+                        if c.category.category_name in coupon_category:
+                            total_ammount += round(float(product.qty) * float(product.selling_price), 2)
+                    except :
+                        pass
             else:
-                catogery = product.retailer_product.linked_product.parent_product.parent_product_pro_category.prefetch_related('category')
-                for c in catogery:
-                    if c.category.category_name in coupon_category:
-                        return True
-        return False
+                try:
+                    catogery = product.retailer_product.linked_product.parent_product.parent_product_pro_category.prefetch_related('category')
+                    for c in catogery:
+                        if c.category.category_name in coupon_category:
+                            total_ammount += round(float(product.qty) * float(product.selling_price),2)
+                except:
+                    pass
+        return (True, total_ammount) if  total_ammount>0 else (False, total_ammount)
 
     @classmethod
     def get_order_count(cls, cart_type, buyer):
@@ -107,11 +114,13 @@ class BasicCartOffers(object):
             order_count = 0
             if coupon.froms and coupon.to:
                 order_count = cls.get_order_count(cart.cart_type, cart.buyer)
-            if order_count >= 0 and (order_count < coupon.froms or order_count > coupon.to):
+            if order_count >= 0 and (coupon.froms  > order_count > coupon.to):
                 return cls.return_cart_without_apply_coupon()
-            flag = cls.get_category_exists_in_cart(cart_products, coupon_category, cart.cart_type)
+            flag , total_ammount = cls.get_category_exists_in_cart(cart_products, coupon_category, cart.cart_type)
             if not flag:
                return  cls.return_cart_without_apply_coupon()
+            if  coupon_category and coupon.rule.cart_qualifying_min_sku_value >total_ammount:
+                return cls.return_cart_without_apply_coupon()
             limit_of_usages_per_customer = coupon.limit_of_usages_per_customer
             count = cls.get_offer_applied_count(cart.buyer, coupon_id, coupon.expiry_date, coupon.start_date)
             if limit_of_usages_per_customer and count >= limit_of_usages_per_customer:
