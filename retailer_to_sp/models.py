@@ -509,7 +509,7 @@ class Cart(models.Model):
                 next_index = 1
             if i > 1:
                 next_cart_coupon_min_value = cart_coupon_list[i - next_index].rule.cart_qualifying_min_sku_value
-                next_cart_coupon_min_value_diff = round(next_cart_coupon_min_value - cart_value + discount_value_cart,
+                next_cart_coupon_min_value_diff = round(next_cart_coupon_min_value - cart_value + float(discount_value_cart),
                                                         2)
                 next_cart_coupon_discount = cart_coupon_list[i - next_index].rule.discount.discount_value if \
                     cart_coupon_list[i - next_index].rule.discount.is_percentage == False else (
