@@ -6146,7 +6146,7 @@ class ReturnOrderTripListSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ReturnOrder
-        fields = ('id', 'return_challan_no', 'return_amount',
+        fields = ('id', 'return_challan_no', 'return_amount', 'return_no',
                   'return_status', 'created_at', 'shop_name',
                   'order_no', 'return_address')
 
