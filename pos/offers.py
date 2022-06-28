@@ -60,15 +60,22 @@ class BasicCartOffers(object):
         return count
 
     @classmethod
-    def get_category_exists_in_cart(cls, cart_products, coupon_category=[]):
+    def get_category_exists_in_cart(cls, cart_products, coupon_category=[], cart_type=None):
         """get category product add in cart """
         if not coupon_category:
             return True
         for product in cart_products:
-            catogery = product.cart_product.parent_product.parent_product_pro_category.prefetch_related('category')
-            for c in catogery:
-                if c.category_name in coupon_category:
-                    return True
+            if cart_type == 'SUPERSTORE':
+
+                catogery = product.cart_product.parent_product.parent_product_pro_category.prefetch_related('category')
+                for c in catogery:
+                    if c.category_name in coupon_category:
+                        return True
+            else:
+                catogery = product.retailer_product.linked_product.parent_product.parent_product_pro_category.prefetch_related('category')
+                for c in catogery:
+                    if c.category.category_name in coupon_category:
+                        return True
         return False
 
     @classmethod
@@ -102,7 +109,7 @@ class BasicCartOffers(object):
                 order_count = cls.get_order_count(cart.cart_type, cart.buyer)
             if order_count >= 0 and (order_count < coupon.froms or order_count > coupon.to):
                 return cls.return_cart_without_apply_coupon()
-            flag = cls.get_category_exists_in_cart(cart_products, coupon_category)
+            flag = cls.get_category_exists_in_cart(cart_products, coupon_category, cart.cart_type)
             if not flag:
                return  cls.return_cart_without_apply_coupon()
             limit_of_usages_per_customer = coupon.limit_of_usages_per_customer
