@@ -6179,10 +6179,18 @@ class DispatchCenterReturnOrderSerializer(serializers.ModelSerializer):
         return None
 
     def get_loading_status(self, instance):
-        return instance.trip_return_order.last().return_order_status
+        res = instance.trip_return_order.last()
+        if res:
+            return res.return_order_status
+        else:
+            return None
 
     def get_barcode_no(self, instance):
-        return instance.return_order_products.last().return_shipment_barcode
+        res = instance.return_order_products.last()
+        if res:
+            return res.return_shipment_barcode
+        else:
+            return None
 
     class Meta:
         model = ReturnOrder
