@@ -29,9 +29,10 @@ from .views import (ProductsList, SearchProducts, CartCentral, CartCheckout, Ord
                     LastMileLoadVerifyPackageView, RemoveLastMileInvoiceFromTripView,
                     VerifyNotAttemptShipmentPackagesView, VerifyBackwardTripItems, BackwardTripQCView,
                     VehicleDriverList, PosOrderUserSearchView, CurrentlyLoadingShipmentPackagesView,
-                    ReturnOrderCompleteVerifyView, LastMileTripReturnOrderView, ReturnOrderProductView, 
-                    GenerateBarcodes, LastMileTripDeliveryReturnOrderView, VerifyReturnOrderProductsView, LoadVerifyReturnOrderView, UnloadVerifyReturnOrderView,
-                    BackWardTripReturnOrderQCView, MarkReturnOrderItemVerifiedView)
+                    ReturnOrderCompleteVerifyView, LastMileTripReturnOrderView, ReturnOrderProductView,
+                    GenerateBarcodes, LastMileTripDeliveryReturnOrderView, VerifyReturnOrderProductsView,
+                    LoadVerifyReturnOrderView, UnloadVerifyReturnOrderView,
+                    BackWardTripReturnOrderQCView, MarkReturnOrderItemVerifiedView, ReturnRejection)
 
 from retailer_backend.cron import sync_es_products_api
 router = routers.DefaultRouter()
@@ -178,6 +179,9 @@ urlpatterns = [
     url('generate-barcode/', GenerateBarcodes.as_view()),
     # API to details of return items of a shop for delivery APP
     url('last-mile-delivery-returns/', LastMileTripDeliveryReturnOrderView.as_view(), name='last_mile_delivery_returns'),
+    # API to reject return items of a shop from delivery APP
+    url('reject-returns/', ReturnRejection.as_view(), name='reject_returns'),
+
     # API to update  return in the trip
     url('verify-return-order-products/', VerifyReturnOrderProductsView.as_view(), name='verify_return_order_products'),
     url('bck-trip-return-items/', BackWardTripReturnOrderQCView.as_view(), name='bck_trip_return_items'),
