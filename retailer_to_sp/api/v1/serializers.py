@@ -41,7 +41,7 @@ from addresses.api.v1.serializers import AddressSerializer
 from coupon.serializers import CouponSerializer
 from wms.api.v2.serializers import QCDeskSerializer, QCAreaSerializer
 from wms.common_functions import release_picking_crates, send_update_to_qcdesk, get_expiry_date, create_in, \
-    create_putaway
+    create_putaway, return_putaway
 from wms.models import Crate, WarehouseAssortment, Zone, InventoryType
 from ecom.models import Address as UserAddress
 from pos.api.v1.serializers import PaymentSerializer
@@ -5290,7 +5290,7 @@ class MarkReturnOrderItemVerifiedSerializer(serializers.ModelSerializer):
     def change_return_status_and_putaway_generation(self, trip_return_mapping):
         trip_return_mapping.return_order.return_status = ReturnOrder.WH_ACCEPTED
         trip_return_mapping.save()
-        ## call putaway generation
+        return_putaway(trip_return_mapping.return_order)
 
     class Meta:
         model = DispatchTripReturnOrderMapping
