@@ -3668,7 +3668,6 @@ class OrderCentral(APIView):
                 if return_pickup_method == ReturnOrder.DROP_AT_STORE:
                     address = shipment.order.seller_shop.shop_name_address_mapping.filter(
                         address_type='shipping').last()
-                    address = f"{address.address_line1}, {address.pincode}"
                     shop_name = shipment.order.seller_shop.shop_name
                     return_item_drop(shipment.order.buyer.first_name, shipment.order.buyer.phone_number, address, shop_name)
                 else:
