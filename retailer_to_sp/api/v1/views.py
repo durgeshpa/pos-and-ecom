@@ -1366,7 +1366,7 @@ class CartCentral(GenericAPIView):
             for offer in offers_list:
                 coupon_id = offer.get('coupon_id')
                 if coupon_id:
-                    coupon = Coupon.objects.get(id=coupon_id)
+                    coupon = Coupon.objects.filter(id=coupon_id).last()
                     limit_of_usages_per_customer = coupon.limit_of_usages_per_customer
                     count = self.get_offer_applied_count_free_type(cart.buyer, coupon_id, coupon.expiry_date,
                                                                    coupon.start_date)
@@ -1419,7 +1419,7 @@ class CartCentral(GenericAPIView):
             for offer in offers_list:
                 coupon_id = offer.get('coupon_id')
                 if coupon_id:
-                    coupon = Coupon.objects.get(id=coupon_id)
+                    coupon = Coupon.objects.filter(id=coupon_id).last()
                     limit_of_usages_per_customer = coupon.limit_of_usages_per_customer
                     count = self.get_offer_applied_count_free_type(cart.buyer, coupon_id, coupon.expiry_date,
                                                                    coupon.start_date)

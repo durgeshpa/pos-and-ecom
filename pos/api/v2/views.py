@@ -453,7 +453,7 @@ class AdminOffers(GenericAPIView):
 
     @staticmethod
     def get_offer(coupon_id):
-        coupon = ParentProductCouponGetSerializer(Coupon.objects.get(id=coupon_id)).data
+        coupon = ParentProductCouponGetSerializer(Coupon.objects.filter(id=coupon_id).last()).data
         coupon.update(coupon['details'])
         coupon.pop('details')
         return api_response("Offers", coupon, status.HTTP_200_OK, True)
@@ -513,6 +513,9 @@ class AdminOffers(GenericAPIView):
             coupon = OffersCls.rule_set_cart_mapping(coupon_obj.id, 'cart', data['coupon_name'], coupon_code, shop,
                                                      start_date, expiry_date, data.get('limit_of_usages_per_customer', None))
             data['id'] = coupon.id
+            if data.get('coupon_type_name') == 'superstore':
+                data.update['coupon_enable_on'] = 'superstore'
+
             coupon.coupon_enable_on = data.get('coupon_enable_on') if data.get('coupon_enable_on') else 'all'
             coupon.coupon_shop_type = data.get('coupon_shop_type') if data.get('coupon_shop_type') else coupon.coupon_shop_type
             data['coupon_enable_on'] = coupon.coupon_enable_on
