@@ -136,10 +136,16 @@ class UserLocationSerializer(serializers.Serializer):
 class ShopSerializer(serializers.ModelSerializer):
     shipping_address = serializers.SerializerMethodField()
     shop_config = serializers.SerializerMethodField()
+    shipping_pincode = serializers.SerializerMethodField()
 
     @staticmethod
     def get_shipping_address(obj):
         return obj.shipping_address
+
+    @staticmethod
+    def get_shipping_pincode(obj):
+        return obj.shop_name_address_mapping.filter(
+                address_type='shipping').last().pincode_link.pincode
 
     @staticmethod
     def get_shop_config(obj):
@@ -168,7 +174,8 @@ class ShopSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Shop
-        fields = ('id', 'shop_name', 'online_inventory_enabled', 'superstore_enable', 'shipping_address','shop_config')
+        fields = ('id', 'shop_name', 'online_inventory_enabled', 'superstore_enable',
+                  'shipping_address', 'shipping_pincode', 'shop_config')
 
 
 class AddressSerializer(serializers.ModelSerializer):
