@@ -3635,9 +3635,12 @@ class OrderCentral(APIView):
                 if shipment.is_returned:
                     return api_response('A return has already been requested for the product.')
                 pos_trip = shipment.pos_trips.filter(trip_type='SUPERSTORE').last()
-                return_period_offset = get_config('superstore_order_return_buffer', 72)
-                return_window = pos_trip.trip_end_at + timedelta(hours=return_period_offset)
-                if return_window < datetime.now():
+                if pos_trip:
+                    return_period_offset = get_config('superstore_order_return_buffer', 72)
+                    return_window = pos_trip.trip_end_at + timedelta(hours=return_period_offset)
+                    if return_window < datetime.now():
+                        return api_response("Return window is over you cannot return the item now.")
+                else:
                     return api_response("Return window is over you cannot return the item now.")
                 return_reason = request.data.get('return_reason')
                 if not return_reason:
@@ -3665,7 +3668,6 @@ class OrderCentral(APIView):
                 if return_pickup_method == ReturnOrder.DROP_AT_STORE:
                     address = shipment.order.seller_shop.shop_name_address_mapping.filter(
                         address_type='shipping').last()
-                    address = f"{address.address_line1}, {address.pincode}"
                     shop_name = shipment.order.seller_shop.shop_name
                     return_item_drop(shipment.order.buyer.first_name, shipment.order.buyer.phone_number, address, shop_name)
                 else:
