@@ -2000,7 +2000,9 @@ class ReturnOrderProductSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ReturnOrderProduct
-        fields = ('id', 'product', 'return_qty','delivery_picked_quantity', 'damaged_qty', 'zone',
+        fields = ('id', 'product', 'return_qty', 'delivery_picked_quantity', 
+                  'damaged_qty', 'zone', 'verified_return_quantity', 'damaged_qty',
+                  'is_return_verified', 'is_bck_return_verified', 'expired_qty',
                   'return_shipment_barcode', 'return_price')
 
 
@@ -2017,7 +2019,7 @@ class CustomerShipmentReturnOrderTripDetailSerializer(serializers.ModelSerialize
 
 class ReturnOrderTripProductSerializer(serializers.ModelSerializer):
     # shipment = ShipmentProductSerializer(read_only=True)
-    customer_return_order_product = serializers.SerializerMethodField()
+    # customer_return_order_product = serializers.SerializerMethodField()
     retailer_return_order_product = serializers.SerializerMethodField()
     customer_shipment_detail = serializers.SerializerMethodField()
     trip_belongs_to = serializers.SerializerMethodField()
@@ -2029,8 +2031,8 @@ class ReturnOrderTripProductSerializer(serializers.ModelSerializer):
                 .rt_order_product_order_product_mapping.last()
         ).data
 
-    def get_customer_return_order_product(self, instance):
-        return ReturnOrderProductSerializer(instance.ref_return_order.return_order_products.last()).data
+    # def get_customer_return_order_product(self, instance):
+    #     return ReturnOrderProductSerializer(instance.ref_return_order.return_order_products.last()).data
 
     def get_retailer_return_order_product(self, instance):
         return ReturnOrderProductSerializer(instance.return_order_products.last()).data
@@ -2044,6 +2046,7 @@ class ReturnOrderTripProductSerializer(serializers.ModelSerializer):
         fields = ('id', 'return_no', 'return_challan_no', 'shipment', 'return_amount',
                   'trip_belongs_to', 'retailer_return_order_product',
                   'customer_shipment_detail', 'customer_return_order_product')
+
 
 
 class AddressSerializer(serializers.ModelSerializer):
@@ -4165,6 +4168,10 @@ class LastMileTripCrudSerializers(serializers.ModelSerializer):
     source_shop = ShopSerializer(read_only=True)
     delivery_boy = UserSerializers(read_only=True)
     weight = serializers.SerializerMethodField()
+    total_trip_returns = serializers.SerializerMethodField()
+    
+    def get_total_trip_returns(self, instance):
+        return instance.total_trip_returns
 
     # last_mile_trip_shipments_details = LastMileTripShipmentMappingListSerializers(read_only=True, many=True)
 
@@ -4176,7 +4183,8 @@ class LastMileTripCrudSerializers(serializers.ModelSerializer):
         fields = ('id', 'trip_id', 'seller_shop', 'source_shop', 'dispatch_no', 'vehicle_no', 'delivery_boy',
                   'e_way_bill_no', 'trip_status', 'starts_at', 'completed_at', 'opening_kms', 'closing_kms',
                   'no_of_crates', 'no_of_packets', 'no_of_sacks', 'no_of_crates_check', 'no_of_packets_check',
-                  'no_of_sacks_check', 'trip_amount', 'no_of_shipments', 'weight', 'created_at', 'modified_at')
+                  'no_of_sacks_check', 'trip_amount', 'no_of_shipments', 'total_trip_returns' ,'weight', 
+                  'created_at', 'modified_at')
 
     def validate(self, data):
 
@@ -4290,6 +4298,8 @@ class LastMileTripCrudSerializers(serializers.ModelSerializer):
                                 OrderedProduct.RESCHEDULED, OrderedProduct.NOT_ATTEMPT]).exists():
                         raise serializers.ValidationError("The trip can not return verified until and unless all "
                                                           "shipment packages get verified.")
+                    
+                    # if trip_instance.last_mile_trip_returns_details.filter(return_order__)
             else:
                 raise serializers.ValidationError("'trip_status' | This is mandatory")
 
@@ -4418,6 +4428,7 @@ class DeliveryReturnOrderSerializer(serializers.ModelSerializer):
     buyer_shop = SellerShopSerializer(read_only=True)
     seller_shop = SellerShopSerializer(read_only=True)
     return_order_products = ReturnOrderProductSerializer(many=True, read_only=True)
+    
     class Meta:
         model = ReturnOrder
         fields = ('id', 'return_no', 'buyer_shop','seller_shop' ,
@@ -6179,10 +6190,18 @@ class DispatchCenterReturnOrderSerializer(serializers.ModelSerializer):
         return None
 
     def get_loading_status(self, instance):
-        return instance.trip_return_order.last().return_order_status
+        res = instance.trip_return_order.last()
+        if res:
+            return res.return_order_status
+        else:
+            return None
 
     def get_barcode_no(self, instance):
-        return instance.return_order_products.last().return_shipment_barcode
+        res = instance.return_order_products.last()
+        if res:
+            return res.return_shipment_barcode
+        else:
+            return None
 
     class Meta:
         model = ReturnOrder

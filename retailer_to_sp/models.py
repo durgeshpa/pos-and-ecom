@@ -509,7 +509,7 @@ class Cart(models.Model):
                 next_index = 1
             if i > 1:
                 next_cart_coupon_min_value = cart_coupon_list[i - next_index].rule.cart_qualifying_min_sku_value
-                next_cart_coupon_min_value_diff = round(next_cart_coupon_min_value - cart_value + discount_value_cart,
+                next_cart_coupon_min_value_diff = round(next_cart_coupon_min_value - cart_value + float(discount_value_cart),
                                                         2)
                 next_cart_coupon_discount = cart_coupon_list[i - next_index].rule.discount.discount_value if \
                     cart_coupon_list[i - next_index].rule.discount.is_percentage == False else (
@@ -2191,6 +2191,10 @@ class ReturnOrder(models.Model):
         max_length=50, choices=RETURN_PICKUP_METHOD,
         null=True, blank=True, verbose_name='Method for Product pick up'
     )
+    dc_location = models.ForeignKey(
+        Shop, related_name='dc_location_return_orders',
+        null=True, blank=True, on_delete=models.DO_NOTHING
+    )
     other_return_reason = models.CharField(
         max_length=100, null=True, blank=True, 
         verbose_name='Verbose return reason'
@@ -2238,11 +2242,13 @@ class ReturnOrderProduct(models.Model):
     )
     return_qty = models.PositiveIntegerField(default=0, verbose_name="Returned Quantity")
     delivery_picked_quantity = models.PositiveIntegerField(default=0, verbose_name="Picked Quantity")
+    verified_return_quantity = models.PositiveIntegerField(default=0, verbose_name="Verified Return Quantity")
     expired_qty = models.PositiveIntegerField(default=0, verbose_name="Expired Quantity")
     damaged_qty = models.PositiveIntegerField(default=0, verbose_name="Damaged Quantity")
     return_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     return_shipment_barcode = models.CharField(max_length=255, null=True, blank=True)
     is_return_verified = models.BooleanField(default=False)
+    is_bck_return_verified = models.BooleanField(default=False)
     last_modified_by = models.ForeignKey(
         get_user_model(), related_name='modified_by_return_orders',
         null=True, on_delete=models.DO_NOTHING

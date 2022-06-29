@@ -145,7 +145,8 @@ from .serializers import (ProductsSearchSerializer, CartSerializer, OrderSeriali
                           SuperStoreOrderListSerializer, SuperStoreOrderDetailSerializer, LastMileTripReturnOrdersBasicDetailSerializer,
                           ReturnOrderTripProductSerializer, DispatchCenterReturnOrderSerializer, ReturnOrderProductSerializer,
                           LoadVerifyReturnOrderSerializer, UnLoadVerifyReturnOrderSerializer, BackwardTripReturnItemsSerializer,
-                          MarkReturnOrderItemVerifiedSerializer,DeliveryReturnOrderSerializer,ShopExecutiveUserSerializer)
+                          MarkReturnOrderItemVerifiedSerializer,DeliveryReturnOrderSerializer,ShopExecutiveUserSerializer, 
+                          LastMileTripSerializers)
 
 from ...common_validators import validate_shipment_dispatch_item, validate_trip_user, \
     get_shipment_by_crate_id, get_shipment_by_shipment_label, validate_shipment_id, validate_trip_shipment, \
@@ -2432,8 +2433,39 @@ class CartCheckout(APIView):
             return self.delete_pos_offer(request, *args, **kwargs)
         elif app_type == '3':
             return self.delete_ecom_offer(request, *args, **kwargs)
+        elif app_type == '4':
+            return self.delete_super_store_offer(request, *args, **kwargs)
         else:
             return api_response('Please provide a valid app_type')
+
+
+    @check_ecom_user_shop
+    def delete_super_store_offer(self, request, *args, **kwargs):
+        """
+            Checkout
+            Delete any applied cart offers
+        """
+        try:
+            cart = Cart.objects.filter(cart_type='SUPERSTORE',
+                                       buyer=self.request.user,
+                                       seller_shop=kwargs['shop'],
+                                       cart_status='active').last()
+        except ObjectDoesNotExist:
+            return api_response("No items added in cart yet")
+        RewardCls.checkout_redeem_points(cart, 0,shop=kwargs['shop'], app_type="SUPERSTORE", use_all=self.request.GET.get('use_rewards', 1))
+        cart_products = cart.rt_cart_list.all()
+        cart_value = 0
+        for product_map in cart_products:
+            cart_value += product_map.selling_price * product_map.qty
+        with transaction.atomic():
+            offers_list = BasicCartOffers.update_cart_offer(cart.offers, cart_value)
+            cart.offers = offers_list
+            cart.save()
+            return api_response("Removed Offer From Cart Successfully", self.serialize(cart, None,
+                                                                                       request.META.get('HTTP_APP_TYPE',
+                                                                                                        '1')),
+                                status.HTTP_200_OK, True)
+
 
     @check_pos_shop
     def delete_pos_offer(self, request, *args, **kwargs):
@@ -3633,8 +3665,9 @@ class OrderCentral(APIView):
                 if return_pickup_method == ReturnOrder.DROP_AT_STORE:
                     address = shipment.order.seller_shop.shop_name_address_mapping.filter(
                         address_type='shipping').last()
-                    address = f"{address.address_line1}, {address.city}, {address.state} - {address.pincode}"
-                    return_item_drop(shipment.order.buyer.first_name, shipment.order.buyer.phone_number, address)
+                    address = f"{address.address_line1}, {address.pincode}"
+                    shop_name = shipment.order.seller_shop.shop_name
+                    return_item_drop(shipment.order.buyer.first_name, shipment.order.buyer.phone_number, address, shop_name)
                 else:
                     return_item_home_pickup(shipment.order.buyer.first_name, shipment.order.buyer.phone_number)
                 shipment.is_returned = True
@@ -10355,21 +10388,25 @@ class VerifyReturnOrderProductsView(generics.GenericAPIView):
         try:
             return_order = ReturnOrder.objects.get(id=modified_data['id'])
             return_order_product_mapping = return_order.return_order_products.filter(product_id=modified_data['product']).last()
-            customer_return_order_product_mapping = return_order.ref_return_order.return_order_products.filter(product_id=modified_data['product']).last()
-            if int(modified_data['returned_qty']) > customer_return_order_product_mapping.return_qty:
+            if int(modified_data['returned_qty']) + int(modified_data['damaged_qty']) > return_order_product_mapping.delivery_picked_quantity:
                 return get_response('Quantity greater than requested return quantity not allowed.')
-            return_order_product_mapping.return_qty = modified_data['returned_qty']
+            return_order_product_mapping.verified_return_quantity = modified_data['returned_qty']
             return_order_product_mapping.damaged_qty = modified_data['damaged_qty']
-            return_order_product_mapping.is_return_verified = True
+            if modified_data.get('verify_type', 'ltm') == 'bck':
+                return_order_product_mapping.is_bck_return_verified = True
+            else:
+                return_order_product_mapping.is_return_verified = True
             return_order_product_mapping.save()
             self.create_update_return_order_product_batch(return_order_product_mapping, 
                                                    modified_data['returned_qty'], 
-                                                   modified_data['damaged_qty'])
+                                                   modified_data['damaged_qty'], 
+                                                   return_order)
             return get_response('Return Order successfully updated.', None, True)
         except ReturnOrder.DoesNotExist:
             return get_response('Return Order not Found.')
             
-    def create_update_return_order_product_batch(self, return_order_product_mapping, return_qty, damaged_qty):
+    def create_update_return_order_product_batch(self, return_order_product_mapping, 
+                                                 return_qty, damaged_qty, return_order):
         return_batch, _ = ReturnProductBatch.objects.get_or_create(
             return_product = return_order_product_mapping
         )
@@ -10476,6 +10513,7 @@ class ReturnOrderCompleteVerifyView(generics.GenericAPIView):
                 # call putaway generation func
             else:
                 return_order.return_status = ReturnOrder.DC_ACCEPTED
+                return_order.dc_location = trip.source_shop
             return_order.save()
             return get_response('return order updated successfully', None, True)
         except ReturnOrder.DoesNotExist:
@@ -10925,12 +10963,22 @@ class DispatchCenterReturnOrderView(generics.GenericAPIView):
 
     def search_filter_return_order_data(self):
         shop = self.request.GET.get('shop')
-        trip_id = self.request.GET.get('trip_id')
+        trip_id = self.request.GET.get('trip_id', None)
+        availability = int(self.request.GET.get('availability'))
+        self.queryset = self.queryset.filter(return_status='DC_ACCEPTED')
 
         if shop:
-            self.queryset = self.queryset.filter(seller_shop_id=shop)
-        if trip_id:
-            self.queryset = self.queryset.filter(shipment__trip_shipment__trip_id=trip_id)
+            self.queryset = self.queryset.filter(dc_location_id=shop)
+
+        if availability:
+            try:
+                availability = int(availability)
+                if availability == INVOICE_AVAILABILITY_CHOICES.ADDED:
+                    self.queryset = self.queryset.filter(trip_return_order__trip_id=trip_id)
+                elif availability == INVOICE_AVAILABILITY_CHOICES.NOT_ADDED:
+                    self.queryset = self.queryset.exclude(trip_return_order__trip_id=trip_id)
+            except:
+                pass
         return self.queryset.distinct('id')
 
 
@@ -11779,9 +11827,14 @@ class LastMileTripReturnOrderView(generics.GenericAPIView):
                 shipment__order__dispatch_center=source_shop
             ).distinct('id')
         returns_data = SmallOffsetPagination().paginate_queryset(returns, request)
-        serializer = self.serializer_class(returns_data, many=True)
+        return_serializer = self.serializer_class(returns_data, many=True)
+        trip_serializer = LastMileTripSerializers(trip)
+        data = {
+            'trip': trip_serializer.data,
+            'returns': return_serializer.data
+        }
         msg = "" if returns_data else "no returns found"
-        return get_response(msg, serializer.data, True)
+        return get_response(msg, data, True)
 
     def validate_get_request(self):
         try:
@@ -12699,7 +12752,8 @@ class GenerateBarcodes(generics.GenericAPIView):
             available_barcodes = Barcode.objects.filter(generator__barcode_type=barcode_type, is_available=True)[
                                  :batch_size]
         barcode_list = list(available_barcodes.values_list('barcode_no', flat=True))
-        available_barcodes.update(is_available=False)
+        Barcode.objects.filter(id__in=available_barcodes.values_list('id', flat=True)).update(is_available=False)
+        # available_barcodes.update(is_available=False)
         barcode_dict = {b: {"qty": 1, "data": None} for b in barcode_list}
         return merged_barcode_gen(barcode_dict, 'admin/retailer_to_sp/barcode.html')
 
