@@ -62,6 +62,7 @@ class GFReturnOrderProductSerializer(serializers.ModelSerializer):
     retailer_order_no = serializers.SerializerMethodField()
     customer_order_no = serializers.SerializerMethodField()
     return_reason = serializers.SerializerMethodField()
+    return_shipment_barcode = serializers.SerializerMethodField()
     
     def get_retailer_order_no(self, instance):
         return instance.shipment.order.order_no
@@ -82,13 +83,15 @@ class GFReturnOrderProductSerializer(serializers.ModelSerializer):
             return customer_return_order.other_return_reason
         return customer_return_order.return_reason
     
+    def get_return_shipment_barcode(self, instance):
+        return list(instance.return_order_products.values_list('return_shipment_barcode', flat=True))
+    
     class Meta:
         model = ReturnOrder
         fields = ('id', 'return_no', 'shipment', 'return_type', 
                   'return_status', 'return_order_products', 'retailer_order_no', 
-                  'customer_order_no', 'return_reason', 'seller_shop', 
+                  'return_shipment_barcode', 'customer_order_no', 'return_reason', 'seller_shop', 
                   'buyer_shop', 'created_at', 'modified_at', 'buyer')
-
 
 
 class ReturnChallanSerializer(serializers.ModelSerializer):
