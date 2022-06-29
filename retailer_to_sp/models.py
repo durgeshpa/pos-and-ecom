@@ -2134,6 +2134,7 @@ class ReturnOrder(models.Model):
     CUSTOMER_ITEM_PICKED = 'CUSTOMER_ITEM_PICKED'
     RETURN_INITIATED = 'RETURN_INITIATED'
     RETURN_COMPLETE = 'RETURN_COMPLETE'
+    RETURN_REJECTED = 'RETURN_REJECTED'
     RETURN_STATUS = (
         (RETURN_REQUESTED, 'Return requested'),
         (RETURN_INITIATED, 'Return initiated'),
@@ -2144,7 +2145,8 @@ class ReturnOrder(models.Model):
         (WH_DROPPED, 'WH Dropped'),
         (WH_ACCEPTED, 'WH accepted'),
         (RETURN_CANCEL, 'Return cancelled'),
-        (RETURN_COMPLETE, 'Return completed')
+        (RETURN_COMPLETE, 'Return completed'),
+        (RETURN_REJECTED, 'Return Rejected')
     )
     DROP_AT_STORE = 'DROP_AT_STORE'
     HOME_PICKUP = 'HOME_PICKUP'
@@ -2161,6 +2163,13 @@ class ReturnOrder(models.Model):
         (SUPERSTORE, "Superstore returns"),
         (SUPERSTORE_WAREHOUSE, "Superstore warehouse returns")
     )
+    REJECT_REASONS = (('USED_PRODUCT', 'Product is used'),
+                      ('DAMAGED_PRODUCT', 'Product is damaged'),
+                      ('PRODUCT_IMAGE_DIFF', 'Product does not matches with the images uploaded by the customer'),
+                      ('RETAILER_DENIED', 'Retailer Denied'),
+                      ('RETAILER_UNAVAILABLE', 'Retailer Not available'))
+
+
     return_no = models.CharField(max_length=255, null=True, blank=True)
     shipment = models.ForeignKey(OrderedProduct, 
                                 related_name='shipment_return_orders',
@@ -2177,6 +2186,8 @@ class ReturnOrder(models.Model):
         max_length=50, choices=RETURN_REASON,
         null=True, blank=True, verbose_name='Reason for Return',
     )
+    reject_reason = models.CharField(max_length=50, choices=REJECT_REASONS, null=True, blank=True,
+                                     verbose_name='Reason for Rejection')
     seller_shop = models.ForeignKey(
         Shop, related_name='seller_shop_return_orders',
         null=True, blank=True, on_delete=models.DO_NOTHING

@@ -8157,9 +8157,9 @@ class DeliveryShipmentDetails(APIView):
     def getTripReturnGrouped(self, trip):
         trip_mappings = trip.last_mile_trip_returns_details.all()
         trip_return = []
-        grouped_return_list = ReturnOrder.objects.filter(last_mile_trip_returns__in=
-                                                         trip_mappings).values('buyer_shop', 'seller_shop').annotate(
-            return_count=Count('id')).order_by()
+        grouped_return_list = ReturnOrder.objects.filter(last_mile_trip_returns__in=trip_mappings)\
+                                                 .values('buyer_shop', 'seller_shop', 'return_status')\
+                                                 .annotate(return_count=Count('id')).order_by()
         for grouped_return in grouped_return_list:
             grouped_return_dict = {}
             grouped_return_dict['item_type'] = 'return'
@@ -8190,6 +8190,7 @@ class DeliveryShipmentDetails(APIView):
             grouped_return_dict['seller_shop'] = SellerShopSerializer(sellerShop).data
             grouped_return_dict['buyer_shop'] = SellerShopSerializer(buyerShop).data
             grouped_return_dict['return_count'] = grouped_return['return_count']
+            grouped_return_dict['shipment_status'] = grouped_return['return_status']
             trip_return.append(grouped_return_dict)
 
         return trip_return
@@ -12775,3 +12776,43 @@ class GenerateBarcodes(generics.GenericAPIView):
         elif 'type' not in request.data or request.data.get('type') != 6:
             return {'error': 'Invalid type'}
         return {'data': self.request.data}
+
+
+class ReturnRejection(generics.ListCreateAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+    serializer_class = ShipmentReschedulingSerializer
+
+    def list(self, request, *args, **kwargs):
+        data = [{'name': reason[0], 'display_name': reason[1]} for reason in ReturnOrder.REJECT_REASONS]
+        msg = {'is_success': True, 'message': None, 'response_data': data}
+        return Response(msg, status=status.HTTP_200_OK)
+
+    def put(self, request):
+        result = self.validate_put_request()
+        if "error" in result:
+            return get_response(result["error"], False)
+        return_id = self.request.data.get('return_id', None)
+        reject_reason = self.request.data.get('reject_reason', None)
+        orderreturn = ReturnOrder.objects.filter(pk=return_id).last()
+        if orderreturn.return_status != ReturnOrder.RETURN_INITIATED:
+            return get_response("error: Return not found in initiated state",'',False)
+        orderreturn.reject_reason = reject_reason
+        orderreturn.return_status = ReturnOrder.RETURN_REJECTED
+        with transaction.atomic():
+            orderreturn.save()
+        return get_response("return rejected", '', True)
+
+    def validate_put_request(self):
+        try:
+            if not self.request.data.get('return_id', None):
+                return {"error": "'return_id'| This is required"}
+            elif not self.request.data.get('return_item_id', None):
+                return {"error": "'return_item_id' | This is required."}
+            elif not self.request.data.get('reject_reason', None):
+                return {"error": "'reject_reason'| This is required"}
+            elif not any(self.request.data['reject_reason'] in reason for reason in ReturnOrder.REJECT_REASONS):
+                return {"error": "'reject_reason'| Invalid"}
+            return {"data": self.request.data}
+        except Exception as e:
+            return {"error": "Invalid Request"}
