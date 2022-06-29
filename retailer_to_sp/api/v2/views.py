@@ -10,6 +10,7 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from common.common_utils import create_file_name, create_merge_pdf_name, merge_pdf_files
+from barCodeGenerator import merged_barcode_gen
 from common.constants import PREFIX_RETURN_CHALLAN_FILE_NAME, CHALLAN_DOWNLOAD_ZIP_NAME
 from retailer_to_sp.models import (Order, CustomerCare, Return, ReturnOrder)
 from addresses.models import ShopRoute
@@ -203,3 +204,18 @@ class ReturnChallanList(APIView):
             return_order_qs = return_order_qs.filter(created_at__lte=date)
 
         return return_order_qs
+
+
+class DownloadReturnShipmentBarcode(APIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+    
+    def get(self, request, pk):
+        try:
+            return_order = ReturnOrder.objects.get(id=pk)
+            barcode_list = return_order.return_order_products.values_list('return_shipment_barcode', 
+                                                                      flat=True)
+            barcode_dict = {b: {"qty": 1, "data": None} for b in barcode_list}
+            return merged_barcode_gen(barcode_dict, 'admin/retailer_to_sp/barcode.html')
+        except ReturnOrder.DoesNotExist:
+            return get_response("Return Order not found")
