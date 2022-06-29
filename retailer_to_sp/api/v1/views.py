@@ -6419,7 +6419,7 @@ def send_notification_ecom_user(order, message_title, message_body):
 
 def sendemailforsuperstoreorder(order):
     subject = 'A new SuperStore order has been placed.'
-    url = 'https://qa4.gramfactory.com/admin/retailer_to_sp/order/{}'.format(order.id)
+    url = 'https://{}.gramfactory.com/admin/retailer_to_sp/order/{}'.format(config('ENVIRONMENT'),order.id)
     body = 'Click here - {} for more details'.format(url)
     sender = GlobalConfig.objects.get(key='sender')
     receiver = GlobalConfig.objects.get(key='recipient_ss')
