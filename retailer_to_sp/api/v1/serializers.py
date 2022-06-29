@@ -2045,7 +2045,7 @@ class ReturnOrderTripProductSerializer(serializers.ModelSerializer):
         model = ReturnOrder
         fields = ('id', 'return_no', 'return_challan_no', 'shipment', 'return_amount',
                   'trip_belongs_to', 'retailer_return_order_product',
-                  'customer_shipment_detail', 'customer_return_order_product')
+                  'customer_shipment_detail')
 
 
 
