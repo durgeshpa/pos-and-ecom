@@ -16,7 +16,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from shops.models import Shop
 from products.models import Repackaging
-from retailer_to_sp.models import Order, PickerDashboard, ShipmentPackaging, ReturnOrder
+from retailer_to_sp.models import Order, PickerDashboard, ShipmentPackaging, ReturnOrderProduct
 from rest_framework.views import APIView
 from rest_framework import permissions
 from rest_auth import authentication
@@ -1025,6 +1025,7 @@ class DecodeBarcode(APIView):
         data = []
         for barcode in barcode_list:
             barcode_length = len(barcode)
+            actual_barcode = barcode
             if barcode_length == 8:
                 barcode_data = {'type': 'EAN', 'id': barcode, 'barcode': barcode}
                 data_item = {'is_success': True, 'message': '', 'data': barcode_data}
@@ -1132,18 +1133,15 @@ class DecodeBarcode(APIView):
                     data_item = {'is_success': True, 'message': '', 'data': barcode_data}
                     data.append(data_item)
             elif type_identifier == '06':
-                id = barcode[2:].lstrip('0')
-                if id is not None:
-                    id = int(id)
-                else:
-                    id = 0
-                return_order = ReturnOrder.objects.filter(pk=id).last()
-                if return_order is None:
-                    barcode_data = {'type': None, 'id': None, 'barcode': barcode}
+                return_order_product = ReturnOrderProduct.objects.filter(
+                    return_shipment_barcode=actual_barcode).last()
+                if return_order_product is None:
+                    barcode_data = {'type': None, 'id': None, 'barcode': actual_barcode}
                     data_item = {'is_success': False, 'message': 'Return Order not found', 'data': barcode_data}
                     data.append(data_item)
                 else:
-                    barcode_data = {'type': 'return', 'id': return_order.pk, 'barcode': barcode}
+                    barcode_data = {'type': 'return', 'id': return_order_product.return_order.id,
+                                    'barcode': actual_barcode}
                     data_item = {'is_success': True, 'message': '', 'data': barcode_data}
                     data.append(data_item)
             else:
