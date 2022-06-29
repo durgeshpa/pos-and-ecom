@@ -106,7 +106,7 @@ from sp_to_gram.tasks import es_search, upload_shop_stock, upload_all_products_i
 from wms.common_functions import OrderManagement, get_stock, is_product_not_eligible, get_response, \
     get_logged_user_wise_query_set_for_shipment, get_logged_user_wise_query_set_for_dispatch, \
     get_logged_user_wise_query_set_for_dispatch_trip, get_logged_user_wise_query_set_for_dispatch_crates, \
-    get_logged_user_wise_query_set_for_shipment_packaging
+    get_logged_user_wise_query_set_for_shipment_packaging, return_putaway
 from wms.common_validators import validate_id, validate_data_format, validate_data_days_date_request, validate_shipment
 from retailer_backend.settings import AWS_MEDIA_URL
 from wms.models import OrderReserveRelease, InventoryType, PosInventoryState, PosInventoryChange, Crate
@@ -10409,9 +10409,12 @@ class VerifyReturnOrderProductsView(generics.GenericAPIView):
             
     def create_update_return_order_product_batch(self, return_order_product_mapping, 
                                                  return_qty, damaged_qty, return_order):
+        batch_id = return_order.shipment.rt_order_product_order_product_mapping.last()\
+            .rt_ordered_product_mapping.last().batch_id
         return_batch, _ = ReturnProductBatch.objects.get_or_create(
             return_product = return_order_product_mapping
         )
+        return_batch.batch_id = batch_id
         return_batch.return_qty = return_qty
         return_batch.damaged_qty = damaged_qty
         return_batch.save()
@@ -10512,7 +10515,7 @@ class ReturnOrderCompleteVerifyView(generics.GenericAPIView):
                 .exclude(last_mile_trip_returns_details__shipment_status=LastMileTripReturnMapping.CANCELLED).last()
             if trip.source_shop.shop_type.shop_type == 'sp':
                 return_order.return_status = ReturnOrder.WH_ACCEPTED
-                # call putaway generation func
+                return_putaway(return_order)
             else:
                 return_order.return_status = ReturnOrder.DC_ACCEPTED
                 return_order.dc_location = trip.source_shop
