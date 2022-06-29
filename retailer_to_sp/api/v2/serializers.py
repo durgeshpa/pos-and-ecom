@@ -84,7 +84,7 @@ class GFReturnOrderProductSerializer(serializers.ModelSerializer):
         return customer_return_order.return_reason
     
     def get_return_shipment_barcode(self, instance):
-        return list(instance.return_order_products.values_list('return_shipment_barcode', flat=True))
+        return list(instance.return_order_products.filter(return_shipment_barcode__isnull=False).values_list('return_shipment_barcode', flat=True))
     
     class Meta:
         model = ReturnOrder
