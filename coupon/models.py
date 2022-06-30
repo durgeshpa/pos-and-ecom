@@ -68,7 +68,7 @@ class Coupon(models.Model):
     )
 
     SHOP_TYPE_CHOICES = (('all', 'All'),( 'fofo', 'Fofo'),('foco','Foco'),('superstore', "SuperStore"))
-    ENABLED_ON = (('pos', 'Pos'),('online',"Online"),('all', 'All'))
+    ENABLED_ON = (('pos', 'Pos'),('online',"Online"),('all', 'All'), ('superstore', "SuperStore"))
     COUPON_TYPE_NAME = (('grocery', 'Grocery'), ('superstore', 'SuperStore')) 
     rule = models.ForeignKey(CouponRuleSet, related_name='coupon_ruleset', on_delete=models.CASCADE)
     coupon_name = models.CharField(max_length=255, null=True)
