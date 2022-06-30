@@ -10679,7 +10679,7 @@ class TripSummaryView(generics.GenericAPIView):
             'total_packets': resp_data['no_of_packets'] if resp_data['no_of_packets'] else 0,
             'total_sack': resp_data['no_of_sacks'] if resp_data['no_of_sacks'] else 0,
             'total_empty_crate': ShopCrate.objects.filter(shop_id=dispatch_center, is_available=True).count(),
-            'total_return_box' : ReturnOrder.objects.filter(seller_shop_id=dispatch_center).count(),
+            'total_return_box' : ReturnOrder.objects.filter(dc_location_id=dispatch_center).count(),
             'weight': 0,
             'invoices_check': 0,
             'total_crates_check': 0,
