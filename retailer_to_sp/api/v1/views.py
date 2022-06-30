@@ -10983,9 +10983,9 @@ class DispatchCenterReturnOrderView(generics.GenericAPIView):
                 if availability == INVOICE_AVAILABILITY_CHOICES.ADDED:
                     self.queryset = self.queryset.filter(trip_return_order__trip_id=trip_id)
                 elif availability == INVOICE_AVAILABILITY_CHOICES.NOT_ADDED:
-                    self.queryset = self.queryset.exclude(trip_return_order__trip_id=trip_id)
-            except:
-                pass
+                    self.queryset = self.queryset.filter(trip_return_order__isnull=True)
+            except Exception as e:
+                info_logger.info(e)
         return self.queryset.distinct('id')
 
 
