@@ -11212,7 +11212,7 @@ class UnloadVerifyReturnOrderView(generics.GenericAPIView):
     serializer_class = UnLoadVerifyReturnOrderSerializer
     queryset = DispatchTripReturnOrderMapping.objects.all()
 
-    def validate_trip_empty_crate(self, return_id, trip_id):
+    def validate_trip_return_order(self, return_id, trip_id):
         trip_return_order = self.queryset.filter(
             return_order_status__in=[DispatchTripReturnOrderMapping.LOADED, DispatchTripReturnOrderMapping.DAMAGED_AT_LOADING],
             return_order__id=return_id, trip__id=trip_id).last()
