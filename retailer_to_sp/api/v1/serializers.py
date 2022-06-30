@@ -5294,7 +5294,7 @@ class MarkReturnOrderItemVerifiedSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = DispatchTripReturnOrderMapping
-        fields = ('id', 'return_order_status', 'return_order', 'trip')
+        fields = ('id', 'return_order_status')
 
 
 class ShipmentPackageZoneSerializer(serializers.ModelSerializer):
