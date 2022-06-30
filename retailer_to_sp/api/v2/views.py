@@ -186,7 +186,7 @@ class ReturnChallanList(APIView):
             return get_response(msg, serializer.data, True)
         except Exception as e:
             info_logger.info(e)
-            return e
+            return get_response(str(e))
 
     def search_filter_return_data(self, return_order_qs):
         city = self.request.GET.get('city')
