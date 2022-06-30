@@ -514,7 +514,7 @@ class AdminOffers(GenericAPIView):
                                                      start_date, expiry_date, data.get('limit_of_usages_per_customer', None))
             data['id'] = coupon.id
             if data.get('coupon_type_name') == 'superstore':
-                data.update['coupon_enable_on'] = 'superstore'
+                data.update({'coupon_enable_on':'superstore'})
 
             coupon.coupon_enable_on = data.get('coupon_enable_on') if data.get('coupon_enable_on') else 'all'
             coupon.coupon_shop_type = data.get('coupon_shop_type') if data.get('coupon_shop_type') else coupon.coupon_shop_type
@@ -573,7 +573,7 @@ class AdminOffers(GenericAPIView):
         coupon = OffersCls.rule_set_cart_mapping(coupon_obj.id, 'catalog', combo_offer_name, combo_code, shop,
                                                  start_date, expiry_date, data.get('limit_of_usages_per_customer',None))
         if data.get('coupon_type_name') == 'superstore':
-                data.update['coupon_enable_on'] = 'superstore'
+                data.update({'coupon_enable_on':'superstore'})
         coupon.coupon_enable_on = data.get('coupon_enable_on') if data.get('coupon_enable_on') else 'all'
         coupon.coupon_shop_type = data.get('coupon_shop_type') if data.get(
             'coupon_shop_type') else coupon.coupon_shop_type
@@ -623,7 +623,7 @@ class AdminOffers(GenericAPIView):
         coupon = OffersCls.rule_set_cart_mapping(coupon_obj.id, 'cart', coupon_name, coupon_code, shop, start_date,
                                                  expiry_date, data.get('limit_of_usages_per_customer',None))
         if data.get('coupon_type_name') == 'superstore':
-                data.update['coupon_enable_on'] = 'superstore'
+                data.update({'coupon_enable_on':'superstore'})
         coupon.coupon_enable_on = data.get('coupon_enable_on') if data.get('coupon_enable_on') else 'all'
         coupon.coupon_shop_type = data.get('coupon_shop_type') if data.get(
             'coupon_shop_type') else coupon.coupon_shop_type
