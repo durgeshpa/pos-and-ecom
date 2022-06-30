@@ -2267,7 +2267,7 @@ class ReturnProductBatch(models.Model):
         related_name='return_product_batches',
         on_delete=models.CASCADE
     )
-    batch_id = models.CharField(max_length=20)
+    batch_id = models.CharField(max_length=100)
     return_qty = models.PositiveIntegerField(default=0)
     expired_qty = models.PositiveIntegerField(default=0)
     damaged_qty = models.PositiveIntegerField(default=0)
