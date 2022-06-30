@@ -10563,7 +10563,8 @@ class TripSummaryView(generics.GenericAPIView):
                 'total_packets': dispatch_trip_instance.no_of_packets,
                 'total_sack': dispatch_trip_instance.no_of_sacks,
                 'total_empty_crate': dispatch_trip_instance.no_of_empty_crates,
-                'total_return_box': dispatch_trip_instance.return_order_details.count(),
+                'total_return_box': dispatch_trip_instance.return_order_details.filter(
+                    return_order_status=DispatchTripReturnOrderMapping.LOADED).count(),
                 'weight': dispatch_trip_instance.get_trip_weight,
                 'invoices_check': dispatch_trip_instance.shipments_details.filter(
                     shipment_status=DispatchTripShipmentMapping.UNLOADED_AT_DC).count(),
@@ -10680,8 +10681,7 @@ class TripSummaryView(generics.GenericAPIView):
             'total_packets': resp_data['no_of_packets'] if resp_data['no_of_packets'] else 0,
             'total_sack': resp_data['no_of_sacks'] if resp_data['no_of_sacks'] else 0,
             'total_empty_crate': ShopCrate.objects.filter(shop_id=dispatch_center, is_available=True).count(),
-            'total_return_box': ReturnOrder.objects.filter(dc_location_id=dispatch_center).exclude(
-                trip_return_order__trip_id=trip_id).count(),
+            'total_return_box': ReturnOrder.objects.filter(dc_location_id=dispatch_center,trip_return_order__isnull=True).count(),
             'weight': 0,
             'invoices_check': 0,
             'total_crates_check': 0,
