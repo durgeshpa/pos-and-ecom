@@ -805,6 +805,11 @@ def trip_planning_change(request, pk):
                         trip_instance.rt_invoice_trip.all().update(
                             shipment_status=TRIP_SHIPMENT_STATUS_MAP[current_trip_status], trip=None)
 
+                        return_mappings = trip_instance.last_mile_trip_returns_details.all()
+                        for return_mapping in return_mappings:
+                            return_mapping.return_order.return_status = ReturnOrder.RETURN_REQUESTED
+                            return_mapping.return_order.save()
+                        return_mappings.delete()
                         # updating order status for shipments when trip is cancelled
                         trip_shipments = trip_instance.rt_invoice_trip.values_list('id', flat=True)
                         for shipment in trip_shipments:
