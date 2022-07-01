@@ -1015,13 +1015,20 @@ class LoadReturnOrders(APIView):
             ))
                                                             # seller_shop_id=seller_shop,
                                                             # shipment__order__dispatch_center_id=source_shop))
-            
-            return_orders_w = list(ReturnOrder.objects.filter(return_type=ReturnOrder.SUPERSTORE_WAREHOUSE,
-                                                       last_mile_trip_returns=None,
-                                                       seller_shop_id=seller_shop,
-                                                       shipment__order__dispatch_center_id=source_shop,
-                                                       return_status__in=[ReturnOrder.RETURN_REQUESTED]
-                                                       ))
+            if seller_shop != source_shop:
+                return_orders_w = list(ReturnOrder.objects.filter(return_type=ReturnOrder.SUPERSTORE_WAREHOUSE,
+                                                        last_mile_trip_returns=None,
+                                                        seller_shop_id=seller_shop,
+                                                        shipment__order__dispatch_center_id=source_shop,
+                                                        return_status__in=[ReturnOrder.RETURN_REQUESTED]
+                                                        ))
+            else:
+                return_orders_w = list(ReturnOrder.objects.filter(return_type=ReturnOrder.SUPERSTORE_WAREHOUSE,
+                                                        last_mile_trip_returns=None,
+                                                        seller_shop_id=seller_shop,
+                                                        shipment__order__dispatch_center__isnull=True,
+                                                        return_status__in=[ReturnOrder.RETURN_REQUESTED]
+                                                        ))
             return_orders = return_orders + return_orders_w
         serializer = ReturnOrderTripListSerializer(return_orders, many=True)
         msg = {'is_success': True,

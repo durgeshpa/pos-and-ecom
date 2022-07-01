@@ -151,6 +151,7 @@ function GetResultByTripAndSellerShop() {
 
 const GetReturnResultByTripAndSellerShop = () => {
   const seller_shop_id = $('select#id_seller_shop').val();
+  const source_shop_id = $('select#id_source_shop').val();
   const trip_id = $('#id_trip_id').val();
   EmptyElement('tbody#data');
   HideField('tr#heading');
@@ -159,6 +160,7 @@ const GetReturnResultByTripAndSellerShop = () => {
     url: GetReturnListURL(),
     data: {
       'seller_shop_id': seller_shop_id,
+      'source_shop_id': source_shop_id,
       'trip_id': trip_id
     },
     success: (data) => {
