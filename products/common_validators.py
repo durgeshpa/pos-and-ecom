@@ -6,7 +6,7 @@ from django.core.exceptions import ValidationError
 from django.db.models import Q
 
 from brand.models import Brand, Vendor
-from products.models import Product, Tax, ParentProductTaxMapping, ParentProduct, ParentProductCategory, \
+from products.models import Product, ProductPrice, Tax, ParentProductTaxMapping, ParentProduct, ParentProductCategory, \
     ParentProductImage, ProductHSN, ProductCapping, ProductImage, ParentProductB2cCategory, ProductHsnGst, \
     ProductHsnCess, GST_CHOICE, CESS_CHOICE
 from categories.models import B2cCategory, Category
@@ -51,9 +51,10 @@ def validate_tax_name(tax_name, tax_id):
 
 def validate_id(queryset, s_id):
     """ validation only ids that belong to a selected related model """
-    if not queryset.filter(id=s_id).exists():
+    data = queryset.filter(id=s_id)
+    if not data:
         return {'error': 'please provide a valid id'}
-    return {'data': queryset.filter(id=s_id)}
+    return {'data': data}
 
 
 def get_validate_parent_brand(parent_brand):
@@ -173,6 +174,26 @@ def get_validate_product(product):
     except Exception as e:
         logger.error(e)
         return {'error': 'please provide a valid product id'}
+    return {'product': product}
+
+
+def validate_superstore_product(product):
+    """ validate product id that belong to a Product model and of a superstore product"""
+    try:
+        product = Product.objects.get(id=product, parent_product__product_type=ParentProduct.SUPERSTORE)
+    except Exception as e:
+        logger.error(e)
+        return {'error': 'please provide a valid product id'}
+    return {'product': product}
+
+
+def validate_retailer_price_exist(product, shop):
+    """ validate product id has reatiler price before updating the customer price"""
+    try:
+        product = ProductPrice.objects.get(product_id=product, seller_shop=shop)
+    except Exception as e:
+        logger.error(e)
+        return {'error': 'Please update retailer product price before adding customer price'}
     return {'product': product}
 
 
@@ -329,7 +350,6 @@ def validate_bulk_data_format(request):
         data = json.loads(request.data["data"])
     except Exception as e:
         return {'error': "Invalid Data Format", }
-
     if request.FILES.getlist('file'):
         data['file'] = request.FILES['file']
 
@@ -390,12 +410,13 @@ def read_file(csv_file, upload_master_data, category, b2c_category):
                                 'weight_value', 'status', 'product_special_cess', 'repackaging_type',
                                 'b2b_category_name', 'b2c_category_name', 'source_sku_id', 'raw_material',
                                 'wastage', 'fumigation', 'label_printing', 'packing_labour', 'primary_pm_cost',
-                                'secondary_pm_cost', "packing_sku_id", "packing_material_weight", 'status']
+                                'secondary_pm_cost', "packing_sku_id", "packing_material_weight", 'status',
+                                'use_parent_image']
     if upload_master_data == "brand_update":
         required_header_list = ["brand_id", "name", "brand_slug", "brand_description", "brand_code",
                                 "brand_parent_id", "brand_parent", 'status']
     if upload_master_data == "category_update":
-        required_header_list = ["b2b_category_id", "name", "category_slug", "category_desc", "category_sku_part",
+        required_header_list = ["b2b_category_id", "name", "category_slug", "category_desc", "category_sku_part", "category_type",
                                 "b2b_parent_category_id", "b2b_parent_category_name", 'status']
     if upload_master_data == "b2c_category_update":
         required_header_list = ["b2c_category_id", "name", "category_slug", "category_desc", "category_sku_part",
@@ -411,12 +432,12 @@ def read_file(csv_file, upload_master_data, category, b2c_category):
                                 'weight_value', 'status', 'repackaging_type', 'source_sku_id', 'packing_sku_id',
                                 'packing_material_weight', 'raw_material', 'wastage', 'fumigation', 'label_printing',
                                 'packing_labour', 'primary_pm_cost', 'secondary_pm_cost', 'product_special_cess',
-                                'status']
+                                'status', 'use_parent_image']
     if upload_master_data == "create_brand":
         required_header_list = ['name', 'brand_slug', 'brand_parent', 'brand_parent_id', 'brand_description',
                                 'brand_code', 'status']
     if upload_master_data == "create_category":
-        required_header_list = ['name', 'category_slug', 'category_desc', 'b2b_category_parent', 'category_sku_part',
+        required_header_list = ['name', 'category_slug', 'category_desc', 'b2b_category_parent', 'category_sku_part', "category_type",
                                 'status', 'b2b_parent_category_id']
     if upload_master_data == "create_b2c_category":
         required_header_list = ['name', 'category_slug', 'category_desc', 'b2c_category_parent', 'category_sku_part',
@@ -932,7 +953,7 @@ def check_mandatory_columns(uploaded_data_list, header_list, upload_master_data,
     if upload_master_data == "create_child_product":
         row_num = 1
         mandatory_columns = ['parent_id', 'product_name', 'reason_for_child_sku', 'ean', 'mrp', 'weight_unit',
-                             'weight_value', 'repackaging_type', 'status']
+                             'weight_value', 'repackaging_type', 'status', 'use_parent_image']
 
         for ele in mandatory_columns:
             if ele not in header_list:
@@ -975,6 +996,9 @@ def check_mandatory_columns(uploaded_data_list, header_list, upload_master_data,
 
             if 'repackaging_type' not in row.keys() or row['repackaging_type'] == '':
                 raise ValidationError(f"Row {row_num} | 'repackaging_type' can't be empty")
+
+            if 'use_parent_image' not in row.keys() or row['use_parent_image'] == '':
+                raise ValidationError(f"Row {row_num} | 'use_parent_image' is a mandatory field")
 
     if upload_master_data == "create_brand":
         row_num = 1
@@ -1036,7 +1060,7 @@ def check_mandatory_columns(uploaded_data_list, header_list, upload_master_data,
             if 'name' not in row.keys() or row['name'] == '':
                 raise ValidationError(f"Row {row_num} | 'name' can't be empty")
 
-            cat_obj = validate_category_name(row['name'].strip(), None)
+            cat_obj = validate_category_name(row['name'].strip(), None, row["category_type"], None)
             if cat_obj is not None and 'error' in cat_obj:
                 raise ValidationError(f"Row {row_num} | {row['name']} | {cat_obj['error']}")
             elif row['name'].strip().lower() in category_name_list:
@@ -1047,7 +1071,7 @@ def check_mandatory_columns(uploaded_data_list, header_list, upload_master_data,
             if 'category_slug' not in row.keys() or row['category_slug'] == '':
                 raise ValidationError(f"Row {row_num} | 'category_slug' can't be empty")
 
-            cat_obj = validate_category_slug(row['category_slug'].strip(), None)
+            cat_obj = validate_category_slug(row['category_slug'].strip(),None, row["category_type"], None)
             if cat_obj is not None and 'error' in cat_obj:
                 raise ValidationError(f"Row {row_num} | {row['category_slug']} | {cat_obj['error']} ")
 
@@ -1204,6 +1228,7 @@ def validate_row(uploaded_data_list, header_list, category, b2c_category):
                     raise ValidationError(f"Row {row_num} | {row['category_parent']} | "
                                           f"'category_parent' doesn't exist in the system ")
 
+
             if 'b2b_category_parent' in header_list and 'b2b_category_parent' in row.keys() and \
                     row['b2b_category_parent'] != '':
                 if not categories.filter(category_name__iexact=row['b2b_category_parent'].strip()).exists():
@@ -1242,6 +1267,11 @@ def validate_row(uploaded_data_list, header_list, category, b2c_category):
                 if not categories.filter(id=row['b2b_parent_category_id']).exists():
                     raise ValidationError(f"Row {row_num} | {row['b2b_parent_category_id']} | "
                                           f"'b2b_parent_category_id' doesn't exist in the system ")
+
+            if 'category_type' in header_list and 'category_type' in row.keys():
+                category_parent = categories.filter(id=row['b2b_parent_category_id']).last()
+                if category_parent and category_parent.category_type != row['category_type']:
+                    raise ValidationError(f"Row {row_num} | Category Parent Type and Category type should be same.")
 
             if 'b2c_parent_category_id' in header_list and 'b2c_parent_category_id' in row.keys() and \
                     row['b2c_parent_category_id'] != '':
@@ -1470,10 +1500,20 @@ def validate_row(uploaded_data_list, header_list, category, b2c_category):
                     raise ValidationError(f"Row {row_num} | 'ptr_percent' is invalid")
 
             if 'product_type' in header_list and 'product_type' in row.keys() and row['product_type'] != '':
-                product_type_list = ['b2b', 'b2c', 'both']
+                product_type_list = ['grocery', 'superstore']
                 if row['product_type'].lower() not in product_type_list:
                     raise ValidationError(f"Row {row_num} | {row['product_type']} | 'Product Type can either be "
-                                          f"'b2b', 'b2c' or 'both'!")
+                                          f"'grocery', or 'superstore'!")
+
+            if 'use_parent_image' in header_list and 'use_parent_image' in row.keys() \
+                    and str(row['use_parent_image']).lower() not in ['yes', 'no']:
+                raise ValidationError(f"Row {row['use_parent_image']} | 'use_parent_image' only allowed 'yes' or 'no'")
+            if 'parent_id' in header_list and 'parent_id' in row.keys() and \
+                    str(row['parent_id']).strip() != '' and 'use_parent_image' in header_list and 'use_parent_image' in row.keys() \
+                    and str(row['use_parent_image']).lower() == 'yes':
+                if not ParentProduct.objects.filter(
+                        parent_id=str(row['parent_id']).strip()).last().parent_product_pro_image.exists():
+                    raise ValidationError(f"Parent Product Image Not Available for parent product {row['parent_id']}")
 
             if 'discounted_life_percent' in header_list and 'discounted_life_percent' in row.keys() and row[
                 'discounted_life_percent'] != '':
@@ -1880,3 +1920,80 @@ def read_product_hsn_file(csv_file):
         check_product_hsn_mandatory_columns(uploaded_data_by_user_list, csv_file_headers)
     else:
         raise ValidationError("Please add some data below the headers to upload it!")
+
+
+def check_super_store_product_price_mandatory_columns(uploaded_data_list, header_list):
+    """
+        This method will check that Data uploaded by user is not empty for mandatory fields.
+    """
+    row_num = 1
+    mandatory_columns = ["seller_shop_id", "product_id", "selling_price"]
+    for ele in mandatory_columns:
+        if ele not in header_list:
+            raise ValidationError(
+                f"{mandatory_columns} are mandatory columns for 'Create Product Price'")
+    validated_rows = []
+    error_list = []
+    for row in uploaded_data_list:
+        row_num += 1
+        error_msg = []
+        product_price = validate_retailer_price_exist(row['product_id'], row['seller_shop_id'])
+        if 'error' in product_price:
+            error_msg.append(product_price['error'])
+        if 'seller_shop_id' not in row.keys() or str(row['seller_shop_id']).strip() == '':
+            error_msg.append(f"Row {row_num} | 'seller_shop_id' can't be empty")
+        else:
+            seller_shop_val = get_validate_seller_shop(str(row['seller_shop_id']).strip())
+            if 'error' in seller_shop_val:
+                error_msg.append(seller_shop_val['error'])
+
+        if 'product_id' not in row.keys() or str(row['product_id']).strip() == '':
+            error_msg.append(f"Row {row_num} | 'product_id' can't be empty")
+        else:
+            product_val = validate_superstore_product(str(row['product_id']).strip())
+            if 'error' in product_val:
+                error_msg.append(product_val['error'])
+        if 'selling_price' not in row.keys() or str(row['selling_price']).strip() == '':
+            error_msg.append(f"Row {row_num} | 'selling_price' can't be empty")
+        else:
+            if not re.match("^\d+[.]?[\d]{0,2}$", str(row['selling_price'])):
+                error_msg.append(f"Row {row_num} | {row['selling_price']} | "
+                                      f"'selling_price' can only be a numeric value.")
+            if 'error' not in product_val:
+                if product_val['product'].product_mrp < float(row['selling_price']):
+                    error_msg.append(f"Row {row_num} | {row['selling_price']} | "
+                                          f"'selling_price' can not be greater than product mrp.")
+
+        # Validate non mandatory
+        if 'mrp' in row.keys() and str(row['mrp']).strip() != '':
+            if not re.match("^\d+[.]?[\d]{0,2}$", str(row['mrp'])):
+                error_msg.append(f"Row {row_num} | {row['mrp']} | 'mrp' can only be a numeric value.")
+
+        if error_msg:
+            msg = ", ".join(list(map(str, error_msg)))
+            row_list = [v for k, v in row.items()]
+            error_list.append(row_list + [msg])
+        else:
+            validated_rows.append(row)
+
+    return error_list, validated_rows
+
+
+def read_super_store_product_price_file(csv_file):
+    """
+        Template Validation (Checking, whether the csv file uploaded by user is correct or not!)
+    """
+    csv_file_header_list = next(csv_file)  # headers of the uploaded csv file
+    # Converting headers into lowercase
+    csv_file_headers = [str(ele).split(' ')[0].strip().lower() for ele in csv_file_header_list]
+    required_header_list = ['seller_shop_id', 'seller_shop', 'parent_product_id', 'product_id', 'product_sku',
+                            'product_name', 'b2b_category', 'b2c_category', 'mrp', 'selling_price']
+
+    check_headers(csv_file_headers, required_header_list)
+    uploaded_data_by_user_list = get_csv_file_data(csv_file, csv_file_headers)
+    # Checking, whether the user uploaded the data below the headings or not!
+    if uploaded_data_by_user_list:
+        errorlist, validated_data = check_super_store_product_price_mandatory_columns(uploaded_data_by_user_list, csv_file_headers)
+    else:
+        raise ValidationError("Please add some data below the headers to upload it!")
+    return errorlist, validated_data

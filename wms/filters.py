@@ -287,8 +287,12 @@ class AlternateDeskFilter(autocomplete.Select2QuerySetView):
         qs = QCDesk.objects.filter(desk_enabled=True)
 
         warehouse = self.forwarded.get('warehouse', None)
+        desk_type = self.forwarded.get('desk_type', None)
         if warehouse:
             qs = qs.filter(warehouse_id=warehouse)
+
+        if desk_type:
+            qs = qs.filter(desk_type=desk_type)
 
         if self.q:
             qs = qs.filter(Q(id__icontains=self.q) | Q(desk_number__icontains=self.q) | Q(name__icontains=self.q))

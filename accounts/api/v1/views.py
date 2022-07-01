@@ -3,7 +3,8 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
 from django.core.exceptions import ObjectDoesNotExist
 
-from rest_framework import authentication, permissions, generics
+from rest_auth import authentication
+from rest_framework import permissions, generics
 from rest_framework.response import Response
 from .serializers import (GroupSerializer, UserSerializer, UserDocumentSerializer, 
     AppVersionSerializer, DeliveryAppVersionSerializer, ECommerceAppVersionSerializer, PosAppVersionSerializer,

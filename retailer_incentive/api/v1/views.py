@@ -5,7 +5,8 @@ import io
 import xlsxwriter
 
 from django.http import HttpResponse
-from rest_framework import authentication, permissions, status
+from rest_auth import authentication
+from rest_framework import permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 

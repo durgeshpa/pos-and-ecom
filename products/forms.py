@@ -35,7 +35,7 @@ from products.models import (Color, Flavor, Fragrance, PackageSize, Product,
                              Repackaging, ParentProduct, ProductHSN, ProductSourceMapping,
                              DestinationRepackagingCostMapping, ParentProductImage, ProductCapping,
                              ParentProductCategory, PriceSlab, SlabProductPrice, ProductPackingMapping,
-                             DiscountedProductPrice, TaxGroup)
+                             DiscountedProductPrice, TaxGroup, SuperStoreProductPrice)
 from retailer_backend.utils import isDateValid, getStrToDate, isBlankRow
 from retailer_backend.validators import *
 from shops.models import Shop, ShopType
@@ -527,6 +527,10 @@ class UploadParentProductAdminForm(forms.Form):
                 raise ValidationError(_(f"Row {row_id + 2} | 'Inner Case Size' can not be empty."))
             elif not re.match("^\d+$", row[9]):
                 raise ValidationError(_(f"Row {row_id + 2} | 'Inner Case Size' can only be a numeric value."))
+            if not row[10]:
+                raise ValidationError(_(f"Row {row_id + 2} | 'Product Type' can not be empty."))
+            elif row[10].lower() not in ['grocery', 'superstore']:
+                raise ValidationError(_(f"Row {row_id + 2} | 'Product Type' can only 'Grocery or Superstore'."))
         return self.cleaned_data['file']
 
 
@@ -552,13 +556,19 @@ class ProductForm(forms.ModelForm):
             'product_special_cess',)
 
     def clean(self):
-        if 'status' in self.cleaned_data and self.cleaned_data['status'] == 'active':
+        if 'status' in self.cleaned_data and self.cleaned_data['status'] == 'active' and self.cleaned_data['parent_product'].product_type == ParentProduct.GROCERY:
             error = True
             if self.instance.id and ProductPrice.objects.filter(approval_status=ProductPrice.APPROVED,
                                                                 product_id=self.instance.id).exists():
                 error = False
             if error:
                 raise forms.ValidationError("Product cannot be made active until an active Product Price exists")
+        elif 'status' in self.cleaned_data and self.cleaned_data['status'] == 'active' and self.cleaned_data['parent_product'].product_type == ParentProduct.SUPERSTORE:
+            error = True
+            if self.instance.id and SuperStoreProductPrice.objects.filter(product_id=self.instance.id).exists():
+                error = False
+            if error:
+                raise forms.ValidationError("Product cannot be made active until a Superstore Product Price exists")
         return self.cleaned_data
 
 
@@ -692,16 +702,24 @@ class UploadChildProductAdminForm(forms.Form):
             elif row[6].lower() not in ['gram']:
                 raise ValidationError(_(f"Row {row_id + 1} | 'Weight Unit' can only be 'Gram'."))
             if not row[7]:
+                raise ValidationError(_(f"Row {row_id + 1} | 'Use Parent Image' can not be empty."))
+            elif str(row[7]).lower() not in ['yes', 'no']:
+                raise ValidationError(f"ow {row_id + 1} | 'use_parent_image' only allowed 'yes' or 'no'")
+            if row[0] and str(row[7]).lower() == 'yes':
+                if not ParentProduct.objects.filter(parent_id=row[0]).last()\
+                        .parent_product_pro_image.exists():
+                    raise ValidationError(_(f"Row {row_id + 1} | Parent Product Image Not Available for Parent Product {row[0]}."))
+            if not row[8]:
                 raise ValidationError(_(f"Row {row_id + 1} | 'Repackaging Type' can not be empty."))
-            elif row[7] not in [lis[0] for lis in Product.REPACKAGING_TYPES]:
+            elif row[8] not in [lis[0] for lis in Product.REPACKAGING_TYPES]:
                 raise ValidationError(_(f"Row {row_id + 1} | 'Repackaging Type' is invalid."))
-            if row[7] == 'destination':
-                if not row[8]:
+            if row[8] == 'destination':
+                if not row[9]:
                     raise ValidationError(_(f"Row {row_id + 1} | 'Source SKU Mapping' is required for Repackaging"
                                             f" Type 'destination'."))
                 else:
                     there = False
-                    for pro in row[8].split(','):
+                    for pro in row[9].split(','):
                         pro = pro.strip()
                         if pro is not '':
                             if Product.objects.filter(product_sku=pro, repackaging_type='source').exists():
@@ -712,26 +730,26 @@ class UploadChildProductAdminForm(forms.Form):
                         raise ValidationError(_(f"Row {row_id + 1} | 'Source SKU Mapping' is required for Repackaging"
                                                 f" Type 'destination'."))
 
-                if not row[16]:
+                if not row[17]:
                     raise ValidationError(_(f"Row {row_id + 1} | 'Packing SKU' is required for Repackaging"
                                             f" Type 'destination'."))
-                elif not Product.objects.filter(product_sku=row[16], repackaging_type='packing_material').exists():
+                elif not Product.objects.filter(product_sku=row[17], repackaging_type='packing_material').exists():
                     raise ValidationError(_(f"Row {row_id + 1} | Invalid Packing Sku"))
 
-                if not row[17]:
+                if not row[18]:
                     raise ValidationError(_(f"Row {row_id + 1} | 'Packing Material Weight (gm) per unit (Qty) Of "
                                             f"Destination Sku' is required for Repackaging Type 'destination'."))
-                elif not re.match("^[0-9]{0,}(\.\d{0,2})?$", row[17]):
+                elif not re.match("^[0-9]{0,}(\.\d{0,2})?$", row[18]):
                     raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Packing Material Weight (gm) per unit (Qty)"
                                             f" Of Destination Sku'"))
 
                 dest_cost_fields = ['Raw Material Cost', 'Wastage Cost', 'Fumigation Cost', 'Label Printing Cost',
                                     'Packing Labour Cost', 'Primary PM Cost', 'Secondary PM Cost']
                 for i in range(0, 7):
-                    if not row[i + 9]:
+                    if not row[i + 10]:
                         raise ValidationError(_(f"Row {row_id + 1} | {dest_cost_fields[i]} required for Repackaging"
                                                 f" Type 'destination'."))
-                    elif not re.match("^[0-9]{0,}(\.\d{0,2})?$", row[i + 9]):
+                    elif not re.match("^[0-9]{0,}(\.\d{0,2})?$", row[i + 10]):
                         raise ValidationError(_(f"Row {row_id + 1} | {dest_cost_fields[i]} is Invalid"))
         return self.cleaned_data['file']
 

@@ -1,8 +1,9 @@
 import datetime
 import logging
+from django.db.models import F, Count, Q, Prefetch
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
-from rest_framework.authentication import TokenAuthentication
+from rest_auth.authentication import TokenAuthentication
 from rest_framework.generics import ListAPIView
 from rest_framework import status
 
@@ -196,13 +197,13 @@ class CategoriesView(APIView):
     def get(self, *args, **kwargs):
         categories_to_return = []
         categories_with_products = get_categories_with_products(kwargs['shop'])
-        all_active_categories = Category.objects.filter(category_parent=None, status=True, b2c_status=True)
+        all_active_categories = Category.objects.filter(category_parent=None, status=True, category_type='grocery')
         # print("==============================================================")
         for c in all_active_categories:
             if c.id in categories_with_products:
                 categories_to_return.append(c)
             elif c.cat_parent.filter(status=True).count() > 0:
-                for sub_category in c.cat_parent.filter(status=True, b2c_status=True):
+                for sub_category in c.cat_parent.filter(status=True, category_type='grocery'):
                     # print(sub_category)
                     if sub_category.id in categories_with_products:
                         categories_to_return.append(c)
@@ -211,6 +212,54 @@ class CategoriesView(APIView):
         is_success = True if categories_to_return else False
         # print("==============================================================")
         return api_response('', serializer.data, status.HTTP_200_OK, is_success)
+
+
+class SuperStoreCategoriesView(APIView):
+    permission_classes = (IsAuthenticated,)
+    authentication_classes = (TokenAuthentication,)
+    serializer_class = CategorySerializer
+    
+    @check_ecom_user
+    def get(self, *args, **kwargs):
+        active_categories = Category.objects\
+            .filter(category_parent=None, 
+                    category_type='superstore',
+                    cat_parent__status=True,
+                    status=True)\
+                        .prefetch_related(Prefetch('cat_parent',\
+                            queryset=Category.objects.filter(status=True, 
+                                                            category_type='superstore').annotate(
+                                parent_product=Count('parent_category_pro_category',
+                                                     )
+                            ).filter(parent_product__gt = 0)))\
+                        .annotate(cat_order=F('category_view_order__order_no'))\
+                            .order_by('cat_order', 'id').distinct('id', 'cat_order')
+        serializer = self.serializer_class(active_categories, many=True)
+        is_success = True if active_categories else False
+        return api_response('', serializer.data, status.HTTP_200_OK, is_success)
+
+
+class SuperStoreSubCategoriesView(APIView):
+    permission_classes = (IsAuthenticated,)
+    authentication_classes = (TokenAuthentication,)
+    serializer_class = SubCategorySerializer
+    
+    @check_ecom_user
+    def get(self, *args, **kwargs):
+        try:
+            category_id = self.request.query_params.get('category_id')
+            category = Category.objects.get(id=category_id)
+            sub_categories = category.cat_parent.filter(status=True,
+                                                        category_type='superstore')\
+                                                            .annotate(cat_order=Count('parent_category_pro_category__product', 
+                                                                                      distinct=True, 
+                                                                                      filter=Q(parent_category_pro_category__status=True)))\
+                                                                .order_by('-cat_order')
+            is_success = True if sub_categories else False
+            serializer = self.serializer_class(sub_categories, many=True)
+            return api_response('', serializer.data, status.HTTP_200_OK, is_success)
+        except Category.DoesNotExist:
+            return api_response('Category not found.', '', status.HTTP_404_NOT_FOUND, False)
 
 
 class SubCategoriesView(APIView):
@@ -223,7 +272,9 @@ class SubCategoriesView(APIView):
         categories_with_products = get_categories_with_products(kwargs['shop'])
         category = Category.objects.get(pk=self.request.GET.get('category_id'))
         # print(category.__dict__)
-        sub_categories = category.cat_parent.filter(status=True, b2c_status=True, id__in=categories_with_products)
+        sub_categories = category.cat_parent.filter(status=True, 
+                                                    id__in=categories_with_products, 
+                                                    category_type='grocery')
         serializer = self.serializer_class(sub_categories, many=True)
         is_success = True if sub_categories else False
         return api_response('', serializer.data, status.HTTP_200_OK, is_success)
@@ -345,7 +396,7 @@ class UserShopView(APIView):
             info_logger.error(f"shop not found for shop id {shop_id}")
             return api_response("Invalid shop has been selected", "", status.HTTP_406_NOT_ACCEPTABLE, False)
         create_shop_user_mapping(shop, self.request.user)
-        return api_response("shop has been changed successfully", "", status.HTTP_200_OK, True)
+        return api_response("New shop mapped successfully.", "", status.HTTP_200_OK, True)
 
 
 class Contect_Us(APIView):

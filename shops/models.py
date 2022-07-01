@@ -123,6 +123,7 @@ class Shop(models.Model):
     shop_code = models.CharField(max_length=1, blank=True, null=True)
     shop_code_bulk = models.CharField(max_length=1, blank=True, null=True)
     shop_code_discounted = models.CharField(max_length=1, blank=True, null=True)
+    shop_code_super_store = models.CharField(max_length=1, blank=True, null=True)
     warehouse_code = models.CharField(max_length=3, blank=True, null=True)
     imei_no = models.CharField(max_length=20, null=True, blank=True)
     favourite_products = models.ManyToManyField(Product, through='shops.FavouriteProduct')
@@ -142,6 +143,7 @@ class Shop(models.Model):
     online_inventory_enabled = models.BooleanField(default=True, verbose_name='Online Inventory Enabled')
     cutoff_time = models.TimeField(null=True, blank=True)
     dynamic_beat = models.BooleanField(default=False)
+    superstore_enable = models.BooleanField(default=False)
     #status_reward_configuration = models.CharField(max_length=20, choices=Choices, default='deactive')
 
     # last_order_at = models.DateTimeField(auto_now_add=True)

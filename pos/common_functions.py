@@ -4,7 +4,7 @@ from functools import wraps
 from copy import deepcopy
 from decimal import Decimal
 import datetime
-from global_config.views import get_config_fofo_shop
+from global_config.views import get_config, get_config_fofo_shop
 from django.db import transaction
 from rest_framework.response import Response
 from rest_framework import status
@@ -365,6 +365,19 @@ class PosInventoryCls(object):
         inventory_object = PosInventory.objects.filter(product_id=pid, inventory_state__inventory_state=state).last()
         return inventory_object.quantity if inventory_object else 0
 
+    @classmethod
+    def get_available_inventory_by_linked_product(cls, linked_product_id, state, shop_id):
+        """
+        Returns stock for any product in the given state
+        Params:
+            linked_product_id : GramFactory product Id
+            state: inventory state ('new', 'available', 'ordered')
+        """
+        inventory_object = PosInventory.objects.filter(product__linked_product_id=linked_product_id,
+                                                       inventory_state__inventory_state=state,
+                                                       product__shop_id=shop_id).last()
+        return inventory_object.quantity if inventory_object else 0
+
 
 def api_response(msg, data=None, status_code=status.HTTP_406_NOT_ACCEPTABLE, success=False, extra_params=None):
     ret = {"is_success": success, "message": msg, "response_data": data}
@@ -377,7 +390,7 @@ def delete_cart_mapping(cart, product, cart_type='retail'):
     """
         Delete Cart items
     """
-    if cart_type == 'retail':
+    if cart_type in ['retail', 'superstore']:
         if CartProductMapping.objects.filter(cart=cart, cart_product=product).exists():
             CartProductMapping.objects.filter(cart=cart, cart_product=product).delete()
     elif cart_type == 'retail_gf':
@@ -450,15 +463,17 @@ def update_customer_pos_cart(ph_no, shop_id, changed_by, email=None, name=None, 
 class PosCartCls(object):
 
     @classmethod
-    def refresh_prices(cls, cart_products):
+    def refresh_prices(cls, cart_products, parent_shop_id=None):
         for cart_product in cart_products:
             product = cart_product.retailer_product
-            if product.offer_price and product.offer_start_date and product.offer_end_date and \
+            if product and product.offer_price and product.offer_start_date and product.offer_end_date and \
                     product.offer_start_date <= datetime.date.today() <= product.offer_end_date:
                 cart_product.selling_price = cart_product.retailer_product.offer_price
             elif cart_product.cart.cart_type == 'ECOM' and cart_product.retailer_product.online_enabled \
                     and cart_product.retailer_product.online_price:
                 cart_product.selling_price = cart_product.retailer_product.online_price
+            elif cart_product.cart.cart_type == 'SUPERSTORE':
+                cart_product.selling_price = cart_product.cart_product.get_superstore_price_by_shop(parent_shop_id).selling_price
             else:
                 cart_product.selling_price = cart_product.retailer_product.selling_price
             cart_product.save()
@@ -525,6 +540,8 @@ class RewardCls(object):
 
     @classmethod
     def checkout_redeem_points(cls, cart, redeem_points, shop=None, app_type="POS", use_all=None):
+        if app_type == 'SUPERSTORE':
+            return cls.checkout_redeem_points_super_store(cart, redeem_points, shop, app_type, use_all)
         percentage_value = get_config_fofo_shop('Percentage_Value_Of_Each_Point', shop.id)
         #value_factor = GlobalConfig.objects.get(key='used_reward_factor').value
         flag = True # this flag will remain false if Ecom order by user count is less or eqal 2
@@ -556,7 +573,6 @@ class RewardCls(object):
                 redeem_points = 0
         else:
             redeem_points = 0
-
         message = ""
         if app_type=="ECOM" and not get_config_fofo_shop('Is_Enable_Point_Redeemed_Ecom', shop.id):
             redeem_points = 0
@@ -585,6 +601,7 @@ class RewardCls(object):
             max_redeem_points = get_config_fofo_shop('Max_Point_Redeemed_Ecom', shop.id)
         elif app_type == "POS":
             max_redeem_points = get_config_fofo_shop('Max_Point_Redeemed_Pos', shop.id)
+        
         max_month_limit = get_config_fofo_shop('Max_Monthly_Points_Redeemed', shop.id)
 
         max_month_limit = max_month_limit if max_month_limit else 500
@@ -630,22 +647,35 @@ class RewardCls(object):
             key = "Percentage_Point_Added_Ecom_Order_Amount"
         elif app_type == "POS" and get_config_fofo_shop("Is_Enable_Point_Added_Pos_Order", shop.id):
             key = "Percentage_Point_Added_Pos_Order_Amount"
+        elif app_type == "SUPERSTORE":
+            key = 'percentage_point_add_superstore'
 
         points = 0
-        if key:
+        if key and app_type != "SUPERSTORE":
             points = RewardCls.get_loyalty_points(amount, key, shop)
-
+        elif key and app_type == "SUPERSTORE":
+            factor = GlobalConfig.objects.get(key=key).value/100
+            points = int(float(amount) * factor)
         # check maximum point redeem add in a month by shop
         days = datetime.datetime.today().day
         date = get_back_date(days)
-        if shop:
+        if shop and app_type != "SUPERSTORE":
             uses_reward_point = RewardLog.objects.filter(reward_user=user, shop=shop,
                                                          transaction_type__in=['order_credit', 'order_return_debit',
                                                                                'order_cancel_debit'], modified_at__gte=date).\
             aggregate(Sum('points'))
+        elif app_type == "SUPERSTORE":
+            uses_reward_point = RewardLog.objects.filter(reward_user=user,
+                                                         transaction_type__in=['order_credit', 'order_return_debit',
+                                                                               'order_cancel_debit'], modified_at__gte=date).\
+            aggregate(Sum('points'))
+
         this_month_reward_point_credit = abs(uses_reward_point['points__sum']) if uses_reward_point.get('points__sum') else 0
-        if this_month_reward_point_credit + points > get_config_fofo_shop("Max_Monthly_Points_Added", shop.id):
+        if app_type != "SUPERSTORE" and this_month_reward_point_credit + points > get_config_fofo_shop("Max_Monthly_Points_Added", shop.id):
             points = max(get_config_fofo_shop("Max_Monthly_Points_Added", shop.id) - this_month_reward_point_credit, 0)
+            #message = "only {} Loyalty Point can be used in a month".format(max_month_limit)
+        elif app_type == "SUPERSTORE" and this_month_reward_point_credit + points > GlobalConfig.objects.get(key="max_monthly_points_added_super_store").value:
+            points = max(GlobalConfig.objects.get(key = "max_monthly_points_added_super_store").value - this_month_reward_point_credit, 0)
             #message = "only {} Loyalty Point can be used in a month".format(max_month_limit)
 
         if not points:
@@ -797,6 +827,48 @@ class RewardCls(object):
         reward_obj = RewardPoint.objects.select_for_update().filter(reward_user=user).last()
         net_available = reward_obj.direct_earned + reward_obj.indirect_earned - reward_obj.points_used if reward_obj else 0
         return points_credit, points_debit, net_available
+    @staticmethod
+    def checkout_redeem_points_super_store( cart, redeem_points, shop=None, app_type="SUPERSTORE", use_all=None):
+        percentage_value = GlobalConfig.objects.get(key='super_store_percentage_value_of_each_point').value
+        #value_factor = GlobalConfig.objects.get(key='used_reward_factor').value
+        value_factor = 0
+        if percentage_value:
+            value_factor = 100/percentage_value
+        if cart.buyer and ReferralCode.is_marketing_user(cart.buyer):
+            obj = RewardPoint.objects.filter(reward_user=cart.buyer).last()
+            if obj:
+                points = max(obj.direct_earned + obj.indirect_earned - obj.points_used, 0)
+                if use_all is not None:
+                    redeem_points = points if int(use_all) else 0
+                redeem_points = min(redeem_points, points, int(cart.order_amount_after_discount * value_factor))
+            else:
+                redeem_points = 0
+        else:
+            redeem_points = 0
+
+        message = ""
+        days = datetime.datetime.today().day
+        date = get_back_date(days)
+        uses_reward_point = RewardLog.objects.filter(reward_user=cart.buyer, shop__superstore_enable=True,
+                                                         transaction_type__in=['order_debit', 'order_return_credit',
+                                                                               'order_cancel_credit'], modified_at__gte=date).\
+                                                    aggregate(Sum('points'))
+        this_month_reward_point_used = abs(uses_reward_point['points__sum']) if uses_reward_point['points__sum'] else 0
+        max_redeem_points = GlobalConfig.objects.get(key='max_redeem_points').value
+        max_month_limit = GlobalConfig.objects.get(key='max_month_limit_redeem_point').value
+
+        max_month_limit = max_month_limit if max_month_limit else 500
+        if max_redeem_points:
+            if redeem_points > max_redeem_points:
+                redeem_points = max_redeem_points
+
+        if this_month_reward_point_used and this_month_reward_point_used + redeem_points > max_month_limit:
+            redeem_points = 0
+            message = "only {} Loyalty Point can be used in a month".format(max_month_limit)
+        cart.redeem_points = redeem_points
+        cart.redeem_factor = value_factor
+        cart.save()
+        return message
 
 
 def filter_pos_shop(user):
@@ -1190,6 +1262,51 @@ class PosAddToCart(object):
 
         return _wrapped_view_func
 
+    
+    def validate_request_body_superstore(view_func):
+        
+        @wraps(view_func)
+        def _inner_func(self, request, *args, **kwargs):
+            if not request.user.is_ecom_user:
+                return api_response("User Not Registered For E-commerce!")
+            try:
+                shop = Shop.objects.get(id=request.META.get('HTTP_SHOP_ID', None), shop_type__shop_type='f', status=True,
+                                        approval_status=2, pos_enabled=1)
+            except:
+                return api_response("Shop not available!")
+            kwargs['shop'] = shop
+            kwargs['app_type'] = request.META.get('HTTP_APP_TYPE', None)
+            
+            # quantity_check
+            qty = request.data.get('qty')
+            if qty is None or int(qty) < 0:
+                return api_response("Qty is Invalid!")
+            else:
+                kwargs['quantity'] = qty
+            parent_shop = shop.get_shop_parent
+            if not parent_shop:
+                return api_response("Shop is not mapped to any parent shop.")
+            #product_check
+            try:
+                product = Product.objects.get(id=request.data.get('product_id'),
+                                                        status='active',
+                                                        parent_product__product_type='superstore')
+                selling_price = product.get_superstore_price_by_shop(parent_shop.id)
+                if selling_price and selling_price.selling_price:
+                    selling_price = selling_price.selling_price
+                else:
+                    return api_response(f"Please contact admin selling price not available for this product - {product.id}")
+                kwargs['product'] = product
+                kwargs['selling_price'] = selling_price
+                kwargs['parent_shop_id'] = parent_shop.id
+            except Product.DoesNotExist:
+                return api_response("Product cannot be added")
+            
+            return view_func(self, request, *args, **kwargs)
+
+        return _inner_func
+                
+            
 
 def get_default_qty(given_qty_unit, product, qty):
     default_unit = MeasurementUnit.objects.get(category=product.measurement_category, default=True)

@@ -185,13 +185,13 @@ class ParentProduct(BaseTimestampUserStatusModel):
     parent_brand = models.ForeignKey(Brand, related_name='parent_brand_product', blank=False, on_delete=models.CASCADE)
     product_hsn = models.ForeignKey(ProductHSN, related_name='parent_hsn', blank=False, on_delete=models.CASCADE)
     inner_case_size = models.PositiveIntegerField(blank=False, default=1)
+    GROCERY, SUPERSTORE = 'grocery', 'superstore'
     PRODUCT_TYPE_CHOICES = (
-        ('b2b', 'B2B'),
-        ('b2c', 'B2C'),
-        ('both', 'Both B2B and B2C'),
+        (GROCERY, 'Grocery'),
+        (SUPERSTORE, 'SuperStore'),
     )
     brand_case_size = models.PositiveIntegerField(blank=False)
-    product_type = models.CharField(max_length=5, choices=PRODUCT_TYPE_CHOICES, default='both')
+    product_type = models.CharField(max_length=10, choices=PRODUCT_TYPE_CHOICES, default='grocery')
     is_ptr_applicable = models.BooleanField(verbose_name='Is PTR Applicable', default=False)
     ptr_percent = models.DecimalField(max_digits=4, decimal_places=2, blank=True, null=True,
                                       validators=[PercentageValidator])
@@ -248,7 +248,7 @@ class ParentProduct(BaseTimestampUserStatusModel):
 
 class ParentProductTaxApprovalLog(BaseTimestampUserStatusModel):
     parent_product = models.ForeignKey(ParentProduct, related_name='parent_product_tax_approval_log',
-                                       on_delete=models.DO_NOTHING)
+                                       on_delete=models.CASCADE)
     tax_status = models.CharField(max_length=10, null=True, blank=True)
     tax_remark = models.CharField(max_length=100, null=True, blank=True)
 
@@ -439,6 +439,13 @@ class Product(BaseTimestampUserStatusModel):
         return self.parent_product.ptr_percent \
             if self.parent_product and self.parent_product.is_ptr_applicable else ''
 
+    @property
+    def get_superstore_price(self):
+        return self.super_store_product_price.last()
+    
+    def get_superstore_price_by_shop(self, seller_shop_id):
+        return self.super_store_product_price.filter(seller_shop_id=seller_shop_id).last()
+    
     def get_current_shop_price(self, seller_shop_id, buyer_shop_id):
         '''
         Firstly we will only filter using seller shop. If the queryset exists
@@ -605,7 +612,8 @@ class ProductPrice(models.Model):
         (APPROVAL_PENDING, 'Approval Pending'),
         (DEACTIVATED, 'Deactivated'),
     )
-    product = models.ForeignKey(Product, related_name='product_pro_price',
+    product = models.ForeignKey(Product, 
+                                related_name='product_pro_price',
                                 on_delete=models.CASCADE)
     mrp = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     selling_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=False)
@@ -1062,6 +1070,7 @@ class ProductVendorMapping(BaseTimestampUserStatusModel):
 def create_product_sku(sender, instance=None, created=False, **kwargs):
     # product = Product.objects.get(pk=instance.product_id)
     # if not product.product_sku:
+    parent_product_category = None
     if not instance.product_sku:
         if instance.product_type == Product.PRODUCT_TYPE_CHOICE.NORMAL:
             # cat_sku_code = instance.category.category_sku_part
@@ -1080,22 +1089,22 @@ def create_product_sku(sender, instance=None, created=False, **kwargs):
                 elif ParentProductB2cCategory.objects.filter(parent_product=instance.parent_product).exists():
                     parent_product_category = ParentProductB2cCategory.objects.filter(
                         parent_product=instance.parent_product).first().category
-            cat_sku_code = parent_product_category.category_sku_part
-            parent_cat_sku_code = parent_product_category.category_parent.category_sku_part if parent_product_category.category_parent else cat_sku_code
-            brand_sku_code = instance.product_brand.brand_code
-            last_sku = ProductSKUGenerator.objects.filter(cat_sku_code=cat_sku_code,
-                                                          parent_cat_sku_code=parent_cat_sku_code,
-                                                          brand_sku_code=brand_sku_code).last()
-            if last_sku:
-                last_sku_increment = str(int(last_sku.last_auto_increment) + 1).zfill(len(last_sku.last_auto_increment))
-            else:
-                last_sku_increment = '00000001'
-            ProductSKUGenerator.objects.create(cat_sku_code=cat_sku_code, parent_cat_sku_code=parent_cat_sku_code,
-                                               brand_sku_code=brand_sku_code, last_auto_increment=last_sku_increment)
-            instance.product_sku = "%s%s%s%s" % (cat_sku_code, parent_cat_sku_code, brand_sku_code, last_sku_increment)
+            if parent_product_category:
+                cat_sku_code = parent_product_category.category_sku_part
+                parent_cat_sku_code = parent_product_category.category_parent.category_sku_part if parent_product_category.category_parent else cat_sku_code
+                brand_sku_code = instance.product_brand.brand_code
+                last_sku = ProductSKUGenerator.objects.filter(cat_sku_code=cat_sku_code,
+                                                              parent_cat_sku_code=parent_cat_sku_code,
+                                                              brand_sku_code=brand_sku_code).last()
+                if last_sku:
+                    last_sku_increment = str(int(last_sku.last_auto_increment) + 1).zfill(len(last_sku.last_auto_increment))
+                else:
+                    last_sku_increment = '00000001'
+                ProductSKUGenerator.objects.create(cat_sku_code=cat_sku_code, parent_cat_sku_code=parent_cat_sku_code,
+                                                   brand_sku_code=brand_sku_code, last_auto_increment=last_sku_increment)
+                instance.product_sku = "%s%s%s%s" % (cat_sku_code, parent_cat_sku_code, brand_sku_code, last_sku_increment)
         elif instance.product_type == Product.PRODUCT_TYPE_CHOICE.DISCOUNTED:
             instance.product_sku = 'D' + instance.product_ref.product_sku
-
 
 class ProductCapping(models.Model):
     product = models.ForeignKey(Product, related_name='product_pro_capping',
@@ -1254,3 +1263,52 @@ class CentralLog(models.Model):
         related_name='updated_by',
         on_delete=models.DO_NOTHING
     )
+
+
+class BaseTimestampUserModel(models.Model):
+    created_at = models.DateTimeField(verbose_name="Created at", auto_now_add=True)
+    updated_at = models.DateTimeField(verbose_name="Updated at", auto_now=True)
+    created_by = models.ForeignKey(
+        get_user_model(), null=True,
+        verbose_name="Created by",
+        related_name='super_store_created_by',
+        on_delete=models.DO_NOTHING
+    )
+    updated_by = models.ForeignKey(
+        get_user_model(), null=True,
+        related_name='super_store_updated_by',
+        verbose_name="Updated by",
+        on_delete=models.DO_NOTHING
+    )
+
+    class Meta:
+        abstract = True
+
+
+class SuperStoreProductPrice(BaseTimestampUserModel):
+    product = models.ForeignKey(Product, related_name='super_store_product_price',
+                                on_delete=models.CASCADE)
+    # mrp = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    selling_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=False)
+    seller_shop = models.ForeignKey(Shop, related_name='super_store_product_price',
+                                    null=True, blank=True,
+                                    on_delete=models.CASCADE)
+
+    def __str__(self):
+        return "%s - %s" % (self.product.product_name, self.selling_price)
+
+
+class SuperStoreProductPriceLog(models.Model):
+    product_price_change = models.ForeignKey(SuperStoreProductPrice, related_name='product_price_change_log',
+                                           blank=True, null=True, on_delete=models.CASCADE)
+    old_selling_price = models.FloatField(null=True, blank=True)
+    new_selling_price = models.FloatField(null=True, blank=True)
+    update_at = models.DateTimeField(auto_now_add=True)
+    updated_by = models.ForeignKey(
+        get_user_model(), null=True,
+        related_name='super_store_price_changed_by',
+        on_delete=models.DO_NOTHING
+    )
+
+    def __str__(self):
+        return str(self.product_price_change.product)

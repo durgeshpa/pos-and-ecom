@@ -4,18 +4,20 @@ from rest_framework.generics import RetrieveAPIView, GenericAPIView
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
-from rest_framework import status, authentication, permissions, generics
+from rest_framework import status, permissions, generics
+from rest_auth import authentication
 from rest_framework.permissions import AllowAny
 
 from categories.models import Category
 from brand.models import Brand
-from retailer_backend.utils import SmallOffsetPagination
+from retailer_backend.utils import SmallOffsetPagination, OffsetPaginationDefault50
 from .serializers import CardDataSerializer, CardSerializer, ApplicationSerializer, ApplicationDataSerializer, \
     PageSerializer, PageDetailSerializer, CardItemSerializer, PageLatestDetailSerializer, CategorySerializer, \
-    SubCategorySerializer, BrandSerializer, SubBrandSerializer, LandingPageSerializer, PageFunctionSerializer
+    SubCategorySerializer, BrandSerializer, SubBrandSerializer, LandingPageSerializer, PageFunctionSerializer, \
+    TemplateSerializer
 from ...choices import CARD_TYPE_CHOICES, LANDING_PAGE_TYPE_CHOICE, LISTING_SUBTYPE_CHOICE, IMAGE_TYPE_CHOICE
 from ...models import Application, Card, CardVersion, Page, PageVersion, CardItem, ApplicationPage, LandingPage, \
-    Functions
+    Functions, Template
 from ...utils import api_response, get_response, serializer_error, check_shop
 
 from .pagination import PaginationHandlerMixin
@@ -616,6 +618,7 @@ class PageVersionDetailView(APIView):
         """Get Data of Latest Version"""
         request.META['HTTP_X_FORWARDED_PROTO'] = 'https'
         shop_id = kwargs.get('shop', None)
+        parent_shop = kwargs.get('parent_shop', None)
         try:
             page_key = f"latest_page_{id}"
             # cached_page = cache.get(page_key, None)
@@ -638,7 +641,8 @@ class PageVersionDetailView(APIView):
             }
             return Response(message)
         latest_page_version = PageVersion.objects.get(version_no = latest_page_version_no, page = page)
-        serializer = self.serializer_class(page, context = {'version': latest_page_version, 'shop_id': shop_id})
+        serializer = self.serializer_class(page, context = {'version': latest_page_version, 'shop_id': shop_id,
+                                                            'parent_shop': parent_shop})
         message = {
             "is_success": True,
             "message": "OK",
@@ -731,7 +735,7 @@ class PageFunctionView(generics.GenericAPIView):
             page_functions = Functions.objects.filter(type=request.GET.get('type'), id=request.GET.get('id'))
         else:
             self.queryset = self.filter_page_functions()
-            page_functions = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+            page_functions = OffsetPaginationDefault50().paginate_queryset(self.queryset, request)
 
         serializer = self.serializer_class(page_functions, many=True)
         msg = "" if page_functions else "no page function found"
@@ -867,3 +871,47 @@ class ImageTypeList(GenericAPIView):
         fields = ['id', 'value']
         data = [dict(zip(fields, d)) for d in IMAGE_TYPE_CHOICE]
         return get_response('', data, True)
+
+
+class TemplateCRUDView(GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    serializer_class = TemplateSerializer
+    queryset = Template.objects.order_by('-id')
+
+    def get(self, request, *args, **kwargs):
+        if request.GET.get('id'):
+            templates = self.queryset.filter(id=request.GET.get('id'))
+        else:
+            self.queryset = self.filter_templates()
+            templates = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        serializer = self.serializer_class(templates, many=True)
+        msg = "" if templates else "no template found"
+        return get_response(msg, serializer.data, True)
+
+    def post(self, request):
+        modified_data = self.validate_request()
+        if 'error' in modified_data:
+            return get_response(modified_data['error'])
+
+        serializer = self.serializer_class(data=request.data)
+        if serializer.is_valid():
+            serializer.save(created_by=request.user)
+            return get_response('Template created successfully!', serializer.data)
+        return get_response(serializer_error(serializer), False)
+
+    def filter_templates(self):
+        app = self.request.GET.get('app')
+        name = self.request.GET.get('name')
+
+        if app:
+            self.queryset = self.queryset.filter(app_id=app)
+
+        if name:
+            self.queryset = self.queryset.filter(name__icontains=name)
+
+        return self.queryset
+
+    def validate_request(self):
+        return self.request.data
+

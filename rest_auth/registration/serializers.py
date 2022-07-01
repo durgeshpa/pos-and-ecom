@@ -342,14 +342,14 @@ class EcomRegisterSerializer(serializers.Serializer):
         if user:
             data['user_exists'] = True
             # Validate uid
-            try:
-                uid = force_text(uid_decoder(data['uid']))
-                user = UserModel._default_manager.get(pk=uid)
-            except (TypeError, ValueError, OverflowError, UserModel.DoesNotExist):
-                raise serializers.ValidationError("Invalid request")
-            # validate verification token
-            if not default_token_generator.check_token(user, data['token']):
-                raise serializers.ValidationError("Invalid request")
+            # try:
+            #     uid = force_text(uid_decoder(data['uid']))
+            #     user = UserModel._default_manager.get(pk=uid)
+            # except (TypeError, ValueError, OverflowError, UserModel.DoesNotExist):
+            #     raise serializers.ValidationError("Invalid request")
+            # # validate verification token
+            # if not default_token_generator.check_token(user, data['token']):
+            #     raise serializers.ValidationError("Invalid request")
             self.set_password_form = self.set_password_form_class(user=user, data={'new_password1': data['password1'],
                                                                                    'new_password2': data['password2']})
             if not self.set_password_form.is_valid():

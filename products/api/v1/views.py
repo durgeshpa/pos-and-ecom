@@ -7,12 +7,14 @@ from django.core.exceptions import ObjectDoesNotExist
 from django.http import HttpResponse
 from django.db.models import Q
 
-from rest_framework import authentication
+from rest_auth import authentication
 from rest_framework.generics import GenericAPIView, CreateAPIView, UpdateAPIView
 from rest_framework.permissions import AllowAny
+from rest_framework.response import Response
+from rest_framework import status
 
 from products.models import ParentProduct as ParentProducts, ProductHSN, ProductCapping as ProductCappings, \
-    ProductVendorMapping, Product as ChildProduct, Tax, Weight, ProductPrice, ParentProduct
+    ProductVendorMapping, Product as ChildProduct, Tax, Weight, ProductPrice, ParentProduct, SuperStoreProductPrice
 from categories.models import Category, B2cCategory
 from brand.models import Brand, Vendor
 from shops.models import Shop
@@ -29,7 +31,9 @@ from .serializers import ParentProductSerializers, BrandSerializers, ParentProdu
     ProductHSNCrudSerializers, HSNExportAsCSVSerializers, ProductPriceSerializers, CitySerializer, \
     ProductVendorMappingExportAsCSVSerializers, PinCodeSerializer, ShopsSerializer, \
     DisapproveSelectedProductPriceSerializers, ProductSlabPriceExportAsCSVSerializers, ImageProductSerializers, \
-    DiscountChildProductSerializers, HSNExportAsCSVUploadSerializer, ParentProductApprovalSerializers
+    DiscountChildProductSerializers, HSNExportAsCSVUploadSerializer, ParentProductApprovalSerializers, \
+    SuperStoreProductPriceSerializers, SuperStoreProductPriceAsCSVUploadSerializer, \
+    SuperStoreProductPriceDownloadSerializer
 from brand.api.v1.serializers import VendorSerializers
 from products.common_function import get_response, serializer_error, can_approve_product_tax
 from products.common_validators import validate_id, validate_data_format, validate_data_format_without_json
@@ -71,8 +75,11 @@ class CategoryListView(GenericAPIView):
 
     def get(self, request):
         search_text = self.request.GET.get('search_text')
+        cat_type = self.request.GET.get('category_type')
         if search_text:
             self.queryset = category_search(self.queryset, search_text)
+        if cat_type:
+            self.queryset = self.queryset.filter(category_type=cat_type)
         category = SmallOffsetPagination().paginate_queryset(self.queryset, request)
         serializer = self.serializer_class(category, many=True)
         msg = "" if category else "no category found"
@@ -313,7 +320,7 @@ class ParentProductView(GenericAPIView):
         if serializer.is_valid():
             serializer.save(created_by=request.user)
             info_logger.info("Parent Product Created Successfully.")
-            return get_response('parent product created successfully!', serializer.data)
+            return get_response('Parent product created successfully!', serializer.data)
         return get_response(serializer_error(serializer), False)
 
     def put(self, request):
@@ -371,6 +378,7 @@ class ParentProductView(GenericAPIView):
         product_status = self.request.GET.get('status')
         tax_status = self.request.GET.get('tax_status')
         search_text = self.request.GET.get('search_text')
+        product_type = self.request.GET.get('product_type')
 
         # search using parent_id, name & category_name based on criteria that matches
         if search_text:
@@ -382,6 +390,8 @@ class ParentProductView(GenericAPIView):
             self.queryset = self.queryset.filter(status=product_status)
         if tax_status is not None:
             self.queryset = self.queryset.filter(tax_status=tax_status)
+        if product_type is not None:
+            self.queryset = self.queryset.filter(product_type=product_type)
         if category is not None:
             self.queryset = self.queryset.filter(
                 parent_product_pro_category__category__id=category)
@@ -428,6 +438,88 @@ class ProductPackingMappingView(GenericAPIView):
         serializer = self.serializer_class(pack_mat_product, many=True)
         msg = "" if pack_mat_product else "no product package mapping found"
         return get_response(msg, serializer.data, True)
+
+
+class SiblingProductView(GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    queryset = ChildProduct.objects.select_related('parent_product', 'updated_by', 'created_by') \
+        .prefetch_related('product_pro_image', 'product_vendor_mapping', 'parent_product__parent_product_pro_image',
+                          'parent_product__product_parent_product__product_pro_image',
+                          'child_product_log', 'child_product_log__updated_by', 'destination_product_pro',
+                          'parent_product__parent_product_pro_category', 'destination_product_pro__source_sku',
+                          'parent_product__parent_product_pro_category__category', 'packing_product_rt',
+                          'destination_product_repackaging', 'packing_product_rt__packing_sku',
+                          'parent_product__product_parent_product__product_vendor_mapping',
+                          'parent_product__parent_product_log', 'parent_product__parent_product_log__updated_by',
+                          'parent_product__product_parent_product__product_vendor_mapping__vendor', 'product_pro_tax',
+                          'parent_product__product_hsn', 'product_vendor_mapping__vendor', 'product_pro_tax__tax',
+                          'parent_product__product_parent_product__product_vendor_mapping',
+                          'parent_product__parent_brand', 'parent_product__parent_product_pro_tax',
+                          'parent_product__parent_product_pro_tax__tax', ).order_by('-id')
+
+    serializer_class = ChildProductSerializers
+
+    def get(self, request):
+        """"GET API for Sibling Product with Image Category & Tax """
+        try:
+            shop = Shop.objects.get(id=request.META.get('HTTP_SHOP_ID', None), shop_type__shop_type='f', status=True,
+                                    approval_status=2, pos_enabled=1)
+        except:
+            return api_response("Shop not available!")
+        parent_shop_id = shop.get_shop_parent
+        if not parent_shop_id:
+            return api_response("shop parent not mapped")
+        parent_shop_id = parent_shop_id.id
+        
+        if request.GET.get('id'):
+            """ Get Child Product for specific ID """
+            id_validation = validate_id(self.queryset, int(request.GET.get('id')))
+            if 'error' in id_validation:
+                return get_response(id_validation['error'])
+            child_product = id_validation['data']
+        serializer = self.serializer_class(child_product, many=True, context={'parent_shop_id': parent_shop_id})
+        category_id = serializer.data[0]['parent_product']['parent_product_pro_category'][0]['category']['id']
+        if category_id:
+            self.queryset = self.queryset.filter(
+                parent_product__parent_product_pro_category__category_id=category_id).exclude(id=request.GET.get('id'))
+            sib_pro_total_count = self.queryset.count()
+            sibling_product = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+            serializer = self.serializer_class(sibling_product, many=True, context={'parent_shop_id': parent_shop_id})
+        msg = f"TOTAL SIBLING PRODUCT :: {sib_pro_total_count}" if sibling_product else "No sibling product found"
+        return get_response(msg, serializer.data, True)
+
+
+def api_response(msg, data=None, status_code=status.HTTP_406_NOT_ACCEPTABLE, success=False, extra_params=None):
+    ret = {"is_success": success, "message": msg, "response_data": data}
+    if extra_params:
+        ret.update(extra_params)
+    return Response(ret, status=status_code)
+
+
+class ProductDetails(GenericAPIView):
+    """
+    retailer product details with parent product discriptions .....
+    """
+
+    authentication_classes = (authentication.TokenAuthentication,)
+    serializer_class = ChildProductSerializers
+
+    def get(self, request):
+        '''get superstore product details ....'''
+        id = request.GET.get('id')
+        try:
+            shop = Shop.objects.get(id=request.META.get('HTTP_SHOP_ID', None), shop_type__shop_type='f', status=True,
+                                    approval_status=2, pos_enabled=1)
+        except:
+            return api_response("Shop not available!")
+        parent_shop_id = shop.get_shop_parent
+        if not parent_shop_id:
+            return api_response("shop parent not mapped")
+        parent_shop_id = parent_shop_id.id
+        serializer = ChildProduct.objects.filter(id=id)
+        serializer = self.serializer_class(serializer, many=True, context={'parent_shop_id': parent_shop_id})
+        return api_response('products information',serializer.data,status.HTTP_200_OK, True)
 
 
 class ChildProductView(GenericAPIView):
@@ -559,6 +651,7 @@ class ChildProductView(GenericAPIView):
         product_status = self.request.GET.get('status')
         parent_product_id = self.request.GET.get('parent_product_id')
         search_text = self.request.GET.get('search_text')
+        parent_product_type = self.request.GET.get('parent_product_type')
 
         # search using product_name & id based on criteria that matches
         if search_text:
@@ -570,6 +663,8 @@ class ChildProductView(GenericAPIView):
             self.queryset = self.queryset.filter(parent_product=parent_product_id)
         if product_status is not None:
             self.queryset = self.queryset.filter(status=product_status)
+        if parent_product_type is not None:
+            self.queryset = self.queryset.filter(parent_product__product_type=parent_product_type)
         if category is not None:
             self.queryset = self.queryset.filter(
                 parent_product__parent_product_pro_category__category__id=category)
@@ -1692,3 +1787,170 @@ class BulkParentProductApprovalView(GenericAPIView):
         else:
             return get_response('All selected products approved', True)
 
+
+class SuperStoreProductListView(GenericAPIView):
+    """
+        Get Parent List
+    """
+    authentication_classes = (authentication.TokenAuthentication,)
+    queryset = ChildProduct.objects.filter(parent_product__product_type=ParentProducts.SUPERSTORE)
+    serializer_class = ProductSerializers
+
+    def get(self, request):
+        search_text = self.request.GET.get('search_text')
+        if search_text:
+            self.queryset = child_product_search(self.queryset, search_text)
+        product = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        serializer = self.serializer_class(product, many=True)
+        msg = "" if product else "no product found"
+        return get_response(msg, serializer.data, True)
+
+
+class SuperStoreProductPriceView(GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+
+    queryset = SuperStoreProductPrice.objects.select_related('product', 'seller_shop')\
+        .prefetch_related('product__parent_product', 'seller_shop__shop_type', 'seller_shop__shop_owner',
+                          'product__parent_product__parent_product_pro_category',
+                          'product__parent_product__parent_product_pro_b2c_category',). \
+        order_by('-updated_at')
+    serializer_class = SuperStoreProductPriceSerializers
+
+    def get(self, request):
+        """ GET API for SuperStore Product Price """
+
+        info_logger.info("SuperStoreProductPrice GET api called.")
+
+        price_count = 1
+        if request.GET.get('id'):
+            """ Get SuperStore Product Price for specific ID """
+            id_validation = validate_id(self.queryset, int(request.GET.get('id')))
+            if 'error' in id_validation:
+                return get_response(id_validation['error'])
+            product_price = id_validation['data']
+        else:
+            """ GET Product Price  List """
+            self.queryset = self.search_filter_super_store_product_price()
+            price_count = self.queryset.count()
+            product_price = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        msg = f"total count {price_count}" if product_price else "no product price found"
+        serializer = self.serializer_class(product_price, many=True)
+        return get_response(msg, serializer.data, True)
+
+    def post(self, request):
+        """ POST API for SuperStore Product Price """
+
+        info_logger.info("SuperStore Product Price POST api called.")
+        serializer = self.serializer_class(data=request.data)
+        if serializer.is_valid():
+            serializer.save(created_by=request.user)
+            return get_response('product price created successfully!', None, 200)
+        return get_response(serializer_error(serializer), False)
+
+    def put(self, request):
+        """ PUT API for SuperStore Product Price Update """
+
+        info_logger.info("SuperStore Product Price Updation PUT api called.")
+        if 'id' not in request.data:
+            return get_response('please provide id to update super store product price', False)
+
+        # validations for input id
+        id_instance = validate_id(self.queryset, int(request.data['id']))
+        if 'error' in id_instance:
+            return get_response(id_instance['error'])
+        product_price_instance = id_instance['data'].last()
+
+        serializer = self.serializer_class(instance=product_price_instance, data=request.data)
+        if serializer.is_valid():
+            serializer.save(updated_by=request.user)
+            info_logger.info("product price Updated Successfully.")
+            return get_response('product price updated Successfully!', None, 200)
+        return get_response(serializer_error(serializer), False)
+
+    def search_filter_super_store_product_price(self):
+
+        seller_shop_id = self.request.GET.get('seller_shop_id', None)
+        product_id = self.request.GET.get('product_id')
+        product_sku = self.request.GET.get('product_sku')
+        category_id = self.request.GET.get('category_id')
+        b2c_category_id = self.request.GET.get('b2c_category_id')
+        # mrp = self.request.GET.get('mrp')
+        search_text = self.request.GET.get('search_text')
+
+        # search using product name and product sku based on criteria that matches
+        if search_text:
+            self.queryset = product_price_search(self.queryset, search_text.strip())
+
+        # filter using seller_shop_id, product_id, product_status, mrp & status exact match
+        if product_id is not None and product_id is not '':
+            self.queryset = self.queryset.filter(product_id=product_id)
+        if category_id is not None and not category_id is '':
+            self.queryset = self.queryset.filter(product__parent_product__parent_product_pro_category__category_id=
+                                                 category_id)
+        if b2c_category_id is not None and not b2c_category_id is '':
+            self.queryset = self.queryset.filter(product__parent_product__parent_product_pro_b2c_category__category_id=
+                                                 b2c_category_id)
+        if product_sku is not None and not product_sku is '':
+            self.queryset = self.queryset.filter(product__product_sku__icontains=product_sku)
+        if seller_shop_id is not None and not seller_shop_id is '':
+            self.queryset = self.queryset.filter(seller_shop_id=seller_shop_id)
+        # if mrp is not None and not mrp is '':
+        #     self.queryset = self.queryset.filter(mrp__icontains=mrp)
+        return self.queryset
+
+    def delete(self, request):
+        """ Delete SuperStore Product Price """
+
+        info_logger.info("SuperStore Product Price DELETE api called.")
+        if not request.data.get('product_price_ids'):
+            return get_response('please select product price', False)
+        try:
+            for id in request.data.get('product_price_ids'):
+                product_price_id = self.queryset.get(id=int(id))
+                try:
+                    product_price_id.delete()
+                    info_logger.info(f"product price deleted by {request.user} product price id - {product_price_id}")
+                except Exception as er:
+                    return get_response(f'You can not delete product price {product_price_id}, '
+                                        f'because this product price is getting used', False)
+        except ObjectDoesNotExist as e:
+            error_logger.error(e)
+            return get_response(f'please provide a valid product price id {id}', False)
+        return get_response('product price were deleted successfully!', True)
+
+
+class SuperStoreProductPriceAsCSVUploadView(GenericAPIView):
+    """
+    This class is used to upload csv file for Super store product prices
+    """
+    authentication_classes = (authentication.TokenAuthentication,)
+    serializer_class = SuperStoreProductPriceAsCSVUploadSerializer
+
+    def post(self, request):
+        serializer = self.get_serializer(data=request.data, context={'user': self.request.user})
+        if serializer.is_valid():
+            response_file = serializer.save(created_by=request.user)
+            info_logger.info("Superstore Product Price Uploaded successfully")
+            if isinstance(response_file, HttpResponse):
+                return response_file
+        return get_response(serializer_error(serializer), False)
+
+
+class SuperStoreProductPriceAsCSVDownloadView(GenericAPIView):
+    """
+    This class is used to upload csv file for Super store product prices
+    """
+    authentication_classes = (authentication.TokenAuthentication,)
+    serializer_class = SuperStoreProductPriceDownloadSerializer
+
+    def post(self, request):
+        """ POST API for Download Sample CreateProductVendorMapping """
+
+        info_logger.info("CreateProductVendorMappingSample POST api called.")
+        serializer = self.serializer_class(data=request.data)
+        if serializer.is_valid():
+            response = serializer.save()
+            info_logger.info("Superstore Product Price Downloaded successfully")
+            return HttpResponse(response, content_type='text/csv')
+        return get_response(serializer_error(serializer), False)

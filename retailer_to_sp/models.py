@@ -21,6 +21,7 @@ from django.core.validators import MinValueValidator, MaxValueValidator
 
 from celery.task import task
 from accounts.middlewares import get_current_user
+from global_config.models import GlobalConfig
 from retailer_backend import common_function as CommonFunction
 from retailer_backend.validators import PercentageValidator
 from .bulk_order_clean import bulk_order_validation
@@ -29,7 +30,7 @@ from .utils import (order_invoices, order_shipment_status, order_shipment_amount
                     order_shipment_date, order_delivery_date, order_cash_to_be_collected, order_cn_amount,
                     order_damaged_amount, order_delivered_value, order_shipment_status_reason,
                     picking_statuses, picker_boys, picklist_ids, picklist_refreshed_at, qc_areas, zones, qc_desks,
-                    qc_executives)
+                    qc_executives, get_product_tax_amount)
 
 from addresses.models import Address
 
@@ -39,7 +40,7 @@ from wms.common_functions import common_on_return_and_partial, \
     get_expiry_date, OrderManagement, product_batch_inventory_update_franchise, get_stock
 from brand.models import Brand
 from otp.sms import SendSms
-from products.models import Product, ProductPrice, Repackaging
+from products.models import Product, ProductPrice, Repackaging, SuperStoreProductPrice
 from shops.models import Shop
 from accounts.models import UserWithName, User
 from coupon.models import Coupon, CusotmerCouponUsage
@@ -76,6 +77,8 @@ BULK = 'BULK'
 DISCOUNTED = 'DISCOUNTED'
 BASIC = 'BASIC'
 ECOM = 'EC0M'
+SUPERSTORE = 'SUPERSTORE'
+SUPERSTORE_RETAIL = 'SUPERSTORE_RETAIL'
 
 BULK_ORDER_STATUS = (
     (AUTO, 'Auto'),
@@ -103,13 +106,17 @@ PAYMENT_MODE = (
     ('CREDIT', 'Credit'),
     ('INSTANT_PAYMENT', 'Instant_payment'),
 )
+GROCERY_CART_TYPES = [RETAIL, BULK, DISCOUNTED, BASIC, ECOM]
+SUPERSTORE_CART_TYPES = [SUPERSTORE, SUPERSTORE_RETAIL]
 
 CART_TYPES = (
     (RETAIL, 'Retail'),
     (BULK, 'Bulk'),
     (DISCOUNTED, 'Discounted'),
     (BASIC, 'Basic'),
-    (ECOM, 'Ecom')
+    (ECOM, 'Ecom'),
+    (SUPERSTORE, 'Super Store'),
+    (SUPERSTORE_RETAIL, 'Super Store Retail')
 )
 
 
@@ -218,7 +225,7 @@ class Cart(models.Model):
     def order_amount_after_discount(self):
         item_effective_total = 0
         for m in self.rt_cart_list.all():
-            item_effective_total += (m.item_effective_prices * float(m.no_of_pieces))
+            item_effective_total += (float(m.item_effective_prices) * float(m.no_of_pieces))
         order_amount = round(float(item_effective_total), 2)
         return order_amount
 
@@ -226,7 +233,7 @@ class Cart(models.Model):
     def order_amount(self):
         item_effective_total = 0
         for m in self.rt_cart_list.all():
-            item_effective_total += (m.item_effective_prices * float(m.no_of_pieces))
+            item_effective_total += (float(m.item_effective_prices) * float(m.no_of_pieces))
         redeem_points_value = 0
         if self.redeem_factor:
             redeem_points_value = round(self.redeem_points / self.redeem_factor, 2)
@@ -243,6 +250,10 @@ class Cart(models.Model):
             if self.cart_type in ['BASIC', 'ECOM']:
                 return round(self.rt_cart_list.aggregate(
                     subtotal_sum=Sum(F('retailer_product__mrp') * F('no_of_pieces'), output_field=FloatField()))[
+                                 'subtotal_sum'], 2)
+            elif self.cart_type == 'SUPERSTORE':
+                return round(self.rt_cart_list.aggregate(
+                    subtotal_sum=Sum(F('cart_product__product_mrp') * F('qty'), output_field=FloatField()))[
                                  'subtotal_sum'], 2)
             else:
                 return round(self.rt_cart_list.aggregate(
@@ -558,7 +569,7 @@ class Cart(models.Model):
 
     def save(self, *args, **kwargs):
         if self.cart_status == self.ORDERED:
-            if self.cart_type not in ['BASIC', 'ECOM']:
+            if self.cart_type not in ['BASIC', 'ECOM', 'SUPERSTORE']:
                 for cart_product in self.rt_cart_list.all():
                     cart_product.get_cart_product_price(self.seller_shop.id, self.buyer_shop.id)
         super().save(*args, **kwargs)
@@ -843,18 +854,21 @@ class CartProductMapping(models.Model):
             else:
                 item_effective_price = float(self.selling_price) if self.selling_price else 0
         else:
-            try:
-                if self.cart.offers:
-                    array = list(filter(lambda d: d['coupon_type'] in 'catalog', self.cart.offers))
-                    for i in array:
-                        if self.cart_product.id == i['item_id']:
-                            item_effective_price = (i.get('discounted_product_subtotal', 0)) / float(self.no_of_pieces)
-                else:
-                    product_price = self.cart_product.get_current_shop_price(self.cart.seller_shop_id,
-                                                                             self.cart.buyer_shop_id)
-                    item_effective_price = float(product_price.get_per_piece_price(self.qty))
-            except Exception as e:
-                logger.exception("Cart product price not found")
+            if self.cart.cart_type == 'SUPERSTORE':
+                item_effective_price =  float(self.selling_price)
+            else:
+                try:
+                    if self.cart.offers:
+                        array = list(filter(lambda d: d['coupon_type'] in 'catalog', self.cart.offers))
+                        for i in array:
+                            if self.cart_product.id == i['item_id']:
+                                item_effective_price = (i.get('discounted_product_subtotal', 0)) / float(self.no_of_pieces)
+                    else:
+                        product_price = self.cart_product.get_current_shop_price(self.cart.seller_shop_id,
+                                                                                self.cart.buyer_shop_id)
+                        item_effective_price = float(product_price.get_per_piece_price(self.qty))
+                except Exception as e:
+                    logger.exception("Cart product price not found")
         return item_effective_price
 
     @property
@@ -1010,16 +1024,19 @@ class Order(models.Model):
         ('5','Others')
     )
 
+
     DELIVERY_CHOICE = ( ('1', 'Self Pick'),
                         ('2', 'Home Delivery')
                        )
 
     POS_WALKIN = 'pos_walkin'
     POS_ECOMM = 'pos_ecomm'
+    POS_SUPERSTORE = 'pos_superstore'
 
     ORDER_APP_TYPE = (
         (POS_WALKIN, 'Pos Walkin'),  # 1
-        (POS_ECOMM, 'Pos Ecomm'),  # 2
+        (POS_ECOMM, 'Pos Ecomm'), # 2
+        (POS_SUPERSTORE, 'Pos Super Store')
     )
     # Todo Remove
     seller_shop = models.ForeignKey(
@@ -1078,6 +1095,10 @@ class Order(models.Model):
     delivery_option = models.CharField(max_length=50, choices=DELIVERY_CHOICE, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
+    latitude = models.DecimalField(max_digits=30, decimal_places=15, null=True,blank=True, verbose_name='Latitude For Ecommerce order')
+    longitude = models.DecimalField(max_digits=30, decimal_places=15, null=True,blank=True, verbose_name='Longitude For Ecommerce order')
+    reference_order = models.ForeignKey('self', related_name='ref_order', blank=True, null=True,
+                                        on_delete=models.CASCADE)
 
     def __str__(self):
         return self.order_no or str(self.id)
@@ -1719,9 +1740,16 @@ class OrderedProduct(models.Model):  # Shipment
         Shop, related_name='shop_shipments',
         null=True, blank=True, on_delete=models.DO_NOTHING
     )
+    delivery_person = models.ForeignKey(UserWithName, 
+                                        null=True, 
+                                        on_delete=models.DO_NOTHING, 
+                                        verbose_name='Delivery Boy',
+                                        related_name='shipment_deliveries')
     created_at = models.DateTimeField(
         auto_now_add=True, verbose_name="Invoice Date")
-
+    shipment_label_pdf = models.FileField(upload_to='supermart/shipment/label/documents/', 
+                                      null=True, 
+                                      blank=True)
     qc_started_at = models.DateTimeField(null=True, blank=True)
     qc_completed_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Invoice Date")
@@ -2001,7 +2029,7 @@ class OrderedProduct(models.Model):  # Shipment
             if self.shipment_status == OrderedProduct.MOVED_TO_DISPATCH:
                 CommonFunction.generate_invoice_number(self,
                     self.order.seller_shop.shop_name_address_mapping.filter(address_type='billing').last().pk)
-        elif self.order.ordered_cart.cart_type == 'ECOM':
+        elif self.order.ordered_cart.cart_type in ['ECOM', 'SUPERSTORE']:
             if self.shipment_status == OrderedProduct.MOVED_TO_DISPATCH:
                 CommonFunction.generate_invoice_number(self,
                     self.order.seller_shop.shop_name_address_mapping.filter(address_type='billing').last().pk, "EV")
@@ -2019,6 +2047,12 @@ class OrderedProduct(models.Model):  # Shipment
         elif self.order.ordered_cart.cart_type == 'BULK':
             if self.shipment_status == OrderedProduct.MOVED_TO_DISPATCH:
                 CommonFunction.generate_invoice_number_bulk_order(self,
+                    self.order.seller_shop.shop_name_address_mapping.filter(address_type='billing').last().pk)
+                # populate_data_on_qc_pass(self.order)
+
+        elif self.order.ordered_cart.cart_type == 'SUPERSTORE_RETAIL':
+            if self.shipment_status == OrderedProduct.MOVED_TO_DISPATCH:
+                CommonFunction.generate_invoice_number_ss(self,
                     self.order.seller_shop.shop_name_address_mapping.filter(address_type='billing').last().pk)
                 # populate_data_on_qc_pass(self.order)
 
@@ -2486,7 +2520,7 @@ class OrderedProductMapping(models.Model):
         #     product_tax = {i['tax']: [i['tax__tax_name'], i['tax__tax_percentage']] for i in product_tax_query}
         #     product_tax['tax_sum'] = product_tax_query.aggregate(tax_sum=Sum('tax__tax_percentage'))['tax_sum']
         #     self.product_tax_json = product_tax
-        product_tax_query = self.product.product_pro_tax.values('product', 'tax', 'tax__tax_name',
+        product_tax_query = self.product.parent_product.parent_product_pro_tax.values( 'tax', 'tax__tax_name',
                                                                 'tax__tax_percentage')
         product_tax = {i['tax']: [i['tax__tax_name'], i['tax__tax_percentage']] for i in product_tax_query}
         product_tax['tax_sum'] = product_tax_query.aggregate(tax_sum=Sum('tax__tax_percentage'))['tax_sum']
@@ -3191,7 +3225,7 @@ def create_order_no(sender, instance=None, created=False, **kwargs):
                         shop_name_address_mapping.filter(
                         address_type='billing').last().pk)
             instance.order_no = order_no
-        if instance.ordered_cart.cart_type in ['ECOM']:
+        elif instance.ordered_cart.cart_type in ['ECOM', 'SUPERSTORE']:
             instance.order_no = common_function.order_id_pattern(
                 sender, 'order_no', instance.pk,
                 instance.seller_shop.
@@ -3209,6 +3243,13 @@ def create_order_no(sender, instance=None, created=False, **kwargs):
                 instance.seller_shop.
                     shop_name_address_mapping.filter(
                     address_type='billing').last().pk)
+        elif instance.ordered_cart.cart_type == 'SUPERSTORE_RETAIL':
+            instance.order_no = common_function.order_id_pattern_ss(
+                sender, 'order_no', instance.pk,
+                instance.seller_shop.
+                    shop_name_address_mapping.filter(
+                    address_type='billing').last().pk)
+
         instance.save()
         # Update order id in cart
         Cart.objects.filter(id=instance.ordered_cart.id).update(order_id=instance.order_no)

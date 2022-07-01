@@ -3,7 +3,7 @@ import jsonpickle
 import logging
 from dal import autocomplete
 from wkhtmltopdf.views import PDFTemplateResponse
-
+from common.common_utils import sms_order_dispatch
 from products.models import *
 from num2words import num2words
 from barCodeGenerator import barcodeGen, merged_barcode_gen
@@ -22,6 +22,7 @@ from rest_framework import status
 from celery.task import task
 from django.http import JsonResponse
 from django.urls import reverse
+from pos.common_functions import api_response
 
 from retailer_to_sp.api.v1.views import pdf_generation
 from retailer_to_sp.common_model_functions import ShopCrateCommonFunctions
@@ -34,7 +35,8 @@ from retailer_to_sp.models import (CartProductMapping, Order, OrderedProduct, Or
                                    check_franchise_inventory_update, ShipmentNotAttempt, BASIC, ECOM,
                                    Shipment, populate_data_on_qc_pass, OrderedProductBatch, ShipmentPackaging,
                                    ShipmentNotAttempt, LastMileTripShipmentMapping, LastMileTripShipmentPackages,
-                                   Invoice, DispatchTripShipmentMapping, DispatchTrip, DispatchTripShipmentPackages)
+                                   Invoice, DispatchTripShipmentMapping, DispatchTrip, DispatchTripShipmentPackages,
+                                   SUPERSTORE, SUPERSTORE_RETAIL, Cart)
 from products.models import Product, Category
 from retailer_to_sp.forms import (
     OrderedProductForm, OrderedProductMappingShipmentForm,
@@ -58,7 +60,7 @@ from common.constants import ZERO, PREFIX_PICK_LIST_FILE_NAME, PICK_LIST_DOWNLOA
 from common.common_utils import create_file_name, create_merge_pdf_name, merge_pdf_files, single_pdf_file
 from wms.models import Pickup, WarehouseInternalInventoryChange, PickupBinInventory
 from wms.common_functions import cancel_order, cancel_order_with_pick, get_expiry_date, release_qc_area_on_order_cancel, \
-    get_response
+    get_response, release_picking_crates
 from wms.views import shipment_out_inventory_change, shipment_reschedule_inventory_change, shipment_not_attempt_inventory_change
 from pos.models import RetailerProduct
 from pos.common_functions import create_po_franchise
@@ -67,6 +69,27 @@ from zoho.models import ZohoInvoice
 
 logger = logging.getLogger('django')
 info_logger = logging.getLogger('file-info')
+cron_logger = logging.getLogger('cron_log')
+
+
+def generate_superstore_shipment_label(data, request, retailer_shipment, order_no):
+    try:
+        template_name = 'admin/superstore_shipment_label.html'
+        filename = f"{order_no}.pdf"
+        cmd_option = {"margin-top": 2, "margin-left": 4, "margin-right": 4, "margin-bottom": 0, "zoom": 1,
+                        "javascript-delay": 0, "footer-center": "[page]/[topage]", "page-height": 55, "page-width": 70,
+                        "no-stop-slow-scripts": True, "quiet": True}
+        response = PDFTemplateResponse(request=request, template=template_name, filename=filename,
+                                       context=data, show_content_in_browser=False, cmd_options=cmd_option)
+        try:
+            retailer_shipment.shipment_label_pdf.save("{}".format(filename),
+                                                     ContentFile(response.rendered_content), save=True)
+            return response
+        except Exception as e:
+            info_logger.exception(e)
+            return api_response(e)
+    except Exception as e:
+        return api_response("Pdf generation failed for shipment label")
 
 
 class ShipmentMergedBarcode(APIView):
@@ -84,33 +107,60 @@ class ShipmentMergedBarcode(APIView):
         else:
             shipment_packagings = shipment.shipment_packaging.filter(~Q(movement_type=ShipmentPackaging.RETURNED))
         pack_cnt = shipment_packagings.count()
-        for cnt, packaging in enumerate(shipment_packagings):
-            barcode_id = str("05" + str(packaging.id).zfill(10))
-            if packaging.crate:
-                pck_type_r_id = str(packaging.packaging_type) + " - " + str(packaging.crate.crate_id)
+        if shipment.order.ordered_cart.cart_type == 'SUPERSTORE_RETAIL':
+            retailer_order = shipment.order
+            order_no = retailer_order.order_no
+            retailer_shipment = retailer_order.rt_order_order_product.last()
+            product = retailer_shipment.rt_order_product_order_product_mapping.last().product
+            customer_order = retailer_order.reference_order
+            route = retailer_order.buyer_shop.shop_routes.last()
+            if route:
+                route = f"{route.route.name, route.route.city}"
             else:
-                pck_type_r_id = str(packaging.packaging_type)
-            customer_city_pincode = str(shipment.order.city) + " / " + str(shipment.order.pincode)
-            route = str(shipment.order.buyer_shop.shop_routes.last().route.name) if \
-                shipment.order.buyer_shop and shipment.order.buyer_shop.shop_routes.exists() else "N/A"
-            dispatch_center = str(shipment.order.dispatch_center.pk) if \
-                shipment.order.dispatch_center else str(shipment.order.seller_shop.pk)
-            shipment_count = str(str(cnt + 1) + " / " + str(pack_cnt))
-            if not packaging.crate and packaging.packaging_details.exists():
-                quantity = str(packaging.packaging_details.last().quantity)
-                product_name = str(packaging.packaging_details.last().ordered_product.product.product_name)
-                product_name = (product_name[:30] + '..') if len(product_name) > 30 else product_name
-                data = {shipment_count: pck_type_r_id,
-                        shipment.order.order_no: customer_city_pincode,
-                        product_name: quantity,
-                        "route ": route}
-            else:
-                data = {shipment_count: pck_type_r_id,
-                        shipment.order.order_no: customer_city_pincode,
-                        "route ": route,
-                        "blank_row": ""}
-            shipment_id_list[barcode_id] = {"qty": 1, "data": data}
-        return merged_barcode_gen(shipment_id_list, 'admin/retailer_to_sp/barcode.html')
+                route = "N/A"
+            shipment_labels = []
+            for cnt, packaging in enumerate(shipment_packagings):
+                barcode_id = str("05" + str(packaging.id).zfill(10))
+                barcode = barcodeGen(barcode_id)
+                data = {
+                    'barcode': barcode,
+                    'Product': product.product_name,
+                    'Customer Order no': customer_order.order_no,
+                    'Customer': f"{customer_order.buyer.first_name}, {customer_order.ecom_address_order.address}, {customer_order.ecom_address_order.city}, {customer_order.ecom_address_order.state}",
+                    'Partner Order no': retailer_order.order_no,
+                    'Route': route
+                }
+                shipment_labels.append(data)
+            data = {'shipment_labels': shipment_labels}
+            return generate_superstore_shipment_label(data, request, retailer_shipment, order_no)  
+        else:
+            for cnt, packaging in enumerate(shipment_packagings):
+                barcode_id = str("05" + str(packaging.id).zfill(10))
+                if packaging.crate:
+                    pck_type_r_id = str(packaging.packaging_type) + " - " + str(packaging.crate.crate_id)
+                else:
+                    pck_type_r_id = str(packaging.packaging_type)
+                customer_city_pincode = str(shipment.order.city) + " / " + str(shipment.order.pincode)
+                route = str(shipment.order.buyer_shop.shop_routes.last().route.name) if \
+                    shipment.order.buyer_shop and shipment.order.buyer_shop.shop_routes.exists() else "N/A"
+                dispatch_center = str(shipment.order.dispatch_center.pk) if \
+                    shipment.order.dispatch_center else str(shipment.order.seller_shop.pk)
+                shipment_count = str(str(cnt + 1) + " / " + str(pack_cnt))
+                if not packaging.crate and packaging.packaging_details.exists():
+                    quantity = str(packaging.packaging_details.last().quantity)
+                    product_name = str(packaging.packaging_details.last().ordered_product.product.product_name)
+                    product_name = (product_name[:30] + '..') if len(product_name) > 30 else product_name
+                    data = {shipment_count: pck_type_r_id,
+                            shipment.order.order_no: customer_city_pincode,
+                            product_name: quantity,
+                            "route ": route}
+                else:
+                    data = {shipment_count: pck_type_r_id,
+                            shipment.order.order_no: customer_city_pincode,
+                            "route ": route,
+                            "blank_row": ""}
+                shipment_id_list[barcode_id] = {"qty": 1, "data": data}
+            return merged_barcode_gen(shipment_id_list, 'admin/retailer_to_sp/barcode.html')
 
 
 class ReturnProductAutocomplete(autocomplete.Select2QuerySetView):
@@ -1788,7 +1838,10 @@ class OrderCancellation(object):
                 # updating shipment status
                 # self.get_shipment_queryset().update(shipment_status='CANCELLED')
                 self.cancel_shipment()
-
+            elif self.last_shipment_status == OrderedProduct.READY_TO_DISPATCH and not self.trip_status:
+                # Mark All Dispatch mile trip mappings as Cancelled
+                self.mark_dispatch_trip_mapping_cancelled()
+                self.cancel_shipment()
             elif self.trip_status and self.trip_status == Trip.READY:
                 # cancel order and generate credit note and
                 # remove shipment from trip
@@ -1835,6 +1888,19 @@ def order_cancellation(sender, instance=None, created=False, **kwargs):
         order = OrderCancellation(instance)
         order.cancel()
         release_qc_area_on_order_cancel(instance.order_no)
+        release_picking_crates(instance)
+        release_dispatch_crates(instance)
+
+
+def release_dispatch_crates(order_instance):
+    """
+    Release the dispatch crates used in the order
+    """
+    info_logger.info(f"release_dispatch_crates|started|order no{order_instance.order_no}")
+    order_shipment = order_instance.rt_order_order_product.last()
+    if order_shipment:
+        release_dispatch_crates_used_in_shipment(order_shipment)
+    info_logger.info(f"release_dispatch_crates|ended|order no{order_instance.order_no}")
 
 
 @receiver(post_save, sender=Order)
@@ -2130,3 +2196,77 @@ class ProductCategoryAutocomplete(autocomplete.Select2QuerySetView):
            return Category.objects.filter(category_name__icontains=self.q)
             # qs = Product.objects.filter(product_name__icontains=self.q)
         return qs
+
+
+def create_retailer_orders_from_superstore_order(instance=None):
+    cron_logger.info(f"create_retailer_orders_from_superstore_order|{instance}|Started")
+    with transaction.atomic():
+        if instance.ordered_cart.cart_type == SUPERSTORE:
+            carp_pro_maps = instance.ordered_cart.rt_cart_list.all()
+            if carp_pro_maps:
+                # new_seller_shop = Shop.objects.get(id=get_config('current_wh_active', 50484))
+                new_buyer_shop = instance.ordered_cart.seller_shop
+                parent_mapping = ParentRetailerMapping.objects.filter(retailer=new_buyer_shop, status=True)
+                new_seller_shop = parent_mapping.last().parent
+                new_billing_address = new_buyer_shop.shop_name_address_mapping.filter(address_type='billing').last()
+                new_shipping_address = new_buyer_shop.shop_name_address_mapping.filter(address_type='shipping').last()
+                user = instance.ordered_by
+                order_app_type = instance.order_app_type
+                if not user or not new_seller_shop or not new_buyer_shop or not order_app_type:
+                    info_logger.error(f"user {user} - new_seller_shop {new_seller_shop} - new_buyer_shop "
+                                      f"{new_buyer_shop} - order_app_type {order_app_type} | Any one is None.")
+                    return None
+                for cart_pro in carp_pro_maps:
+                    product = cart_pro.cart_product
+                    product_price = product.get_current_shop_price(new_seller_shop, new_buyer_shop)
+                    ordered_qty = int(cart_pro.qty)
+                    ordered_pieces = int(cart_pro.no_of_pieces)
+                    if not product_price:
+                        info_logger.error(f"product {product} | No product price for the respected shop")
+                    product_selling_price = product_price.get_per_piece_price(ordered_pieces)
+                    if not product_selling_price:
+                        info_logger.error(f"product {product} | No selling price for the product")
+                        return None
+                    new_cart = Cart.objects.create(seller_shop=new_seller_shop, buyer_shop=new_buyer_shop,
+                                                   cart_status='ordered', cart_type=SUPERSTORE_RETAIL)
+                    new_cart_pro = CartProductMapping.objects.create(
+                        cart=new_cart, cart_product_id=product.id, qty=ordered_qty, no_of_pieces=ordered_pieces,
+                        cart_product_price=product_price, selling_price=product_selling_price)
+                    cron_logger.info(f"create_retailer_orders_from_superstore_order|{instance}|"
+                                     f"Product Mapping {new_cart_pro.id}|Cart {new_cart}")
+                    order, _ = Order.objects.get_or_create(ordered_cart=new_cart)
+                    order.reference_order = instance
+                    order.total_mrp = float(product_price.mrp) * float(ordered_pieces)
+                    order.total_discount_amount = (float(product_price.mrp) - float(product_selling_price)) * ordered_pieces
+                    order.order_app_type = order_app_type
+                    order.ordered_cart = new_cart
+                    order.seller_shop = new_seller_shop
+                    order.buyer_shop = new_buyer_shop
+                    order.billing_address = new_billing_address
+                    order.shipping_address = new_shipping_address
+                    order.ordered_by = user
+                    order.last_modified_by = user
+                    order.received_by = user
+                    order.order_status = 'ordered'
+                    order.save()
+                    sms_order_dispatch(instance.buyer.first_name, instance.buyer.phone_number)
+                    cron_logger.info(f"create_retailer_orders_from_superstore_order|{instance}|"
+                                     f"Retailer order created {order}")
+            else:
+                cron_logger.error(f"create_retailer_orders_from_superstore_order|{instance}|"
+                                  f"No products available for which order can be placed.")
+
+
+def generate_retail_orders_against_superstore_order():
+    superstore_order_creation_days = get_config("superstore_order_creation_days", 1)
+    current_time = datetime.datetime.now() - datetime.timedelta(minutes=1)
+    start_time = datetime.datetime.now() - datetime.timedelta(days=superstore_order_creation_days)
+    orders = Order.objects.filter(order_app_type=Order.POS_SUPERSTORE, ref_order__isnull=True, order_closed=False,
+                                  ordered_cart__cart_type=SUPERSTORE,
+                                  created_at__lt=current_time, created_at__gt=start_time)
+    for instance in orders:
+        try:
+            create_retailer_orders_from_superstore_order(instance)
+        except Exception as e:
+            cron_logger.info(f'create_retailer_orders_from_superstore_order|FAILED| order {instance.order_no}')
+            cron_logger.error(e)

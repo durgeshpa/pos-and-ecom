@@ -171,15 +171,7 @@ class ShopMappedProduct(ExportMixin, SingleTableView, FilterView):
                     parent_name = myproduct.sku.parent_product.name
                     case_size = myproduct.sku.parent_product.inner_case_size
                     tempcategory=None
-                    if myproduct.sku.parent_product.product_type=='b2b':
-                        category_list = myproduct.sku.parent_product.parent_product_pro_category.all()
-                    elif myproduct.sku.parent_product.product_type=='b2c':
-                        category_list = myproduct.sku.parent_product.parent_product_pro_b2c_category.all()
-                    else:
-                        if myproduct.sku.parent_product.parent_product_pro_category.all().exists():
-                            category_list = myproduct.sku.parent_product.parent_product_pro_category.all()
-                        elif myproduct.sku.parent_product.parent_product_pro_b2c_category.all().exists():
-                            category_list = myproduct.sku.parent_product.parent_product_pro_b2c_category.all()
+                    category_list = myproduct.sku.parent_product.parent_product_pro_category.all()
                     for category1 in category_list:
                         if not tempcategory or category1.updated_at > tempcategory.updated_at:
                             tempcategory = category1
@@ -188,11 +180,11 @@ class ShopMappedProduct(ExportMixin, SingleTableView, FilterView):
 
                     brand = myproduct.sku.parent_product.parent_brand
                 except:
-                    parent_id = ''
-                    parent_name = ''
-                    case_size = ''
+                    parent_id = myproduct.sku.parent_product.parent_id
+                    parent_name = myproduct.sku.parent_product.name
+                    case_size = myproduct.sku.parent_product.inner_case_size
                     category = ''
-                    brand = ''
+                    brand = myproduct.sku.parent_product.parent_brand
 
                 binproducts = myproduct.sku.rt_product_sku.filter(inventory_type=inventory_type_normal, quantity__gt=0)
                 if not binproducts.exists():

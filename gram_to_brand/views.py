@@ -480,7 +480,7 @@ class VendorProductPrice(APIView):
             # else:
             #     taxes = ([field.tax.tax_percentage for field in vendor_mapping.last().product.product_pro_tax.all()])
             #     taxes = str(sum(taxes))
-            taxes = ([field.tax.tax_percentage for field in vendor_mapping.last().product.product_pro_tax.all()])
+            taxes = ([field.tax.tax_percentage for field in vendor_mapping.last().product.parent_product.parent_product_pro_tax.all()])
             taxes = str(sum(taxes))
             tax_percentage = taxes + '%'
         

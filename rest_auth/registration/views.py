@@ -20,11 +20,11 @@ from allauth.socialaccount.adapter import get_adapter as get_social_adapter
 from allauth.socialaccount.models import SocialAccount
 
 from rest_auth.app_settings import create_token
-from rest_auth.models import TokenModel
+from rest_auth.models import Token
 from rest_auth.registration.serializers import (VerifyEmailSerializer, SocialLoginSerializer, SocialAccountSerializer,
                                                 SocialConnectSerializer, MlmOtpRegisterSerializer, EcomRegisterSerializer)
 from rest_auth.serializers import MlmResponseSerializer, LoginResponseSerializer, api_serializer_errors
-from rest_auth.utils import jwt_encode
+from rest_auth.utils import jwt_encode, default_create_token
 from rest_auth.views import LoginView
 
 from .app_settings import RegisterSerializer, register_permission_classes
@@ -47,7 +47,7 @@ APPLICATION_REGISTER_RESPONSE_SERIALIZERS_MAP = {
 
 class RegisterView(CreateAPIView):
     permission_classes = register_permission_classes()
-    token_model = TokenModel
+    token_model = Token
 
     @sensitive_post_parameters_m
     def dispatch(self, *args, **kwargs):
@@ -75,13 +75,13 @@ class RegisterView(CreateAPIView):
         if serializer.is_valid():
             user, token = self.perform_create(serializer)
             headers = self.get_success_headers(serializer.data)
-            return self.get_response(user, headers, token)
+            return self.get_response(user, headers, token.key)
         else:
             return api_serializer_errors(serializer.errors)
 
     def perform_create(self, serializer):
         user = serializer.save(self.request)
-        token = jwt_encode(user) if getattr(settings, 'REST_USE_JWT', False) else create_token(self.token_model, user)
+        token = jwt_encode(user) if getattr(settings, 'REST_USE_JWT', False) else default_create_token(user)
         data = serializer.data
         if 'user_exists' in data and data['user_exists'] and getattr(settings, 'REST_SESSION_LOGIN', True):
             django_login(self.request, user)
@@ -93,7 +93,7 @@ class RegisterView(CreateAPIView):
         """
         Get Response Based on Authentication and App Type Requested
         """
-        token = token if getattr(settings, 'REST_USE_JWT', False) else user.auth_token.key
+        # token = token if getattr(settings, 'REST_USE_JWT', False) else user.auth_token.key
         response_serializer_class = self.get_response_serializer()
         response_serializer = response_serializer_class(instance={'user': user, 'token': token})
         return Response({'is_success': True, 'message': ['Signed Up Successfully!'],

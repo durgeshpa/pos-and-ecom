@@ -1,5 +1,5 @@
-(function ($) {
-   $(document).ready(function() {
+window.addEventListener("load", function() {
+    (function ($) {
         var row = 0
         var dt = ""
         var host = location.protocol + '//' + location.hostname + (location.port ? ':' + location.port : '')+'/';
@@ -21,7 +21,5 @@
                      console.log(request.responseText);
                 }
             });
-
-    });
-
-})(django.jQuery);
+    })(django.jQuery);
+});

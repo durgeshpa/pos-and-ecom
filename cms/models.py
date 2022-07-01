@@ -42,6 +42,11 @@ class Application(BaseTimestampUserModel):
         return self.name
 
 
+class Template(BaseTimestampUserModel):
+    app = models.ForeignKey(Application, on_delete=models.CASCADE, related_name='templates')
+    name = models.CharField(max_length=255)
+
+
 class Functions(BaseTimestampUserModel):
     name = models.CharField(max_length=20)
     type = models.PositiveIntegerField(choices=FUNTION_TYPE_CHOICE)
@@ -79,6 +84,7 @@ class CardData(BaseTimestampUserModel):
     cols = models.IntegerField(default=1)
     card_function = models.ForeignKey(Functions, on_delete=models.CASCADE, related_name="function_cards", null=True)
     params = JSONField(null=True)
+    # template = models.ForeignKey(Template, on_delete=models.CASCADE, related_name='template_cards')
 
     def __str__(self):
         return f"{self.id} - {self.header[0:16]}..."

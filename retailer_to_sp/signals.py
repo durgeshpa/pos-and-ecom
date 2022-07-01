@@ -162,7 +162,7 @@ def create_offers(sender, instance=None, created=False, **kwargs):
 		Update offers on cart after any product (quantity) is updated
 		Check combo on product, check cart level discount
 	"""
-	if instance.qty and instance.no_of_pieces and instance.cart.cart_type not in ('AUTO', 'DISCOUNTED', 'BASIC', 'ECOM'):
+	if instance.qty and instance.no_of_pieces and instance.cart.cart_type not in ('AUTO', 'DISCOUNTED', 'BASIC', 'ECOM', 'SUPERSTORE'):
 		Cart.objects.filter(id=instance.cart.id).update(offers=instance.cart.offers_applied())
 	elif instance.cart.cart_type in ['BASIC', 'ECOM'] and instance.product_type == 1 and instance.selling_price:
 		# Get combo coupon for product
@@ -175,6 +175,8 @@ def create_offers(sender, instance=None, created=False, **kwargs):
 		offers_list = BasicCartOffers.basic_cart_offers_check(Cart.objects.get(pk=instance.cart.id), offers_list,
 															  instance.cart.seller_shop.id)
 		Cart.objects.filter(pk=instance.cart.id).update(offers=offers_list)
+	elif instance.cart.cart_type == 'SUPERSTORE' and instance.product_type == 1 and instance.selling_price:
+		pass
 
 
 @receiver(post_delete, sender=CartProductMapping)
@@ -183,7 +185,7 @@ def remove_offers(sender, instance=None, created=False, **kwargs):
 		Update offers on cart after any product is deleted
 		Remove combo on this product, check cart level discount
 	"""
-	if instance.qty and instance.no_of_pieces and instance.cart.cart_type not in ('AUTO', 'DISCOUNTED', 'BASIC', 'ECOM'):
+	if instance.qty and instance.no_of_pieces and instance.cart.cart_type not in ('AUTO', 'DISCOUNTED', 'BASIC', 'ECOM', 'SUPERSTORE'):
 		Cart.objects.filter(id=instance.cart.id).update(offers=instance.cart.offers_applied())
 	elif instance.cart.cart_type in ['BASIC', 'ECOM'] and instance.product_type:
 		# Remove if any combo products added
@@ -202,15 +204,17 @@ def create_cart_no(sender, instance=None, created=False, **kwargs):
 			while Cart.objects.filter(cart_no=cart_no).exists():
 				cart_no = common_function.cart_no_pattern(sender, 'cart_no', instance.pk, bill_add_id)
 			instance.cart_no = cart_no
-		elif instance.cart_type in ['ECOM']:
-			cart_no = common_function.cart_no_pattern(sender, 'cart_no', instance.pk, bill_add_id, 'EC')
+		elif instance.cart_type in ['ECOM', 'SUPERSTORE']:
+			cart_no = common_function.cart_no_pattern(sender, 'cart_no', instance.pk, bill_add_id, "EC")
 			while Cart.objects.filter(cart_no=cart_no).exists():
-				cart_no = common_function.cart_no_pattern(sender, 'cart_no', instance.pk, bill_add_id, 'EC')
+				cart_no = common_function.cart_no_pattern(sender, 'cart_no', instance.pk, bill_add_id, "EC")
 			instance.cart_no = cart_no
 		elif instance.cart_type == 'BULK':
 			instance.cart_no = common_function.cart_no_pattern_bulk(sender, 'cart_no', instance.pk, bill_add_id)
 		elif instance.cart_type == 'DISCOUNTED':
 			instance.cart_no = common_function.cart_no_pattern_discounted(sender, 'cart_no', instance.pk, bill_add_id)
+		elif instance.cart_type == 'SUPERSTORE_RETAIL':
+			instance.cart_no = common_function.cart_no_pattern_ss(sender, 'cart_no', instance.pk, bill_add_id)
 
 
 @receiver(post_save, sender=Trip)
