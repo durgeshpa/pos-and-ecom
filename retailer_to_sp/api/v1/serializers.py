@@ -2848,6 +2848,13 @@ class DispatchTripStatusChangeSerializers(serializers.ModelSerializer):
             shipment_status=DispatchTripShipmentMapping.LOADED_FOR_DC)
         shipment_details.update(shipment_status=DispatchTripShipmentMapping.UNLOADING_AT_DC)
 
+
+    def unloading_added_returns_to_trip(self, dispatch_trip):
+        return_details = dispatch_trip.return_order_details.filter(
+            return_order_status=DispatchTripReturnOrderMapping.LOADED
+        )
+        return_details.update(return_order_status=DispatchTripReturnOrderMapping.UNLOADED)
+
     def cancel_added_shipments_to_trip(self, dispatch_trip):
         shipment_details = dispatch_trip.shipments_details.all()
         for mapping in shipment_details:
@@ -2863,6 +2870,10 @@ class DispatchTripStatusChangeSerializers(serializers.ModelSerializer):
                                              status=ShipmentPackaging.DISPATCH_STATUS_CHOICES.READY_TO_DISPATCH) \
                 .update(status=ShipmentPackaging.DISPATCH_STATUS_CHOICES.PACKED)
 
+    def cancel_added_returns_to_trip(self, dispatch_trip):
+        return_mappings = dispatch_trip.return_order_details.all()
+        return_mappings.delete()
+
     @transaction.atomic
     def update(self, instance, validated_data):
         """Update DispatchTrip"""
@@ -2875,9 +2886,11 @@ class DispatchTripStatusChangeSerializers(serializers.ModelSerializer):
 
         if validated_data['trip_status'] == DispatchTrip.UNLOADING:
             self.unloading_added_shipments_to_trip(dispatch_trip_instance)
+            self.unloading_added_returns_to_trip(dispatch_trip_instance)
 
         if validated_data['trip_status'] == DispatchTrip.CANCELLED:
             self.cancel_added_shipments_to_trip(dispatch_trip_instance)
+            self.cancel_added_returns_to_trip(dispatch_trip_instance)
 
         return dispatch_trip_instance
 
@@ -3485,6 +3498,10 @@ class LoadVerifyReturnOrderSerializer(serializers.ModelSerializer):
             id=self.initial_data['return_id'], seller_shop=trip.seller_shop).last()
         if not return_order:
             raise serializers.ValidationError("Invalid return order for the trip")
+
+        # check return order status
+        if return_order.return_status != ReturnOrder.DC_ACCEPTED:
+            raise serializers.ValidationError(f"Return Order is in {return_order.return_status} state, Cannot be loaded")
 
         # Check if return order already scanned
         if trip.return_order_details.filter(return_order=return_order).exists():
