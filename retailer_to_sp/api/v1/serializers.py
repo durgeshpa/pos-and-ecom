@@ -2574,7 +2574,7 @@ class DispatchTripCrudSerializers(serializers.ModelSerializer):
     created_by = UserSerializers(read_only=True)
     updated_by = UserSerializers(read_only=True)
     total_trip_weight = serializers.SerializerMethodField()
-
+    total_trip_returns = serializers.SerializerMethodField()
     # shipments_details = DispatchTripShipmentMappingSerializer(read_only=True, many=True)
 
     class Meta:
@@ -2582,12 +2582,15 @@ class DispatchTripCrudSerializers(serializers.ModelSerializer):
         fields = ('id', 'seller_shop', 'source_shop', 'destination_shop', 'dispatch_no', 'delivery_boy', 'vehicle_no',
                   'trip_status', 'trip_type', 'starts_at', 'completed_at', 'opening_kms', 'closing_kms', 'no_of_crates',
                   'no_of_packets', 'no_of_sacks', 'no_of_crates_check', 'no_of_packets_check', 'no_of_sacks_check',
-                  'no_of_shipments', 'trip_amount', 'total_trip_weight',
+                  'no_of_shipments', 'total_trip_returns', 'trip_amount', 'total_trip_weight',
                   'created_at', 'updated_at', 'created_by', 'updated_by')
 
     def get_total_trip_weight(self, obj):
         return obj.get_trip_weight()
 
+    def get_total_trip_returns(self, instance):
+        return instance.no_of_returns
+    
     def validate(self, data):
 
         if 'seller_shop' in self.initial_data and self.initial_data['seller_shop']:
