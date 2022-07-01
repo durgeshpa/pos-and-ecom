@@ -2790,8 +2790,11 @@ class DispatchTripStatusChangeSerializers(serializers.ModelSerializer):
                                                                   DispatchTripShipmentMapping.CANCELLED)).exists()
                         or dispatch_trip.trip_empty_crates.filter(
                             crate_status__in=[DispatchTripCrateMapping.LOADED,
-                                              DispatchTripCrateMapping.DAMAGED_AT_LOADING]).exists()):
-                    raise serializers.ValidationError("Load shipments/empty crates to the trip to start.")
+                                              DispatchTripCrateMapping.DAMAGED_AT_LOADING]).exists()) and\
+                        not (dispatch_trip.return_order_details.filter(
+                            return_order_status__in=[DispatchTripReturnOrderMapping.LOADED,
+                                              DispatchTripReturnOrderMapping.DAMAGED_AT_LOADING]).exists()):
+                    raise serializers.ValidationError("Load shipments/empty crates/return to the trip to start.")
 
                 if dispatch_trip.shipments_details.filter(
                         shipment_status=DispatchTripShipmentMapping.LOADING_FOR_DC).exists():
