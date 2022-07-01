@@ -3520,7 +3520,6 @@ class OrderCentral(APIView):
         """
         try:
             order = OrderedProductMapping.objects.get(pk=self.request.GET.get('product_mapping_id'),
-                                                        ordered_product__order__buyer=self.request.user,
                                                         ordered_product__order__ordered_cart__cart_type='SUPERSTORE')
         except OrderedProductMapping.DoesNotExist:
             return api_response("Order Not Found!")
