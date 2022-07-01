@@ -2849,12 +2849,6 @@ class DispatchTripStatusChangeSerializers(serializers.ModelSerializer):
         shipment_details.update(shipment_status=DispatchTripShipmentMapping.UNLOADING_AT_DC)
 
 
-    def unloading_added_returns_to_trip(self, dispatch_trip):
-        return_details = dispatch_trip.return_order_details.filter(
-            return_order_status=DispatchTripReturnOrderMapping.LOADED
-        )
-        return_details.update(return_order_status=DispatchTripReturnOrderMapping.UNLOADED)
-
     def cancel_added_shipments_to_trip(self, dispatch_trip):
         shipment_details = dispatch_trip.shipments_details.all()
         for mapping in shipment_details:
@@ -2886,7 +2880,6 @@ class DispatchTripStatusChangeSerializers(serializers.ModelSerializer):
 
         if validated_data['trip_status'] == DispatchTrip.UNLOADING:
             self.unloading_added_shipments_to_trip(dispatch_trip_instance)
-            self.unloading_added_returns_to_trip(dispatch_trip_instance)
 
         if validated_data['trip_status'] == DispatchTrip.CANCELLED:
             self.cancel_added_shipments_to_trip(dispatch_trip_instance)
