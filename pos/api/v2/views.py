@@ -675,22 +675,16 @@ class AdminOffers(GenericAPIView):
         except ObjectDoesNotExist:
             error_logger.error("Coupon RuleSet not found for coupon id {}".format(coupon.id))
             return api_response("Coupon RuleSet not found")
-        try:
-            rule_set_product_mapping = RuleSetProductMapping.objects.get(rule=coupon.rule)
-        except ObjectDoesNotExist:
-            error_logger.error("Product RuleSet not found for coupon id {}".format(coupon.id))
-            return api_response("Product mapping Not Found with Offer")
 
         if 'coupon_name' in data:
-            coupon.coupon_name = rule_set_product_mapping.combo_offer_name = data['coupon_name']
+            coupon.coupon_name = data['coupon_name']
         if 'start_date' in data:
-            rule.start_date = rule_set_product_mapping.start_date = coupon.start_date = data['start_date']
+            rule.start_date = coupon.start_date = data['start_date']
         if 'end_date' in data:
-            rule.expiry_date = rule_set_product_mapping.expiry_date = coupon.expiry_date = data['end_date']
+            rule.expiry_date = coupon.expiry_date = data['end_date']
         if 'is_active' in data:
-            rule_set_product_mapping.is_active = rule.is_active = coupon.is_active = data['is_active']
+            rule.is_active = coupon.is_active = data['is_active']
         rule.save()
-        rule_set_product_mapping.save()
         coupon.limit_of_usages_per_customer = data.get('limit_of_usages_per_customer',coupon.limit_of_usages_per_customer)
         coupon.coupon_enable_on = data.get('coupon_enable_on', coupon.coupon_enable_on)
         coupon.coupon_shop_type = data.get('coupon_shop_type', coupon.coupon_shop_type )
