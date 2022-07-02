@@ -309,7 +309,7 @@ class RequestOTPCls(object):
         sms_body = ''
         mask ='GRMFAC'
         if app_type =='3' or app_type =='2':
-            sms_body = "%s is your One Time Password for Peppertap Account. Request time is %s, %s IST. +qLHSBemon9" % (
+            sms_body = "%s is your One Time Password for Peppertap Account. Request time is %s, %s IST.+qLHSBemon9" % (
                 otp, date, time)
             mask = 'PEPTAB'
         else:
@@ -335,7 +335,7 @@ class RequestOTPCls(object):
         if user.exists():
             user = user.last()
             current_time = datetime.datetime.now()
-            otp_block_seconds = getattr(settings, 'OTP_BLOCK_INTERVAL', 60)
+            otp_block_seconds = 60
             otp_block_interval = datetime.timedelta(seconds=otp_block_seconds)
             if user.blocked:
                 re_request_delta = otp_block_interval - (current_time - user.modified_at)
