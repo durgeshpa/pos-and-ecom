@@ -11215,7 +11215,7 @@ class UnloadVerifyReturnOrderView(generics.GenericAPIView):
     def validate_trip_return_order(self, return_id, trip_id):
         trip_return_order = self.queryset.filter(
             return_order_status__in=[DispatchTripReturnOrderMapping.UNLOADED,
-                                     DispatchTripReturnOrderMapping.VERRIFIED],
+                                     DispatchTripReturnOrderMapping.VERIFIED],
             return_order__id=return_id, trip__id=trip_id).last()
         if trip_return_order:
             return {"error": "Return order is already unloaded!"}
