@@ -2828,6 +2828,11 @@ class DispatchTripStatusChangeSerializers(serializers.ModelSerializer):
                                               DispatchTripCrateMapping.DAMAGED_AT_LOADING]).exists():
                     raise serializers.ValidationError(
                         "The trip can not complete until and unless all shipments get unloaded.")
+                if dispatch_trip.return_order_details.filter(
+                        return_order_status=DispatchTripReturnOrderMapping.LOADED).exists():
+                    raise serializers.ValidationError(
+                        "The trip can not complete until and unless all return orders get unloaded."
+                    )
 
             if trip_status == DispatchTrip.VERIFIED:
                 if DispatchTripShipmentPackages.objects.filter(
