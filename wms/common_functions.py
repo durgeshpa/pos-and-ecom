@@ -2751,14 +2751,13 @@ def return_putaway(return_order):
                                  f"return_qty {batch.return_qty}, expired_qty {batch.expired_qty},"
                                  f" damaged_qty{batch.damaged_qty}")
                 batch_id = batch.batch_id
-                putaway_normal = batch.return_qty - batch.expired_qty - batch.damaged_qty
                 in_type_id = return_order.return_no
                 putaway_type_id = return_order.return_no
-                if putaway_normal > 0:
+                if batch.return_qty > 0:
                     create_in(seller_shop, batch_id, return_product.product, return_order.return_type, in_type_id,
-                              inv_type['N'], putaway_normal)
+                              inv_type['N'], batch.return_qty)
                     create_putaway(seller_shop, return_product.product, batch_id, None, inv_type['N'],
-                                   return_order.return_type, putaway_type_id, None, putaway_normal)
+                                   return_order.return_type, putaway_type_id, None, batch.return_qty)
 
                 if batch.expired_qty > 0:
                     create_in(seller_shop, batch_id, return_product.product, return_order.return_type, in_type_id,
