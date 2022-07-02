@@ -737,6 +737,7 @@ def create_update_last_mile_trip_return_mapping(trip_id, return_ids, request_use
                                                      created_by=request_user, 
                                                      updated_by=request_user)
     update_trip_package_count(trip_id)
+    return removed_returns
 
 def trip_planning_change(request, pk):
     trip_instance = Trip.objects.get(pk=pk)
@@ -805,6 +806,11 @@ def trip_planning_change(request, pk):
                         trip_instance.rt_invoice_trip.all().update(
                             shipment_status=TRIP_SHIPMENT_STATUS_MAP[current_trip_status], trip=None)
 
+                        return_mappings = trip_instance.last_mile_trip_returns_details.all()
+                        for return_mapping in return_mappings:
+                            return_mapping.return_order.return_status = ReturnOrder.RETURN_REQUESTED
+                            return_mapping.return_order.save()
+                        return_mappings.delete()
                         # updating order status for shipments when trip is cancelled
                         trip_shipments = trip_instance.rt_invoice_trip.values_list('id', flat=True)
                         for shipment in trip_shipments:
@@ -845,8 +851,9 @@ def trip_planning_change(request, pk):
                                 order_status=TRIP_ORDER_STATUS_MAP[current_trip_status])
                     if selected_return_ids:
                         selected_return_list = selected_return_ids.split(',')
-                        create_update_last_mile_trip_return_mapping(trip_instance.pk, selected_return_list, request.user)
-
+                        removed_returns = create_update_last_mile_trip_return_mapping(trip_instance.pk, selected_return_list, request.user)
+                        ReturnOrder.objects.filter(id__in=selected_return_list)\
+                            .exclude(id__in=removed_returns.values_list('id', flat=True)).update(return_status=ReturnOrder.RETURN_INITIATED)
                     return redirect('/admin/retailer_to_sp/trip/')
                 else:
                     pass
@@ -1010,13 +1017,20 @@ class LoadReturnOrders(APIView):
             ))
                                                             # seller_shop_id=seller_shop,
                                                             # shipment__order__dispatch_center_id=source_shop))
-            
-            return_orders_w = list(ReturnOrder.objects.filter(return_type=ReturnOrder.SUPERSTORE_WAREHOUSE,
-                                                       last_mile_trip_returns=None,
-                                                       seller_shop_id=seller_shop,
-                                                       shipment__order__dispatch_center_id=source_shop,
-                                                       return_status__in=[ReturnOrder.RETURN_REQUESTED]
-                                                       ))
+            if seller_shop != source_shop:
+                return_orders_w = list(ReturnOrder.objects.filter(return_type=ReturnOrder.SUPERSTORE_WAREHOUSE,
+                                                        last_mile_trip_returns=None,
+                                                        seller_shop_id=seller_shop,
+                                                        shipment__order__dispatch_center_id=source_shop,
+                                                        return_status__in=[ReturnOrder.RETURN_REQUESTED]
+                                                        ))
+            else:
+                return_orders_w = list(ReturnOrder.objects.filter(return_type=ReturnOrder.SUPERSTORE_WAREHOUSE,
+                                                        last_mile_trip_returns=None,
+                                                        seller_shop_id=seller_shop,
+                                                        shipment__order__dispatch_center__isnull=True,
+                                                        return_status__in=[ReturnOrder.RETURN_REQUESTED]
+                                                        ))
             return_orders = return_orders + return_orders_w
         serializer = ReturnOrderTripListSerializer(return_orders, many=True)
         msg = {'is_success': True,
