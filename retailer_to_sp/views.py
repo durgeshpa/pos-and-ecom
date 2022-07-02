@@ -737,6 +737,7 @@ def create_update_last_mile_trip_return_mapping(trip_id, return_ids, request_use
                                                      created_by=request_user, 
                                                      updated_by=request_user)
     update_trip_package_count(trip_id)
+    return removed_returns
 
 def trip_planning_change(request, pk):
     trip_instance = Trip.objects.get(pk=pk)
@@ -850,8 +851,9 @@ def trip_planning_change(request, pk):
                                 order_status=TRIP_ORDER_STATUS_MAP[current_trip_status])
                     if selected_return_ids:
                         selected_return_list = selected_return_ids.split(',')
-                        create_update_last_mile_trip_return_mapping(trip_instance.pk, selected_return_list, request.user)
-
+                        removed_returns = create_update_last_mile_trip_return_mapping(trip_instance.pk, selected_return_list, request.user)
+                        ReturnOrder.objects.filter(id__in=selected_return_list)\
+                            .exclude(id__in=removed_returns.values_list('id', flat=True)).update(return_status=ReturnOrder.RETURN_INITIATED)
                     return redirect('/admin/retailer_to_sp/trip/')
                 else:
                     pass
