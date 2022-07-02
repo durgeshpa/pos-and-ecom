@@ -426,7 +426,7 @@ function CreateResponseTable(data){
   if (GetTripStatus() == 'COMPLETED'|| (GetTripStatus() == 'STARTED' && trip_status == 'STARTED') || GetTripStatus() == 'CLOSED'){
     $(".shipment_checkbox").prop("checked", true);
     $(".shipment_checkbox").attr("disabled", true);
-    $(".selected_invoice_count").hide();
+    $(".selected-data-div").hide();
   }
   initialload = false;
 }
@@ -473,7 +473,7 @@ const CreateReturnResponseTable = (return_data) => {
   if (GetTripStatus() == 'COMPLETED'|| (GetTripStatus() == 'STARTED' && trip_status == 'STARTED') || GetTripStatus() == 'CLOSED'){
     $(".return_checkbox").prop("checked", true);
     $(".return_checkbox").attr("disabled", true);
-    $(".selected_invoice_count").hide();
+    $(".selected-data-div").hide();
   }
   initialload = false;
 }
