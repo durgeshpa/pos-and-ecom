@@ -11860,7 +11860,7 @@ class LastMileTripDeliveryReturnOrderView(generics.GenericAPIView):
     def get(self, request):
         result = self.validate_get_request()
         if "error" in result:
-            return get_response(result["error"], False)
+            return get_response([result["error"]], False)
 
         trip_id = self.request.GET.get('trip_id', None)
         seller_shop = self.request.GET.get('seller_shop', None)
@@ -11885,7 +11885,7 @@ class LastMileTripDeliveryReturnOrderView(generics.GenericAPIView):
             ).distinct('id')
         returns_data = SmallOffsetPagination().paginate_queryset(returns, request)
         serializer = self.serializer_class(returns_data, many=True)
-        msg = "" if returns_data else "no returns found"
+        msg = [] if returns_data else ["no returns found"]
         return get_response(msg, serializer.data, True)
 
     def validate_get_request(self):
@@ -11905,14 +11905,14 @@ class LastMileTripDeliveryReturnOrderView(generics.GenericAPIView):
     def put(self, request):
         result = self.validate_put_request()
         if "error" in result:
-            return get_response(result["error"], False)
+            return get_response([result["error"]], False)
         return_id = self.request.data.get('return_id', None)
         return_item_id = self.request.data.get('return_item_id', None)
         barcode = self.request.data.get('barcode', None)
         picked_quantity = self.request.data.get('picked_quantity', None)
         orderreturn = ReturnOrder.objects.filter(pk=return_id).last()
         if orderreturn.return_status != ReturnOrder.RETURN_INITIATED:
-            return get_response("error: Return not found in initiated state",'',False)
+            return get_response(["error: Return not found in initiated state"],'',False)
         return_item = ReturnOrderProduct.objects.filter(id=return_item_id).last()
         return_item.return_shipment_barcode = barcode
         return_item.delivery_picked_quantity = picked_quantity
@@ -11923,7 +11923,7 @@ class LastMileTripDeliveryReturnOrderView(generics.GenericAPIView):
             return_item.save()
             orderreturn.save()
             code.save()
-        return get_response("return picked sucessfully", '', True)
+        return get_response(["return picked sucessfully"], '', True)
 
     def validate_put_request(self):
         try:
@@ -12781,17 +12781,17 @@ class ReturnRejection(generics.ListCreateAPIView):
     def put(self, request):
         result = self.validate_put_request()
         if "error" in result:
-            return get_response(result["error"], False)
+            return get_response([result["error"]], False)
         return_id = self.request.data.get('return_id', None)
         reject_reason = self.request.data.get('reject_reason', None)
         orderreturn = ReturnOrder.objects.filter(pk=return_id).last()
         if orderreturn.return_status != ReturnOrder.RETURN_INITIATED:
-            return get_response("error: Return not found in initiated state",'',False)
+            return get_response(["error: Return not found in initiated state"],'',False)
         orderreturn.reject_reason = reject_reason
         orderreturn.return_status = ReturnOrder.RETURN_REJECTED
         with transaction.atomic():
             orderreturn.save()
-        return get_response("return rejected", '', True)
+        return get_response(["return rejected"], '', True)
 
     def validate_put_request(self):
         try:
