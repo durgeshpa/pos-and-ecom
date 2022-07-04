@@ -146,7 +146,7 @@ from .serializers import (ProductsSearchSerializer, CartSerializer, OrderSeriali
                           ReturnOrderTripProductSerializer, DispatchCenterReturnOrderSerializer, ReturnOrderProductSerializer,
                           LoadVerifyReturnOrderSerializer, UnLoadVerifyReturnOrderSerializer, BackwardTripReturnItemsSerializer,
                           MarkReturnOrderItemVerifiedSerializer,DeliveryReturnOrderSerializer,ShopExecutiveUserSerializer, 
-                          LastMileTripSerializers)
+                          LastMileTripSerializers, AddressSerializer)
 
 from ...common_validators import validate_shipment_dispatch_item, validate_trip_user, \
     get_shipment_by_crate_id, get_shipment_by_shipment_label, validate_shipment_id, validate_trip_shipment, \
@@ -8158,7 +8158,7 @@ class DeliveryShipmentDetails(APIView):
         trip_mappings = trip.last_mile_trip_returns_details.all()
         trip_return = []
         grouped_return_list = ReturnOrder.objects.filter(last_mile_trip_returns__in=trip_mappings)\
-                                                 .values('buyer_shop', 'seller_shop', 'return_status')\
+                                                 .values('buyer_shop', 'seller_shop', 'return_status', 'id')\
                                                  .annotate(return_count=Count('id')).order_by()
         for grouped_return in grouped_return_list:
             grouped_return_dict = {}
@@ -8180,6 +8180,7 @@ class DeliveryShipmentDetails(APIView):
                 grouped_return_dict['off_day'] = None
             buyerShop = Shop.objects.filter(id=grouped_return['buyer_shop']).last()
             sellerShop = Shop.objects.filter(id=grouped_return['seller_shop']).last()
+            shipping_address = buyerShop.shop_name_address_mapping.filter(address_type='shipping').last()
             shop_user_mapping = buyerShop.shop_user.filter(status=True,
                                                            employee_group__name='Sales Executive').last()
             sales_executive = None
@@ -8189,8 +8190,10 @@ class DeliveryShipmentDetails(APIView):
             grouped_return_dict['sales_executive'] = sales_executive.data
             grouped_return_dict['seller_shop'] = SellerShopSerializer(sellerShop).data
             grouped_return_dict['buyer_shop'] = SellerShopSerializer(buyerShop).data
+            grouped_return_dict['shipping_address'] = AddressSerializer(shipping_address).data
             grouped_return_dict['return_count'] = grouped_return['return_count']
             grouped_return_dict['shipment_status'] = grouped_return['return_status']
+            grouped_return_dict['return_value'] = ReturnOrder.objects.filter(id=grouped_return['id']).last().return_amount
             trip_return.append(grouped_return_dict)
 
         return trip_return
