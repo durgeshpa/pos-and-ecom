@@ -1896,7 +1896,7 @@ class CouponListSerializer(serializers.ModelSerializer):
     @staticmethod
     def get_offer_type(obj):
         rule = obj.rule
-        return 3 if rule.free_product else (1 if rule.discount else 2)
+        return 3 if rule.free_product or rule.parent_free_product else (1 if rule.discount else 2)
 
     @staticmethod
     def get_is_point(obj):

@@ -1133,15 +1133,16 @@ class DecodeBarcode(APIView):
                     data_item = {'is_success': True, 'message': '', 'data': barcode_data}
                     data.append(data_item)
             elif type_identifier == '06':
+                id = barcode[:-1]
                 return_order_product = ReturnOrderProduct.objects.filter(
-                    return_shipment_barcode=actual_barcode).last()
+                    return_shipment_barcode=id).last()
                 if return_order_product is None:
-                    barcode_data = {'type': None, 'id': None, 'barcode': actual_barcode}
+                    barcode_data = {'type': None, 'id': None, 'barcode': barcode}
                     data_item = {'is_success': False, 'message': 'Return Order not found', 'data': barcode_data}
                     data.append(data_item)
                 else:
                     barcode_data = {'type': 'return', 'id': return_order_product.return_order.id,
-                                    'barcode': actual_barcode}
+                                    'barcode': barcode}
                     data_item = {'is_success': True, 'message': '', 'data': barcode_data}
                     data.append(data_item)
             else:

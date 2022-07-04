@@ -109,7 +109,7 @@ class BasicCartOffers(object):
         cart_value = 0
         offers_list = []
         if coupon_id and cart:
-            coupon = Coupon.objects.get(id=coupon_id)
+            coupon = Coupon.objects.filter(id=coupon_id).last()
             coupon_category = coupon.category
             order_count = 0
             if coupon.froms and coupon.to:
@@ -219,43 +219,56 @@ class BasicCartOffers(object):
             disable4 = 'foco'
 
         date = datetime.now()
-        body = {
-            "from": 0,
-            "size": size,
-            "query": {"bool": {"filter": [{"term": {"active": True}},
-                                          {"term": {"coupon_type": 'catalogue_combo'}},
-                                          {"terms": {"purchased_product": purchased_product_ids}},
-                                          {"range": {"start_date": {"lte": date}}},
-                                          {"range": {"end_date": {"gte": date}}}],
-                               "should":
-                                   [
-                                       {"term": {"coupon_enable_on": 'all'}},
-                                       {"term": {"coupon_enable_on": coupon_enable}}
+        if cls.cart:
+            body = {
+                "from": 0,
+                "size": size,
+                "query": {"bool": {"filter": [{"term": {"active": True}},
+                                              {"term": {"coupon_type": 'catalogue_combo'}},
+                                              {"terms": {"purchased_product": purchased_product_ids}},
+                                              {"range": {"start_date": {"lte": date}}},
+                                              {"range": {"end_date": {"gte": date}}}],
+                                   "should":
+                                       [
+                                           {"term": {"coupon_enable_on": 'all'}},
+                                           {"term": {"coupon_enable_on": coupon_enable}}
 
-                                   ],
-                               "must_not":
-                                   [
-                                       {"term": {"coupon_enable_on": disable1}},
-                                       {"term": {"coupon_enable_on": disable2}},
-                                       {"term": {"coupon_type_name": disable3}},
-                                       {"term": {"coupon_shop_type": disable4}}
+                                       ],
+                                   "must_not":
+                                       [
+                                           {"term": {"coupon_enable_on": disable1}},
+                                           {"term": {"coupon_enable_on": disable2}},
+                                           {"term": {"coupon_type_name": disable3}},
+                                           {"term": {"coupon_shop_type": disable4}}
 
-                                   ]
+                                       ]
 
-                               }
-                      }
-        }
+                                   }
+                          }
+            }
+        else:
+            body = {
+                "from": 0,
+                "size": size,
+                "query": {"bool": {"filter": [{"term": {"active": True}},
+                                              {"term": {"coupon_type": 'catalogue_combo'}},
+                                              {"terms": {"purchased_product": purchased_product_ids}},
+                                              {"range": {"start_date": {"lte": date}}},
+                                              {"range": {"end_date": {"gte": date}}}],
 
-
-        product = RetailerProduct.objects.filter(id__in=list(purchased_product_ids))
+                                   }
+                          }
+            }
         lis_ids = []
-        for prod in product:
-            id = prod.linked_product_id
-            if id:
-                lis_ids.append(id)
+        if cls.cart:
+            product = RetailerProduct.objects.filter(id__in=list(purchased_product_ids))
+            for prod in product:
+                id = prod.linked_product_id
+                if id:
+                    lis_ids.append(id)
 
         body2 = None
-        if lis_ids :
+        if lis_ids:
             body2 = {
                 "from": 0,
                 "size": size,
@@ -288,6 +301,9 @@ class BasicCartOffers(object):
             coupons_list = es.search(index=create_es_index("rc-{}".format(shop_id)), body=body)
             for c in coupons_list['hits']['hits']:
                 c_list.append(c["_source"])
+        except:
+            pass
+        try:
             if body2:
                 shop = Shop.objects.filter(shop_name="Wherehouse").last()
                 coupons_list = es.search(index=create_es_index("rc-{}".format(shop.id)), body=body2)
@@ -485,6 +501,9 @@ class BasicCartOffers(object):
             coupons_list = es.search(index=create_es_index("rc-{}".format(shop_id)), body=body)
             for c in coupons_list['hits']['hits']:
                 c_list.append(c["_source"])
+        except:
+            pass
+        try:
             shop = Shop.objects.filter(shop_name="Wherehouse").last()
             coupons_list = es.search(index=create_es_index("rc-{}".format(shop.id)), body=body)
             for c in coupons_list['hits']['hits']:
@@ -553,6 +572,9 @@ class BasicCartOffers(object):
             coupons_list = es.search(index=create_es_index("rc-{}".format(shop_id)), body=body)
             for c in coupons_list['hits']['hits']:
                 c_list.append(c["_source"])
+        except:
+            pass
+        try:
             shop = Shop.objects.filter(shop_name="Wherehouse").last()
             coupons_list = es.search(index=create_es_index("rc-{}".format(shop.id)), body=body)
             for c in coupons_list['hits']['hits']:
@@ -655,7 +677,7 @@ class BasicCartOffers(object):
         # Either highest discount available offer is auto applied OR existing offer if applicable is updated
         if cart and (coupon_id or final_offer.get('coupon_id')):
             coupon_id = final_offer.get('coupon_id')
-            coupon = Coupon.objects.get(id=coupon_id)
+            coupon = Coupon.objects.filter(id=coupon_id).last()
             limit_of_usages_per_customer = coupon.limit_of_usages_per_customer
             count = cls.get_offer_applied_counts(cart.buyer, coupon_id, coupon.expiry_date, coupon.start_date)
             if limit_of_usages_per_customer and count >= limit_of_usages_per_customer:
@@ -765,7 +787,7 @@ class BasicCartOffers(object):
         free_product_coupons = BasicCartOffers.get_basic_cart_product_coupon(shop_id, cart_total)
         if free_product_coupons:
             coupon_id  = free_product_coupons[0].get('id')
-            coupon = Coupon.objects.get(id=coupon_id)
+            coupon = Coupon.objects.filter(id=coupon_id).last()
             limit_of_usages_per_customer = coupon.limit_of_usages_per_customer
             count = cls.get_offer_applied_count_free_type(cart.buyer, coupon_id, coupon.expiry_date, coupon.start_date)
             if limit_of_usages_per_customer and count >= limit_of_usages_per_customer:
@@ -881,6 +903,9 @@ class BasicCartOffers(object):
             coupons_list = es.search(index=create_es_index("rc-{}".format(shop_id)), body=body)
             for c in coupons_list['hits']['hits']:
                 c_list.append(c["_source"])
+        except:
+            pass
+        try:
             shop = Shop.objects.filter(shop_name="Wherehouse").last()
             coupons_list = es.search(index=create_es_index("rc-{}".format(shop.id)), body=body)
             for c in coupons_list['hits']['hits']:

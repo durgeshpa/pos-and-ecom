@@ -41,7 +41,7 @@ from addresses.api.v1.serializers import AddressSerializer
 from coupon.serializers import CouponSerializer
 from wms.api.v2.serializers import QCDeskSerializer, QCAreaSerializer
 from wms.common_functions import release_picking_crates, send_update_to_qcdesk, get_expiry_date, create_in, \
-    create_putaway
+    create_putaway, return_putaway
 from wms.models import Crate, WarehouseAssortment, Zone, InventoryType
 from ecom.models import Address as UserAddress
 from pos.api.v1.serializers import PaymentSerializer
@@ -2044,8 +2044,8 @@ class ReturnOrderTripProductSerializer(serializers.ModelSerializer):
     class Meta:
         model = ReturnOrder
         fields = ('id', 'return_no', 'return_challan_no', 'shipment', 'return_amount',
-                  'trip_belongs_to', 'retailer_return_order_product',
-                  'customer_shipment_detail', 'customer_return_order_product')
+                  'trip_belongs_to', 'retailer_return_order_product', 'return_status',
+                  'customer_shipment_detail')
 
 
 
@@ -2574,7 +2574,7 @@ class DispatchTripCrudSerializers(serializers.ModelSerializer):
     created_by = UserSerializers(read_only=True)
     updated_by = UserSerializers(read_only=True)
     total_trip_weight = serializers.SerializerMethodField()
-
+    total_trip_returns = serializers.SerializerMethodField()
     # shipments_details = DispatchTripShipmentMappingSerializer(read_only=True, many=True)
 
     class Meta:
@@ -2582,12 +2582,15 @@ class DispatchTripCrudSerializers(serializers.ModelSerializer):
         fields = ('id', 'seller_shop', 'source_shop', 'destination_shop', 'dispatch_no', 'delivery_boy', 'vehicle_no',
                   'trip_status', 'trip_type', 'starts_at', 'completed_at', 'opening_kms', 'closing_kms', 'no_of_crates',
                   'no_of_packets', 'no_of_sacks', 'no_of_crates_check', 'no_of_packets_check', 'no_of_sacks_check',
-                  'no_of_shipments', 'trip_amount', 'total_trip_weight',
+                  'no_of_shipments', 'total_trip_returns', 'trip_amount', 'total_trip_weight',
                   'created_at', 'updated_at', 'created_by', 'updated_by')
 
     def get_total_trip_weight(self, obj):
         return obj.get_trip_weight()
 
+    def get_total_trip_returns(self, instance):
+        return instance.no_of_returns
+    
     def validate(self, data):
 
         if 'seller_shop' in self.initial_data and self.initial_data['seller_shop']:
@@ -2790,8 +2793,11 @@ class DispatchTripStatusChangeSerializers(serializers.ModelSerializer):
                                                                   DispatchTripShipmentMapping.CANCELLED)).exists()
                         or dispatch_trip.trip_empty_crates.filter(
                             crate_status__in=[DispatchTripCrateMapping.LOADED,
-                                              DispatchTripCrateMapping.DAMAGED_AT_LOADING]).exists()):
-                    raise serializers.ValidationError("Load shipments/empty crates to the trip to start.")
+                                              DispatchTripCrateMapping.DAMAGED_AT_LOADING]).exists()) and\
+                        not (dispatch_trip.return_order_details.filter(
+                            return_order_status__in=[DispatchTripReturnOrderMapping.LOADED,
+                                              DispatchTripReturnOrderMapping.DAMAGED_AT_LOADING]).exists()):
+                    raise serializers.ValidationError("Load shipments/empty crates/return to the trip to start.")
 
                 if dispatch_trip.shipments_details.filter(
                         shipment_status=DispatchTripShipmentMapping.LOADING_FOR_DC).exists():
@@ -2822,6 +2828,11 @@ class DispatchTripStatusChangeSerializers(serializers.ModelSerializer):
                                               DispatchTripCrateMapping.DAMAGED_AT_LOADING]).exists():
                     raise serializers.ValidationError(
                         "The trip can not complete until and unless all shipments get unloaded.")
+                if dispatch_trip.return_order_details.filter(
+                        return_order_status=DispatchTripReturnOrderMapping.LOADED).exists():
+                    raise serializers.ValidationError(
+                        "The trip can not complete until and unless all return orders get unloaded."
+                    )
 
             if trip_status == DispatchTrip.VERIFIED:
                 if DispatchTripShipmentPackages.objects.filter(
@@ -2842,6 +2853,7 @@ class DispatchTripStatusChangeSerializers(serializers.ModelSerializer):
             shipment_status=DispatchTripShipmentMapping.LOADED_FOR_DC)
         shipment_details.update(shipment_status=DispatchTripShipmentMapping.UNLOADING_AT_DC)
 
+
     def cancel_added_shipments_to_trip(self, dispatch_trip):
         shipment_details = dispatch_trip.shipments_details.all()
         for mapping in shipment_details:
@@ -2856,6 +2868,10 @@ class DispatchTripStatusChangeSerializers(serializers.ModelSerializer):
                                              movement_type=ShipmentPackaging.RETURNED,
                                              status=ShipmentPackaging.DISPATCH_STATUS_CHOICES.READY_TO_DISPATCH) \
                 .update(status=ShipmentPackaging.DISPATCH_STATUS_CHOICES.PACKED)
+
+    def cancel_added_returns_to_trip(self, dispatch_trip):
+        return_mappings = dispatch_trip.return_order_details.all()
+        return_mappings.delete()
 
     @transaction.atomic
     def update(self, instance, validated_data):
@@ -2872,6 +2888,7 @@ class DispatchTripStatusChangeSerializers(serializers.ModelSerializer):
 
         if validated_data['trip_status'] == DispatchTrip.CANCELLED:
             self.cancel_added_shipments_to_trip(dispatch_trip_instance)
+            self.cancel_added_returns_to_trip(dispatch_trip_instance)
 
         return dispatch_trip_instance
 
@@ -3479,6 +3496,10 @@ class LoadVerifyReturnOrderSerializer(serializers.ModelSerializer):
             id=self.initial_data['return_id'], seller_shop=trip.seller_shop).last()
         if not return_order:
             raise serializers.ValidationError("Invalid return order for the trip")
+
+        # check return order status
+        if return_order.return_status != ReturnOrder.DC_ACCEPTED:
+            raise serializers.ValidationError(f"Return Order is in {return_order.return_status} state, Cannot be loaded")
 
         # Check if return order already scanned
         if trip.return_order_details.filter(return_order=return_order).exists():
@@ -5290,11 +5311,11 @@ class MarkReturnOrderItemVerifiedSerializer(serializers.ModelSerializer):
     def change_return_status_and_putaway_generation(self, trip_return_mapping):
         trip_return_mapping.return_order.return_status = ReturnOrder.WH_ACCEPTED
         trip_return_mapping.save()
-        ## call putaway generation
+        return_putaway(trip_return_mapping.return_order)
 
     class Meta:
         model = DispatchTripReturnOrderMapping
-        fields = ('id', 'return_order_status', 'return_order', 'trip')
+        fields = ('id', 'return_order_status')
 
 
 class ShipmentPackageZoneSerializer(serializers.ModelSerializer):

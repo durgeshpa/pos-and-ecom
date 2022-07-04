@@ -413,7 +413,7 @@ class CouponOfferCreation(GenericAPIView):
 
     @staticmethod
     def get_offer(coupon_id):
-        coupon = CouponGetSerializer(Coupon.objects.get(id=coupon_id)).data
+        coupon = CouponGetSerializer(Coupon.objects.filter(id=coupon_id).last()).data
         coupon.update(coupon['details'])
         coupon.pop('details')
         return api_response("Offers", coupon, status.HTTP_200_OK, True)

@@ -395,7 +395,7 @@ def return_item_drop(name, number, address, shop_name):
     '''
         Send sms for return method drop at store
     '''
-    address = f"{address.address_line1},{address.pincode}"
+    address = f"{address.address_line1[0:23]},{address.pincode}"
     try:
         body = f"Hi {name}, Your return request has been accepted. Please drop your package at the {shop_name} address - {address} by tomorrow. Team PepperTap."
         message = SendSms(phone=number, body=body, mask="PEPTAB")

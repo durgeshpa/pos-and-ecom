@@ -2278,7 +2278,7 @@ class ReturnProductBatch(models.Model):
         related_name='return_product_batches',
         on_delete=models.CASCADE
     )
-    batch_id = models.CharField(max_length=20)
+    batch_id = models.CharField(max_length=100)
     return_qty = models.PositiveIntegerField(default=0)
     expired_qty = models.PositiveIntegerField(default=0)
     damaged_qty = models.PositiveIntegerField(default=0)
@@ -3869,6 +3869,10 @@ class DispatchTrip(BaseTimestampUserModel):
     def no_of_shipments(self):
         return self.shipments_details.exclude(shipment_status__in=[DispatchTripShipmentMapping.LOADING_FOR_DC,
                                                                    DispatchTripShipmentMapping.CANCELLED]).count()
+    
+    @property
+    def no_of_returns(self):
+        return self.return_order_details.exclude(return_order_status__in=[DispatchTripReturnOrderMapping.CANCELLED]).count()
 
     @property
     def trip_id(self):

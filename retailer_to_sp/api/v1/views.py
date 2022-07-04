@@ -106,7 +106,7 @@ from sp_to_gram.tasks import es_search, upload_shop_stock, upload_all_products_i
 from wms.common_functions import OrderManagement, get_stock, is_product_not_eligible, get_response, \
     get_logged_user_wise_query_set_for_shipment, get_logged_user_wise_query_set_for_dispatch, \
     get_logged_user_wise_query_set_for_dispatch_trip, get_logged_user_wise_query_set_for_dispatch_crates, \
-    get_logged_user_wise_query_set_for_shipment_packaging
+    get_logged_user_wise_query_set_for_shipment_packaging, return_putaway
 from wms.common_validators import validate_id, validate_data_format, validate_data_days_date_request, validate_shipment
 from retailer_backend.settings import AWS_MEDIA_URL
 from wms.models import OrderReserveRelease, InventoryType, PosInventoryState, PosInventoryChange, Crate
@@ -1366,7 +1366,7 @@ class CartCentral(GenericAPIView):
             for offer in offers_list:
                 coupon_id = offer.get('coupon_id')
                 if coupon_id:
-                    coupon = Coupon.objects.get(id=coupon_id)
+                    coupon = Coupon.objects.filter(id=coupon_id).last()
                     limit_of_usages_per_customer = coupon.limit_of_usages_per_customer
                     count = self.get_offer_applied_count_free_type(cart.buyer, coupon_id, coupon.expiry_date,
                                                                    coupon.start_date)
@@ -1419,7 +1419,7 @@ class CartCentral(GenericAPIView):
             for offer in offers_list:
                 coupon_id = offer.get('coupon_id')
                 if coupon_id:
-                    coupon = Coupon.objects.get(id=coupon_id)
+                    coupon = Coupon.objects.filter(id=coupon_id).last()
                     limit_of_usages_per_customer = coupon.limit_of_usages_per_customer
                     count = self.get_offer_applied_count_free_type(cart.buyer, coupon_id, coupon.expiry_date,
                                                                    coupon.start_date)
@@ -10410,9 +10410,12 @@ class VerifyReturnOrderProductsView(generics.GenericAPIView):
             
     def create_update_return_order_product_batch(self, return_order_product_mapping, 
                                                  return_qty, damaged_qty, return_order):
+        batch_id = return_order.shipment.rt_order_product_order_product_mapping.last()\
+            .rt_ordered_product_mapping.last().batch_id
         return_batch, _ = ReturnProductBatch.objects.get_or_create(
             return_product = return_order_product_mapping
         )
+        return_batch.batch_id = batch_id
         return_batch.return_qty = return_qty
         return_batch.damaged_qty = damaged_qty
         return_batch.save()
@@ -10513,7 +10516,7 @@ class ReturnOrderCompleteVerifyView(generics.GenericAPIView):
                 .exclude(last_mile_trip_returns_details__shipment_status=LastMileTripReturnMapping.CANCELLED).last()
             if trip.source_shop.shop_type.shop_type == 'sp':
                 return_order.return_status = ReturnOrder.WH_ACCEPTED
-                # call putaway generation func
+                return_putaway(return_order)
             else:
                 return_order.return_status = ReturnOrder.DC_ACCEPTED
                 return_order.dc_location = trip.source_shop
@@ -10561,7 +10564,8 @@ class TripSummaryView(generics.GenericAPIView):
                 'total_packets': dispatch_trip_instance.no_of_packets,
                 'total_sack': dispatch_trip_instance.no_of_sacks,
                 'total_empty_crate': dispatch_trip_instance.no_of_empty_crates,
-                'total_return_box': dispatch_trip_instance.return_order_details.count(),
+                'total_return_box': dispatch_trip_instance.return_order_details.filter(
+                    return_order_status=DispatchTripReturnOrderMapping.LOADED).count(),
                 'weight': dispatch_trip_instance.get_trip_weight,
                 'invoices_check': dispatch_trip_instance.shipments_details.filter(
                     shipment_status=DispatchTripShipmentMapping.UNLOADED_AT_DC).count(),
@@ -10658,6 +10662,7 @@ class TripSummaryView(generics.GenericAPIView):
 
     def get_non_trip_data_backward_trip(self, request):
         dispatch_center = request.GET.get('dispatch_center')
+        trip_id = request.GET.get('trip_id')
         resp_data = ShipmentPackaging.objects.filter(
             Q(trip_packaging_details__isnull=True) |
             Q(trip_packaging_details__package_status=DispatchTripShipmentPackages.CANCELLED),
@@ -10677,7 +10682,7 @@ class TripSummaryView(generics.GenericAPIView):
             'total_packets': resp_data['no_of_packets'] if resp_data['no_of_packets'] else 0,
             'total_sack': resp_data['no_of_sacks'] if resp_data['no_of_sacks'] else 0,
             'total_empty_crate': ShopCrate.objects.filter(shop_id=dispatch_center, is_available=True).count(),
-            'total_return_box' : ReturnOrder.objects.filter(seller_shop_id=dispatch_center).count(),
+            'total_return_box': ReturnOrder.objects.filter(dc_location_id=dispatch_center,trip_return_order__isnull=True).count(),
             'weight': 0,
             'invoices_check': 0,
             'total_crates_check': 0,
@@ -10979,9 +10984,9 @@ class DispatchCenterReturnOrderView(generics.GenericAPIView):
                 if availability == INVOICE_AVAILABILITY_CHOICES.ADDED:
                     self.queryset = self.queryset.filter(trip_return_order__trip_id=trip_id)
                 elif availability == INVOICE_AVAILABILITY_CHOICES.NOT_ADDED:
-                    self.queryset = self.queryset.exclude(trip_return_order__trip_id=trip_id)
-            except:
-                pass
+                    self.queryset = self.queryset.filter(trip_return_order__isnull=True)
+            except Exception as e:
+                info_logger.info(e)
         return self.queryset.distinct('id')
 
 
@@ -11208,9 +11213,16 @@ class UnloadVerifyReturnOrderView(generics.GenericAPIView):
     serializer_class = UnLoadVerifyReturnOrderSerializer
     queryset = DispatchTripReturnOrderMapping.objects.all()
 
-    def validate_trip_empty_crate(self, return_id, trip_id):
+    def validate_trip_return_order(self, return_id, trip_id):
         trip_return_order = self.queryset.filter(
-            return_order_status__in=[DispatchTripReturnOrderMapping.LOADED, DispatchTripReturnOrderMapping.DAMAGED_AT_LOADING],
+            return_order_status__in=[DispatchTripReturnOrderMapping.UNLOADED,
+                                     DispatchTripReturnOrderMapping.VERIFIED],
+            return_order__id=return_id, trip__id=trip_id).last()
+        if trip_return_order:
+            return {"error": "Return order is already unloaded!"}
+        trip_return_order = self.queryset.filter(
+            return_order_status__in=[DispatchTripReturnOrderMapping.LOADED,
+                                     DispatchTripReturnOrderMapping.DAMAGED_AT_LOADING],
             return_order__id=return_id, trip__id=trip_id).last()
         if not trip_return_order:
             return {"error": "invalid Return Order"}
@@ -11914,10 +11926,10 @@ class LastMileTripDeliveryReturnOrderView(generics.GenericAPIView):
         if orderreturn.return_status != ReturnOrder.RETURN_INITIATED:
             return get_response(["error: Return not found in initiated state"],'',False)
         return_item = ReturnOrderProduct.objects.filter(id=return_item_id).last()
-        return_item.return_shipment_barcode = barcode
+        return_item.return_shipment_barcode = barcode[:-1]
         return_item.delivery_picked_quantity = picked_quantity
         orderreturn.return_status = ReturnOrder.STORE_ITEM_PICKED
-        code = Barcode.objects.filter(barcode_no=barcode).last()
+        code = Barcode.objects.filter(barcode_no=barcode[:-1]).last()
         code.is_available=False
         with transaction.atomic():
             return_item.save()
@@ -11934,7 +11946,7 @@ class LastMileTripDeliveryReturnOrderView(generics.GenericAPIView):
             if not self.request.data.get('barcode', None):
                 return {"error": "'barcode'| This is required"}
             else:
-                code = Barcode.objects.filter(barcode_no=self.request.data.get('barcode')).last()
+                code = Barcode.objects.filter(barcode_no=self.request.data.get('barcode')[:-1]).last()
                 if not code:
                     return {"error": "Invalid Barcode"}
                 elif not code.is_available:
@@ -12755,8 +12767,6 @@ class GenerateBarcodes(generics.GenericAPIView):
             available_barcodes = Barcode.objects.filter(generator__barcode_type=barcode_type, is_available=True)[
                                  :batch_size]
         barcode_list = list(available_barcodes.values_list('barcode_no', flat=True))
-        Barcode.objects.filter(id__in=available_barcodes.values_list('id', flat=True)).update(is_available=False)
-        # available_barcodes.update(is_available=False)
         barcode_dict = {b: {"qty": 1, "data": None} for b in barcode_list}
         return merged_barcode_gen(barcode_dict, 'admin/retailer_to_sp/barcode.html')
 

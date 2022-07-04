@@ -453,7 +453,7 @@ class AdminOffers(GenericAPIView):
 
     @staticmethod
     def get_offer(coupon_id):
-        coupon = ParentProductCouponGetSerializer(Coupon.objects.get(id=coupon_id)).data
+        coupon = ParentProductCouponGetSerializer(Coupon.objects.filter(id=coupon_id).last()).data
         coupon.update(coupon['details'])
         coupon.pop('details')
         return api_response("Offers", coupon, status.HTTP_200_OK, True)
@@ -513,6 +513,9 @@ class AdminOffers(GenericAPIView):
             coupon = OffersCls.rule_set_cart_mapping(coupon_obj.id, 'cart', data['coupon_name'], coupon_code, shop,
                                                      start_date, expiry_date, data.get('limit_of_usages_per_customer', None))
             data['id'] = coupon.id
+            if data.get('coupon_type_name') == 'superstore':
+                data.update({'coupon_enable_on':'superstore'})
+
             coupon.coupon_enable_on = data.get('coupon_enable_on') if data.get('coupon_enable_on') else 'all'
             coupon.coupon_shop_type = data.get('coupon_shop_type') if data.get('coupon_shop_type') else coupon.coupon_shop_type
             data['coupon_enable_on'] = coupon.coupon_enable_on
@@ -569,6 +572,8 @@ class AdminOffers(GenericAPIView):
                                            expiry_date)
         coupon = OffersCls.rule_set_cart_mapping(coupon_obj.id, 'catalog', combo_offer_name, combo_code, shop,
                                                  start_date, expiry_date, data.get('limit_of_usages_per_customer',None))
+        if data.get('coupon_type_name') == 'superstore':
+                data.update({'coupon_enable_on':'superstore'})
         coupon.coupon_enable_on = data.get('coupon_enable_on') if data.get('coupon_enable_on') else 'all'
         coupon.coupon_shop_type = data.get('coupon_shop_type') if data.get(
             'coupon_shop_type') else coupon.coupon_shop_type
@@ -617,6 +622,8 @@ class AdminOffers(GenericAPIView):
             return api_response(coupon_obj)
         coupon = OffersCls.rule_set_cart_mapping(coupon_obj.id, 'cart', coupon_name, coupon_code, shop, start_date,
                                                  expiry_date, data.get('limit_of_usages_per_customer',None))
+        if data.get('coupon_type_name') == 'superstore':
+                data.update({'coupon_enable_on':'superstore'})
         coupon.coupon_enable_on = data.get('coupon_enable_on') if data.get('coupon_enable_on') else 'all'
         coupon.coupon_shop_type = data.get('coupon_shop_type') if data.get(
             'coupon_shop_type') else coupon.coupon_shop_type
@@ -668,22 +675,16 @@ class AdminOffers(GenericAPIView):
         except ObjectDoesNotExist:
             error_logger.error("Coupon RuleSet not found for coupon id {}".format(coupon.id))
             return api_response("Coupon RuleSet not found")
-        try:
-            rule_set_product_mapping = RuleSetProductMapping.objects.get(rule=coupon.rule)
-        except ObjectDoesNotExist:
-            error_logger.error("Product RuleSet not found for coupon id {}".format(coupon.id))
-            return api_response("Product mapping Not Found with Offer")
 
         if 'coupon_name' in data:
-            coupon.coupon_name = rule_set_product_mapping.combo_offer_name = data['coupon_name']
+            coupon.coupon_name = data['coupon_name']
         if 'start_date' in data:
-            rule.start_date = rule_set_product_mapping.start_date = coupon.start_date = data['start_date']
+            rule.start_date = coupon.start_date = data['start_date']
         if 'end_date' in data:
-            rule.expiry_date = rule_set_product_mapping.expiry_date = coupon.expiry_date = data['end_date']
+            rule.expiry_date = coupon.expiry_date = data['end_date']
         if 'is_active' in data:
-            rule_set_product_mapping.is_active = rule.is_active = coupon.is_active = data['is_active']
+            rule.is_active = coupon.is_active = data['is_active']
         rule.save()
-        rule_set_product_mapping.save()
         coupon.limit_of_usages_per_customer = data.get('limit_of_usages_per_customer',coupon.limit_of_usages_per_customer)
         coupon.coupon_enable_on = data.get('coupon_enable_on', coupon.coupon_enable_on)
         coupon.coupon_shop_type = data.get('coupon_shop_type', coupon.coupon_shop_type )

@@ -100,7 +100,6 @@ class CardItemSerializer(serializers.ModelSerializer):
         max_length=None, use_url=True, required=False, allow_null=True
     )
     item_content = serializers.SerializerMethodField()
-    image_data_type = ChoicesValueSerializer(choices=IMAGE_TYPE_CHOICE)
     def get_item_content(self, obj):
         if not self.context.get('card', None):
             return obj.content

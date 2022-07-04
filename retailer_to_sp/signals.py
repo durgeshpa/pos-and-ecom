@@ -191,7 +191,7 @@ def create_offers(sender, instance=None, created=False, **kwargs):
 			coupon_id = offer.get('coupon_id')
 			flag = True
 			if coupon_id:
-				coupon = Coupon.objects.get(id=coupon_id)
+				coupon = Coupon.objects.filter(id=coupon_id).last()
 				limit_of_usages_per_customer = coupon.limit_of_usages_per_customer
 				count = get_offer_applied_count_free_type(instance.cart.buyer, coupon_id, coupon.expiry_date, coupon.start_date)
 				if limit_of_usages_per_customer and count >= limit_of_usages_per_customer:

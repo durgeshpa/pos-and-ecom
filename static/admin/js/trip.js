@@ -151,6 +151,7 @@ function GetResultByTripAndSellerShop() {
 
 const GetReturnResultByTripAndSellerShop = () => {
   const seller_shop_id = $('select#id_seller_shop').val();
+  const source_shop_id = $('select#id_source_shop').val();
   const trip_id = $('#id_trip_id').val();
   EmptyElement('tbody#data');
   HideField('tr#heading');
@@ -159,6 +160,7 @@ const GetReturnResultByTripAndSellerShop = () => {
     url: GetReturnListURL(),
     data: {
       'seller_shop_id': seller_shop_id,
+      'source_shop_id': source_shop_id,
       'trip_id': trip_id
     },
     success: (data) => {
@@ -424,7 +426,7 @@ function CreateResponseTable(data){
   if (GetTripStatus() == 'COMPLETED'|| (GetTripStatus() == 'STARTED' && trip_status == 'STARTED') || GetTripStatus() == 'CLOSED'){
     $(".shipment_checkbox").prop("checked", true);
     $(".shipment_checkbox").attr("disabled", true);
-    $(".selected_invoice_count").hide();
+    $(".selected-data-div").hide();
   }
   initialload = false;
 }
@@ -471,7 +473,7 @@ const CreateReturnResponseTable = (return_data) => {
   if (GetTripStatus() == 'COMPLETED'|| (GetTripStatus() == 'STARTED' && trip_status == 'STARTED') || GetTripStatus() == 'CLOSED'){
     $(".return_checkbox").prop("checked", true);
     $(".return_checkbox").attr("disabled", true);
-    $(".selected_invoice_count").hide();
+    $(".selected-data-div").hide();
   }
   initialload = false;
 }
