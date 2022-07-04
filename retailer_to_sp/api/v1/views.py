@@ -6748,7 +6748,7 @@ def pdf_generation(request, ordered_product):
 
             ordered_prodcut = {
                 "product_sku": m.product.product_gf_code,
-                "product_short_description": m.product.product_short_description,
+                "product_short_description": m.product.product_short_description if m.product.product_type == 0 else m.product.product_short_description + " (Discounted)",
                 "product_ean_code": m.product.product_ean_code,
                 "product_hsn": m.product.product_hsn,
                 "product_tax_percentage": "" if tax_sum == 0 else str(tax_sum) + "%",
@@ -7274,7 +7274,7 @@ def pdf_superstore_generation(request, ordered_product):
 
             ordered_prodcut = {
                 "product_sku": m.product.product_gf_code,
-                "product_short_description": m.product.product_short_description,
+                "product_short_description": m.product.product_short_description if m.product.product_type == 0 else m.product.product_short_description + " (Discounted)",
                 "product_ean_code": m.product.product_ean_code,
                 "product_hsn": m.product.product_hsn,
                 "product_tax_percentage": "" if tax_sum == 0 else str(tax_sum) + "%",
