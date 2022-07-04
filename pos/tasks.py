@@ -134,6 +134,7 @@ def update_es(products, shop_id):
             discounted_stock = discounted_inv.quantity if discounted_inv else 0
 
         is_discounted = True if product.sku_type == 4 else False
+        BasicCartOffers.cart = None
 
         offer = BasicCartOffers.get_basic_combo_coupons([product.id], product.shop.id)
         coupons = None

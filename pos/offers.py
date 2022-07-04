@@ -219,43 +219,56 @@ class BasicCartOffers(object):
             disable4 = 'foco'
 
         date = datetime.now()
-        body = {
-            "from": 0,
-            "size": size,
-            "query": {"bool": {"filter": [{"term": {"active": True}},
-                                          {"term": {"coupon_type": 'catalogue_combo'}},
-                                          {"terms": {"purchased_product": purchased_product_ids}},
-                                          {"range": {"start_date": {"lte": date}}},
-                                          {"range": {"end_date": {"gte": date}}}],
-                               "should":
-                                   [
-                                       {"term": {"coupon_enable_on": 'all'}},
-                                       {"term": {"coupon_enable_on": coupon_enable}}
+        if cls.cart:
+            body = {
+                "from": 0,
+                "size": size,
+                "query": {"bool": {"filter": [{"term": {"active": True}},
+                                              {"term": {"coupon_type": 'catalogue_combo'}},
+                                              {"terms": {"purchased_product": purchased_product_ids}},
+                                              {"range": {"start_date": {"lte": date}}},
+                                              {"range": {"end_date": {"gte": date}}}],
+                                   "should":
+                                       [
+                                           {"term": {"coupon_enable_on": 'all'}},
+                                           {"term": {"coupon_enable_on": coupon_enable}}
 
-                                   ],
-                               "must_not":
-                                   [
-                                       {"term": {"coupon_enable_on": disable1}},
-                                       {"term": {"coupon_enable_on": disable2}},
-                                       {"term": {"coupon_type_name": disable3}},
-                                       {"term": {"coupon_shop_type": disable4}}
+                                       ],
+                                   "must_not":
+                                       [
+                                           {"term": {"coupon_enable_on": disable1}},
+                                           {"term": {"coupon_enable_on": disable2}},
+                                           {"term": {"coupon_type_name": disable3}},
+                                           {"term": {"coupon_shop_type": disable4}}
 
-                                   ]
+                                       ]
 
-                               }
-                      }
-        }
+                                   }
+                          }
+            }
+        else:
+            body = {
+                "from": 0,
+                "size": size,
+                "query": {"bool": {"filter": [{"term": {"active": True}},
+                                              {"term": {"coupon_type": 'catalogue_combo'}},
+                                              {"terms": {"purchased_product": purchased_product_ids}},
+                                              {"range": {"start_date": {"lte": date}}},
+                                              {"range": {"end_date": {"gte": date}}}],
 
-
-        product = RetailerProduct.objects.filter(id__in=list(purchased_product_ids))
+                                   }
+                          }
+            }
         lis_ids = []
-        for prod in product:
-            id = prod.linked_product_id
-            if id:
-                lis_ids.append(id)
+        if cls.cart:
+            product = RetailerProduct.objects.filter(id__in=list(purchased_product_ids))
+            for prod in product:
+                id = prod.linked_product_id
+                if id:
+                    lis_ids.append(id)
 
         body2 = None
-        if lis_ids :
+        if lis_ids:
             body2 = {
                 "from": 0,
                 "size": size,
