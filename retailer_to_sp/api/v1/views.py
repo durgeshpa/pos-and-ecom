@@ -11943,14 +11943,16 @@ class LastMileTripDeliveryReturnOrderView(generics.GenericAPIView):
     def put(self, request):
         result = self.validate_put_request()
         if "error" in result:
-            return get_response([result["error"]], False)
+            result = {"is_success": False, "message": [result["error"]], "response_data": []}
+            return Response(result, status=status.HTTP_200_OK)
         return_id = self.request.data.get('return_id', None)
         return_item_id = self.request.data.get('return_item_id', None)
         barcode = self.request.data.get('barcode', None).zfill(13)
         picked_quantity = self.request.data.get('picked_quantity', None)
         orderreturn = ReturnOrder.objects.filter(pk=return_id).last()
         if orderreturn.return_status != ReturnOrder.RETURN_INITIATED:
-            return get_response(["error: Return not found in initiated state"],'',False)
+            result = {"is_success": False, "message": ["error: Return not found in initiated state"], "response_data": []}
+            return Response(result, status=status.HTTP_200_OK)
         return_item = ReturnOrderProduct.objects.filter(id=return_item_id).last()
         return_item.return_shipment_barcode = barcode[:-1]
         return_item.delivery_picked_quantity = picked_quantity
