@@ -721,7 +721,7 @@ def create_update_last_mile_trip_return_mapping(trip_id, return_ids, request_use
         if trip_return.return_order.return_status == ReturnOrder.RETURN_INITIATED:
             trip_return.return_order.return_status = ReturnOrder.RETURN_REQUESTED
             trip_return.return_order.save()
-    removed_returns.update(shipment_status=LastMileTripReturnMapping.CANCELLED, updated_by=request_user)
+    removed_returns.delete()
     for return_id in return_ids:
         if LastMileTripReturnMapping.objects.filter(~Q(shipment_status=LastMileTripReturnMapping.CANCELLED),
                                                       trip_id=trip_id, return_order_id=return_id).exists():
