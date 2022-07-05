@@ -14,7 +14,7 @@ from products.models import Product, SuperStoreProductPrice, ParentProduct
 from retailer_backend.common_function import isBlank
 from ...choices import LANDING_PAGE_TYPE_CHOICE, LISTING_SUBTYPE_CHOICE, FUNTION_TYPE_CHOICE, \
     CARD_TYPE_PRODUCT, CARD_TYPE_CAREGORY, CARD_TYPE_BRAND, CARD_TYPE_IMAGE, IMAGE_TYPE_CHOICE, LIST, RETAILER, \
-    SUPERSTORE, INDEX_TYPE_ONE, INDEX_TYPE_THREE
+    SUPERSTORE, INDEX_TYPE_ONE, INDEX_TYPE_THREE, ECOMMERCE, APP_TYPE_CHOICE
 from ...common_functions import check_inventory, isEmptyString
 from ...models import CardData, Card, CardVersion, CardItem, Application, Page, PageCard, PageVersion, ApplicationPage, \
     LandingPage, Functions, LandingPageProducts, Template
@@ -821,7 +821,10 @@ class ProductSerializer(serializers.ModelSerializer):
 
 
 class LandingPageProductSerializer(serializers.ModelSerializer):
-    product = ProductSerializer()
+    product = serializers.SerializerMethodField()
+
+    def get_product(self, obj):
+        return ProductSerializer(obj.product, context=self.context).data
 
     class Meta:
         model = LandingPageProducts
@@ -846,14 +849,15 @@ class LandingPageSerializer(serializers.ModelSerializer):
 
     def get_landing_page_products(self, obj):
         shop_id = self.context.get('shop_id', None)
+        app_id = self.context.get('app_id', None)
         items = obj.landing_page_products
-        if shop_id:
+        if app_id and app_id == APP_TYPE_CHOICE.ECOMMERCE and shop_id:
             sub_query = RetailerProduct.objects.filter(linked_product_id=OuterRef('product_id'), shop_id=shop_id,
                                                        is_deleted=False, online_enabled=True)
             items = check_inventory(obj.landing_page_products.annotate(retailer_product_exists=Exists(sub_query))
 
                                                                    .filter(retailer_product_exists=True), shop_id)
-        return LandingPageProductSerializer(items, many=True).data
+        return LandingPageProductSerializer(items, many=True, context=self.context).data
 
     def get_page_action_url(self, obj):
         if obj.page_function:
