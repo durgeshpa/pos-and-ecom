@@ -418,14 +418,14 @@ def return_item_home_pickup(name, number):
         error_logger.error(e)
 
 
-# @task
-# def sms_reward_point_update_superstore(user):
-#     try:
-#         url = ""
-#         instance = RewardPoint.objects.filter(reward_user=user)
-#         amount = max(instance.direct_earned + instance.indirect_earned - instance.points_used, 0)
-#         body =f"Pep Coins Update! Your updated balance is {amount}. Login to the PepperTap app to use them now - {url}"
-#         message = SendSms(phone=user.phone_number, body=body, mask='PEPTAB')
-#         message.send()
-#     except Exception as e:
-#         error_logger.error(e)
+@task
+def sms_reward_point_update_superstore(user):
+    try:
+        url = "https://ptapecomm.page.link/UegdUHjtqmdGYyiu8"
+        instance = RewardPoint.objects.filter(reward_user=user)
+        amount = max(instance.direct_earned + instance.indirect_earned - instance.points_used, 0)
+        body =f"Pep Coins Update! Your updated balance is {amount}. Login to the PepperTap app to use them now - {url}"
+        message = SendSms(phone=user.phone_number, body=body, mask='PEPTAB')
+        message.send()
+    except Exception as e:
+        error_logger.error(e)
