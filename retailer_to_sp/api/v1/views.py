@@ -8158,7 +8158,7 @@ class DeliveryShipmentDetails(APIView):
         trip_mappings = trip.last_mile_trip_returns_details.all()
         trip_return = []
         grouped_return_list = ReturnOrder.objects.filter(last_mile_trip_returns__in=trip_mappings)\
-                                                 .values('buyer_shop', 'seller_shop', 'return_status', 'id')\
+                                                 .values('buyer_shop', 'seller_shop', 'return_status')\
                                                  .annotate(return_count=Count('id')).order_by()
         for grouped_return in grouped_return_list:
             grouped_return_dict = {}
@@ -8193,7 +8193,7 @@ class DeliveryShipmentDetails(APIView):
             grouped_return_dict['shipping_address'] = AddressSerializer(shipping_address).data
             grouped_return_dict['return_count'] = grouped_return['return_count']
             grouped_return_dict['shipment_status'] = grouped_return['return_status']
-            grouped_return_dict['return_value'] = ReturnOrder.objects.filter(id=grouped_return['id']).last().return_amount
+            # grouped_return_dict['return_value'] = ReturnOrder.objects.filter(id=grouped_return['id']).last().return_amount
             trip_return.append(grouped_return_dict)
 
         return trip_return
