@@ -3637,7 +3637,7 @@ class OrderCentral(APIView):
                     return api_response('A return has already been requested for the product.')
                 pos_trip = shipment.pos_trips.filter(trip_type='SUPERSTORE').last()
                 if pos_trip:
-                    return_period_offset = get_config('superstore_order_return_buffer', 72)
+                    return_period_offset = get_config('superstore_order_return_window_buffer', 72)
                     return_window = pos_trip.trip_end_at + timedelta(hours=return_period_offset)
                     if return_window < datetime.now():
                         return api_response("Return window is over you cannot return the item now.")
@@ -8651,13 +8651,16 @@ def update_trip_status(trip_id):
     shipment_status_list = ['FULLY_DELIVERED_AND_COMPLETED', 'PARTIALLY_DELIVERED_AND_COMPLETED',
                             'FULLY_RETURNED_AND_COMPLETED', 'RESCHEDULED', 'NOT_ATTEMPT']
     order_product = OrderedProduct.objects.filter(trip_id=trip_id)
+    return_orders = ReturnOrder.objects.filter(last_mile_trip_returns__trip_id=trip_id, 
+                                               return_status__in=[ReturnOrder.RETURN_INITIATED]).count()
     if order_product.exclude(shipment_status__in=shipment_status_list).count() == 0:
-        Trip.objects.filter(pk=trip_id).update(trip_status=Trip.COMPLETED, completed_at=datetime.now())
+        # Trip.objects.filter(pk=trip_id).update(trip_status=Trip.COMPLETED, completed_at=datetime.now())
         # updating order status when trip is completed
         trip_instance = Trip.objects.get(id=trip_id)
         trip_shipments = trip_instance.rt_invoice_trip.values_list('id', flat=True)
         Order.objects.filter(rt_order_order_product__in=trip_shipments).update(order_status=Order.COMPLETED)
-
+    if order_product.exclude(shipment_status__in=shipment_status_list).count() == 0 and return_orders == 0:
+        Trip.objects.filter(pk=trip_id).update(trip_status=Trip.COMPLETED, completed_at=datetime.now())
 
 class ReturnReason(generics.UpdateAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
@@ -11949,6 +11952,7 @@ class LastMileTripDeliveryReturnOrderView(generics.GenericAPIView):
         barcode = self.request.data.get('barcode', None)
         picked_quantity = self.request.data.get('picked_quantity', None)
         orderreturn = ReturnOrder.objects.filter(pk=return_id).last()
+        trip_id = orderreturn.last_mile_trip_returns.last().trip.id
         if orderreturn.return_status != ReturnOrder.RETURN_INITIATED:
             return get_response(["error: Return not found in initiated state"],'',False)
         return_item = ReturnOrderProduct.objects.filter(id=return_item_id).last()
@@ -11961,6 +11965,7 @@ class LastMileTripDeliveryReturnOrderView(generics.GenericAPIView):
             return_item.save()
             orderreturn.save()
             code.save()
+            update_trip_status(trip_id)
         return get_response(["return picked sucessfully"], '', True)
 
     def validate_put_request(self):
