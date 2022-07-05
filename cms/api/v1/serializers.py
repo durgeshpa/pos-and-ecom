@@ -798,17 +798,8 @@ class ProductSerializer(serializers.ModelSerializer):
                 return superstore_price.last().selling_price
         return None
 
-    def get_super_store_product_selling_price(self, obj):
-        seller_shop = self.context.get('parent_shop_id')
-        if seller_shop:
-            superstore_price = SuperStoreProductPrice.objects.filter(product_id=obj.id,
-                                                                     seller_shop=seller_shop)
-            if superstore_price.exists():
-                return superstore_price.last().selling_price
-        return None
-
     def get_off_percentage(self, obj):
-        parent_shop_id = self.context.get('parent_shop_id')
+        parent_shop_id = self.context.get('parent_shop')
         price = obj.get_superstore_price_by_shop(parent_shop_id) if parent_shop_id else None
         return round(100 - ((price.selling_price * 100) / obj.product_mrp)) if price else None
 
