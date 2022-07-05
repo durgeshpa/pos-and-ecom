@@ -18,14 +18,15 @@ from products.models import (Product, ProductPrice, ProductImage, Tax, ProductTa
 from retailer_backend.utils import getStrToYearDate
 from retailer_to_sp.common_model_functions import ShopCrateCommonFunctions, OrderCommonFunction
 from retailer_to_sp.common_validators import validate_shipment_crates_list, validate_shipment_package_list
-from retailer_to_sp.models import (CartProductMapping, Cart, Invoice, Order, OrderedProduct, Note, CustomerCare, Payment,
+from retailer_to_sp.models import (CartProductMapping, Cart, Invoice, Order, OrderedProduct, Note, CustomerCare,
+                                   Payment,
                                    Dispatch, Feedback, OrderedProductMapping as RetailerOrderedProductMapping, Shipment,
                                    Trip, PickerDashboard, ShipmentRescheduling, OrderedProductBatch, ShipmentPackaging,
                                    ShipmentPackagingMapping, DispatchTrip, DispatchTripShipmentMapping,
                                    DispatchTripShipmentPackages, ShipmentNotAttempt, PACKAGE_VERIFY_CHOICES,
                                    LastMileTripShipmentMapping, ShopCrate, DispatchTripCrateMapping,
                                    add_to_putaway_on_return, LastMileTripShipmentPackages, ShipmentPackagingBatch,
-                                   RETURN_REMARK_CHOICES, add_to_putaway_on_partail)
+                                   RETURN_REMARK_CHOICES, add_to_putaway_on_partail, CartOffers)
 
 from retailer_to_gram.models import (Cart as GramMappedCart, CartProductMapping as GramMappedCartProductMapping,
                                      Order as GramMappedOrder, OrderedProduct as GramMappedOrderedProduct,
@@ -788,12 +789,41 @@ class OrderedCartProductMappingSerializer(serializers.ModelSerializer):
                   'cart_product_price', 'product_inner_case_size', 'product_price')
 
 
+class CartOfferSerializer(serializers.ModelSerializer):
+    item = serializers.SerializerMethodField()
+    type = serializers.SerializerMethodField()
+    sub_type = serializers.SerializerMethodField()
+    item_sku = serializers.SerializerMethodField()
+    cart_or_brand_level_discount = serializers.SerializerMethodField()
+
+    def get_item(self, obj):
+        return obj.item.product_name if obj.item else None
+
+    def get_item_sku(self, obj):
+        return obj.item.product_sku if obj.item else None
+
+    def get_cart_or_brand_level_discount(self, obj):
+        return obj.cart_discount+obj.brand_discount
+
+    def get_coupon_code(self, obj):
+        return obj.coupon.coupon_code if obj.coupon else None
+
+    def get_discount_value(self, obj):
+        return obj.discount
+
+    class Meta:
+        model = CartOffers
+        fields = ('type', 'sub_type', 'item_id', 'item', 'item_sku', 'brand_id', 'coupon_type', 'coupon_id',
+                  'coupon_code', 'discount_value', 'entice_text')
+
+
 class OrderedCartSerializer(serializers.ModelSerializer):
     rt_cart_list = OrderedCartProductMappingSerializer(many=True)
     items_count = serializers.SerializerMethodField('items_count_id')
     total_amount = serializers.SerializerMethodField('total_amount_id')
     total_discount = serializers.SerializerMethodField()
     sub_total = serializers.SerializerMethodField('sub_total_id')
+    offers = serializers.SerializerMethodField()
 
     def get_total_discount(self, obj):
         sum = 0
@@ -828,6 +858,12 @@ class OrderedCartSerializer(serializers.ModelSerializer):
 
     def items_count_id(self, obj):
         return obj.rt_cart_list.count()
+
+    def get_offers(self, obj):
+        if obj.offers:
+            return obj.offers
+        elif obj.cart_offers:
+            return CartOfferSerializer(obj.cart_offers, many=True).data
 
     class Meta:
         model = Cart
