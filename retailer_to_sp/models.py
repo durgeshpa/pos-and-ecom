@@ -2429,6 +2429,7 @@ class OrderedProductMapping(models.Model):
     )
     product_type = models.IntegerField(choices=((0, 'Free'), (1, 'Purchased')), default=1)
     selling_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    cost_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     shipped_qty = models.DecimalField(max_digits=10, decimal_places=3, default=0, verbose_name="Shipped Pieces",
                                       validators=[MinValueValidator(0)])
     delivered_qty = models.DecimalField(max_digits=10, decimal_places=3, default=0, verbose_name="Delivered Pieces",
