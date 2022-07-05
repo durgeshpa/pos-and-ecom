@@ -11946,7 +11946,7 @@ class LastMileTripDeliveryReturnOrderView(generics.GenericAPIView):
             return get_response([result["error"]], False)
         return_id = self.request.data.get('return_id', None)
         return_item_id = self.request.data.get('return_item_id', None)
-        barcode = self.request.data.get('barcode', None)
+        barcode = self.request.data.get('barcode', None).zfill(13)
         picked_quantity = self.request.data.get('picked_quantity', None)
         orderreturn = ReturnOrder.objects.filter(pk=return_id).last()
         if orderreturn.return_status != ReturnOrder.RETURN_INITIATED:
@@ -11972,7 +11972,8 @@ class LastMileTripDeliveryReturnOrderView(generics.GenericAPIView):
             if not self.request.data.get('barcode', None):
                 return {"error": "'barcode'| This is required"}
             else:
-                code = Barcode.objects.filter(barcode_no=self.request.data.get('barcode')[:-1]).last()
+                barcode = self.request.data.get('barcode').zfill(13)
+                code = Barcode.objects.filter(barcode_no=barcode[:-1]).last()
                 if not code:
                     return {"error": "Invalid Barcode"}
                 elif not code.is_available:
