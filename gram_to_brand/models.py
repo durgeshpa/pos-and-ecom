@@ -688,3 +688,22 @@ class VendorShopMapping(models.Model):
     shop = models.ForeignKey(Shop, related_name='shop_vendor_mappings', on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
+
+
+class ProductGRNCostPriceMapping(models.Model):
+    product = models.OneToOneField(Product, related_name='cost_price', 
+                                   on_delete=models.CASCADE)
+    cost_price = models.DecimalField(max_digits=10, decimal_places=2)
+    latest_grn = models.ForeignKey(GRNOrderProductMapping, 
+                                   related_name='product_cost_grn_mappings', 
+                                   on_delete=models.CASCADE)
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
+    
+    
+    def __str__(self) -> str:
+        return f"{self.product} | {self.cost_price}"
+    
+    class Meta:
+        verbose_name = 'Product GRN Cost Price mapping'
+        verbose_name_plural = 'Product Cost Prices mapping'

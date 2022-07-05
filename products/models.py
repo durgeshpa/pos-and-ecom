@@ -20,7 +20,6 @@ from coupon.models import Coupon, Discount
 from global_config.views import get_config,get_config_fofo_shops
 from retailer_backend.validators import *
 from shops.models import Shop, ShopUserMapping, ShopType
-from gram_to_brand.models import GRNOrderProductMapping
 
 from tinymce.models import HTMLField
 SIZE_UNIT_CHOICES = (
@@ -531,22 +530,6 @@ class Product(BaseTimestampUserStatusModel):
         for x in brand_coupons:
             product_coupons.append(x.coupon_code)
         return product_coupons
-
-
-class ProductCostPrice(BaseTimeModel):
-    product = models.OneToOneField(Product, related_name='cost_price', 
-                                   on_delete=models.CASCADE)
-    cost_price = models.DecimalField(max_digits=10, decimal_places=2)
-    latest_grn = models.ForeignKey(GRNOrderProductMapping, 
-                                   related_name='product_cost_grn_mappings')
-    
-    
-    def __str__(self) -> str:
-        return f"{self.product} | {self.cost_price}"
-    
-    class Meta:
-        verbose_name = 'Product Cost Price'
-        verbose_name_plural = 'Product Cost Prices'
 
 
 class DiscountedProduct(Product):
