@@ -146,7 +146,7 @@ from .serializers import (ProductsSearchSerializer, CartSerializer, OrderSeriali
                           ReturnOrderTripProductSerializer, DispatchCenterReturnOrderSerializer, ReturnOrderProductSerializer,
                           LoadVerifyReturnOrderSerializer, UnLoadVerifyReturnOrderSerializer, BackwardTripReturnItemsSerializer,
                           MarkReturnOrderItemVerifiedSerializer,DeliveryReturnOrderSerializer,ShopExecutiveUserSerializer, 
-                          LastMileTripSerializers)
+                          LastMileTripSerializers, AddressSerializer)
 
 from ...common_validators import validate_shipment_dispatch_item, validate_trip_user, \
     get_shipment_by_crate_id, get_shipment_by_shipment_label, validate_shipment_id, validate_trip_shipment, \
@@ -3636,7 +3636,7 @@ class OrderCentral(APIView):
                     return api_response('A return has already been requested for the product.')
                 pos_trip = shipment.pos_trips.filter(trip_type='SUPERSTORE').last()
                 if pos_trip:
-                    return_period_offset = get_config('superstore_order_return_buffer', 72)
+                    return_period_offset = get_config('superstore_order_return_window_buffer', 72)
                     return_window = pos_trip.trip_end_at + timedelta(hours=return_period_offset)
                     if return_window < datetime.now():
                         return api_response("Return window is over you cannot return the item now.")
@@ -8158,7 +8158,7 @@ class DeliveryShipmentDetails(APIView):
         trip_mappings = trip.last_mile_trip_returns_details.all()
         trip_return = []
         grouped_return_list = ReturnOrder.objects.filter(last_mile_trip_returns__in=trip_mappings)\
-                                                 .values('buyer_shop', 'seller_shop', 'return_status')\
+                                                 .values('buyer_shop', 'seller_shop', 'return_status', 'id')\
                                                  .annotate(return_count=Count('id')).order_by()
         for grouped_return in grouped_return_list:
             grouped_return_dict = {}
@@ -8180,6 +8180,7 @@ class DeliveryShipmentDetails(APIView):
                 grouped_return_dict['off_day'] = None
             buyerShop = Shop.objects.filter(id=grouped_return['buyer_shop']).last()
             sellerShop = Shop.objects.filter(id=grouped_return['seller_shop']).last()
+            shipping_address = buyerShop.shop_name_address_mapping.filter(address_type='shipping').last()
             shop_user_mapping = buyerShop.shop_user.filter(status=True,
                                                            employee_group__name='Sales Executive').last()
             sales_executive = None
@@ -8189,8 +8190,10 @@ class DeliveryShipmentDetails(APIView):
             grouped_return_dict['sales_executive'] = sales_executive.data
             grouped_return_dict['seller_shop'] = SellerShopSerializer(sellerShop).data
             grouped_return_dict['buyer_shop'] = SellerShopSerializer(buyerShop).data
+            grouped_return_dict['shipping_address'] = AddressSerializer(shipping_address).data
             grouped_return_dict['return_count'] = grouped_return['return_count']
             grouped_return_dict['shipment_status'] = grouped_return['return_status']
+            grouped_return_dict['return_value'] = ReturnOrder.objects.filter(id=grouped_return['id']).last().return_amount
             trip_return.append(grouped_return_dict)
 
         return trip_return
@@ -8625,13 +8628,16 @@ def update_trip_status(trip_id):
     shipment_status_list = ['FULLY_DELIVERED_AND_COMPLETED', 'PARTIALLY_DELIVERED_AND_COMPLETED',
                             'FULLY_RETURNED_AND_COMPLETED', 'RESCHEDULED', 'NOT_ATTEMPT']
     order_product = OrderedProduct.objects.filter(trip_id=trip_id)
+    return_orders = ReturnOrder.objects.filter(last_mile_trip_returns__trip_id=trip_id, 
+                                               return_status__in=[ReturnOrder.RETURN_INITIATED]).count()
     if order_product.exclude(shipment_status__in=shipment_status_list).count() == 0:
-        Trip.objects.filter(pk=trip_id).update(trip_status=Trip.COMPLETED, completed_at=datetime.now())
+        # Trip.objects.filter(pk=trip_id).update(trip_status=Trip.COMPLETED, completed_at=datetime.now())
         # updating order status when trip is completed
         trip_instance = Trip.objects.get(id=trip_id)
         trip_shipments = trip_instance.rt_invoice_trip.values_list('id', flat=True)
         Order.objects.filter(rt_order_order_product__in=trip_shipments).update(order_status=Order.COMPLETED)
-
+    if order_product.exclude(shipment_status__in=shipment_status_list).count() == 0 and return_orders == 0:
+        Trip.objects.filter(pk=trip_id).update(trip_status=Trip.COMPLETED, completed_at=datetime.now())
 
 class ReturnReason(generics.UpdateAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
@@ -11924,6 +11930,7 @@ class LastMileTripDeliveryReturnOrderView(generics.GenericAPIView):
         barcode = self.request.data.get('barcode', None).zfill(13)
         picked_quantity = self.request.data.get('picked_quantity', None)
         orderreturn = ReturnOrder.objects.filter(pk=return_id).last()
+        trip_id = orderreturn.last_mile_trip_returns.last().trip.id
         if orderreturn.return_status != ReturnOrder.RETURN_INITIATED:
             result = {"is_success": False, "message": ["error: Return not found in initiated state"], "response_data": []}
             return Response(result, status=status.HTTP_200_OK)
@@ -11937,6 +11944,7 @@ class LastMileTripDeliveryReturnOrderView(generics.GenericAPIView):
             return_item.save()
             orderreturn.save()
             code.save()
+            update_trip_status(trip_id)
         return get_response(["return picked sucessfully"], '', True)
 
     def validate_put_request(self):
