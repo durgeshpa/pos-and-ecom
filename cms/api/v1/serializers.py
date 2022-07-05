@@ -22,7 +22,6 @@ from cms.messages import VALIDATION_ERROR_MESSAGES, ERROR_MESSAGES
 from categories.models import Category
 from brand.models import Brand
 
-
 info_logger = logging.getLogger('file-info')
 error_logger = logging.getLogger('file-error')
 
@@ -55,12 +54,12 @@ class Base64ImageField(serializers.ImageField):
                 self.fail('invalid_image')
 
             # Generate file name:
-            file_name = str(uuid.uuid4())[:12] # 12 characters are more than enough.
+            file_name = str(uuid.uuid4())[:12]  # 12 characters are more than enough.
             # Get the file name extension:
             file_extension = self.get_file_extension(file_name, decoded_file)
 
-            complete_file_name = "%s.%s" % (file_name, file_extension, )
-        
+            complete_file_name = "%s.%s" % (file_name, file_extension,)
+
             data = ContentFile(decoded_file, name=complete_file_name)
 
         return super(Base64ImageField, self).to_internal_value(data)
@@ -72,7 +71,7 @@ class Base64ImageField(serializers.ImageField):
         extension = "jpg" if extension == "jpeg" else extension
 
         return extension
-    
+
 
 class CardAppSerializer(serializers.ModelSerializer):
     """Serializer for Application"""
@@ -89,13 +88,18 @@ class ChoicesSerializer(serializers.ChoiceField):
             return obj
         return {'id': obj, 'description': self._choices[obj]}
 
+class ChoicesValueSerializer(serializers.ChoiceField):
+    def to_representation(self, obj):
+        if obj == '' and self.allow_blank:
+            return obj
+        return  self._choices[obj]
+
 class CardItemSerializer(serializers.ModelSerializer):
     """Serializer for CardItem"""
     image = Base64ImageField(
-        max_length=None, use_url=True,required=False, allow_null = True
+        max_length=None, use_url=True, required=False, allow_null=True
     )
     item_content = serializers.SerializerMethodField()
-
     def get_item_content(self, obj):
         if not self.context.get('card', None):
             return obj.content
@@ -111,7 +115,6 @@ class CardItemSerializer(serializers.ModelSerializer):
             info_logger.error(e)
             info_logger.error(f"CardItemSerializer | get_content | Failed to create content for CardItem {obj.id}")
         return obj.content
-    
 
     def to_internal_value(self, data):
         image = data.get('image', None)
@@ -122,8 +125,8 @@ class CardItemSerializer(serializers.ModelSerializer):
     class Meta:
         model = CardItem
         fields = ('id', 'image', 'content_id', 'content', 'item_content', 'action', 'priority', 'row', 'subcategory',
-                  'subbrand')
-    
+                  'subbrand', 'image_data_type')
+
     def create(self, validated_data):
         card_id = self.context.get("card_id")
         try:
@@ -151,29 +154,58 @@ def make_cms_item_redirect_url(request, card_type, image_data_type, app):
     index_type = get_index_type(app)
     search_url = "/retailer/sp/api/v1/GRN/search/?index_type="
     switcher = {
-        "product" : "/product/api/v1/child-product/?product_type=0&id=",
-        "category" : "/category/api/v1/category/?id=",
-        "brand" : "/brand/api/v1/brand/?id=",
-        "image" : {
-            1 : "/product/api/v1/child-product/?product_type=0&id=",
-            2 : search_url + index_type + "&search_type=1&&categories=",
-            3 : search_url + index_type + "&search_type=1&brands=",
-            4 : "/cms/api/v1/landing-pages/?id="
+        "product": "/product/api/v1/child-product/?product_type=0&id=",
+        "category": "/category/api/v1/category/?id=",
+        "brand": "/brand/api/v1/brand/?id=",
+        "image": {
+            1: "/product/api/v1/child-product/?product_type=0&id=",
+            2: search_url + index_type + "&search_type=1&&categories=",
+            3: search_url + index_type + "&search_type=1&brands=",
+            4: "/cms/api/v1/landing-pages/?id=",
+            5: search_url + index_type + "&search_type=1&&categories=",
         },
-        "text" : search_url + index_type + "&search_type=1&keyword="
+        "text": search_url + index_type + "&search_type=1&keyword="
     }
     if not isinstance(switcher.get(card_type), str):
         return switcher.get(card_type).get(image_data_type)
     return switcher.get(card_type)
 
 
+class ApplicationSerializerForTemplate(serializers.ModelSerializer):
+    class Meta:
+        model = Application
+        fields = ('id', 'name')
+
+
+class TemplateSerializer(serializers.ModelSerializer):
+    app = ApplicationSerializerForTemplate(read_only=True)
+
+    class Meta:
+        model = Template
+        fields = ('id', 'app', 'name')
+
+    def validate(self, data):
+        if 'name' not in self.initial_data or isEmptyString(self.initial_data['name']) is None:
+            raise serializers.ValidationError('Template Name is required.')
+        elif 'app' not in self.initial_data or self.initial_data['app'] is None:
+            raise serializers.ValidationError('Application is required.')
+        elif not Application.objects.filter(id=self.initial_data['app']).exists():
+            raise serializers.ValidationError('Invalid App ID.')
+        elif Template.objects.filter(name=self.initial_data['name'].strip().upper(),
+                                     app_id=self.initial_data['app']).exists():
+            raise serializers.ValidationError('Template already exists')
+        data['app_id'] = self.initial_data['app']
+        data['name'] = self.initial_data['name'].strip().upper()
+        return data
+
+
 class CardDataSerializer(serializers.ModelSerializer):
     """Serializer for CardData"""
-
     items = CardItemSerializer(many=True, required=False)
     image = Base64ImageField(
-        max_length=None, use_url=True,required=False, allow_null = True
+        max_length=None, use_url=True, required=False, allow_null=True
     )
+
     class Meta:
         model = CardData
         fields = '__all__'
@@ -189,8 +221,9 @@ class CardDataSerializer(serializers.ModelSerializer):
         data = super().to_representation(instance)
         card_version = CardVersion.objects.all().filter(card_data=instance).first()
         data['card_id'] = card_version.card.id
+        data['template'] = TemplateSerializer(instance.template).data
         return data
-    
+
     def create(self, validated_data):
         request = self.context.get("request")
         data = request.data
@@ -208,11 +241,12 @@ class CardDataSerializer(serializers.ModelSerializer):
         if card:
             latest_version = card.versions.all().order_by('-version_number').first().version_number + 1
             CardVersion.objects.create(version_number=latest_version,
-                                                            card=card,
-                                                            card_data=new_card_data,
-                                                            )
+                                       card=card,
+                                       card_data=new_card_data,
+                                       )
             app = card.app
-            info_logger.info(f"Create New Card Version version-{latest_version} for card  id-{card.id}, name-{card.name}")
+            info_logger.info(
+                f"Create New Card Version version-{latest_version} for card  id-{card.id}, name-{card.name}")
         else:
             app_id = data.get("app_id")
             try:
@@ -220,34 +254,35 @@ class CardDataSerializer(serializers.ModelSerializer):
                 data['app'] = app
             except:
                 raise NotFound(detail=ERROR_MESSAGES["APP_ID_NOT_FOUND"].format(app_id))
-
             if data.get('category_subtype'):
-                category = Category.objects.get(id = data['category_subtype'])
+                category = Category.objects.get(id=data['category_subtype'])
                 data['category_subtype'] = category
             elif data.get('brand_subtype'):
-                brand = Brand.objects.get(id = data['brand_subtype'])
+                brand = Brand.objects.get(id=data['brand_subtype'])
                 data['brand_subtype'] = brand
             card = Card.objects.create(**data)
             CardVersion.objects.create(version_number=1,
-                                                            card=card,
-                                                            card_data=new_card_data,
-                                                            )
+                                       card=card,
+                                       card_data=new_card_data,
+                                       )
             info_logger.info(f"Created New Card with ID {card.id}")
 
-        redirect_url_base = make_cms_item_redirect_url(request, card.type, card.image_data_type, app)
         for item in items:
+            image_data_type = item.get('image_data_type', None)
+            redirect_url_base = make_cms_item_redirect_url(request, card.type, image_data_type, app)
             if card.type == "text":
                 item['action'] = request.build_absolute_uri(redirect_url_base + str(item['content']))
             else:
                 item['action'] = request.build_absolute_uri(redirect_url_base + str(item['content_id']))
-            CardItem.objects.create(card_data=new_card_data,**item)
+            CardItem.objects.create(card_data=new_card_data, **item)
 
         return new_card_data
-    
+
     # def update(self, instance, validated_data):
     #     instance.header = validated_data.get('header', instance.header)
     #     instance.save()
     #     return  instance
+
 
 class CardSerializer(serializers.ModelSerializer):
     """Serializer for Card"""
@@ -275,16 +310,17 @@ class UserSerializer(serializers.ModelSerializer):
         model = get_user_model()
         fields = ('id', 'first_name', 'last_name', 'phone_number', 'email', 'user_photo')
 
+
 class ApplicationSerializer(serializers.ModelSerializer):
     """Application Serializer"""
-    created_by = UserSerializer(required = False)
+    created_by = UserSerializer(required=False)
 
     class Meta:
         model = Application
         fields = '__all__'
         read_only_fields = ['created_by']
 
-        
+
 class ApplicationPageSerializer(serializers.ModelSerializer):
     """Page Serializer"""
 
@@ -296,7 +332,7 @@ class ApplicationPageSerializer(serializers.ModelSerializer):
         """ Adding Page Version Details """
         data = super().to_representation(instance)
         page_version = PageVersion.objects.filter(page=instance.id)
-        data['versions'] = PageVersionSerializer(page_version, many = True).data
+        data['versions'] = PageVersionSerializer(page_version, many=True).data
         return data
 
 
@@ -306,7 +342,7 @@ class ApplicationDataSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Application
-        fields = ('id','name','created_on','status','created_by')
+        fields = ('id', 'name', 'created_on', 'status', 'created_by')
 
     def to_representation(self, instance):
         """ Page Version Details"""
@@ -330,7 +366,7 @@ class PageApplicationSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Application
-        fields = ('id', 'name',) 
+        fields = ('id', 'name',)
 
 
 class PageFunctionSerializer(serializers.ModelSerializer):
@@ -340,14 +376,13 @@ class PageFunctionSerializer(serializers.ModelSerializer):
         model = Functions
         fields = ('id', 'type', 'name', 'url', 'required_params', 'required_headers')
 
-
     def validate(self, data):
 
         if 'name' not in self.initial_data or isBlank(self.initial_data['name']):
             raise serializers.ValidationError("'name' | This is required")
         elif 'type' not in self.initial_data and self.initial_data.get('type'):
             raise serializers.ValidationError("'type' | This is required")
-        elif 'url'not in self.initial_data or isBlank(self.initial_data.get('url')):
+        elif 'url' not in self.initial_data or isBlank(self.initial_data.get('url')):
             raise serializers.ValidationError("'url' | This is required")
         elif self.initial_data.get('required_params') and not isinstance(self.initial_data['required_params'], list):
             raise serializers.ValidationError("'required_params' | Only list type is supported")
@@ -387,7 +422,7 @@ class PageCardDataSerializer(serializers.ModelSerializer):
     items = serializers.SerializerMethodField()
     # items = CardItemSerializer(many=True, required=False)
     image = Base64ImageField(
-        max_length=None, use_url=True,required=False
+        max_length=None, use_url=True, required=False
     )
     card_function = PageFunctionSerializer(read_only=True)
 
@@ -399,7 +434,8 @@ class PageCardDataSerializer(serializers.ModelSerializer):
         shop_id = self.context.get('shop_id', None)
         card = self.context.get('card', None)
         if shop_id and card and ((card.type == CARD_TYPE_PRODUCT and card.sub_type == LISTING_SUBTYPE_CHOICE.LIST)
-                            or (card.type == CARD_TYPE_IMAGE and card.image_data_type == IMAGE_TYPE_CHOICE.PRODUCT)):
+                                 or (
+                                         card.type == CARD_TYPE_IMAGE and card.image_data_type == IMAGE_TYPE_CHOICE.PRODUCT)):
             sub_query = RetailerProduct.objects.filter(linked_product_id=OuterRef('content_id'), shop_id=shop_id,
                                                        is_deleted=False, online_enabled=True)
             superstore_query = Product.objects.filter(id=OuterRef('content_id'), status='active',
@@ -424,6 +460,7 @@ class PageCardDataSerializer(serializers.ModelSerializer):
         data['card_name'] = card_version.card.name
         data['card_type'] = card_version.card.type
         data['card_sub_type'] = card_version.card.get_sub_type_display()
+        data['template'] = card_version.card_data.template.name
         data['image_data_type'] = card_version.card.get_image_data_type_display()
         return data
 
@@ -438,7 +475,7 @@ class PageCardSerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
-        card_version=CardVersion.objects.filter(card = instance.card_version.card).last()
+        card_version = CardVersion.objects.filter(card=instance.card_version.card).last()
         self.context['card'] = card_version.card
         data['card_data'] = PageCardDataSerializer(card_version.card_data, context=self.context).data
         return data
@@ -447,7 +484,7 @@ class PageCardSerializer(serializers.ModelSerializer):
 class PageVersionDetailSerializer(serializers.ModelSerializer):
     """Serializer for Page Version Details"""
 
-    cards = serializers.SerializerMethodField('getPageCardMapping', required = False)
+    cards = serializers.SerializerMethodField('getPageCardMapping', required=False)
 
     class Meta:
         model = PageVersion
@@ -456,8 +493,8 @@ class PageVersionDetailSerializer(serializers.ModelSerializer):
     def getPageCardMapping(self, obj):
         """custom serializer to get Page Card Mapping"""
 
-        page_card = PageCard.objects.filter(page_version__id = self.instance.id)
-        cards = PageCardSerializer(page_card, many = True, context=self.context)
+        page_card = PageCard.objects.filter(page_version__id=self.instance.id)
+        cards = PageCardSerializer(page_card, many=True, context=self.context)
         return cards.data
 
 
@@ -470,9 +507,9 @@ class PageSerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
-        page_version = PageVersion.objects.filter(page = instance.id)
-        data['version'] = PageVersionSerializer(page_version, many = True).data
-        app = ApplicationPage.objects.select_related('app').get(page = instance.id).app
+        page_version = PageVersion.objects.filter(page=instance.id)
+        data['version'] = PageVersionSerializer(page_version, many=True).data
+        app = ApplicationPage.objects.select_related('app').get(page=instance.id).app
         data['application'] = PageApplicationSerializer(app).data
         return data
 
@@ -483,14 +520,14 @@ class PageSerializer(serializers.ModelSerializer):
 
         # Get app details
         try:
-            app = Application.objects.get(id = app_id)
+            app = Application.objects.get(id=app_id)
         except Exception:
             raise NotFound(ERROR_MESSAGES["APP_ID_NOT_FOUND"].format(app_id))
 
         # Checking cards exist or not and card is of same app
         for card in cards:
             try:
-                card_query = Card.objects.get(id = card['card_id'])
+                card_query = Card.objects.get(id=card['card_id'])
             except Exception:
                 raise NotFound(ERROR_MESSAGES["CARD_ID_NOT_FOUND"].format(card['card_id']))
             if card_query.app != app:
@@ -500,17 +537,17 @@ class PageSerializer(serializers.ModelSerializer):
         page = Page.objects.create(**validated_data)
 
         # Mapping Page and Application
-        ApplicationPage.objects.create(app = app, page = page)
+        ApplicationPage.objects.create(app=app, page=page)
 
         # Creating Page Version
-        latest_page_version = PageVersion.objects.create(page = page, version_no = 1)
+        latest_page_version = PageVersion.objects.create(page=page, version_no=1)
 
         # Mapping Card Versions and Page
         for card in cards:
             card_id = card.pop('card_id')
-            card_queryset = Card.objects.get(id = card_id)
-            card_version = CardVersion.objects.filter(card = card_queryset).order_by('-version_number').first()
-            PageCard.objects.create(page_version = latest_page_version, card_version = card_version, **card)
+            card_queryset = Card.objects.get(id=card_id)
+            card_version = CardVersion.objects.filter(card=card_queryset).order_by('-version_number').first()
+            PageCard.objects.create(page_version=latest_page_version, card_version=card_version, **card)
 
         return page
 
@@ -518,32 +555,32 @@ class PageSerializer(serializers.ModelSerializer):
         data = self.context.get("request").data
         cards = data.get("cards", None)
 
-        #Getting Page is linked with which app
-        app = ApplicationPage.objects.get(page = instance).app
+        # Getting Page is linked with which app
+        app = ApplicationPage.objects.get(page=instance).app
 
         # Checking cards version exist or not and card is of same app
         for card in cards:
             try:
-                card_query = Card.objects.get(id = card['card_id'])
+                card_query = Card.objects.get(id=card['card_id'])
             except Exception:
                 raise NotFound(ERROR_MESSAGES["CARD_ID_NOT_FOUND"].format(card['card_id']))
             if card_query.app != app:
                 raise ValidationError(VALIDATION_ERROR_MESSAGES["CARD_APP_NOT_VALID"].format(card['card_id'], app.id))
-        
-        latest_version = PageVersion.objects.filter(page = instance).order_by('-version_no').first()
+
+        latest_version = PageVersion.objects.filter(page=instance).order_by('-version_no').first()
 
         if not latest_version.published_on:
-            page_card = PageCard.objects.filter(page_version = latest_version)
+            page_card = PageCard.objects.filter(page_version=latest_version)
             page_card.delete()
         else:
-            latest_version = PageVersion.objects.create(page = instance, version_no = latest_version.version_no + 1)
-        
+            latest_version = PageVersion.objects.create(page=instance, version_no=latest_version.version_no + 1)
+
         # Mapping Cards of Pages
         for card in cards:
             card_id = card.pop('card_id')
-            card_queryset = Card.objects.get(id = card_id)
-            card_version = CardVersion.objects.filter(card = card_queryset).order_by('-version_number').first()
-            PageCard.objects.create(page_version = latest_version, card_version = card_version, **card)
+            card_queryset = Card.objects.get(id=card_id)
+            card_version = CardVersion.objects.filter(card=card_queryset).order_by('-version_number').first()
+            PageCard.objects.create(page_version=latest_version, card_version=card_version, **card)
 
         return super().update(instance, validated_data)
 
@@ -556,20 +593,19 @@ class PageDetailSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
     def to_representation(self, instance):
-        data =  super().to_representation(instance)
+        data = super().to_representation(instance)
         if self.context.get('page_version'):
             data['version'] = PageVersionDetailSerializer(self.context.get('page_version')).data
         else:
             page = PageVersion.objects.select_related('page')
-            page_versions = page.filter(page_id = instance.id)
-            data['version'] = PageVersionSerializer(page_versions, many = True).data
-        apps = ApplicationPage.objects.filter(page__id = instance.id).last().app
+            page_versions = page.filter(page_id=instance.id)
+            data['version'] = PageVersionSerializer(page_versions, many=True).data
+        apps = ApplicationPage.objects.filter(page__id=instance.id).last().app
         data['applications'] = PageApplicationSerializer(apps).data
         return data
-    
 
     def update(self, instance, validated_data):
-        page = Page.objects.get(id = instance.id)
+        page = Page.objects.get(id=instance.id)
         version_no = None
         if validated_data.get('active_version_no'):
             version_no = validated_data.pop('active_version_no')
@@ -579,11 +615,11 @@ class PageDetailSerializer(serializers.ModelSerializer):
                 instance.state = "Published"
                 if version_no:
                     try:
-                        page_version = PageVersion.objects.get(page = page, version_no = version_no)
+                        page_version = PageVersion.objects.get(page=page, version_no=version_no)
                     except Exception:
                         raise NotFound(ERROR_MESSAGES["PAGE_VERSION_NOT_FOUND"].format(version_no))
                 else:
-                    page_version = PageVersion.objects.filter(page = page).order_by('-version_no').first()
+                    page_version = PageVersion.objects.filter(page=page).order_by('-version_no').first()
                 page_version.published_on = datetime.now()
                 page_version.save()
                 instance.active_version_no = page_version.version_no
@@ -603,16 +639,18 @@ class PageLatestDetailSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
     def to_representation(self, instance):
-        data =  super().to_representation(instance)
-        apps = ApplicationPage.objects.get(page__id = instance.id).app
+        data = super().to_representation(instance)
+        apps = ApplicationPage.objects.get(page__id=instance.id).app
         data['applications'] = PageApplicationSerializer(apps).data
         data['latest_version'] = PageVersionDetailSerializer(self.context.pop('version'), context=self.context).data
         return data
+
 
 class CategorySerializer(serializers.ModelSerializer):
     """
     Serializer for category data
     """
+
     class Meta:
         model = Category
         fields = ('id', 'category_name')
@@ -625,8 +663,8 @@ class SubCategorySerializer(serializers.ModelSerializer):
     banner_image = serializers.SerializerMethodField()
 
     def get_banner_image(self, obj):
-        if obj.banner_subcategory.filter(status = True).exists():
-            return obj.banner_subcategory.filter(status = True).last().image.url
+        if obj.banner_subcategory.filter(status=True).exists():
+            return obj.banner_subcategory.filter(status=True).last().image.url
         else:
             return None
 
@@ -634,13 +672,16 @@ class SubCategorySerializer(serializers.ModelSerializer):
         model = Category
         fields = ('category_name', 'id', 'banner_image')
 
+
 class BrandSerializer(serializers.ModelSerializer):
     """
     Serializer for brand data
     """
+
     class Meta:
         model = Brand
         fields = ('id', 'brand_name')
+
 
 class SubBrandSerializer(serializers.ModelSerializer):
     """
@@ -649,8 +690,8 @@ class SubBrandSerializer(serializers.ModelSerializer):
     banner_image = serializers.SerializerMethodField()
 
     def get_banner_image(self, obj):
-        if obj.banner_subbrand.filter(status = True).exists():
-            return obj.banner_subbrand.filter(status = True).last().image.url
+        if obj.banner_subbrand.filter(status=True).exists():
+            return obj.banner_subbrand.filter(status=True).last().image.url
         else:
             return None
 
@@ -660,7 +701,6 @@ class SubBrandSerializer(serializers.ModelSerializer):
 
 
 class ProductImageSerializer(serializers.Serializer):
-
     class Meta:
         fields = ('image_name', 'image_url')
 
@@ -681,11 +721,12 @@ class ProductSerializer(serializers.ModelSerializer):
     sub_category = serializers.SerializerMethodField()
     sub_category_id = serializers.SerializerMethodField()
     super_store_product_selling_price = serializers.SerializerMethodField()
+    off_percentage = serializers.SerializerMethodField()
 
     class Meta:
         model = Product
         fields = ('id', 'online_price', 'product_images', 'category', 'category_id', 'brand', 'brand_id',
-                  'sub_category', 'sub_category_id', 'super_store_product_selling_price')
+                  'sub_category', 'sub_category_id', 'super_store_product_selling_price', 'off_percentage')
 
     def get_product_images(self, obj):
         images = obj.product_pro_image.all()
@@ -709,7 +750,6 @@ class ProductSerializer(serializers.ModelSerializer):
             return category if category else ''
         except:
             return ''
-
 
     def get_brand_id(self, obj):
         try:
@@ -744,7 +784,7 @@ class ProductSerializer(serializers.ModelSerializer):
 
     def get_online_price(self, obj):
         retailer_product = RetailerProduct.objects.filter(linked_product_id=obj.id, status='active',
-                                                        online_enabled=True)
+                                                          online_enabled=True)
         if retailer_product.exists():
             return retailer_product.last().online_price
         return None
@@ -757,6 +797,11 @@ class ProductSerializer(serializers.ModelSerializer):
             if superstore_price.exists():
                 return superstore_price.last().selling_price
         return None
+
+    def get_off_percentage(self, obj):
+        parent_shop_id = self.context.get('parent_shop')
+        price = obj.get_superstore_price_by_shop(parent_shop_id) if parent_shop_id else None
+        return round(100 - ((price.selling_price * 100) / obj.product_mrp)) if price else None
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
@@ -801,6 +846,7 @@ class LandingPageSerializer(serializers.ModelSerializer):
             sub_query = RetailerProduct.objects.filter(linked_product_id=OuterRef('product_id'), shop_id=shop_id,
                                                        is_deleted=False, online_enabled=True)
             items = check_inventory(obj.landing_page_products.annotate(retailer_product_exists=Exists(sub_query))
+
                                                                    .filter(retailer_product_exists=True), shop_id)
         return LandingPageProductSerializer(items, many=True, context=self.context).data
 
@@ -808,13 +854,13 @@ class LandingPageSerializer(serializers.ModelSerializer):
         if obj.page_function:
             if not obj.params:
                 return obj.page_function.url
-            return obj.page_function.url+"?"+urllib.parse.urlencode(obj.params)
+            return obj.page_function.url + "?" + urllib.parse.urlencode(obj.params)
 
     def get_page_link(self, obj):
         request = self.context.get('request')
         if request:
             request.META['HTTP_X_FORWARDED_PROTO'] = 'https'
-            return request.build_absolute_uri('/cms/api/v1/landing-pages/?id='+str(obj.id))
+            return request.build_absolute_uri('/cms/api/v1/landing-pages/?id=' + str(obj.id))
 
     class Meta:
         model = LandingPage
@@ -835,8 +881,10 @@ class LandingPageSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError(f"Invalid landing page type selected{self.initial_data['type']}")
             elif 'sub_type' not in self.initial_data or not self.initial_data.get('sub_type'):
                 raise serializers.ValidationError("'type' | This is required")
-            elif int(self.initial_data['sub_type']) not in get_config('CMS_LANDING_PAGE_SUBTYPE', LISTING_SUBTYPE_CHOICE):
-                raise serializers.ValidationError(f"Invalid landing page sub type selected{self.initial_data['sub_type']}")
+            elif int(self.initial_data['sub_type']) not in get_config('CMS_LANDING_PAGE_SUBTYPE',
+                                                                      LISTING_SUBTYPE_CHOICE):
+                raise serializers.ValidationError(
+                    f"Invalid landing page sub type selected{self.initial_data['sub_type']}")
             elif int(self.initial_data['sub_type']) == LISTING_SUBTYPE_CHOICE.LIST:
                 validation_result = self.validate_landing_page_products()
                 if 'error' in validation_result:
@@ -852,13 +900,13 @@ class LandingPageSerializer(serializers.ModelSerializer):
             if LandingPage.objects.filter(name=self.initial_data['name'].strip()).exists():
                 raise serializers.ValidationError("Landing page already exists for this name.")
         elif 'id' in self.initial_data and self.initial_data['id']:
-            if 'app' in self.initial_data and self.initial_data['app'] != self.instance.app_id :
+            if 'app' in self.initial_data and self.initial_data['app'] != self.instance.app_id:
                 raise serializers.ValidationError("Updating app is not allowed.")
-            elif 'type' in self.initial_data and self.initial_data['type'] != self.instance.type :
+            elif 'type' in self.initial_data and self.initial_data['type'] != self.instance.type:
                 raise serializers.ValidationError("Updating type is not allowed.")
-            elif 'sub_type' in self.initial_data and self.initial_data['sub_type'] != self.instance.sub_type :
+            elif 'sub_type' in self.initial_data and self.initial_data['sub_type'] != self.instance.sub_type:
                 raise serializers.ValidationError("Updating sub_type is not allowed.")
-            elif self.instance.sub_type == LISTING_SUBTYPE_CHOICE.LIST :
+            elif self.instance.sub_type == LISTING_SUBTYPE_CHOICE.LIST:
                 validation_result = self.validate_landing_page_products()
                 if 'error' in validation_result:
                     raise serializers.ValidationError(validation_result['error'])
@@ -880,27 +928,27 @@ class LandingPageSerializer(serializers.ModelSerializer):
     def validate_landing_page_products(self):
         if not self.initial_data.get('products') or not isinstance(self.initial_data.get('products'), list) \
                 or len(self.initial_data.get('products')) == 0:
-            return {'error' : "List of items is required for List type landing page"}
+            return {'error': "List of items is required for List type landing page"}
         products = []
         for product_id in self.initial_data['products']:
             if not Product.objects.filter(pk=int(product_id)).exists():
                 raise serializers.ValidationError(f"Product with id {product_id} does not exists")
             products.append(Product.objects.get(pk=product_id))
-        return {'data' : products}
+        return {'data': products}
 
     def validate_landing_page_function(self):
         if self.initial_data.get('page_function') is None:
-            return {'error' : "'function' | This is required."}
+            return {'error': "'function' | This is required."}
         elif int(self.initial_data['page_function']) not in \
                 Functions.objects.filter(type=self.initial_data['type']).values_list('pk', flat=True):
-            return {'error' : "Invalid function selected."}
+            return {'error': "Invalid function selected."}
         func = Functions.objects.filter(pk=self.initial_data['page_function']).last()
         if func.required_params and len(func.required_params) > 0:
             for param in func.required_params:
                 if not self.initial_data.get('params') or param not in self.initial_data.get('params') or \
                         self.initial_data['params'][param] is None:
                     return {'error': f'{param} is missing in params'}
-        return {'data' : func}
+        return {'data': func}
 
     @transaction.atomic
     def create(self, validated_data):
@@ -928,36 +976,10 @@ class LandingPageSerializer(serializers.ModelSerializer):
                 landing_page.landing_page_products.all().delete()
                 LandingPageProducts.objects.bulk_create([LandingPageProducts(landing_page=landing_page, product=p,
                                                                              created_by=validated_data['updated_by'],
-                                                                             updated_by=validated_data['updated_by']) for p in product_list],
-                    batch_size=None)
+                                                                             updated_by=validated_data['updated_by'])
+                                                         for p in product_list],
+                                                        batch_size=None)
         except Exception as e:
             error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
             raise serializers.ValidationError(error)
         return landing_page
-
-
-class ApplicationSerializerForTemplate(serializers.ModelSerializer):
-
-    class Meta:
-        model = Application
-        fields = ('id', 'name')
-
-
-class TemplateSerializer(serializers.ModelSerializer):
-    app = ApplicationSerializerForTemplate()
-
-    class Meta:
-        model = Template
-        fields = ('id', 'app', 'name')
-
-    def validate(self, data):
-        if 'name' not in self.initial_data or isEmptyString(self.initial_data['name']) is None:
-            raise serializers.ValidationError('Template Name is required.')
-        elif 'app' not in self.initial_data or self.initial_data['app'] is None:
-            raise serializers.ValidationError('Application is required.')
-        elif Template.objects.filter(name=self.initial_data['name'].strip().upper(),
-                                     app_id=self.initial_data['app']).exists():
-            raise serializers.ValidationError('Template already exists')
-        data['app_id'] = self.initial_data['app']
-        data['name'] = self.initial_data['name'].strip().upper()
-        return data

@@ -29,7 +29,8 @@ from wms.common_functions import ZoneCommonFunction, WarehouseAssortmentCommonFu
 from global_config.views import get_config
 from wms.models import In, Out, InventoryType, Zone, WarehouseAssortment, Bin, BIN_TYPE_CHOICES, \
     ZonePutawayUserAssignmentMapping, Putaway, PutawayBinInventory, BinInventory, InventoryState, \
-    ZonePickerUserAssignmentMapping, QCArea, QCDesk, QCDeskQCAreaAssignmentMapping, Pickup, PickupCrate, Crate
+    ZonePickerUserAssignmentMapping, QCArea, QCDesk, QCDeskQCAreaAssignmentMapping, Pickup, PickupCrate, Crate, \
+    BinShiftLog
 from wms.common_validators import get_validate_putaway_users, read_warehouse_assortment_file, get_validate_picker_users, \
     get_validate_qc_areas
 
@@ -1250,16 +1251,15 @@ class BinInventorySerializer(serializers.ModelSerializer):
         fields = ('warehouse', 'bin', 'sku', 'batch_id', 'inventory_type', 'bin_quantity')
 
 class BinShiftPostSerializer(serializers.ModelSerializer):
-    s_bin = serializers.IntegerField()
-    t_bin = serializers.IntegerField()
-    batch_id = serializers.CharField()
-    qty = serializers.IntegerField()
-    inventory_type = serializers.IntegerField()
+    # s_bin = serializers.IntegerField()
+    # t_bin = serializers.IntegerField()
+    # batch_id = serializers.CharField()
+    # qty = serializers.IntegerField()
+    # inventory_type = serializers.IntegerField()
 
     class Meta:
-        model = BinInventory
+        model = BinShiftLog
         fields = ('s_bin', 't_bin', 'batch_id', 'qty', 'inventory_type')
-
 
 
     def validate(self, data):
@@ -1291,7 +1291,7 @@ class BinShiftPostSerializer(serializers.ModelSerializer):
         data['inventory_type'] = inventory_type
 
         sku = get_sku_from_batch_and_bin(self.initial_data['batch_id'], s_bin.bin_id)
-
+        data['sku'] = sku
         bin_inv = BinInventory.objects.filter(bin=s_bin, batch_id=self.initial_data['batch_id'],
                                               sku=sku, inventory_type=inventory_type).last()
         if bin_inv:
@@ -1319,6 +1319,7 @@ class BinShiftPostSerializer(serializers.ModelSerializer):
     @transaction.atomic
     def create(self, validated_data):
         try:
+            BinShiftLog.objects.create(**validated_data)
             CommonBinInventoryFunctions.product_shift_across_bins(validated_data)
         except Exception as e:
             error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
@@ -1515,7 +1516,7 @@ class PicklistSerializer(serializers.ModelSerializer):
     class Meta:
         model = PickerDashboard
         fields = ('id', 'order_no', 'picker_status', 'order_create_date', 'delivery_location', 'picking_assigned_time',
-                  'picking_completed_time', 'moved_to_qc_at', 'qc_area', 'zone', 'picker_boy')
+                  'picking_completed_time', 'moved_to_qc_at', 'qc_area', 'zone', 'picker_boy', 'is_clickable')
 
 #
 # class RepackagingTypePicklistSerializer(serializers.ModelSerializer):
@@ -1655,7 +1656,7 @@ class PickerDashboardSerializer(serializers.ModelSerializer):
         model = PickerDashboard
         fields = ('id', 'order', 'repackaging', 'shipment', 'picking_status', 'picklist_id', 'picker_boy',
                   'pick_list_pdf', 'picker_assigned_date', 'zone', 'qc_area', 'is_valid', 'refreshed_at', 'created_at',
-                  'modified_at', 'completed_at', 'moved_to_qc_at', )
+                  'modified_at', 'completed_at', 'moved_to_qc_at', 'is_clickable')
 
     def validate(self, data):
         """Validates the PickerDashboard requests"""

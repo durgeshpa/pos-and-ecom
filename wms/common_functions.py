@@ -22,10 +22,11 @@ from audit.models import AUDIT_PRODUCT_STATUS, AuditProduct
 from products.models import Product, ParentProduct, ProductPrice
 from shops.models import Shop
 from wms.common_validators import get_csv_file_data
+import retailer_to_sp.models
 from .models import (Bin, BinInventory, Putaway, PutawayBinInventory, Pickup, WarehouseInventory,
                      InventoryState, InventoryType, WarehouseInternalInventoryChange, In, PickupBinInventory,
                      BinInternalInventoryChange, StockMovementCSVUpload, StockCorrectionChange, OrderReserveRelease,
-                     Audit, Out, Zone, WarehouseAssortment, PickupCrate, QCDeskQCAreaAssignmentMapping)
+                     Audit, Out, Zone, WarehouseAssortment, PickupCrate, QCDeskQCAreaAssignmentMapping, BinShiftLog)
 from wms.common_validators import get_csv_file_data
 
 from shops.models import Shop
@@ -345,18 +346,6 @@ class CommonBinInventoryFunctions(object):
                     total_qty_to_move_from_pickup = 0
 
                 if qty_to_deduct_from_bin_inv > 0:
-                    # CommonBinInventoryFunctions.update_bin_inventory_with_transaction_log(warehouse, source_bin, sku,
-                    #                                                                       batch_id,
-                    #                                                                       inventory_type,
-                    #                                                                       inventory_type,
-                    #                                                                       -1 * qty_to_deduct_from_bin_inv,
-                    #                                                                       True, tr_type_deduct, tr_id)
-                    #
-                    # target_bin_inv_object = CommonBinInventoryFunctions.update_bin_inventory_with_transaction_log(
-                    #     warehouse, target_bin, sku, batch_id, inventory_type, inventory_type,
-                    #     qty_to_deduct_from_bin_inv,
-                    #     True, tr_type_add, tr_id)
-
                     source_bin_inv_object = cls.update_or_create_bin_inventory(warehouse, source_bin, sku, batch_id,
                                                                         inventory_type, -1*qty_to_deduct_from_bin_inv,
                                                                         True)
@@ -2567,6 +2556,16 @@ def get_logged_user_wise_query_set_for_picker(user, queryset):
     return queryset
 
 
+def assign_clickable_state(user):
+    """
+        Make is_clickable field True if picking status of order is picking_complete or it is the current order
+    """
+    retailer_to_sp.models.PickerDashboard.objects.filter(picker_boy_id=user, picking_status='picking_assigned').update(is_clickable=False)
+    instance = retailer_to_sp.models.PickerDashboard.objects.filter(picker_boy_id=user, picking_status='picking_assigned').order_by('created_at').first()
+    instance.is_clickable = True
+    instance.save()
+
+
 def get_logged_user_wise_query_set_for_pickup_list(user, pickup_type, queryset):
     '''
         GET Logged-in user wise queryset for pickerdashboard based on criteria that matches
@@ -2738,3 +2737,37 @@ def get_logged_user_wise_query_set_for_shipment_packaging(user, queryset):
 def get_zone_by_warehouse_and_product(warehouse, product):
     assortment = WarehouseAssortment.objects.filter(warehouse=warehouse, product=product).last()
     return assortment.zone if assortment else None
+
+
+def return_putaway(return_order):
+    with transaction.atomic():
+        inv_type = {'E': InventoryType.objects.get(inventory_type='expired'),
+                    'D': InventoryType.objects.get(inventory_type='damaged'),
+                    'N': InventoryType.objects.get(inventory_type='normal')}
+        seller_shop = return_order.seller_shop
+        for return_product in return_order.return_order_products.all():
+            for batch in return_product.return_product_batches.all():
+                info_logger.info(f"return_putaway|return_order {return_order.return_no}| batch {batch.batch_id},"
+                                 f"return_qty {batch.return_qty}, expired_qty {batch.expired_qty},"
+                                 f" damaged_qty{batch.damaged_qty}")
+                batch_id = batch.batch_id
+                in_type_id = return_order.return_no
+                putaway_type_id = return_order.return_no
+                if batch.return_qty > 0:
+                    create_in(seller_shop, batch_id, return_product.product, return_order.return_type, in_type_id,
+                              inv_type['N'], batch.return_qty)
+                    create_putaway(seller_shop, return_product.product, batch_id, None, inv_type['N'],
+                                   return_order.return_type, putaway_type_id, None, batch.return_qty)
+
+                if batch.expired_qty > 0:
+                    create_in(seller_shop, batch_id, return_product.product, return_order.return_type, in_type_id,
+                              inv_type['E'], batch.expired_qty)
+                    create_putaway(seller_shop, return_product.product, batch_id, None, inv_type['E'],
+                                   return_order.return_type, putaway_type_id, None, batch.expired_qty)
+                if batch.damaged_qty > 0:
+                    create_in(seller_shop, batch_id, return_product.product, return_order.return_type, in_type_id,
+                              inv_type['D'], batch.damaged_qty)
+                    create_putaway(seller_shop, return_product.product, batch_id, None, inv_type['D'],
+                                   return_order.return_type, putaway_type_id, None, batch.damaged_qty)
+
+        info_logger.info(f"return_putaway|return_order {return_order.return_no}| Completed")

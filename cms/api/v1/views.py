@@ -648,7 +648,7 @@ class PageVersionDetailView(APIView):
             "message": "OK",
             "data": serializer.data
         }
-        cache.set(page_key, message)
+        #cache.set(page_key, message)
         return Response(message)
 
 

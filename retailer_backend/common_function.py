@@ -218,6 +218,8 @@ def order_id_pattern_ss(model, field, instance_id, address):
 def payment_id_pattern(model, field, instance_id, address):
     return common_pattern(model, field, instance_id, address, "PA")
 
+def return_order_id_pattern(model, field, instance_id, address, const="RO"):
+    return common_pattern(model, field, instance_id, address, "RO")
 
 def order_id_pattern_r_gram(order_id):
     """ Order ID pattern
@@ -319,6 +321,17 @@ def create_invoice(shipment_instance):
                                                                       'tcs_amount': tcs_amount,
                                                                       'invoice_total': invoice_total})
 
+def create_return_challan(return_instance):
+    invoice_sub_total = return_instance.shipment.invoice_amount
+    invoice_total = invoice_sub_total
+    return RetailerToSPModels.ReturnInvoice.objects.get_or_create(
+        return_order_id=return_instance.id,
+        defaults={
+            'invoice_sub_total': invoice_sub_total,
+            'invoice_total': invoice_total
+        }
+    )
+    
 
 def get_tcs_data(shipment_instance):
     '''
@@ -370,6 +383,16 @@ def generate_invoice_number(shipment_instance, address, const="IV", field='invoi
         instance.save()
 
 
+@task
+def generate_return_challan_number(return_order_instance, address, const="RV", field="invoice_no"):
+    return_order_id = return_order_instance.id
+    instance, created = create_return_challan(return_order_instance)
+    if created:
+        return_challan_no = common_pattern(RetailerToSPModels.ReturnInvoice, field, return_order_id, address, const, is_invoice=True)
+        instance.invoice_no = return_challan_no
+        instance.save()
+        return return_challan_no
+        
 
 @task
 def generate_invoice_number_discounted_order(shipment_instance, address, field='invoice_no'):

@@ -471,7 +471,7 @@ class SiblingProductView(GenericAPIView):
         if not parent_shop_id:
             return api_response("shop parent not mapped")
         parent_shop_id = parent_shop_id.id
-        
+
         if request.GET.get('id'):
             """ Get Child Product for specific ID """
             id_validation = validate_id(self.queryset, int(request.GET.get('id')))
@@ -519,7 +519,7 @@ class ProductDetails(GenericAPIView):
         parent_shop_id = parent_shop_id.id
         serializer = ChildProduct.objects.filter(id=id)
         serializer = self.serializer_class(serializer, many=True, context={'parent_shop_id': parent_shop_id})
-        return api_response('products information',serializer.data,status.HTTP_200_OK, True)
+        return api_response('products information', serializer.data, status.HTTP_200_OK, True)
 
 
 class ChildProductView(GenericAPIView):
@@ -671,7 +671,7 @@ class ChildProductView(GenericAPIView):
         if b2c_category is not None:
             self.queryset = self.queryset.filter(
                 parent_product__parent_product_pro_b2c_category__category__id=b2c_category)
-        
+
         return self.queryset
 
 
@@ -811,7 +811,7 @@ class ProductCappingView(GenericAPIView):
 class ProductHSNView(GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
-    queryset = ProductHSN.objects.prefetch_related('hsn_log', 'hsn_log__updated_by')\
+    queryset = ProductHSN.objects.prefetch_related('hsn_log', 'hsn_log__updated_by') \
         .only('id', 'product_hsn_code').order_by('-id')
     serializer_class = ProductHSNCrudSerializers
 
@@ -1522,12 +1522,18 @@ class SlabProductPriceView(GenericAPIView):
 
 class ProductListView(GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
-    queryset = ChildProduct.objects.prefetch_related('product_pro_image', ).order_by('-id')
+    queryset = ChildProduct.objects.filter(status='active').prefetch_related('product_pro_image',).order_by('-id')
 
     serializer_class = ImageProductSerializers
 
     def get(self, request):
         search_text = self.request.GET.get('search_text')
+        status = self.request.GET.get('status')
+        product_type = self.request.GET.get('product_type')
+        if status:
+            self.queryset = self.queryset.filter(status=status)
+        if product_type:
+            self.queryset = self.queryset.filter(parent_product__product_type=product_type)
         if search_text:
             self.queryset = child_product_search(self.queryset, search_text)
         child_product = SmallOffsetPagination().paginate_queryset(self.queryset, request)
@@ -1661,11 +1667,11 @@ class ParentProductApprovalView(GenericAPIView):
     """
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
-    queryset = ParentProducts.objects.filter(tax_status__in=[ParentProducts.PENDING, ParentProducts.DECLINED])\
-        .select_related('parent_brand', 'product_hsn', 'updated_by')\
+    queryset = ParentProducts.objects.filter(tax_status__in=[ParentProducts.PENDING, ParentProducts.DECLINED]) \
+        .select_related('parent_brand', 'product_hsn', 'updated_by') \
         .prefetch_related('parent_product_pro_tax', 'parent_product_log', 'parent_product_pro_tax__tax', ) \
         .only('id', 'parent_id', 'name', 'product_type', 'updated_by', 'status', 'parent_brand__brand_name',
-              'parent_brand__brand_code', 'updated_at', 'product_hsn__product_hsn_code', 'tax_status', 'tax_remark')\
+              'parent_brand__brand_code', 'updated_at', 'product_hsn__product_hsn_code', 'tax_status', 'tax_remark') \
         .order_by('-id')
     serializer_class = ParentProductApprovalSerializers
 
@@ -1748,11 +1754,11 @@ class BulkParentProductApprovalView(GenericAPIView):
     """
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
-    queryset = ParentProducts.objects.filter(tax_status__in=[ParentProducts.PENDING, ParentProducts.DECLINED])\
-        .select_related('parent_brand', 'product_hsn', 'updated_by')\
+    queryset = ParentProducts.objects.filter(tax_status__in=[ParentProducts.PENDING, ParentProducts.DECLINED]) \
+        .select_related('parent_brand', 'product_hsn', 'updated_by') \
         .prefetch_related('parent_product_pro_tax', 'parent_product_log', 'parent_product_pro_tax__tax', ) \
         .only('id', 'parent_id', 'name', 'product_type', 'updated_by', 'status', 'parent_brand__brand_name',
-              'parent_brand__brand_code', 'updated_at', 'product_hsn__product_hsn_code', 'tax_status', 'tax_remark')\
+              'parent_brand__brand_code', 'updated_at', 'product_hsn__product_hsn_code', 'tax_status', 'tax_remark') \
         .order_by('-id')
     serializer_class = ParentProductApprovalSerializers
 
@@ -1783,7 +1789,8 @@ class BulkParentProductApprovalView(GenericAPIView):
             error_logger.error(e)
             return get_response(f'please provide a valid tax id {id}', False)
         if non_approved:
-            return get_response('Some products were not approved, kindly try to update individually to see error', False)
+            return get_response('Some products were not approved, kindly try to update individually to see error',
+                                False)
         else:
             return get_response('All selected products approved', True)
 
@@ -1810,10 +1817,10 @@ class SuperStoreProductPriceView(GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
 
-    queryset = SuperStoreProductPrice.objects.select_related('product', 'seller_shop')\
+    queryset = SuperStoreProductPrice.objects.select_related('product', 'seller_shop') \
         .prefetch_related('product__parent_product', 'seller_shop__shop_type', 'seller_shop__shop_owner',
                           'product__parent_product__parent_product_pro_category',
-                          'product__parent_product__parent_product_pro_b2c_category',). \
+                          'product__parent_product__parent_product_pro_b2c_category', ). \
         order_by('-updated_at')
     serializer_class = SuperStoreProductPriceSerializers
 
