@@ -2,6 +2,7 @@ import logging
 import math
 import re
 import json
+from django.core.mail import send_mail
 import codecs
 from django.http import HttpResponse
 from datetime import date as datetime_date
@@ -4161,6 +4162,7 @@ class OrderCentral(APIView):
             message_title = "Great choice!"
             message_body = "Your order has been accepted!"
             send_notification_ecom_user(order, message_title, message_body)
+            sendemailforsuperstoreorder(order)
 
             msg = 'Ordered Successfully!'
             return api_response(msg, BasicOrderListSerializer(Order.objects.get(id=order.id)).data,
@@ -6415,6 +6417,27 @@ def send_notification_ecom_user(order, message_title, message_body):
         result = push_service_ecom.notify_single_device(registration_id=user_device.reg_id,
                                                         message_title=message_title, message_body=message_body)
         info_logger.info(result)
+
+
+def sendemailforsuperstoreorder(order):
+    subject = 'A new SuperStore order has been placed.'
+    url = 'https://{}.gramfactory.com/admin/retailer_to_sp/order/{}'.format(config('ENVIRONMENT'),order.id)
+    body = 'Click here - {} for more details'.format(url)
+    sender = GlobalConfig.objects.get(key='sender')
+    receiver = GlobalConfig.objects.get(key='recipient_ss')
+    info_logger.info("--------------Sending mail for superstore order!------------------")
+    info_logger.info("Body :: {}".format(body))
+    try:
+        send_mail(
+            subject,
+            body,
+            sender.value,
+            receiver.value.split(),
+            fail_silently=False,
+        )
+        info_logger.info("----------Mail send successfully for superstore order!-------------")
+    except Exception as e:
+        info_logger.error(e)
 
 
 # class OrderList(generics.ListAPIView):
