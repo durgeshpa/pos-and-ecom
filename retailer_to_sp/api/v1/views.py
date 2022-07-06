@@ -15,7 +15,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
 from django.core import validators
 from django.core.exceptions import ObjectDoesNotExist
-from django.db.models import F, Sum, Q, Case, When, Value, FloatField, IntegerField
+from django.db.models import F, Sum, Q, Case, When, Value, FloatField
 from django.core.files.base import ContentFile
 from django.db import transaction, models
 from django.db.models import F, Sum, Q, Count, Value, Case, When, Subquery
@@ -8158,14 +8158,8 @@ class DeliveryShipmentDetails(APIView):
         trip_mappings = trip.last_mile_trip_returns_details.all()
         trip_return = []
         grouped_return_list = ReturnOrder.objects.filter(last_mile_trip_returns__in=trip_mappings)\
-                                                 .values('buyer_shop', 'seller_shop')\
-                                                 .annotate(return_count=Count('id'),
-                                                           status=Sum(Case(
-                                                               When(return_status__in=[ReturnOrder.RETURN_REQUESTED,
-                                                                                       ReturnOrder.RETURN_INITIATED],
-                                                                    then=1),
-                                                               default=0
-                                                           ), output_field=IntegerField())).order_by()
+                                                 .values('buyer_shop', 'seller_shop', 'return_status')\
+                                                 .annotate(return_count=Count('id')).order_by()
         for grouped_return in grouped_return_list:
             grouped_return_dict = {}
             grouped_return_dict['item_type'] = 'return'
@@ -8198,7 +8192,7 @@ class DeliveryShipmentDetails(APIView):
             grouped_return_dict['buyer_shop'] = SellerShopSerializer(buyerShop).data
             grouped_return_dict['shipping_address'] = AddressSerializer(shipping_address).data
             grouped_return_dict['return_count'] = grouped_return['return_count']
-            grouped_return_dict['shipment_status'] = 'PENDING' if grouped_return['status'] > 0 else 'COMPLETED'
+            grouped_return_dict['shipment_status'] = grouped_return['return_status']
             # grouped_return_dict['return_value'] = ReturnOrder.objects.filter(id=grouped_return['id']).last().return_amount
             trip_return.append(grouped_return_dict)
 
@@ -12813,7 +12807,6 @@ class ReturnRejection(generics.ListCreateAPIView):
         return_id = self.request.data.get('return_id', None)
         reject_reason = self.request.data.get('reject_reason', None)
         orderreturn = ReturnOrder.objects.filter(pk=return_id).last()
-        trip_id = orderreturn.last_mile_trip_returns.last().trip.id
         if orderreturn.return_status != ReturnOrder.RETURN_INITIATED:
             result = {"is_success": False, "message": ["error: Return not found in initiated state"], "response_data": ''}
             return Response(result, status=status.HTTP_200_OK)
@@ -12821,7 +12814,6 @@ class ReturnRejection(generics.ListCreateAPIView):
         orderreturn.return_status = ReturnOrder.RETURN_REJECTED
         with transaction.atomic():
             orderreturn.save()
-            update_trip_status(trip_id)
         return get_response(["return rejected"], '', True)
 
     def validate_put_request(self):
