@@ -253,8 +253,7 @@ def create_repackaging_pickup(sender, instance=None, created=False, **kwargs):
                     repackaging=rep_obj,
                     picking_status="picking_pending",
                     picklist_id=generate_picklist_id("00"),
-                    zone=product_zone,
-                    is_clickable=True
+                    zone=product_zone
                 )
                 rep_obj.source_picking_status = 'pickup_created'
                 rep_obj.save()
