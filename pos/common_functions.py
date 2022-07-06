@@ -5,7 +5,7 @@ from copy import deepcopy
 from decimal import Decimal
 import datetime
 
-# from common.common_utils import sms_reward_point_update_superstore
+from common.common_utils import sms_reward_point_update_superstore
 from global_config.views import get_config, get_config_fofo_shop
 from django.db import transaction
 from rest_framework.response import Response
@@ -715,8 +715,8 @@ class RewardCls(object):
             reward_obj.save()
             # Log transaction
             RewardCls.create_reward_log(user, t_type, tid, points, changed_by,discount=0, shop=shop)
-            # if app_type == "SUPERSTORE":
-            #     sms_reward_point_update_superstore(user)
+            if app_type == "SUPERSTORE":
+                sms_reward_point_update_superstore(user)
         return points
 
     @classmethod
