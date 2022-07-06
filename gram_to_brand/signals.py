@@ -155,6 +155,10 @@ def create_debit_note(sender, instance=None, created=False, **kwargs):
         instance.save()
 
 
+@receiver(post_save, sender=GRNOrder)
+def calculate_cost_price(sender, instance=None, created=False, **kwargs):
+    ...
+
 @receiver(post_save, sender=Cart)
 def generate_po_no(sender, instance=None, created=False, update_fields=None, **kwargs):
     """
