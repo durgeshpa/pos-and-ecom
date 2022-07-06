@@ -368,7 +368,8 @@ class AdminOffers(GenericAPIView):
             else:
                 return api_response(serializer_error(serializer))
         else:
-            return self.get_offers_list(request,None)
+            shop = Shop.objects.filter(shop_name="Wherehouse").last()
+            return self.get_offers_list(request,shop.id)
 
 
     def post(self, request, *args, **kwargs):
