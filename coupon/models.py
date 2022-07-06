@@ -285,7 +285,7 @@ def get_catalogue_coupon_params(coupon):
         params['parent_purchased_product'] = product_ruleset.purchased_product.id if product_ruleset.purchased_product else None
         params['parent_free_product'] = product_ruleset.free_product.id if product_ruleset.free_product else None
         params['free_product_name'] = product_ruleset.retailer_free_product.name if product_ruleset.retailer_free_product else None
-        params['parent_free_product_name'] = product_ruleset.free_product.product_name if product_ruleset.free_product.product_name else None
+        params['parent_free_product_name'] = product_ruleset.free_product.product_name if product_ruleset.free_product else None
         params['purchased_product_qty'] = product_ruleset.purchased_product_qty
         params['free_product_qty'] = product_ruleset.free_product_qty
         return params, product_ruleset.retailer_primary_product if product_ruleset.retailer_primary_product else product_ruleset.purchased_product
