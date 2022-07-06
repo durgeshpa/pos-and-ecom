@@ -406,7 +406,8 @@ class Product(BaseTimestampUserStatusModel):
 
     @property
     def product_inner_case_size(self):
-        return self.parent_product.inner_case_size if self.parent_product else '1'
+        return self.parent_product.inner_case_size if self.parent_product and \
+                                                      self.product_type == self.PRODUCT_TYPE_CHOICE.NORMAL else '1'
 
     @property
     def product_short_description(self):
