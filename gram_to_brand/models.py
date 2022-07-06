@@ -707,3 +707,21 @@ class ProductGRNCostPriceMapping(models.Model):
     class Meta:
         verbose_name = 'Product GRN Cost Price mapping'
         verbose_name_plural = 'Product Cost Prices mapping'
+
+
+class ProductCostPriceChangeLog(models.Model):
+    cost_price_grn_mapping = models.ForeignKey(ProductGRNCostPriceMapping, 
+                                               related_name='cost_price_change_logs',
+                                               on_delete=models.CASCADE)
+    cost_price = models.DecimalField(max_digits=10, decimal_places=2)
+    grn = models.ForeignKey(GRNOrderProductMapping, 
+                                   related_name='cost_price_change_logs', 
+                                   on_delete=models.CASCADE)
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    def __str__(self) -> str:
+        return f"{self.cost_price_grn_mapping} | {self.created_at}"
+    
+    class Meta:
+        verbose_name = 'Product Cost Price change log'
+        verbose_name_plural = 'Product Cost Price change logs'

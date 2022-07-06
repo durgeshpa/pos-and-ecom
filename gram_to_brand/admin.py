@@ -26,10 +26,12 @@ from shops.models import ParentRetailerMapping
 from .views import DownloadPurchaseOrder, GetMessage, DownloadPOItems
 from .common_functions import upload_cart_product_csv, moving_average_buying_price
 from .models import (Order, Cart, CartProductMapping, GRNOrder, GRNOrderProductMapping, BrandNote, PickList, Document,
-                     PickListItems, OrderedProductReserved, Po_Message, VendorShopMapping)
+                     PickListItems, OrderedProductReserved, Po_Message, VendorShopMapping, ProductGRNCostPriceMapping, 
+                     ProductCostPriceChangeLog)
 from .forms import (OrderForm, CartProductMappingForm, GRNOrderProductForm, GRNOrderProductFormset, DocumentFormset,
                     POGenerationAccountForm, POGenerationForm, DocumentForm, VendorShopMappingForm)
 from wms.models import WarehouseAssortment
+from products.admin import ProductFilter, ProductSKUSearch, ProductCategoryFilter
 
 
 # Logger
@@ -555,6 +557,26 @@ class OrderedProductReservedAdmin(admin.ModelAdmin):
 class VendorShopMappingAdmin(admin.ModelAdmin):
     form = VendorShopMappingForm
     list_display = ('vendor', 'shop')
+
+
+class ProductCostPriceChangeLogInlineAdmin(admin.TabularInline):
+    model = ProductCostPriceChangeLog
+    
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
+@admin.register(ProductGRNCostPriceMapping)
+class ProductGRNCostPriceMappingAdmin(admin.ModelAdmin):
+    list_display = ('product', 'cost_price', 'latest_grn', 'created_at', 'modified_at')
+    inlines = [ProductCostPriceChangeLogInlineAdmin]
+    list_filters = [ProductFilter, ProductSKUSearch, ProductCategoryFilter]
 
 
 admin.site.register(PickList, PickListAdmin)
