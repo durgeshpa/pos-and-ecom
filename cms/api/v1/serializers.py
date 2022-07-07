@@ -10,7 +10,7 @@ from rest_framework.exceptions import NotFound, ValidationError
 
 from global_config.views import get_config
 from pos.models import RetailerProduct
-from products.models import Product, SuperStoreProductPrice, ParentProduct
+from products.models import Product, SuperStoreProductPrice, ParentProduct, ProductPrice
 from retailer_backend.common_function import isBlank
 from ...choices import LANDING_PAGE_TYPE_CHOICE, LISTING_SUBTYPE_CHOICE, FUNTION_TYPE_CHOICE, \
     CARD_TYPE_PRODUCT, CARD_TYPE_CAREGORY, CARD_TYPE_BRAND, CARD_TYPE_IMAGE, IMAGE_TYPE_CHOICE, LIST, RETAILER, \
@@ -840,14 +840,19 @@ class LandingPageSerializer(serializers.ModelSerializer):
 
     def get_landing_page_products(self, obj):
         shop_id = self.context.get('shop_id', None)
+        parent_shop = self.context.get('parent_shop', None)
         app_id = obj.app_id
-        items = obj.landing_page_products
+        items = obj.landing_page_products.filter(product__status='active')
         if app_id and app_id == APP_TYPE_CHOICE.ECOMMERCE and shop_id:
             sub_query = RetailerProduct.objects.filter(linked_product_id=OuterRef('product_id'), shop_id=shop_id,
                                                        is_deleted=False, online_enabled=True)
             items = check_inventory(obj.landing_page_products.annotate(retailer_product_exists=Exists(sub_query))
 
                                                                    .filter(retailer_product_exists=True), shop_id)
+        elif app_id == APP_TYPE_CHOICE.SUPERSTORE:
+            items = items.filter(product__product_pro_price__seller_shop_id=parent_shop,
+                                 product__product_pro_price__approval_status=ProductPrice.APPROVED,
+                                 product__product_pro_price__status=True)
         return LandingPageProductSerializer(items, many=True, context=self.context).data
 
     def get_page_action_url(self, obj):
