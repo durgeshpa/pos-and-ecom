@@ -840,7 +840,7 @@ class LandingPageSerializer(serializers.ModelSerializer):
 
     def get_landing_page_products(self, obj):
         shop_id = self.context.get('shop_id', None)
-        app_id = self.context.get('app_id', None)
+        app_id = obj.app_id
         items = obj.landing_page_products
         if app_id and app_id == APP_TYPE_CHOICE.ECOMMERCE and shop_id:
             sub_query = RetailerProduct.objects.filter(linked_product_id=OuterRef('product_id'), shop_id=shop_id,

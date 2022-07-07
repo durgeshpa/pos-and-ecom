@@ -55,11 +55,13 @@ IMAGE_TYPE_CHOICE = Choices(
 )
 
 RETAILER, ECOMMERCE, SUPERSTORE, POS = 'RETAILER', 'ECOMMERCE', 'SUPERSTORE', 'POS'
+
+#Id to be matched with DB Application table
 APP_TYPE_CHOICE = Choices(
-    (1, RETAILER, 'Retailer'),
-    (2, ECOMMERCE, 'E-Commerce'),
-    (3, POS, 'POS'),
-    (4, SUPERSTORE, 'SuperStore')
+    (2, RETAILER, 'Retailer'),
+    (1, ECOMMERCE, 'E-Commerce'),
+    (3, SUPERSTORE, 'SuperStore'),
+    (4, POS, 'POS'),
 )
 
 INDEX_TYPE_ONE, INDEX_TYPE_TWO, INDEX_TYPE_THREE, INDEX_TYPE_FOUR = '1', '2', '3', '4'
