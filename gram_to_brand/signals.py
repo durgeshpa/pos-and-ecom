@@ -190,7 +190,7 @@ def calculate_cost_price(sender, instance=None, created=False, **kwargs):
             cost_price_change_log.cost_price_grn_mapping = cost_price
             cost_price_change_log.save()
     else:
-        cost_price = product.cost_price
+        # cost_price = product.cost_price
         pass
 
 
