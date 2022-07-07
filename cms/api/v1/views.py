@@ -34,6 +34,7 @@ from cms.permissions import (has_cards_create_permission,
 
 from cms.messages import VALIDATION_ERROR_MESSAGES, SUCCESS_MESSAGES, ERROR_MESSAGES
 from ...validators import validate_data_format, validate_id
+from django.db import transaction
 
 info_logger = logging.getLogger('file-info')
 error_logger = logging.getLogger('file-error')
@@ -605,6 +606,36 @@ class PageDetailView(APIView):
             "error": serializer.errors
         }
         return Response(message, status = status.HTTP_400_BAD_REQUEST)
+
+    def delete(self, request, id, format = None):
+        """Get page specific details"""
+        pass
+
+        request.META['HTTP_X_FORWARDED_PROTO'] = 'https'
+        query_params = request.query_params
+        try:
+            page = Page.objects.get(id=id)
+        except Exception:
+            message = {
+                "is_success": False,
+                "message": ERROR_MESSAGES["PAGE_ID_NOT_FOUND"].format(id)
+            }
+            return Response(message, status=status.HTTP_204_NO_CONTENT)
+        page_version = None
+        if query_params.get('version'):
+            with transaction.atomic():
+                page_version = PageVersion.objects.get(page=page, version_no=query_params.get('version'))
+                page_version.delete()
+
+
+            page_version = None
+        serializer = self.serializer_class(page, context={'page_version': page_version})
+        message = {
+            "is_success": True,
+            "message": 'deleted successfully ',
+            "data": serializer.data
+        }
+        return Response(message, status=status.HTTP_200_OK)
 
 
 class PageVersionDetailView(APIView):
