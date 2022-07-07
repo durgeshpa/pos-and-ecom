@@ -168,7 +168,7 @@ table tr td,th,h4,span,address{
     						<tbody>
     							<!-- foreach ($order->lineItems as $line) or some such thing here -->
     							<tr>
-                    {% for m in products %}
+                    {% for m,n  in result %}
     								<td><strong>{{forloop.counter}}</strong></td>
 									<td class="text-center">{{ m.cart_product.product_sku}}</td>
 									{%if flag%}
@@ -178,7 +178,7 @@ table tr td,th,h4,span,address{
     								<td class="text-center">{{ m.cart_product.product_short_description}}</td>
 									<td class="text-center">{{ m.mrp}}</td>
 									<td class="text-center">{{ m.cart_product.product_hsn}}</td>
-									<td class="text-center">{{ m.tax_percentage }}</td>
+									<td class="text-center">{{ n }}</td>
 									<td class="text-center">{{ m.no_of_cases }}</td>
 									<td class="text-center">{{m.qty}}</td>
     								<td class="text-center">{{m.price}}</td>
