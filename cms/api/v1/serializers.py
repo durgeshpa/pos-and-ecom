@@ -180,7 +180,7 @@ class TemplateSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Template
-        fields = ('id', 'app', 'name')
+        fields = ('id', 'app', 'name', 'image', 'description')
 
     def validate(self, data):
         if 'name' not in self.initial_data or isEmptyString(self.initial_data['name']) is None:
@@ -369,7 +369,7 @@ class PageFunctionSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Functions
-        fields = ('id', 'type', 'name', 'url', 'required_params', 'required_headers')
+        fields = ('id', 'type', 'name', 'url', 'required_params', 'required_headers', 'app')
 
 
     def validate(self, data):
