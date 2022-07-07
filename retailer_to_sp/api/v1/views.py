@@ -6842,7 +6842,7 @@ def pdf_generation(request, ordered_product):
         tax_amt = [num2words(i) for i in str(total_tax_amount_int).split('.')]
         tax_rupees = tax_amt[0]
 
-        logger.info("createing invoice pdf")
+        logger.info("creating invoice pdf")
         logger.info(template_name)
         logger.info(request.get_host())
 
@@ -7119,7 +7119,7 @@ def return_challan_generation(request, return_order_id):
     tax_amt = [num2words(i) for i in str(total_tax_amount_int).split('.')]
     tax_rupees = tax_amt[0]
 
-    logger.info("createing return challan pdf")
+    logger.info("creating return challan pdf")
     logger.info(template_name)
     logger.info(request.get_host())
 
