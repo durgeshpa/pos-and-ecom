@@ -407,11 +407,20 @@ class SearchProducts(APIView):
         category_ids = self.request.GET.get('category_ids')
         brand = self.request.GET.get('brands')
         sub_category_ids = self.request.GET.get('sub_category_ids')
+
+        max_selling_price = self.request.GET.get('max_selling_price', None)
+        min_percentage_discount = self.request.GET.get('min_percentage_discount', None)
+
         elastic_logger.info(
             "Keyword :: {}, Output type :: {}, Category :: {}, Sub-category :: {}".format(keyword, output_type,
                                                                                           category_ids,
                                                                                           sub_category_ids))
         filter_list = [{"term": {"is_deleted": False}}]
+        if min_percentage_discount:
+                filter_list.append({"range": {"margin": {"gte": min_percentage_discount}}})
+        if max_selling_price:
+                filter_list.append({"range": {"ptr": {"lte": max_selling_price}}})
+
         if int(self.request.GET.get('online_enabled', 0)) == 1:
             filter_list.append({"term": {"online_enabled": True}})
             filter_list.append({"term": {"status": 'active'}})
@@ -797,6 +806,8 @@ class SearchProducts(APIView):
         margin_max = self.request.GET.get('margin_max', None)
         selling_price_min = self.request.GET.get('selling_price_min', None)
         selling_price_max = self.request.GET.get('selling_price_max', None)
+        max_selling_price = self.request.GET.get('max_selling_price', None)
+        min_percentage_discount = self.request.GET.get('min_percentage_discount', None)
         filter_list = []
         app_type = self.request.META.get('HTTP_APP_TYPE', '1')
         if app_type == '4':
@@ -807,6 +818,11 @@ class SearchProducts(APIView):
             ]
             if margin_min and margin_max:
                 filter_list.append({"range": {"margin": {"gt": margin_min, "lt":margin_max}}})
+            if min_percentage_discount:
+                filter_list.append({"range": {"margin": {"gte": min_percentage_discount}}})
+
+            if max_selling_price:
+                filter_list.append({"range": {"super_store_product_selling_price": {"lte": max_selling_price}}})
 
             if selling_price_min and selling_price_max:
                 filter_list.append({"range": {"super_store_product_selling_price": {"gt": selling_price_min, "lt":selling_price_max}}})
