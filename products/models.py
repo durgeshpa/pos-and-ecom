@@ -219,6 +219,7 @@ class ParentProduct(BaseTimestampUserStatusModel):
         on_delete=models.DO_NOTHING
     )
     product_discription = HTMLField(blank=True)
+    is_kvi = models.BooleanField(default=False)
 
     @property
     def ptr_type_text(self):
@@ -445,6 +446,10 @@ class Product(BaseTimestampUserStatusModel):
     def get_superstore_price(self):
         return self.super_store_product_price.last()
     
+    @property
+    def is_kvi(self):
+        return self.parent_product.is_kvi if self.parent_product else False
+
     def get_superstore_price_by_shop(self, seller_shop_id):
         return self.super_store_product_price.filter(seller_shop_id=seller_shop_id).last()
     
