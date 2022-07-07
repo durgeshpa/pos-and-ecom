@@ -55,6 +55,8 @@ IMAGE_TYPE_CHOICE = Choices(
 )
 
 RETAILER, ECOMMERCE, SUPERSTORE, POS = 'RETAILER', 'ECOMMERCE', 'SUPERSTORE', 'POS'
+
+#Id to be matched with DB Application table
 APP_TYPE_CHOICE = Choices(
     (2, RETAILER, 'Retailer'),
     (1, ECOMMERCE, 'E-Commerce'),
