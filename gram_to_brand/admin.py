@@ -562,6 +562,7 @@ class VendorShopMappingAdmin(admin.ModelAdmin):
 class ProductCostPriceChangeLogInlineAdmin(admin.TabularInline):
     model = ProductCostPriceChangeLog
     fields = ('cost_price_grn_mapping', 'cost_price', 'grn', 'created_at')
+    readonly_fields = ('cost_price_grn_mapping', 'cost_price', 'grn', 'created_at')
     
     def has_change_permission(self, request, obj=None):
         return False
