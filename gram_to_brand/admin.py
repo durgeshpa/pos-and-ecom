@@ -578,6 +578,14 @@ class ProductGRNCostPriceMappingAdmin(admin.ModelAdmin):
     inlines = [ProductCostPriceChangeLogInlineAdmin]
     list_filters = [ProductFilter, ProductSKUSearch, ProductCategoryFilter]
 
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
 
 admin.site.register(PickList, PickListAdmin)
 admin.site.register(Cart, CartAdmin)
