@@ -169,7 +169,7 @@ class ShopMappedProduct(ExportMixin, SingleTableView, FilterView):
                 try:
                     parent_id = myproduct.sku.parent_product.parent_id
                     parent_name = myproduct.sku.parent_product.name
-                    case_size = myproduct.sku.parent_product.inner_case_size
+                    case_size = myproduct.sku.product_inner_case_size
                     tempcategory=None
                     category_list = myproduct.sku.parent_product.parent_product_pro_category.all()
                     for category1 in category_list:
@@ -182,7 +182,7 @@ class ShopMappedProduct(ExportMixin, SingleTableView, FilterView):
                 except:
                     parent_id = myproduct.sku.parent_product.parent_id
                     parent_name = myproduct.sku.parent_product.name
-                    case_size = myproduct.sku.parent_product.inner_case_size
+                    case_size = myproduct.sku.product_inner_case_size
                     category = ''
                     brand = myproduct.sku.parent_product.parent_brand
 

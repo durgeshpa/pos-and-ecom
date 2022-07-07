@@ -2,6 +2,7 @@ import logging
 import math
 import re
 import json
+from django.core.mail import send_mail
 import codecs
 from django.http import HttpResponse
 from datetime import date as datetime_date
@@ -11,12 +12,11 @@ from hashlib import sha512
 from operator import itemgetter
 from decimal import Decimal
 
-
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
 from django.core import validators
 from django.core.exceptions import ObjectDoesNotExist
-from django.db.models import F, Sum, Q, Case, When, Value, FloatField
+from django.db.models import F, Sum, Q, Case, When, Value, FloatField, IntegerField
 from django.core.files.base import ContentFile
 from django.db import transaction, models
 from django.db.models import F, Sum, Q, Count, Value, Case, When, Subquery
@@ -32,21 +32,24 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from retailer_backend import common_function
 from wkhtmltopdf.views import PDFTemplateResponse
+from pyfcm import FCMNotification
 
 from accounts.api.v1.serializers import PosUserSerializer, PosShopUserSerializer
 from addresses.models import Address, City, Pincode
 from audit.views import BlockUnblockProduct
-from barCodeGenerator import barcodeGen, qrCodeGen
+from barCodeGenerator import barcodeGen, qrCodeGen, merged_barcode_gen
 from global_config.views import get_config, get_config_fofo_shops, get_config_fofo_shop
 from pos.payU_payment import send_request_refund
-from shops.models import Shop, ParentRetailerMapping, ShopUserMapping, ShopMigrationMapp, PosShopUserMapping, FOFOConfig
+from shops.models import Shop, ParentRetailerMapping, ShopUserMapping, ShopMigrationMapp, PosShopUserMapping, \
+    FOFOConfig, ShopTiming
 from brand.models import Brand
 from categories import models as categorymodel
 from common.common_utils import (create_file_name, single_pdf_file, create_merge_pdf_name, merge_pdf_files,
                                  create_invoice_data, whatsapp_opt_in, whatsapp_order_cancel, whatsapp_order_refund,
                                  whatsapp_order_delivered, sms_order_delivered, sms_out_for_delivery,
                                  sms_order_dispatch, sms_order_placed, return_item_home_pickup, return_item_drop)
-from common.constants import PREFIX_CREDIT_NOTE_FILE_NAME, ZERO, PREFIX_INVOICE_FILE_NAME, INVOICE_DOWNLOAD_ZIP_NAME, PREFIX_RETURN_CHALLAN_FILE_NAME
+from common.constants import PREFIX_CREDIT_NOTE_FILE_NAME, ZERO, PREFIX_INVOICE_FILE_NAME, INVOICE_DOWNLOAD_ZIP_NAME, \
+    PREFIX_RETURN_CHALLAN_FILE_NAME, BULK_CREATE_NO_OF_RECORDS
 from common.data_wrapper_view import DataWrapperViewSet
 from coupon.models import Coupon, CusotmerCouponUsage
 from coupon.serializers import CouponSerializer
@@ -70,7 +73,7 @@ from pos.common_functions import (api_response, delete_cart_mapping, ORDER_STATU
                                   update_customer_pos_cart, PosInventoryCls, RewardCls, serializer_error,
                                   check_pos_shop, PosAddToCart, PosCartCls, ONLINE_ORDER_STATUS_MAP,
                                   pos_check_permission_delivery_person, ECOM_ORDER_STATUS_MAP, get_default_qty,
-                                  pos_check_user_permission, mark_pos_product_online_enabled, cupon_point_update)
+                                  pos_check_user_permission, mark_pos_product_online_enabled, coupon_point_update)
 from pos.models import (RetailerProduct, Payment as PosPayment,
                         PaymentType, MeasurementUnit, PosTrip)
 from pos.offers import BasicCartOffers
@@ -85,23 +88,26 @@ from retailer_to_sp.common_function import check_date_range, capping_check, gene
     get_logged_user_wise_query_set_for_trip_invoices
 from retailer_to_sp.common_function import dispatch_trip_search, trip_search
 from retailer_to_sp.common_function import getShopLicenseNumber, getShopCINNumber, getGSTINNumber, getShopPANNumber
-from retailer_to_sp.models import (Cart, CartProductMapping, CreditNote, Order, OrderedProduct, Payment, CustomerCare,
+from retailer_to_sp.models import (Cart, CartProductMapping, CreditNote, LastMileTripReturnMapping, Order,
+                                   OrderedProduct, Payment, CustomerCare,
                                    Feedback, OrderedProductMapping as ShipmentProducts, Return, Trip, PickerDashboard,
                                    ShipmentRescheduling, Note, OrderedProductBatch,
                                    OrderReturn, ReturnItems, OrderedProductMapping, ShipmentPackaging,
                                    DispatchTrip, DispatchTripShipmentMapping, INVOICE_AVAILABILITY_CHOICES,
                                    DispatchTripShipmentPackages, LastMileTripShipmentMapping, PACKAGE_VERIFY_CHOICES,
                                    DispatchTripCrateMapping, ShipmentPackagingMapping, TRIP_TYPE_CHOICE, ShopCrate,
-                                   LastMileTripShipmentPackages, ShipmentNotAttempt, RoundAmount, 
-                                   ReturnOrder, ReturnOrderProduct, ReturnOrderProductImage)
+                                   LastMileTripShipmentPackages, ShipmentNotAttempt, RoundAmount,
+                                   ReturnOrder, ReturnOrderProduct, ReturnOrderProductImage, Barcode, BarcodeGenerator,
+                                   ReturnProductBatch, DispatchTripReturnOrderMapping)
+
 from retailer_to_sp.tasks import send_invoice_pdf_email, insert_search_term
-from shops.api.v1.serializers import ShopBasicSerializer
+from shops.api.v1.serializers import ShopBasicSerializer, SellerShopSerializer
 from sp_to_gram.models import OrderedProductReserved
 from sp_to_gram.tasks import es_search, upload_shop_stock, upload_all_products_in_es
 from wms.common_functions import OrderManagement, get_stock, is_product_not_eligible, get_response, \
     get_logged_user_wise_query_set_for_shipment, get_logged_user_wise_query_set_for_dispatch, \
     get_logged_user_wise_query_set_for_dispatch_trip, get_logged_user_wise_query_set_for_dispatch_crates, \
-    get_logged_user_wise_query_set_for_shipment_packaging
+    get_logged_user_wise_query_set_for_shipment_packaging, return_putaway
 from wms.common_validators import validate_id, validate_data_format, validate_data_days_date_request, validate_shipment
 from retailer_backend.settings import AWS_MEDIA_URL
 from wms.models import OrderReserveRelease, InventoryType, PosInventoryState, PosInventoryChange, Crate
@@ -114,7 +120,8 @@ from .serializers import (ProductsSearchSerializer, CartSerializer, OrderSeriali
                           OrderDetailSerializer, OrderedProductSerializer, OrderedProductMappingSerializer,
                           RetailerShopSerializer, SellerOrderListSerializer, OrderListSerializer,
                           ReadOrderedProductSerializer, FeedBackSerializer,
-                          ShipmentDetailSerializer, SuperStoreCartSerializer, TripSerializer, ShipmentSerializer, PickerDashboardSerializer,
+                          ShipmentDetailSerializer, SuperStoreCartSerializer, TripSerializer, ShipmentSerializer,
+                          PickerDashboardSerializer,
                           ShipmentReschedulingSerializer, ShipmentReturnSerializer, ParentProductImageSerializer,
                           ShopSerializer, OrderPaymentStatusChangeSerializers,
                           ShipmentProductSerializer, RetailerOrderedProductMappingSerializer,
@@ -136,7 +143,11 @@ from .serializers import (ProductsSearchSerializer, CartSerializer, OrderSeriali
                           VerifyNotAttemptShipmentPackageSerializer, VerifyShipmentPackageSerializer,
                           DetailedShipmentPackageInfoSerializer, DetailedShipmentPackagingMappingInfoSerializer,
                           VerifyBackwardTripItemsSerializer, BackwardTripQCSerializer, PosOrderUserSearchSerializer,
-                          SuperStoreOrderListSerializer, SuperStoreOrderDetailSerializer)
+                          SuperStoreOrderListSerializer, SuperStoreOrderDetailSerializer, LastMileTripReturnOrdersBasicDetailSerializer,
+                          ReturnOrderTripProductSerializer, DispatchCenterReturnOrderSerializer, ReturnOrderProductSerializer,
+                          LoadVerifyReturnOrderSerializer, UnLoadVerifyReturnOrderSerializer, BackwardTripReturnItemsSerializer,
+                          MarkReturnOrderItemVerifiedSerializer,DeliveryReturnOrderSerializer,ShopExecutiveUserSerializer, 
+                          LastMileTripSerializers, AddressSerializer)
 
 from ...common_validators import validate_shipment_dispatch_item, validate_trip_user, \
     get_shipment_by_crate_id, get_shipment_by_shipment_label, validate_shipment_id, validate_trip_shipment, \
@@ -159,6 +170,7 @@ logger = logging.getLogger('django')
 info_logger = logging.getLogger('file-info')
 error_logger = logging.getLogger('file-error')
 elastic_logger = logging.getLogger('elastic_log')
+
 
 def distance(shop_location, order_location):
     """
@@ -727,11 +739,12 @@ class SearchProducts(APIView):
         is_store_active = {'is_store_active': True if parent_shop else False}
         query = self.search_query()
         if app_type == '4':
-            body = {'query': query,"aggs": {"margin_stats":{"stats":{"field":"margin"}},
-                                            "selling_price_stats": {"stats": {"field": "super_store_product_selling_price"}},
-                                            "brand": {"terms": {"field": "brand.keyword"},
-                                                                },
-                                            }}
+            body = {'query': query, "aggs": {"margin_stats": {"stats": {"field": "margin"}},
+                                             "selling_price_stats": {
+                                                 "stats": {"field": "super_store_product_selling_price"}},
+                                             "brand": {"terms": {"field": "brand.keyword"},
+                                                       },
+                                             }}
         else:
             body = {'query': query, }
         return self.process_gf(app_type, body, shop, parent_shop, cart_check, cart, cart_products), is_store_active
@@ -790,7 +803,9 @@ class SearchProducts(APIView):
             if cart_check:
                 p = self.modify_gf_cart_product_es(cart, cart_products, p)
             p_list.append(p["_source"])
-        p_list.append(products_list['aggregations'])
+        if len(p_list) != 0:
+            if products_list.get('aggregations'):
+                p_list.append(products_list['aggregations'])
         return p_list
 
     def search_query(self):
@@ -825,7 +840,8 @@ class SearchProducts(APIView):
                 filter_list.append({"range": {"super_store_product_selling_price": {"lte": max_selling_price}}})
 
             if selling_price_min and selling_price_max:
-                filter_list.append({"range": {"super_store_product_selling_price": {"gt": selling_price_min, "lt":selling_price_max}}})
+                filter_list.append({"range": {
+                    "super_store_product_selling_price": {"gt": selling_price_min, "lt": selling_price_max}}})
         else:
             if app_type != '2':
                 filter_list = [
@@ -849,9 +865,11 @@ class SearchProducts(APIView):
             if brand.isnumeric():
                 brand = brand.split(',')
                 brand = "{}".format(Brand.objects.filter(id__in=list(brand)).last())
-            filter_list.append({"match": {
-                "brand": {"query": brand, "operator": "and"}
-            }})
+                filter_list.append({"match": {
+                    "brand": {"query": brand, "operator": "and"}
+                }})
+            else:
+                filter_list.append({"terms": {"brand.keyword": json.loads(brand)}})
             # filter_list.append({"term": {"brand": brand}})
         elif keyword:
             q = {"multi_match": {"query": keyword, "fields": ["name^5", "category", "brand"], "type": "cross_fields"}}
@@ -879,7 +897,6 @@ class SearchProducts(APIView):
                             if i['coupon_type'] == 'catalog':
                                 i['max_qty'] = max_qty
         return coupons
-
 
     @staticmethod
     def modify_gf_cart_product_es(cart, cart_products, p):
@@ -1315,6 +1332,19 @@ class CartCentral(GenericAPIView):
         next_offer = BasicCartOffers.refresh_offers_cart(cart)
         return api_response('Cart', self.get_serialize_process_basic(cart, next_offer), status.HTTP_200_OK, True)
 
+    @staticmethod
+    def get_offer_applied_count_free_type(buyer, coupon_id, expiry_date, created_at):
+        carts = Cart.objects.filter(buyer=buyer, created_at__gte=created_at, created_at__lte=expiry_date).filter(
+            ~Q(cart_status='active'))
+        count = 0
+        for cart in carts:
+            offers = cart.offers
+            if offers:
+                for i in offers:
+                    if int(coupon_id) == i.get('coupon_id'):
+                        count += 1
+        return count
+
     @check_ecom_user_shop
     def get_ecom_cart(self, request, *args, **kwargs):
         """
@@ -1347,7 +1377,20 @@ class CartCentral(GenericAPIView):
             # Get Offers Applicable, Verify applied offers, Apply highest discount on cart if auto apply
             offers = BasicCartOffers.refresh_offers_checkout(cart, False, None)
             # Refresh redeem reward
-            RewardCls.checkout_redeem_points(cart, 0, shop=kwargs['shop'], app_type="ECOM", use_all=self.request.GET.get('use_rewards', 1))
+            RewardCls.checkout_redeem_points(cart, 0, shop=kwargs['shop'], app_type="ECOM",
+                                             use_all=self.request.GET.get('use_rewards', 1))
+            offers_list = cart.offers
+            for offer in offers_list:
+                coupon_id = offer.get('coupon_id')
+                if coupon_id:
+                    coupon = Coupon.objects.filter(id=coupon_id).last()
+                    limit_of_usages_per_customer = coupon.limit_of_usages_per_customer
+                    count = self.get_offer_applied_count_free_type(cart.buyer, coupon_id, coupon.expiry_date,
+                                                                   coupon.start_date)
+                    if limit_of_usages_per_customer and count >= limit_of_usages_per_customer:
+                        offers_list.remove(offer)
+            cart.offers = offers_list
+            cart.save()
             cart_data = self.get_serialize_process_basic(cart, next_offer)
             checkout = CartCheckout()
             checkout_data = checkout.serialize(cart, offers)
@@ -1371,18 +1414,40 @@ class CartCentral(GenericAPIView):
                 return api_response("No items added in cart yet", {"cart_product_list": []}, status.HTTP_200_OK, False)
             except Cart.MultipleObjectsReturned:
                 cart = Cart.objects.filter(cart_type='SUPERSTORE', buyer=self.request.user, cart_status='active',
-                                        seller_shop=kwargs['shop']).last()
+                                           seller_shop=kwargs['shop']).last()
             shop = kwargs['shop']
             parent_shop = shop.get_shop_parent
             if not parent_shop:
-                return api_response("Shop is not mapped with parent shop", {"cart_product_list": []}, status.HTTP_200_OK, False)
-            
+                return api_response("Shop is not mapped with parent shop", {"cart_product_list": []},
+                                    status.HTTP_200_OK, False)
+
             # Refresh cart prices
             PosCartCls.refresh_prices(cart.rt_cart_list.all(), parent_shop.id)
+            # Refresh - add/remove/update combo, get nearest cart offer over cart value
+            next_offer = BasicCartOffers.refresh_offers_cart(cart)
+            # Get Offers Applicable, Verify applied offers, Apply highest discount on cart if auto apply
+            offers = BasicCartOffers.refresh_offers_checkout(cart, False, None)
+            # Refresh redeem reward
 
             # Refresh redeem reward
-            RewardCls.checkout_redeem_points(cart, 0, kwargs['shop'], app_type="SUPERSTORE" , use_all=self.request.GET.get('use_rewards', 1))
-            cart_data = SuperStoreCartSerializer(cart, context={'parent_shop_id': parent_shop.id}).data
+            RewardCls.checkout_redeem_points(cart, 0, kwargs['shop'], app_type="SUPERSTORE",
+                                             use_all=self.request.GET.get('use_rewards', 1))
+            offers_list = cart.offers
+            for offer in offers_list:
+                coupon_id = offer.get('coupon_id')
+                if coupon_id:
+                    coupon = Coupon.objects.filter(id=coupon_id).last()
+                    limit_of_usages_per_customer = coupon.limit_of_usages_per_customer
+                    count = self.get_offer_applied_count_free_type(cart.buyer, coupon_id, coupon.expiry_date,
+                                                                   coupon.start_date)
+                    if limit_of_usages_per_customer and count >= limit_of_usages_per_customer:
+                        offers_list.remove(offer)
+            cart.offers = offers_list
+            cart.save()
+            checkout = CartCheckout()
+            cart_data = checkout.serialize(cart, offers)
+            cart_data.pop('amount_payable', None)
+            cart_data.update(SuperStoreCartSerializer(cart, context={'parent_shop_id': parent_shop.id}).data)
             address = AddressCheckoutSerializer(cart.buyer.ecom_user_address.filter(default=True).last()).data
             cart_data.update({'default_address': address})
             return api_response('Cart', cart_data, status.HTTP_200_OK, True)
@@ -1534,7 +1599,6 @@ class CartCentral(GenericAPIView):
         data['next_offer'] = next_offer
         return data
 
-
     def retail_add_to_cart(self):
         """
             Add To Cart
@@ -1600,7 +1664,8 @@ class CartCentral(GenericAPIView):
         with transaction.atomic():
             product, new_product_info, qty, cart, shop, create_new_product = kwargs['product'], \
                                                                              kwargs['new_product_info'], kwargs[
-                'quantity'], kwargs['cart'], kwargs['shop'], kwargs['create_new_product']
+                                                                                 'quantity'], kwargs['cart'], kwargs[
+                                                                                 'shop'], kwargs['create_new_product']
             # Update or create cart for shop
             cart = self.post_update_basic_cart(shop, cart)
             # Create product if not existing
@@ -1681,7 +1746,8 @@ class CartCentral(GenericAPIView):
                 cart_mapping.save()
             if cart.rt_cart_list.filter(product_type=1).count() == 0:
                 return api_response("No items added in cart yet", {"cart_product_list": []}, status.HTTP_200_OK, False)
-            return api_response('Added To Cart', SuperStoreCartSerializer(cart, context={'parent_shop_id': kwargs['parent_shop_id']}).data, status.HTTP_200_OK, True)
+            return api_response('Added To Cart', SuperStoreCartSerializer(cart, context={
+                'parent_shop_id': kwargs['parent_shop_id']}).data, status.HTTP_200_OK, True)
 
     def pos_cart_product_create(self, shop_id, product_info, cart_id):
 
@@ -2131,8 +2197,57 @@ class CartCheckout(APIView):
         # ECOM
         elif app_type == '3':
             return self.post_ecom_cart_checkout(request, *args, **kwargs)
+
+        elif app_type == '4':
+            return self.super_store_checkout(request, *args, **kwargs)
+
         else:
             return api_response('Please provide a valid app_type')
+
+    @check_ecom_user_shop
+    def super_store_checkout(self, request, *args, **kwargs):
+        """
+            Ecom Checkout
+            Inputs
+            coupon_id
+        """
+        try:
+            cart = Cart.objects.get(cart_type='SUPERSTORE', buyer=self.request.user, cart_status='active',
+                                    seller_shop=kwargs['shop'])
+        except ObjectDoesNotExist:
+            return api_response("No items added in cart yet")
+        except Cart.MultipleObjectsReturned:
+            cart = Cart.objects.filter(cart_type='SUPERSTORE', buyer=self.request.user, cart_status='active',
+                                       seller_shop=kwargs['shop']).last()
+        if not self.request.data.get('coupon_id'):
+            return api_response("Invalid request")
+        with transaction.atomic():
+            # Refresh redeem reward
+            use_reward_this_month = RewardCls.checkout_redeem_points(cart, 0, shop=kwargs['shop'], app_type="ECOM",
+                                                                     use_all=self.request.GET.get('use_rewards', 1))
+            # Get offers available now and apply coupon if applicable
+            offers = BasicCartOffers.refresh_offers_checkout(cart, False, self.request.data.get('coupon_id'))
+            data = self.serialize(cart)
+
+            data['redeem_points_message'] = use_reward_this_month
+            time = datetime.now().strftime("%H:%M:%S")
+            time = datetime.strptime(time, "%H:%M:%S").time()
+            fofo_config = get_config_fofo_shops(kwargs['shop'].id)
+            delivery_time = str(fofo_config.get('delivery_time')) + " " + 'min' if fofo_config.get('delivery_time',
+                                                                                                   None) else None
+
+            if fofo_config.get('open_time', None) and fofo_config.get('close_time', None) and not (
+                    fofo_config['open_time'] < time < fofo_config['close_time']):
+                delivery_time = "Your order will be deliverd tomorrow"
+
+            data['estimate_delivery_time'] = delivery_time
+
+            if 'error' in offers:
+                return api_response(offers['error'], None, offers['code'])
+            if offers['applied']:
+                return api_response('Applied Successfully', data, status.HTTP_200_OK, True)
+            else:
+                return api_response('Not Applicable', data, status.HTTP_200_OK)
 
     @check_pos_shop
     def post_pos_cart_checkout(self, request, *args, **kwargs):
@@ -2154,7 +2269,7 @@ class CartCheckout(APIView):
         spot_discount = self.request.data.get('spot_discount')
         with transaction.atomic():
             # Refresh redeem reward
-            redeem_points_message = RewardCls.checkout_redeem_points(cart, cart.redeem_points,kwargs['shop'])
+            redeem_points_message = RewardCls.checkout_redeem_points(cart, cart.redeem_points, kwargs['shop'])
             if spot_discount:
                 offers = BasicCartOffers.apply_spot_discount(cart, spot_discount,
                                                              self.request.data.get('is_percentage'))
@@ -2271,7 +2386,8 @@ class CartCheckout(APIView):
             # Get Offers Applicable, Verify applied offers, Apply highest discount on cart if auto apply
             offers = BasicCartOffers.refresh_offers_checkout(cart, False, None)
             # Refresh redeem reward
-            use_reward_this_month = RewardCls.checkout_redeem_points(cart, 0, shop=kwargs['shop'],app_type="ECOM",use_all=self.request.GET.get('use_rewards', 1))
+            use_reward_this_month = RewardCls.checkout_redeem_points(cart, 0, shop=kwargs['shop'], app_type="ECOM",
+                                                                     use_all=self.request.GET.get('use_rewards', 1))
             data = self.serialize(cart, offers)
             address = AddressCheckoutSerializer(cart.buyer.ecom_user_address.filter(default=True).last()).data
             data.update({'default_address': address})
@@ -2308,8 +2424,11 @@ class CartCheckout(APIView):
                 "A minimum total purchase amount of {} is required to checkout.".format(min_order_value),
                 None, status.HTTP_200_OK, False)
         with transaction.atomic():
-            use_reward_this_month = RewardCls.checkout_redeem_points(cart, 0, shop=kwargs['shop'],app_type="SUPERSTORE", use_all=self.request.GET.get('use_rewards', 1))
-            data = self.serialize(cart, None)
+            offers = BasicCartOffers.refresh_offers_checkout(cart, False, None)
+            use_reward_this_month = RewardCls.checkout_redeem_points(cart, 0, shop=kwargs['shop'],
+                                                                     app_type="SUPERSTORE",
+                                                                     use_all=self.request.GET.get('use_rewards', 1))
+            data = self.serialize(cart, offers)
             address = AddressCheckoutSerializer(cart.buyer.ecom_user_address.filter(default=True).last()).data
             data.update({'default_address': address})
             delivery_buffer = get_config("superstore_delivery_buffer", 7)
@@ -2331,8 +2450,39 @@ class CartCheckout(APIView):
             return self.delete_pos_offer(request, *args, **kwargs)
         elif app_type == '3':
             return self.delete_ecom_offer(request, *args, **kwargs)
+        elif app_type == '4':
+            return self.delete_super_store_offer(request, *args, **kwargs)
         else:
             return api_response('Please provide a valid app_type')
+
+
+    @check_ecom_user_shop
+    def delete_super_store_offer(self, request, *args, **kwargs):
+        """
+            Checkout
+            Delete any applied cart offers
+        """
+        try:
+            cart = Cart.objects.filter(cart_type='SUPERSTORE',
+                                       buyer=self.request.user,
+                                       seller_shop=kwargs['shop'],
+                                       cart_status='active').last()
+        except ObjectDoesNotExist:
+            return api_response("No items added in cart yet")
+        RewardCls.checkout_redeem_points(cart, 0,shop=kwargs['shop'], app_type="SUPERSTORE", use_all=self.request.GET.get('use_rewards', 1))
+        cart_products = cart.rt_cart_list.all()
+        cart_value = 0
+        for product_map in cart_products:
+            cart_value += product_map.selling_price * product_map.qty
+        with transaction.atomic():
+            offers_list = BasicCartOffers.update_cart_offer(cart.offers, cart_value)
+            cart.offers = offers_list
+            cart.save()
+            return api_response("Removed Offer From Cart Successfully", self.serialize(cart, None,
+                                                                                       request.META.get('HTTP_APP_TYPE',
+                                                                                                        '1')),
+                                status.HTTP_200_OK, True)
+
 
     @check_pos_shop
     def delete_pos_offer(self, request, *args, **kwargs):
@@ -2370,7 +2520,8 @@ class CartCheckout(APIView):
                                     cart_status='active')
         except ObjectDoesNotExist:
             return api_response("No items added in cart yet")
-        RewardCls.checkout_redeem_points(cart, 0,shop=kwargs['shop'], app_type="ECOM", use_all=self.request.GET.get('use_rewards', 1))
+        RewardCls.checkout_redeem_points(cart, 0, shop=kwargs['shop'], app_type="ECOM",
+                                         use_all=self.request.GET.get('use_rewards', 1))
         cart_products = cart.rt_cart_list.all()
         cart_value = 0
         for product_map in cart_products:
@@ -3300,6 +3451,12 @@ class OrderCentral(APIView):
                                                         ordered_p.qty - product_map.shipped_qty,
                                                         self.request.user, order.order_no, PosInventoryChange.SHIPPED)
                 pdf_generation_retailer(request, order.id)
+
+                # Send Dispatch Push Notification to ECOMM USER
+                info_logger.info("Sending Dispatch notifications to Ecom users......")
+                message_title = "Order Update!"
+                message_body = "Your order has been dispatched & will be delivered to you soon."
+                send_notification_ecom_user(order, message_title, message_body)
             # Delivered/Closed
             else:
                 if order.delivery_option == '1':
@@ -3314,13 +3471,16 @@ class OrderCentral(APIView):
                     return api_response("Invalid Order update")
                 order.order_status = order_status
                 order.last_modified_by = self.request.user
-                cupon_point_update(order, self.request.user)
+                if order.order_status == Order.DELIVERED:
+                    coupon_point_update(order, self.request.user)
                 if order_status == Order.DELIVERED:
                     shop = kwargs['shop']
                     if ReferralCode.is_marketing_user(order.buyer):
-                        order.points_added = order_loyalty_points_credit(order.order_amount, order.buyer.id, order.order_no,
-                                                                        'order_credit', 'order_indirect_credit',
-                                                                        self.request.user.id, order.seller_shop, app_type="ECOM")
+                        order.points_added = order_loyalty_points_credit(order.order_amount, order.buyer.id,
+                                                                         order.order_no,
+                                                                         'order_credit', 'order_indirect_credit',
+                                                                         self.request.user.id, order.seller_shop,
+                                                                         app_type="ECOM")
                 order.save()
                 if order_status == Order.DELIVERED:
                     whatsapp_order_delivered(order.order_no, shop.shop_name, order.buyer.phone_number,
@@ -3412,14 +3572,15 @@ class OrderCentral(APIView):
             response = None
             try:
                 order_product_mapping = OrderedProductMapping.objects.select_for_update().get(pk=kwargs['pk'],
-                                                              ordered_product__order__seller_shop=kwargs['shop'],
-                                                              ordered_product__order__ordered_cart__cart_type='SUPERSTORE')
+                                                                                              ordered_product__order__seller_shop=
+                                                                                              kwargs['shop'],
+                                                                                              ordered_product__order__ordered_cart__cart_type='SUPERSTORE')
                 shipment = order_product_mapping.ordered_product
             except OrderedProductMapping.DoesNotExist:
                 return api_response("Order not found")
 
             order_status = self.request.data.get('status')
-            allowed_status = [OrderedProduct.OUT_FOR_DELIVERY, OrderedProduct.DELIVERED, ReturnOrder.RETURN_REQUESTED, 
+            allowed_status = [OrderedProduct.OUT_FOR_DELIVERY, OrderedProduct.DELIVERED, ReturnOrder.RETURN_REQUESTED,
                               ReturnOrder.RETURN_INITIATED, ReturnOrder.CUSTOMER_ITEM_PICKED]
             if order_status not in allowed_status:
                 return api_response("Please Provide valid status for order updation")
@@ -3429,14 +3590,15 @@ class OrderCentral(APIView):
                     return api_response("Self pick up orders cannot be marked as out for delivered")
 
                 if not retail_delivery_check:
-                    return api_response("Order cannot be marked as out for delivery as product is not delivered to your shop.")
+                    return api_response(
+                        "Order cannot be marked as out for delivery as product is not delivered to your shop.")
                 try:
                     delivery_person = User.objects.get(id=self.request.data.get('delivery_person'))
                 except:
                     return api_response("Please select a delivery person")
 
                 shipment.delivery_person = delivery_person
-                #invoice no generation
+                # invoice no generation
                 shipment.shipment_status = OrderedProduct.MOVED_TO_DISPATCH
                 shipment.save()
                 shipment.shipment_status = order_status
@@ -3445,15 +3607,20 @@ class OrderCentral(APIView):
                     pos_trip = shipment.pos_trips.filter(trip_type='SUPERSTORE').last()
                 else:
                     pos_trip = PosTrip.objects.create(trip_type='SUPERSTORE',
-                                                        shipment=shipment)
+                                                      shipment=shipment)
                 pos_trip.trip_start_at = datetime.now()
                 pos_trip.save()
                 sms_out_for_delivery(shipment.order.buyer.first_name, shipment.order.buyer.phone_number)
+                # Send Dispatch Push Notification to ECOMM USER
+                info_logger.info("Sending Dispatch notifications to Ecom users......")
+                message_title = "Order Update!"
+                message_body = "Your order has been dispatched & will be delivered to you soon."
+                send_notification_ecom_user(shipment.order, message_title, message_body)
             elif order_status == OrderedProduct.DELIVERED:
                 if shipment.order.delivery_option == '1':
                     shipment.shipment_status = order_status
                     shipment.save()
-                    order_product_mapping.delivered_qty= order_product_mapping.shipped_qty
+                    order_product_mapping.delivered_qty = order_product_mapping.shipped_qty
                     order_product_mapping.save()
                     if shipment.pos_trips.filter(trip_type='SUPERSTORE').exists():
                         pos_trip = shipment.pos_trips.filter(trip_type='SUPERSTORE').last()
@@ -3466,7 +3633,7 @@ class OrderCentral(APIView):
                 else:
                     shipment.shipment_status = order_status
                     shipment.save()
-                    order_product_mapping.delivered_qty=order_product_mapping.shipped_qty
+                    order_product_mapping.delivered_qty = order_product_mapping.shipped_qty
                     order_product_mapping.save()
                     if shipment.pos_trips.filter(trip_type='SUPERSTORE').exists():
                         pos_trip = shipment.pos_trips.filter(trip_type='SUPERSTORE').last()
@@ -3475,14 +3642,22 @@ class OrderCentral(APIView):
                                                           shipment=shipment)
                     pos_trip.trip_end_at = datetime.now()
                     pos_trip.save()
+                    order = shipment.order
+                    order.order_status = 'delivered'
+                    order.save()
                     sms_order_delivered(shipment.order.buyer.first_name, shipment.order.buyer.phone_number)
             elif order_status == ReturnOrder.RETURN_REQUESTED:
                 if not shipment.shipment_status == OrderedProduct.DELIVERED:
                     return api_response('Products can only be returned after they are delivered.')
+                if shipment.is_returned:
+                    return api_response('A return has already been requested for the product.')
                 pos_trip = shipment.pos_trips.filter(trip_type='SUPERSTORE').last()
-                return_period_offset = get_config('superstore_order_return_buffer', 72)
-                return_window = pos_trip.trip_end_at + timedelta(hours=return_period_offset)
-                if return_window < datetime.now():
+                if pos_trip:
+                    return_period_offset = get_config('superstore_order_return_window_buffer', 72)
+                    return_window = pos_trip.trip_end_at + timedelta(hours=return_period_offset)
+                    if return_window < datetime.now():
+                        return api_response("Return window is over you cannot return the item now.")
+                else:
                     return api_response("Return window is over you cannot return the item now.")
                 return_reason = request.data.get('return_reason')
                 if not return_reason:
@@ -3499,19 +3674,19 @@ class OrderCentral(APIView):
                 if return_qty > order_product_mapping.delivered_qty:
                     return api_response('Return quantity cannot be more than delivered quantity')
                 images = request.data.getlist('return_images', None)
-                return_order = self.create_return_order(shipment, 
+                return_order = self.create_return_order(shipment,
                                                         order_product_mapping,
-                                                        return_reason, 
-                                                        other_return_reason, 
+                                                        return_reason,
+                                                        other_return_reason,
                                                         return_pickup_method,
                                                         kwargs['shop'],
                                                         return_qty,
                                                         images=images)
                 if return_pickup_method == ReturnOrder.DROP_AT_STORE:
-                    address = shipment.order.shop.shop_name_address_mapping.filter(
-                                address_type='shipping').last()
-                    address = f"{address.address_line1}, {address.city}, {address.state} - {address.pincode}"
-                    return_item_drop(shipment.order.buyer.first_name, shipment.order.buyer.phone_number, address)
+                    address = shipment.order.seller_shop.shop_name_address_mapping.filter(
+                        address_type='shipping').last()
+                    shop_name = shipment.order.seller_shop.shop_name
+                    return_item_drop(shipment.order.buyer.first_name, shipment.order.buyer.phone_number, address, shop_name)
                 else:
                     return_item_home_pickup(shipment.order.buyer.first_name, shipment.order.buyer.phone_number)
                 shipment.is_returned = True
@@ -3536,7 +3711,11 @@ class OrderCentral(APIView):
                     return_order.return_status = ReturnOrder.RETURN_INITIATED
                     return_order.return_item_pickup_person = return_pickup_person
                     return_order.save()
-                    return api_response("Pick up person assigned")
+                    info_logger.info("Sending Order Return notifications to Ecom users......")
+                    message_title = "Return Update!"
+                    message_body = "Our logistic partner will contact you shortly, please keep the parcel ready to return."
+                    send_notification_ecom_user(return_order, message_title, message_body)
+                    return api_response("Pick up person assigned", None, status.HTTP_200_OK, True)
                 except ReturnOrder.DoesNotExist:
                     return api_response("Return Order not Found")
             elif order_status == ReturnOrder.CUSTOMER_ITEM_PICKED:
@@ -3549,15 +3728,15 @@ class OrderCentral(APIView):
                     if return_order.return_status == ReturnOrder.CUSTOMER_ITEM_PICKED:
                         return api_response("Return order is already picked up.")
                     if return_order.return_pickup_method == ReturnOrder.HOME_PICKUP and \
-                        not return_order.return_status == ReturnOrder.RETURN_INITIATED:
+                            not return_order.return_status == ReturnOrder.RETURN_INITIATED:
                         return api_response("Pick up boy not assigned for home pick up.")
                     return_order.return_status = ReturnOrder.CUSTOMER_ITEM_PICKED
                     return_order.save()
                     self.create_retailer_side_return_order(shipment, order_product_mapping, return_order)
-                    return api_response("Return product picked up")
+                    return api_response("Return product picked up", None, status.HTTP_200_OK, True)
                 except ReturnOrder.DoesNotExist:
                     return api_response("Return Order not found")
-                
+
             return api_response("Order updated successfully!", response, status.HTTP_200_OK, True)
 
     def put_retail_order(self, pk):
@@ -3667,13 +3846,12 @@ class OrderCentral(APIView):
         """
         try:
             order = OrderedProductMapping.objects.get(pk=self.request.GET.get('product_mapping_id'),
-                                                        ordered_product__order__buyer=self.request.user,
-                                                        ordered_product__order__ordered_cart__cart_type='SUPERSTORE')
+                                                      ordered_product__order__ordered_cart__cart_type='SUPERSTORE')
         except OrderedProductMapping.DoesNotExist:
             return api_response("Order Not Found!")
 
         return api_response('Order', self.get_serialize_process_superstore(order), status.HTTP_200_OK, True,
-                            extra_params={"key_p": str(config('PAYU_KEY')),}
+                            extra_params={"key_p": str(config('PAYU_KEY')), }
                             )
 
     def post_retail_order(self):
@@ -3783,14 +3961,14 @@ class OrderCentral(APIView):
             obj = Order.objects.get(id=order.id)
             obj.order_amount = round(obj.order_amount)
             obj.save()
-            self.auto_process_pos_order(order)
-            cupon_point_update(order, self.request.user)
+            shipment = self.auto_process_pos_order(order)
+            if shipment.shipment_status == 'FULLY_DELIVERED_AND_VERIFIED':
+                coupon_point_update(order, self.request.user)
             if ReferralCode.is_marketing_user(order.buyer) and str(order.buyer.phone_number) != '9999999999':
                 order.points_added = order_loyalty_points_credit(order.order_amount, order.buyer.id, order.order_no,
-                                                                'order_credit', 'order_indirect_credit',
-                                                                self.request.user.id, order.seller_shop, app_type="POS")
-
-
+                                                                 'order_credit', 'order_indirect_credit',
+                                                                 self.request.user.id, order.seller_shop,
+                                                                 app_type="POS")
 
             return api_response('Ordered Successfully!', BasicOrderListSerializer(Order.objects.get(id=order.id)).data,
                                 status.HTTP_200_OK, True)
@@ -3854,7 +4032,8 @@ class OrderCentral(APIView):
         if order_config.value is not None:
             order_count = Order.objects.filter(ecom_address_order__isnull=False, created_at__date=datetime.today(),
                                                seller_shop=shop,
-                                               ordered_cart__cart_type='ECOM').exclude(order_status='CANCELLED').distinct().count()
+                                               ordered_cart__cart_type='ECOM').exclude(
+                order_status='CANCELLED').distinct().count()
             if order_count >= order_config.value:
                 return api_response('Because of the current surge in orders, we are not taking any more orders for '
                                     'today. We will start taking orders again tomorrow. We regret the inconvenience '
@@ -3887,7 +4066,7 @@ class OrderCentral(APIView):
             return api_response(get_response)
         # Refresh redeem reward
         else:
-            use_all = 1 if int(cart.redeem_points) !=0 else 0
+            use_all = 1 if int(cart.redeem_points) != 0 else 0
             RewardCls.checkout_redeem_points(cart, cart.redeem_points, shop, app_type="ECOM", use_all=use_all)
 
             order = self.create_basic_order(cart, shop, address, payment_type_id, delivery_option)
@@ -3900,13 +4079,13 @@ class OrderCentral(APIView):
                     "payment_mode": self.request.data.get('payment_mode', None)
                 }
             ]
-            self.auto_process_order(order, payments, 'ecom', transaction_id='',shop=shop)
+            self.auto_process_order(order, payments, 'ecom', transaction_id='', shop=shop)
             self.auto_process_ecom_order(order)
             try:
-                from pyfcm import FCMNotification
                 push_service = FCMNotification(api_key=config('FCM_SERVER_KEY'))
                 devices = Device.objects.filter(user__in=shop.pos_shop.all().values('user__id'),
                                                 is_active=True).distinct('reg_id')
+                info_logger.info("Sending order placed notifications to POS users......")
                 for device in devices:
                     registration_id = device.reg_id
                     message_title = f"{shop.shop_name} - Order Alert !!"
@@ -3915,6 +4094,13 @@ class OrderCentral(APIView):
                                                                message_title=message_title,
                                                                message_body=message_body)
                     info_logger.info(result)
+
+                # Send Order placed Push Notification to ECOMM USER
+                info_logger.info("Sending Order Placed notifications to Ecom users......")
+                message_title = "Great choice!"
+                message_body = "Your order has been accepted!"
+                send_notification_ecom_user(order, message_title, message_body)
+
             except Exception as e:
                 info_logger.info(e)
             if shop.enable_loyalty_points:
@@ -3970,7 +4156,7 @@ class OrderCentral(APIView):
         if err:
             return api_response(err)
         else:
-            use_all = 1 if int(cart.redeem_points) !=0 else 0
+            use_all = 1 if int(cart.redeem_points) != 0 else 0
             RewardCls.checkout_redeem_points(cart, cart.redeem_points, shop, app_type='SUPERSTORE', use_all=None)
             order = self.create_basic_order(cart, shop, address, payment_type_id, delivery_option)
             payments = [
@@ -3985,9 +4171,17 @@ class OrderCentral(APIView):
             self.auto_process_order(order, payments, 'superstore')
             self.process_superstore_order(order)
             sms_order_placed(order.buyer.first_name, order.buyer.phone_number)
+
+            # Send Order placed Push Notification to ECOMM USER
+            info_logger.info("Sending Order Placed notifications to Ecom users......")
+            message_title = "Great choice!"
+            message_body = "Your order has been accepted!"
+            send_notification_ecom_user(order, message_title, message_body)
+            sendemailforsuperstoreorder(order)
+
             msg = 'Ordered Successfully!'
             return api_response(msg, BasicOrderListSerializer(Order.objects.get(id=order.id)).data,
-                                        status.HTTP_200_OK, True)
+                                status.HTTP_200_OK, True)
 
     def get_retail_validate(self):
         """
@@ -4306,7 +4500,8 @@ class OrderCentral(APIView):
                 msg = str(msg) + " " + "min"
             if delivery_option and delivery_option == '1':
                 msg = None
-            if fofo_config.get('open_time',None) and fofo_config.get('close_time',None) and not (fofo_config['open_time']<time and fofo_config['close_time']>time):
+            if fofo_config.get('open_time', None) and fofo_config.get('close_time', None) and not (
+                    fofo_config['open_time'] < time and fofo_config['close_time'] > time):
                 msg = "Your order will be delivered tomorrow"
                 if delivery_option and delivery_option == '1':
                     msg = "Please pickup your order tomorrow"
@@ -4339,15 +4534,14 @@ class OrderCentral(APIView):
                                                    state=address.state, city=address.city)
         return order
 
-
-    def create_return_order(self, shipment, order_product_mapping, return_reason, 
+    def create_return_order(self, shipment, order_product_mapping, return_reason,
                             other_return_reason, return_pickup_method, shop, return_qty, images=None):
         user = self.request.user
         return_order, _ = ReturnOrder.objects.get_or_create(last_modified_by=user,
-                                                         buyer=user,
-                                                         shipment=shipment,
-                                                         return_type=ReturnOrder.SUPERSTORE,
-                                                         return_status=ReturnOrder.RETURN_REQUESTED)
+                                                            buyer=user,
+                                                            shipment=shipment,
+                                                            return_type=ReturnOrder.SUPERSTORE,
+                                                            return_status=ReturnOrder.RETURN_REQUESTED)
         return_order.return_reason = return_reason
         return_order.seller_shop = shop
         return_order.return_pickup_method = return_pickup_method
@@ -4355,7 +4549,7 @@ class OrderCentral(APIView):
         return_order.save()
         return_order_product, _ = ReturnOrderProduct.objects.get_or_create(
             return_order=return_order,
-            product= order_product_mapping.product,
+            product=order_product_mapping.product,
             return_qty=return_qty,
             return_price=order_product_mapping.selling_price
         )
@@ -4365,8 +4559,7 @@ class OrderCentral(APIView):
                     return_order_product=return_order_product,
                     return_image=image
                 )
-        
-        
+
     def update_ordered_reserve_sp(self, cart, parent_mapping, order):
         """
             Place Order
@@ -4505,7 +4698,7 @@ class OrderCentral(APIView):
         response = serializer.data
         return response
 
-    def auto_process_order(self, order, payments, app_type='pos', transaction_id='',shop=None):
+    def auto_process_order(self, order, payments, app_type='pos', transaction_id='', shop=None):
         """
             Auto process add payment, shipment, invoice for retailer and customer
         """
@@ -4536,8 +4729,8 @@ class OrderCentral(APIView):
 
                 for product_id in product_qty_map:
                     cart_map, _ = CartProductMapping.objects.get_or_create(cart=order.ordered_cart,
-                                                                        retailer_product_id=product_id,
-                                                                        product_type=0)
+                                                                           retailer_product_id=product_id,
+                                                                           product_type=0)
                     cart_map.selling_price = 0
                     cart_map.qty = product_qty_map[product_id]
                     cart_map.no_of_pieces = product_qty_map[product_id]
@@ -4594,6 +4787,7 @@ class OrderCentral(APIView):
             pdf_generation_retailer(self.request, order.id)
         except Exception as e:
             logger.exception(e)
+        return shipment
 
     def auto_process_ecom_order(self, order):
 
@@ -4612,11 +4806,11 @@ class OrderCentral(APIView):
             shipment = OrderedProduct(order=order)
             shipment.save()
             shipment_product = ShipmentProducts.objects.create(
-                ordered_product = shipment,
-                product_id = product['cart_product'],
-                product_type = product['product_type'],
-                selling_price = product['selling_price'],
-                shipped_qty = product['qty']
+                ordered_product=shipment,
+                product_id=product['cart_product'],
+                product_type=product['product_type'],
+                selling_price=product['selling_price'],
+                shipped_qty=product['qty']
             )
             OrderedProductBatch.objects.create(ordered_product_mapping=shipment_product,
                                                quantity=product['qty'],
@@ -4635,22 +4829,24 @@ class OrderCentral(APIView):
                     return False
         return True
 
-    
     def create_retailer_side_return_order(self, shipment, order_product_mapping, return_order):
         seller_shop = return_order.seller_shop
         parent_shop = seller_shop.get_shop_parent
+        retailer_order = shipment.order.ref_order.filter(
+            ordered_cart__rt_cart_list__cart_product=order_product_mapping.product).last()
+        retailer_shipment = retailer_order.rt_order_order_product.last()
         ret_return_order, _ = ReturnOrder.objects.get_or_create(
-            seller_shop=parent_shop, 
+            seller_shop=parent_shop,
             buyer_shop=seller_shop,
             return_status=ReturnOrder.RETURN_REQUESTED,
-            shipment=shipment,
+            shipment=retailer_shipment,
             ref_return_order=return_order,
             return_type=ReturnOrder.SUPERSTORE_WAREHOUSE
         )
         return_qty = return_order.return_order_products.last().return_qty
         return_order_product = ReturnOrderProduct.objects.get_or_create(
             return_order=ret_return_order,
-            product= order_product_mapping.product,
+            product=order_product_mapping.product,
             return_qty=return_qty,
             return_price=order_product_mapping.selling_price
         )
@@ -4994,7 +5190,10 @@ class OrderListCentral(GenericAPIView):
             if order_status:
                 order_status_actual = ONLINE_ORDER_STATUS_MAP.get(int(order_status), None)
                 if order_status == '2':
-                    orders = orders.filter(rt_order_order_product__shipment_status__in=[OrderedProduct.DELIVERED])
+                    orders = orders.filter(
+                        rt_order_order_product__shipment_status__in=[OrderedProduct.DELIVERED]).exclude(
+                        rt_order_order_product__is_returned=True
+                    )
                 elif order_status == '1':
                     orders = orders.filter(order_status__in=order_status_actual).exclude(
                         rt_order_order_product__shipment_status__in=[OrderedProduct.DELIVERED]
@@ -5011,13 +5210,15 @@ class OrderListCentral(GenericAPIView):
                 if order_status == '1':
                     orders = orders
                 elif order_status == '2':
-                    orders = orders.filter(order_status__in=[Order.ORDERED, 
+                    orders = orders.filter(order_status__in=[Order.ORDERED,
                                                              Order.PAYMENT_FAILED,
                                                              Order.PAYMENT_PENDING]).exclude(
                         rt_order_order_product__shipment_status__in=[OrderedProduct.DELIVERED]
                     )
                 elif order_status == '3':
-                    orders = orders.filter(rt_order_order_product__shipment_status__in=[OrderedProduct.DELIVERED]).exclude(rt_order_order_product__is_returned=True)
+                    orders = orders.filter(
+                        rt_order_order_product__shipment_status__in=[OrderedProduct.DELIVERED]).exclude(
+                        rt_order_order_product__is_returned=True)
                 elif order_status == '4':
                     orders = orders.filter(rt_order_order_product__is_returned=True)
                 else:
@@ -5025,11 +5226,11 @@ class OrderListCentral(GenericAPIView):
         search_text = self.request.GET.get('search_text')
         if search_text:
             orders = orders.filter(Q(order_no__icontains=search_text) |
-                            Q(ordered_cart__rt_cart_list__retailer_product__name__icontains=search_text))
+                                   Q(ordered_cart__rt_cart_list__retailer_product__name__icontains=search_text))
         shipment_products = ShipmentProducts.objects.filter(ordered_product__order__in=orders)
-        return api_response('Order Products', self.get_serialize_process_superstore(shipment_products), status.HTTP_200_OK, True,
+        return api_response('Order Products', self.get_serialize_process_superstore(shipment_products),
+                            status.HTTP_200_OK, True,
                             extra_params={"key_p": str(config('PAYU_KEY'))})
-
 
     def get_serialize_process_sp(self, order, parent_mapping):
         """
@@ -5079,6 +5280,7 @@ class OrderListCentral(GenericAPIView):
         ordered_products = ordered_product.order_by('-created_at', '-ordered_product__order_id')
         objects = self.pagination_class().paginate_queryset(ordered_products, self.request)
         return SuperStoreOrderListSerializer(objects, many=True).data
+
 
 class OrderedItemCentralDashBoard(APIView):
     authentication_classes = (authentication.TokenAuthentication,)
@@ -5596,6 +5798,13 @@ class OrderReturns(APIView):
             self.process_free_products(ordered_product, order_return, free_returns)
             order_return.free_qty_map = free_qty_product_map
             order_return.save()
+
+            # Send Order Return Push Notification to ECOMM USER
+            info_logger.info("Sending Order Return notifications to Ecom users......")
+            message_title = "Return Update!"
+            message_body = "Our logistic partner will contact you shortly, please keep the parcel ready to return."
+            send_notification_ecom_user(order, message_title, message_body)
+
         return api_response("Order Return", BasicOrderSerializer(order, context={'current_url': self.request.get_host(),
                                                                                  'invoice': 1,
                                                                                  'changed_products': changed_products}).data,
@@ -6098,10 +6307,10 @@ class CartStockCheckView(APIView):
         cart_products = PosCartCls.refresh_prices(cart_products)
         # Minimum Order Value
         # order_config = GlobalConfig.objects.filter(key='ecom_minimum_order_amount').last()
-#-------------------------------------------------------------------------------------------------------------------------------------#
+        # -------------------------------------------------------------------------------------------------------------------------------------#
         order_config = get_config_fofo_shop('Minimum_Order_Value', shop.id)
-        #order_config = fofo_config.get('min_order_value',None)#get_config_fofo_shop('Minimum order value', shop.id)
-        #order_config = order_config if order_config else GlobalConfig.objects.filter(key='ecom_minimum_order_amount').last().value
+        # order_config = fofo_config.get('min_order_value',None)#get_config_fofo_shop('Minimum order value', shop.id)
+        # order_config = order_config if order_config else GlobalConfig.objects.filter(key='ecom_minimum_order_amount').last().value
         if order_config is not None:
             order_amount = cart.order_amount_after_discount
             if order_amount < order_config:
@@ -6206,8 +6415,44 @@ class OrderReturnComplete(APIView):
             pdf_generation_return_retailer(request, order, ordered_product, order_return, returned_products,
                                            credit_note_instance)
 
+            # Send Return Successful Push Notification to ECOMM USER
+            info_logger.info("Sending Return Successful notifications to Ecom users......")
+            message_title = "Order return has been accepted."
+            message_body = "You will receive a confirmation once the refund has been initiated."
+            send_notification_ecom_user(order, message_title, message_body)
+
             return api_response("Return Completed Successfully!", OrderReturnCheckoutSerializer(order).data,
                                 status.HTTP_200_OK, True)
+
+
+def send_notification_ecom_user(order, message_title, message_body):
+    push_service_ecom = FCMNotification(api_key=config('FCM_SERVER_KEY_ECOM'))
+    user_devices = Device.objects.filter(user=order.buyer, app_type='ecom').distinct('reg_id')
+    for user_device in user_devices:
+        result = push_service_ecom.notify_single_device(registration_id=user_device.reg_id,
+                                                        message_title=message_title, message_body=message_body)
+        info_logger.info(result)
+
+
+def sendemailforsuperstoreorder(order):
+    subject = 'A new SuperStore order has been placed.'
+    url = 'https://{}.gramfactory.com/admin/retailer_to_sp/order/{}'.format(config('ENVIRONMENT'),order.id)
+    body = 'Click here - {} for more details'.format(url)
+    sender = GlobalConfig.objects.get(key='sender')
+    receiver = GlobalConfig.objects.get(key='recipient_ss')
+    info_logger.info("--------------Sending mail for superstore order!------------------")
+    info_logger.info("Body :: {}".format(body))
+    try:
+        send_mail(
+            subject,
+            body,
+            sender.value,
+            receiver.value.split(),
+            fail_silently=False,
+        )
+        info_logger.info("----------Mail send successfully for superstore order!-------------")
+    except Exception as e:
+        info_logger.error(e)
 
 
 # class OrderList(generics.ListAPIView):
@@ -6541,7 +6786,7 @@ def pdf_generation(request, ordered_product):
 
             ordered_prodcut = {
                 "product_sku": m.product.product_gf_code,
-                "product_short_description": m.product.product_short_description,
+                "product_short_description": m.product.product_short_description if m.product.product_type == 0 else m.product.product_short_description + " (Discounted)",
                 "product_ean_code": m.product.product_ean_code,
                 "product_hsn": m.product.product_hsn,
                 "product_tax_percentage": "" if tax_sum == 0 else str(tax_sum) + "%",
@@ -6636,8 +6881,9 @@ def return_challan_generation(request, return_order_id):
     return_order = get_object_or_404(ReturnOrder, pk=return_order_id)
     # get the file name along with with prefix name
     if not return_order.return_challan_no:
-        return_order.return_challan_no = common_function.generate_return_challan_number(return_order, 
-                                                                    return_order.seller_shop.shop_name_address_mapping.filter(address_type='billing').last().pk)
+        return_order.return_challan_no = common_function.generate_return_challan_number(return_order,
+                                                                                        return_order.seller_shop.shop_name_address_mapping.filter(
+                                                                                            address_type='billing').last().pk)
     filename = create_file_name(file_prefix, return_order.return_challan_no, with_timestamp=True)
 
     # if return_order.return_invoice and return_order.return_invoice.invoice_pdf and return_order.return_invoice.invoice_pdf.url:
@@ -6893,17 +7139,18 @@ def return_challan_generation(request, return_order_id):
             "hsn_list": list1, "license_number": license_number, "e_invoice_data": e_invoice_data}
 
     cmd_option = {"margin-top": 10, "zoom": 1, "javascript-delay": 1000, "footer-center": "[page]/[topage]",
-                    "no-stop-slow-scripts": True, "quiet": True}
+                  "no-stop-slow-scripts": True, "quiet": True}
     response = PDFTemplateResponse(request=request, template=template_name, filename=filename,
-                                    context=data, show_content_in_browser=False, cmd_options=cmd_option)
+                                   context=data, show_content_in_browser=False, cmd_options=cmd_option)
 
     try:
         # create_invoice_data(ordered_product)
         return_order.return_invoice.invoice_pdf.save("{}".format(filename),
-                                                    ContentFile(response.rendered_content), save=True)
+                                                     ContentFile(response.rendered_content), save=True)
         return_order.save()
     except Exception as e:
         logger.exception(e)
+    return return_order
 
 
 def pdf_superstore_generation(request, ordered_product):
@@ -6926,9 +7173,10 @@ def pdf_superstore_generation(request, ordered_product):
         ordered_product = ordered_product
     if ordered_product.order.ordered_cart.cart_type == 'SUPERSTORE_RETAIL':
         product = ordered_product.rt_order_product_order_product_mapping.last().product
-        ordered_product = ordered_product.order.reference_order.rt_order_order_product.filter(rt_order_product_order_product_mapping__product=product).last()
+        ordered_product = ordered_product.order.reference_order.rt_order_order_product.filter(
+            rt_order_product_order_product_mapping__product=product).last()
     if ordered_product.invoice and ordered_product.invoice.invoice_pdf and ordered_product.invoice.invoice_pdf.url:
-            pass
+        pass
     else:
         barcode = barcodeGen(ordered_product.invoice_no)
         e_invoice_data = None
@@ -6951,7 +7199,8 @@ def pdf_superstore_generation(request, ordered_product):
         #     new_sp_addistro_shop=ordered_product.order.ordered_cart.seller_shop.pk).all()
         # if shop_mapping_list.exists():
         #     template_name = 'admin/invoice/invoice_addistro_sp.html'
-        dispatch_address = ordered_product.order.seller_shop.shop_name_address_mapping.filter(address_type='shipping').last()
+        dispatch_address = ordered_product.order.seller_shop.shop_name_address_mapping.filter(
+            address_type='shipping').last()
         product_listing = []
         taxes_list = []
         gst_tax_list = []
@@ -7063,7 +7312,7 @@ def pdf_superstore_generation(request, ordered_product):
 
             ordered_prodcut = {
                 "product_sku": m.product.product_gf_code,
-                "product_short_description": m.product.product_short_description,
+                "product_short_description": m.product.product_short_description if m.product.product_type == 0 else m.product.product_short_description + " (Discounted)",
                 "product_ean_code": m.product.product_ean_code,
                 "product_hsn": m.product.product_hsn,
                 "product_tax_percentage": "" if tax_sum == 0 else str(tax_sum) + "%",
@@ -7134,9 +7383,9 @@ def pdf_superstore_generation(request, ordered_product):
                 "shop_name_gram": shop_name_gram, "nick_name_gram": nick_name_gram,
                 "address_line1_gram": address_line1_gram, "city_gram": city_gram, "state_gram": state_gram,
                 "pincode_gram": pincode_gram, "cin": cin_number,
-                "hsn_list": list1, 
-                "license_number": license_number, 
-                "e_invoice_data": e_invoice_data, 
+                "hsn_list": list1,
+                "license_number": license_number,
+                "e_invoice_data": e_invoice_data,
                 "dispatch_address": dispatch_address}
 
         cmd_option = {"margin-top": 10, "zoom": 1, "javascript-delay": 1000, "footer-center": "[page]/[topage]",
@@ -7147,10 +7396,11 @@ def pdf_superstore_generation(request, ordered_product):
         try:
             create_invoice_data(ordered_product)
             ordered_product.invoice.invoice_pdf.save("{}".format(filename),
-                                                        ContentFile(response.rendered_content), save=True)
+                                                     ContentFile(response.rendered_content), save=True)
         except Exception as e:
             logger.exception(e)
     return ordered_product
+
 
 def pdf_generation_retailer(request, order_id, delay=True):
     """
@@ -7160,14 +7410,16 @@ def pdf_generation_retailer(request, order_id, delay=True):
     """
     file_prefix = PREFIX_INVOICE_FILE_NAME
     order = Order.objects.filter(id=order_id).last()
-    #ordered_product = order.rt_order_order_product.all()[0]
+    # ordered_product = order.rt_order_order_product.all()[0]
     filename = create_file_name(file_prefix, order.rt_order_order_product.all()[0], with_timestamp=True)
     template_name = 'admin/invoice/invoice_retailer_3inch.html'
     # Don't create pdf if already created
-    if order.rt_order_order_product.all()[0].invoice and order.rt_order_order_product.all()[0].invoice.invoice_pdf and order.rt_order_order_product.all()[0].invoice.invoice_pdf.url:
+    if order.rt_order_order_product.all()[0].invoice and order.rt_order_order_product.all()[0].invoice.invoice_pdf and \
+            order.rt_order_order_product.all()[0].invoice.invoice_pdf.url:
         try:
             phone_number, shop_name = order.buyer.phone_number, order.seller_shop.shop_name
-            media_url, file_name, manager = order.rt_order_order_product.all()[0].invoice.invoice_pdf.url, order.rt_order_order_product.all()[0].invoice.invoice_no, \
+            media_url, file_name, manager = order.rt_order_order_product.all()[0].invoice.invoice_pdf.url, \
+                                            order.rt_order_order_product.all()[0].invoice.invoice_no, \
                                             order.ordered_cart.seller_shop.pos_shop.filter(
                                                 user_type='manager').last()
             if delay:
@@ -7277,7 +7529,8 @@ def pdf_generation_retailer(request, order_id, delay=True):
 
         height = 170 + 17 * count  # calculating page height of invoice 170 is base value
 
-        data = {"shipment": order.rt_order_order_product.all()[0], "order": order.rt_order_order_product.all()[0].order, "url": request.get_host(),
+        data = {"shipment": order.rt_order_order_product.all()[0], "order": order.rt_order_order_product.all()[0].order,
+                "url": request.get_host(),
                 "scheme": request.is_secure() and "https" or "http", "total_amount": total_amount, 'total': total,
                 'discount': discount, "barcode": barcode, "product_listing": product_listing, "rupees": rupees,
                 "sum_qty": sum_qty, "nick_name": nick_name, "address_line1": address_line1, "city": city,
@@ -7285,7 +7538,8 @@ def pdf_generation_retailer(request, order_id, delay=True):
                 "pincode": pincode, "address_contact_number": address_contact_number, "reward_value": redeem_value,
                 "license_number": license_number, "retailer_gstin_number": retailer_gstin_number,
                 "cin": cin_number,
-                "payment_type": order.rt_order_order_product.all()[0].order.rt_payment_retailer_order.last().payment_type.type}
+                "payment_type": order.rt_order_order_product.all()[
+                    0].order.rt_payment_retailer_order.last().payment_type.type}
         cmd_option = {"margin-top": 2, "margin-left": 0, "margin-right": 0, "margin-bottom": 2, "javascript-delay": 0,
                       "page-height": height, "page-width": 70, "no-stop-slow-scripts": True, "quiet": True,
                       'encoding': 'utf8 '
@@ -7300,8 +7554,9 @@ def pdf_generation_retailer(request, order_id, delay=True):
 
         try:
             # create_invoice_data(ordered_product)
-            order.rt_order_order_product.all()[0].invoice.invoice_pdf.save("{}".format(filename), ContentFile(response.rendered_content),
-                                                     save=True)
+            order.rt_order_order_product.all()[0].invoice.invoice_pdf.save("{}".format(filename),
+                                                                           ContentFile(response.rendered_content),
+                                                                           save=True)
             phone_number = order.buyer.phone_number
             shop_name = order.seller_shop.shop_name
             media_url = order.rt_order_order_product.all()[0].invoice.invoice_pdf.url
@@ -7931,9 +8186,63 @@ class DeliveryShipmentDetails(APIView):
         trip_id = kwargs.get('trip')
         trips = Trip.objects.get(id=trip_id, delivery_boy=self.request.user)
         shipments = trips.rt_invoice_trip.all()
+        return_details = self.getTripReturnGrouped(trips)
         shipment_details = ShipmentSerializer(shipments, many=True)
-        msg = {'is_success': True, 'message': ['Shipment Details'], 'response_data': shipment_details.data}
+        response_data = shipment_details.data + return_details
+        msg = {'is_success': True, 'message': ['Shipment Details'], 'response_data': response_data}
         return Response(msg, status=status.HTTP_201_CREATED)
+
+    def getTripReturnGrouped(self, trip):
+        trip_mappings = trip.last_mile_trip_returns_details.all()
+        trip_return = []
+        grouped_return_list = ReturnOrder.objects.filter(last_mile_trip_returns__in=trip_mappings)\
+                                                 .values('buyer_shop', 'seller_shop')\
+                                                 .annotate(return_count=Count('id'),
+                                                           status=Sum(Case(
+                                                               When(return_status__in=[ReturnOrder.RETURN_REQUESTED,
+                                                                                       ReturnOrder.RETURN_INITIATED],
+                                                                    then=1),
+                                                               default=0
+                                                           ), output_field=IntegerField())).order_by()
+        for grouped_return in grouped_return_list:
+            grouped_return_dict = {}
+            grouped_return_dict['item_type'] = 'return'
+            grouped_return_dict['shop_id'] = grouped_return['buyer_shop']
+            shop_timing = ShopTiming.objects.filter(shop_id=grouped_return['buyer_shop'])
+            if shop_timing.exists():
+                final_timing = shop_timing.last()
+                grouped_return_dict['shop_open_time'] = final_timing.open_timing
+                grouped_return_dict['shop_close_time'] = final_timing.closing_timing
+                grouped_return_dict['break_start_time'] = final_timing.break_start_time
+                grouped_return_dict['break_end_time'] = final_timing.break_end_time
+                grouped_return_dict['off_day'] = final_timing.off_day
+            else:
+                grouped_return_dict['shop_open_time'] = None
+                grouped_return_dict['shop_close_time'] = None
+                grouped_return_dict['break_start_time'] = None
+                grouped_return_dict['break_end_time'] = None
+                grouped_return_dict['off_day'] = None
+            buyerShop = Shop.objects.filter(id=grouped_return['buyer_shop']).last()
+            sellerShop = Shop.objects.filter(id=grouped_return['seller_shop']).last()
+            shipping_address = buyerShop.shop_name_address_mapping.filter(address_type='shipping').last()
+            shop_user_mapping = buyerShop.shop_user.filter(status=True,
+                                                           employee_group__name='Sales Executive').last()
+            sales_executive = None
+            if shop_user_mapping:
+                sales_executive = shop_user_mapping.employee
+            sales_executive = ShopExecutiveUserSerializer(sales_executive)
+            grouped_return_dict['sales_executive'] = sales_executive.data
+            grouped_return_dict['seller_shop'] = SellerShopSerializer(sellerShop).data
+            grouped_return_dict['buyer_shop'] = SellerShopSerializer(buyerShop).data
+            grouped_return_dict['shipping_address'] = AddressSerializer(shipping_address).data
+            grouped_return_dict['return_count'] = grouped_return['return_count']
+            grouped_return_dict['shipment_status'] = 'PENDING' if grouped_return['status'] > 0 else 'COMPLETED'
+            # grouped_return_dict['return_value'] = ReturnOrder.objects.filter(id=grouped_return['id']).last().return_amount
+            grouped_return_dict['shipment_status'] = grouped_return['return_status']
+            grouped_return_dict['return_value'] = ReturnOrder.objects.filter(id=grouped_return['id']).last().return_amount
+            trip_return.append(grouped_return_dict)
+
+        return trip_return
 
 
 class ShipmentDeliveryBulkUpdate(APIView):
@@ -8365,13 +8674,16 @@ def update_trip_status(trip_id):
     shipment_status_list = ['FULLY_DELIVERED_AND_COMPLETED', 'PARTIALLY_DELIVERED_AND_COMPLETED',
                             'FULLY_RETURNED_AND_COMPLETED', 'RESCHEDULED', 'NOT_ATTEMPT']
     order_product = OrderedProduct.objects.filter(trip_id=trip_id)
+    return_orders = ReturnOrder.objects.filter(last_mile_trip_returns__trip_id=trip_id,
+                                               return_status__in=[ReturnOrder.RETURN_INITIATED]).count()
     if order_product.exclude(shipment_status__in=shipment_status_list).count() == 0:
-        Trip.objects.filter(pk=trip_id).update(trip_status=Trip.COMPLETED, completed_at=datetime.now())
+        # Trip.objects.filter(pk=trip_id).update(trip_status=Trip.COMPLETED, completed_at=datetime.now())
         # updating order status when trip is completed
         trip_instance = Trip.objects.get(id=trip_id)
         trip_shipments = trip_instance.rt_invoice_trip.values_list('id', flat=True)
         Order.objects.filter(rt_order_order_product__in=trip_shipments).update(order_status=Order.COMPLETED)
-
+    if order_product.exclude(shipment_status__in=shipment_status_list).count() == 0 and return_orders == 0:
+        Trip.objects.filter(pk=trip_id).update(trip_status=Trip.COMPLETED, completed_at=datetime.now())
 
 class ReturnReason(generics.UpdateAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
@@ -8577,11 +8889,13 @@ class ShipmentView(GenericAPIView):
 
                 for product_map in products_info:
                     cart_product_mapping = CartProductMapping.objects.filter(cart=order.ordered_cart,
-                                                                             retailer_product_id=product_map['product_id'],
+                                                                             retailer_product_id=product_map[
+                                                                                 'product_id'],
                                                                              product_type=1).last()
                     if cart_product_mapping and cart_product_mapping.qty > product_map['picked_qty'] \
                             and product_map['product_type'] == 1:
-                        retailer_product = RetailerProduct.objects.filter(id=product_map['product_id'], shop=shop).last()
+                        retailer_product = RetailerProduct.objects.filter(id=product_map['product_id'],
+                                                                          shop=shop).last()
                         retailer_product.online_enabled = False
                         retailer_product.online_disabled_status = product_map['online_disabled_status']
                         retailer_product.save()
@@ -8698,6 +9012,23 @@ class ShipmentProductView(generics.GenericAPIView):
             msg = f"total count {shipment_product_total_count}"
             return get_response(msg, serializer.data, True)
         return get_response("'id' | This is mandatory.")
+
+
+class ReturnOrderProductView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    serializer_class = ReturnOrderTripProductSerializer
+
+    def get(self, request):
+        if request.GET.get('id'):
+            try:
+                return_order = ReturnOrder.objects.get(id=request.GET.get('id'))
+                serializer = self.serializer_class(return_order)
+                msg = f"return order products"
+                return get_response(msg, serializer.data, True)
+            except ReturnOrder.DoesNotExist:
+                return get_response("Return Order not found.")
+        return get_response("'id' | This is required.")
 
 
 class ProcessShipmentView(generics.GenericAPIView):
@@ -9353,12 +9684,14 @@ class OrderPaymentStatusChangeView(generics.GenericAPIView):
         except OrderedProductMapping.DoesNotExist:
             return api_response('Order Not Found!')
 
-        serializer = self.serializer_class(instance=order, data=modified_data, context={'app-type': 4, 'sub-app-type': sub_app_type})
+        serializer = self.serializer_class(instance=order, data=modified_data,
+                                           context={'app-type': 4, 'sub-app-type': sub_app_type})
         if serializer.is_valid():
             serializer.save(updated_by=request.user)
             info_logger.info("Order Updated Successfully.")
             return api_response('order updated!', serializer.data, status.HTTP_200_OK, True)
         return api_response(serializer_error(serializer), success=False)
+
 
 class OrderStatusChoicesList(GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
@@ -10073,6 +10406,73 @@ class VerifyReturnShipmentProductsView(generics.GenericAPIView):
         return self.queryset.distinct('id')
 
 
+class VerifyReturnOrderProductsView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    
+    def get(self, request):
+        if not request.GET.get('id'):
+            return get_response('id for return is mandatory')
+        if not request.GET.get('product'):
+            return get_response('product id is mandatory')
+        try:
+            return_order = ReturnOrder.objects.get(id=request.GET.get('id'))
+            return_order_product_mapping = return_order.return_order_products.filter(product_id=request.GET.get('product')).last()
+            serializer = ReturnOrderProductSerializer(return_order_product_mapping)
+            return get_response("return order product", serializer.data, True)
+        except ReturnOrder.DoesNotExist:
+            return get_response("Return Order not found.")
+    
+    def put(self, request):
+        modified_data = validate_data_format(request)
+        if 'error' in modified_data:
+            return get_response(modified_data['error'])
+
+        if 'id' not in modified_data:
+            return get_response('please provide return id to verify return products', False)
+        
+        if 'product' not in modified_data:
+            return get_response('please provide product id to verify return products', False)
+        
+        if 'returned_qty' not in modified_data:
+            return get_response('Please provide verified returned quantity of products')
+        
+        if 'damaged_qty' not in modified_data:
+            return get_response('Please provide verfied damaged quantity of products')
+                        
+        try:
+            return_order = ReturnOrder.objects.get(id=modified_data['id'])
+            return_order_product_mapping = return_order.return_order_products.filter(product_id=modified_data['product']).last()
+            if int(modified_data['returned_qty']) + int(modified_data['damaged_qty']) > return_order_product_mapping.delivery_picked_quantity:
+                return get_response('Quantity greater than requested return quantity not allowed.')
+            return_order_product_mapping.verified_return_quantity = modified_data['returned_qty']
+            return_order_product_mapping.damaged_qty = modified_data['damaged_qty']
+            if modified_data.get('verify_type', 'ltm') == 'bck':
+                return_order_product_mapping.is_bck_return_verified = True
+            else:
+                return_order_product_mapping.is_return_verified = True
+            return_order_product_mapping.save()
+            self.create_update_return_order_product_batch(return_order_product_mapping, 
+                                                   modified_data['returned_qty'], 
+                                                   modified_data['damaged_qty'], 
+                                                   return_order)
+            return get_response('Return Order successfully updated.', None, True)
+        except ReturnOrder.DoesNotExist:
+            return get_response('Return Order not Found.')
+            
+    def create_update_return_order_product_batch(self, return_order_product_mapping, 
+                                                 return_qty, damaged_qty, return_order):
+        batch_id = return_order.shipment.rt_order_product_order_product_mapping.last()\
+            .rt_ordered_product_mapping.last().batch_id
+        return_batch, _ = ReturnProductBatch.objects.get_or_create(
+            return_product = return_order_product_mapping
+        )
+        return_batch.batch_id = batch_id
+        return_batch.return_qty = return_qty
+        return_batch.damaged_qty = damaged_qty
+        return_batch.save()
+
+
 class ShipmentCratesValidatedView(generics.GenericAPIView):
     """
        View to validate shipment crates.
@@ -10148,6 +10548,36 @@ class ShipmentCompleteVerifyView(generics.GenericAPIView):
         return get_response(serializer_error(serializer), False)
 
 
+class ReturnOrderCompleteVerifyView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+
+    @check_whc_manager_dispatch_executive
+    def put(self, request):
+        modified_data = validate_data_format(self.request)
+        if 'error' in modified_data:
+            return get_response(modified_data['error'])
+
+        if 'id' not in modified_data:
+            return get_response('please provide id to update shipment', False)
+        try:
+            return_order = ReturnOrder.objects.get(id=modified_data['id'])
+            if return_order.return_order_products.filter(is_return_verified=False).exists():
+                return get_response('All products should be verified before complete verification of return order.')
+            trip = Trip.objects.filter(last_mile_trip_returns_details__return_order=return_order)\
+                .exclude(last_mile_trip_returns_details__shipment_status=LastMileTripReturnMapping.CANCELLED).last()
+            if trip.source_shop.shop_type.shop_type == 'sp':
+                return_order.return_status = ReturnOrder.WH_ACCEPTED
+                return_putaway(return_order)
+            else:
+                return_order.return_status = ReturnOrder.DC_ACCEPTED
+                return_order.dc_location = trip.source_shop
+            return_order.save()
+            return get_response('return order updated successfully', None, True)
+        except ReturnOrder.DoesNotExist:
+            return get_response('return order not found')
+
+
 class TripSummaryView(generics.GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
@@ -10186,6 +10616,8 @@ class TripSummaryView(generics.GenericAPIView):
                 'total_packets': dispatch_trip_instance.no_of_packets,
                 'total_sack': dispatch_trip_instance.no_of_sacks,
                 'total_empty_crate': dispatch_trip_instance.no_of_empty_crates,
+                'total_return_box': dispatch_trip_instance.return_order_details.filter(
+                    return_order_status=DispatchTripReturnOrderMapping.LOADED).count(),
                 'weight': dispatch_trip_instance.get_trip_weight,
                 'invoices_check': dispatch_trip_instance.shipments_details.filter(
                     shipment_status=DispatchTripShipmentMapping.UNLOADED_AT_DC).count(),
@@ -10199,6 +10631,8 @@ class TripSummaryView(generics.GenericAPIView):
                 'remaining_packets': dispatch_trip_instance.no_of_packets - dispatch_trip_instance.no_of_packets_check,
                 'remaining_sacks': dispatch_trip_instance.no_of_sacks - dispatch_trip_instance.no_of_sacks_check,
                 'remaining_empty_crate': dispatch_trip_instance.no_of_empty_crates - dispatch_trip_instance.no_of_empty_crates_check,
+                'remaining_return_box': dispatch_trip_instance.return_order_details.filter(
+                    return_order_status=DispatchTripReturnOrderMapping.UNLOADED).count(),
             }
         else:
             trip_summary_data = {
@@ -10207,6 +10641,7 @@ class TripSummaryView(generics.GenericAPIView):
                 'total_packets': 0,
                 'total_sack': 0,
                 'total_empty_crate': 0,
+                'total_return_box': 0,
                 'weight': 0,
                 'invoices_check': 0,
                 'total_crates_check': 0,
@@ -10217,7 +10652,8 @@ class TripSummaryView(generics.GenericAPIView):
                 'remaining_crates': 0,
                 'remaining_packets': 0,
                 'remaining_sacks': 0,
-                'remaining_empty_crate': 0
+                'remaining_empty_crate': 0,
+                'remaining_return_box': 0
             }
         return trip_summary_data
 
@@ -10260,6 +10696,7 @@ class TripSummaryView(generics.GenericAPIView):
             'total_packets': resp_data['no_of_packets'] if resp_data['no_of_packets'] else 0,
             'total_sack': resp_data['no_of_sacks'] if resp_data['no_of_sacks'] else 0,
             'total_empty_crate': 0,
+            'total_return_box': 0,
             'weight': resp_data['weight'] if resp_data['weight'] else 0,
             'invoices_check': 0,
             'total_crates_check': 0,
@@ -10270,12 +10707,14 @@ class TripSummaryView(generics.GenericAPIView):
             'remaining_crates': 0,
             'remaining_packets': 0,
             'remaining_sacks': 0,
-            'remaining_empty_crate': 0
+            'remaining_empty_crate': 0,
+            'remaining_return_box': 0
         }
         return trip_summary_data
 
     def get_non_trip_data_backward_trip(self, request):
         dispatch_center = request.GET.get('dispatch_center')
+        trip_id = request.GET.get('trip_id')
         resp_data = ShipmentPackaging.objects.filter(
             Q(trip_packaging_details__isnull=True) |
             Q(trip_packaging_details__package_status=DispatchTripShipmentPackages.CANCELLED),
@@ -10295,6 +10734,7 @@ class TripSummaryView(generics.GenericAPIView):
             'total_packets': resp_data['no_of_packets'] if resp_data['no_of_packets'] else 0,
             'total_sack': resp_data['no_of_sacks'] if resp_data['no_of_sacks'] else 0,
             'total_empty_crate': ShopCrate.objects.filter(shop_id=dispatch_center, is_available=True).count(),
+            'total_return_box': ReturnOrder.objects.filter(dc_location_id=dispatch_center,trip_return_order__isnull=True).count(),
             'weight': 0,
             'invoices_check': 0,
             'total_crates_check': 0,
@@ -10305,7 +10745,8 @@ class TripSummaryView(generics.GenericAPIView):
             'remaining_crates': 0,
             'remaining_packets': 0,
             'remaining_sacks': 0,
-            'remaining_empty_crate': 0
+            'remaining_empty_crate': 0,
+            'remaining_return_box': 0
         }
         return trip_summary_data
 
@@ -10549,6 +10990,58 @@ class DispatchCenterCrateView(generics.GenericAPIView):
         return self.queryset.distinct('id')
 
 
+class DispatchCenterReturnOrderView(generics.GenericAPIView):
+    """
+        View to get Return Orders
+    """
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    serializer_class = DispatchCenterReturnOrderSerializer
+    queryset = ReturnOrder.objects.all()
+
+    def get(self, request):
+        validation_response = self.validate_get_request()
+        if "error" in validation_response:
+            return get_response(validation_response["error"], False)
+
+        self.queryset = self.search_filter_return_order_data()
+        mapping_data = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        serializer = self.serializer_class(mapping_data, many=True)
+        msg = "Return Orders list" if mapping_data else "no return order found"
+        return get_response(msg, serializer.data, True)
+
+
+    def validate_get_request(self):
+        try:
+            if not self.request.GET.get('shop', None):
+                return {"error": "'shop'| This is required"}
+            elif not self.request.GET.get('trip_id'):
+                return {"error": "'trip_id' | This is required."}
+            return {"data": self.request.data}
+        except Exception as e:
+            return {"error": "Invalid Request"}
+
+    def search_filter_return_order_data(self):
+        shop = self.request.GET.get('shop')
+        trip_id = self.request.GET.get('trip_id', None)
+        availability = int(self.request.GET.get('availability'))
+        self.queryset = self.queryset.filter(return_status='DC_ACCEPTED')
+
+        if shop:
+            self.queryset = self.queryset.filter(dc_location_id=shop)
+
+        if availability:
+            try:
+                availability = int(availability)
+                if availability == INVOICE_AVAILABILITY_CHOICES.ADDED:
+                    self.queryset = self.queryset.filter(trip_return_order__trip_id=trip_id)
+                elif availability == INVOICE_AVAILABILITY_CHOICES.NOT_ADDED:
+                    self.queryset = self.queryset.filter(trip_return_order__isnull=True)
+            except Exception as e:
+                info_logger.info(e)
+        return self.queryset.distinct('id')
+
+
 class DispatchCenterShipmentPackageView(generics.GenericAPIView):
     """
     View to get Shipment Package ready for dispatch to dispatch center.
@@ -10716,12 +11209,12 @@ class LoadVerifyPackageView(generics.GenericAPIView):
             serializer.save(created_by=request.user)
             info_logger.info("Package loaded Successfully.")
             # return get_response('Package loaded successfully!', serializer.data)
-            query_set = ShipmentPackaging.objects.\
+            query_set = ShipmentPackaging.objects. \
                 select_related('crate', 'warehouse', 'warehouse__shop_owner', 'shipment', 'shipment__invoice',
                                'shipment__order', 'shipment__order__shipping_address',
                                'shipment__order__buyer_shop', 'shipment__order__shipping_address__shop_name',
                                'shipment__order__buyer_shop__shop_owner', 'warehouse__shop_type',
-                               'warehouse__shop_type__shop_sub_type', 'created_by', 'updated_by').\
+                               'warehouse__shop_type__shop_sub_type', 'created_by', 'updated_by'). \
                 prefetch_related('packaging_details', 'trip_packaging_details', 'shipment__trip_shipment',
                                  'shipment__last_mile_trip_shipment')
             if not return_all_pkgs:
@@ -10736,18 +11229,97 @@ class LoadVerifyPackageView(generics.GenericAPIView):
         return get_response(serializer_error(serializer), False)
 
 
+class LoadVerifyReturnOrderView(generics.GenericAPIView):
+    """
+       View to verify and load return order to a trip.
+    """
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    serializer_class = LoadVerifyReturnOrderSerializer
+
+    @check_whc_manager_dispatch_executive
+    def post(self, request):
+        """ POST API for Return Order Load Verification """
+        info_logger.info("Load Verify POST api called.")
+        modified_data = validate_data_format(self.request)
+        if 'error' in modified_data:
+            return get_response(modified_data['error'])
+        validated_trip = validate_trip_user(modified_data['trip_id'], request.user)
+        if 'error' in validated_trip:
+            return get_response(validated_trip['error'])
+        serializer = self.serializer_class(data=modified_data)
+        if serializer.is_valid():
+            serializer.save(created_by=request.user)
+            info_logger.info("Return order loaded Successfully.")
+            return get_response('Return order loaded successfully!', serializer.data)
+        return get_response(serializer_error(serializer), False)
+
+
+
+class UnloadVerifyReturnOrderView(generics.GenericAPIView):
+    """
+       View to verify and unload return order from a trip.
+    """
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    serializer_class = UnLoadVerifyReturnOrderSerializer
+    queryset = DispatchTripReturnOrderMapping.objects.all()
+
+    def validate_trip_return_order(self, return_id, trip_id):
+        trip_return_order = self.queryset.filter(
+            return_order_status__in=[DispatchTripReturnOrderMapping.UNLOADED,
+                                     DispatchTripReturnOrderMapping.VERIFIED],
+            return_order__id=return_id, trip__id=trip_id).last()
+        if trip_return_order:
+            return {"error": "Return order is already unloaded!"}
+        trip_return_order = self.queryset.filter(
+            return_order_status__in=[DispatchTripReturnOrderMapping.LOADED,
+                                     DispatchTripReturnOrderMapping.DAMAGED_AT_LOADING],
+            return_order__id=return_id, trip__id=trip_id).last()
+        if not trip_return_order:
+            return {"error": "invalid Return Order"}
+        return {"data": trip_return_order}
+
+    def put(self, request):
+        """ POST API for Return Order UnLoad Verification """
+        info_logger.info("UnLoad Verify POST api called.")
+        modified_data = validate_data_format(self.request)
+        if 'error' in modified_data:
+            return get_response(modified_data['error'])
+
+        if 'return_id' not in modified_data:
+            return get_response("'return_id' | This is required.", False)
+        if 'trip_id' not in modified_data:
+            return get_response("'trip_id' | This is required.", False)
+        if 'status' not in modified_data:
+            return get_response("'status' | This is required.", False)
+
+        # validations for input
+        return_order_validation = self.validate_trip_return_order(modified_data['return_id'], int(modified_data['trip_id']))
+        if 'error' in return_order_validation:
+            return get_response(return_order_validation['error'])
+        trip_return_order = return_order_validation['data']
+
+        serializer = self.serializer_class(instance=trip_return_order, data=modified_data)
+        if serializer.is_valid():
+            serializer.save(updated_by=request.user)
+            info_logger.info("Return Order unloaded Successfully.")
+            return get_response('Return Order unloaded successfully!', serializer.data)
+        return get_response(serializer_error(serializer), False)
+
+
 class CurrentlyLoadingShipmentPackagesView(generics.GenericAPIView):
     """
        View to get all the packages of currently loading shipment.
     """
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
-    queryset = ShipmentPackaging.objects.\
+    queryset = ShipmentPackaging.objects. \
         select_related('crate', 'warehouse', 'warehouse__shop_owner', 'shipment', 'shipment__invoice',
                        'shipment__order', 'shipment__order__shipping_address',
                        'shipment__order__buyer_shop', 'shipment__order__shipping_address__shop_name',
                        'shipment__order__buyer_shop__shop_owner', 'warehouse__shop_type',
-                       'warehouse__shop_type__shop_sub_type', 'created_by', 'updated_by').\
+                       'warehouse__shop_type__shop_sub_type', 'created_by', 'updated_by'). \
         prefetch_related('packaging_details', 'trip_packaging_details', 'shipment__trip_shipment',
                          'shipment__last_mile_trip_shipment').order_by('-id')
     serializer_class = ShipmentPackageSerializer
@@ -11293,6 +11865,156 @@ class LastMileTripStatusChangeView(generics.GenericAPIView):
         return self.queryset.distinct('id')
 
 
+class LastMileTripReturnOrderView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    serializer_class = LastMileTripReturnOrdersBasicDetailSerializer
+
+    def get(self, request):
+        result = self.validate_get_request()
+        if "error" in result:
+            return get_response(result["error"], False)
+
+        trip_id = self.request.GET.get('trip_id', None)
+        seller_shop = self.request.GET.get('seller_shop', None)
+        trip = Trip.objects.filter(id=trip_id).last()
+        source_shop = trip.source_shop
+        if source_shop.shop_type.shop_type == 'sp':
+            returns = ReturnOrder.objects.filter(
+                return_status__in=[ReturnOrder.STORE_ITEM_PICKED],
+                seller_shop_id=seller_shop,
+                last_mile_trip_returns__trip_id=trip_id,
+                shipment__order__dispatch_center__isnull=True,
+            ).distinct('id')
+        if source_shop.shop_type.shop_type == 'dc':
+            returns = ReturnOrder.objects.filter(
+                return_status__in=[ReturnOrder.STORE_ITEM_PICKED],
+                seller_shop_id=seller_shop,
+                last_mile_trip_returns__trip_id=trip_id,
+                shipment__order__dispatch_center=source_shop
+            ).distinct('id')
+        returns_data = SmallOffsetPagination().paginate_queryset(returns, request)
+        return_serializer = self.serializer_class(returns_data, many=True)
+        trip_serializer = LastMileTripSerializers(trip)
+        data = {
+            'trip': trip_serializer.data,
+            'returns': return_serializer.data
+        }
+        msg = "" if returns_data else "no returns found"
+        return get_response(msg, data, True)
+
+    def validate_get_request(self):
+        try:
+            if not self.request.GET.get('seller_shop', None):
+                return {"error": "'seller_shop'| This is required"}
+            elif not self.request.GET.get('trip_id', None):
+                return {"error": "'trip_id' | This is required."}
+            elif not Trip.objects.filter(id=self.request.GET.get('trip_id')).exists():
+                return {"error": "'trip_id' | Invalid trip."}
+            return {"data": self.request.data}
+        except Exception as e:
+            return {"error": "Invalid Request"}
+
+
+class LastMileTripDeliveryReturnOrderView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    serializer_class = DeliveryReturnOrderSerializer
+
+    def get(self, request):
+        result = self.validate_get_request()
+        if "error" in result:
+            return get_response([result["error"]], False)
+
+        trip_id = self.request.GET.get('trip_id', None)
+        seller_shop = self.request.GET.get('seller_shop', None)
+        buyer_shop = self.request.GET.get('buyer_shop', None)
+        trip = Trip.objects.filter(id=trip_id).last()
+        source_shop = trip.source_shop
+        if source_shop.shop_type.shop_type == 'sp':
+            returns = ReturnOrder.objects.filter(
+                # return_status__in=[ReturnOrder.STORE_ITEM_PICKED],
+                seller_shop_id=seller_shop,
+                last_mile_trip_returns__trip_id=trip_id,
+                shipment__order__dispatch_center__isnull=True,
+                buyer_shop_id=buyer_shop
+            ).distinct('id')
+        if source_shop.shop_type.shop_type == 'dc':
+            returns = ReturnOrder.objects.filter(
+                # return_status__in=[ReturnOrder.STORE_ITEM_PICKED],
+                seller_shop_id=seller_shop,
+                last_mile_trip_returns__trip_id=trip_id,
+                shipment__order__dispatch_center=source_shop,
+                buyer_shop_id=buyer_shop
+            ).distinct('id')
+        returns_data = SmallOffsetPagination().paginate_queryset(returns, request)
+        serializer = self.serializer_class(returns_data, many=True)
+        msg = [] if returns_data else ["no returns found"]
+        return get_response(msg, serializer.data, True)
+
+    def validate_get_request(self):
+        try:
+            if not self.request.GET.get('seller_shop', None):
+                return {"error": "'seller_shop'| This is required"}
+            elif not self.request.GET.get('trip_id', None):
+                return {"error": "'trip_id' | This is required."}
+            elif not Trip.objects.filter(id=self.request.GET.get('trip_id')).exists():
+                return {"error": "'trip_id' | Invalid trip."}
+            if not self.request.GET.get('buyer_shop', None):
+                return {"error": "'buyer_shop'| This is required"}
+            return {"data": self.request.data}
+        except Exception as e:
+            return {"error": "Invalid Request"}
+
+    def put(self, request):
+        result = self.validate_put_request()
+        if "error" in result:
+            result = {"is_success": False, "message": [result["error"]], "response_data": ''}
+            return Response(result, status=status.HTTP_200_OK)
+        return_id = self.request.data.get('return_id', None)
+        return_item_id = self.request.data.get('return_item_id', None)
+        barcode = self.request.data.get('barcode', None).zfill(13)
+        picked_quantity = self.request.data.get('picked_quantity', None)
+        orderreturn = ReturnOrder.objects.filter(pk=return_id).last()
+        trip_id = orderreturn.last_mile_trip_returns.last().trip.id
+        if orderreturn.return_status != ReturnOrder.RETURN_INITIATED:
+            result = {"is_success": False, "message": ["error: Return not found in initiated state"], "response_data":''}
+            return Response(result, status=status.HTTP_200_OK)
+        return_item = ReturnOrderProduct.objects.filter(id=return_item_id).last()
+        return_item.return_shipment_barcode = barcode[:-1]
+        return_item.delivery_picked_quantity = picked_quantity
+        orderreturn.return_status = ReturnOrder.STORE_ITEM_PICKED
+        code = Barcode.objects.filter(barcode_no=barcode[:-1]).last()
+        code.is_available=False
+        with transaction.atomic():
+            return_item.save()
+            orderreturn.save()
+            code.save()
+            update_trip_status(trip_id)
+        return get_response(["return picked sucessfully"], '', True)
+
+    def validate_put_request(self):
+        try:
+            if not self.request.data.get('return_id', None):
+                return {"error": "'return_id'| This is required"}
+            elif not self.request.data.get('return_item_id', None):
+                return {"error": "'return_item_id' | This is required."}
+            if not self.request.data.get('barcode', None):
+                return {"error": "'barcode'| This is required"}
+            else:
+                barcode = self.request.data.get('barcode').zfill(13)
+                code = Barcode.objects.filter(barcode_no=barcode[:-1]).last()
+                if not code:
+                    return {"error": "Invalid Barcode"}
+                elif not code.is_available:
+                    return {"error": "Barcode already used"}
+            if not self.request.data.get('picked_quantity', None):
+                return {"error": "'picked_quantity'| This is required"}
+            return {"data": self.request.data}
+        except Exception as e:
+            return {"error": "Invalid Request"}
+
+
 class DispatchPackageStatusList(generics.GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
@@ -11498,6 +12220,49 @@ class PackagesUnderTripView(generics.GenericAPIView):
         return self.queryset.distinct('id', 'packaging_type')
 
 
+class BackWardTripReturnOrderQCView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    serializer_class = BackwardTripReturnItemsSerializer
+    
+    def get(self, request):
+        validated_request = self.validate_request()
+        if 'error' in validated_request:
+            return get_response(validated_request['error'])
+        if not request.GET.get('trip_id'):
+            return get_response("'trip_id' | This is mandatory")
+        if not request.GET.get('is_return_verified'):
+            return get_response("'is_return_verified' | This is mandatory")
+        validated_trip = validate_trip(request.GET.get('trip_id'), request.GET.get('trip_type'))
+        return_items = self.filter_return_items(validated_trip['data'])
+        return_items = SmallOffsetPagination().paginate_queryset(return_items, request)
+        serializer = self.serializer_class(return_items, many=True)
+        msg = "" if return_items else "no return items found"
+        return get_response(msg, serializer.data, True)
+        
+    def validate_request(self):
+        try:
+            if self.request.GET.get('is_return_verified') and \
+                    int(self.request.GET.get('is_return_verified')) not in [0, 1]:
+                raise
+        except:
+            return {'error': "'is_return_verified' | Invalid value. Only 0 or 1 is allowed."}
+        return {'request': self.request}
+
+
+    def filter_return_items(self, trip_instance):
+        is_return_verified = self.request.GET.get('is_return_verified')
+        is_return_verified = int(is_return_verified)
+        if is_return_verified == 1:
+            disptach_trip_return_itens = trip_instance.return_order_details\
+                .filter(return_order_status__in=[DispatchTripReturnOrderMapping.VERIFIED])
+        else:
+            disptach_trip_return_itens = trip_instance.return_order_details\
+                .filter(return_order_status__in=[DispatchTripReturnOrderMapping.UNLOADED, 
+                                                    DispatchTripReturnOrderMapping.PARTIALLY_VERIFIED])
+        return disptach_trip_return_itens
+
+                
 class MarkShipmentPackageVerifiedView(generics.GenericAPIView):
     """
        View to mark shipment package verify
@@ -11563,6 +12328,31 @@ class MarkShipmentPackageVerifiedView(generics.GenericAPIView):
         return self.queryset
 
 
+class MarkReturnOrderItemVerifiedView(generics.GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    serializer_class = MarkReturnOrderItemVerifiedSerializer
+    queryset = DispatchTripReturnOrderMapping.objects.all()
+    
+    def put(self, request):
+        modified_data = validate_data_format(self.request)
+        if 'error' in modified_data:
+            return get_response(modified_data['error'])
+        if 'id' not in modified_data:
+            return get_response("'id' | This is required.", False)
+        
+        try:
+            trip_return_order_mapping = DispatchTripReturnOrderMapping.objects.get(id=modified_data['id'])
+            serializer = self.serializer_class(instance=trip_return_order_mapping, data=modified_data)
+            if serializer.is_valid():
+                serializer.save(updated_by=request.user)
+                info_logger.info("Return Order verified successfully.")
+                return get_response('Return Order verified!', serializer.data, True)
+            return get_response(serializer_error(serializer), False)
+        except DispatchTripReturnOrderMapping.DoesNotExist:
+            return get_response("Return Order Item Not found, Invalid ID")
+            
+        
 class ShipmentPackageProductsView(generics.GenericAPIView):
     """
        View to GET package products.
@@ -12001,3 +12791,89 @@ class PosOrderUserSearchView(generics.GenericAPIView):
         else:
             msg = 'Search to get Buyers.'
             return get_response(msg, '', True)
+
+
+class GenerateBarcodes(generics.GenericAPIView):
+    permission_classes = (AllowAny,)
+    authentication_classes = (authentication.TokenAuthentication,)
+
+    def post(self, request):
+        validated_request = self.validate_request(request)
+        if 'error' in validated_request:
+            return get_response(validated_request['error'])
+        batch_size = request.data.get('count')
+        barcode_type = request.data.get('type')
+        available_barcodes = Barcode.objects.filter(generator__barcode_type=barcode_type, is_available=True)[
+                             :batch_size]
+        available_barcodes_count = available_barcodes.count()
+        if available_barcodes_count < batch_size:
+            required_barcodes = batch_size - available_barcodes_count
+            last_generated = BarcodeGenerator.objects.filter(barcode_type=barcode_type).last()
+            if last_generated:
+                sequence_no = last_generated.last_sequence
+            else:
+                sequence_no = 0
+            last_sequence = sequence_no + required_barcodes
+            barcode_no = int(str(barcode_type) + str(sequence_no).zfill(10))
+            with transaction.atomic():
+                generator = BarcodeGenerator.objects.create(barcode_type=barcode_type, batch_size=batch_size,
+                                                            last_sequence=last_sequence, created_by=self.request.user)
+                Barcode.objects.bulk_create([Barcode(generator=generator, barcode_no='0' + str(barcode_no + i))
+                                             for i in range(1, required_barcodes + 1)],
+                                            batch_size=BULK_CREATE_NO_OF_RECORDS)
+            available_barcodes = Barcode.objects.filter(generator__barcode_type=barcode_type, is_available=True)[
+                                 :batch_size]
+        barcode_list = list(available_barcodes.values_list('barcode_no', flat=True))
+        barcode_dict = {b: {"qty": 1, "data": None} for b in barcode_list}
+        return merged_barcode_gen(barcode_dict, 'admin/retailer_to_sp/barcode.html')
+
+    def validate_request(self, request):
+        if 'count' not in request.data or request.data.get('count') <= 0:
+            return {'error': 'Invalid count'}
+        elif 'type' not in request.data or request.data.get('type') != 6:
+            return {'error': 'Invalid type'}
+        return {'data': self.request.data}
+
+
+class ReturnRejection(generics.ListCreateAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+    serializer_class = ShipmentReschedulingSerializer
+
+    def list(self, request, *args, **kwargs):
+        data = [{'name': reason[0], 'display_name': reason[1]} for reason in ReturnOrder.REJECT_REASONS]
+        msg = {'is_success': True, 'message': None, 'response_data': data}
+        return Response(msg, status=status.HTTP_200_OK)
+
+    def put(self, request):
+        result = self.validate_put_request()
+        if "error" in result:
+            result = {"is_success": False, "message": [result["error"]], "response_data": ''}
+            return Response(result, status=status.HTTP_200_OK)
+        return_id = self.request.data.get('return_id', None)
+        reject_reason = self.request.data.get('reject_reason', None)
+        orderreturn = ReturnOrder.objects.filter(pk=return_id).last()
+        trip_id = orderreturn.last_mile_trip_returns.last().trip.id
+        if orderreturn.return_status != ReturnOrder.RETURN_INITIATED:
+            result = {"is_success": False, "message": ["error: Return not found in initiated state"], "response_data": ''}
+            return Response(result, status=status.HTTP_200_OK)
+        orderreturn.reject_reason = reject_reason
+        orderreturn.return_status = ReturnOrder.RETURN_REJECTED
+        with transaction.atomic():
+            orderreturn.save()
+            update_trip_status(trip_id)
+        return get_response(["return rejected"], '', True)
+
+    def validate_put_request(self):
+        try:
+            if not self.request.data.get('return_id', None):
+                return {"error": "'return_id'| This is required"}
+            elif not self.request.data.get('return_item_id', None):
+                return {"error": "'return_item_id' | This is required."}
+            elif not self.request.data.get('reject_reason', None):
+                return {"error": "'reject_reason'| This is required"}
+            elif not any(self.request.data['reject_reason'] in reason for reason in ReturnOrder.REJECT_REASONS):
+                return {"error": "'reject_reason'| Invalid"}
+            return {"data": self.request.data}
+        except Exception as e:
+            return {"error": "Invalid Request"}

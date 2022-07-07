@@ -413,7 +413,7 @@ class CouponOfferCreation(GenericAPIView):
 
     @staticmethod
     def get_offer(coupon_id):
-        coupon = CouponGetSerializer(Coupon.objects.get(id=coupon_id)).data
+        coupon = CouponGetSerializer(Coupon.objects.filter(id=coupon_id).last()).data
         coupon.update(coupon['details'])
         coupon.pop('details')
         return api_response("Offers", coupon, status.HTTP_200_OK, True)
@@ -422,7 +422,14 @@ class CouponOfferCreation(GenericAPIView):
         """
           Get Offers List
        """
-        coupon = Coupon.objects.select_related('rule').filter(shop=shop_id)
+        shop = Shop.objects.filter(shop_name="Wherehouse").last()
+        app_type = request.META.get('HTTP_APP_TYPE', None)
+        if app_type == '2':
+            coupon = Coupon.objects.select_related('rule').filter(Q(shop=shop_id)|Q(shop=shop))\
+                .filter(Q(coupon_enable_on='pos')|Q(coupon_enable_on='all'))
+        elif app_type == '3':
+            coupon = Coupon.objects.select_related('rule').filter(Q(shop=shop_id)|Q(shop=shop))\
+                .filter(Q(coupon_enable_on='online')|Q(coupon_enable_on='all'))
         if request.GET.get('search_text'):
             coupon = coupon.filter(coupon_name__icontains=request.GET.get('search_text'))
         coupon = coupon.order_by('-updated_at')
@@ -471,6 +478,9 @@ class CouponOfferCreation(GenericAPIView):
                                                      start_date, expiry_date, data.get('limit_of_usages_per_customer', None))
             data['id'] = coupon.id
             coupon.coupon_enable_on = data.get('coupon_enable_on') if data.get('coupon_enable_on') else 'all'
+            coupon.froms = data.get('froms') if data.get('froms') else 0
+            coupon.to = data.get('to') if data.get('to') else 0
+            coupon.category = data.get('category') if data.get('category') else []
             coupon.save()
             data['coupon_enable_on'] = coupon.coupon_enable_on
             return api_response("Coupon Offer has been created successfully!", data, status.HTTP_200_OK, True)
@@ -521,6 +531,12 @@ class CouponOfferCreation(GenericAPIView):
         coupon = OffersCls.rule_set_cart_mapping(coupon_obj.id, 'catalog', combo_offer_name, combo_code, shop,
                                                  start_date, expiry_date, data.get('limit_of_usages_per_customer',None))
         data['id'] = coupon.id
+        coupon.coupon_enable_on = data.get('coupon_enable_on') if data.get('coupon_enable_on') else 'all'
+        coupon.froms = data.get('froms') if data.get('froms') else 0
+        coupon.to = data.get('to') if data.get('to') else 0
+        coupon.category = data.get('category') if data.get('category') else []
+        coupon.save()
+        data['coupon_enable_on'] = coupon.coupon_enable_on
         return api_response("Combo Offer has been created successfully!", data, status.HTTP_200_OK, True)
 
     @staticmethod
@@ -557,6 +573,12 @@ class CouponOfferCreation(GenericAPIView):
             return api_response(coupon_obj)
         coupon = OffersCls.rule_set_cart_mapping(coupon_obj.id, 'cart', coupon_name, coupon_code, shop, start_date,
                                                  expiry_date, data.get('limit_of_usages_per_customer',None))
+        coupon.coupon_enable_on = data.get('coupon_enable_on') if data.get('coupon_enable_on') else 'all'
+        coupon.froms = data.get('froms') if data.get('froms') else 0
+        coupon.to = data.get('to') if data.get('to') else 0
+        coupon.category = data.get('category') if data.get('category') else []
+        coupon.save()
+        data['coupon_enable_on'] = coupon.coupon_enable_on
         data['id'] = coupon.id
         return api_response("Free Product Offer has been created successfully!", data, status.HTTP_200_OK, True)
 

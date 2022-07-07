@@ -3,6 +3,7 @@ import logging
 
 from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
+from django.db.models import Sum
 
 from global_config.views import get_config
 from retailer_backend.common_function import brand_debit_note_pattern, grn_pattern, po_pattern
@@ -11,10 +12,11 @@ from sp_to_gram.models import (Cart as SpPO, CartProductMapping as SpPOProducts,
                                OrderedProduct as SpGRNOrder, OrderedProductMapping as SpGRNOrderProductMapping)
 from whc.models import AutoOrderProcessing
 from wms.common_functions import InCommonFunctions
-from wms.models import InventoryType
+from wms.models import BinInventory, InventoryType
 from .models import BrandNote, GRNOrderProductMapping, GRNOrder, Cart, Order, CartProductMapping, \
-    CartProductMappingTaxLog
+    CartProductMappingTaxLog, ProductCostPriceChangeLog, ProductGRNCostPriceMapping
 from .views import mail_to_vendor_on_po_approval
+from django.db import transaction
 
 logger = logging.getLogger(__name__)
 info_logger = logging.getLogger('file-info')
@@ -153,6 +155,43 @@ def create_debit_note(sender, instance=None, created=False, **kwargs):
         # ends here
         instance.available_qty = 0
         instance.save()
+
+
+@receiver(post_save, sender=GRNOrderProductMapping)
+def calculate_cost_price(sender, instance=None, created=False, **kwargs):
+    product = instance.product
+    if created:
+        avail_qty = BinInventory.objects.filter(sku=product, 
+                                                inventory_type__inventory_type='normal')\
+                                                    .aggregate(total=Sum('quantity')).get('total')
+        avail_qty = avail_qty if avail_qty else 0
+        cost_price_change_log = ProductCostPriceChangeLog()
+        try:
+            cost_price = ProductGRNCostPriceMapping.objects.get(product=product)
+            last_cp = cost_price.cost_price
+            cost_price_change_log.grn = cost_price.latest_grn
+        except ProductGRNCostPriceMapping.DoesNotExist:
+            cost_price = ProductGRNCostPriceMapping()
+            grn = GRNOrderProductMapping.objects.filter(product=product).exclude(id=instance.pk).last()
+            last_cp = grn.product_invoice_price if grn else 0
+            cost_price_change_log.grn = grn
+            cost_price.product = product
+        cost_price_change_log.cost_price_grn_mapping = cost_price
+        cost_price_change_log.cost_price = last_cp
+        current_purchase_price = instance.product_invoice_price
+        current_purchase_qty = instance.product_invoice_qty
+        new_cost_price = (float((avail_qty * last_cp)) + (current_purchase_qty * current_purchase_price)) / (avail_qty + current_purchase_qty)
+        ### updating cost price of product 
+        cost_price.cost_price = new_cost_price
+        cost_price.latest_grn = instance
+        cost_price.modified_at = datetime.datetime.now()
+        with transaction.atomic():
+            cost_price.save()
+            cost_price_change_log.cost_price_grn_mapping = cost_price
+            cost_price_change_log.save()
+    else:
+        cost_price = product.cost_price
+        pass
 
 
 @receiver(post_save, sender=Cart)

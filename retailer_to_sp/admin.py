@@ -39,7 +39,7 @@ from retailer_to_sp.views import (LoadDispatches, commercial_shipment_details, l
                                   assign_picker,
                                   assign_picker_change, UserWithNameAutocomplete, SellerAutocomplete,
                                   ShipmentOrdersAutocomplete, BuyerShopAutocomplete, BuyerParentShopAutocomplete,
-                                  DownloadPickList, DownloadPickListPicker, not_attempt_update_shipment)
+                                  DownloadPickList, DownloadPickListPicker, not_attempt_update_shipment, LoadReturnOrders)
 from sp_to_gram.models import (
     OrderedProductMapping as SpMappedOrderedProductMapping,
 )
@@ -551,7 +551,7 @@ class CartAdmin(ExportCsvMixinCart, ExportCsvMixinCartProduct, admin.ModelAdmin)
     form = CartForm
     list_display = ('order_id', 'cart_type', 'approval_status', 'created_at', 'buyer_shop', 'seller_shop','cart_status')
     #change_form_template = 'admin/sp_to_gram/cart/change_form.html'
-    list_filter = (SellerShopFilter, BuyerShopFilter,OrderIDFilter,  CategoryFilter)
+    list_filter = (SellerShopFilter, BuyerShopFilter,OrderIDFilter,  CategoryFilter, 'cart_type')
 
     class Media:
         css = {"all": ("admin/css/hide_admin_inline_object_name.css",)}
@@ -583,6 +583,11 @@ class CartAdmin(ExportCsvMixinCart, ExportCsvMixinCartProduct, admin.ModelAdmin)
             url(
                r'^load-dispatches/$',
                self.admin_site.admin_view(LoadDispatches.as_view()),
+               name="LoadDispatches"
+            ),
+            url(
+               r'^load-return-orders/$',
+               self.admin_site.admin_view(LoadReturnOrders.as_view()),
                name="LoadDispatches"
             ),
             url(
@@ -1901,7 +1906,7 @@ class TripAdmin(ExportCsvMixin, admin.ModelAdmin):
     change_list_template = 'admin/retailer_to_sp/trip/change_list.html'
     actions = ["export_as_csv_trip",]
     list_display = (
-        'dispathces', 'total_trip_shipments', 'delivery_boy', 'seller_shop', 'source_shop', 'vehicle_no',
+        'dispathces', 'total_trip_shipments', 'total_trip_returns', 'delivery_boy', 'seller_shop', 'source_shop', 'vehicle_no',
         'trip_status', 'starts_at', 'completed_at', 'download_trip_pdf'
     )
     readonly_fields = ('dispathces',)

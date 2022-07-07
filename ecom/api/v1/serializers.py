@@ -136,10 +136,16 @@ class UserLocationSerializer(serializers.Serializer):
 class ShopSerializer(serializers.ModelSerializer):
     shipping_address = serializers.SerializerMethodField()
     shop_config = serializers.SerializerMethodField()
+    shipping_pincode = serializers.SerializerMethodField()
 
     @staticmethod
     def get_shipping_address(obj):
         return obj.shipping_address
+
+    @staticmethod
+    def get_shipping_pincode(obj):
+        return obj.shop_name_address_mapping.filter(
+                address_type='shipping').last().pincode_link.pincode
 
     @staticmethod
     def get_shop_config(obj):
@@ -168,7 +174,8 @@ class ShopSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Shop
-        fields = ('id', 'shop_name', 'online_inventory_enabled', 'superstore_enable', 'shipping_address','shop_config')
+        fields = ('id', 'shop_name', 'online_inventory_enabled', 'superstore_enable',
+                  'shipping_address', 'shipping_pincode', 'shop_config')
 
 
 class AddressSerializer(serializers.ModelSerializer):
@@ -247,33 +254,33 @@ class EcomOrderAddressSerializer(serializers.ModelSerializer):
 
 
     def get_address(self, obj):
-        if obj.order.delivery_option == '1':
-            return obj.order.seller_shop.shipping_address_obj.address if obj.order.seller_shop.shipping_address_obj.address else None
+        #if obj.order.delivery_option == '1':
+            #return obj.order.seller_shop.shipping_address_obj.address if obj.order.seller_shop.shipping_address_obj.address else None
         return obj.address if obj.address else None
 
     def get_contact_name(self, obj):
-        if obj.order.delivery_option == '1':
-            return obj.order.seller_shop.shipping_address_obj.contact_name if obj.order.seller_shop.shipping_address_obj.contact_name else None
+        #if obj.order.delivery_option == '1':
+            #return obj.order.seller_shop.shipping_address_obj.contact_name if obj.order.seller_shop.shipping_address_obj.contact_name else None
         return obj.contact_name if obj.contact_name else None
 
     def get_contact_number(self, obj):
-        if obj.order.delivery_option == '1':
-            return obj.order.seller_shop.shipping_address_obj.contact_number if obj.order.seller_shop.shipping_address_obj.contact_number else None
+        #if obj.order.delivery_option == '1':
+            #return obj.order.seller_shop.shipping_address_obj.contact_number if obj.order.seller_shop.shipping_address_obj.contact_number else None
         return obj.contact_number if obj.contact_number else None
 
     def get_pincode(self, obj):
-        if obj.order.delivery_option == '1':
-            return obj.order.seller_shop.shipping_address_obj.pincode if obj.order.seller_shop.shipping_address_obj.pincode else None
+        #if obj.order.delivery_option == '1':
+            #return obj.order.seller_shop.shipping_address_obj.pincode if obj.order.seller_shop.shipping_address_obj.pincode else None
         return obj.pincode if obj.pincode else None
 
     def get_city(self, obj):
-        if obj.order.delivery_option == '1':
-            return obj.order.seller_shop.shipping_address_obj.city.city_name if obj.order.seller_shop.shipping_address_obj.city else None
+        #if obj.order.delivery_option == '1':
+            #return obj.order.seller_shop.shipping_address_obj.city.city_name if obj.order.seller_shop.shipping_address_obj.city else None
         return obj.city.city_name if obj.city else None
 
     def get_state(self, obj):
-        if obj.order.delivery_option == '1':
-            return obj.order.seller_shop.shipping_address_obj.state.state_name if obj.order.seller_shop.shipping_address_obj.state else None
+        #if obj.order.delivery_option == '1':
+            #return obj.order.seller_shop.shipping_address_obj.state.state_name if obj.order.seller_shop.shipping_address_obj.state else None
         return obj.state.state_name if obj.state else None
 
     class Meta:

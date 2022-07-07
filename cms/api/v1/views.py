@@ -679,7 +679,7 @@ class PageVersionDetailView(APIView):
             "message": "OK",
             "data": serializer.data
         }
-        cache.set(page_key, message)
+        #cache.set(page_key, message)
         return Response(message)
 
 
@@ -806,7 +806,10 @@ class LandingPageView(generics.GenericAPIView):
             self.queryset = self.filter_landing_pages()
             landing_pages = SmallOffsetPagination().paginate_queryset(self.queryset, request)
         shop_id = kwargs.get('shop', None)
-        serializer = self.serializer_class(landing_pages, many=True, context={'request':request, 'shop_id': shop_id})
+        app_id = kwargs.get('app_type', None)
+        parent_shop = kwargs.get('parent_shop', None)
+        serializer = self.serializer_class(landing_pages, many=True, context={'request':request, 'shop_id': shop_id,
+                                                                              'app_id':app_id, 'parent_shop':parent_shop})
         msg = "" if landing_pages else "no landing page found"
         return get_response(msg, serializer.data, True)
 

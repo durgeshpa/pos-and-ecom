@@ -464,7 +464,7 @@ class Cart(models.Model):
 
             cart_items_count = self.rt_cart_list.count()
             for cart_coupon in cart_coupons:
-                if cart_coupon.rule.cart_qualifying_min_sku_value and not cart_coupon.rule.cart_qualifying_min_sku_item:
+                if cart_coupon.rule.cart_qualifying_min_sku_value and not cart_coupon.rule.cart_qualifying_min_sku_item and cart_coupon.rule.discount:
                     cart_coupon_list.append(cart_coupon)
                     i += 1
                     if cart_value >= cart_coupon.rule.cart_qualifying_min_sku_value:
@@ -509,7 +509,7 @@ class Cart(models.Model):
                 next_index = 1
             if i > 1:
                 next_cart_coupon_min_value = cart_coupon_list[i - next_index].rule.cart_qualifying_min_sku_value
-                next_cart_coupon_min_value_diff = round(next_cart_coupon_min_value - cart_value + discount_value_cart,
+                next_cart_coupon_min_value_diff = round(next_cart_coupon_min_value - cart_value + float(discount_value_cart),
                                                         2)
                 next_cart_coupon_discount = cart_coupon_list[i - next_index].rule.discount.discount_value if \
                     cart_coupon_list[i - next_index].rule.discount.is_percentage == False else (
@@ -848,9 +848,12 @@ class CartProductMapping(models.Model):
         if self.retailer_product:
             if self.cart.offers and self.product_type:
                 array = list(filter(lambda d: d['coupon_type'] in 'catalog', self.cart.offers))
-                for i in array:
-                    if int(self.retailer_product.id) == int(i['item_id']):
-                        item_effective_price = (float(i.get('discounted_product_subtotal', 0))) / float(self.no_of_pieces)
+                if array:
+                    for i in array:
+                        if int(self.retailer_product.id) == int(i['item_id']):
+                            item_effective_price = (float(i.get('discounted_product_subtotal', 0))) / float(self.no_of_pieces)
+                else:
+                    item_effective_price = float(self.selling_price) if self.selling_price else 0
             else:
                 item_effective_price = float(self.selling_price) if self.selling_price else 0
         else:
@@ -1467,9 +1470,13 @@ class Trip(models.Model):
 
     @property
     def trip_amount(self):
-        return self.last_mile_trip_shipments_details.filter(~Q(shipment_status='CANCELLED')) \
+        shipment_amount = self.last_mile_trip_shipments_details.filter(~Q(shipment_status='CANCELLED')) \
             .annotate(invoice_amount=RoundAmount(F('shipment__invoice__invoice_total'))) \
             .aggregate(trip_amount=Sum(F('invoice_amount'), output_field=FloatField())).get('trip_amount')
+        return_amount = sum([return_order_trip.return_order.return_amount for return_order_trip in self.last_mile_trip_returns_details.filter(~Q(shipment_status='CANCELLED'))])
+        if not shipment_amount:
+            shipment_amount = 0
+        return float(return_amount) + shipment_amount 
 
     @property
     def total_received_amount(self):
@@ -1493,6 +1500,10 @@ class Trip(models.Model):
     @property
     def total_trip_shipments(self):
         return self.rt_invoice_trip.count()
+
+    @property
+    def total_trip_returns(self):
+        return self.last_mile_trip_returns_details.filter(~Q(shipment_status=LastMileTripReturnMapping.CANCELLED)).count()
 
     @property
     def total_delivered_shipments(self):
@@ -1603,6 +1614,8 @@ class Trip(models.Model):
             data['no_of_crates'] += shipment_data['no_of_crates'] if shipment_data.get('no_of_crates') else 0
             data['no_of_packs'] += shipment_data['no_of_packs'] if shipment_data.get('no_of_packs') else 0
             data['no_of_sacks'] += shipment_data['no_of_sacks'] if shipment_data.get('no_of_sacks') else 0
+        returns_loaded = self.last_mile_trip_returns_details.filter(~Q(shipment_status='CANCELLED')).count()
+        data['no_of_packs'] += returns_loaded
         return data
 
 
@@ -1756,6 +1769,7 @@ class OrderedProduct(models.Model):  # Shipment
     is_returned = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Invoice Date")
     modified_at = models.DateTimeField(auto_now=True)
+    points_added = models.BooleanField(default=False,null=False, blank=True)
 
     class Meta:
         verbose_name = 'Update Delivery/ Returns/ Damage'
@@ -2103,7 +2117,7 @@ class ReturnOrder(models.Model):
     DEFECTIVE_DAMAGED_ITEM = 'defective_damaged_item'
     WRONG_ITEM_DELIVERED = 'wrong_item_delivered'
     ITEM_DID_NOT_MATCH_DESCRIPTION = 'item_did_not_match_description'
-    OTHER = 'other'
+    OTHER = 'OTHER'
     RETURN_REASON = (
         (DEFECTIVE_DAMAGED_ITEM, 'Defective / Damaged item'),
         (WRONG_ITEM_DELIVERED, 'Wrong item delivered'),
@@ -2113,20 +2127,26 @@ class ReturnOrder(models.Model):
     RETURN_REQUESTED = 'RETURN_REQUESTED'
     STORE_ITEM_PICKED = 'STORE_ITEM_PICKED'
     DC_DROPPED = 'DC_DROPPED'
+    DC_ACCEPTED = 'DC_ACCEPTED'
     WH_DROPPED = 'WH_DROPPED'
+    WH_ACCEPTED = 'WH_ACCEPTED'
     RETURN_CANCEL = 'RETURN_CANCEL'
     CUSTOMER_ITEM_PICKED = 'CUSTOMER_ITEM_PICKED'
     RETURN_INITIATED = 'RETURN_INITIATED'
     RETURN_COMPLETE = 'RETURN_COMPLETE'
+    RETURN_REJECTED = 'RETURN_REJECTED'
     RETURN_STATUS = (
         (RETURN_REQUESTED, 'Return requested'),
         (RETURN_INITIATED, 'Return initiated'),
         (CUSTOMER_ITEM_PICKED, 'Customer item picked'),
         (STORE_ITEM_PICKED, 'Retailer Item Picked'),
         (DC_DROPPED, 'DC Dropped'),
+        (DC_ACCEPTED, 'DC accepted'),
         (WH_DROPPED, 'WH Dropped'),
+        (WH_ACCEPTED, 'WH accepted'),
         (RETURN_CANCEL, 'Return cancelled'),
-        (RETURN_COMPLETE, 'Return completed')
+        (RETURN_COMPLETE, 'Return completed'),
+        (RETURN_REJECTED, 'Return Rejected')
     )
     DROP_AT_STORE = 'DROP_AT_STORE'
     HOME_PICKUP = 'HOME_PICKUP'
@@ -2143,6 +2163,13 @@ class ReturnOrder(models.Model):
         (SUPERSTORE, "Superstore returns"),
         (SUPERSTORE_WAREHOUSE, "Superstore warehouse returns")
     )
+    REJECT_REASONS = (('USED_PRODUCT', 'Product is used'),
+                      ('DAMAGED_PRODUCT', 'Product is damaged'),
+                      ('PRODUCT_IMAGE_DIFF', 'Product does not matches with the images uploaded by the customer'),
+                      ('RETAILER_DENIED', 'Retailer Denied'),
+                      ('RETAILER_UNAVAILABLE', 'Retailer Not available'))
+
+
     return_no = models.CharField(max_length=255, null=True, blank=True)
     shipment = models.ForeignKey(OrderedProduct, 
                                 related_name='shipment_return_orders',
@@ -2159,6 +2186,8 @@ class ReturnOrder(models.Model):
         max_length=50, choices=RETURN_REASON,
         null=True, blank=True, verbose_name='Reason for Return',
     )
+    reject_reason = models.CharField(max_length=50, choices=REJECT_REASONS, null=True, blank=True,
+                                     verbose_name='Reason for Rejection')
     seller_shop = models.ForeignKey(
         Shop, related_name='seller_shop_return_orders',
         null=True, blank=True, on_delete=models.DO_NOTHING
@@ -2172,6 +2201,10 @@ class ReturnOrder(models.Model):
     return_pickup_method = models.CharField(
         max_length=50, choices=RETURN_PICKUP_METHOD,
         null=True, blank=True, verbose_name='Method for Product pick up'
+    )
+    dc_location = models.ForeignKey(
+        Shop, related_name='dc_location_return_orders',
+        null=True, blank=True, on_delete=models.DO_NOTHING
     )
     other_return_reason = models.CharField(
         max_length=100, null=True, blank=True, 
@@ -2194,6 +2227,11 @@ class ReturnOrder(models.Model):
                                          blank=True, null=True,
                                          on_delete=models.CASCADE)
     
+    @property
+    def return_amount(self):
+        sm = [return_product.return_qty * return_product.return_price for return_product in self.return_order_products.all()]
+        return sum(sm)
+    
     class Meta:
         verbose_name = 'Return Order request'
         verbose_name_plural = 'Return Order requests'
@@ -2201,7 +2239,7 @@ class ReturnOrder(models.Model):
 
 class ReturnOrderProduct(models.Model):
     return_order = models.ForeignKey(
-        ReturnOrder, 
+        ReturnOrder,
         related_name='return_order_products',
         on_delete=models.CASCADE
     )
@@ -2214,7 +2252,14 @@ class ReturnOrderProduct(models.Model):
         null=True, on_delete=models.DO_NOTHING
     )
     return_qty = models.PositiveIntegerField(default=0, verbose_name="Returned Quantity")
+    delivery_picked_quantity = models.PositiveIntegerField(default=0, verbose_name="Picked Quantity")
+    verified_return_quantity = models.PositiveIntegerField(default=0, verbose_name="Verified Return Quantity")
+    expired_qty = models.PositiveIntegerField(default=0, verbose_name="Expired Quantity")
+    damaged_qty = models.PositiveIntegerField(default=0, verbose_name="Damaged Quantity")
     return_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    return_shipment_barcode = models.CharField(max_length=255, null=True, blank=True)
+    is_return_verified = models.BooleanField(default=False)
+    is_bck_return_verified = models.BooleanField(default=False)
     last_modified_by = models.ForeignKey(
         get_user_model(), related_name='modified_by_return_orders',
         null=True, on_delete=models.DO_NOTHING
@@ -2225,6 +2270,20 @@ class ReturnOrderProduct(models.Model):
     class Meta:
         verbose_name = 'Return Order Product'
         verbose_name_plural = 'Return Order Products'
+
+
+class ReturnProductBatch(models.Model):
+    return_product = models.ForeignKey(
+        ReturnOrderProduct,
+        related_name='return_product_batches',
+        on_delete=models.CASCADE
+    )
+    batch_id = models.CharField(max_length=100)
+    return_qty = models.PositiveIntegerField(default=0)
+    expired_qty = models.PositiveIntegerField(default=0)
+    damaged_qty = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
 
 
 class ReturnOrderProductImage(models.Model):
@@ -2370,6 +2429,7 @@ class OrderedProductMapping(models.Model):
     )
     product_type = models.IntegerField(choices=((0, 'Free'), (1, 'Purchased')), default=1)
     selling_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    cost_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     shipped_qty = models.DecimalField(max_digits=10, decimal_places=3, default=0, verbose_name="Shipped Pieces",
                                       validators=[MinValueValidator(0)])
     delivered_qty = models.DecimalField(max_digits=10, decimal_places=3, default=0, verbose_name="Delivered Pieces",
@@ -3810,6 +3870,10 @@ class DispatchTrip(BaseTimestampUserModel):
     def no_of_shipments(self):
         return self.shipments_details.exclude(shipment_status__in=[DispatchTripShipmentMapping.LOADING_FOR_DC,
                                                                    DispatchTripShipmentMapping.CANCELLED]).count()
+    
+    @property
+    def no_of_returns(self):
+        return self.return_order_details.exclude(return_order_status__in=[DispatchTripReturnOrderMapping.CANCELLED]).count()
 
     @property
     def trip_id(self):
@@ -3936,6 +4000,28 @@ class DispatchTripShipmentMapping(BaseTimestampUserModel):
                                   null=True, blank=True, on_delete=models.CASCADE)
 
 
+class DispatchTripReturnOrderMapping(BaseTimestampUserModel):
+    LOADED, UNLOADED = 'LOADED', 'UNLOADED'
+    DAMAGED_AT_LOADING, DAMAGED_AT_UNLOADING = 'DAMAGED_AT_LOADING', 'DAMAGED_AT_UNLOADING'
+    MISSING_AT_LOADING, MISSING_AT_UNLOADING = 'MISSING_AT_LOADING', 'MISSING_AT_UNLOADING'
+    CANCELLED = 'CANCELLED'
+    PARTIALLY_VERIFIED, VERIFIED = 'PARTIALLY_VERIFIED', 'VERIFIED'
+    RETURN_ORDER_STATUS = (
+        (LOADED, 'Loaded'),
+        (UNLOADED, 'Unloaded'),
+        (DAMAGED_AT_LOADING, 'Damaged At Loading'),
+        (DAMAGED_AT_UNLOADING, 'Damaged At Unloading'),
+        (MISSING_AT_LOADING, 'Missing At Loading'),
+        (MISSING_AT_UNLOADING, 'Missing At Unloading'),
+        (CANCELLED, 'Cancelled'),
+        (PARTIALLY_VERIFIED, 'Partially Verified'),
+        (VERIFIED, 'Verified')
+    )
+    trip = models.ForeignKey(DispatchTrip, related_name='return_order_details', on_delete=models.DO_NOTHING)
+    return_order = models.ForeignKey(ReturnOrder, related_name='trip_return_order', on_delete=models.DO_NOTHING)
+    return_order_status = models.CharField(max_length=100, choices=RETURN_ORDER_STATUS)
+
+
 class DispatchTripShipmentPackages(BaseTimestampUserModel):
     LOADED, UNLOADED = 'LOADED', 'UNLOADED'
     DAMAGED_AT_LOADING, DAMAGED_AT_UNLOADING = 'DAMAGED_AT_LOADING', 'DAMAGED_AT_UNLOADING'
@@ -4020,6 +4106,35 @@ class LastMileTripShipmentPackages(BaseTimestampUserModel):
     return_remark = models.CharField(max_length=100, choices=RETURN_REMARK_CHOICES, null=True)
 
 
+class LastMileTripReturnMapping(BaseTimestampUserModel):
+    TO_BE_LOADED, LOADING_FOR_DC, LOADED_FOR_DC = 'TO_BE_LOADED', 'LOADING_FOR_DC', 'LOADED_FOR_DC'
+    CANCELLED = 'CANCELLED'
+    SHIPMENT_STATUS = (
+        (TO_BE_LOADED, 'To be Loaded For Dispatch'),
+        (LOADING_FOR_DC, 'Loading For Dispatch'),
+        (LOADED_FOR_DC, 'Loaded For Dispatch'),
+        (CANCELLED, 'Cancelled'),
+    )
+
+    OKAY, PARTIALLY_MISSING_DAMAGED = 'OKAY', 'PARTIALLY_MISSING_DAMAGED'
+    PARTIALLY_DAMAGED, PARTIALLY_MISSING = 'PARTIALLY_DAMAGED', 'PARTIALLY_MISSING'
+    FULLY_DAMAGED, FULLY_MISSING = 'FULLY_DAMAGED', 'FULLY_MISSING'
+    SHIPMENT_HEALTH = (
+        (OKAY, 'Okay'),
+        (PARTIALLY_MISSING_DAMAGED, 'Partially Missing & Damaged'),
+        (PARTIALLY_DAMAGED, 'Partially Damaged'),
+        (PARTIALLY_MISSING, 'Partially Missing'),
+        (FULLY_DAMAGED, 'Fully Damaged'),
+        (FULLY_MISSING, 'Fully Missing'),
+    )
+    trip = models.ForeignKey(Trip, related_name='last_mile_trip_returns_details', on_delete=models.DO_NOTHING)
+    return_order = models.ForeignKey(ReturnOrder, related_name='last_mile_trip_returns', on_delete=models.DO_NOTHING)
+    shipment_status = models.CharField(max_length=100, choices=SHIPMENT_STATUS)
+    shipment_health = models.CharField(max_length=100, null=True, blank=True, choices=SHIPMENT_HEALTH)
+    loaded_by = models.ForeignKey(User, related_name='last_mile_trip_returns_loaded',
+                                  null=True, blank=True, on_delete=models.CASCADE)
+
+
 class ShopCrate(BaseTimestampUserModel):
     shop = models.ForeignKey(Shop, on_delete=models.DO_NOTHING)
     crate = models.ForeignKey(Crate, related_name='shop_crates', null=True, on_delete=models.DO_NOTHING)
@@ -4097,3 +4212,23 @@ class BuyerPurchaseData(models.Model):
     class Meta:
         verbose_name = 'Buyer Purchase'
         verbose_name_plural = 'Buyer Purchase'
+
+
+class BarcodeGenerator(models.Model):
+    RETURN_PICKUP = 'RETURN_PICKUP'
+    BARCODE_TYPE_CHOICE = Choices((6, RETURN_PICKUP, 'Return Pickup'),)
+    barcode_type = models.CharField(choices=BARCODE_TYPE_CHOICE, max_length=15)
+    batch_size = models.PositiveSmallIntegerField(default=1)
+    last_sequence = models.PositiveIntegerField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    created_by = models.ForeignKey(get_user_model(), on_delete=models.DO_NOTHING)
+
+
+class Barcode(models.Model):
+    generator = models.ForeignKey(BarcodeGenerator, on_delete=models.DO_NOTHING)
+    barcode_no = models.CharField(max_length=13)
+    is_available = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+
