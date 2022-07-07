@@ -16,7 +16,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
 from django.core import validators
 from django.core.exceptions import ObjectDoesNotExist
-from django.db.models import F, Sum, Q, Case, When, Value, FloatField
+from django.db.models import F, Sum, Q, Case, When, Value, FloatField, IntegerField
 from django.core.files.base import ContentFile
 from django.db import transaction, models
 from django.db.models import F, Sum, Q, Count, Value, Case, When, Subquery
@@ -3830,7 +3830,6 @@ class OrderCentral(APIView):
         """
         try:
             order = OrderedProductMapping.objects.get(pk=self.request.GET.get('product_mapping_id'),
-                                                      ordered_product__order__buyer=self.request.user,
                                                       ordered_product__order__ordered_cart__cart_type='SUPERSTORE')
         except OrderedProductMapping.DoesNotExist:
             return api_response("Order Not Found!")
@@ -8181,8 +8180,14 @@ class DeliveryShipmentDetails(APIView):
         trip_mappings = trip.last_mile_trip_returns_details.all()
         trip_return = []
         grouped_return_list = ReturnOrder.objects.filter(last_mile_trip_returns__in=trip_mappings)\
-                                                 .values('buyer_shop', 'seller_shop', 'return_status')\
-                                                 .annotate(return_count=Count('id')).order_by()
+                                                 .values('buyer_shop', 'seller_shop')\
+                                                 .annotate(return_count=Count('id'),
+                                                           status=Sum(Case(
+                                                               When(return_status__in=[ReturnOrder.RETURN_REQUESTED,
+                                                                                       ReturnOrder.RETURN_INITIATED],
+                                                                    then=1),
+                                                               default=0
+                                                           ), output_field=IntegerField())).order_by()
         for grouped_return in grouped_return_list:
             grouped_return_dict = {}
             grouped_return_dict['item_type'] = 'return'
@@ -8215,7 +8220,7 @@ class DeliveryShipmentDetails(APIView):
             grouped_return_dict['buyer_shop'] = SellerShopSerializer(buyerShop).data
             grouped_return_dict['shipping_address'] = AddressSerializer(shipping_address).data
             grouped_return_dict['return_count'] = grouped_return['return_count']
-            grouped_return_dict['shipment_status'] = grouped_return['return_status']
+            grouped_return_dict['shipment_status'] = 'PENDING' if grouped_return['status'] > 0 else 'COMPLETED'
             # grouped_return_dict['return_value'] = ReturnOrder.objects.filter(id=grouped_return['id']).last().return_amount
             grouped_return_dict['shipment_status'] = grouped_return['return_status']
             grouped_return_dict['return_value'] = ReturnOrder.objects.filter(id=grouped_return['id']).last().return_amount
