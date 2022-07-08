@@ -18,7 +18,9 @@ error_logger = logging.getLogger('file-error')
 
 
 def run():
-    grns = GRNOrderProductMapping.objects.order_by('created_at')
+    grns = GRNOrderProductMapping.objects.filter(product_invoice_qty__gt=0)\
+        .filter(product_invoice_price__gt=0).order_by('created_at')
+    print(f"Total GRN found :: {grns.count()}")
     for grn in grns:
         create_cost_price(grn)
 
@@ -36,7 +38,11 @@ def create_cost_price(instance):
         cost_price_change_log.grn = cost_price.latest_grn
     except ProductGRNCostPriceMapping.DoesNotExist:
         cost_price = ProductGRNCostPriceMapping()
-        grn = GRNOrderProductMapping.objects.filter(product=product).exclude(id=instance.pk).last()
+        grn = GRNOrderProductMapping.objects.filter(product=product, 
+                                                    product_invoice_qty__gt=0)\
+                                                        .filter(product_invoice_price__gt=0, 
+                                                                id__lt=instance.pk)\
+                                                            .exclude(id=instance.pk).last()
         last_cp = grn.product_invoice_price if grn else 0
         cost_price_change_log.grn = grn
         cost_price.product = product
