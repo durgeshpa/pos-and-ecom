@@ -669,6 +669,7 @@ class UploadMasterData(object):
                     brand_case_size=int(row['brand_case_size']),
                     status=True if str(row['status'].lower()) == 'active' else False,
                     is_lead_time_applicable=(True if row['is_lead_time_applicable'].lower() == 'yes' else False),
+                    is_kvi=(True if row['is_kvi'].lower() == 'yes' else False),
                     created_by=user
                 )
                 ParentProductCls.create_parent_product_log(parent_product, "created")
