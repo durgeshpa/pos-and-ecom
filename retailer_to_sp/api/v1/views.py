@@ -6858,7 +6858,11 @@ def pdf_generation(request, ordered_product):
                 "shop_name_gram": shop_name_gram, "nick_name_gram": nick_name_gram,
                 "address_line1_gram": address_line1_gram, "city_gram": city_gram, "state_gram": state_gram,
                 "pincode_gram": pincode_gram, "cin": cin_number,
-                "hsn_list": list1, "license_number": license_number, "e_invoice_data": e_invoice_data}
+                "hsn_list": list1, "license_number": license_number, "e_invoice_data": e_invoice_data,
+                "no_of_crate":ordered_product.shipment_packaging.filter(packaging_type='CRATE').count(),
+                "no_of_box":ordered_product.shipment_packaging.filter(packaging_type='BOX').count(),
+                "no_of_sack":ordered_product.shipment_packaging.filter(packaging_type='SACK').count()
+                }
 
         cmd_option = {"margin-top": 10, "zoom": 1, "javascript-delay": 1000, "footer-center": "[page]/[topage]",
                       "no-stop-slow-scripts": True, "quiet": True}
