@@ -426,7 +426,7 @@ def read_file(csv_file, upload_master_data, category, b2c_category):
         required_header_list = ['product_name', 'product_type', 'hsn', 'gst', 'cess', 'surcharge', 'inner_case_size',
                                 'brand_name', 'b2b_category_name', 'b2c_category_name', 'is_ptr_applicable', 'ptr_type',
                                 'ptr_percent', 'is_ars_applicable', 'max_inventory_in_days', 'is_lead_time_applicable',
-                                'status', 'brand_case_size', 'brand_id', 'discounted_life_percent']
+                                'status', 'brand_case_size', 'brand_id', 'discounted_life_percent', 'is_kvi']
     if upload_master_data == "create_child_product":
         required_header_list = ['parent_id', 'product_name', 'reason_for_child_sku', 'ean', 'mrp', 'weight_unit',
                                 'weight_value', 'status', 'repackaging_type', 'source_sku_id', 'packing_sku_id',
