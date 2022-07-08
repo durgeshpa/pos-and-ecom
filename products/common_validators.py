@@ -400,7 +400,7 @@ def read_file(csv_file, upload_master_data, category, b2c_category):
                                 'b2b_sub_category_name', 'b2c_category_id', 'b2c_category_name', 'b2c_sub_category_id',
                                 'b2c_sub_category_name', 'status', 'is_ptr_applicable', 'ptr_type', 'ptr_percent',
                                 'brand_case_size', 'is_ars_applicable', 'max_inventory_in_days',
-                                'is_lead_time_applicable', 'status', 'discounted_life_percent']
+                                'is_lead_time_applicable', 'status', 'discounted_life_percent', 'is_kvi']
     if upload_master_data == "parent_product_b2c_category_update":
         required_header_list = ['parent_id', 'parent_name', 'b2c_category_id', 'b2c_category_name',
                                 'b2c_sub_category_id', 'b2c_sub_category_name', 'new_b2c_category_id',
