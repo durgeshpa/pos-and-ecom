@@ -342,7 +342,7 @@ class ParentProductSerializers(serializers.ModelSerializer):
                   'parent_product_pro_b2c_category', 'is_ptr_applicable', 'ptr_percent', 'ptr_type',
                   'is_ars_applicable', 'max_inventory', 'is_lead_time_applicable', 'discounted_life_percent',
                   'product_images', 'parent_product_pro_image', 'product_parent_product', 'parent_product_log',
-                  'tax_status', 'tax_remark')
+                  'tax_status', 'tax_remark', 'is_kvi')
 
     def to_representation(self, instance):
         representation = super().to_representation(instance)
@@ -449,7 +449,7 @@ class ParentProductExportAsCSVSerializers(serializers.ModelSerializer):
             'parent_id', 'name', 'parent_brand', 'b2b_category', 'b2c_category', 'product_hsn', 'product_gst', 'product_cess',
             'product_surcharge', 'inner_case_size', 'product_image', 'status', 'product_type', 'is_ptr_applicable',
             'ptr_type',
-            'ptr_percent', 'is_ars_applicable', 'is_lead_time_applicable', 'max_inventory',
+            'ptr_percent', 'is_ars_applicable', 'is_lead_time_applicable', 'max_inventory', 'is_kvi'
         ]
 
         response = HttpResponse(content_type='text/csv')
