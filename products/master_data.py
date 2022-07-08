@@ -994,7 +994,7 @@ class DownloadMasterData(object):
         data = [["parent1", "2", "Too Yumm", "Health Care, Beverages, Grocery & Staples", "Grocery & Staples", "123456",
                  "18", "12", "100", "10", "2", "grocery", "yes", "Mark Up", "12", "yes", "2", "2", "yes", "deactivated", "No"],
                 ["parent2", "2", "Too Yumm", "Health Care, Beverages", "Grocery & Staples", "123456", "18", "12", "100",
-                 "10", "2", "superstore" "yes", "Mark Up", "12", "yes", "0.0", "2", "yes", "active", "Yes"]]
+                 "10", "2", "superstore", "yes", "Mark Up", "12", "yes", "0.0", "2", "yes", "active", "Yes"]]
 
         for row in data:
             writer.writerow(row)
