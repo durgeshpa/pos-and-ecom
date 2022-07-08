@@ -1179,7 +1179,7 @@ class DownloadMasterData(object):
                    'b2b_category_id', 'b2b_category_name', 'b2b_sub_category_id', 'b2b_sub_category_name',
                    'b2c_category_id', 'b2c_category_name', 'b2c_sub_category_id', 'b2c_sub_category_name', 'status',
                    'is_ptr_applicable', 'ptr_type', 'ptr_percent', 'is_ars_applicable', 'max_inventory_in_days',
-                   'is_lead_time_applicable', 'discounted_life_percent']
+                   'is_lead_time_applicable', 'discounted_life_percent', 'is_kvi']
         writer.writerow(columns)
 
         sub_cat = Category.objects.filter(category_parent=validated_data['category_id'])
@@ -1281,6 +1281,7 @@ class DownloadMasterData(object):
             row.append(product['parent_product__max_inventory'])
             row.append('Yes' if product['parent_product__is_lead_time_applicable'] else 'No')
             row.append(product['parent_product__discounted_life_percent'])
+            row.append('Yes' if product['parent_product__is_kvi'] else 'No')
 
             writer.writerow(row)
         info_logger.info("Parent Data Sample File has been Successfully Downloaded")
