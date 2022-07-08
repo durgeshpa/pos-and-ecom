@@ -239,7 +239,7 @@ class UploadMasterData(object):
                               'tax_3(surcharge)', 'brand_case_size', 'inner_case_size', 'brand_id', 'sub_brand_id',
                               'b2b_category_id', 'b2b_sub_category_id', 'b2c_category_id', 'b2c_sub_category_id',
                               'is_ptr_applicable', 'ptr_type', 'brand_case_size', 'ptr_percent', 'is_ars_applicable',
-                              'max_inventory_in_days', 'is_lead_time_applicable', 'discounted_life_percent']
+                              'max_inventory_in_days', 'is_lead_time_applicable', 'discounted_life_percent', 'is_kvi']
 
                     available_fields = []
 
@@ -344,6 +344,10 @@ class UploadMasterData(object):
                                                                                       'is_lead_time_applicable'].lower() == 'yes' else False)
                         if col == 'discounted_life_percent':
                             parent_product.update(discounted_life_percent=row['discounted_life_percent'])
+
+                        if col == 'is_kvi':
+                            parent_product.update(is_kvi=True if row['is_kvi'].lower() == 'yes' else False)
+
                         parent_product.update(updated_by=user)
                         ParentProductCls.update_tax_status_and_remark(parent_product.last())
                         ParentProductCls.create_parent_product_log(parent_product.last(), "updated")
@@ -985,12 +989,12 @@ class DownloadMasterData(object):
         columns = ["product_name", "brand_id", "brand_name", "b2b_category_name", "b2c_category_name", "hsn", "gst",
                    "cess", "surcharge", "inner_case_size", "brand_case_size", "product_type", "is_ptr_applicable",
                    "ptr_type", "ptr_percent", "is_ars_applicable", "discounted_life_percent", "max_inventory_in_days", "is_lead_time_applicable",
-                   "status"]
+                   "status", 'is_kvi']
         writer.writerow(columns)
         data = [["parent1", "2", "Too Yumm", "Health Care, Beverages, Grocery & Staples", "Grocery & Staples", "123456",
-                 "18", "12", "100", "10", "2", "grocery", "yes", "Mark Up", "12", "yes", "2", "2", "yes", "deactivated"],
+                 "18", "12", "100", "10", "2", "grocery", "yes", "Mark Up", "12", "yes", "2", "2", "yes", "deactivated", "No"],
                 ["parent2", "2", "Too Yumm", "Health Care, Beverages", "Grocery & Staples", "123456", "18", "12", "100",
-                 "10", "2", "superstore" "yes", "Mark Up", "12", "yes", "0.0", "2", "yes", "active"]]
+                 "10", "2", "superstore" "yes", "Mark Up", "12", "yes", "0.0", "2", "yes", "active", "Yes"]]
 
         for row in data:
             writer.writerow(row)
@@ -1207,7 +1211,8 @@ class DownloadMasterData(object):
                                                                'parent_product__is_ars_applicable',
                                                                'parent_product__max_inventory',
                                                                'parent_product__is_lead_time_applicable',
-                                                               'parent_product__discounted_life_percent',).filter(
+                                                               'parent_product__discounted_life_percent',
+                                                               'parent_product__is_kvi').filter(
             Q(category__in=sub_cat) | Q(category=validated_data['category_id'])).distinct('id')
         for product in parent_products:
             row = []
