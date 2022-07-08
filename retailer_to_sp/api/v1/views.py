@@ -6436,8 +6436,8 @@ def send_notification_ecom_user(order, message_title, message_body):
 
 def sendemailforsuperstoreorder(order):
     subject = 'A new SuperStore order has been placed.'
-    url = 'https://{}.gramfactory.com/admin/retailer_to_sp/order/{}'.format(config('ENVIRONMENT'),order.id)
-    body = 'Click here - {} for more details'.format(url)
+    url = 'https://{}.gramfactory.com/admin/retailer_to_sp/order/{}'.format(config('ENVIRONMENT_URL'),order.id)
+    body = 'Click here for more details - {}'.format(url)
     sender = GlobalConfig.objects.get(key='sender')
     receiver = GlobalConfig.objects.get(key='recipient_ss')
     info_logger.info("--------------Sending mail for superstore order!------------------")
@@ -6447,7 +6447,7 @@ def sendemailforsuperstoreorder(order):
             subject,
             body,
             sender.value,
-            receiver.value.split(),
+            receiver.value.split(','),
             fail_silently=False,
         )
         info_logger.info("----------Mail send successfully for superstore order!-------------")
