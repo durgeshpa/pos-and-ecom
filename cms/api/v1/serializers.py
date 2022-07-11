@@ -487,8 +487,8 @@ class PageCardDataSerializer(serializers.ModelSerializer):
         return obj.items.all().count()
 
     def get_view_more(self,obj):
-        if self.get_total_item(obj) >5:
-            return self.context.get('path')+'&flag=true'
+        if self.get_total_item(obj) >10:
+            return self.context.get('path').split('?')[0]+'?limit=50&offset=0'
 
     def to_representation(self, instance):
         """ Add card_id to data """
