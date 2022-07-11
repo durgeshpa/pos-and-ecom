@@ -540,7 +540,7 @@ class PageDetailView(APIView):
                     "message": ERROR_MESSAGES["PAGE_VERSION_NOT_FOUND"].format(query_params.get('version'))
                 }
                 return Response(message, status = status.HTTP_204_NO_CONTENT)
-        serializer = self.serializer_class(page, context = {'page_version': page_version, 'flag': query_params.get('flag', False), 'path':request.get_full_path()})
+        serializer = self.serializer_class(page, context = {'page_version': page_version, 'flag': query_params.get('flag', False), 'path':request.get_full_path(), 'request': request})
         message = {
             "is_success": True,
             "message": SUCCESS_MESSAGES["PAGE_RETRIEVE_SUCCESS"],

@@ -12,6 +12,7 @@ from global_config.views import get_config
 from pos.models import RetailerProduct
 from products.models import Product, SuperStoreProductPrice, ParentProduct
 from retailer_backend.common_function import isBlank
+from retailer_backend.utils import SmallOffsetPagination
 from ...choices import LANDING_PAGE_TYPE_CHOICE, LISTING_SUBTYPE_CHOICE, FUNTION_TYPE_CHOICE, \
     CARD_TYPE_PRODUCT, CARD_TYPE_CAREGORY, CARD_TYPE_BRAND, CARD_TYPE_IMAGE, IMAGE_TYPE_CHOICE, LIST, RETAILER, \
     SUPERSTORE, INDEX_TYPE_ONE, INDEX_TYPE_THREE, ECOMMERCE, APP_TYPE_CHOICE
@@ -446,21 +447,18 @@ class PageCardDataSerializer(serializers.ModelSerializer):
                                                       super_store_product_price__seller_shop__parrent_mapping__retailer_id=shop_id)
             card_items = obj.items.annotate(retailer_product_exists=Exists(sub_query),
                                             superstore_product_exists=Exists(superstore_query))
-            if self.context.get('flag') == False:
 
-                retailer_items = card_items.filter(retailer_product_exists=True)[0:10:]
-                superstore_items = card_items.filter(superstore_product_exists=True)[0:10:]
-            else:
-                retailer_items = card_items.filter(retailer_product_exists=True)
-                superstore_items = card_items.filter(superstore_product_exists=True)
+            retailer_items = card_items.filter(retailer_product_exists=True)
+            superstore_items = card_items.filter(superstore_product_exists=True)
 
             items = check_inventory(retailer_items, shop_id)
             items = items.union(superstore_items)
-            return CardItemSerializer(items, many=True, context=self.context).data
-        if self.context.get('flag') == False:
-            return CardItemSerializer(obj.items.all()[0:10:], many=True, context=self.context).data
+            pagination_class = SmallOffsetPagination().paginate_queryset(items, self.context['request'])
 
-        return CardItemSerializer(obj.items.all(), many=True, context=self.context).data
+            return CardItemSerializer(items, many=True, context=self.context).data
+        pagination_class = SmallOffsetPagination().paginate_queryset(obj.items.all(), self.context['request'])
+
+        return CardItemSerializer(pagination_class, many=True, context=self.context).data
 
 
     def get_total_item(self,obj):
@@ -489,7 +487,7 @@ class PageCardDataSerializer(serializers.ModelSerializer):
         return obj.items.all().count()
 
     def get_view_more(self,obj):
-        if self.get_total_item(obj) >10:
+        if self.get_total_item(obj) >5:
             return self.context.get('path')+'&flag=true'
 
     def to_representation(self, instance):

@@ -7,7 +7,7 @@ class SmallOffsetPagination(LimitOffsetPagination):
     """
     Custom LimitOffset
     """
-    default_limit = 10
+    default_limit = 1
     max_limit = 100
 
 
