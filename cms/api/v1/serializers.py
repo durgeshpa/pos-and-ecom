@@ -421,6 +421,8 @@ class PageCardDataSerializer(serializers.ModelSerializer):
     """Serializer for CardData of PageVersion"""
     items = serializers.SerializerMethodField()
     # items = CardItemSerializer(many=True, required=False)
+    view_more = serializers.SerializerMethodField()
+    total_item = serializers.SerializerMethodField()
     image = Base64ImageField(
         max_length=None, use_url=True, required=False
     )
@@ -444,13 +446,51 @@ class PageCardDataSerializer(serializers.ModelSerializer):
                                                       super_store_product_price__seller_shop__parrent_mapping__retailer_id=shop_id)
             card_items = obj.items.annotate(retailer_product_exists=Exists(sub_query),
                                             superstore_product_exists=Exists(superstore_query))
+            if self.context.get('flag') == False:
 
-            retailer_items = card_items.filter(retailer_product_exists=True)
-            superstore_items = card_items.filter(superstore_product_exists=True)
+                retailer_items = card_items.filter(retailer_product_exists=True)[0:10:]
+                superstore_items = card_items.filter(superstore_product_exists=True)[0:10:]
+            else:
+                retailer_items = card_items.filter(retailer_product_exists=True)
+                superstore_items = card_items.filter(superstore_product_exists=True)
+
             items = check_inventory(retailer_items, shop_id)
             items = items.union(superstore_items)
             return CardItemSerializer(items, many=True, context=self.context).data
-        return CardItemSerializer(obj.items, many=True, context=self.context).data
+        if self.context.get('flag') == False:
+            return CardItemSerializer(obj.items.all()[0:10:], many=True, context=self.context).data
+
+        return CardItemSerializer(obj.items.all(), many=True, context=self.context).data
+
+
+    def get_total_item(self,obj):
+        shop_id = self.context.get('shop_id', None)
+        card = self.context.get('card', None)
+        if shop_id and card and ((card.type == CARD_TYPE_PRODUCT and card.sub_type == LISTING_SUBTYPE_CHOICE.LIST)
+                                 or (
+                                         card.type == CARD_TYPE_IMAGE and card.image_data_type == IMAGE_TYPE_CHOICE.PRODUCT)):
+            sub_query = RetailerProduct.objects.filter(linked_product_id=OuterRef('content_id'), shop_id=shop_id,
+                                                       is_deleted=False, online_enabled=True)
+            superstore_query = Product.objects.filter(id=OuterRef('content_id'), status='active',
+                                                      parent_product__product_type=ParentProduct.SUPERSTORE,
+                                                      super_store_product_price__isnull=False,
+                                                      super_store_product_price__seller_shop__parrent_mapping__retailer_id=shop_id)
+            card_items = obj.items.annotate(retailer_product_exists=Exists(sub_query),
+                                            superstore_product_exists=Exists(superstore_query))
+
+            retailer_items = card_items.filter(retailer_product_exists=True)
+            superstore_items = card_items.filter(superstore_product_exists=True)
+
+            items = check_inventory(retailer_items, shop_id)
+            items = items.union(superstore_items)
+            return len(items)
+
+
+        return obj.items.all().count()
+
+    def get_view_more(self,obj):
+        if self.get_total_item(obj) >10:
+            return self.context.get('path')+'&flag=true'
 
     def to_representation(self, instance):
         """ Add card_id to data """
@@ -595,7 +635,7 @@ class PageDetailSerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         data = super().to_representation(instance)
         if self.context.get('page_version'):
-            data['version'] = PageVersionDetailSerializer(self.context.get('page_version')).data
+            data['version'] = PageVersionDetailSerializer(self.context.get('page_version'), context=self.context).data
         else:
             page = PageVersion.objects.select_related('page')
             page_versions = page.filter(page_id=instance.id)
