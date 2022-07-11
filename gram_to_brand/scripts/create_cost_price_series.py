@@ -1,9 +1,10 @@
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 from venv import create
 
 from django.db import transaction
 from django.db.models import Sum
+from global_config.views import get_config
 
 from wms.models import BinInventory
 from gram_to_brand.models import (ProductCostPriceChangeLog, ProductGRNCostPriceMapping,
@@ -18,8 +19,12 @@ error_logger = logging.getLogger('file-error')
 
 
 def run():
+    months = int(get_config('last_grn_for_cp_series', 12))
+    days = 30 * months
+    start_date = datetime.now() - timedelta(days=days)
     grns = GRNOrderProductMapping.objects.filter(product_invoice_qty__gt=0)\
-        .filter(product_invoice_price__gt=0).order_by('created_at')
+        .filter(product_invoice_price__gt=0, 
+                created_at__gte=start_date).order_by('created_at')
     print(f"Total GRN found :: {grns.count()}")
     for grn in grns:
         create_cost_price(grn)

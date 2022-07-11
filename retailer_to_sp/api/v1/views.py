@@ -59,7 +59,7 @@ from ecom.utils import check_ecom_user_shop, check_ecom_user
 from global_config.models import GlobalConfig
 from global_config.views import get_config_fofo_shop
 from gram_to_brand.models import (GRNOrderProductMapping, OrderedProductReserved as GramOrderedProductReserved,
-                                  PickList)
+                                  PickList, ProductGRNCostPriceMapping)
 from marketing.models import ReferralCode
 from pos import error_code
 from pos.api.v1.serializers import (BasicCartSerializer, BasicCartListSerializer, CheckoutSerializer,
@@ -1285,7 +1285,7 @@ class CartCentral(GenericAPIView):
                 # Filter/Delete cart products that are blocked for audit etc
                 cart_products = self.filter_cart_products(cart, seller_shop)
                 # Update number of pieces for all products
-                self.update_cart_qty(cart, cart_products)
+                self.update_cart_qty_cp(cart, cart_products)
                 # Check if products are present in cart
                 if cart.rt_cart_list.count() <= 0:
                     return api_response(['Sorry no product added to this cart yet'], None, status.HTTP_200_OK)
@@ -1509,7 +1509,7 @@ class CartCentral(GenericAPIView):
         return cart_products
 
     @staticmethod
-    def update_cart_qty(cart, cart_products):
+    def update_cart_qty_cp(cart, cart_products):
         """
             Update number of pieces for all products in cart
         """
@@ -1517,8 +1517,14 @@ class CartCentral(GenericAPIView):
             item_qty = CartProductMapping.objects.filter(cart=cart,
                                                          cart_product=cart_product.cart_product).last().qty
             updated_no_of_pieces = (item_qty * int(cart_product.cart_product.product_inner_case_size))
+            try:
+                cost_price = ProductGRNCostPriceMapping.objects.get(product=cart_product.cart_product)
+                cost_price = cost_price.cost_price
+            except ProductGRNCostPriceMapping.DoesNotExist:
+                cost_price = None
             CartProductMapping.objects.filter(cart=cart, cart_product=cart_product.cart_product).update(
-                no_of_pieces=updated_no_of_pieces)
+                no_of_pieces=updated_no_of_pieces, 
+                cost_price=cost_price)
 
     @staticmethod
     def delivery_message(shop_type):
