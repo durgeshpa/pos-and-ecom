@@ -455,7 +455,7 @@ class PageCardDataSerializer(serializers.ModelSerializer):
             items = items.union(superstore_items)
             pagination_class = SmallOffsetPagination().paginate_queryset(items, self.context['request'])
 
-            return CardItemSerializer(items, many=True, context=self.context).data
+            return CardItemSerializer(pagination_class, many=True, context=self.context).data
         pagination_class = SmallOffsetPagination().paginate_queryset(obj.items.all(), self.context['request'])
 
         return CardItemSerializer(pagination_class, many=True, context=self.context).data
