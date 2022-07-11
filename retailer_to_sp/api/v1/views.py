@@ -15,7 +15,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
 from django.core import validators
 from django.core.exceptions import ObjectDoesNotExist
-from django.db.models import F, Sum, Q, Case, When, Value, FloatField
+from django.db.models import F, Sum, Q, Case, When, Value, FloatField, IntegerField
 from django.core.files.base import ContentFile
 from django.db import transaction, models
 from django.db.models import F, Sum, Q, Count, Value, Case, When, Subquery
@@ -3829,7 +3829,6 @@ class OrderCentral(APIView):
         """
         try:
             order = OrderedProductMapping.objects.get(pk=self.request.GET.get('product_mapping_id'),
-                                                      ordered_product__order__buyer=self.request.user,
                                                       ordered_product__order__ordered_cart__cart_type='SUPERSTORE')
         except OrderedProductMapping.DoesNotExist:
             return api_response("Order Not Found!")
@@ -8158,8 +8157,14 @@ class DeliveryShipmentDetails(APIView):
         trip_mappings = trip.last_mile_trip_returns_details.all()
         trip_return = []
         grouped_return_list = ReturnOrder.objects.filter(last_mile_trip_returns__in=trip_mappings)\
-                                                 .values('buyer_shop', 'seller_shop', 'return_status', 'id')\
-                                                 .annotate(return_count=Count('id')).order_by()
+                                                 .values('buyer_shop', 'seller_shop')\
+                                                 .annotate(return_count=Count('id'),
+                                                           status=Sum(Case(
+                                                               When(return_status__in=[ReturnOrder.RETURN_REQUESTED,
+                                                                                       ReturnOrder.RETURN_INITIATED],
+                                                                    then=1),
+                                                               default=0
+                                                           ), output_field=IntegerField())).order_by()
         for grouped_return in grouped_return_list:
             grouped_return_dict = {}
             grouped_return_dict['item_type'] = 'return'
@@ -8192,8 +8197,8 @@ class DeliveryShipmentDetails(APIView):
             grouped_return_dict['buyer_shop'] = SellerShopSerializer(buyerShop).data
             grouped_return_dict['shipping_address'] = AddressSerializer(shipping_address).data
             grouped_return_dict['return_count'] = grouped_return['return_count']
-            grouped_return_dict['shipment_status'] = grouped_return['return_status']
-            grouped_return_dict['return_value'] = ReturnOrder.objects.filter(id=grouped_return['id']).last().return_amount
+            grouped_return_dict['shipment_status'] = 'PENDING' if grouped_return['status'] > 0 else 'COMPLETED'
+            # grouped_return_dict['return_value'] = ReturnOrder.objects.filter(id=grouped_return['id']).last().return_amount
             trip_return.append(grouped_return_dict)
 
         return trip_return
@@ -11923,7 +11928,7 @@ class LastMileTripDeliveryReturnOrderView(generics.GenericAPIView):
     def put(self, request):
         result = self.validate_put_request()
         if "error" in result:
-            result = {"is_success": False, "message": [result["error"]], "response_data": []}
+            result = {"is_success": False, "message": [result["error"]], "response_data": ''}
             return Response(result, status=status.HTTP_200_OK)
         return_id = self.request.data.get('return_id', None)
         return_item_id = self.request.data.get('return_item_id', None)
@@ -11932,7 +11937,7 @@ class LastMileTripDeliveryReturnOrderView(generics.GenericAPIView):
         orderreturn = ReturnOrder.objects.filter(pk=return_id).last()
         trip_id = orderreturn.last_mile_trip_returns.last().trip.id
         if orderreturn.return_status != ReturnOrder.RETURN_INITIATED:
-            result = {"is_success": False, "message": ["error: Return not found in initiated state"], "response_data": []}
+            result = {"is_success": False, "message": ["error: Return not found in initiated state"], "response_data":''}
             return Response(result, status=status.HTTP_200_OK)
         return_item = ReturnOrderProduct.objects.filter(id=return_item_id).last()
         return_item.return_shipment_barcode = barcode[:-1]
@@ -12802,16 +12807,20 @@ class ReturnRejection(generics.ListCreateAPIView):
     def put(self, request):
         result = self.validate_put_request()
         if "error" in result:
-            return get_response([result["error"]], False)
+            result = {"is_success": False, "message": [result["error"]], "response_data": ''}
+            return Response(result, status=status.HTTP_200_OK)
         return_id = self.request.data.get('return_id', None)
         reject_reason = self.request.data.get('reject_reason', None)
         orderreturn = ReturnOrder.objects.filter(pk=return_id).last()
+        trip_id = orderreturn.last_mile_trip_returns.last().trip.id
         if orderreturn.return_status != ReturnOrder.RETURN_INITIATED:
-            return get_response(["error: Return not found in initiated state"],'',False)
+            result = {"is_success": False, "message": ["error: Return not found in initiated state"], "response_data": ''}
+            return Response(result, status=status.HTTP_200_OK)
         orderreturn.reject_reason = reject_reason
         orderreturn.return_status = ReturnOrder.RETURN_REJECTED
         with transaction.atomic():
             orderreturn.save()
+            update_trip_status(trip_id)
         return get_response(["return rejected"], '', True)
 
     def validate_put_request(self):

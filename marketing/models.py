@@ -164,6 +164,8 @@ class Referral(models.Model):
             user_reward = RewardPoint.objects.filter(reward_user=parent_ref_obj.user).last()
             user_reward.direct_earned += referrer_points
             user_reward.save()
+            RewardLog.objects.create(reward_user=user_reward.reward_user, transaction_type='indirect_reward', transaction_id=ref_obj.referral_to_user.id + user_reward.reward_user.id,
+                                     points=referrer_points, changed_by=ref_obj.referral_to_user)
 
             ref_obj.referrer_reward_points = referrer_points
             ref_obj.referee_reward_points = int(get_global_config('referee_points_to_be_added_on_signup', 10))

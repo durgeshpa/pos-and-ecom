@@ -729,7 +729,7 @@ class ChildProductSerializers(serializers.ModelSerializer):
     super_store_product_price = serializers.SerializerMethodField()
     product_vendor_mapping = ChildProductVendorMappingSerializers(many=True, required=False)
     product_sku = serializers.CharField(required=False)
-    product_pro_image = ProductImageSerializers(many=True, read_only=True)
+    product_pro_image = serializers.SerializerMethodField()
     product_images = serializers.ListField(required=False, default=None, child=serializers.ImageField(),
                                            write_only=True)
     destination_product_pro = ProductSourceMappingSerializers(many=True, required=False)
@@ -905,6 +905,12 @@ class ChildProductSerializers(serializers.ModelSerializer):
         ProductCls.packing_material_product_mapping(child_product, self.initial_data['packing_product_rt'])
         ProductCls.create_destination_product_mapping(child_product, destination_product_repack)
 
+    def get_product_pro_image(self, instance):
+        if instance.use_parent_image and not instance.product_pro_image.filter(status=True).exists():
+            return ParentProductImageSerializers(instance.parent_product.parent_product_pro_image.all(), many=True).data
+        else:
+            return ProductImageSerializers(instance.product_pro_image.filter(status=True), many=True).data
+        
     def to_representation(self, instance):
         representation = super().to_representation(instance)
         if representation['product_name']:

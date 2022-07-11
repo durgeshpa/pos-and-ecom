@@ -221,14 +221,14 @@ class SuperStoreCategoriesView(APIView):
 
     @check_ecom_user
     def get(self, *args, **kwargs):
-        active_categories = Category.objects \
+        active_categories = Category.objects\
             .filter(category_parent=None,
                     category_type='superstore',
                     cat_parent__status=True,
-                    status=True).order_by('category_order').distinct('category_order').prefetch_related(Prefetch('cat_parent',
-                                       queryset=Category.objects.filter(status=True,
-                                                                        category_type='superstore')
-            .order_by('category_order',).distinct('category_order')))
+                    status=True)\
+                        .prefetch_related(Prefetch('cat_parent',\
+                            queryset=Category.objects.filter(status=True,
+                                                            category_type='superstore').filter(category_order__gt=0).order_by('category_order'))).order_by('category_order').distinct('category_order')
         serializer = self.serializer_class(active_categories, many=True)
         is_success = True if active_categories else False
         return api_response('', serializer.data, status.HTTP_200_OK, is_success)

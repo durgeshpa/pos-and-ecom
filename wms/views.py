@@ -1234,7 +1234,7 @@ def pickup_entry_creation_with_cron():
                                 # If not present, change is_clickable status to True
                                 is_clickable = True
                                 if PickerDashboard.objects.filter(picker_boy_id=picker_user,
-                                                                  picking_status='picking_assigned',
+                                                                  picking_status='picking_assigned', order_id__isnull=False,
                                                                   is_clickable=True).exists():
                                     is_clickable = False
                                 PickerDashboard.objects.create(
@@ -1467,7 +1467,7 @@ def pickup_entry_for_superstore_order_creation_with_cron():
                                 # If not present, change is_clickable status to True
                                 is_clickable = True
                                 if PickerDashboard.objects.filter(picker_boy_id=picker_user,
-                                                                  picking_status='picking_assigned',
+                                                                  picking_status='picking_assigned', order_id__isnull=False,
                                                                   is_clickable=True).exists():
                                     is_clickable = False
                                 PickerDashboard.objects.create(

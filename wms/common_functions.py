@@ -2558,12 +2558,13 @@ def get_logged_user_wise_query_set_for_picker(user, queryset):
 
 def assign_clickable_state(user):
     """
-        Make is_clickable field True if picking status of order is picking_complete or it is the current order
+        Make is_clickable field True if picking status of order is picking_complete or it is the current order of Type=Order
     """
-    retailer_to_sp.models.PickerDashboard.objects.filter(picker_boy_id=user, picking_status='picking_assigned').update(is_clickable=False)
-    instance = retailer_to_sp.models.PickerDashboard.objects.filter(picker_boy_id=user, picking_status='picking_assigned').order_by('created_at').first()
-    instance.is_clickable = True
-    instance.save()
+    retailer_to_sp.models.PickerDashboard.objects.filter(picker_boy_id=user, picking_status='picking_assigned', order_id__isnull=False).update(is_clickable=False)
+    instance = retailer_to_sp.models.PickerDashboard.objects.filter(picker_boy_id=user, picking_status='picking_assigned', order_id__isnull=False).order_by('created_at').first()
+    if instance:
+        instance.is_clickable = True
+        instance.save()
 
 
 def get_logged_user_wise_query_set_for_pickup_list(user, pickup_type, queryset):
