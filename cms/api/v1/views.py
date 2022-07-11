@@ -540,7 +540,7 @@ class PageDetailView(APIView):
                     "message": ERROR_MESSAGES["PAGE_VERSION_NOT_FOUND"].format(query_params.get('version'))
                 }
                 return Response(message, status = status.HTTP_204_NO_CONTENT)
-        serializer = self.serializer_class(page, context = {'page_version': page_version, 'flag': query_params.get('flag', False), 'path':request.get_full_path()})
+        serializer = self.serializer_class(page, context = {'page_version': page_version, 'flag': query_params.get('flag', False), 'path':request.get_full_path(), 'request': request})
         message = {
             "is_success": True,
             "message": SUCCESS_MESSAGES["PAGE_RETRIEVE_SUCCESS"],
@@ -650,6 +650,7 @@ class PageVersionDetailView(APIView):
         request.META['HTTP_X_FORWARDED_PROTO'] = 'https'
         shop_id = kwargs.get('shop', None)
         parent_shop = kwargs.get('parent_shop', None)
+        query_params = request.query_params
         try:
             page_key = f"latest_page_{id}"
             # cached_page = cache.get(page_key, None)
@@ -673,7 +674,7 @@ class PageVersionDetailView(APIView):
             return Response(message)
         latest_page_version = PageVersion.objects.get(version_no = latest_page_version_no, page = page)
         serializer = self.serializer_class(page, context = {'version': latest_page_version, 'shop_id': shop_id,
-                                                            'parent_shop': parent_shop})
+                                                            'parent_shop': parent_shop, 'flag': query_params.get('flag', False), 'path':request.get_full_path(), 'request': request})
         message = {
             "is_success": True,
             "message": "OK",
