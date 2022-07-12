@@ -6477,7 +6477,7 @@ def sendemailforsuperstoreorder(order):
     url = 'https://{}.gramfactory.com/admin/retailer_to_sp/order/{}'.format(config('ENVIRONMENT_URL'),order.id)
     body = 'Click here for more details - {}'.format(url)
     sender = GlobalConfig.objects.get(key='sender')
-    receiver = GlobalConfig.objects.get(key='recipient_ss')
+    receiver = GlobalConfig.objects.get(key='superstore_order_internal_email_recipient')
     info_logger.info("--------------Sending mail for superstore order!------------------")
     info_logger.info("Body :: {}".format(body))
     try:
