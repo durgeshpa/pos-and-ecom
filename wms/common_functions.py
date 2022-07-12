@@ -345,6 +345,11 @@ class CommonBinInventoryFunctions(object):
                     qty_to_deduct_from_bin_inv = qty
                     total_qty_to_move_from_pickup = 0
 
+                info_logger.info(f"BinShift|batch-{batch_id}, sbin-{source_bin_inv_object}, "
+                                 f"t-bin{target_bin_inv_object}, qty to move-{qty},"
+                                 f"qty_to_move_from_bin-{qty_to_deduct_from_bin_inv},"
+                                 f"qty_to_deduct_from_pickup-{total_qty_to_move_from_pickup}")
+
                 if qty_to_deduct_from_bin_inv > 0:
                     source_bin_inv_object = cls.update_or_create_bin_inventory(warehouse, source_bin, sku, batch_id,
                                                                         inventory_type, -1*qty_to_deduct_from_bin_inv,
@@ -370,11 +375,14 @@ class CommonBinInventoryFunctions(object):
                     CommonBinInventoryFunctions.add_to_be_picked_to_bin(total_qty_to_move_from_pickup,
                                                                         target_bin_inv_object, tr_id,
                                                                         'bin_shift_add')
+                    # Update picklist where picking is not yet done (pickup_quantity__isnull=True)
                     pickup_bin_qs = PickupBinInventory.objects.select_for_update().filter(
                         warehouse=warehouse, batch_id=batch_id, bin=source_bin_inv_object,
                         pickup__status__in=['pickup_creation', 'picking_assigned'], quantity__gt=0,
                         pickup_quantity__isnull=True).order_by('id')
                     for pb in pickup_bin_qs:
+                        info_logger.info(f"Picking Pending | Order-{pb.pickup.pickup_type_id}, pbi-{pb.id},"
+                                         f" pbi qty-{pb.quantity}")
                         qty_to_move_from_pickup = 0
                         if total_qty_to_move_from_pickup > pb.quantity:
                             qty_to_move_from_pickup = pb.quantity
@@ -401,6 +409,36 @@ class CommonBinInventoryFunctions(object):
                         else:
                             pbi.quantity += qty_to_move_from_pickup
                             pbi.save()
+
+                        if total_qty_to_move_from_pickup == 0:
+                            break
+
+
+                    # Update picklist where picking is done but pickup is not yet marked completed (pickup_quantity__gte=0)
+                    if total_qty_to_move_from_pickup > 0:
+                        pickup_bin_qs = PickupBinInventory.objects.select_for_update().filter(
+                            warehouse=warehouse, batch_id=batch_id, bin=source_bin_inv_object,
+                            pickup__status__in=['pickup_creation', 'picking_assigned'], quantity__gt=0,
+                            pickup_quantity__gte=0).order_by('id')
+                        for pb in pickup_bin_qs:
+                            info_logger.info(f"Picking Done | Order-{pb.pickup.pickup_type_id}, pbi-{pb.id}, "
+                                             f"pbi qty-{pb.quantity}")
+                            if pb.quantity > pb.pickup_quantity :
+                                if total_qty_to_move_from_pickup >= (pb.quantity-pb.pickup_quantity):
+                                    qty_to_move_from_pickup = pb.quantity-pb.pickup_quantity
+                                    total_qty_to_move_from_pickup -= qty_to_move_from_pickup
+                                else:
+                                    qty_to_move_from_pickup = total_qty_to_move_from_pickup
+                                    total_qty_to_move_from_pickup = 0
+                                pb.quantity = pb.quantity - qty_to_move_from_pickup
+                                pb.save()
+                                CommonPickBinInvFunction.create_pick_bin_inventory_with_zone(
+                                                pb.warehouse, target_bin_inv_object.bin.zone, pb.pickup, pb.batch_id,
+                                                target_bin_inv_object, qty_to_move_from_pickup,
+                                                target_bin_inv_object.quantity, 0)
+                            if total_qty_to_move_from_pickup == 0:
+                                break
+
         except Exception as e:
             info_logger.error('product_shift_across_bins | '.join(e.args) if len(e.args) > 0 else 'Unknown Error')
             raise Exception('Product movement failed!')
