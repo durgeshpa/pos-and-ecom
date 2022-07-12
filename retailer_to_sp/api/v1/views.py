@@ -616,6 +616,16 @@ class SearchProducts(APIView):
                 products_list = es_search(index='rp-{}'.format(shop_id), body=body)
                 for p in products_list['hits']['hits']:
                     p_list.append(p["_source"])
+                if len(p_list) >= 10 and (
+                        self.request.GET.get('max_selling_price') or self.request.GET.get('min_percentage_discount')):
+                    param = self.request.query_params
+                    pass_parm = '?'
+                    for k in param:
+                        if k != 'pro_count':
+                            pass_parm = pass_parm + f'{k}={param[k]}&'
+                    pass_parm = pass_parm + 'pro_count=50'
+                    p_list.append({'total_items': len(p_list),
+                                   'vew_more': self.request.get_full_path().split('?')[0] + pass_parm})
             except Exception as e:
                 error_logger.error(e)
         # Processed Output
@@ -628,6 +638,7 @@ class SearchProducts(APIView):
                 product_ids = []
                 for p in products_list['hits']['hits']:
                     product_ids += [p["_source"]['id']]
+                    BasicCartOffers.cart = None
                 coupons = BasicCartOffers.get_basic_combo_coupons(product_ids, shop_id, 1,
                                                                   ["coupon_code", "coupon_type", "purchased_product"])
                 for p in products_list['hits']['hits']:
@@ -637,6 +648,17 @@ class SearchProducts(APIView):
                         if int(coupon['purchased_product']) == int(p["_source"]['id']):
                             p['_source']['coupons'] = [coupon]
                     p_list.append(p["_source"])
+                if len(p_list) >= 10 and (
+                        self.request.GET.get('max_selling_price') or self.request.GET.get('min_percentage_discount')):
+                    param = self.request.query_params
+                    pass_parm = '?'
+                    for k in param:
+                        if k != 'pro_count':
+                            pass_parm = pass_parm + f'{k}={param[k]}&'
+                    pass_parm = pass_parm + 'pro_count=50'
+                    p_list.append({'total_items': len(p_list),
+                                   'vew_more': self.request.get_full_path().split('?')[0] + pass_parm})
+
             except Exception as e:
                 error_logger.error(e)
         elastic_logger.info("Product list :: {}".format(p_list))
@@ -803,9 +825,19 @@ class SearchProducts(APIView):
             if cart_check:
                 p = self.modify_gf_cart_product_es(cart, cart_products, p)
             p_list.append(p["_source"])
-        if len(p_list) != 0:
+        if len(p_list) != 0 and not (self.request.GET.get('max_selling_price') or self.request.GET.get('min_percentage_discount')):
             if products_list.get('aggregations'):
                 p_list.append(products_list['aggregations'])
+        if len(p_list) >= 10 and  (
+                self.request.GET.get('max_selling_price') or self.request.GET.get('min_percentage_discount')):
+            param =  self.request.query_params
+            pass_parm = '?'
+            for k in param:
+                if k != 'pro_count':
+                    pass_parm = pass_parm + f'{k}={param[k]}&'
+            pass_parm = pass_parm + 'pro_count=50'
+            p_list.append({'total_items': len(p_list), 'vew_more': self.request.get_full_path().split('?')[0] + pass_parm})
+
         return p_list
 
     def search_query(self):
