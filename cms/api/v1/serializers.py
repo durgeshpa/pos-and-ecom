@@ -488,6 +488,9 @@ class PageCardDataSerializer(serializers.ModelSerializer):
 
     def get_view_more(self,obj):
         if self.get_total_item(obj) >10:
+            if self.context.get('request') and self.context.get('request').query_params.get('version'):
+                param = self.context.get('request').query_params.get('version')
+                return self.context.get('path').split('?')[0]+f'?version={param}&limit=50&offset=0'
             return self.context.get('path').split('?')[0]+'?limit=50&offset=0'
 
     def to_representation(self, instance):
