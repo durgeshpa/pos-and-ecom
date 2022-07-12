@@ -572,6 +572,10 @@ class ProductCostPriceChangeLogInlineAdmin(admin.TabularInline):
 
     def has_delete_permission(self, request, obj=None):
         return False
+    
+    def get_queryset(self, request):
+        queryset = super().get_queryset(request)
+        return queryset.order_by('-created_at')
 
 
 @admin.register(ProductGRNCostPriceMapping)
