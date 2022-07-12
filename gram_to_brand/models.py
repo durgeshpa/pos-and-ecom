@@ -477,7 +477,7 @@ class GRNOrderProductMapping(models.Model):
     modified_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return f"{self.product} | {self.product_invoice_qty} QTY | {self.product_invoice_price} - Price"
+        return f"{self.grn_order.grn_id} | {self.product_invoice_qty} QTY | {self.product_invoice_price} - Price"
 
     class Meta:
         verbose_name = _("GRN Product Detail")
