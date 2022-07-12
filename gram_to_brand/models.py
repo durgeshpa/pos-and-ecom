@@ -477,7 +477,7 @@ class GRNOrderProductMapping(models.Model):
     modified_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return f"{self.grn_order.grn_id} | {self.product_invoice_qty} QTY | {self.product_invoice_price} - Price"
+        return f"{self.grn_order.grn_id} | {self.product_invoice_qty} - GRN Qty | {self.product_invoice_price} - GRN Price"
 
     class Meta:
         verbose_name = _("GRN Product Detail")
@@ -722,7 +722,7 @@ class ProductCostPriceChangeLog(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     
     def __str__(self) -> str:
-        return f"{self.cost_price_grn_mapping} | {self.created_at}"
+        return f""
     
     class Meta:
         verbose_name = 'Product Cost Price change log'
