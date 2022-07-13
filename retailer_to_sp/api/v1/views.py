@@ -1550,7 +1550,11 @@ class CartCentral(GenericAPIView):
                                                          cart_product=cart_product.cart_product).last().qty
             updated_no_of_pieces = (item_qty * int(cart_product.cart_product.product_inner_case_size))
             try:
-                cost_price = ProductGRNCostPriceMapping.objects.get(product=cart_product.cart_product)
+                if cart_product.cart_product.product_type == 'DISCOUNTED':
+                    cp_product = cart_product.cart_product.product_ref
+                else:
+                    cp_product = cart_product.cart_product
+                cost_price = ProductGRNCostPriceMapping.objects.get(product=cp_product)
                 cost_price = cost_price.cost_price
             except ProductGRNCostPriceMapping.DoesNotExist:
                 cost_price = None
