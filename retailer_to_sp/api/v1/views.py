@@ -6478,10 +6478,11 @@ def send_notification_ecom_user(order, message_title, message_body):
 
 def sendemailforsuperstoreorder(order):
     subject = 'A new SuperStore order has been placed.'
-    url = 'https://{}.gramfactory.com/admin/retailer_to_sp/order/{}'.format(config('ENVIRONMENT_URL'),order.id)
+    platform = 'seller' if config('ENVIRONMENT') == 'production' else config('ENVIRONMENT')
+    url = 'https://{}.gramfactory.com/admin/retailer_to_sp/order/{}'.format(platform, order.id)
     body = 'Click here for more details - {}'.format(url)
     sender = GlobalConfig.objects.get(key='sender')
-    receiver = GlobalConfig.objects.get(key='recipient_ss')
+    receiver = GlobalConfig.objects.get(key='superstore_order_internal_email_recipient')
     info_logger.info("--------------Sending mail for superstore order!------------------")
     info_logger.info("Body :: {}".format(body))
     try:
