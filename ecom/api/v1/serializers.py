@@ -611,6 +611,7 @@ class EcomShipmentSerializer(serializers.Serializer):
         # validate given picked products info
         products_info = attrs['products']
         given_products = []
+        new_products_info = []
         for item in products_info:
             key = str(item['product_id'])
             if key not in order_products:
@@ -639,19 +640,19 @@ class EcomShipmentSerializer(serializers.Serializer):
         total_price = 0
         for prod in order_products:
             if prod not in given_products:
-                products_info.append({
+                new_products_info.append({
                     "product_id": int(order_products[prod][0]),
                     "picked_qty": 0,
                     "selling_price": int(order_products[prod][2]),
                     "product_type": 1
                 })
-
         for product in products_info:
             if product['product_id'] in product_combo_map:
-                for offer in product_combo_map[product['product_id']]:
+                offers = product_combo_map[product['product_id']]
+                for offer in offers:
                     purchased_product_multiple = int(int(product['picked_qty']) / int(offer['item_qty']))
                     picked_free_item_qty = int(purchased_product_multiple * int(offer['free_item_qty']))
-                    products_info.append({
+                    new_products_info.append({
                         "product_id": int(offer['free_item_id']),
                         "picked_qty": picked_free_item_qty,
                         "selling_price": 0,
@@ -661,14 +662,14 @@ class EcomShipmentSerializer(serializers.Serializer):
 
         if cart_free_product:
             qty = cart_free_product['free_item_qty'] if cart_free_product['cart_minimum_value'] <= total_price else 0
-            products_info.append({
+            new_products_info.append({
                 "product_id": int(cart_free_product['free_item_id']),
                 "picked_qty": qty,
                 "selling_price": 0,
                 "product_type": 0
             })
 
-        attrs['products'] = products_info
+        attrs['products'] = new_products_info + products_info
         return attrs
 
 
