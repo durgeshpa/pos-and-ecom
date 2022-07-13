@@ -560,7 +560,7 @@ class PageDetailView(APIView):
                 "message": ERROR_MESSAGES["PAGE_ID_NOT_FOUND"].format(id)
             }
             return Response(message, status = status.HTTP_204_NO_CONTENT)
-        serializer = PageDetailSerializer(data=request.data, instance=page, partial=True)
+        serializer = PageDetailSerializer(data=request.data, instance=page, context = {'request': request}, partial=True)
         if serializer.is_valid():
             serializer.save()
 
@@ -585,7 +585,7 @@ class PageDetailView(APIView):
                 }
             else: 
                 latest_page_version = PageVersion.objects.get(version_no = latest_page_version_no, page = page)
-                data = PageLatestDetailSerializer(page, context = {'version': latest_page_version}).data
+                data = PageLatestDetailSerializer(page, context = {'version': latest_page_version, 'request': request}).data
 
                 message_to_cache = {
                     "is_success": True,
