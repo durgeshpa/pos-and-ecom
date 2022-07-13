@@ -411,7 +411,7 @@ def return_item_home_pickup(name, number):
         Send sms for return method home pick up
     '''
     try:
-        body = f"Hi {name}, Your return request has been accepted. Please keep the package ready, our delivery partner will reach out to you soon. Team PepperTap."
+        body = f"Hi {name}, Your return request has been accepted. Please keep the parcel ready, our delivery partner will reach out to you soon. Team PepperTap."
         message = SendSms(phone=number, body=body, mask="PEPTAB")
         message.send()
     except Exception as e:
