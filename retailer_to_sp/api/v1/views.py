@@ -616,6 +616,16 @@ class SearchProducts(APIView):
                 products_list = es_search(index='rp-{}'.format(shop_id), body=body)
                 for p in products_list['hits']['hits']:
                     p_list.append(p["_source"])
+                if len(p_list) >= 10 and (
+                        self.request.GET.get('max_selling_price') or self.request.GET.get('min_percentage_discount')):
+                    param = self.request.query_params
+                    pass_parm = '?'
+                    for k in param:
+                        if k != 'pro_count':
+                            pass_parm = pass_parm + f'{k}={param[k]}&'
+                    pass_parm = pass_parm + 'pro_count=50'
+                    p_list.append({'total_items': len(p_list),
+                                   'vew_more': self.request.get_full_path().split('?')[0] + pass_parm})
             except Exception as e:
                 error_logger.error(e)
         # Processed Output
@@ -628,6 +638,7 @@ class SearchProducts(APIView):
                 product_ids = []
                 for p in products_list['hits']['hits']:
                     product_ids += [p["_source"]['id']]
+                    BasicCartOffers.cart = None
                 coupons = BasicCartOffers.get_basic_combo_coupons(product_ids, shop_id, 1,
                                                                   ["coupon_code", "coupon_type", "purchased_product"])
                 for p in products_list['hits']['hits']:
@@ -637,6 +648,17 @@ class SearchProducts(APIView):
                         if int(coupon['purchased_product']) == int(p["_source"]['id']):
                             p['_source']['coupons'] = [coupon]
                     p_list.append(p["_source"])
+                if len(p_list) >= 10 and (
+                        self.request.GET.get('max_selling_price') or self.request.GET.get('min_percentage_discount')):
+                    param = self.request.query_params
+                    pass_parm = '?'
+                    for k in param:
+                        if k != 'pro_count':
+                            pass_parm = pass_parm + f'{k}={param[k]}&'
+                    pass_parm = pass_parm + 'pro_count=50'
+                    p_list.append({'total_items': len(p_list),
+                                   'vew_more': self.request.get_full_path().split('?')[0] + pass_parm})
+
             except Exception as e:
                 error_logger.error(e)
         elastic_logger.info("Product list :: {}".format(p_list))
@@ -803,9 +825,19 @@ class SearchProducts(APIView):
             if cart_check:
                 p = self.modify_gf_cart_product_es(cart, cart_products, p)
             p_list.append(p["_source"])
-        if len(p_list) != 0:
+        if len(p_list) != 0 and not (self.request.GET.get('max_selling_price') or self.request.GET.get('min_percentage_discount')):
             if products_list.get('aggregations'):
                 p_list.append(products_list['aggregations'])
+        if len(p_list) >= 10 and  (
+                self.request.GET.get('max_selling_price') or self.request.GET.get('min_percentage_discount')):
+            param =  self.request.query_params
+            pass_parm = '?'
+            for k in param:
+                if k != 'pro_count':
+                    pass_parm = pass_parm + f'{k}={param[k]}&'
+            pass_parm = pass_parm + 'pro_count=50'
+            p_list.append({'total_items': len(p_list), 'vew_more': self.request.get_full_path().split('?')[0] + pass_parm})
+
         return p_list
 
     def search_query(self):
@@ -1518,7 +1550,11 @@ class CartCentral(GenericAPIView):
                                                          cart_product=cart_product.cart_product).last().qty
             updated_no_of_pieces = (item_qty * int(cart_product.cart_product.product_inner_case_size))
             try:
-                cost_price = ProductGRNCostPriceMapping.objects.get(product=cart_product.cart_product)
+                if cart_product.cart_product.product_type == 'DISCOUNTED':
+                    cp_product = cart_product.cart_product.product_ref
+                else:
+                    cp_product = cart_product.cart_product
+                cost_price = ProductGRNCostPriceMapping.objects.get(product=cp_product)
                 cost_price = cost_price.cost_price
             except ProductGRNCostPriceMapping.DoesNotExist:
                 cost_price = None
@@ -6442,10 +6478,11 @@ def send_notification_ecom_user(order, message_title, message_body):
 
 def sendemailforsuperstoreorder(order):
     subject = 'A new SuperStore order has been placed.'
-    url = 'https://{}.gramfactory.com/admin/retailer_to_sp/order/{}'.format(config('ENVIRONMENT_URL'),order.id)
+    platform = 'seller' if config('ENVIRONMENT') == 'production' else config('ENVIRONMENT')
+    url = 'https://{}.gramfactory.com/admin/retailer_to_sp/order/{}'.format(platform, order.id)
     body = 'Click here for more details - {}'.format(url)
     sender = GlobalConfig.objects.get(key='sender')
-    receiver = GlobalConfig.objects.get(key='recipient_ss')
+    receiver = GlobalConfig.objects.get(key='superstore_order_internal_email_recipient')
     info_logger.info("--------------Sending mail for superstore order!------------------")
     info_logger.info("Body :: {}".format(body))
     try:
