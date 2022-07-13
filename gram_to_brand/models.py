@@ -477,7 +477,7 @@ class GRNOrderProductMapping(models.Model):
     modified_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return str('')
+        return f"{self.grn_order.grn_id} | {self.product_invoice_qty} - GRN Qty | {self.product_invoice_price} - GRN Price"
 
     class Meta:
         verbose_name = _("GRN Product Detail")
@@ -688,3 +688,42 @@ class VendorShopMapping(models.Model):
     shop = models.ForeignKey(Shop, related_name='shop_vendor_mappings', on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
+
+
+class ProductGRNCostPriceMapping(models.Model):
+    product = models.OneToOneField(Product, related_name='cost_price', 
+                                   on_delete=models.CASCADE)
+    cost_price = models.DecimalField(max_digits=10, decimal_places=2)
+    latest_grn = models.ForeignKey(GRNOrderProductMapping, 
+                                   related_name='product_cost_grn_mappings', 
+                                   on_delete=models.CASCADE)
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
+    
+    
+    def __str__(self) -> str:
+        return f"{self.product} | {self.cost_price}"
+    
+    class Meta:
+        verbose_name = 'Product GRN Cost Price mapping'
+        verbose_name_plural = 'Product Cost Prices mapping'
+
+
+class ProductCostPriceChangeLog(models.Model):
+    cost_price_grn_mapping = models.ForeignKey(ProductGRNCostPriceMapping, 
+                                               related_name='cost_price_change_logs',
+                                               on_delete=models.CASCADE)
+    cost_price = models.DecimalField(max_digits=10, decimal_places=2)
+    grn = models.ForeignKey(GRNOrderProductMapping, 
+                                   related_name='cost_price_change_logs', 
+                                   on_delete=models.CASCADE, 
+                                   null=True, 
+                                   blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    def __str__(self) -> str:
+        return f""
+    
+    class Meta:
+        verbose_name = 'Product Cost Price change log'
+        verbose_name_plural = 'Product Cost Price change logs'

@@ -12,6 +12,7 @@ from global_config.views import get_config
 from pos.models import RetailerProduct
 from products.models import Product, SuperStoreProductPrice, ParentProduct
 from retailer_backend.common_function import isBlank
+from retailer_backend.utils import SmallOffsetPagination
 from ...choices import LANDING_PAGE_TYPE_CHOICE, LISTING_SUBTYPE_CHOICE, FUNTION_TYPE_CHOICE, \
     CARD_TYPE_PRODUCT, CARD_TYPE_CAREGORY, CARD_TYPE_BRAND, CARD_TYPE_IMAGE, IMAGE_TYPE_CHOICE, LIST, RETAILER, \
     SUPERSTORE, INDEX_TYPE_ONE, INDEX_TYPE_THREE, ECOMMERCE, APP_TYPE_CHOICE
@@ -182,7 +183,7 @@ class TemplateSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Template
-        fields = ('id', 'app', 'name')
+        fields = ('id', 'app', 'name', 'image', 'description')
 
     def validate(self, data):
         if 'name' not in self.initial_data or isEmptyString(self.initial_data['name']) is None:
@@ -374,7 +375,7 @@ class PageFunctionSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Functions
-        fields = ('id', 'type', 'name', 'url', 'required_params', 'required_headers')
+        fields = ('id', 'type', 'name', 'url', 'required_params', 'required_headers', 'app')
 
     def validate(self, data):
 
@@ -421,6 +422,8 @@ class PageCardDataSerializer(serializers.ModelSerializer):
     """Serializer for CardData of PageVersion"""
     items = serializers.SerializerMethodField()
     # items = CardItemSerializer(many=True, required=False)
+    view_more = serializers.SerializerMethodField()
+    total_item = serializers.SerializerMethodField()
     image = Base64ImageField(
         max_length=None, use_url=True, required=False
     )
@@ -447,10 +450,48 @@ class PageCardDataSerializer(serializers.ModelSerializer):
 
             retailer_items = card_items.filter(retailer_product_exists=True)
             superstore_items = card_items.filter(superstore_product_exists=True)
+
             items = check_inventory(retailer_items, shop_id)
             items = items.union(superstore_items)
-            return CardItemSerializer(items, many=True, context=self.context).data
-        return CardItemSerializer(obj.items, many=True, context=self.context).data
+            pagination_class = SmallOffsetPagination().paginate_queryset(items, self.context['request'])
+
+            return CardItemSerializer(pagination_class, many=True, context=self.context).data
+        pagination_class = SmallOffsetPagination().paginate_queryset(obj.items.all(), self.context['request'])
+
+        return CardItemSerializer(pagination_class, many=True, context=self.context).data
+
+
+    def get_total_item(self,obj):
+        shop_id = self.context.get('shop_id', None)
+        card = self.context.get('card', None)
+        if shop_id and card and ((card.type == CARD_TYPE_PRODUCT and card.sub_type == LISTING_SUBTYPE_CHOICE.LIST)
+                                 or (
+                                         card.type == CARD_TYPE_IMAGE and card.image_data_type == IMAGE_TYPE_CHOICE.PRODUCT)):
+            sub_query = RetailerProduct.objects.filter(linked_product_id=OuterRef('content_id'), shop_id=shop_id,
+                                                       is_deleted=False, online_enabled=True)
+            superstore_query = Product.objects.filter(id=OuterRef('content_id'), status='active',
+                                                      parent_product__product_type=ParentProduct.SUPERSTORE,
+                                                      super_store_product_price__isnull=False,
+                                                      super_store_product_price__seller_shop__parrent_mapping__retailer_id=shop_id)
+            card_items = obj.items.annotate(retailer_product_exists=Exists(sub_query),
+                                            superstore_product_exists=Exists(superstore_query))
+
+            retailer_items = card_items.filter(retailer_product_exists=True)
+            superstore_items = card_items.filter(superstore_product_exists=True)
+
+            items = check_inventory(retailer_items, shop_id)
+            items = items.union(superstore_items)
+            return len(items)
+
+
+        return obj.items.all().count()
+
+    def get_view_more(self,obj):
+        if self.get_total_item(obj) >10:
+            if self.context.get('request') and self.context.get('request').query_params.get('version'):
+                param = self.context.get('request').query_params.get('version')
+                return self.context.get('path').split('?')[0]+f'?version={param}&limit=50&offset=0'
+            return self.context.get('path').split('?')[0]+'?limit=50&offset=0'
 
     def to_representation(self, instance):
         """ Add card_id to data """
@@ -595,7 +636,7 @@ class PageDetailSerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         data = super().to_representation(instance)
         if self.context.get('page_version'):
-            data['version'] = PageVersionDetailSerializer(self.context.get('page_version')).data
+            data['version'] = PageVersionDetailSerializer(self.context.get('page_version'), context=self.context).data
         else:
             page = PageVersion.objects.select_related('page')
             page_versions = page.filter(page_id=instance.id)

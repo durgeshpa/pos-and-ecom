@@ -20,6 +20,7 @@ from coupon.models import Coupon, Discount
 from global_config.views import get_config,get_config_fofo_shops
 from retailer_backend.validators import *
 from shops.models import Shop, ShopUserMapping, ShopType
+
 from tinymce.models import HTMLField
 SIZE_UNIT_CHOICES = (
     ('mm', 'Millimeter'),
@@ -218,6 +219,7 @@ class ParentProduct(BaseTimestampUserStatusModel):
         on_delete=models.DO_NOTHING
     )
     product_discription = HTMLField(blank=True)
+    is_kvi = models.BooleanField(default=False)
 
     @property
     def ptr_type_text(self):
@@ -405,7 +407,8 @@ class Product(BaseTimestampUserStatusModel):
 
     @property
     def product_inner_case_size(self):
-        return self.parent_product.inner_case_size if self.parent_product else '1'
+        return self.parent_product.inner_case_size if self.parent_product and \
+                                                      self.product_type == self.PRODUCT_TYPE_CHOICE.NORMAL else 1
 
     @property
     def product_short_description(self):
@@ -443,6 +446,10 @@ class Product(BaseTimestampUserStatusModel):
     def get_superstore_price(self):
         return self.super_store_product_price.last()
     
+    @property
+    def is_kvi(self):
+        return self.parent_product.is_kvi if self.parent_product else False
+
     def get_superstore_price_by_shop(self, seller_shop_id):
         return self.super_store_product_price.filter(seller_shop_id=seller_shop_id).last()
     

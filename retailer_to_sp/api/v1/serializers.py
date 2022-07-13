@@ -1696,6 +1696,14 @@ class RetailerOrderedProductMappingSerializer(serializers.ModelSerializer):
     last_modified_by = UserSerializer(read_only=True)
     shipment_product_packaging = ProductPackagingDetailsSerializer(read_only=True, many=True)
     is_fully_delivered = serializers.SerializerMethodField()
+    zone = serializers.SerializerMethodField(read_only=True)
+
+    def get_zone(self, obj):
+        warehouse_assrt_ins = WarehouseAssortment.objects.filter(
+            product=obj.product.parent_product,
+            warehouse=obj.ordered_product.order.seller_shop).last()
+        return ShipmentPackageZoneSerializer(warehouse_assrt_ins.zone, read_only=True).data \
+            if warehouse_assrt_ins else None
 
     class Meta:
         model = RetailerOrderedProductMapping
@@ -1703,7 +1711,7 @@ class RetailerOrderedProductMappingSerializer(serializers.ModelSerializer):
                   'product_type', 'selling_price', 'shipped_qty', 'delivered_qty', 'returned_qty', 'damaged_qty',
                   'returned_damage_qty', 'expired_qty', 'missing_qty', 'rejected_qty', 'last_modified_by', 'created_at',
                   'modified_at', 'effective_price', 'discounted_price', 'delivered_at_price', 'cancellation_date',
-                  'picked_pieces', 'rt_ordered_product_mapping', 'shipment_product_packaging', 'is_fully_delivered')
+                  'picked_pieces', 'rt_ordered_product_mapping', 'shipment_product_packaging', 'is_fully_delivered', 'zone')
 
     def validate(self, data):
 

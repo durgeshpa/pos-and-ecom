@@ -809,6 +809,7 @@ class CartProductMapping(models.Model):
     )
     effective_price = models.FloatField(default=0)
     discounted_price = models.FloatField(default=0)
+    cost_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
     status = models.BooleanField(default=True)
@@ -2429,6 +2430,7 @@ class OrderedProductMapping(models.Model):
     )
     product_type = models.IntegerField(choices=((0, 'Free'), (1, 'Purchased')), default=1)
     selling_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    cost_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     shipped_qty = models.DecimalField(max_digits=10, decimal_places=3, default=0, verbose_name="Shipped Pieces",
                                       validators=[MinValueValidator(0)])
     delivered_qty = models.DecimalField(max_digits=10, decimal_places=3, default=0, verbose_name="Delivered Pieces",
