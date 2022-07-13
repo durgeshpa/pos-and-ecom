@@ -147,7 +147,12 @@ def get_warehouse_stock(shop_id=None, product=None, inventory_type=None):
             else:
                 margin = 0
         else:
-            margin = 0
+            try:
+                margin = product_price['store'][int(shop_id)][-1]['margin']
+                ptr = product_price['store'][int(shop_id)][-1]['ptr']
+            except:
+                margin = 0
+                ptr = 0
         try:
             pack_size = product.product_inner_case_size if product.product_inner_case_size else None
         except Exception as e:
@@ -258,6 +263,7 @@ def get_warehouse_stock(shop_id=None, product=None, inventory_type=None):
             "pack_size": pack_size,
             "brand_case_size": brand_case_size,
             "margin": margin,
+            "ptr": ptr,
             "no_of_pieces": no_of_pieces,
             "sub_total": sub_total,
             "available": available_qty,
