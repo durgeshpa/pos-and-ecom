@@ -349,13 +349,18 @@ class TagProductView(APIView):
             return api_response('Invalid Tag Id')
         shop = kwargs['shop']
         products = RetailerProduct.objects.filter(product_tag_ecom__tag=tag, shop=shop, is_deleted=False,
-                                                  online_enabled=True)
+                                                  online_enabled=True).distinct()
         is_success, data = False, []
+        count = products.count()
         if products.count() >= 3:
             products = self.pagination_class().paginate_queryset(products, self.request)
             serializer = TagProductSerializer(tag, context={'product': products})
             # serializer = RetailerProductSerializer(products, many=True)
             is_success, data = True, serializer.data
+
+        if count >= 10:
+            url = request.get_full_path().split('?')[0]+f'?limit=50&offset=0'
+            data.update({'total_items': count, 'view_more': url})
         return api_response('Tag Found', data, status.HTTP_200_OK, is_success)
 
 
@@ -453,6 +458,10 @@ class PastPurchasedProducts(APIView):
         products = self.pagination_class().paginate_queryset(products, self.request)
         serializer = RetailerProductSerializer(products, many=True)
         is_success, data, msg = True, serializer.data, f"{count} record/s found"
+        if count >10:
+            view_more = request.get_full_path().split('?')[0]
+            view_more += '?offset=0&limit=100'
+            data.append({'total': count, 'vew_more': view_more})
         return api_response(msg, data, status.HTTP_200_OK, is_success)
 
 
@@ -474,11 +483,19 @@ class ProductFunctionView(APIView):
         products = RetailerProduct.objects.filter(product_tag_ecom__tag=tag, shop=shop, is_deleted=False,
                                                   online_enabled=True)
         is_success, data = False, []
+        counts = products.count()
         if products.count() >= 3:
+            view_more = None
+            if products.count() > 10:
+                view_more = request.get_full_path().split("?")[0]
+                view_more += '?offset=0&limit=100'
             products = self.pagination_class().paginate_queryset(products, self.request)
             # serializer = TagProductSerializer(tag, context={'product': products})
             serializer = RetailerProductSerializer(products, many=True)
             is_success, data = True, serializer.data
+            if view_more:
+                data.append({'total': counts, 'view_more': view_more})
+
         return api_response('Tag Found', data, status.HTTP_200_OK, is_success)
 
 

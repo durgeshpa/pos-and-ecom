@@ -2,6 +2,7 @@ import logging
 import math
 import re
 import json
+from django.core.mail import send_mail
 import codecs
 from django.http import HttpResponse
 from datetime import date as datetime_date
@@ -58,7 +59,7 @@ from ecom.utils import check_ecom_user_shop, check_ecom_user
 from global_config.models import GlobalConfig
 from global_config.views import get_config_fofo_shop
 from gram_to_brand.models import (GRNOrderProductMapping, OrderedProductReserved as GramOrderedProductReserved,
-                                  PickList)
+                                  PickList, ProductGRNCostPriceMapping)
 from marketing.models import ReferralCode
 from pos import error_code
 from pos.api.v1.serializers import (BasicCartSerializer, BasicCartListSerializer, CheckoutSerializer,
@@ -418,11 +419,20 @@ class SearchProducts(APIView):
         category_ids = self.request.GET.get('category_ids')
         brand = self.request.GET.get('brands')
         sub_category_ids = self.request.GET.get('sub_category_ids')
+
+        max_selling_price = self.request.GET.get('max_selling_price', None)
+        min_percentage_discount = self.request.GET.get('min_percentage_discount', None)
+
         elastic_logger.info(
             "Keyword :: {}, Output type :: {}, Category :: {}, Sub-category :: {}".format(keyword, output_type,
                                                                                           category_ids,
                                                                                           sub_category_ids))
         filter_list = [{"term": {"is_deleted": False}}]
+        if min_percentage_discount:
+                filter_list.append({"range": {"margin": {"gte": min_percentage_discount}}})
+        if max_selling_price:
+                filter_list.append({"range": {"ptr": {"lte": max_selling_price}}})
+
         if int(self.request.GET.get('online_enabled', 0)) == 1:
             filter_list.append({"term": {"online_enabled": True}})
             filter_list.append({"term": {"status": 'active'}})
@@ -606,6 +616,16 @@ class SearchProducts(APIView):
                 products_list = es_search(index='rp-{}'.format(shop_id), body=body)
                 for p in products_list['hits']['hits']:
                     p_list.append(p["_source"])
+                if len(p_list) >= 10 and (
+                        self.request.GET.get('max_selling_price') or self.request.GET.get('min_percentage_discount')):
+                    param = self.request.query_params
+                    pass_parm = '?'
+                    for k in param:
+                        if k != 'pro_count':
+                            pass_parm = pass_parm + f'{k}={param[k]}&'
+                    pass_parm = pass_parm + 'pro_count=50'
+                    p_list.append({'total_items': len(p_list),
+                                   'vew_more': self.request.get_full_path().split('?')[0] + pass_parm})
             except Exception as e:
                 error_logger.error(e)
         # Processed Output
@@ -618,6 +638,7 @@ class SearchProducts(APIView):
                 product_ids = []
                 for p in products_list['hits']['hits']:
                     product_ids += [p["_source"]['id']]
+                    BasicCartOffers.cart = None
                 coupons = BasicCartOffers.get_basic_combo_coupons(product_ids, shop_id, 1,
                                                                   ["coupon_code", "coupon_type", "purchased_product"])
                 for p in products_list['hits']['hits']:
@@ -627,6 +648,17 @@ class SearchProducts(APIView):
                         if int(coupon['purchased_product']) == int(p["_source"]['id']):
                             p['_source']['coupons'] = [coupon]
                     p_list.append(p["_source"])
+                if len(p_list) >= 10 and (
+                        self.request.GET.get('max_selling_price') or self.request.GET.get('min_percentage_discount')):
+                    param = self.request.query_params
+                    pass_parm = '?'
+                    for k in param:
+                        if k != 'pro_count':
+                            pass_parm = pass_parm + f'{k}={param[k]}&'
+                    pass_parm = pass_parm + 'pro_count=50'
+                    p_list.append({'total_items': len(p_list),
+                                   'vew_more': self.request.get_full_path().split('?')[0] + pass_parm})
+
             except Exception as e:
                 error_logger.error(e)
         elastic_logger.info("Product list :: {}".format(p_list))
@@ -753,11 +785,13 @@ class SearchProducts(APIView):
         body["from"] = int(self.request.GET.get('offset', 0))
         body["size"] = int(self.request.GET.get('pro_count', 100))
         sort_by = self.request.GET.get('sort_by', 'modified_at')
-        sort_order = self.request.GET.get('sort_order', 'desc')
-        sort_by = sort_by if sort_by in ['ptr', "margin"] else 'margin'
-        sort_order = sort_order if sort_order in ['asc'] else 'desc'
-        if sort_by == 'ptr':
+        sort_order = self.request.GET.get('sort_order', 'asc')
+        sort_by = sort_by if sort_by in ['ptr', "margin"] else 'ptr'
+        sort_order = sort_order if sort_order in ['asc', 'desc'] else 'asc'
+        if sort_by == 'ptr' and app_type == '4':
             sort_by = 'super_store_product_selling_price'
+        elif sort_by == 'ptr' and app_type == '1':
+            sort_by = 'ptr'
         body["sort"] = {sort_by: sort_order}
         p_list = []
         if app_type == '1':
@@ -793,9 +827,19 @@ class SearchProducts(APIView):
             if cart_check:
                 p = self.modify_gf_cart_product_es(cart, cart_products, p)
             p_list.append(p["_source"])
-        if len(p_list) != 0:
+        if len(p_list) != 0 and not (self.request.GET.get('max_selling_price') or self.request.GET.get('min_percentage_discount')):
             if products_list.get('aggregations'):
                 p_list.append(products_list['aggregations'])
+        if len(p_list) >= 10 and  (
+                self.request.GET.get('max_selling_price') or self.request.GET.get('min_percentage_discount')):
+            param =  self.request.query_params
+            pass_parm = '?'
+            for k in param:
+                if k != 'pro_count':
+                    pass_parm = pass_parm + f'{k}={param[k]}&'
+            pass_parm = pass_parm + 'pro_count=50'
+            p_list.append({'total_items': len(p_list), 'vew_more': self.request.get_full_path().split('?')[0] + pass_parm})
+
         return p_list
 
     def search_query(self):
@@ -811,6 +855,8 @@ class SearchProducts(APIView):
         margin_max = self.request.GET.get('margin_max', None)
         selling_price_min = self.request.GET.get('selling_price_min', None)
         selling_price_max = self.request.GET.get('selling_price_max', None)
+        max_selling_price = self.request.GET.get('max_selling_price', None)
+        min_percentage_discount = self.request.GET.get('min_percentage_discount', None)
         filter_list = []
         app_type = self.request.META.get('HTTP_APP_TYPE', '1')
         if app_type == '4':
@@ -820,11 +866,16 @@ class SearchProducts(APIView):
                 {"term": {"product_type": 'superstore'}}
             ]
             if margin_min and margin_max:
-                filter_list.append({"range": {"margin": {"gt": margin_min, "lt": margin_max}}})
+                filter_list.append({"range": {"margin": {"gte": margin_min, "lte":margin_max}}})
+            if min_percentage_discount:
+                filter_list.append({"range": {"margin": {"gte": min_percentage_discount}}})
+
+            if max_selling_price:
+                filter_list.append({"range": {"super_store_product_selling_price": {"lte": max_selling_price}}})
 
             if selling_price_min and selling_price_max:
                 filter_list.append({"range": {
-                    "super_store_product_selling_price": {"gt": selling_price_min, "lt": selling_price_max}}})
+                    "super_store_product_selling_price": {"gte": selling_price_min, "lte": selling_price_max}}})
         else:
             if app_type != '2':
                 filter_list = [
@@ -1268,7 +1319,7 @@ class CartCentral(GenericAPIView):
                 # Filter/Delete cart products that are blocked for audit etc
                 cart_products = self.filter_cart_products(cart, seller_shop)
                 # Update number of pieces for all products
-                self.update_cart_qty(cart, cart_products)
+                self.update_cart_qty_cp(cart, cart_products)
                 # Check if products are present in cart
                 if cart.rt_cart_list.count() <= 0:
                     return api_response(['Sorry no product added to this cart yet'], None, status.HTTP_200_OK)
@@ -1492,7 +1543,7 @@ class CartCentral(GenericAPIView):
         return cart_products
 
     @staticmethod
-    def update_cart_qty(cart, cart_products):
+    def update_cart_qty_cp(cart, cart_products):
         """
             Update number of pieces for all products in cart
         """
@@ -1500,8 +1551,18 @@ class CartCentral(GenericAPIView):
             item_qty = CartProductMapping.objects.filter(cart=cart,
                                                          cart_product=cart_product.cart_product).last().qty
             updated_no_of_pieces = (item_qty * int(cart_product.cart_product.product_inner_case_size))
+            try:
+                if cart_product.cart_product.product_type == 1:
+                    cp_product = cart_product.cart_product.product_ref
+                else:
+                    cp_product = cart_product.cart_product
+                cost_price = ProductGRNCostPriceMapping.objects.get(product=cp_product)
+                cost_price = cost_price.cost_price
+            except ProductGRNCostPriceMapping.DoesNotExist:
+                cost_price = None
             CartProductMapping.objects.filter(cart=cart, cart_product=cart_product.cart_product).update(
-                no_of_pieces=updated_no_of_pieces)
+                no_of_pieces=updated_no_of_pieces, 
+                cost_price=cost_price)
 
     @staticmethod
     def delivery_message(shop_type):
@@ -4160,6 +4221,7 @@ class OrderCentral(APIView):
             message_title = "Great choice!"
             message_body = "Your order has been accepted!"
             send_notification_ecom_user(order, message_title, message_body)
+            sendemailforsuperstoreorder(order)
 
             msg = 'Ordered Successfully!'
             return api_response(msg, BasicOrderListSerializer(Order.objects.get(id=order.id)).data,
@@ -6416,6 +6478,28 @@ def send_notification_ecom_user(order, message_title, message_body):
         info_logger.info(result)
 
 
+def sendemailforsuperstoreorder(order):
+    subject = 'A new SuperStore order has been placed.'
+    platform = 'seller' if config('ENVIRONMENT') == 'production' else config('ENVIRONMENT')
+    url = 'https://{}.gramfactory.com/admin/retailer_to_sp/order/{}'.format(platform, order.id)
+    body = 'Click here for more details - {}'.format(url)
+    sender = GlobalConfig.objects.get(key='sender')
+    receiver = GlobalConfig.objects.get(key='superstore_order_internal_email_recipient')
+    info_logger.info("--------------Sending mail for superstore order!------------------")
+    info_logger.info("Body :: {}".format(body))
+    try:
+        send_mail(
+            subject,
+            body,
+            sender.value,
+            receiver.value.split(','),
+            fail_silently=False,
+        )
+        info_logger.info("----------Mail send successfully for superstore order!-------------")
+    except Exception as e:
+        info_logger.error(e)
+
+
 # class OrderList(generics.ListAPIView):
 #     serializer_class = OrderListSerializer
 #     authentication_classes = (authentication.TokenAuthentication,)
@@ -6747,7 +6831,7 @@ def pdf_generation(request, ordered_product):
 
             ordered_prodcut = {
                 "product_sku": m.product.product_gf_code,
-                "product_short_description": m.product.product_short_description,
+                "product_short_description": m.product.product_short_description if m.product.product_type == 0 else m.product.product_short_description + " (Discounted)",
                 "product_ean_code": m.product.product_ean_code,
                 "product_hsn": m.product.product_hsn,
                 "product_tax_percentage": "" if tax_sum == 0 else str(tax_sum) + "%",
@@ -6803,7 +6887,7 @@ def pdf_generation(request, ordered_product):
         tax_amt = [num2words(i) for i in str(total_tax_amount_int).split('.')]
         tax_rupees = tax_amt[0]
 
-        logger.info("createing invoice pdf")
+        logger.info("creating invoice pdf")
         logger.info(template_name)
         logger.info(request.get_host())
 
@@ -6819,7 +6903,11 @@ def pdf_generation(request, ordered_product):
                 "shop_name_gram": shop_name_gram, "nick_name_gram": nick_name_gram,
                 "address_line1_gram": address_line1_gram, "city_gram": city_gram, "state_gram": state_gram,
                 "pincode_gram": pincode_gram, "cin": cin_number,
-                "hsn_list": list1, "license_number": license_number, "e_invoice_data": e_invoice_data}
+                "hsn_list": list1, "license_number": license_number, "e_invoice_data": e_invoice_data,
+                "no_of_crate":ordered_product.shipment_packaging.filter(packaging_type='CRATE').count(),
+                "no_of_box":ordered_product.shipment_packaging.filter(packaging_type='BOX').count(),
+                "no_of_sack":ordered_product.shipment_packaging.filter(packaging_type='SACK').count()
+                }
 
         cmd_option = {"margin-top": 10, "zoom": 1, "javascript-delay": 1000, "footer-center": "[page]/[topage]",
                       "no-stop-slow-scripts": True, "quiet": True}
@@ -7080,7 +7168,7 @@ def return_challan_generation(request, return_order_id):
     tax_amt = [num2words(i) for i in str(total_tax_amount_int).split('.')]
     tax_rupees = tax_amt[0]
 
-    logger.info("createing return challan pdf")
+    logger.info("creating return challan pdf")
     logger.info(template_name)
     logger.info(request.get_host())
 
@@ -7273,7 +7361,7 @@ def pdf_superstore_generation(request, ordered_product):
 
             ordered_prodcut = {
                 "product_sku": m.product.product_gf_code,
-                "product_short_description": m.product.product_short_description,
+                "product_short_description": m.product.product_short_description if m.product.product_type == 0 else m.product.product_short_description + " (Discounted)",
                 "product_ean_code": m.product.product_ean_code,
                 "product_hsn": m.product.product_hsn,
                 "product_tax_percentage": "" if tax_sum == 0 else str(tax_sum) + "%",
@@ -8199,6 +8287,8 @@ class DeliveryShipmentDetails(APIView):
             grouped_return_dict['return_count'] = grouped_return['return_count']
             grouped_return_dict['shipment_status'] = 'PENDING' if grouped_return['status'] > 0 else 'COMPLETED'
             # grouped_return_dict['return_value'] = ReturnOrder.objects.filter(id=grouped_return['id']).last().return_amount
+            grouped_return_dict['shipment_status'] = grouped_return['return_status']
+            grouped_return_dict['return_value'] = ReturnOrder.objects.filter(id=grouped_return['id']).last().return_amount
             trip_return.append(grouped_return_dict)
 
         return trip_return
@@ -8633,7 +8723,7 @@ def update_trip_status(trip_id):
     shipment_status_list = ['FULLY_DELIVERED_AND_COMPLETED', 'PARTIALLY_DELIVERED_AND_COMPLETED',
                             'FULLY_RETURNED_AND_COMPLETED', 'RESCHEDULED', 'NOT_ATTEMPT']
     order_product = OrderedProduct.objects.filter(trip_id=trip_id)
-    return_orders = ReturnOrder.objects.filter(last_mile_trip_returns__trip_id=trip_id, 
+    return_orders = ReturnOrder.objects.filter(last_mile_trip_returns__trip_id=trip_id,
                                                return_status__in=[ReturnOrder.RETURN_INITIATED]).count()
     if order_product.exclude(shipment_status__in=shipment_status_list).count() == 0:
         # Trip.objects.filter(pk=trip_id).update(trip_status=Trip.COMPLETED, completed_at=datetime.now())
@@ -11840,14 +11930,14 @@ class LastMileTripReturnOrderView(generics.GenericAPIView):
         source_shop = trip.source_shop
         if source_shop.shop_type.shop_type == 'sp':
             returns = ReturnOrder.objects.filter(
-                return_status__in=[ReturnOrder.STORE_ITEM_PICKED],
+                # return_status__in=[ReturnOrder.STORE_ITEM_PICKED],
                 seller_shop_id=seller_shop,
                 last_mile_trip_returns__trip_id=trip_id,
                 shipment__order__dispatch_center__isnull=True,
             ).distinct('id')
         if source_shop.shop_type.shop_type == 'dc':
             returns = ReturnOrder.objects.filter(
-                return_status__in=[ReturnOrder.STORE_ITEM_PICKED],
+                # return_status__in=[ReturnOrder.STORE_ITEM_PICKED],
                 seller_shop_id=seller_shop,
                 last_mile_trip_returns__trip_id=trip_id,
                 shipment__order__dispatch_center=source_shop
@@ -11892,7 +11982,7 @@ class LastMileTripDeliveryReturnOrderView(generics.GenericAPIView):
         source_shop = trip.source_shop
         if source_shop.shop_type.shop_type == 'sp':
             returns = ReturnOrder.objects.filter(
-                # return_status__in=[],
+                # return_status__in=[ReturnOrder.STORE_ITEM_PICKED],
                 seller_shop_id=seller_shop,
                 last_mile_trip_returns__trip_id=trip_id,
                 shipment__order__dispatch_center__isnull=True,
@@ -11900,7 +11990,7 @@ class LastMileTripDeliveryReturnOrderView(generics.GenericAPIView):
             ).distinct('id')
         if source_shop.shop_type.shop_type == 'dc':
             returns = ReturnOrder.objects.filter(
-                # return_status__in=[],
+                # return_status__in=[ReturnOrder.STORE_ITEM_PICKED],
                 seller_shop_id=seller_shop,
                 last_mile_trip_returns__trip_id=trip_id,
                 shipment__order__dispatch_center=source_shop,

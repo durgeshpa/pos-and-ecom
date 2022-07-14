@@ -17,6 +17,7 @@ from django.http import HttpResponse
 from celery.task import task
 
 # app imports
+from marketing.models import RewardPoint
 from retailer_backend import common_function as CommonFunction
 from retailer_backend.settings import WHATSAPP_API_ENDPOINT, WHATSAPP_API_USERID, WHATSAPP_API_PASSWORD
 
@@ -412,6 +413,19 @@ def return_item_home_pickup(name, number):
     try:
         body = f"Hi {name}, Your return request has been accepted. Please keep the parcel ready, our delivery partner will reach out to you soon. Team PepperTap."
         message = SendSms(phone=number, body=body, mask="PEPTAB")
+        message.send()
+    except Exception as e:
+        error_logger.error(e)
+
+
+@task
+def sms_reward_point_update_superstore(user):
+    try:
+        url = "https://ptapecomm.page.link/UegdUHjtqmdGYyiu8"
+        instance = RewardPoint.objects.filter(reward_user=user)
+        amount = max(instance.direct_earned + instance.indirect_earned - instance.points_used, 0)
+        body =f"Pep Coins Update! Your updated balance is {amount}. Login to the PepperTap app to use them now - {url}"
+        message = SendSms(phone=user.phone_number, body=body, mask='PEPTAB')
         message.send()
     except Exception as e:
         error_logger.error(e)

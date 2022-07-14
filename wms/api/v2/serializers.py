@@ -206,7 +206,7 @@ class ChildProductSerializer(serializers.ModelSerializer):
     class Meta:
         model = Product
         ref_name = "ChildProduct v2"
-        fields = ('product_sku', 'product_name', 'product_mrp', 'product_pro_image')
+        fields = ('product_sku', 'product_name', 'product_mrp', 'product_pro_image', 'is_kvi')
 
     def get_product_pro_image(self, obj):
         if not obj.use_parent_image:

@@ -34,6 +34,7 @@ from cms.permissions import (has_cards_create_permission,
 
 from cms.messages import VALIDATION_ERROR_MESSAGES, SUCCESS_MESSAGES, ERROR_MESSAGES
 from ...validators import validate_data_format, validate_id
+from django.db import transaction
 
 info_logger = logging.getLogger('file-info')
 error_logger = logging.getLogger('file-error')
@@ -539,7 +540,7 @@ class PageDetailView(APIView):
                     "message": ERROR_MESSAGES["PAGE_VERSION_NOT_FOUND"].format(query_params.get('version'))
                 }
                 return Response(message, status = status.HTTP_204_NO_CONTENT)
-        serializer = self.serializer_class(page, context = {'page_version': page_version})
+        serializer = self.serializer_class(page, context = {'page_version': page_version, 'flag': query_params.get('flag', False), 'path':request.get_full_path(), 'request': request})
         message = {
             "is_success": True,
             "message": SUCCESS_MESSAGES["PAGE_RETRIEVE_SUCCESS"],
@@ -559,7 +560,7 @@ class PageDetailView(APIView):
                 "message": ERROR_MESSAGES["PAGE_ID_NOT_FOUND"].format(id)
             }
             return Response(message, status = status.HTTP_204_NO_CONTENT)
-        serializer = PageDetailSerializer(data=request.data, instance=page, partial=True)
+        serializer = PageDetailSerializer(data=request.data, instance=page, context = {'request': request}, partial=True)
         if serializer.is_valid():
             serializer.save()
 
@@ -584,7 +585,7 @@ class PageDetailView(APIView):
                 }
             else: 
                 latest_page_version = PageVersion.objects.get(version_no = latest_page_version_no, page = page)
-                data = PageLatestDetailSerializer(page, context = {'version': latest_page_version}).data
+                data = PageLatestDetailSerializer(page, context = {'version': latest_page_version, 'request': request}).data
 
                 message_to_cache = {
                     "is_success": True,
@@ -606,6 +607,36 @@ class PageDetailView(APIView):
         }
         return Response(message, status = status.HTTP_400_BAD_REQUEST)
 
+    def delete(self, request, id, format = None):
+        """Get page specific details"""
+        pass
+
+        request.META['HTTP_X_FORWARDED_PROTO'] = 'https'
+        query_params = request.query_params
+        try:
+            page = Page.objects.get(id=id)
+        except Exception:
+            message = {
+                "is_success": False,
+                "message": ERROR_MESSAGES["PAGE_ID_NOT_FOUND"].format(id)
+            }
+            return Response(message, status=status.HTTP_204_NO_CONTENT)
+        page_version = None
+        if query_params.get('version'):
+            with transaction.atomic():
+                page_version = PageVersion.objects.get(page=page, version_no=query_params.get('version'))
+                page_version.delete()
+
+
+            page_version = None
+        serializer = self.serializer_class(page, context={'page_version': page_version})
+        message = {
+            "is_success": True,
+            "message": 'deleted successfully ',
+            "data": serializer.data
+        }
+        return Response(message, status=status.HTTP_200_OK)
+
 
 class PageVersionDetailView(APIView):
     """For Latest Version of Page"""
@@ -619,6 +650,7 @@ class PageVersionDetailView(APIView):
         request.META['HTTP_X_FORWARDED_PROTO'] = 'https'
         shop_id = kwargs.get('shop', None)
         parent_shop = kwargs.get('parent_shop', None)
+        query_params = request.query_params
         try:
             page_key = f"latest_page_{id}"
             # cached_page = cache.get(page_key, None)
@@ -642,7 +674,7 @@ class PageVersionDetailView(APIView):
             return Response(message)
         latest_page_version = PageVersion.objects.get(version_no = latest_page_version_no, page = page)
         serializer = self.serializer_class(page, context = {'version': latest_page_version, 'shop_id': shop_id,
-                                                            'parent_shop': parent_shop})
+                                                            'parent_shop': parent_shop, 'flag': query_params.get('flag', False), 'path':request.get_full_path(), 'request': request})
         message = {
             "is_success": True,
             "message": "OK",

@@ -254,33 +254,33 @@ class EcomOrderAddressSerializer(serializers.ModelSerializer):
 
 
     def get_address(self, obj):
-        if obj.order.delivery_option == '1':
-            return obj.order.seller_shop.shipping_address_obj.address if obj.order.seller_shop.shipping_address_obj.address else None
+        #if obj.order.delivery_option == '1':
+            #return obj.order.seller_shop.shipping_address_obj.address if obj.order.seller_shop.shipping_address_obj.address else None
         return obj.address if obj.address else None
 
     def get_contact_name(self, obj):
-        if obj.order.delivery_option == '1':
-            return obj.order.seller_shop.shipping_address_obj.contact_name if obj.order.seller_shop.shipping_address_obj.contact_name else None
+        #if obj.order.delivery_option == '1':
+            #return obj.order.seller_shop.shipping_address_obj.contact_name if obj.order.seller_shop.shipping_address_obj.contact_name else None
         return obj.contact_name if obj.contact_name else None
 
     def get_contact_number(self, obj):
-        if obj.order.delivery_option == '1':
-            return obj.order.seller_shop.shipping_address_obj.contact_number if obj.order.seller_shop.shipping_address_obj.contact_number else None
+        #if obj.order.delivery_option == '1':
+            #return obj.order.seller_shop.shipping_address_obj.contact_number if obj.order.seller_shop.shipping_address_obj.contact_number else None
         return obj.contact_number if obj.contact_number else None
 
     def get_pincode(self, obj):
-        if obj.order.delivery_option == '1':
-            return obj.order.seller_shop.shipping_address_obj.pincode if obj.order.seller_shop.shipping_address_obj.pincode else None
+        #if obj.order.delivery_option == '1':
+            #return obj.order.seller_shop.shipping_address_obj.pincode if obj.order.seller_shop.shipping_address_obj.pincode else None
         return obj.pincode if obj.pincode else None
 
     def get_city(self, obj):
-        if obj.order.delivery_option == '1':
-            return obj.order.seller_shop.shipping_address_obj.city.city_name if obj.order.seller_shop.shipping_address_obj.city else None
+        #if obj.order.delivery_option == '1':
+            #return obj.order.seller_shop.shipping_address_obj.city.city_name if obj.order.seller_shop.shipping_address_obj.city else None
         return obj.city.city_name if obj.city else None
 
     def get_state(self, obj):
-        if obj.order.delivery_option == '1':
-            return obj.order.seller_shop.shipping_address_obj.state.state_name if obj.order.seller_shop.shipping_address_obj.state else None
+        #if obj.order.delivery_option == '1':
+            #return obj.order.seller_shop.shipping_address_obj.state.state_name if obj.order.seller_shop.shipping_address_obj.state else None
         return obj.state.state_name if obj.state else None
 
     class Meta:
@@ -611,6 +611,7 @@ class EcomShipmentSerializer(serializers.Serializer):
         # validate given picked products info
         products_info = attrs['products']
         given_products = []
+        new_products_info = []
         for item in products_info:
             key = str(item['product_id'])
             if key not in order_products:
@@ -639,19 +640,19 @@ class EcomShipmentSerializer(serializers.Serializer):
         total_price = 0
         for prod in order_products:
             if prod not in given_products:
-                products_info.append({
+                new_products_info.append({
                     "product_id": int(order_products[prod][0]),
                     "picked_qty": 0,
                     "selling_price": int(order_products[prod][2]),
                     "product_type": 1
                 })
-
         for product in products_info:
             if product['product_id'] in product_combo_map:
-                for offer in product_combo_map[product['product_id']]:
+                offers = product_combo_map[product['product_id']]
+                for offer in offers:
                     purchased_product_multiple = int(int(product['picked_qty']) / int(offer['item_qty']))
                     picked_free_item_qty = int(purchased_product_multiple * int(offer['free_item_qty']))
-                    products_info.append({
+                    new_products_info.append({
                         "product_id": int(offer['free_item_id']),
                         "picked_qty": picked_free_item_qty,
                         "selling_price": 0,
@@ -661,14 +662,14 @@ class EcomShipmentSerializer(serializers.Serializer):
 
         if cart_free_product:
             qty = cart_free_product['free_item_qty'] if cart_free_product['cart_minimum_value'] <= total_price else 0
-            products_info.append({
+            new_products_info.append({
                 "product_id": int(cart_free_product['free_item_id']),
                 "picked_qty": qty,
                 "selling_price": 0,
                 "product_type": 0
             })
 
-        attrs['products'] = products_info
+        attrs['products'] = new_products_info + products_info
         return attrs
 
 

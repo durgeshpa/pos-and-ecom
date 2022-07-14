@@ -98,11 +98,14 @@ def create_logs_for_qc_desk_area_mapping(sender, instance=None, created=False, *
 @receiver(post_save, sender=QCDeskQCAreaAssignmentMapping)
 def assign_token_for_existing_qc_area(sender, instance=None, created=False, update_fields=None, **kwargs):
     """ Assign Token for exiting QC Area mapped order """
+    info_logger.info(f"assign_token_for_existing_qc_area|QC Area-{instance.qc_area}|Token-{instance.token_id},"
+                     f" QC Status-{instance.qc_done}")
     if instance.token_id is None and instance.qc_area:
         picker_instance = PickerDashboard.objects.filter(qc_area=instance.qc_area). \
             filter(Q(order__rt_order_order_product__isnull=True) |
                    Q(order__rt_order_order_product__shipment_status='SHIPMENT_CREATED')). \
             filter(picking_status__in=[PickerDashboard.PICKING_COMPLETE, PickerDashboard.MOVED_TO_QC]).last()
+        info_logger.info(f"assign_token_for_existing_qc_area|order-{picker_instance.order}")
         if picker_instance and picker_instance.order:
             instance.token_id = picker_instance.order.order_no
             instance.qc_done = False

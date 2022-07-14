@@ -45,9 +45,13 @@ class Application(BaseTimestampUserModel):
 class Template(BaseTimestampUserModel):
     app = models.ForeignKey(Application, on_delete=models.CASCADE, related_name='templates')
     name = models.CharField(max_length=255)
+    image = models.ImageField(upload_to="templates/images", null=True, blank=True)
+    description = models.CharField(max_length=150, blank=True, null=True)
+
 
 
 class Functions(BaseTimestampUserModel):
+    app = models.ForeignKey(Application, on_delete=models.CASCADE, related_name='Functions_app')
     name = models.CharField(max_length=20)
     type = models.PositiveIntegerField(choices=FUNTION_TYPE_CHOICE)
     url = models.CharField(max_length=200)
