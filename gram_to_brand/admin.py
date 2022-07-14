@@ -31,7 +31,7 @@ from .models import (Order, Cart, CartProductMapping, GRNOrder, GRNOrderProductM
 from .forms import (OrderForm, CartProductMappingForm, GRNOrderProductForm, GRNOrderProductFormset, DocumentFormset,
                     POGenerationAccountForm, POGenerationForm, DocumentForm, VendorShopMappingForm)
 from wms.models import WarehouseAssortment
-from products.admin import ProductFilter, ProductSKUSearch, ProductCategoryFilter
+from products.admin import ProductFilter, ProductSKUSearch as ProductSKUSearchForCostPrice
 
 
 # Logger
@@ -582,7 +582,7 @@ class ProductCostPriceChangeLogInlineAdmin(admin.TabularInline):
 class ProductGRNCostPriceMappingAdmin(admin.ModelAdmin):
     list_display = ('product', 'cost_price', 'latest_grn', 'created_at', 'modified_at')
     inlines = [ProductCostPriceChangeLogInlineAdmin]
-    list_filters = [ProductFilter, ProductSKUSearch, ProductCategoryFilter]
+    list_filter = [ProductFilter, ProductSKUSearchForCostPrice]
 
     def has_change_permission(self, request, obj=None):
         return False
