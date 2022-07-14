@@ -496,6 +496,13 @@ class CartSerializer(serializers.ModelSerializer):
     delivery_msg = serializers.SerializerMethodField()
     discounted_prices_sum = serializers.SerializerMethodField()
     shop_min_amount = serializers.SerializerMethodField('shop_min_amount_id')
+    offers = serializers.SerializerMethodField()
+
+    def get_offers(self, obj):
+        if obj.offers:
+            return obj.offers
+        elif obj.cart_offers:
+            return CartOfferSerializer(obj.cart_offers, many=True).data
 
     class Meta:
         model = Cart
@@ -825,6 +832,12 @@ class OrderedCartSerializer(serializers.ModelSerializer):
     sub_total = serializers.SerializerMethodField('sub_total_id')
     offers = serializers.SerializerMethodField()
 
+    def get_offers(self, obj):
+        if obj.offers:
+            return obj.offers
+        elif obj.cart_offers:
+            return CartOfferSerializer(obj.cart_offers, many=True).data
+
     def get_total_discount(self, obj):
         sum = 0
         keyValList1 = ['discount']
@@ -858,12 +871,6 @@ class OrderedCartSerializer(serializers.ModelSerializer):
 
     def items_count_id(self, obj):
         return obj.rt_cart_list.count()
-
-    def get_offers(self, obj):
-        if obj.offers:
-            return obj.offers
-        elif obj.cart_offers:
-            return CartOfferSerializer(obj.cart_offers, many=True).data
 
     class Meta:
         model = Cart
@@ -956,6 +963,13 @@ class OrderedCartProductMappingListSerializer(serializers.ModelSerializer):
 
 class OrderedCartListSerializer(serializers.ModelSerializer):
     rt_cart_list = OrderedCartProductMappingListSerializer(many=True)
+    offers = serializers.SerializerMethodField()
+
+    def get_offers(self, obj):
+        if obj.offers:
+            return obj.offers
+        elif obj.cart_offers:
+            return CartOfferSerializer(obj.cart_offers, many=True).data
 
     class Meta:
         model = Cart

@@ -489,6 +489,38 @@ class Cart(models.Model):
 
         return entice_text
 
+    def save_cart_offers(self, offers_dict):
+        CartOffers.objects.filter(cart=self).delete()
+        info_logger.info(f"Remove existing offers | Cart {self}")
+        cart_offers = []
+        if offers_dict.get('catalog'):
+            for item_id, offer in offers_dict['catalog']:
+                cart_offers.append(CartOffers(cart=self, item_id=item_id, brand_id=offer['brand_id'],
+                                              offer_type=offer['type'], offer_sub_type=offer['sub_type'],
+                                              coupon=offer['coupon_id'], discount=offer['discount_value'],
+                                              free_product=offer['free_item'], free_product_qty=offer['free_item'],
+                                              cart_discount=offer['cart_discount'],
+                                              brand_discount=offer['brand_discount'],
+                                              sub_total=offer['discounted_product_subtotal_after_sku_discount']))
+        if offers_dict.get('brand'):
+            for brand_id, offer in offers_dict['brand']:
+                cart_offers.append(CartOffers(cart=self, brand_id=brand_id, offer_type=offer['type'],
+                                              offer_sub_type=offer['sub_type'], coupon=offer['coupon_id'],
+                                              discount=offer['discount_value'],
+                                              sub_total=offer['brand_product_subtotals']))
+        elif offers_dict.get('cart'):
+            offer = offers_dict.get('cart')
+            cart_offers.append(CartOffers(cart=self, offer_type=offer['type'], offer_sub_type=offer['sub_type'],
+                                          coupon=offer['coupon_id'], discount=offer['discount_value'],
+                                          sub_total=offer['cart_value']))
+        else:
+            offer = offers_dict.get('none')
+            cart_offers.append(CartOffers(cart=self, offer_type=offer['type'], offer_sub_type=offer['sub_type'],
+                                          entice_text=offer['entice_text']))
+
+        CartOffers.objects.bulk_create(cart_offers)
+        info_logger.info(f"Offers created | Cart {self}")
+
     def save(self, *args, **kwargs):
         if self.cart_status == self.ORDERED:
             if self.cart_type not in ['BASIC', 'ECOM', 'SUPERSTORE']:
