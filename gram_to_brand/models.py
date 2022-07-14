@@ -694,6 +694,7 @@ class ProductGRNCostPriceMapping(models.Model):
     product = models.OneToOneField(Product, related_name='cost_price', 
                                    on_delete=models.CASCADE)
     cost_price = models.DecimalField(max_digits=10, decimal_places=2)
+    current_inv = models.PositiveIntegerField(null=True, blank=True)
     latest_grn = models.ForeignKey(GRNOrderProductMapping, 
                                    related_name='product_cost_grn_mappings', 
                                    on_delete=models.CASCADE)
@@ -714,6 +715,7 @@ class ProductCostPriceChangeLog(models.Model):
                                                related_name='cost_price_change_logs',
                                                on_delete=models.CASCADE)
     cost_price = models.DecimalField(max_digits=10, decimal_places=2)
+    current_inv = models.PositiveIntegerField(null=True, blank=True)
     grn = models.ForeignKey(GRNOrderProductMapping, 
                                    related_name='cost_price_change_logs', 
                                    on_delete=models.CASCADE, 

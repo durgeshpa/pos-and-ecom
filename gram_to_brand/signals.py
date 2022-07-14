@@ -170,20 +170,24 @@ def calculate_cost_price(sender, instance=None, created=False, **kwargs):
             cost_price = ProductGRNCostPriceMapping.objects.get(product=product)
             last_cp = cost_price.cost_price
             cost_price_change_log.grn = cost_price.latest_grn
+            last_avail_qty = cost_price.current_inv
         except ProductGRNCostPriceMapping.DoesNotExist:
             cost_price = ProductGRNCostPriceMapping()
             grn = GRNOrderProductMapping.objects.filter(product=product).exclude(id=instance.pk).last()
             last_cp = grn.product_invoice_price if grn else 0
             cost_price_change_log.grn = grn
             cost_price.product = product
+            last_avail_qty = 0
         cost_price_change_log.cost_price_grn_mapping = cost_price
         cost_price_change_log.cost_price = last_cp
+        cost_price_change_log.current_inv = last_avail_qty
         current_purchase_price = instance.product_invoice_price
         current_purchase_qty = instance.product_invoice_qty
         new_cost_price = (float((avail_qty * last_cp)) + (current_purchase_qty * current_purchase_price)) / (avail_qty + current_purchase_qty)
         ### updating cost price of product 
         cost_price.cost_price = new_cost_price
         cost_price.latest_grn = instance
+        cost_price.current_inv = avail_qty
         cost_price.modified_at = datetime.datetime.now()
         with transaction.atomic():
             cost_price.save()
