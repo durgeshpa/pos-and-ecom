@@ -77,7 +77,7 @@ def run():
         grns = GRNOrderProductMapping.objects.filter(product=product).filter(product_invoice_qty__gt=0)\
         .filter(product_invoice_price__gt=0).order_by('-created_at')[:4]
         if grns:
-            total_price = sum([ grn.product_amount for grn in grns])
+            total_price = sum([ grn.product_invoice_price * grn.product_invoice_qty  for grn in grns])
             total_qty = sum([ grn.product_invoice_qty for grn in grns])
             cp = total_price / total_qty
             ProductGRNCostPriceMapping.objects.create(
