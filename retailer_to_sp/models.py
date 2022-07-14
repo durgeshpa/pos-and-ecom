@@ -738,10 +738,20 @@ def create_bulk_order(sender, instance=None, created=False, **kwargs):
                         if instance.order_type == 'DISCOUNTED':
                             discounted_price = float(row[3])
                         try:
+                            if product.product_type == 1:
+                                cp_product = product.product_ref
+                            else:
+                                cp_product = product
+                            try:
+                                cost_price = cp_product.cost_price
+                                cost_price = cost_price.cost_price
+                            except Exception as e:
+                                cost_price = 0
                             CartProductMapping.objects.create(cart=instance.cart, cart_product_id=product.id,
                                                               qty=ordered_qty,
                                                               no_of_pieces=ordered_pieces,
                                                               cart_product_price=product_price,
+                                                              cost_price = cost_price,
                                                               discounted_price=discounted_price)
                         except Exception as error:
                             error_logger.info(f"error while creating CartProductMapping in "
