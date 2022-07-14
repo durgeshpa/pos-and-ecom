@@ -1,10 +1,9 @@
 import logging
-from datetime import datetime, timedelta
-from venv import create
+from datetime import datetime
 
 from django.db import transaction
 from django.db.models import Sum
-from global_config.views import get_config
+from products.models import Product
 
 from wms.models import BinInventory
 from gram_to_brand.models import (ProductCostPriceChangeLog, ProductGRNCostPriceMapping,
@@ -18,16 +17,16 @@ info_logger = logging.getLogger('file-info')
 error_logger = logging.getLogger('file-error')
 
 
-def run():
-    months = int(get_config('last_grn_for_cp_series', 12))
-    days = 30 * months
-    start_date = datetime.now() - timedelta(days=days)
-    grns = GRNOrderProductMapping.objects.filter(product_invoice_qty__gt=0)\
-        .filter(product_invoice_price__gt=0, 
-                created_at__gte=start_date).order_by('created_at')
-    print(f"Total GRN found :: {grns.count()}")
-    for grn in grns:
-        create_cost_price(grn)
+# def run():
+#     months = int(get_config('last_grn_for_cp_series', 12))
+#     days = 30 * months
+#     start_date = datetime.now() - timedelta(days=days)
+#     grns = GRNOrderProductMapping.objects.filter(product_invoice_qty__gt=0)\
+#         .filter(product_invoice_price__gt=0, 
+#                 created_at__gte=start_date).order_by('created_at')
+#     print(f"Total GRN found :: {grns.count()}")
+#     for grn in grns:
+#         create_cost_price(grn)
 
 def create_cost_price(instance):
     product = instance.product
@@ -68,3 +67,21 @@ def create_cost_price(instance):
         cost_price.save()
         cost_price_change_log.cost_price_grn_mapping = cost_price
         cost_price_change_log.save()
+
+
+
+def run():
+    products = Product.objects.filter(status='active')
+    print(f"Products found :: {products.count()}")
+    for product in products:
+        grns = GRNOrderProductMapping.objects.filter(product=product).filter(product_invoice_qty__gt=0)\
+        .filter(product_invoice_price__gt=0).order_by('-created_at')[:4]
+        if grns:
+            total_price = sum([ grn.product_amount for grn in grns])
+            total_qty = sum([ grn.product_invoice_qty for grn in grns])
+            cp = total_price / total_qty
+            ProductGRNCostPriceMapping.objects.create(
+                product = product,
+                cost_price = cp,
+                latest_grn = grns[0]
+            )
