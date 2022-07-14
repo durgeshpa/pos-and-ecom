@@ -1552,7 +1552,7 @@ class CartCentral(GenericAPIView):
                                                          cart_product=cart_product.cart_product).last().qty
             updated_no_of_pieces = (item_qty * int(cart_product.cart_product.product_inner_case_size))
             try:
-                if cart_product.cart_product.product_type == 'DISCOUNTED':
+                if cart_product.cart_product.product_type == '1':
                     cp_product = cart_product.cart_product.product_ref
                 else:
                     cp_product = cart_product.cart_product
