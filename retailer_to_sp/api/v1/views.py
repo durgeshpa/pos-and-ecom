@@ -792,6 +792,8 @@ class SearchProducts(APIView):
             sort_by = 'super_store_product_selling_price'
         elif sort_by == 'ptr' and app_type == '1':
             sort_by = 'ptr'
+        if sort_by == 'margin':
+            sort_order = 'desc'
         body["sort"] = {sort_by: sort_order}
         p_list = []
         if app_type == '1':
