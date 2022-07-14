@@ -11930,14 +11930,14 @@ class LastMileTripReturnOrderView(generics.GenericAPIView):
         source_shop = trip.source_shop
         if source_shop.shop_type.shop_type == 'sp':
             returns = ReturnOrder.objects.filter(
-                return_status__in=[ReturnOrder.STORE_ITEM_PICKED],
+                # return_status__in=[ReturnOrder.STORE_ITEM_PICKED],
                 seller_shop_id=seller_shop,
                 last_mile_trip_returns__trip_id=trip_id,
                 shipment__order__dispatch_center__isnull=True,
             ).distinct('id')
         if source_shop.shop_type.shop_type == 'dc':
             returns = ReturnOrder.objects.filter(
-                return_status__in=[ReturnOrder.STORE_ITEM_PICKED],
+                # return_status__in=[ReturnOrder.STORE_ITEM_PICKED],
                 seller_shop_id=seller_shop,
                 last_mile_trip_returns__trip_id=trip_id,
                 shipment__order__dispatch_center=source_shop
