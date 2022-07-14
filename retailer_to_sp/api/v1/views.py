@@ -866,7 +866,7 @@ class SearchProducts(APIView):
                 {"term": {"product_type": 'superstore'}}
             ]
             if margin_min and margin_max:
-                filter_list.append({"range": {"margin": {"gt": margin_min, "lt":margin_max}}})
+                filter_list.append({"range": {"margin": {"gte": margin_min, "lte":margin_max}}})
             if min_percentage_discount:
                 filter_list.append({"range": {"margin": {"gte": min_percentage_discount}}})
 
@@ -875,7 +875,7 @@ class SearchProducts(APIView):
 
             if selling_price_min and selling_price_max:
                 filter_list.append({"range": {
-                    "super_store_product_selling_price": {"gt": selling_price_min, "lt": selling_price_max}}})
+                    "super_store_product_selling_price": {"gte": selling_price_min, "lte": selling_price_max}}})
         else:
             if app_type != '2':
                 filter_list = [
