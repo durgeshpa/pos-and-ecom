@@ -787,7 +787,7 @@ class SearchProducts(APIView):
         sort_by = self.request.GET.get('sort_by', 'modified_at')
         sort_order = self.request.GET.get('sort_order', 'desc')
         sort_by = sort_by if sort_by in ['ptr', "margin"] else 'ptr'
-        sort_order = sort_order if sort_order in ['asc'] else 'asc'
+        sort_order = sort_order if sort_order in ['asc', 'desc'] else 'asc'
         if sort_by == 'ptr' and app_type == '4':
             sort_by = 'super_store_product_selling_price'
         elif sort_by == 'ptr' and app_type == '1':
