@@ -243,6 +243,7 @@ class ParentProductSerializers(serializers.ModelSerializer):
     product_parent_product = ChildProductVendorSerializers(many=True, required=False, read_only=True)
     parent_id = serializers.CharField(read_only=True)
     product_type = serializers.CharField(read_only=True)
+    description = serializers.SerializerMethodField()
     max_inventory = serializers.IntegerField(allow_null=True, max_value=999)
     product_images = serializers.ListField(required=False, default=None, child=serializers.ImageField(),
                                            write_only=True)
@@ -330,17 +331,18 @@ class ParentProductSerializers(serializers.ModelSerializer):
             if pro_obj is not None and 'error' in pro_obj:
                 raise serializers.ValidationError(pro_obj['error'])
         data["product_type"] = self.initial_data.get('product_type')
+        data["product_discription"] = self.initial_data.get("description")
 
         return data
 
     class Meta:
         model = ParentProduct
-        fields = ('id', 'parent_id', 'name', 'inner_case_size', 'brand_case_size', 'status', 'product_type',
+        fields = ('id', 'parent_id', 'name', 'inner_case_size', 'brand_case_size', 'status', 'product_type', 'description',
                   'product_hsn', 'parent_brand', 'parent_product_pro_tax', 'parent_product_pro_category',
                   'parent_product_pro_b2c_category', 'is_ptr_applicable', 'ptr_percent', 'ptr_type',
                   'is_ars_applicable', 'max_inventory', 'is_lead_time_applicable', 'discounted_life_percent',
                   'product_images', 'parent_product_pro_image', 'product_parent_product', 'parent_product_log',
-                  'tax_status', 'tax_remark')
+                  'tax_status', 'tax_remark', 'is_kvi')
 
     def to_representation(self, instance):
         representation = super().to_representation(instance)
@@ -349,6 +351,9 @@ class ParentProductSerializers(serializers.ModelSerializer):
         if representation['name']:
             representation['name'] = representation['name'].title()
         return representation
+
+    def get_description(self, obj):
+        return obj.product_discription
 
     @transaction.atomic
     def create(self, validated_data):
@@ -444,7 +449,7 @@ class ParentProductExportAsCSVSerializers(serializers.ModelSerializer):
             'parent_id', 'name', 'parent_brand', 'b2b_category', 'b2c_category', 'product_hsn', 'product_gst', 'product_cess',
             'product_surcharge', 'inner_case_size', 'product_image', 'status', 'product_type', 'is_ptr_applicable',
             'ptr_type',
-            'ptr_percent', 'is_ars_applicable', 'is_lead_time_applicable', 'max_inventory',
+            'ptr_percent', 'is_ars_applicable', 'is_lead_time_applicable', 'max_inventory', 'is_kvi'
         ]
 
         response = HttpResponse(content_type='text/csv')
@@ -724,7 +729,7 @@ class ChildProductSerializers(serializers.ModelSerializer):
     super_store_product_price = serializers.SerializerMethodField()
     product_vendor_mapping = ChildProductVendorMappingSerializers(many=True, required=False)
     product_sku = serializers.CharField(required=False)
-    product_pro_image = ProductImageSerializers(many=True, read_only=True)
+    product_pro_image = serializers.SerializerMethodField()
     product_images = serializers.ListField(required=False, default=None, child=serializers.ImageField(),
                                            write_only=True)
     destination_product_pro = ProductSourceMappingSerializers(many=True, required=False)
@@ -900,6 +905,12 @@ class ChildProductSerializers(serializers.ModelSerializer):
         ProductCls.packing_material_product_mapping(child_product, self.initial_data['packing_product_rt'])
         ProductCls.create_destination_product_mapping(child_product, destination_product_repack)
 
+    def get_product_pro_image(self, instance):
+        if instance.use_parent_image and not instance.product_pro_image.filter(status=True).exists():
+            return ParentProductImageSerializers(instance.parent_product.parent_product_pro_image.all(), many=True).data
+        else:
+            return ProductImageSerializers(instance.product_pro_image.filter(status=True), many=True).data
+        
     def to_representation(self, instance):
         representation = super().to_representation(instance)
         if representation['product_name']:

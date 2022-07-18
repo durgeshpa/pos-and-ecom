@@ -22,10 +22,11 @@ from audit.models import AUDIT_PRODUCT_STATUS, AuditProduct
 from products.models import Product, ParentProduct, ProductPrice
 from shops.models import Shop
 from wms.common_validators import get_csv_file_data
+import retailer_to_sp.models
 from .models import (Bin, BinInventory, Putaway, PutawayBinInventory, Pickup, WarehouseInventory,
                      InventoryState, InventoryType, WarehouseInternalInventoryChange, In, PickupBinInventory,
                      BinInternalInventoryChange, StockMovementCSVUpload, StockCorrectionChange, OrderReserveRelease,
-                     Audit, Out, Zone, WarehouseAssortment, PickupCrate, QCDeskQCAreaAssignmentMapping)
+                     Audit, Out, Zone, WarehouseAssortment, PickupCrate, QCDeskQCAreaAssignmentMapping, BinShiftLog)
 from wms.common_validators import get_csv_file_data
 
 from shops.models import Shop
@@ -344,19 +345,12 @@ class CommonBinInventoryFunctions(object):
                     qty_to_deduct_from_bin_inv = qty
                     total_qty_to_move_from_pickup = 0
 
-                if qty_to_deduct_from_bin_inv > 0:
-                    # CommonBinInventoryFunctions.update_bin_inventory_with_transaction_log(warehouse, source_bin, sku,
-                    #                                                                       batch_id,
-                    #                                                                       inventory_type,
-                    #                                                                       inventory_type,
-                    #                                                                       -1 * qty_to_deduct_from_bin_inv,
-                    #                                                                       True, tr_type_deduct, tr_id)
-                    #
-                    # target_bin_inv_object = CommonBinInventoryFunctions.update_bin_inventory_with_transaction_log(
-                    #     warehouse, target_bin, sku, batch_id, inventory_type, inventory_type,
-                    #     qty_to_deduct_from_bin_inv,
-                    #     True, tr_type_add, tr_id)
+                info_logger.info(f"BinShift|batch-{batch_id}, sbin-{source_bin_inv_object}, "
+                                 f"t-bin{target_bin_inv_object}, qty to move-{qty},"
+                                 f"qty_to_move_from_bin-{qty_to_deduct_from_bin_inv},"
+                                 f"qty_to_deduct_from_pickup-{total_qty_to_move_from_pickup}")
 
+                if qty_to_deduct_from_bin_inv > 0:
                     source_bin_inv_object = cls.update_or_create_bin_inventory(warehouse, source_bin, sku, batch_id,
                                                                         inventory_type, -1*qty_to_deduct_from_bin_inv,
                                                                         True)
@@ -381,11 +375,14 @@ class CommonBinInventoryFunctions(object):
                     CommonBinInventoryFunctions.add_to_be_picked_to_bin(total_qty_to_move_from_pickup,
                                                                         target_bin_inv_object, tr_id,
                                                                         'bin_shift_add')
+                    # Update picklist where picking is not yet done (pickup_quantity__isnull=True)
                     pickup_bin_qs = PickupBinInventory.objects.select_for_update().filter(
                         warehouse=warehouse, batch_id=batch_id, bin=source_bin_inv_object,
                         pickup__status__in=['pickup_creation', 'picking_assigned'], quantity__gt=0,
                         pickup_quantity__isnull=True).order_by('id')
                     for pb in pickup_bin_qs:
+                        info_logger.info(f"Picking Pending | Order-{pb.pickup.pickup_type_id}, pbi-{pb.id},"
+                                         f" pbi qty-{pb.quantity}")
                         qty_to_move_from_pickup = 0
                         if total_qty_to_move_from_pickup > pb.quantity:
                             qty_to_move_from_pickup = pb.quantity
@@ -412,6 +409,36 @@ class CommonBinInventoryFunctions(object):
                         else:
                             pbi.quantity += qty_to_move_from_pickup
                             pbi.save()
+
+                        if total_qty_to_move_from_pickup == 0:
+                            break
+
+
+                    # Update picklist where picking is done but pickup is not yet marked completed (pickup_quantity__gte=0)
+                    if total_qty_to_move_from_pickup > 0:
+                        pickup_bin_qs = PickupBinInventory.objects.select_for_update().filter(
+                            warehouse=warehouse, batch_id=batch_id, bin=source_bin_inv_object,
+                            pickup__status__in=['pickup_creation', 'picking_assigned'], quantity__gt=0,
+                            pickup_quantity__gte=0).order_by('id')
+                        for pb in pickup_bin_qs:
+                            info_logger.info(f"Picking Done | Order-{pb.pickup.pickup_type_id}, pbi-{pb.id}, "
+                                             f"pbi qty-{pb.quantity}")
+                            if pb.quantity > pb.pickup_quantity :
+                                if total_qty_to_move_from_pickup >= (pb.quantity-pb.pickup_quantity):
+                                    qty_to_move_from_pickup = pb.quantity-pb.pickup_quantity
+                                    total_qty_to_move_from_pickup -= qty_to_move_from_pickup
+                                else:
+                                    qty_to_move_from_pickup = total_qty_to_move_from_pickup
+                                    total_qty_to_move_from_pickup = 0
+                                pb.quantity = pb.quantity - qty_to_move_from_pickup
+                                pb.save()
+                                CommonPickBinInvFunction.create_pick_bin_inventory_with_zone(
+                                                pb.warehouse, target_bin_inv_object.bin.zone, pb.pickup, pb.batch_id,
+                                                target_bin_inv_object, qty_to_move_from_pickup,
+                                                target_bin_inv_object.quantity, 0)
+                            if total_qty_to_move_from_pickup == 0:
+                                break
+
         except Exception as e:
             info_logger.error('product_shift_across_bins | '.join(e.args) if len(e.args) > 0 else 'Unknown Error')
             raise Exception('Product movement failed!')
@@ -2567,6 +2594,17 @@ def get_logged_user_wise_query_set_for_picker(user, queryset):
     return queryset
 
 
+def assign_clickable_state(user):
+    """
+        Make is_clickable field True if picking status of order is picking_complete or it is the current order of Type=Order
+    """
+    retailer_to_sp.models.PickerDashboard.objects.filter(picker_boy_id=user, picking_status='picking_assigned', order_id__isnull=False).update(is_clickable=False)
+    instance = retailer_to_sp.models.PickerDashboard.objects.filter(picker_boy_id=user, picking_status='picking_assigned', order_id__isnull=False).order_by('created_at').first()
+    if instance:
+        instance.is_clickable = True
+        instance.save()
+
+
 def get_logged_user_wise_query_set_for_pickup_list(user, pickup_type, queryset):
     '''
         GET Logged-in user wise queryset for pickerdashboard based on criteria that matches
@@ -2738,3 +2776,37 @@ def get_logged_user_wise_query_set_for_shipment_packaging(user, queryset):
 def get_zone_by_warehouse_and_product(warehouse, product):
     assortment = WarehouseAssortment.objects.filter(warehouse=warehouse, product=product).last()
     return assortment.zone if assortment else None
+
+
+def return_putaway(return_order):
+    with transaction.atomic():
+        inv_type = {'E': InventoryType.objects.get(inventory_type='expired'),
+                    'D': InventoryType.objects.get(inventory_type='damaged'),
+                    'N': InventoryType.objects.get(inventory_type='normal')}
+        seller_shop = return_order.seller_shop
+        for return_product in return_order.return_order_products.all():
+            for batch in return_product.return_product_batches.all():
+                info_logger.info(f"return_putaway|return_order {return_order.return_no}| batch {batch.batch_id},"
+                                 f"return_qty {batch.return_qty}, expired_qty {batch.expired_qty},"
+                                 f" damaged_qty{batch.damaged_qty}")
+                batch_id = batch.batch_id
+                in_type_id = return_order.return_no
+                putaway_type_id = return_order.return_no
+                if batch.return_qty > 0:
+                    create_in(seller_shop, batch_id, return_product.product, return_order.return_type, in_type_id,
+                              inv_type['N'], batch.return_qty)
+                    create_putaway(seller_shop, return_product.product, batch_id, None, inv_type['N'],
+                                   return_order.return_type, putaway_type_id, None, batch.return_qty)
+
+                if batch.expired_qty > 0:
+                    create_in(seller_shop, batch_id, return_product.product, return_order.return_type, in_type_id,
+                              inv_type['E'], batch.expired_qty)
+                    create_putaway(seller_shop, return_product.product, batch_id, None, inv_type['E'],
+                                   return_order.return_type, putaway_type_id, None, batch.expired_qty)
+                if batch.damaged_qty > 0:
+                    create_in(seller_shop, batch_id, return_product.product, return_order.return_type, in_type_id,
+                              inv_type['D'], batch.damaged_qty)
+                    create_putaway(seller_shop, return_product.product, batch_id, None, inv_type['D'],
+                                   return_order.return_type, putaway_type_id, None, batch.damaged_qty)
+
+        info_logger.info(f"return_putaway|return_order {return_order.return_no}| Completed")

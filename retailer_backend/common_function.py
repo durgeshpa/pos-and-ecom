@@ -107,11 +107,6 @@ def common_pattern(model, field, instance, address, invoice_type, is_invoice=Fal
 
     financial_year = year if year else get_financial_year()
 
-    if field == 'credit_note_id':
-        shop_code = instance.invoice_no[:1]
-        warehouse_code = instance.invoice_no[-9:-7]
-        state_code = instance.invoice_no[-11:-9]
-
     starts_with = "%s%s%s%s%s" % (
             shop_code, invoice_type, financial_year,
             state_code, warehouse_code)
@@ -139,11 +134,6 @@ def common_pattern_bulk(model, field, instance, address, invoice_type, is_invoic
         address)
     financial_year = year if year else get_financial_year()
 
-    if field == 'credit_note_id':
-        shop_code_bulk = instance.invoice_no[:1]
-        warehouse_code = instance.invoice_no[-9:-7]
-        state_code = instance.invoice_no[-11:-9]
-
     starts_with = "%s%s%s%s%s" % (
             shop_code_bulk, invoice_type, financial_year,
             state_code, warehouse_code)
@@ -166,10 +156,6 @@ def common_pattern_discounted(model, field, instance, address, invoice_type, is_
     state_code, shop_code, shop_code_bulk, shop_code_discounted, warehouse_code, shop_code_ss = get_shop_warehouse_state_code(
         address)
     financial_year = year if year else get_financial_year()
-    if field == 'credit_note_id':
-        shop_code_discounted = instance.invoice_no[:1]
-        warehouse_code = instance.invoice_no[-9:-7]
-        state_code = instance.invoice_no[-11:-9]
 
     starts_with = "%s%s%s%s%s" % (
             shop_code_discounted, invoice_type, financial_year,
@@ -192,10 +178,6 @@ def common_pattern_ss(model, field, instance, address, invoice_type, is_invoice=
     state_code, shop_code, shop_code_bulk, shop_code_discounted, warehouse_code, shop_code_ss = get_shop_warehouse_state_code(
         address)
     financial_year = year if year else get_financial_year()
-    if field == 'credit_note_id':
-        shop_code_ss = instance.invoice_no[:1]
-        warehouse_code = instance.invoice_no[-9:-7]
-        state_code = instance.invoice_no[-11:-9]
 
     starts_with = "%s%s%s%s%s" % (
             shop_code_ss, invoice_type, financial_year,
@@ -236,6 +218,8 @@ def order_id_pattern_ss(model, field, instance_id, address):
 def payment_id_pattern(model, field, instance_id, address):
     return common_pattern(model, field, instance_id, address, "PA")
 
+def return_order_id_pattern(model, field, instance_id, address, const="RO"):
+    return common_pattern(model, field, instance_id, address, "RO")
 
 def order_id_pattern_r_gram(order_id):
     """ Order ID pattern
@@ -337,6 +321,17 @@ def create_invoice(shipment_instance):
                                                                       'tcs_amount': tcs_amount,
                                                                       'invoice_total': invoice_total})
 
+def create_return_challan(return_instance):
+    invoice_sub_total = return_instance.shipment.invoice_amount
+    invoice_total = invoice_sub_total
+    return RetailerToSPModels.ReturnInvoice.objects.get_or_create(
+        return_order_id=return_instance.id,
+        defaults={
+            'invoice_sub_total': invoice_sub_total,
+            'invoice_total': invoice_total
+        }
+    )
+    
 
 def get_tcs_data(shipment_instance):
     '''
@@ -388,6 +383,16 @@ def generate_invoice_number(shipment_instance, address, const="IV", field='invoi
         instance.save()
 
 
+@task
+def generate_return_challan_number(return_order_instance, address, const="RV", field="invoice_no"):
+    return_order_id = return_order_instance.id
+    instance, created = create_return_challan(return_order_instance)
+    if created:
+        return_challan_no = common_pattern(RetailerToSPModels.ReturnInvoice, field, return_order_id, address, const, is_invoice=True)
+        instance.invoice_no = return_challan_no
+        instance.save()
+        return return_challan_no
+        
 
 @task
 def generate_invoice_number_discounted_order(shipment_instance, address, field='invoice_no'):

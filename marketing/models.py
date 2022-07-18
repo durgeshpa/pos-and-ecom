@@ -14,6 +14,7 @@ from retailer_backend.messages import *
 from global_config.models import GlobalConfig
 from accounts.models import User
 from shops.models import Shop
+from products.models import Product
 from .sms import SendSms
 from .utils import has_gf_employee_permission, shop_obj_related_owner
 
@@ -163,6 +164,8 @@ class Referral(models.Model):
             user_reward = RewardPoint.objects.filter(reward_user=parent_ref_obj.user).last()
             user_reward.direct_earned += referrer_points
             user_reward.save()
+            RewardLog.objects.create(reward_user=user_reward.reward_user, transaction_type='indirect_reward', transaction_id=ref_obj.referral_to_user.id + user_reward.reward_user.id,
+                                     points=referrer_points, changed_by=ref_obj.referral_to_user)
 
             ref_obj.referrer_reward_points = referrer_points
             ref_obj.referee_reward_points = int(get_global_config('referee_points_to_be_added_on_signup', 10))
@@ -246,7 +249,7 @@ class RewardPoint(models.Model):
         referral_code_obj = ReferralCode.objects.filter(user=user).last()
         referral_code = referral_code_obj.referral_code if referral_code_obj else ''
         message = SendSms(phone=user.phone_number,
-                          body="Welcome to PepperTap SuperMart, %s reward points are added to your account. "
+                          body="Welcome to PepperTap SuperMart, %s pep coins are added to your account. "
                                "Use these points to get discounts on your next purchases. "
                                "Login and share your referral code:%s with friends and win more points"
                                % (points, referral_code), mask='PEPTAB')
@@ -262,7 +265,7 @@ class RewardPoint(models.Model):
         return str(round(self.redeemable_points / reward_factor, 2)).rstrip('0').rstrip('.')
 
     def __str__(self):
-        return "Reward Points For - {}".format(self.reward_user)
+        return "Pep coins For - {}".format(self.reward_user)
 
 
 class RewardLog(models.Model):
@@ -316,3 +319,31 @@ class RewardLog(models.Model):
 class Token(models.Model):
     user = models.ForeignKey(MLMUser, on_delete=models.CASCADE)
     token = models.UUIDField()
+
+
+class UserRating(models.Model):
+    """
+        All ratings done by users
+    """
+    user = models.ForeignKey(User, related_name='user_ratings', on_delete=models.CASCADE)
+    rating = models.PositiveIntegerField(default=0)
+    feedback = models.CharField(max_length=200, null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+
+class UserWishlist(models.Model):
+    """
+        All child products in the wishlist of users
+    """
+    RETAILER, SUPERSTORE = '1', '4'
+    APP_TYPE_CHOICES = (
+        (RETAILER, 'Retailer'),
+        (SUPERSTORE, 'SuperStore'),
+    )
+    user = models.ForeignKey(User, related_name='user_wishlist', on_delete=models.CASCADE)
+    app_type = models.CharField(max_length=10, choices=APP_TYPE_CHOICES, default='1')
+    gf_prod_id = models.ForeignKey(Product, null=True, blank=True, related_name='gf_wishlist_product', on_delete=models.DO_NOTHING)
+    retail_prod_id = models.ForeignKey(Product, null=True, blank=True, related_name='retail_wishlist_product', on_delete=models.DO_NOTHING)
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
+    is_active = models.BooleanField(default=True)

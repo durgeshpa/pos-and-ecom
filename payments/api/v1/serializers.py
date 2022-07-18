@@ -45,11 +45,11 @@ class PaymentSerializer(serializers.ModelSerializer):
 
     def validate_reference_no(self, data):
         if not re.match("^[a-zA-Z0-9_]*$", data):
-            raise serializers.ValidationError('Referece number cannot have special character.')
+            raise serializers.ValidationError('Reference number cannot have special character.')
 
-        if Payment.objects.filter(payment_mode_name='online_payment',
+        if data is not None and Payment.objects.filter(payment_mode_name='online_payment',
                                   reference_no=data).exists():
-            raise serializers.ValidationError('This referece number already exists.')
+            raise serializers.ValidationError('This reference number already exists.')
         return data
 
 

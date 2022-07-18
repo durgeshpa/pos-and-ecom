@@ -4,6 +4,8 @@ from functools import wraps
 from copy import deepcopy
 from decimal import Decimal
 import datetime
+
+from common.common_utils import sms_reward_point_update_superstore
 from global_config.views import get_config, get_config_fofo_shop
 from django.db import transaction
 from rest_framework.response import Response
@@ -228,6 +230,20 @@ class OffersCls(object):
                                                    free_product_qty=free_product_qty
                                                    )
         return ruleset
+    @classmethod
+    def parent_rule_set_creation(cls, rulename, start_date, expiry_date, discount_qty_amount=None, discount_obj=None,
+                          free_product_obj=None, free_product_qty=None):
+        if CouponRuleSet.objects.filter(rulename=rulename):
+            ruleset = "Offer with same Order Value and Discount Detail already exists"
+        else:
+            ruleset = CouponRuleSet.objects.create(rulename=rulename, start_date=start_date,
+                                                   expiry_date=expiry_date, is_active=True,
+                                                   cart_qualifying_min_sku_value=discount_qty_amount,
+                                                   discount=discount_obj,
+                                                   parent_free_product=free_product_obj,
+                                                   free_product_qty=free_product_qty
+                                                   )
+        return ruleset
 
     @classmethod
     def rule_set_product_mapping(cls, rule_id, retailer_primary_product, purchased_product_qty, retailer_free_product,
@@ -242,13 +258,25 @@ class OffersCls(object):
                                              expiry_date=expiry_date, is_active=True)
 
     @classmethod
-    def rule_set_cart_mapping(cls, rule_id, coupon_type, coupon_name, coupon_code, shop, start_date, expiry_date):
+    def rule_set_product_mapping_parent(cls, rule_id, primary_product, purchased_product_qty, free_product,
+                                 free_product_qty, combo_offer_name, start_date, expiry_date):
+        """ 
+            rule_set mzpping with parent product for combo offer 
+        """
+        RuleSetProductMapping.objects.create(rule_id=rule_id, purchased_product=primary_product,
+                                             purchased_product_qty=purchased_product_qty, free_product=
+                                             free_product, free_product_qty=free_product_qty,
+                                             combo_offer_name=combo_offer_name, start_date=start_date,
+                                             expiry_date=expiry_date, is_active=True)
+
+    @classmethod
+    def rule_set_cart_mapping(cls, rule_id, coupon_type, coupon_name, coupon_code, shop, start_date, expiry_date, limit_of_usages_per_customer=None):
         """
             rule_set cart mapping for coupon creation
         """
         coupon = Coupon.objects.create(rule_id=rule_id, coupon_name=coupon_name, coupon_type=coupon_type,
                                        shop=shop, start_date=start_date, expiry_date=expiry_date,
-                                       coupon_code=coupon_code,
+                                       coupon_code=coupon_code, limit_of_usages_per_customer=limit_of_usages_per_customer,
                                        is_active=True)
         return coupon
 
@@ -363,6 +391,19 @@ class PosInventoryCls(object):
             state: inventory state ('new', 'available', 'ordered')
         """
         inventory_object = PosInventory.objects.filter(product_id=pid, inventory_state__inventory_state=state).last()
+        return inventory_object.quantity if inventory_object else 0
+
+    @classmethod
+    def get_available_inventory_by_linked_product(cls, linked_product_id, state, shop_id):
+        """
+        Returns stock for any product in the given state
+        Params:
+            linked_product_id : GramFactory product Id
+            state: inventory state ('new', 'available', 'ordered')
+        """
+        inventory_object = PosInventory.objects.filter(product__linked_product_id=linked_product_id,
+                                                       inventory_state__inventory_state=state,
+                                                       product__shop_id=shop_id).last()
         return inventory_object.quantity if inventory_object else 0
 
 
@@ -674,6 +715,8 @@ class RewardCls(object):
             reward_obj.save()
             # Log transaction
             RewardCls.create_reward_log(user, t_type, tid, points, changed_by,discount=0, shop=shop)
+            if app_type == "SUPERSTORE":
+                sms_reward_point_update_superstore(user)
         return points
 
     @classmethod
@@ -841,8 +884,8 @@ class RewardCls(object):
                                                                                'order_cancel_credit'], modified_at__gte=date).\
                                                     aggregate(Sum('points'))
         this_month_reward_point_used = abs(uses_reward_point['points__sum']) if uses_reward_point['points__sum'] else 0
-        max_redeem_points = GlobalConfig.objects.get(key='max_redeem_points').value
-        max_month_limit = GlobalConfig.objects.get(key='max_month_limit_redeem_point').value
+        max_redeem_points = GlobalConfig.objects.get(key='super_store_max_redeem_points').value
+        max_month_limit = GlobalConfig.objects.get(key='super_store_max_month_limit_redeem_point').value
 
         max_month_limit = max_month_limit if max_month_limit else 500
         if max_redeem_points:
@@ -1389,3 +1432,34 @@ def mark_pos_product_online_enabled(product_id):
         instance.online_enabled = True
         instance.online_disabled_status = None
         instance.save()
+
+def coupon_point_update(order, updated_by):
+    """add cupon point affter delivered .."""
+    coupon = order.ordered_cart.offers
+    array = list(filter(lambda d: d['type'] in ['discount'], coupon))
+    discount = 0
+    shop = order.seller_shop
+    coupon_id = None
+    for i in array:
+        if i['is_point']:
+            discount += i['discount_value']
+            coupon_id = i['coupon_id']
+    if not discount:
+        return
+    days = datetime.datetime.today().day
+    date = get_back_date(days)
+    user = order.buyer
+    uses_reward_point = RewardLog.objects.filter(reward_user=user, shop=shop,
+                                                 transaction_type__in=['order_credit', 'order_return_debit',
+                                                                       'order_cancel_debit'], modified_at__gte=date).\
+    aggregate(Sum('points'))
+    this_month_reward_point_credit = abs(uses_reward_point['points__sum']) if uses_reward_point.get('points__sum') else 0
+    if this_month_reward_point_credit + discount > get_config_fofo_shop("Max_Monthly_Points_Added", shop.id):
+        discount = max(get_config_fofo_shop("Max_Monthly_Points_Added", shop.id) - this_month_reward_point_credit, 0)
+    if discount:
+        reward_obj = RewardPoint.objects.select_for_update().filter(reward_user=user).last()
+        if reward_obj:
+            reward_obj.direct_earned += discount
+            reward_obj.save()
+                # Log transaction
+            RewardCls.create_reward_log(user, 'order_credit', coupon_id, discount, updated_by,discount=0, shop=shop)

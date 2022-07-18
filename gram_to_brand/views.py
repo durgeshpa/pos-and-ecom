@@ -216,6 +216,7 @@ class DownloadPurchaseOrder(APIView):
         gst_list = []
         cess_list = []
         surcharge_list = []
+        gst = []
         for m in products:
             sum_qty = sum_qty + m.qty
             sum_amount = sum_amount + m.total_price
@@ -232,6 +233,13 @@ class DownloadPurchaseOrder(APIView):
                     cess_list.append((original_amount * (n.tax.tax_percentage / 100)))
                 elif n.tax.tax_type == 'surcharge':
                     surcharge_list.append((original_amount * (n.tax.tax_percentage / 100)))
+            try:
+                result = ([field.tax.tax_percentage for field in m.cart_parent_product.parent_product_pro_tax.all().filter(tax__tax_type='gst')])
+                gst.append(result[0])
+            except:
+                result = '-'
+                gst.append(result)
+
 
         igst = sum(gst_list)
         cgst = igst / 2
@@ -276,6 +284,8 @@ class DownloadPurchaseOrder(APIView):
             "cgst": cgst,
             "sgst": sgst,
             "cess": cess,
+            "gst": gst,
+            'result': zip(products, gst),
             "surcharge": surcharge,
             "total_amount": total_amount,
             "order_id": order_id,
@@ -480,7 +490,7 @@ class VendorProductPrice(APIView):
             # else:
             #     taxes = ([field.tax.tax_percentage for field in vendor_mapping.last().product.product_pro_tax.all()])
             #     taxes = str(sum(taxes))
-            taxes = ([field.tax.tax_percentage for field in vendor_mapping.last().product.product_pro_tax.all()])
+            taxes = ([field.tax.tax_percentage for field in vendor_mapping.last().product.parent_product.parent_product_pro_tax.all()])
             taxes = str(sum(taxes))
             tax_percentage = taxes + '%'
         

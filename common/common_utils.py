@@ -17,6 +17,7 @@ from django.http import HttpResponse
 from celery.task import task
 
 # app imports
+from marketing.models import RewardPoint
 from retailer_backend import common_function as CommonFunction
 from retailer_backend.settings import WHATSAPP_API_ENDPOINT, WHATSAPP_API_USERID, WHATSAPP_API_PASSWORD
 
@@ -66,8 +67,13 @@ def merge_pdf_files(file_path_list, merge_pdf_name):
     :return:
     """
     try:
+        info_logger.info("API2PDF_KEY :: {}".format(config('API2PDF_KEY')))
         a2p_client = Api2Pdf(config('API2PDF_KEY'))
+        info_logger.info("a2p_client.api_key :: {}".format(a2p_client.api_key))
+        info_logger.info("merge_pdf_name :: {}".format(merge_pdf_name))
+        info_logger.info("file_path_list :: {}".format(file_path_list))
         merge_result = a2p_client.merge(file_path_list, file_name=merge_pdf_name)
+        info_logger.info("Merge result :: {}".format(merge_result.result))
         return merge_result.result['pdf']
     except Exception as e:
         error_logger.exception(e)
@@ -331,7 +337,7 @@ def whatsapp_order_delivered(order_number, shop_name, phone_number, points, cred
         whatsapp_user_id = WHATSAPP_API_USERID
         whatsapp_user_password = WHATSAPP_API_PASSWORD
         if credit:
-            msg = urlencode({"msg":"Hi! Your Order no "+order_number+" is successfully delivered, "+str(points)+" reward points are credited in your account. Please shop again at "+shop_name+"."})
+            msg = urlencode({"msg":"Hi! Your Order no "+order_number+" is successfully delivered, "+str(points)+" pep coins are credited in your account. Please shop again at "+shop_name+"."})
         else:
             msg = urlencode({"msg":"Hi! Your Order no "+order_number+" is successfully delivered. Please shop again at "+shop_name+"."})
         data_string = "method=SendMessage&format=json&password=" + whatsapp_user_password + "&send_to=" + phone_number +" +&v=1.1&auth_scheme=plain&&msg_type=HSM&" + msg
@@ -380,6 +386,46 @@ def sms_order_delivered(name, number):
         url = "shorturl.at/lsBFI"
         body = f"YAY! Your PepperTap order has been successfully delivered. Please click here - {url} to rate us on PlayStore."
         message = SendSms(phone=number, body=body, mask="PEPTAB")
+        message.send()
+    except Exception as e:
+        error_logger.error(e)
+
+
+@task
+def return_item_drop(name, number, address, shop_name):
+    '''
+        Send sms for return method drop at store
+    '''
+    address = f"{address.address_line1[0:23]},{address.pincode}"
+    try:
+        body = f"Hi {name}, Your return request has been accepted. Please drop your package at the {shop_name} address - {address} by tomorrow. Team PepperTap."
+        message = SendSms(phone=number, body=body, mask="PEPTAB")
+        message.send()
+    except Exception as e:
+        error_logger.error(e)
+
+
+@task
+def return_item_home_pickup(name, number):
+    '''
+        Send sms for return method home pick up
+    '''
+    try:
+        body = f"Hi {name}, Your return request has been accepted. Please keep the parcel ready, our delivery partner will reach out to you soon. Team PepperTap."
+        message = SendSms(phone=number, body=body, mask="PEPTAB")
+        message.send()
+    except Exception as e:
+        error_logger.error(e)
+
+
+@task
+def sms_reward_point_update_superstore(user):
+    try:
+        url = "https://ptapecomm.page.link/UegdUHjtqmdGYyiu8"
+        instance = RewardPoint.objects.filter(reward_user=user)
+        amount = max(instance.direct_earned + instance.indirect_earned - instance.points_used, 0)
+        body =f"Pep Coins Update! Your updated balance is {amount}. Login to the PepperTap app to use them now - {url}"
+        message = SendSms(phone=user.phone_number, body=body, mask='PEPTAB')
         message.send()
     except Exception as e:
         error_logger.error(e)

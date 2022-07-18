@@ -31,7 +31,7 @@ table tr td,th,h4,span,address{
 			<div class="row" style="padding-bottom:10px; margin-bottom: 10px; border-bottom: solid 1px #7B7B7A; position:relative">
     			<div class=" col-md-6">
 					<div class=" col-sm-12">
-						<h4 style="font-size:20px"><strong>TAX INVOICE</strong></h4>
+						<h4 style="font-size:20px"><strong>RETURN CHALLAN</strong></h4>
 					</div>
 					<div class="col-sm-12">
 						{% if payment_type == 'neft' %}
@@ -83,10 +83,10 @@ table tr td,th,h4,span,address{
 								<strong>Order Date <br>{{shipment.order.created_at}}</strong>
 							</td>
 							<td class="text-center">
-								<strong>Invoice No <br>{{shipment.invoice_no}}</strong>
+								<strong>Return no <br>{{return_order.return_challan_no}}</strong>
 							</td>
 							<td class="text-center">
-								<strong>Invoice Date <br>{{shipment.created_at}}</strong>
+								<strong>Return Date <br>{{return_order.created_at}}</strong>
 							</td>
 							<td class="text-center">
 								<strong>FSSAI License No. <br>{{license_number}}</strong>
@@ -100,25 +100,25 @@ table tr td,th,h4,span,address{
 							<address>
 								<span>Dispatch To :</span>
 								<br/>
-    							<strong>{{shipment.order.shipping_address.shop_name.shop_name}}</strong>
+    							<strong>{{shipping_address.shop_name.shop_name}}</strong>
     							<br/>
-    								{{shipment.order.shipping_address.nick_name}}, {{shipment.order.shipping_address.address_line1}}, {{shipment.order.shipping_address.city}}
+    								{{shipping_address.nick_name}}, {{shipping_address.address_line1}}, {{shipping_address.city}}
 								<br/>
-								{{shipment.order.shipping_address.address_contact_number}}
+								{{shipping_address.address_contact_number}}
 								<br/>
 								<strong>GSTIN:</strong> <span>{{ buyer_shop_gistin }}</span><br>
-								<strong>State Name:</strong> <span>{{shipment.order.shipping_address.state}} </span><strong>Pincode:</strong> <span>{{shipment.order.shipping_address.pincode}}</span><br>
+								<strong>State Name:</strong> <span>{{shipping_address.state}} </span><strong>Pincode:</strong> <span>{{shipping_address.pincode}}</span><br>
 								<strong>Shop ID:</strong><span><strong>{{ shipment.order.buyer_shop_id }}</strong></span>
     						</address>
 						</div>
 						<div class="col-xs-4">
 							<address>
 							<span>Invoice To :</span><br>
-    				<strong>{{shipment.order.billing_address.shop_name.shop_name}}</strong><br>
-    				{{shipment.order.billing_address.nick_name}}, {{shipment.order.billing_address.address_line1}}, {{shipment.order.billing_address.city}}<br>
-						{{shipment.order.billing_address.address_contact_number}}<br>
+    				<strong>{{billing_address.shop_name.shop_name}}</strong><br>
+    				{{billing_address.nick_name}}, {{billing_address.address_line1}}, {{billing_address.city}}<br>
+						{{billing_address.address_contact_number}}<br>
 						<strong>GSTIN:</strong> <span>{{ buyer_shop_gistin }}</span><br>
-						<strong>State Name:</strong> <span>{{shipment.order.billing_address.state}} </span><strong>Pincode:</strong> <span>{{shipment.order.billing_address.pincode}}</span><br>
+						<strong>State Name:</strong> <span>{{billing_address.state}} </span><strong>Pincode:</strong> <span>{{billing_address.pincode}}</span><br>
     				</address>
 
 					</div>
@@ -150,7 +150,7 @@ table tr td,th,h4,span,address{
     	<div class="col-md-12">
     		<div class="panel panel-default">
     			<div class="panel-heading">
-    				<h3 class="panel-title"><strong>Order summary</strong></h3>
+    				<h3 class="panel-title"><strong>Return summary</strong></h3>
     			</div>
     			<div class="panel-body">
     				<div class="table">
@@ -180,12 +180,8 @@ table tr td,th,h4,span,address{
                     {% for m in shipment.rt_order_product_order_product_mapping.all %}
 								<tr>
 								<td><strong>{{forloop.counter}}</strong></td>
-								{% if m.product.product_type %}
-									<td class="text-center"><strong>{{ m.product.product_short_description }} (Discounted)</strong></td>
-								{% else %}
-									<td class="text-center"><strong>{{ m.product.product_short_description}}</strong></td>
-								{% endif %}
-								<td class="text-center">{{ m.product.product_ean_code}}</td>
+								<td class="text-center"><strong>{{ m.product.product_short_description }}</strong></td>
+									<td class="text-center">{{ m.product.product_ean_code}}</td>
 								<td class="text-center">{{ m.product.product_hsn}}</td>
 								<td class="text-center">{{ m.get_product_tax_json}}</td>
 									<td class="text-center">{{ m.product_cess_amount}}</td>
@@ -499,9 +495,8 @@ table tr td,th,h4,span,address{
 								<tr>
 
         							<td class="text-left" colspan="10">
-						<strong>Supplier's Service Tax No:</strong> <span>NA</span><br>
+										<strong>Supplier's Service Tax No:</strong> <span>NA</span><br>
 										<strong>Company's PAN:</strong> <span>NA</span><br>
-
 									</td>
                                 </tr>
 
@@ -509,7 +504,7 @@ table tr td,th,h4,span,address{
 
 							</table>
     				</div>
-						<div class="table">
+						<!-- <div class="table">
     					<table class="table table-bordered">
     						<thead>
 
@@ -539,9 +534,8 @@ table tr td,th,h4,span,address{
                                 </tr>
 							</thead>
 
-							</table>
-
-    				</div>
+						</table>
+    					</div> -->
     			</div>
     		</div>
     	</div>

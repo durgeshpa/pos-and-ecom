@@ -9,6 +9,7 @@ from retailer_to_sp.models import ReturnItems, RoundAmount, Invoice, Order
 from retailer_to_sp.utils import round_half_down
 from .models import PAYMENT_MODE_POS, RetailerProduct, Payment, PaymentType
 from .views import get_product_details, get_tax_details
+from shops.cron import distance
 
 
 def create_order_data_excel(queryset, request=None):
@@ -431,7 +432,8 @@ def generate_csv_payment_report(payments):
             'PAID AT',
             'PickUp Time',
             'Delivery Start Time',
-            'Delivery End Time'
+            'Delivery End Time',
+            'Distance'
         ]
     )
     rows = []
@@ -513,6 +515,17 @@ def generate_csv_payment_report(payments):
                     trip_end_at.strftime('%m/%d/%Y-%H-%M-%S') if payment.order.rt_order_order_product.last().pos_trips.last().\
                     trip_end_at else ''
                 row.append(trip_end_at)
+        user_lat = payment.order.latitude
+        user_lng = payment.order.longitude
+        shop_lat = payment.order.seller_shop.latitude
+        shop_lng = payment.order.seller_shop.longitude
+        if not user_lng or not user_lat or not shop_lat or not shop_lng:
+            user_distance = ''
+            row.append(user_distance)
+        else:
+            dist = round(distance((shop_lat, shop_lng), (user_lat, user_lng)), 3)
+            user_distance = round(dist, 2)
+            row.append(user_distance)
         rows.append(row)
 
     # rows = [

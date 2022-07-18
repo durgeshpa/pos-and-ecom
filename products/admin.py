@@ -1198,9 +1198,11 @@ class ProductAdmin(admin.ModelAdmin, ExportCsvMixin):
         return '-'
 
     def product_gst(self, obj):
-        if obj.product_gst is not None:
-            return "{} %".format(obj.product_gst)
-        return ''
+        try:
+            return "{} %".format(([field.tax.tax_percentage for field in
+              obj.parent_product.parent_product_pro_tax.all().filter(tax__tax_type='gst')][0]))
+        except:
+            return ''
 
     product_gst.short_description = 'Product GST'
 

@@ -45,9 +45,13 @@ class Application(BaseTimestampUserModel):
 class Template(BaseTimestampUserModel):
     app = models.ForeignKey(Application, on_delete=models.CASCADE, related_name='templates')
     name = models.CharField(max_length=255)
+    image = models.ImageField(upload_to="templates/images", null=True, blank=True)
+    description = models.CharField(max_length=150, blank=True, null=True)
+
 
 
 class Functions(BaseTimestampUserModel):
+    app = models.ForeignKey(Application, on_delete=models.CASCADE, related_name='Functions_app')
     name = models.CharField(max_length=20)
     type = models.PositiveIntegerField(choices=FUNTION_TYPE_CHOICE)
     url = models.CharField(max_length=200)
@@ -84,7 +88,7 @@ class CardData(BaseTimestampUserModel):
     cols = models.IntegerField(default=1)
     card_function = models.ForeignKey(Functions, on_delete=models.CASCADE, related_name="function_cards", null=True)
     params = JSONField(null=True)
-    # template = models.ForeignKey(Template, on_delete=models.CASCADE, related_name='template_cards')
+    template = models.ForeignKey(Template, on_delete=models.CASCADE, related_name='template_cards')
 
     def __str__(self):
         return f"{self.id} - {self.header[0:16]}..."
@@ -93,6 +97,7 @@ class CardItem(BaseTimestampUserModel):
     """Card Item Model"""
     card_data = models.ForeignKey(CardData, on_delete=models.CASCADE, related_name="items")
     image = models.ImageField(upload_to="cards/items/images", null=True, blank=True)
+    image_data_type = models.PositiveSmallIntegerField(choices=IMAGE_TYPE_CHOICE, null=True, blank=True)
     content_id = models.PositiveIntegerField(null=True, blank=True)
     content = models.TextField(null=True, blank=True)
     action = models.URLField(blank=True, null=True)
