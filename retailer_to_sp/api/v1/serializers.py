@@ -815,7 +815,7 @@ class CartOfferSerializer(serializers.ModelSerializer):
         return obj.item.product_sku if obj.item else None
 
     def get_cart_or_brand_level_discount(self, obj):
-        return obj.cart_discount+obj.brand_discount
+        return obj.cart_discount + obj.brand_discount
 
     def get_coupon_code(self, obj):
         return obj.coupon.coupon_code if obj.coupon else None
@@ -826,7 +826,7 @@ class CartOfferSerializer(serializers.ModelSerializer):
     class Meta:
         model = CartOffers
         fields = ('type', 'sub_type', 'item_id', 'item', 'item_sku', 'brand_id', 'coupon_type', 'coupon_id',
-                  'coupon_code', 'discount_value', 'entice_text')
+                  'coupon_code', 'discount_value', 'entice_text', 'cart_or_brand_level_discount')
 
 
 class OrderedCartSerializer(serializers.ModelSerializer):
