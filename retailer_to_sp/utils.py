@@ -16,6 +16,7 @@ from django.http import HttpResponse
 from django.db.models import Sum, F, FloatField, OuterRef, Subquery, Q
 
 from common.constants import APRIL, ONE
+from coupon.models import CouponRuleSet
 from global_config.views import get_config
 from marketing.sms import SendSms
 from products.models import Product, TaxGroup
@@ -807,6 +808,8 @@ def get_discount_applicable(ruleset, subtotal):
     Returns:
         discount_applicable
     """
+    if isinstance(ruleset, int):
+        ruleset = CouponRuleSet.objects.filter(id=ruleset).last()
     is_percentage = ruleset.discount.is_percentage
     discount_value = ruleset.discount.discount_value
     max_discount = ruleset.discount.max_discount

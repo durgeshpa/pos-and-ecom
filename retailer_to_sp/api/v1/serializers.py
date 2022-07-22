@@ -449,6 +449,7 @@ class CartProductMappingSerializer(serializers.ModelSerializer):
                 'rule__cart_qualifying_min_sku_value')
             coupons_queryset = coupons_queryset1 | coupons_queryset2
             coupons = CouponSerializer(coupons_queryset, many=True).data
+            # TO DO: Optimize
             for coupon in coupons_queryset:
                 for product_coupon in coupon.rule.product_ruleset.filter(purchased_product=obj.cart_product):
                     if product_coupon.max_qty_per_use > 0:
@@ -456,12 +457,20 @@ class CartProductMappingSerializer(serializers.ModelSerializer):
                         for i in coupons:
                             if i['coupon_type'] == 'catalog':
                                 i['max_qty'] = max_qty
-            product_offers = list(filter(lambda d: d['sub_type'] in ['discount_on_product'], obj.cart.offers))
-            brand_offers = list(filter(lambda d: d['sub_type'] in ['discount_on_brand'], obj.cart.offers))
-            for j in coupons:
-                for i in (product_offers + brand_offers):
-                    if j['coupon_code'] == i['coupon_code']:
-                        j['is_applied'] = True
+
+            if not obj.cart.offers:
+                offers_applied = coupons_queryset.filter(coupon_carts__cart=obj.cart)\
+                                                 .values_list('coupon_code', flat=True)
+                for i in coupons:
+                    if i['coupon_code'] in offers_applied:
+                        i['is_applied'] = True
+            else:
+                product_offers = list(filter(lambda d: d['sub_type'] in ['discount_on_product'], obj.cart.offers))
+                brand_offers = list(filter(lambda d: d['sub_type'] in ['discount_on_brand'], obj.cart.offers))
+                for j in coupons:
+                    for i in (product_offers + brand_offers):
+                        if j['coupon_code'] == i['coupon_code']:
+                            j['is_applied'] = True
             return coupons
 
     def margin_dt(self, obj):
@@ -802,20 +811,17 @@ class OrderedCartProductMappingSerializer(serializers.ModelSerializer):
 
 
 class CartOfferSerializer(serializers.ModelSerializer):
-    item = serializers.SerializerMethodField()
-    type = serializers.SerializerMethodField()
-    sub_type = serializers.SerializerMethodField()
-    item_sku = serializers.SerializerMethodField()
+    type = serializers.CharField(source='get_type_display')
+    coupon_type = serializers.CharField(source='get_type_display')
+    sub_type = serializers.CharField(source='get_sub_type_display')
+    coupon_code = serializers.SerializerMethodField()
+    discount_value = serializers.SerializerMethodField()
     cart_or_brand_level_discount = serializers.SerializerMethodField()
 
-    def get_item(self, obj):
-        return obj.item.product_name if obj.item else None
-
-    def get_item_sku(self, obj):
-        return obj.item.product_sku if obj.item else None
-
     def get_cart_or_brand_level_discount(self, obj):
-        return obj.cart_discount + obj.brand_discount
+        cart_discount = obj.cart_discount if obj.cart_discount else 0
+        brand_discount = obj.brand_discount if obj.brand_discount else 0
+        return cart_discount + brand_discount
 
     def get_coupon_code(self, obj):
         return obj.coupon.coupon_code if obj.coupon else None
@@ -823,9 +829,18 @@ class CartOfferSerializer(serializers.ModelSerializer):
     def get_discount_value(self, obj):
         return obj.discount
 
+    def to_representation(self, instance):
+        representation = super(CartOfferSerializer, self).to_representation(instance)
+        if instance.cart_item:
+            representation['item'] = instance.cart_item.cart_product.product_name
+            representation['item_id'] = instance.cart_item.cart_product_id
+            representation['item_sku'] = instance.cart_item.cart_product.product_sku
+
+        return representation
+
     class Meta:
         model = CartOffers
-        fields = ('type', 'sub_type', 'item_id', 'item', 'item_sku', 'brand_id', 'coupon_type', 'coupon_id',
+        fields = ('type', 'sub_type', 'brand_id', 'coupon_type', 'coupon_id',
                   'coupon_code', 'discount_value', 'entice_text', 'cart_or_brand_level_discount')
 
 
