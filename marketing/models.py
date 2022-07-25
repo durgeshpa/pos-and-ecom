@@ -161,7 +161,7 @@ class Referral(models.Model):
                 referrer_points = int(get_global_config('non_customer_points_to_be_added_on_signup', 10))
                 ref_obj.user_linked_type = 'PEPPER_TAP_CUSTOMER'
 
-            user_reward = RewardPoint.objects.filter(reward_user=parent_ref_obj.user).last()
+            user_reward, _ = RewardPoint.objects.get_or_create(reward_user=parent_ref_obj.user)
             user_reward.direct_earned += referrer_points
             user_reward.save()
             RewardLog.objects.create(reward_user=user_reward.reward_user, transaction_type='indirect_reward', transaction_id=ref_obj.referral_to_user.id + user_reward.reward_user.id,
