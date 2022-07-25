@@ -335,6 +335,7 @@ class Cart(models.Model):
                 offers_list['catalog'][m.id] = {
                     'type': CartOffers.NO_OFFER, 'sub_type': CartOffers.NO_OFFER, 'discount_value': 0, 'coupon_id': None,
                     'coupon_type': 'catalog', 'discount_total_sku': 0,
+                    'product_subtotal': round(sku_subtotal, 2),
                     'discounted_product_subtotal': round(sku_subtotal, 2),
                     'discounted_product_subtotal_after_sku_discount': round(sku_subtotal, 2),
                     'brand_id': product_brand.id, 'free_item': None, 'free_item_qty': 0,
@@ -371,6 +372,7 @@ class Cart(models.Model):
                             offers_list['catalog'][m.id]['type'] = CartOffers.DISCOUNT
                             offers_list['catalog'][m.id]['sub_type'] = CartOffers.DISCOUNT_ON_PRODUCT
                             offers_list['catalog'][m.id]['coupon_id'] = coupon_id
+                            offers_list['catalog'][m.id]['discount_value'] = discount_value
                             offers_list['catalog'][m.id]['discount_total_sku'] = discount_sum_sku
                             offers_list['catalog'][m.id]['discounted_product_subtotal'] = discounted_product_subtotal
                             offers_list['catalog'][m.id]['discounted_product_subtotal_after_sku_discount'] = discounted_product_subtotal
@@ -444,7 +446,7 @@ class Cart(models.Model):
                 offers_list.pop('brand')
             else:
                 for item_id, i in offers_list['catalog'].items():
-                    for brand_id, j in offers_list['brand']:
+                    for brand_id, j in offers_list['brand'].items():
                         brand_parent = None
                         if i['brand_id'] == brand_id or brand_parent == brand_id:
                             discounted_price_subtotal = float(round(((i['discounted_product_subtotal'] / j[
@@ -453,7 +455,7 @@ class Cart(models.Model):
                             discounted_product_subtotal = float(round(
                                 i['discounted_product_subtotal'] - discounted_price_subtotal, 2))
                             i.update({'discounted_product_subtotal': discounted_product_subtotal})
-                    offers_list.pop('cart')
+                offers_list.pop('cart')
         self.save_cart_offers(offers_list)
 
     def get_product_brand_mappings(self, cart_products):
@@ -505,7 +507,7 @@ class Cart(models.Model):
                                               free_product=offer['free_item'], free_product_qty=offer['free_item'],
                                               cart_discount=offer['cart_discount'],
                                               brand_discount=offer['brand_discount'],
-                                              sub_total=offer['discounted_product_subtotal_after_sku_discount']))
+                                              sub_total=offer['product_subtotal']))
         if offers_dict.get('brand'):
             for brand_id, offer in offers_dict['brand'].items():
                 cart_offers.append(CartOffers(cart=self, brand_id=brand_id, type=offer['type'],
@@ -517,9 +519,8 @@ class Cart(models.Model):
             cart_offers.append(CartOffers(cart=self, type=offer['type'], sub_type=offer['sub_type'],
                                           coupon_id=offer['coupon_id'], discount=offer['discount_value'],
                                           sub_total=offer['cart_value']))
-        else:
-            offer = offers_dict.get('none')
-            cart_offers.append(CartOffers(cart=self, type=offer['type'], sub_type=offer['sub_type'],
+        offer = offers_dict.get('none')
+        cart_offers.append(CartOffers(cart=self, type=offer['type'], sub_type=offer['sub_type'],
                                           entice_text=offer['entice_text']))
 
         CartOffers.objects.bulk_create(cart_offers)

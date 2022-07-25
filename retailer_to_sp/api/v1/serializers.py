@@ -816,12 +816,6 @@ class CartOfferSerializer(serializers.ModelSerializer):
     sub_type = serializers.CharField(source='get_sub_type_display')
     coupon_code = serializers.SerializerMethodField()
     discount_value = serializers.SerializerMethodField()
-    cart_or_brand_level_discount = serializers.SerializerMethodField()
-
-    def get_cart_or_brand_level_discount(self, obj):
-        cart_discount = obj.cart_discount if obj.cart_discount else 0
-        brand_discount = obj.brand_discount if obj.brand_discount else 0
-        return cart_discount + brand_discount
 
     def get_coupon_code(self, obj):
         return obj.coupon.coupon_code if obj.coupon else None
@@ -835,13 +829,18 @@ class CartOfferSerializer(serializers.ModelSerializer):
             representation['item'] = instance.cart_item.cart_product.product_name
             representation['item_id'] = instance.cart_item.cart_product_id
             representation['item_sku'] = instance.cart_item.cart_product.product_sku
-
+            cart_discount = instance.cart_discount if instance.cart_discount else 0
+            brand_discount = instance.brand_discount if instance.brand_discount else 0
+            representation['cart_or_brand_level_discount'] = cart_discount + brand_discount
+            representation['discounted_product_subtotal'] = instance.sub_total - instance.discount - cart_discount - brand_discount
+            representation['discounted_product_subtotal_after_sku_discount'] = instance.sub_total - instance.discount
+        elif instance.type == CartOffers.NONE:
+            representation['entice_text'] = instance.entice_text
         return representation
 
     class Meta:
         model = CartOffers
-        fields = ('type', 'sub_type', 'brand_id', 'coupon_type', 'coupon_id',
-                  'coupon_code', 'discount_value', 'entice_text', 'cart_or_brand_level_discount')
+        fields = ('type', 'sub_type', 'brand_id', 'coupon_type', 'coupon_id', 'coupon_code', 'discount_value')
 
 
 class OrderedCartSerializer(serializers.ModelSerializer):
