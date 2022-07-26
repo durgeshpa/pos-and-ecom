@@ -22,7 +22,7 @@ from django.core.validators import MinValueValidator, MaxValueValidator
 from celery.task import task
 from accounts.middlewares import get_current_user
 from coupon.utils import get_coupon_usage, get_applicable_cart_coupons, get_applicable_brand_coupons, \
-    get_applicable_product_coupons
+    get_applicable_product_coupons, get_discount_applicable
 from global_config.models import GlobalConfig
 from retailer_backend import common_function as CommonFunction
 from retailer_backend.validators import PercentageValidator
@@ -32,7 +32,7 @@ from .utils import (order_invoices, order_shipment_status, order_shipment_amount
                     order_shipment_date, order_delivery_date, order_cash_to_be_collected, order_cn_amount,
                     order_damaged_amount, order_delivered_value, order_shipment_status_reason,
                     picking_statuses, picker_boys, picklist_ids, picklist_refreshed_at, qc_areas, zones, qc_desks,
-                    qc_executives, get_product_tax_amount, get_discount_applicable)
+                    qc_executives)
 
 from addresses.models import Address
 

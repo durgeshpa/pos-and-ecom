@@ -2,7 +2,6 @@ import logging
 import math
 
 import csv
-import codecs
 import datetime
 
 from django.core.cache import cache
@@ -16,7 +15,6 @@ from django.http import HttpResponse
 from django.db.models import Sum, F, FloatField, OuterRef, Subquery, Q
 
 from common.constants import APRIL, ONE
-from coupon.models import CouponRuleSet
 from global_config.views import get_config
 from marketing.sms import SendSms
 from products.models import Product, TaxGroup
@@ -798,27 +796,3 @@ def get_fin_year_start_date():
 
     return datetime.datetime(year=current_fin_year, month=fin_yr_start_month, day=fin_yr_start_day)
 
-
-def get_discount_applicable(ruleset, subtotal):
-    """
-    Return the discount amount applicabple on the subtotal for any given ruleset
-    Params :
-        ruleset : CouponRuleSet instance
-        subtotal : Amount on which discount id to be applied
-    Returns:
-        discount_applicable
-    """
-    if isinstance(ruleset, int):
-        ruleset = CouponRuleSet.objects.filter(id=ruleset).last()
-    is_percentage = ruleset.discount.is_percentage
-    discount_value = ruleset.discount.discount_value
-    max_discount = ruleset.discount.max_discount
-    if not is_percentage:
-        discount_applicable = discount_value
-    elif is_percentage and max_discount == 0:
-        discount_applicable = round(((discount_value / 100) * subtotal), 2)
-    elif is_percentage and (max_discount > ((discount_value / 100) * subtotal)):
-        discount_applicable = round(((discount_value / 100) * subtotal), 2)
-    elif is_percentage and (max_discount < ((discount_value / 100) * subtotal)):
-        discount_applicable = max_discount
-    return discount_applicable

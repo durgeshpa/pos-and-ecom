@@ -2,7 +2,7 @@ import datetime
 
 from django.db.models import Count, Q
 
-from coupon.models import RuleSetProductMapping, CusotmerCouponUsage, RuleSetBrandMapping, Coupon
+from coupon.models import RuleSetProductMapping, CusotmerCouponUsage, RuleSetBrandMapping, Coupon, CouponRuleSet
 
 date = datetime.datetime.now()
 today = datetime.datetime.today()
@@ -64,3 +64,29 @@ def get_applicable_cart_coupons():
                                     'rule__cart_qualifying_min_sku_value', 'rule__cart_qualifying_min_sku_item',
                                     'rule__discount__discount_value', 'rule__discount__is_percentage')
     return qs
+
+
+
+def get_discount_applicable(ruleset, subtotal):
+    """
+    Return the discount amount applicabple on the subtotal for any given ruleset
+    Params :
+        ruleset : CouponRuleSet instance
+        subtotal : Amount on which discount id to be applied
+    Returns:
+        discount_applicable
+    """
+    if isinstance(ruleset, int):
+        ruleset = CouponRuleSet.objects.filter(id=ruleset).last()
+    is_percentage = ruleset.discount.is_percentage
+    discount_value = ruleset.discount.discount_value
+    max_discount = ruleset.discount.max_discount
+    if not is_percentage:
+        discount_applicable = discount_value
+    elif is_percentage and max_discount == 0:
+        discount_applicable = round(((discount_value / 100) * subtotal), 2)
+    elif is_percentage and (max_discount > ((discount_value / 100) * subtotal)):
+        discount_applicable = round(((discount_value / 100) * subtotal), 2)
+    elif is_percentage and (max_discount < ((discount_value / 100) * subtotal)):
+        discount_applicable = max_discount
+    return discount_applicable
