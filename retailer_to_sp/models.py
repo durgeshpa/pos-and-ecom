@@ -840,6 +840,8 @@ class CartProductMapping(models.Model):
             if self.cart.cart_type == 'SUPERSTORE':
                 item_effective_price = float(self.selling_price)
             else:
+                if self.effective_price:
+                    return self.effective_price
                 try:
                     if self.cart.offers:
                         array = list(filter(lambda d: d['coupon_type'] in 'catalog', self.cart.offers))
