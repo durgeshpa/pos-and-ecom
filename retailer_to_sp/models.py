@@ -190,7 +190,7 @@ class Cart(models.Model):
     modified_at = models.DateTimeField(auto_now=True)
     redeem_points = models.IntegerField(default=0)
     redeem_factor = models.FloatField(default=0)
-    cart_value = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    cart_total = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
 
     class Meta:
         verbose_name = 'Order Items Detail'
@@ -533,7 +533,7 @@ class Cart(models.Model):
                 for cart_product in self.rt_cart_list.all():
                     product_price = cart_product.get_cart_product_price(self.seller_shop.id, self.buyer_shop.id)
                     cart_value += cart_product.no_of_pieces * product_price.get_per_piece_price(cart_product.no_of_pieces)
-                self.cart_value = cart_value
+                self.cart_total = cart_value
         super().save(*args, **kwargs)
 
     @property
