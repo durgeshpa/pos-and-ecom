@@ -78,15 +78,17 @@ def get_discount_applicable(ruleset, subtotal):
     """
     if isinstance(ruleset, int):
         ruleset = CouponRuleSet.objects.filter(id=ruleset).last()
-    is_percentage = ruleset.discount.is_percentage
-    discount_value = ruleset.discount.discount_value
-    max_discount = ruleset.discount.max_discount
-    if not is_percentage:
-        discount_applicable = discount_value
-    elif is_percentage and max_discount == 0:
-        discount_applicable = round(((discount_value / 100) * subtotal), 2)
-    elif is_percentage and (max_discount > ((discount_value / 100) * subtotal)):
-        discount_applicable = round(((discount_value / 100) * subtotal), 2)
-    elif is_percentage and (max_discount < ((discount_value / 100) * subtotal)):
-        discount_applicable = max_discount
+    discount_applicable = 0
+    if ruleset.discount:
+        is_percentage = ruleset.discount.is_percentage
+        discount_value = ruleset.discount.discount_value
+        max_discount = ruleset.discount.max_discount
+        if not is_percentage:
+            discount_applicable = discount_value
+        elif is_percentage and max_discount == 0:
+            discount_applicable = round(((discount_value / 100) * subtotal), 2)
+        elif is_percentage and (max_discount > ((discount_value / 100) * subtotal)):
+            discount_applicable = round(((discount_value / 100) * subtotal), 2)
+        elif is_percentage and (max_discount < ((discount_value / 100) * subtotal)):
+            discount_applicable = max_discount
     return discount_applicable
