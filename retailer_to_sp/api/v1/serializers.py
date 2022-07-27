@@ -812,16 +812,13 @@ class OrderedCartProductMappingSerializer(serializers.ModelSerializer):
 
 class CartOfferSerializer(serializers.ModelSerializer):
     type = serializers.CharField(source='get_type_display')
-    coupon_type = serializers.SerializerMethodField()
+    coupon_type = serializers.CharField(source='get_coupon_type_display')
     sub_type = serializers.CharField(source='get_sub_type_display')
     coupon_code = serializers.SerializerMethodField()
     discount_value = serializers.SerializerMethodField()
 
     def get_coupon_code(self, obj):
         return obj.coupon.coupon_code if obj.coupon else None
-
-    def get_coupon_type(self, obj):
-        return obj.coupon.coupon_type if obj.coupon else None
 
     def get_discount_value(self, obj):
         return obj.discount
