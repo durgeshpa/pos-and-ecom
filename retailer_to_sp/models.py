@@ -288,7 +288,7 @@ class Cart(models.Model):
         """
         cart_value = 0
         if self.cart_status == Cart.ORDERED:
-            cart_value = self.cart_value
+            cart_value = self.cart_total
         else:
             for product in self.rt_cart_list.all():
                 product_price = product.cart_product.get_current_shop_price(self.seller_shop, self.buyer_shop)
@@ -334,7 +334,7 @@ class Cart(models.Model):
 
                 offers_list['catalog'][m.id] = {
                     'type': CartOffers.NO_OFFER, 'sub_type': CartOffers.NO_OFFER, 'discount_value': 0, 'coupon_id': None,
-                    'coupon_type': 'catalog', 'discount_total_sku': 0,
+                    'coupon_type': 'catalog', 'discount_total_sku': 0, 'sku_no_of_pieces': sku_no_of_pieces,
                     'product_subtotal': round(sku_subtotal, 2),
                     'discounted_product_subtotal': round(sku_subtotal, 2),
                     'discounted_product_subtotal_after_sku_discount': round(sku_subtotal, 2),
@@ -407,7 +407,7 @@ class Cart(models.Model):
                         offers_list['brand'][brand] = {
                             'type': CartOffers.DISCOUNT, 'sub_type': CartOffers.DISCOUNT_ON_BRAND,
                             'coupon_id': coupon_id, 'discount_value': discount_value_brand,
-                            'brand_product_subtotals': brand_product_subtotals,
+                            'brand_product_subtotals': brand_product_subtotals, 'coupon_type': CartOffers.BRAND,
                             'discount_sum_brand': discount_sum_brand}
                     else:
                         brands_specific_list.pop()
@@ -430,12 +430,14 @@ class Cart(models.Model):
                         discount_value_cart = get_discount_applicable(ruleset, cart_value)
                         offers_list['cart'] = {
                             'type': CartOffers.DISCOUNT, 'sub_type': CartOffers.DISCOUNT_ON_CART, 'coupon_id': coupon_id,
-                            'discount_value': float(discount_value_cart), 'cart_value':cart_value}
+                            'discount_value': float(discount_value_cart), 'cart_value':cart_value,
+                            'coupon_type': CartOffers.CART}
                         break
             entice_text = self.get_entice_text(cart_coupon_list, cart_value, coupon_applied, discount_value_cart, i)
-            offers_list['none'] = {'entice_text': entice_text, 'type': CartOffers.NONE, 'sub_type': CartOffers.NONE}
+            offers_list['none'] = {'entice_text': entice_text, 'type': CartOffers.NONE, 'sub_type': CartOffers.NONE,
+                                   'coupon_type':CartOffers.NONE}
             if discount_sum_brand < discount_value_cart:
-                for i in offers_list['catalog'].values():
+                for item_id, i in offers_list['catalog'].items():
                     discounted_price_subtotal = float(round(
                         ((Decimal(i['discounted_product_subtotal']) / Decimal(cart_value)) * Decimal(
                             discount_value_cart)), 2))
@@ -443,6 +445,8 @@ class Cart(models.Model):
                     discounted_product_subtotal = float(round(
                         Decimal(i['discounted_product_subtotal']) - Decimal(discounted_price_subtotal), 2))
                     i.update({'discounted_product_subtotal': discounted_product_subtotal})
+                    effective_price = float(discounted_product_subtotal) / i['sku_no_of_pieces']
+                    CartProductMapping.objects.filter(id=item_id).update(effective_price=effective_price)
                 offers_list.pop('brand')
             else:
                 for item_id, i in offers_list['catalog'].items():
@@ -455,6 +459,8 @@ class Cart(models.Model):
                             discounted_product_subtotal = float(round(
                                 i['discounted_product_subtotal'] - discounted_price_subtotal, 2))
                             i.update({'discounted_product_subtotal': discounted_product_subtotal})
+                            effective_price = float(discounted_product_subtotal) / i['sku_no_of_pieces']
+                            CartProductMapping.objects.filter(id=item_id).update(effective_price=effective_price)
                 offers_list.pop('cart')
         self.save_cart_offers(offers_list)
 
@@ -505,23 +511,23 @@ class Cart(models.Model):
                                               type=offer['type'], sub_type=offer['sub_type'],
                                               coupon_id=offer['coupon_id'], discount=offer['discount_value'],
                                               free_product=offer['free_item'], free_product_qty=offer['free_item'],
-                                              cart_discount=offer['cart_discount'],
+                                              cart_discount=offer['cart_discount'], coupon_type=offer['coupon_type'],
                                               brand_discount=offer['brand_discount'],
                                               sub_total=offer['product_subtotal']))
         if offers_dict.get('brand'):
             for brand_id, offer in offers_dict['brand'].items():
                 cart_offers.append(CartOffers(cart=self, brand_id=brand_id, type=offer['type'],
                                               sub_type=offer['sub_type'], coupon_id=offer['coupon_id'],
-                                              discount=offer['discount_value'],
+                                              discount=offer['discount_value'], coupon_type=offer['coupon_type'],
                                               sub_total=offer['brand_product_subtotals']))
         elif offers_dict.get('cart'):
             offer = offers_dict.get('cart')
             cart_offers.append(CartOffers(cart=self, type=offer['type'], sub_type=offer['sub_type'],
                                           coupon_id=offer['coupon_id'], discount=offer['discount_value'],
-                                          sub_total=offer['cart_value']))
+                                          sub_total=offer['cart_value'], coupon_type=offer['coupon_type']))
         offer = offers_dict.get('none')
         cart_offers.append(CartOffers(cart=self, type=offer['type'], sub_type=offer['sub_type'],
-                                          entice_text=offer['entice_text']))
+                                      entice_text=offer['entice_text'], coupon_type=offer['coupon_type']))
 
         CartOffers.objects.bulk_create(cart_offers)
         info_logger.info(f"Offers created | Cart {self}")
@@ -532,7 +538,7 @@ class Cart(models.Model):
                 cart_value = 0
                 for cart_product in self.rt_cart_list.all():
                     product_price = cart_product.get_cart_product_price(self.seller_shop.id, self.buyer_shop.id)
-                    cart_value += cart_product.no_of_pieces * product_price.get_per_piece_price(cart_product.no_of_pieces)
+                    cart_value += float(cart_product.no_of_pieces) * float(product_price.get_per_piece_price(cart_product.no_of_pieces))
                 self.cart_total = cart_value
         super().save(*args, **kwargs)
 
@@ -4214,12 +4220,14 @@ class Barcode(models.Model):
 
 
 class CartOffers(models.Model):
+    CATALOG, BRAND, CART = 'CATALOG', 'BRAND', 'CART'
     FREE, DISCOUNT, NO_OFFER = 'FREE', 'DISCOUNT', 'NO_OFFER'
     NONE, DISCOUNT_ON_BRAND, DISCOUNT_ON_CART, DISCOUNT_ON_PRODUCT = \
                                                 'NONE', 'DISCOUNT_ON_BRAND', 'DISCOUNT_ON_CART', 'DISCOUNT_ON_PRODUCT'
     OFFER_TYPE_CHOICE = ((FREE, 'free'), (DISCOUNT, 'discount'), (NO_OFFER, 'no offer'))
-    OFFER_SUBTYPE_CHOICE = ((NONE, 'none'), (DISCOUNT_ON_BRAND, 'disount_on_brand'),
+    OFFER_SUBTYPE_CHOICE = ((NONE, 'none'), (NO_OFFER, 'no offer'), (DISCOUNT_ON_BRAND, 'discount_on_brand'),
                             (DISCOUNT_ON_CART, 'discount_on_cart'), (DISCOUNT_ON_PRODUCT, 'discount_on_product'))
+    COUPON_TYPE_CHOICE = ((CATALOG, 'catalog'), (BRAND, 'brand'), (CART, 'cart'), (NONE, 'none'))
 
     cart = models.ForeignKey(Cart, related_name='cart_offers', on_delete=models.CASCADE)
     cart_item = models.ForeignKey(CartProductMapping, related_name='item_offers', on_delete=models.CASCADE, null=True)
@@ -4227,6 +4235,7 @@ class CartOffers(models.Model):
     type = models.CharField(choices=OFFER_TYPE_CHOICE, max_length=20)
     sub_type = models.CharField(choices=OFFER_SUBTYPE_CHOICE, max_length=20)
     coupon = models.ForeignKey(Coupon, related_name='coupon_carts', on_delete=models.DO_NOTHING, null=True)
+    coupon_type = models.CharField(choices=COUPON_TYPE_CHOICE, max_length=20)
     sub_total = models.DecimalField(max_digits=10, decimal_places=2, null=True)
     discount = models.DecimalField(max_digits=10, decimal_places=2, null=True)
     free_product = models.ForeignKey(Product, related_name='pro_coupon_carts', on_delete=models.DO_NOTHING, null=True)

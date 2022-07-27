@@ -98,7 +98,7 @@ from retailer_to_sp.models import (Cart, CartProductMapping, CreditNote, LastMil
                                    DispatchTripCrateMapping, ShipmentPackagingMapping, TRIP_TYPE_CHOICE, ShopCrate,
                                    LastMileTripShipmentPackages, ShipmentNotAttempt, RoundAmount,
                                    ReturnOrder, ReturnOrderProduct, ReturnOrderProductImage, Barcode, BarcodeGenerator,
-                                   ReturnProductBatch, DispatchTripReturnOrderMapping)
+                                   ReturnProductBatch, DispatchTripReturnOrderMapping, CartOffers)
 
 from retailer_to_sp.tasks import send_invoice_pdf_email, insert_search_term
 from shops.api.v1.serializers import ShopBasicSerializer, SellerShopSerializer
@@ -3113,9 +3113,6 @@ class ReservedOrder(generics.ListAPIView):
             if cart.exists():
                 cart = cart.last()
                 Cart.objects.filter(id=cart.id).update(offers=cart.offers_applied())
-                coupon_codes_list = []
-                array = list(filter(lambda d: d['sub_type'] in 'discount_on_product', cart.offers))
-
                 cart_products = CartProductMapping.objects.select_related(
                     'cart_product'
                 ).filter(
@@ -3160,17 +3157,7 @@ class ReservedOrder(generics.ListAPIView):
                     CartProductMapping.objects.filter(cart=cart, cart_product=cart_product.cart_product).update(
                         no_of_pieces=updated_no_of_pieces)
                     coupon_usage_count = 0
-                    if len(array) is 0:
-                        pass
-                    else:
-                        for i in array:
-                            if cart_product.cart_product.id == i['item_id']:
-                                customer_coupon_usage = CusotmerCouponUsage(coupon_id=i['coupon_id'], cart=cart)
-                                customer_coupon_usage.shop = parent_mapping.retailer
-                                customer_coupon_usage.product = cart_product.cart_product
-                                customer_coupon_usage.times_used += coupon_usage_count + 1
-                                customer_coupon_usage.save()
-
+                    self.update_coupon_usage(cart, cart_product, parent_mapping)
                     product_availability = shop_products_dict.get(cart_product.cart_product.id, 0)
 
                     ordered_amount = (
@@ -3266,6 +3253,28 @@ class ReservedOrder(generics.ListAPIView):
             msg = {'is_success': False, 'message': ['Sorry shop is not associated with any Gramfactory or any SP'],
                    'response_data': None, 'is_shop_time_entered': False}
             return Response(msg, status=status.HTTP_200_OK)
+
+    def update_coupon_usage(self, cart, cart_product, retailer_shop):
+        if cart.offers:
+            array = list(filter(lambda d: d['sub_type'] in 'discount_on_product', cart.offers))
+            if len(array) is 0:
+                pass
+            else:
+                for i in array:
+                    if cart_product.cart_product.id == i['item_id']:
+                        customer_coupon_usage = CusotmerCouponUsage(coupon_id=i['coupon_id'], cart=cart)
+                        customer_coupon_usage.shop = retailer_shop
+                        customer_coupon_usage.product = cart_product.cart_product
+                        customer_coupon_usage.times_used += 1
+                        customer_coupon_usage.save()
+        elif cart.cart_offers:
+            product_offer = cart.cart_offers.filter(cart_item=cart_product, sub_type=CartOffers.DISCOUNT_ON_PRODUCT).last()
+            if product_offer:
+                customer_coupon_usage = CusotmerCouponUsage(coupon_id=product_offer.coupon_id, cart=cart)
+                customer_coupon_usage.shop = retailer_shop
+                customer_coupon_usage.product = cart_product.cart_product
+                customer_coupon_usage.times_used += 1
+                customer_coupon_usage.save()
 
     # def sp_mapping_order_reserve(self):
     #     pass
