@@ -48,7 +48,22 @@ class GetSlotOfferBannerListView(APIView):
         pos_name = self.kwargs.get('banner_slot')
         shop_id = self.request.GET.get('shop_id')
 
-        if pos_name and position_name and shop_id and shop_id != '-1':
+        if pos_name =='all' and  position_name and shop_id and shop_id != '-1':
+            if Shop.objects.get(id=shop_id).retiler_mapping.exists():
+                parent = ParentRetailerMapping.objects.get(retailer=shop_id, status=True).parent
+                data = OfferBannerData.objects.filter(Q(offer_banner_data__status=True, slot__page__name=position_name,
+                                                        slot__shop=parent.id),
+                                                      ~Q(slot__offerbannerslot__name__in=["LootBazaar", 'offer-slot1', "OFFER_POPUP,BEST_DEALS", "offer-slot2", "offer-slot3"]),
+                                                      ).filter(
+                    Q(offer_banner_data__offer_banner_start_date__isnull=True) | Q(
+                        offer_banner_data__offer_banner_start_date__lte=startdate,
+                        offer_banner_data__offer_banner_end_date__gte=startdate))
+                is_success = True if data else False
+                message = "" if is_success else "Banners are currently not available"
+                serializer = OfferBannerDataSerializer(data, many=True)
+                return Response({"message": [message], "response_data": serializer.data, "is_success": is_success})
+
+        elif pos_name and position_name and shop_id and shop_id != '-1':
             if Shop.objects.get(id=shop_id).retiler_mapping.exists():
                 parent = ParentRetailerMapping.objects.get(retailer=shop_id, status=True).parent
                 data = OfferBannerData.objects.filter(offer_banner_data__status=True, slot__page__name=position_name,
