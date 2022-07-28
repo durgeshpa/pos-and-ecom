@@ -8835,8 +8835,8 @@ class PosUserShopsList(APIView):
                                                           shop__approval_status=2)
         if search_text:
             user_mappings = user_mappings.filter(shop__shop_name__icontains=search_text)
-        request_shops = self.pagination_class().paginate_queryset(user_mappings, self.request)
-        data = PosShopSerializer(request_shops, many=True).data
+        # request_shops = self.pagination_class().paginate_queryset(user_mappings, self.request)
+        data = PosShopSerializer(user_mappings, many=True).data
         if data:
             return api_response("Shops Mapped", data, status.HTTP_200_OK, True)
         else:
