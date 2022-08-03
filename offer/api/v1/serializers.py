@@ -85,6 +85,7 @@ class OfferBannerDataSerializer(serializers.ModelSerializer):
         model = OfferBannerData
         fields = ('id', 'slot', 'offer_banner_data', 'offer_banner_data_order',"name")
     def get_name(self,obj):
+        """return slot name .."""
         return obj.slot.offerbannerslot.name
 
 

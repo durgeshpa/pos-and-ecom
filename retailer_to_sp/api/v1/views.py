@@ -12962,9 +12962,8 @@ class PastPurchasedProducts(APIView):
         '''
         Get retailer products purchase by a user for specific shop
         '''
-        try:
-            shop = Shop.objects.get(id=request.GET.get('shop_id',request.META.get('HTTP_SHOP_ID', None)))
-        except:
+        shop = Shop.objects.filter(id=request.GET.get('shop_id',request.META.get('HTTP_SHOP_ID', None))).last()
+        if not shop:
             return api_response("Shop not available!")
         shop_mapping =  getShopMapping(shop)
         products = Product.objects.filter(retail_products_sold__buyer_shop=shop_mapping.retailer, retail_products_sold__shop=shop_mapping.parent,).\
