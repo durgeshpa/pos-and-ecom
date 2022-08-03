@@ -12970,7 +12970,7 @@ class PastPurchasedProducts(APIView):
             order_by('-retail_products_sold__id')
         count = products.count()
         products = self.pagination_class().paginate_queryset(products, self.request)
-        lis = {"products_id" : [i.id for i in products]}
+        product_id_list = {"products_id" : [i.id for i in products]}
         #serializer = RetailPastPurchesSerlizer(products,many=True, context={'seller_shop':shop_mapping.parent})
-        is_success, data, msg = True, lis, f"{count} record/s found"
+        is_success, data, msg = True, product_id_list, f"{count} record/s found"
         return api_response(msg, data, status.HTTP_200_OK, is_success)
