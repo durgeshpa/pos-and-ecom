@@ -4,6 +4,7 @@ from django.db.models.signals import pre_save
 from django.dispatch import receiver
 from django.utils.text import slugify
 
+from products.models import Product
 from retailer_backend.validators import (AddressNameValidator, MobileNumberValidator, PinCodeValidator)
 from accounts.models import User
 from pos.models import RetailerProduct, PosTrip
@@ -144,9 +145,11 @@ class EcomTrip(PosTrip):
 
 
 class UserPastPurchases(models.Model):
-    user = models.ForeignKey(User, related_name='user_purchases', on_delete=models.DO_NOTHING)
+    user = models.ForeignKey(User, related_name='user_purchases',null=True, on_delete=models.DO_NOTHING)
     shop = models.ForeignKey(Shop, related_name='products_sold', on_delete=models.DO_NOTHING)
-    product = models.ForeignKey(RetailerProduct, related_name='products_sold', on_delete=models.DO_NOTHING)
+    buyer_shop = models.ForeignKey(Shop, related_name='products_sold_to', null=True, on_delete=models.DO_NOTHING)
+    product = models.ForeignKey(RetailerProduct, related_name='products_sold',null=True, on_delete=models.DO_NOTHING)
+    retail_Product = models.ForeignKey(Product, related_name='retail_products_sold',default=None,null=True, on_delete=models.DO_NOTHING)
     last_purchased_at = models.DateTimeField()
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)

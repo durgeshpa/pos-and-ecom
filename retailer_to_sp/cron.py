@@ -1,6 +1,9 @@
 # python imports
 import logging
 
+from ecom.models import UserPastPurchases
+from global_config.views import get_config
+from products.models import Product
 from retailer_to_sp.views import generate_e_invoice
 from sp_to_gram.tasks import upload_all_products_in_es
 from retailer_to_sp.models import Order, OrderReturn, OrderedProduct
@@ -60,5 +63,40 @@ def get_super_store_order():
     for order in orders:
         order_point_credit(order.order)
     info_logger.info("cron super_store_order add redeem point finished...")
+
+
+
+
+def past_purchases_retail():
+    try:
+        cron_logger.info('past_purchases Started')
+        # last 15 days
+        days = get_config('RetailerBestSeller')
+        from_date = datetime.datetime.today() - datetime.timedelta(days=days)
+        try:
+            # Get order product
+            past_orders = Order.objects.filter(ordered_cart__cart_type__in=['RETAIL'], created_at__gte=from_date,
+                                                seller_shop__status=True,
+                                               )
+            cron_logger.info(f"Order Count {past_orders.count()}")
+            for order in past_orders:
+                past_ordered_product = order.ordered_cart.rt_cart_list.all()
+                cron_logger.info(f"Order{order.order_no} |  Product Count {past_ordered_product.count()}")
+
+                products_purchased = Product.objects.filter(rt_cart_product_mapping__in=past_ordered_product,
+                                                                    status='active',)
+                # Update Tagged Product
+                if products_purchased.exists():
+                    for p in products_purchased:
+                        UserPastPurchases.objects.update_or_create(buyer_shop=order.buyer_shop, shop=order.seller_shop, retail_Product=p,
+                                                                   defaults={'last_purchased_at':order.created_at})
+        except Exception as e:
+            cron_logger.info("past_purchases | Failed")
+            cron_logger.error(e)
+        cron_logger.info("past_purchases | Completed")
+
+    except Exception as e:
+        cron_logger.error(e)
+        cron_logger.error('Cron for past purchases stopped')
 
 

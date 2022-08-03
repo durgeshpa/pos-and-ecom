@@ -32,7 +32,7 @@ from .views import (ProductsList, SearchProducts, CartCentral, CartCheckout, Ord
                     ReturnOrderCompleteVerifyView, LastMileTripReturnOrderView, ReturnOrderProductView,
                     GenerateBarcodes, LastMileTripDeliveryReturnOrderView, VerifyReturnOrderProductsView,
                     LoadVerifyReturnOrderView, UnloadVerifyReturnOrderView,
-                    BackWardTripReturnOrderQCView, MarkReturnOrderItemVerifiedView, ReturnRejection)
+                    BackWardTripReturnOrderQCView, MarkReturnOrderItemVerifiedView, ReturnRejection, PastPurchasedProducts)
 
 from retailer_backend.cron import sync_es_products_api
 router = routers.DefaultRouter()
@@ -185,7 +185,8 @@ urlpatterns = [
     # API to update  return in the trip
     url('verify-return-order-products/', VerifyReturnOrderProductsView.as_view(), name='verify_return_order_products'),
     url('bck-trip-return-items/', BackWardTripReturnOrderQCView.as_view(), name='bck_trip_return_items'),
-    url('mark-return-order-item-verified/', MarkReturnOrderItemVerifiedView.as_view(), name='mark-return-order-item-verified')
+    url('mark-return-order-item-verified/', MarkReturnOrderItemVerifiedView.as_view(), name='mark-return-order-item-verified'),
+    url('^retailer_past_purchased_products', PastPurchasedProducts.as_view(), name='retailer_past_purchased')
 ]
 
 urlpatterns += router.urls

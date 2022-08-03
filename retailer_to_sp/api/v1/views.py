@@ -30,6 +30,8 @@ from rest_framework.generics import GenericAPIView
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
+
+from rest_auth.authentication import TokenAuthentication
 from retailer_backend import common_function
 from wkhtmltopdf.views import PDFTemplateResponse
 from pyfcm import FCMNotification
@@ -53,8 +55,9 @@ from common.constants import PREFIX_CREDIT_NOTE_FILE_NAME, ZERO, PREFIX_INVOICE_
 from common.data_wrapper_view import DataWrapperViewSet
 from coupon.models import Coupon, CusotmerCouponUsage
 from coupon.serializers import CouponSerializer
-from ecom.api.v1.serializers import EcomOrderListSerializer, EcomShipmentSerializer
-from ecom.models import Address as EcomAddress, EcomOrderAddress
+from ecom.api.v1.serializers import EcomOrderListSerializer, EcomShipmentSerializer, PastPurchasedProductSerializer, \
+    RetailerProductSerializer
+from ecom.models import Address as EcomAddress, EcomOrderAddress, UserPastPurchases
 from ecom.utils import check_ecom_user_shop, check_ecom_user
 from global_config.models import GlobalConfig
 from global_config.views import get_config_fofo_shop
@@ -143,11 +146,15 @@ from .serializers import (ProductsSearchSerializer, CartSerializer, OrderSeriali
                           VerifyNotAttemptShipmentPackageSerializer, VerifyShipmentPackageSerializer,
                           DetailedShipmentPackageInfoSerializer, DetailedShipmentPackagingMappingInfoSerializer,
                           VerifyBackwardTripItemsSerializer, BackwardTripQCSerializer, PosOrderUserSearchSerializer,
-                          SuperStoreOrderListSerializer, SuperStoreOrderDetailSerializer, LastMileTripReturnOrdersBasicDetailSerializer,
-                          ReturnOrderTripProductSerializer, DispatchCenterReturnOrderSerializer, ReturnOrderProductSerializer,
-                          LoadVerifyReturnOrderSerializer, UnLoadVerifyReturnOrderSerializer, BackwardTripReturnItemsSerializer,
-                          MarkReturnOrderItemVerifiedSerializer,DeliveryReturnOrderSerializer,ShopExecutiveUserSerializer, 
-                          LastMileTripSerializers, AddressSerializer)
+                          SuperStoreOrderListSerializer, SuperStoreOrderDetailSerializer,
+                          LastMileTripReturnOrdersBasicDetailSerializer,
+                          ReturnOrderTripProductSerializer, DispatchCenterReturnOrderSerializer,
+                          ReturnOrderProductSerializer,
+                          LoadVerifyReturnOrderSerializer, UnLoadVerifyReturnOrderSerializer,
+                          BackwardTripReturnItemsSerializer,
+                          MarkReturnOrderItemVerifiedSerializer, DeliveryReturnOrderSerializer,
+                          ShopExecutiveUserSerializer,
+                          LastMileTripSerializers, AddressSerializer,) #ProductPriceSerlizer, RetailPastPurchesSerlizer)
 
 from ...common_validators import validate_shipment_dispatch_item, validate_trip_user, \
     get_shipment_by_crate_id, get_shipment_by_shipment_label, validate_shipment_id, validate_trip_shipment, \
@@ -889,6 +896,10 @@ class SearchProducts(APIView):
 
         if is_discounted:
             filter_list.append({"term": {"is_discounted": is_discounted}}, )
+        if min_percentage_discount:
+            if not is_discounted:
+                filter_list.append({"term": {"is_discounted": False}}, )
+            filter_list.append({"range": {"margin": {"gte": min_percentage_discount}}})
         if product_ids:
             product_ids = product_ids.split(',')
             filter_list.append({"ids": {"type": "product", "values": product_ids}})
@@ -12937,3 +12948,30 @@ class ReturnRejection(generics.ListCreateAPIView):
             return {"data": self.request.data}
         except Exception as e:
             return {"error": "Invalid Request"}
+
+
+class PastPurchasedProducts(APIView):
+    """
+    API to get the products purchased by a user
+    """
+
+    authentication_classes = (TokenAuthentication,)
+    serializer_class = PastPurchasedProductSerializer
+    pagination_class = SmallOffsetPagination
+    def get(self, request, *args, **kwargs):
+        '''
+        Get retailer products purchase by a user for specific shop
+        '''
+        try:
+            shop = Shop.objects.get(id=request.GET.get('shop_id',request.META.get('HTTP_SHOP_ID', None)))
+        except:
+            return api_response("Shop not available!")
+        shop_mapping =  getShopMapping(shop)
+        products = Product.objects.filter(retail_products_sold__buyer_shop=shop_mapping.retailer, retail_products_sold__shop=shop_mapping.parent,).\
+            order_by('-retail_products_sold__id')
+        count = products.count()
+        products = self.pagination_class().paginate_queryset(products, self.request)
+        lis = {"products_id" : [i.id for i in products]}
+        #serializer = RetailPastPurchesSerlizer(products,many=True, context={'seller_shop':shop_mapping.parent})
+        is_success, data, msg = True, lis, f"{count} record/s found"
+        return api_response(msg, data, status.HTTP_200_OK, is_success)

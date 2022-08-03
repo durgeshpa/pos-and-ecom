@@ -79,10 +79,13 @@ class OfferBannerPositionSerializer(serializers.ModelSerializer):
 class OfferBannerDataSerializer(serializers.ModelSerializer):
     offer_banner_data = OfferBannerSerializer(read_only=True)
     slot = OfferBannerPositionSerializer(read_only=True)
+    name = serializers.SerializerMethodField()
 
     class Meta:
         model = OfferBannerData
-        fields = ('id', 'slot', 'offer_banner_data', 'offer_banner_data_order')
+        fields = ('id', 'slot', 'offer_banner_data', 'offer_banner_data_order',"name")
+    def get_name(self,obj):
+        return obj.slot.offerbannerslot.name
 
 
 class OfferBannerSlotSerializer(serializers.ModelSerializer):

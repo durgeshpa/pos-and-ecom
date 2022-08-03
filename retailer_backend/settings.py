@@ -434,6 +434,8 @@ CRONJOBS = [
     ('35 20 * * *', 'wms.cron.create_update_discounted_products'),
     ('0 2 * * *', 'ecom.cron.bestseller_product'),
     ('11 2 * * *', 'ecom.cron.past_purchases'),
+    #past_purchases_retail
+    ('0 3 * * *', 'retailer_to_sp.cron.past_purchases_retail'),
     # ('0 * * * *', 'retailer_backend.cron.refresh_cron_es'),
     ('0 * * * *', 'retailer_to_sp.api.v1.views.refresh_cron_es'),
     ('0 */1 * * *', 'retailer_to_sp.cron.generate_e_invoice_cron'),

@@ -6300,3 +6300,17 @@ class DispatchCenterReturnOrderSerializer(serializers.ModelSerializer):
         model = ReturnOrder
         fields = ('id', 'return_challan_no', 'barcode_no', 'return_status', 'created_at', 'shop_name',
                   'order_no', 'return_no', 'buyer_shop_name', 'loading_status')
+
+# class ProductPriceSerlizer(serializers.ModelSerializer):
+#
+#     class Meta:
+#         model = ProductPrice
+#         fields = '__all__'
+# class RetailPastPurchesSerlizer(serializers.ModelSerializer):
+#     price_details = serializers.SerializerMethodField()
+#     class Meta:
+#         model = Product
+#         fields = '__all__'
+#
+#     def get_price_details(self,obj):
+#         return ProductPriceSerlizer(obj.product_pro_price.filter(seller_shop=self.context['seller_shop'], approval_status= 2), many=True).data
