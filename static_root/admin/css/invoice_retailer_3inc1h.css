@@ -1,0 +1,48 @@
+@charset "UTF-8";
+/* CSS Document */
+
+
+
+	@media print {
+     body{
+         width: 76mm;
+/*         height: 29.7cm;
+*/        /* border: 2px solid black;*/
+         margin-left: -2px;
+         margin-right: 0px;
+         padding: 0;
+
+         /* change the margins as you want them to be. */
+         /*margin-right: 70mm;
+*/    }
+
+		.table > thead > tr > th, .table > tbody > tr > th, .table > tfoot > tr > th, .table > thead > tr > td, .table > tbody > tr > td, .table > tfoot > tr > td
+		{
+		padding: 2px; !important;
+		line-height:1.2 !importand
+		}
+
+		#Header, #Footer { display: none !important; }
+ }
+
+body{
+
+			font-size:14px;
+			font-family:Perfect DOS VGA\ 437 Win,Menlo,Consolas,monospace;
+		}
+
+
+h4.invoice{
+	float: left;
+}
+
+.table > tbody > tr > .no-line {
+    border-top: none;
+    border-bottom: none;
+    padding:3px
+}
+
+
+.table > tbody > tr > .thick-line {
+    border-top: 2px solid;
+}

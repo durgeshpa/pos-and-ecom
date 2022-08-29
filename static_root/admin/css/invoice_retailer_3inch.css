@@ -1,0 +1,51 @@
+@charset "UTF-8";
+/* CSS Document */
+
+
+
+     body{
+         width: 80mm;
+         margin:0px;
+		 margin-left:5px;
+		 font-size:14px
+}
+
+.address{
+width:100%;
+text-align:center;
+border-bottom:2px solid black;
+padding-bottom:20px
+}
+.user-info{
+	padding-top:20px;
+	padding-bottom:20px;
+	border-bottom:1px solid grey
+
+}
+
+.user-info tr td{
+    vertical-align: top;
+	padding:4px;
+	text-align: left;
+}
+
+.items{
+	padding-top:10px;
+	text-align:left;
+
+}
+.items tr td{
+    vertical-align: top;
+	padding:4px;
+	text-align: left;
+}
+
+.items tr td.line{
+	border-top:2px solid black
+}
+.footer{
+	padding-top:20px
+}
+table{
+font-size:14px
+}
