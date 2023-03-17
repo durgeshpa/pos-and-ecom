@@ -1,4 +1,4 @@
-# GramFactory
+# POS
 This repo includes Django Backend. 
 # Installation
 
