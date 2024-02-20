@@ -23,4 +23,5 @@ GRANT permissions ON DATABASE dbname TO username;
  
  python manage.py shell or ./manage.py shell
  exec(open('db_changes/order_history_db_changes.py').read())
+ 
 
